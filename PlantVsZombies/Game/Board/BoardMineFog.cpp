@@ -8,23 +8,22 @@
 
 namespace {
 	constexpr float kFadeSeconds = 5.0f; // 雾潮渐入、渐退各五游戏秒
-	constexpr float kFogSeconds = 60.0f; // 单次总时长，游戏秒
+	constexpr int kFogWaveGap = 3; // 雾散后再等待的波次数
 }
 
 float Board::GetMineFogStrength() const
 {
 	if (!SupportsMineFog() || mMineFogElapsed < 0.0f) return 0.0f;
-	return std::clamp(std::min(mMineFogElapsed, kFogSeconds - mMineFogElapsed) / kFadeSeconds, 0.0f, 1.0f);
+	return std::clamp(std::min(mMineFogElapsed, kMineFogDuration - mMineFogElapsed) / kFadeSeconds, 0.0f, 1.0f);
 }
 
-/** 按僵尸逻辑脚底和阵营取得当帧减伤；装饰雾延伸区不扩大玩法范围。 */
+/** 按僵尸逻辑脚底和阵营取得当帧减伤，包含右侧场外尚未入场的僵尸。 */
 float Board::GetMineFogProtection(const Zombie* zombie) const
 {
 	if (!SupportsMineFog() || !zombie || zombie->IsMindControlled() || zombie->GetPrismMarkRemaining() > 0.0f || GetMineFogStrength() <= 0) return 0.0f;
 	const Vector pos = zombie->GetPosition();
 	const float left = GetCellCenterPosition(0, GetMineFogFirstColumn()).x - CELL_COLLIDER_SIZE_X * 0.5f;
-	const float right = GetCellCenterPosition(0, mColumns - 1).x + CELL_COLLIDER_SIZE_X * 0.5f;
-	return pos.x >= left && pos.x <= right && zombie->mRow >= 0 && zombie->mRow < mRows
+	return pos.x >= left && zombie->mRow >= 0 && zombie->mRow < mRows
 		? GetMineFogReduction() * GetMineFogStrength() : 0.0f;
 }
 
@@ -40,9 +39,9 @@ void Board::UpdateMineFog(float delta)
 	mMineFogNoticeRemaining = std::max(0.0f, mMineFogNoticeRemaining - delta);
 	if (mMineFogElapsed >= 0.0f) {
 		mMineFogElapsed += delta;
-		if (mMineFogElapsed >= kFogSeconds) {
+		if (mMineFogElapsed >= kMineFogDuration) {
 			mMineFogElapsed = -1.0f;
-			mMineFogNextWave = mCurrentWave + 5;
+			mMineFogNextWave = mCurrentWave + kFogWaveGap;
 		}
 	} else if (mCurrentWave >= mMineFogNextWave && mMineFogNextWave <= mMaxWave) {
 		mMineFogElapsed = 0.0f;
@@ -63,7 +62,7 @@ void Board::DrawMineFog(Graphics* g) const
 	const float top = first.y - mCellHeight * 0.5f - 30.0f;
 	const float bottom = GetCellCenterPosition(mRows-1,5).y + mCellHeight * 0.5f;
 	// 复用普通迷雾原生 210x190 雾片与多层错位；采样网与棋盘格无关，岩壁不截断雾幕。
-	// 防护只计算棋盘内的配置列；背景雾一直铺到屏幕外，避免在右侧矿洞入口形成裁切线。
+	// 防护从配置列向右延伸至场外；背景雾铺满屏幕右缘，避免在矿洞入口形成裁切线。
 	const float right = static_cast<float>(SCENE_WIDTH);
 	const int samples = static_cast<int>(std::ceil((right-left)/103.0f)) + 2;
 	g->PushClipRect(static_cast<int>(left),static_cast<int>(top),static_cast<int>(right-left),static_cast<int>(bottom-top));

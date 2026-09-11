@@ -874,8 +874,9 @@ public:
 	/** 矿场地形、施工与查询只有 Board 拥有；预览只读副本不提交地形。 */
 	bool IsMineBackground() const { return mBackGround == Background::GLOOMCRYSTAL_MINE; }
 	MineGrid mMineGrid;
+	static constexpr float kMineFogDuration = 90.0f; // 蓝雾与紫雾单次总时长，游戏秒，包含渐入渐退
 	float mMineFogElapsed = -1.0f; // -1 表示无雾，其余为本次雾潮已过游戏秒
-	int mMineFogNextWave = 10; // 完全散尽后按所在波次加五，首次为旗帜波
+	int mMineFogNextWave = 10; // 完全散尽后按所在波次加三，首次为第十波
 	bool mMineFogTutorialSeen = false;
 	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
 	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
@@ -895,6 +896,7 @@ public:
 	void DisableSunTheft(int zombieID);
 	int GetSunThievesSpawnedThisWave() const { return mSunThievesSpawnedThisWave; }
 	int GetCrystalMinersSpawnedThisWave() const { return mCrystalMinersSpawnedThisWave; }
+	/** 取得雾区及其右侧场外敌方僵尸的减伤比例；魅惑与棱镜标记目标不受保护。 */
 	float GetMineFogProtection(const Zombie* zombie) const;
 	int ScaleMineFogDamage(int damage, const Zombie* zombie) const;
 	void UpdateMineFog(float delta);

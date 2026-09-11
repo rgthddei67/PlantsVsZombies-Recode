@@ -994,7 +994,7 @@ bool TestDriver::ExecuteCurrent() {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard() || !gs->GetBoard()->SupportsMineFog()) { Fail("set_mine_fog: unsupported board"); return false; }
 		Board* board = gs->GetBoard();
-		board->mMineFogElapsed = std::clamp(cmd.value("elapsed",5.0f),-1.0f,60.0f);
+		board->mMineFogElapsed = std::clamp(cmd.value("elapsed",5.0f),-1.0f,Board::kMineFogDuration);
 		board->mMineFogNextWave = cmd.value("nextWave",10);
 		return true;
 	}

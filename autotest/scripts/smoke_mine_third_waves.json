@@ -75,7 +75,7 @@
     },
     {
       "op": "set_mine_fog",
-      "elapsed": 59.8
+      "elapsed": 89.8
     },
     {
       "op": "wait_seconds",
@@ -84,7 +84,7 @@
     {
       "op": "assert_state",
       "path": "mine.fogNextWave",
-      "equals": 16
+      "equals": 14
     },
     {
       "op": "assert_state",
@@ -102,7 +102,7 @@
     {
       "op": "assert_state",
       "path": "mine.fogNextWave",
-      "equals": 16
+      "equals": 14
     },
     {
       "op": "goto_level",

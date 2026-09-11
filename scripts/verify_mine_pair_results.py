@@ -31,9 +31,9 @@ def verify():
         counts = Counter(z['spawnWave'] for z in zombies if z['type'] == 'ZOMBIE_CRYSTAL_HORN_MINER')
         assert max(counts.values(), default=0) <= 1 and sum(counts.values()) <= 2
         first = read('smoke_mine_pair_waves', f'level{level}_wave10.json')
-        again = read('smoke_mine_pair_waves', f'level{level}_wave16.json')
+        again = read('smoke_mine_pair_waves', f'level{level}_wave14.json')
         assert first['mine']['fogTutorialSeen'] and first['mine']['fogElapsedMs'] >= 0
-        assert again['mine']['fogNextWave'] == 16 and again['mine']['fogElapsedMs'] >= 0
+        assert again['mine']['fogNextWave'] == 14 and again['mine']['fogElapsedMs'] >= 0
         print(f'{level}: full roster, {maximum} waves, gates, caps, ice-car lane, fog recurrence OK')
     teaching = read('smoke_mine_pair_waves', 'level75_wave3.json')
     third = [z for z in teaching['zombies'] if z['spawnWave'] == 3]

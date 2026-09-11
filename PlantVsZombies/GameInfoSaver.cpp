@@ -1085,7 +1085,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		? std::clamp(j.value("winterFrostVariant", 0), 0, 2) : 0;
 	if (board->IsMineBackground() && j.contains("mine") && j["mine"].is_object()) {
 		const auto& mine = j["mine"];
-		board->mMineFogElapsed = std::clamp(mine.value("fogElapsed",-1.0f),-1.0f,60.0f);
+		board->mMineFogElapsed = std::clamp(mine.value("fogElapsed",-1.0f),-1.0f,Board::kMineFogDuration);
 		board->mMineFogNextWave = std::max(10,mine.value("fogNextWave",10));
 		board->mMineFogTutorialSeen = mine.value("fogTutorialSeen",false);
 		board->mMineFogNoticeRemaining = std::clamp(mine.value("fogNotice",0.0f),0.0f,8.0f);

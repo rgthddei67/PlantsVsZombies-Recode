@@ -53,7 +53,7 @@
     },
     {
       "op": "set_mine_fog",
-      "elapsed": 59.8
+      "elapsed": 89.8
     },
     {
       "op": "wait_seconds",
@@ -62,7 +62,7 @@
     {
       "op": "assert_state",
       "path": "mine.fogNextWave",
-      "equals": 16
+      "equals": 14
     },
     {
       "op": "assert_state",
@@ -79,7 +79,7 @@
     },
     {
       "op": "summon_next_wave",
-      "count": 4
+      "count": 2
     },
     {
       "op": "wait_frames",
@@ -99,11 +99,11 @@
     },
     {
       "op": "dump_state",
-      "name": "level75_wave16.json"
+      "name": "level75_wave14.json"
     },
     {
       "op": "summon_next_wave",
-      "count": 14
+      "count": 16
     },
     {
       "op": "dump_state",
@@ -162,7 +162,7 @@
     },
     {
       "op": "set_mine_fog",
-      "elapsed": 59.8
+      "elapsed": 89.8
     },
     {
       "op": "wait_seconds",
@@ -171,7 +171,7 @@
     {
       "op": "assert_state",
       "path": "mine.fogNextWave",
-      "equals": 16
+      "equals": 14
     },
     {
       "op": "assert_state",
@@ -188,7 +188,7 @@
     },
     {
       "op": "summon_next_wave",
-      "count": 4
+      "count": 2
     },
     {
       "op": "wait_frames",
@@ -208,11 +208,11 @@
     },
     {
       "op": "dump_state",
-      "name": "level76_wave16.json"
+      "name": "level76_wave14.json"
     },
     {
       "op": "summon_next_wave",
-      "count": 24
+      "count": 26
     },
     {
       "op": "dump_state",
