@@ -86,7 +86,7 @@
 ### 矿场9-3/9-4专项
 
 `smoke_mine_pair*` 覆盖第二组地形、正式波次、雾潮、声波、晶角冲撞与跨品种交互。
-`set_mine_fog` 只在75/76设置雾潮已过游戏秒（`elapsed=-1`为无雾）和下一波，用于隔离伤害与视觉；正式首次/重复触发由 waves 脚本验证。
+`set_mine_fog` 在 `SupportsMineFog()` 允许的关卡设置雾潮已过游戏秒（`elapsed=-1`为无雾）和下一波，用于隔离伤害与视觉；正式首次/重复触发由 waves 脚本验证。第三组使用 `smoke_mine_third*` 和 `autotest/verify_mine_third.py` 检查实际波次、经济账本与合法召唤。
 `wait_value` 与 `assert_state` 使用同一状态投影和点路径，但等待 `equals` 状态出现才继续，不直接提交能力；适用于冲撞开始/结束边沿、时间锚结算和声波已发射，仍受命令 `timeout` 保护。
 `mine` 投影增加岩壁数量、雾强度/计时/下一波和晶角当波计数；`echoWaves` 导出冻结路图、已命中ID及冰墙标志。`plant` 是直接创建夹具，不扣卡费；成本验证须走真实卡槽/草坪点击。
 

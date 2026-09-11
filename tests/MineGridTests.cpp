@@ -22,6 +22,30 @@ int main()
 			if (dug.distance[cell] > second.distance[cell]) return 10;
 	}
 	if (secondWalls != 20) return 11;
+	// 第三组双入口先汇合再分流；逐墙施工必须仍有合法回家和返回入口的路径。
+	MineGrid third;
+	third.Initialize(2);
+	int thirdWalls = 0;
+	if (!third.Validate() || !third.entrance[1] || !third.entrance[3]) return 12;
+	for (int wall = -1; wall < MineGrid::Count; ++wall) {
+		if (wall >= 0 && !third.rock[wall]) continue;
+		MineGrid dug = third;
+		if (wall >= 0) { ++thirdWalls; dug.rock[wall] = false; dug.Rebuild(); }
+		if (!dug.Validate()) return 13;
+		for (int cell = 0; cell < MineGrid::Count; ++cell) {
+			if (dug.rock[cell] || !dug.connected[cell]) continue;
+			if (third.distance[cell] < MineGrid::Unreachable && dug.distance[cell] > third.distance[cell]) return 14;
+			for (bool down : {false,true}) {
+				int cursor = cell;
+				for (int remaining = dug.exitDistance[cell]; remaining > 0; --remaining) {
+					cursor = dug.NextExit(cursor,down);
+					if (cursor < 0 || dug.rock[cursor] || dug.exitDistance[cursor] != remaining-1) return 15;
+				}
+				if (!dug.entrance[cursor/MineGrid::Columns] || cursor%MineGrid::Columns != 8) return 16;
+			}
+		}
+	}
+	if (thirdWalls != 21) return 17;
 	MineGrid initial;
 	initial.Initialize();
 	if (!initial.Validate() || initial.distance[17] != 9 || initial.distance[35] != 9) return 1;

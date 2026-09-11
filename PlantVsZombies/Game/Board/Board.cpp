@@ -252,8 +252,8 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel == 75 || mLevel == 76 ? 1 : 0);
-		mSun = mLevel == 75 || mLevel == 76 ? 300 : 200;
+		mMineGrid.Initialize(mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
+		mSun = mLevel >= 75 ? 300 : 200;
 	}
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
 	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
@@ -685,6 +685,10 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
 		++mClockmakersSpawnedThisWave;
+	}
+	if (selected == ZombieType::ZOMBIE_SUN_THIEF) {
+		if (mSunThievesSpawnedThisWave >= 2 || CountActiveOrPendingZombieType(selected) >= 3) return ZombieType::NUM_ZOMBIE_TYPES;
+		++mSunThievesSpawnedThisWave;
 	}
 	if (selected == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) {
 		if (mCrystalMinersSpawnedThisWave >= 1 || CountActiveOrPendingZombieType(selected) >= 2)
@@ -2626,6 +2630,7 @@ void Board::SummonNextWave()
 	mAuroraPriestsSpawnedThisWave = 0;
 	mClockmakersSpawnedThisWave = 0;
 	mCrystalMinersSpawnedThisWave = 0;
+	mSunThievesSpawnedThisWave = 0;
 	mMistFuelAssignedThisWave = 0;
 	if (mCurrentWave == 1)
 	{
@@ -2949,6 +2954,7 @@ inline ZombieType Board::PickZombieType(int remainingPoints, int wave)
 		ZombieType type = GetWeightedRandomZombie();
 		int cost = GameDataManager::GetInstance().GetZombieWeight(type);
 		int minWave = GameDataManager::GetInstance().GetZombieAppearWave(type);
+		if (!mIsSurvival && mLevel == 78 && type == ZombieType::ZOMBIE_AURORA_PRIEST) minWave = 15;
 		if (!mIsSurvival && mLevel == 74 && (type == ZombieType::ZOMBIE_PINK_FOOTBALL
 			|| type == ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX)) minWave = 4;
 		if (!mIsSurvival && mLevel == kThermalSniperCompositeLevel
@@ -3339,6 +3345,11 @@ void Board::PrepareMineWave()
 	mMinePlannedWave = mCurrentWave + 1;
 	if (mMinePlannedWave > mMaxWave) return;
 	int remaining = CalculateWaveZombiePoints(mMinePlannedWave);
+	// 第五波独立教学：组合占用本波预算，不再追加随机候选。
+	if (mLevel == 77 && mMinePlannedWave == 5) {
+		mMineWavePlan = {{ZombieType::ZOMBIE_SUN_THIEF,1},{ZombieType::ZOMBIE_NORMAL,1},{ZombieType::ZOMBIE_NORMAL,1}};
+		return;
+	}
 	bool excavatorPlanned = false;
 	bool crystalPlanned = false;
 	if (mLevel == 75 && mMinePlannedWave == 3) {
@@ -3360,6 +3371,13 @@ void Board::PrepareMineWave()
 	for (int attempt = 0; remaining > 0 && attempt < kWaveCandidateAttemptLimit
 		&& mMineWavePlan.size() < MAX_ZOMBIES_PER_WAVE; ++attempt) {
 		const ZombieType type = PickZombieType(remaining, mMinePlannedWave);
+		const int alreadyPlanned = static_cast<int>(std::count_if(mMineWavePlan.begin(),mMineWavePlan.end(),
+			[type](const auto& entry) { return entry.first == type; }));
+		if (type == ZombieType::ZOMBIE_SUN_THIEF && (alreadyPlanned >= 2
+			|| alreadyPlanned + CountActiveOrPendingZombieType(type) >= 3)) continue;
+		if (type == ZombieType::ZOMBIE_AURORA_PRIEST && (alreadyPlanned >= kAuroraPriestMaxPerWave
+			|| alreadyPlanned + CountActiveOrPendingZombieType(type) >= kAuroraPriestMaxActive)) continue;
+		if (type == ZombieType::ZOMBIE_REINFORCED_DOOR && alreadyPlanned >= kReinforcedDoorMaxPerWave) continue;
 		if (type == ZombieType::ZOMBIE_EXCAVATOR && excavatorPlanned) continue;
 		if (type == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER
 			&& (crystalPlanned || CountActiveOrPendingZombieType(type) >= 2)) continue;
@@ -3598,7 +3616,7 @@ bool Board::CanZombieTypeEnterSurvivalPool(ZombieType type, int round) const
 	if (!mIsSurvival || round < 1 || typeIndex < 0
 		|| typeIndex >= static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES)) return false;
 	if (type == ZombieType::ZOMBIE_NORMAL) return true;
-	if (type == ZombieType::ZOMBIE_GILDED_ZAMBONI) return false;
+	if (type == ZombieType::ZOMBIE_GILDED_ZAMBONI || type == ZombieType::ZOMBIE_SUN_THIEF) return false;
 
 	// 粉色橄榄球是黑夜专属变体；冒险关仍只由 spawnlists.json 控制。
 	if (type == ZombieType::ZOMBIE_PINK_FOOTBALL

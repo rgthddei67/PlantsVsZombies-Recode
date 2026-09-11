@@ -9,7 +9,6 @@
 namespace {
 	constexpr float kFadeSeconds = 5.0f; // 雾潮渐入、渐退各五游戏秒
 	constexpr float kFogSeconds = 60.0f; // 单次总时长，游戏秒
-	constexpr float kReduction = 0.25f; // 满强度减伤比例
 }
 
 float Board::GetMineFogStrength() const
@@ -21,12 +20,12 @@ float Board::GetMineFogStrength() const
 /** 按僵尸逻辑脚底和阵营取得当帧减伤；装饰雾延伸区不扩大玩法范围。 */
 float Board::GetMineFogProtection(const Zombie* zombie) const
 {
-	if (!SupportsMineFog() || !zombie || zombie->IsMindControlled() || GetMineFogStrength() <= 0) return 0.0f;
+	if (!SupportsMineFog() || !zombie || zombie->IsMindControlled() || zombie->GetPrismMarkRemaining() > 0.0f || GetMineFogStrength() <= 0) return 0.0f;
 	const Vector pos = zombie->GetPosition();
-	const float left = GetCellCenterPosition(0, 5).x - CELL_COLLIDER_SIZE_X * 0.5f;
+	const float left = GetCellCenterPosition(0, GetMineFogFirstColumn()).x - CELL_COLLIDER_SIZE_X * 0.5f;
 	const float right = GetCellCenterPosition(0, mColumns - 1).x + CELL_COLLIDER_SIZE_X * 0.5f;
 	return pos.x >= left && pos.x <= right && zombie->mRow >= 0 && zombie->mRow < mRows
-		? kReduction * GetMineFogStrength() : 0.0f;
+		? GetMineFogReduction() * GetMineFogStrength() : 0.0f;
 }
 
 int Board::ScaleMineFogDamage(int damage, const Zombie* zombie) const
@@ -59,12 +58,12 @@ void Board::DrawMineFog(Graphics* g) const
 {
 	const float strength = GetMineFogStrength();
 	if (!g || strength <= 0.0f) return;
-	const Vector first = GetCellCenterPosition(0, 5);
+	const Vector first = GetCellCenterPosition(0, GetMineFogFirstColumn());
 	const float left = first.x - CELL_COLLIDER_SIZE_X * 0.5f;
 	const float top = first.y - mCellHeight * 0.5f - 30.0f;
 	const float bottom = GetCellCenterPosition(mRows-1,5).y + mCellHeight * 0.5f;
 	// 复用普通迷雾原生 210x190 雾片与多层错位；采样网与棋盘格无关，岩壁不截断雾幕。
-	// 防护只计算棋盘内的四列；背景雾一直铺到屏幕外，避免在右侧矿洞入口形成裁切线。
+	// 防护只计算棋盘内的配置列；背景雾一直铺到屏幕外，避免在右侧矿洞入口形成裁切线。
 	const float right = static_cast<float>(SCENE_WIDTH);
 	const int samples = static_cast<int>(std::ceil((right-left)/103.0f)) + 2;
 	g->PushClipRect(static_cast<int>(left),static_cast<int>(top),static_cast<int>(right-left),static_cast<int>(bottom-top));
@@ -79,7 +78,7 @@ void Board::DrawMineFog(Graphics* g) const
 		if (const Texture* texture = ResourceManager::GetInstance().GetTexture(key,false)) {
 			const float pulse = 0.94f + 0.06f*std::sin(mMineFogElapsed*0.45f+seed);
 			g->DrawTexture(texture,px-105,py-95,210,190,0,
-				glm::vec4(176,206,220,(layer == 0 ? 62.0f : 35.0f)*strength*arrival*pulse));
+				glm::vec4(HasPurpleMineFog() ? 190 : 176, HasPurpleMineFog() ? 145 : 206, HasPurpleMineFog() ? 235 : 220, (layer == 0 ? 62.0f : 35.0f)*strength*arrival*pulse));
 		}
 	}
 	g->PopClipRect();

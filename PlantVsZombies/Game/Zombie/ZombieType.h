@@ -93,6 +93,7 @@ enum class ZombieType {
 	//   生存模式随机抽取据此绝不会抽到下方未实现僵尸。
 	//   注：Board::LoadSpawnListFromJson 亦以此为上界校验 JSON 僵尸ID，效果一致。
 	ZOMBIE_CRYSTAL_HORN_MINER, // 晶角矿工，9-3 首次登场
+	ZOMBIE_SUN_THIEF, // 盗晶僵尸，窃取阳光后沿矿道撤退
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

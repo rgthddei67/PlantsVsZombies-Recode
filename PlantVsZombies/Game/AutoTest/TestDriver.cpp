@@ -64,6 +64,8 @@
 #include "../Plant/NorthStarFlower.h"
 #include "../Plant/IceMirrorGrass.h"
 #include "../Plant/BoundaryFlower.h"
+#include "../Plant/PrismFlower.h"
+#include "../Zombie/SunThiefZombie.h"
 #include "../Plant/DawnLotus.h"
 #include "../Plant/KernelPult.h"
 #include "../Plant/MelonPult.h"
@@ -388,7 +390,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -424,7 +426,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -4639,6 +4641,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"fogElapsedMs",static_cast<int>(std::lround(board->mMineFogElapsed*1000))},
 			{"fogNextWave",board->mMineFogNextWave}, {"fogTutorialSeen",board->mMineFogTutorialSeen},
 			{"crystalSpawnedThisWave",board->GetCrystalMinersSpawnedThisWave()},
+			{"sunThievesSpawnedThisWave",board->GetSunThievesSpawnedThisWave()},
+			{"purpleFog",board->HasPurpleMineFog()}, {"fogFirstColumn",board->GetMineFogFirstColumn()},
 			{"connected", board->mMineGrid.connected}, {"entrances", board->mMineGrid.entrance},
 			{"pathValid", board->mMineGrid.Validate()}, {"digCell", board->mMineDigCell},
 			{"digRemainingMs", static_cast<int>(std::lround(board->mMineDigRemaining * 1000))},
@@ -4649,6 +4653,19 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"wavePlan", board->mMineWavePlan} };
 	}
 	out["echoWaves"] = nlohmann::json::array();
+	out["sunTheftLedger"] = nlohmann::json::object();
+	for (const auto& [id, record] : board->mSunTheftLedger)
+		out["sunTheftLedger"][std::to_string(id)] = {{"stolen",record.stolen},{"carried",record.carried},
+			{"escaped",record.escaped},{"disabled",record.disabled}};
+	bool thirdPairReady = ResourceManager::GetInstance().HasReanimation("PrismFlower")
+		&& ResourceManager::GetInstance().HasReanimation("SunThiefZombie");
+	for (const char* key : {"IMAGE_PRISMFLOWER","IMAGE_PRISM_MARK","IMAGE_SUNTHIEF_TANK0",
+		"IMAGE_SUNTHIEF_TANK1","IMAGE_SUNTHIEF_TANK2","IMAGE_SUNTHIEF_TANK3",
+		"IMAGE_SUNTHIEF_NOZZLE","IMAGE_SUNTHIEF_APRON","IMAGE_SUNTHIEF_HOSE"})
+		thirdPairReady = thirdPairReady && ResourceManager::GetInstance().GetTexture(key,false);
+	for (int part = 0; part < 7; ++part)
+		thirdPairReady = thirdPairReady && ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_PRISMFLOWER_PART"+std::to_string(part),false);
+	out["mineThirdResourcesReady"] = thirdPairReady;
 	out["echoWaveCount"] = board->mEchoWaves.size();
 	for (const auto& wave : board->mEchoWaves) out["echoWaves"].push_back({
 		{"row",wave.row},{"column",wave.column},{"elapsedMs",static_cast<int>(std::lround(wave.elapsed*1000))},
@@ -7161,6 +7178,20 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				drill->GetInterruptibleSpecialActionRemaining() * 1000.0f));
 		}
 		zombieState["mineFogProtection1000"] = static_cast<int>(std::lround(board->GetMineFogProtection(z)*1000));
+		zombieState["prismMarkRemainingMs"] = static_cast<int>(std::lround(z->GetPrismMarkRemaining()*1000));
+		if (auto* thief = dynamic_cast<SunThiefZombie*>(z)) {
+			const char* phases[] = {"READY","WINDUP","COOLDOWN","RETREAT","DISABLED"};
+			const auto record = board->GetSunTheftRecord(z->mZombieID);
+			zombieState["theftPhase"] = phases[static_cast<int>(thief->GetTheftPhase())];
+			zombieState["theftRemainingMs"] = static_cast<int>(std::lround(thief->GetTheftRemaining()*1000));
+			zombieState["theftStolen"] = record.stolen;
+			zombieState["theftCarried"] = record.carried;
+			zombieState["theftDisabled"] = record.disabled;
+			zombieState["theftEquipmentVisible"] = anim && anim->GetTrackFollowerVisible("Zombie_body","sun_tank")
+				&& anim->GetTrackFollowerVisible("Zombie_body","sun_apron")
+				&& anim->GetTrackFollowerVisible("anim_innerarm2","sun_nozzle")
+				&& anim->GetTrackFollowerVisible("anim_innerarm2","sun_hose");
+		}
 		if (auto* miner = dynamic_cast<CrystalHornMinerZombie*>(z)) {
 			const char* names[] = {"READY","WINDUP","CHARGING","COOLDOWN"};
 			zombieState["chargePhase"] = names[static_cast<int>(miner->GetChargePhase())];
@@ -7843,6 +7874,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			plantState["cobTrackColorA"] = static_cast<int>(cobTrackColor.a);
 			plantState["cobTrackColorEqualRGB"] = cobTrackColor.r == cobTrackColor.g
 				&& cobTrackColor.g == cobTrackColor.b;
+		}
+		if (auto* prism = dynamic_cast<PrismFlower*>(p)) {
+			plantState["prismCooldownMs"] = static_cast<int>(std::lround(prism->GetMarkCooldown()*1000));
+			plantState["prismLastMarkCount"] = prism->GetLastMarkCount();
 		}
 		if (auto* boundary = dynamic_cast<BoundaryFlower*>(p)) {
 			plantState["boundaryShardCount"] = boundary->GetShardCount();

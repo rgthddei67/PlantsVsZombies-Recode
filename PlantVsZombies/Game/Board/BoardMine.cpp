@@ -3,6 +3,7 @@
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/ExcavatorZombie.h"
 #include "Game/Plant/Plant.h"
+#include "Game/Plant/PrismFlower.h"
 #include "Game/Shovel.h"
 #include "Game/CardSlotManager.h"
 #include "GameApp.h"
@@ -227,6 +228,21 @@ void Board::UpdateMineInput()
 	mMineTutorialSeen = true;
 }
 
+void Board::DrawPrismRangePreview(Graphics* g)
+{
+	if (!g || !mCardSlotManager || mMineToolActive
+		|| mCardSlotManager->GetPlacementPreviewType() != PlantType::PLANT_PRISMFLOWER) return;
+	const Cell* hovered = mCardSlotManager->GetPlacementPreviewCell();
+	if (!hovered) return;
+	const Vector origin = GetCellCenterPosition(hovered->mRow, hovered->mColumn);
+	for (int r = 0; r < mRows; ++r) for (int c = 0; c < mColumns; ++c) {
+		if (!PrismFlower::CoversCell(r-hovered->mRow,c-hovered->mColumn)) continue;
+		const Vector p = GetCellCenterPosition(r,c);
+		g->FillRect(p.x-39,p.y-mCellHeight*0.5f+1,78,mCellHeight-2,
+			MineBlocksSegment(origin,p) ? glm::vec4(30,25,40,100) : glm::vec4(255,219,105,55));
+	}
+}
+
 void Board::DrawMineGround(Graphics* g)
 {
 	if (!IsMineBackground()) return;
@@ -341,7 +357,7 @@ void Board::DrawMineUI(Graphics* g)
 {
 	if (!IsMineBackground() || mBoardState != BoardState::GAME) return;
 	if (mMineFogNoticeRemaining > 0.0f) {
-		GameAPP::GetInstance().DrawText(u8"幽晶雾潮：雾中僵尸受到的伤害降低25%，迷雾无法驱散。",
+		GameAPP::GetInstance().DrawText(HasPurpleMineFog() ? u8"紫晶雾潮：雾中僵尸受到的伤害降低50%，迷雾无法驱散。" : u8"幽晶雾潮：雾中僵尸受到的伤害降低25%，迷雾无法驱散。",
 			Vector(g->LogicalToWorld(215, 105)), {185,230,255,255}, ResourceKeys::Fonts::FONT_FZCQ, 19);
 	}
 	// 施工进度独立在 UI 层绘制，避免被后绘制的前排岩壁和碎石遮挡。

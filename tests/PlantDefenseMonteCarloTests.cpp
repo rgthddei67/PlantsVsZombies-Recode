@@ -214,6 +214,30 @@ namespace {
 			"ordinary support plants must use the separate per-cell capacity");
 	}
 
+	/** 爆点遮挡必须同时排除普通植物与压缩支撑层，防止 AI 把穿墙伤害计入收益。 */
+	void TestBlastOcclusionMasksBothPlantLayers()
+	{
+		Snapshot snapshot = MakeTreatmentSnapshot();
+		snapshot.plants.push_back(MakeRoutePlant(8,2,500.0f,300.0f,100.0f));
+		SupportSnapshot support;
+		support.id = 7; support.row = 2; support.column = 4; support.x = 500.0f;
+		support.health = support.maxHealth = 300.0f;
+		support.strategicValue = 25.0f;
+		support.bounds = {460.0f,250.0f,80.0f,100.0f};
+		snapshot.supports.push_back(support);
+		Candidate blocked{2,4,500.0f,300.0f};
+		blocked.blockedPlantIds = {7,8};
+		snapshot.candidates = {blocked};
+		Config config;
+		config.rolloutCount = 1; config.horizonSeconds = 0.1f; config.stepSeconds = 0.1f;
+		config.impactDamage = 500.0f;
+		const Result occluded = ChooseTarget(snapshot,config,42);
+		snapshot.candidates.front().blockedPlantIds.clear();
+		const Result exposed = ChooseTarget(snapshot,config,42);
+		Require(std::abs(occluded.score) < 0.001f && exposed.score > occluded.score,
+			"rocks must exclude both normal and support plants from blast scoring");
+	}
+
 	void TestSupportOnlySnapshotStillSupportsRemoval()
 	{
 		Snapshot snapshot = MakeTreatmentSnapshot();
@@ -563,6 +587,7 @@ int main()
 		TestSixteenZombieHardLimit();
 		TestSupportPlantsUseSeparateCapacity();
 		TestSupportOnlySnapshotStillSupportsRemoval();
+		TestBlastOcclusionMasksBothPlantLayers();
 		TestNormalPlantBlocksBeforeCompressedSupport();
 		TestMagneticPulseRequiresConsumableTarget();
 		TestMagneticPulseUsesCurrentCooldown();

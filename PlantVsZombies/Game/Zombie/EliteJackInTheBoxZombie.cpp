@@ -203,7 +203,8 @@ void EliteJackInTheBoxZombie::DamagePlantsAtImpact() const
 	mBoard->ApplyPumpkinProtectedZombieAreaDamage(kBoxExplosionDamage,
 		[this](const Plant& plant) {
 			const ColliderComponent* collider = plant.GetColliderComponent();
-			return collider && CircleOverlapsRect(mBoxTargetPosition,
+			return collider && !mBoard->MineBlocksSegment(mBoxTargetPosition,plant.GetPosition())
+				&& CircleOverlapsRect(mBoxTargetPosition,
 				kBoxExplosionRadius, collider->GetBoundingBox());
 		});
 }
@@ -221,7 +222,7 @@ void EliteJackInTheBoxZombie::DamageEnemyZombiesAtImpact() const
 		// 魅惑盒只伤敌对普通僵尸；同阵营魅惑僵尸与植物保持安全。
 		if (zombie->IsMindControlled() == mThrowWasMindControlled) continue;
 		const ColliderComponent* collider = zombie->GetColliderComponent();
-		if (collider && CircleOverlapsRect(
+		if (collider && !mBoard->MineBlocksSegment(mBoxTargetPosition,zombie->GetPosition()) && CircleOverlapsRect(
 			mBoxTargetPosition, kBoxExplosionRadius, collider->GetBoundingBox())) {
 			zombie->TakeDamage(kBoxExplosionDamage, DamageSource::ZOMBIE);
 		}
@@ -369,7 +370,7 @@ float EliteJackInTheBoxZombie::ScorePlantBlastAt(
 		const Plant* plant = mBoard->mEntityRegistry.GetPlant(plantID);
 		if (!plant || !plant->IsActive() || plant->IsSquished()) continue;
 		const ColliderComponent* collider = plant->GetColliderComponent();
-		if (!collider || !CircleOverlapsRect(
+		if (!collider || mBoard->MineBlocksSegment(targetPosition,plant->GetPosition()) || !CircleOverlapsRect(
 			targetPosition, kBoxExplosionRadius, collider->GetBoundingBox())) {
 			continue;
 		}

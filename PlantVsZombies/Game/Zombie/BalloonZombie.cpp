@@ -267,7 +267,7 @@ void BalloonZombie::TakePlantAshDamage(int damage)
 
 	// 灰烬直消只取代致死表现；高血量生存模式下的非致死爆炸仍须走正式伤害链。
 	const int scaledDamage =
-		mBoard->ScaleMineFogDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage),this);
+		ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
 	const int64_t remainingHealth = static_cast<int64_t>(mBodyHealth)
 		+ (mPhase == Phase::FLYING ? mBalloonHealth : 0);
 	if (remainingHealth <= scaledDamage) {

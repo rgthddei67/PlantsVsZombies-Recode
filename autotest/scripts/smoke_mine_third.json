@@ -1,0 +1,357 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 77,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mineThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.rockCount",
+      "equals": 21
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.entrances",
+      "equals": [
+        false,
+        true,
+        false,
+        true,
+        false
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.pathValid",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.purpleFog",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogFirstColumn",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 300
+    },
+    {
+      "op": "show_zombie_hp",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SUN_THIEF",
+      "row": 1,
+      "x": 842,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.theftPhase",
+      "equals": "WINDUP",
+      "timeout": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 750
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftEquipmentVisible",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "01_thief_windup.png"
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "type": "ZOMBIE_SUN_THIEF",
+      "expectedChanged": true
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 300
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftPhase",
+      "equals": "COOLDOWN"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.theftCarried",
+      "equals": 50,
+      "timeout": 9
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 250
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "theft"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "theft"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftCarried",
+      "equals": 50
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 250
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.theftPhase",
+      "equals": "RETREAT",
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftCarried",
+      "equals": 150
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 150
+    },
+    {
+      "op": "screenshot",
+      "name": "02_full_retreat.png"
+    },
+    {
+      "op": "charm_zombie",
+      "row": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 300
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftCarried",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.theftPhase",
+      "equals": "DISABLED"
+    },
+    {
+      "op": "kill_zombie",
+      "row": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 300
+    },
+    {
+      "op": "goto_level",
+      "level": 78,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 2,
+      "x": 762,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REINFORCED_DOOR",
+      "row": 2,
+      "x": 682,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 762,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "set_mine_fog",
+      "elapsed": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineFogProtection1000",
+      "equals": 500
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "damage": 100,
+      "source": "OTHER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1050
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PRISMFLOWER",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "assert_state",
+      "path": "plants.0.prismLastMarkCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineFogProtection1000",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.mineFogProtection1000",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.2.prismMarkRemainingMs",
+      "equals": 0
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "damage": 100,
+      "source": "OTHER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 925
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_REINFORCED_DOOR",
+      "damage": 100,
+      "source": "PLANT"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.shieldHealth",
+      "equals": 1020
+    },
+    {
+      "op": "ash_damage_zombie",
+      "type": "ZOMBIE_REINFORCED_DOOR",
+      "damage": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.shieldHealth",
+      "equals": 700
+    },
+    {
+      "op": "screenshot",
+      "name": "03_prism_and_purple_fog.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "marked"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "marked"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineFogProtection1000",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "marked.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.prismMarkRemainingMs",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineFogProtection1000",
+      "equals": 500
+    },
+    {
+      "op": "dump_state",
+      "name": "expired.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "04_fog_restored.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

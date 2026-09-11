@@ -19,6 +19,7 @@
 #include <string>
 #include <array>
 #include <functional>
+#include <unordered_map>
 
 class GameInfoSaver;
 class BoardPresentation;
@@ -418,6 +419,7 @@ private:
 	int mNextDiscontinuousTransactionID = 1; // 非连续入场事务稳定排序 ID
 	int mAuroraPriestsSpawnedThisWave = 0; // 本波累计创建的敌对极光祭司
 	int mClockmakersSpawnedThisWave = 0; // 本波累计创建的敌对极夜钟匠
+	int mSunThievesSpawnedThisWave = 0; // 本波累计盗晶；读档与正式生成共用
 	int mCrystalMinersSpawnedThisWave = 0; // 本波累计晶角矿工，限制为一只
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
@@ -877,8 +879,21 @@ public:
 	bool mMineFogTutorialSeen = false;
 	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
 	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
-	bool SupportsMineFog() const { return IsMineBackground() && (mLevel == 75 || mLevel == 76); }
+	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 78); }
+	bool HasPurpleMineFog() const { return SupportsMineFog() && mLevel >= 77; }
+	int GetMineFogFirstColumn() const { return HasPurpleMineFog() ? 4 : 5; }
+	float GetMineFogReduction() const { return HasPurpleMineFog() ? 0.5f : 0.25f; }
 	float GetMineFogStrength() const;
+	struct SunTheftRecord { int stolen = 0; int carried = 0; bool escaped = false; bool disabled = false; };
+	// 经济账本独立于可被时间锚回溯的实体；死亡返款后仍保留同 ID 记录。
+	std::unordered_map<int, SunTheftRecord> mSunTheftLedger;
+	SunTheftRecord GetSunTheftRecord(int zombieID) const;
+	/** 原子扣余额、累计盗款并增加携款；前摇不预扣。 */
+	int CommitSunTheft(int zombieID, int requested);
+	/** 死亡/魅惑返还剩余携款，逃走则结清为损失；重复调用不重复返钱。 */
+	void CloseSunTheft(int zombieID, bool escaped);
+	void DisableSunTheft(int zombieID);
+	int GetSunThievesSpawnedThisWave() const { return mSunThievesSpawnedThisWave; }
 	int GetCrystalMinersSpawnedThisWave() const { return mCrystalMinersSpawnedThisWave; }
 	float GetMineFogProtection(const Zombie* zombie) const;
 	int ScaleMineFogDamage(int damage, const Zombie* zombie) const;
@@ -931,6 +946,8 @@ public:
 	void UpdateMineInput();
 	/** 绘制真实格界、入口预报、种植射界与开凿前后的最短路径。 */
 	void DrawMineGround(Graphics* g);
+	/** 用正式选敌格范围与视线规则绘制棱光花落点预览，适用于所有地图。 */
+	void DrawPrismRangePreview(Graphics* g);
 	/** 绘制岩壁、遮挡淡化与施工碎落；调用位置必须早于选卡和其他 UI。 */
 	void DrawMineWalls(Graphics* g);
 	/** 绘制开战后工具底座、手持镐子、路线按钮及施工说明。 */

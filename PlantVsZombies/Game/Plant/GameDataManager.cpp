@@ -28,6 +28,8 @@
 #include "SunShroom.h"
 #include "FumeShroom.h"
 #include "EchoShroom.h"
+#include "PrismFlower.h"
+#include "Game/Zombie/SunThiefZombie.h"
 #include "Game/Zombie/CrystalHornMinerZombie.h"
 #include "GloomShroom.h"
 #include "IceFumeShroom.h"
@@ -260,6 +262,10 @@ void GameDataManager::InitializeHardcodedData() {
 		AnimationType::ANIM_SUNSHROOM,
 		"SunShroom", &MakePlant<SunShroom>);
 
+	RegisterPlant(PlantType::PLANT_PRISMFLOWER, "PLANT_PRISMFLOWER", "IMAGE_PRISMFLOWER",
+		AnimationType::ANIM_PRISMFLOWER, "PrismFlower", &MakePlant<PrismFlower>);
+	RegisterZombie(ZombieType::ZOMBIE_SUN_THIEF, "ZOMBIE_SUN_THIEF",
+		AnimationType::ANIM_SUN_THIEF, "SunThiefZombie", &MakeZombie<SunThiefZombie>);
 	RegisterPlant(PlantType::PLANT_ECHOSHROOM, "PLANT_ECHOSHROOM", "IMAGE_ECHOSHROOM",
 		AnimationType::ANIM_ECHOSHROOM, "EchoShroom", &MakePlant<EchoShroom>);
 	RegisterZombie(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER, "ZOMBIE_CRYSTAL_HORN_MINER",

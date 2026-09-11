@@ -324,7 +324,7 @@ void IceStatueExecutionerZombie::TakePlantAshDamage(int damage)
 
 	// 黑盔是处刑者的主要耐久层；灰烬阈值必须先统计它，不得因低本体血量绕甲直消。
 	const int scaledDamage =
-		mBoard->ScaleMineFogDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage),this);
+		ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
 	const int64_t remainingDurability = static_cast<int64_t>(mBodyHealth)
 		+ (mHelmType == HelmType::HELMTYPE_FOOTBALL
 			? std::max(0, mHelmHealth) : 0);

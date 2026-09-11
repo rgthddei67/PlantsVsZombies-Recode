@@ -132,6 +132,8 @@ enum class AnimationType
 	ANIM_EXCAVATOR_ZOMBIE, // 普通僵尸时间线与矿灯/凿岩机附件
 	ANIM_ECHOSHROOM,
 	ANIM_CRYSTAL_HORN_MINER,
+	ANIM_PRISMFLOWER,
+	ANIM_SUN_THIEF,
 };
 
 #endif

@@ -164,6 +164,7 @@ struct Candidate {
 	float targetStrikeInterval = 0.0f; // 大于 0 时改为立即停机、随后按间隔锤击
 	float targetStrikeDamage = 0.0f; // 每次延迟锤击伤害
 	int targetStrikeCount = 0; // 最后一击无论剩余生命都提交处决
+	std::vector<int> blockedPlantIds{}; // Board 冻结的爆点视线遮挡；普通地形为空
 };
 
 struct PendingCobBlast {

@@ -266,6 +266,7 @@ void Zombie::ApplyHealthMultiplier(double multiplier, double armorMultiplier)
 }
 
 void Zombie::SaveProtectedData(nlohmann::json& j) const {
+	j["prismMarkRemaining"] = GetPrismMarkRemaining();
 	j["mineTargetCell"] = mMineTargetCell;
 	j["isMindControlled"] = mIsMindControlled;
 	j["freeHitsRemaining"] = mFreeHitsRemaining;
@@ -315,6 +316,7 @@ void Zombie::SaveProtectedData(nlohmann::json& j) const {
 }
 
 void Zombie::LoadProtectedData(const nlohmann::json& j) {
+	mPrismMarkRemaining = std::clamp(j.value("prismMarkRemaining",0.0f),0.0f,6.0f);
 	mMineTargetCell = (mBoard && mBoard->IsMineBackground()) ? j.value("mineTargetCell", -1) : -1;
 	if (mMineTargetCell < -1 || mMineTargetCell >= MineGrid::Count
 		|| (mMineTargetCell >= 0 && mBoard->mMineGrid.rock[mMineTargetCell])) mMineTargetCell = -1;
@@ -509,8 +511,8 @@ void Zombie::TakePlantAshDamage(int damage)
 
 	// 化灰阈值必须与 TakeDamage 的最终词条倍率一致；这里只预测是否走表现，真正扣血仍由
 	// TakeDamage 单点缩放，避免植物增伤被重复应用。
-	const int scaledDamage = mBoard->ScaleMineFogDamage(
-		mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage), this);
+	const int scaledDamage = ScaleStatusDamage(
+		mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
 	if (CanBeCharred() && mBodyHealth <= scaledDamage) {
 		Charred();
 		return;
@@ -592,7 +594,8 @@ void Zombie::Update()
 
 		if (!transform || !mBoard) return;
 
-		// 毒素不受减速、冻结、啃食和水草早退影响，因此在所有行为状态分支之前结算。
+		// 标记与毒素不受减速、冻结、啃食和水草早退影响，先推进目标自身的游戏时间。
+		mPrismMarkRemaining = std::max(0.0f, GetPrismMarkRemaining() - deltaTime);
 		UpdateToxin(deltaTime);
 		if (!IsActive()) return;
 		UpdateSurvivalPerkStates(deltaTime);
@@ -1892,6 +1895,7 @@ void Zombie::StartMindControlled()
 	}
 
 	mIsMindControlled = true;
+	mPrismMarkRemaining = 0.0f;
 	ApplyCharmEffects();
 	// 天气等中立来源的麻痹可跨阵营保留；麻痹紫色在持续期间优先于魅惑红色。
 	UpdateStatusOverlay();
@@ -2128,7 +2132,7 @@ void Zombie::TakeDamage(
 		damage = mBoard->GetPerkManager().ScalePlantDamage(damage);
 	}
 	damage = mBoard->GetPerkManager().ScaleDamageToZombie(damage);
-	damage = mBoard->ScaleMineFogDamage(damage, this);
+	damage = ScaleStatusDamage(damage);
 	damage = AdjustIncomingDamage(damage, source, penetrateShield, bypassShield);
 	if (damage <= 0) return;
 	if (source == DamageSource::PLANT && !mIsMindControlled
@@ -2238,6 +2242,7 @@ void Zombie::Die()
 	// 此刻 weak_ptr 尚未过期）。重复执行会把 mZombieNumber 多扣一次，导致计数提前归零。
 	if (mIsDead) return;
 	mIsDead = true;
+	mPrismMarkRemaining = 0.0f;
 	CancelGarlicRedirect(false);
 	mButterTimer = 0.0f;
 	mParalysisTimer = 0.0f;
@@ -2943,21 +2948,31 @@ void Zombie::Draw(Graphics* g)
 		mTangleKelpState->mGrabBack->Draw(g, grabPosition.x, grabPosition.y, scale);
 	}
 	AnimatedObject::Draw(g);	// 水草后层之后画僵尸本体
+	if (g && GetPrismMarkRemaining() > 0.0f) {
+		const Vector p = GetButterSplatAnchor();
+		if (const Texture* t = ResourceManager::GetInstance().GetTexture("IMAGE_PRISM_MARK",false)) {
+			if (g->IsInstancePathEnabled()) g->DrawTextureInstanced(t,p.x-12,p.y-30,30,30);
+			else g->DrawTexture(t,p.x-12,p.y-30,30,30);
+		}
+	}
 	if (g && mBoard && !mIsPreview && !mIsDying) {
 		const float protection = mBoard->GetMineFogProtection(this);
-		if (protection > 0.0f) {
+		const bool prismMarked = GetPrismMarkRemaining() > 0.0f;
+		if (protection > 0.0f || prismMarked) {
 			// 贴身流光消费即时雾区资格，不维护第二份护盾状态；普通受击白光增强亮度。
 			const Vector p = GetPosition();
-			const float alpha = protection * (mGlowingTimer > 0.0f ? 900.0f : 460.0f);
+			const float alpha = prismMarked ? 105.0f : std::min(220.0f, protection * (mGlowingTimer > 0.0f ? 900.0f : 460.0f));
+			const glm::vec4 color = prismMarked ? glm::vec4(255,221,120,alpha)
+				: mBoard->HasPurpleMineFog() ? glm::vec4(213,160,255,alpha) : glm::vec4(165,235,255,alpha);
 			for (int side : {-1,1}) for (int segment = 0; segment < 18; ++segment) {
 				const float t0 = segment/18.0f, t1 = (segment+1)/18.0f;
 				const float phase = mBoard->mMineFogElapsed*1.8f + mZombieID*0.7f;
 				const float x0 = p.x + side*(23.0f+5.0f*std::sin(t0*6+phase));
 				const float x1 = p.x + side*(23.0f+5.0f*std::sin(t1*6+phase));
 				const float y0 = p.y-73+t0*82, y1 = p.y-73+t1*82;
-				g->DrawLine(x0-1,y0,x1-1,y1,glm::vec4(90,190,255,alpha*0.4f));
-				g->DrawLine(x0,y0,x1,y1,glm::vec4(165,235,255,alpha));
-				g->DrawLine(x0+1,y0,x1+1,y1,glm::vec4(90,190,255,alpha*0.4f));
+				g->DrawLine(x0-1,y0,x1-1,y1,glm::vec4(color.r,color.g,color.b,alpha*0.4f));
+				g->DrawLine(x0,y0,x1,y1,color);
+				g->DrawLine(x0+1,y0,x1+1,y1,glm::vec4(color.r,color.g,color.b,alpha*0.4f));
 			}
 		}
 	}

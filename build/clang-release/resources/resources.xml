@@ -211,6 +211,7 @@
     <Image>./resources/image/PlantImage/FlowerPot.png</Image>
     <Image>./resources/image/PlantImage/FumeShroom.png</Image>
     <Image>./resources/image/PlantImage/EchoShroom.png</Image>
+    <Image>./resources/image/PlantImage/PrismFlower.png</Image>
     <Image>./resources/image/PlantImage/Garlic.png</Image>
     <Image>./resources/image/PlantImage/GatlingPea.png</Image>
     <Image>./resources/image/PlantImage/GloomShroom.png</Image>
@@ -692,6 +693,8 @@
     <Reanimation name="Imitater">./resources/reanim/Imitater.reanim</Reanimation>
 
     <Reanimation name="NormalZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="PrismFlower">./resources/reanim/PrismFlower.reanim</Reanimation>
+    <Reanimation name="SunThiefZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="EchoShroom">./resources/reanim/EchoShroom.reanim</Reanimation>
     <Reanimation name="CrystalHornMinerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="ExcavatorZombie">./resources/reanim/NormalZombie.reanim</Reanimation>

@@ -524,6 +524,14 @@ bool Board::PickMonteCarloPlantBlastTarget(
 			snapshot.candidates.push_back({
 				cell.first, cell.second, center.x, center.y
 			});
+			// 冻结与正式爆炸相同的遮挡资格，仍由通用推演器归并南瓜保护。
+			if (IsMineBackground()) {
+				auto& blocked = snapshot.candidates.back().blockedPlantIds;
+				for (const auto& plant : snapshot.plants)
+					if (MineBlocksSegment(center, GetCellCenterPosition(plant.row,plant.column))) blocked.push_back(plant.id);
+				for (const auto& support : snapshot.supports)
+					if (MineBlocksSegment(center, GetCellCenterPosition(support.row,support.column))) blocked.push_back(support.id);
+			}
 		}
 	}
 	if (snapshot.candidates.empty()) return false;

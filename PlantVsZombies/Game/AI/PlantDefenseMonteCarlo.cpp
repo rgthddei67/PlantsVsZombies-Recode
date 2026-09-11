@@ -458,6 +458,7 @@ namespace {
 		for (int i = 0; i < state.plantCount; ++i) {
 			const SimPlant& plant = state.plants[i];
 			if (!IsAlive(plant)
+				|| std::find(candidate.blockedPlantIds.begin(), candidate.blockedPlantIds.end(), plant.id) != candidate.blockedPlantIds.end()
 				|| !CircleOverlapsBounds(candidate, config.impactRadius, plant.bounds)) {
 				continue;
 			}
@@ -470,6 +471,7 @@ namespace {
 		for (int i = 0; i < state.supportCount; ++i) {
 			const SimSupport& support = state.supports[i];
 			if (!IsAlive(support)
+				|| std::find(candidate.blockedPlantIds.begin(), candidate.blockedPlantIds.end(), support.id) != candidate.blockedPlantIds.end()
 				|| !CircleOverlapsBounds(candidate, config.impactRadius, support.bounds)) {
 				continue;
 			}

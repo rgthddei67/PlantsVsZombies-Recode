@@ -1,0 +1,682 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 77,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 35
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.wavePlan",
+      "equals": [
+        [
+          54,
+          1
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.sunThievesSpawnedThisWave",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "teaching.json"
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogStrength1000",
+      "atLeast": 1
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "set_mine_fog",
+      "elapsed": 59.8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogNextWave",
+      "equals": 16
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogStrength1000",
+      "equals": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "fog_gap"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "fog_gap"
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogNextWave",
+      "equals": 16
+    },
+    {
+      "op": "goto_level",
+      "level": 77,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 35
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave1.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave2.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave3.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave4.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave5.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave6.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave7.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave8.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave9.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave10.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave11.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave12.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave13.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave14.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave15.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave16.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave17.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave18.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave19.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave20.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave21.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave22.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave23.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave24.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave25.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave26.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave27.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave28.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave29.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave30.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave31.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave32.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave33.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave34.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level77_wave35.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 78,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 40
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave1.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave2.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave3.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave4.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave5.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave6.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave7.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave8.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave9.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave10.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave11.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave12.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave13.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave14.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave15.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave16.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave17.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave18.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave19.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave20.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave21.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave22.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave23.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave24.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave25.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave26.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave27.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave28.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave29.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave30.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave31.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave32.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave33.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave34.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave35.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave36.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave37.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave38.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave39.json"
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "dump_state",
+      "name": "level78_wave40.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

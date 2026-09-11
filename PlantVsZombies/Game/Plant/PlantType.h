@@ -77,6 +77,7 @@ enum class PlantType
 	PLANT_DAWNLOTUS,	// 曙光莲；8-8 奖励，满能量后按当前红色极夜仪表人工点亮黎明
 	PLANT_CARRYVINE, // 搬搬藤；9-1 奖励，整组瞬间搬运工具卡
 	PLANT_ECHOSHROOM, // 回声菇，9-3 奖励
+	PLANT_PRISMFLOWER, // 棱光花，9-5 奖励
 	NUM_PLANT_TYPES,
 };
 

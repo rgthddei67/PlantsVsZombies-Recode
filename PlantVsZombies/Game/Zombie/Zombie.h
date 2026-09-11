@@ -147,6 +147,7 @@ protected:
 private:
 	float mCheckPositionTimer = 0.0f;
 	float mSubHealthTimer = 0.0f;	
+	float mPrismMarkRemaining = 0.0f; // 已提交标记余时；独立于施法植物和时间锚
 	float mDyingTimer = 0.0f;	// mIsDying 持续时间，超过 10s 强制 Die 防止卡 BUG
 	float mCheckGoldenIceTimer = 0.0f;	// 每秒检查一次黄色冰道速度场层数，避免每帧都查 EntityRegistry
 	float mShieldHitGlowTimer = 0.0f;	// 二类护盾独立受击白光剩余秒数；本体白光继续复用 AnimatedObject
@@ -542,6 +543,11 @@ public:
 	void RefreshAnimSpeedForWeather() { UpdateAnimSpeed(); }
 
 	void SaveProtectedData(nlohmann::json& j) const;
+	/** 立即标记六秒，控制不延长，死亡/魅惑清除；普通存档保存但时间锚不复制。 */
+	void ApplyPrismMark();
+	float GetPrismMarkRemaining() const { return IsActive() && !mIsDying && !mIsDead && !mIsMindControlled ? mPrismMarkRemaining : 0.0f; }
+	/** 统一状态增伤和矿雾减伤；灰烬致死预判也必须调用，避免错判直接删除。 */
+	int ScaleStatusDamage(int damage) const;
 
 	void LoadProtectedData(const nlohmann::json& j);
 	/** 派生读档与装备外观恢复完成后，重建大蒜脸覆盖和动画停走层。 */

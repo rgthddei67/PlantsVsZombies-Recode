@@ -171,7 +171,7 @@ void CrystalHornMinerZombie::HelmDrop()
 void CrystalHornMinerZombie::TakePlantAshDamage(int damage)
 {
 	if (!mBoard || damage <= 0) return;
-	const int scaled = mBoard->ScaleMineFogDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage),this);
+	const int scaled = ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
 	// 灰烬表现只有耗尽完整耐久时才替代扣血，不能因本体低血绕过晶角头盔。
 	if (CanBeCharred() && static_cast<int64_t>(mBodyHealth) + std::max(0,mHelmHealth) <= scaled) {
 		Charred();

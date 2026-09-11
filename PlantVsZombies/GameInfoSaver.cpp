@@ -556,6 +556,10 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["auroraPriestsSpawnedThisWave"] = board->mAuroraPriestsSpawnedThisWave;
 	j["clockmakersSpawnedThisWave"] = board->mClockmakersSpawnedThisWave;
 	j["crystalMinersSpawnedThisWave"] = board->mCrystalMinersSpawnedThisWave;
+	j["sunThievesSpawnedThisWave"] = board->mSunThievesSpawnedThisWave;
+	j["sunTheftLedger"] = nlohmann::json::array();
+	for (const auto& [id, record] : board->mSunTheftLedger) j["sunTheftLedger"].push_back({
+		{"id",id},{"stolen",record.stolen},{"carried",record.carried},{"escaped",record.escaped},{"disabled",record.disabled}});
 	j["auroraPriestGuaranteeConsumed"] = board->mAuroraPriestGuaranteeConsumed;
 	j["clockmakerGuaranteeConsumed"] = board->mClockmakerGuaranteeConsumed;
 	j["mistFuelDropAccumulator"] = board->mMistFuelDropAccumulator;
@@ -1572,6 +1576,17 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->mClockmakersSpawnedThisWave = std::clamp(
 		j.value("clockmakersSpawnedThisWave", 0), 0, 3);
 	board->mCrystalMinersSpawnedThisWave = std::clamp(j.value("crystalMinersSpawnedThisWave",0),0,1);
+	board->mSunThievesSpawnedThisWave = std::clamp(j.value("sunThievesSpawnedThisWave",0),0,2);
+	board->mSunTheftLedger.clear();
+	for (const auto& saved : j.value("sunTheftLedger",nlohmann::json::array())) {
+		const int id = saved.value("id",0);
+		if (id <= 0) continue;
+		auto& record = board->mSunTheftLedger[id];
+		record.stolen = std::clamp(saved.value("stolen",0),0,150);
+		record.escaped = saved.value("escaped",false);
+		record.carried = record.escaped ? 0 : std::clamp(saved.value("carried",0),0,record.stolen);
+		record.disabled = saved.value("disabled",false);
+	}
 	board->mAuroraPriestGuaranteeConsumed =
 		j.value("auroraPriestGuaranteeConsumed", false);
 	board->mClockmakerGuaranteeConsumed =
