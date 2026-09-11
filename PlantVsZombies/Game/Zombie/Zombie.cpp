@@ -509,7 +509,8 @@ void Zombie::TakePlantAshDamage(int damage)
 
 	// 化灰阈值必须与 TakeDamage 的最终词条倍率一致；这里只预测是否走表现，真正扣血仍由
 	// TakeDamage 单点缩放，避免植物增伤被重复应用。
-	const int scaledDamage = mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage);
+	const int scaledDamage = mBoard->ScaleMineFogDamage(
+		mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage), this);
 	if (CanBeCharred() && mBodyHealth <= scaledDamage) {
 		Charred();
 		return;
@@ -2127,6 +2128,7 @@ void Zombie::TakeDamage(
 		damage = mBoard->GetPerkManager().ScalePlantDamage(damage);
 	}
 	damage = mBoard->GetPerkManager().ScaleDamageToZombie(damage);
+	damage = mBoard->ScaleMineFogDamage(damage, this);
 	damage = AdjustIncomingDamage(damage, source, penetrateShield, bypassShield);
 	if (damage <= 0) return;
 	if (source == DamageSource::PLANT && !mIsMindControlled
@@ -2941,6 +2943,24 @@ void Zombie::Draw(Graphics* g)
 		mTangleKelpState->mGrabBack->Draw(g, grabPosition.x, grabPosition.y, scale);
 	}
 	AnimatedObject::Draw(g);	// 水草后层之后画僵尸本体
+	if (g && mBoard && !mIsPreview && !mIsDying) {
+		const float protection = mBoard->GetMineFogProtection(this);
+		if (protection > 0.0f) {
+			// 贴身流光消费即时雾区资格，不维护第二份护盾状态；普通受击白光增强亮度。
+			const Vector p = GetPosition();
+			const float alpha = protection * (mGlowingTimer > 0.0f ? 900.0f : 460.0f);
+			for (int side : {-1,1}) for (int segment = 0; segment < 18; ++segment) {
+				const float t0 = segment/18.0f, t1 = (segment+1)/18.0f;
+				const float phase = mBoard->mMineFogElapsed*1.8f + mZombieID*0.7f;
+				const float x0 = p.x + side*(23.0f+5.0f*std::sin(t0*6+phase));
+				const float x1 = p.x + side*(23.0f+5.0f*std::sin(t1*6+phase));
+				const float y0 = p.y-73+t0*82, y1 = p.y-73+t1*82;
+				g->DrawLine(x0-1,y0,x1-1,y1,glm::vec4(90,190,255,alpha*0.4f));
+				g->DrawLine(x0,y0,x1,y1,glm::vec4(165,235,255,alpha));
+				g->DrawLine(x0+1,y0,x1+1,y1,glm::vec4(90,190,255,alpha*0.4f));
+			}
+		}
+	}
 	if (mTangleKelpState && mTangleKelpState->mGrabFront) {
 		mTangleKelpState->mGrabFront->Draw(g, grabPosition.x, grabPosition.y, scale);
 	}

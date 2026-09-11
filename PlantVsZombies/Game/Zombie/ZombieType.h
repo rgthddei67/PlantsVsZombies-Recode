@@ -16,7 +16,8 @@ enum class HelmType {
 	HELMTYPE_INSULATOR,		//绝缘僵尸的陶瓷胸甲；一个完整的一类防具生命池
 	HELMTYPE_ADAPTIVE,		//适应头盔僵尸的一次性来源记录头盔
 	HELMTYPE_AURORA_DEVICE,	//极光祭司的非磁性仪器；破坏后永久取消未提交仪式
-	HELMTYPE_CLOCK_DISK		//极夜钟匠的非磁性星盘；破坏后永久取消未提交时间锚
+	HELMTYPE_CLOCK_DISK,		//极夜钟匠的非磁性星盘；破坏后永久取消未提交时间锚
+	HELMTYPE_CRYSTAL_HORN // 非磁性晶角头盔
 };
 
 enum class ShieldType {
@@ -91,6 +92,7 @@ enum class ZombieType {
 	// ↓ 哨兵：置于全部已实现僵尸之后，使 [0,NUM_ZOMBIE_TYPES) 只覆盖已实现类型，
 	//   生存模式随机抽取据此绝不会抽到下方未实现僵尸。
 	//   注：Board::LoadSpawnListFromJson 亦以此为上界校验 JSON 僵尸ID，效果一致。
+	ZOMBIE_CRYSTAL_HORN_MINER, // 晶角矿工，9-3 首次登场
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

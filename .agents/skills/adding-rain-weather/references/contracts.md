@@ -185,6 +185,8 @@ pending 并清空，不能临时重抽。`GameScene` 的累计条与坡面水膜
 
 ## 独立雾势与跨天气联动
 
+矿场 9-3/9-4 的固定雾潮由 `BoardMineFog.cpp` 单独持有，与普通雾势、路灯花和驱散无关。伤害在 `Zombie::TakeDamage` 分层前统一缩放一次，灰烬致死预判使用同一入口；取整与秒杀哨兵复用 `SurvivalPerkManager::ScaleNumericDamage`。绘制复用普通雾片并独立错位叠层，不按 Cell 切片；玩法的四列边界与背景绘制边界必须分开，右侧雾幕延伸到画面边缘，不能在最右格外截断。固定事件保存已过游戏秒、下一触发波与首次提示状态；完全散尽后按当时波次加五，读档不重算下一波。
+
 `FogWeatherIntensity::DEFAULT/SMALL/NORMAL/DENSE` 与 `RainIntensity` 并列声明在
 `WeatherTypes.h`。`DEFAULT` 是原版基础覆盖，另外三档是独立增强事件；雾势有自己的阶段计时、
 准确预报和存档字段，不要借用雨势误报候选、雨势阶段计时或把雾势伪装成某档雨。当前阶段循环

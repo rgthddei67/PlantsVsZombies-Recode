@@ -11,13 +11,17 @@ void FumeShroom::SetupPlant()
 	if (mIsPreview) return;
 
 	mAnimator->AddFrameEvent(27, [this]() {
-		if (!mBoard) return;
-		AudioSystem::PlaySound("SOUND_FUME", 0.28f);
-		// 先确定本次阻断点，再用同一结果裁剪孢子云，保证伤害范围与视觉长度一致。
-		const float clipRightX = FumeAttack();
-		g_particleSystem->EmitEffect(FumeParticleName(), GetPosition(),
-			LAYER_EFFECTS_WORLD, -1.0f, clipRightX);
+		FireFume();
 		}, true);
+}
+
+void FumeShroom::FireFume()
+{
+	if (!mBoard) return;
+	AudioSystem::PlaySound("SOUND_FUME", 0.28f);
+	// 先确定阻断点，再裁剪粒子，保持经典大喷菇的命中与表现一致。
+	const float clipRightX = FumeAttack();
+	g_particleSystem->EmitEffect(FumeParticleName(), GetPosition(), LAYER_EFFECTS_WORLD, -1.0f, clipRightX);
 }
 
 void FumeShroom::PlantUpdate()

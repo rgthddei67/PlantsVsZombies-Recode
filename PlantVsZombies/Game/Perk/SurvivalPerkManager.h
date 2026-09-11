@@ -22,6 +22,8 @@ public:
 
     int ScalePlantDamage(int base) const;          // round(base * 植物伤害倍率)，base>=1 时结果>=1
     int ScaleDamageToZombie(int base) const;       // round(base * 免伤倍率)，base>=1 时结果>=1
+    /** 环境与词条共用数值缩放口径，保留秒杀哨兵与正伤害下限。 */
+    static int ScaleNumericDamage(int base, double multiplier);
     int ScaleTotalDamageToZombie(int base) const;  // 植物来源专用：依次应用植物增伤与僵尸免伤，base>=1 时结果>=1
     int ScaleDamageToPlant(int base) const;        // round(base * 植物承伤倍率)，base>=1 时结果>=1
     int ScaleSunIncome(int base) const;            // round(base * 阳光收益倍率)，base>=1 时结果>=1

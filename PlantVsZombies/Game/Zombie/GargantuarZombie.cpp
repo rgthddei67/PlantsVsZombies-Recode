@@ -293,6 +293,7 @@ void GargantuarZombie::ReleaseImp()
 			- imp->GetThrowBodyRenderAnchor().x;
 		impTransform->Translate(anchorCorrectionX, 0.0f);
 	}
+	imp->ConstrainMineLanding();
 	mHasImp = false;
 	mThrowReleased = true;
 	ApplyHeldImpPresentation();

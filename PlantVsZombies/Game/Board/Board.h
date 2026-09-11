@@ -418,6 +418,7 @@ private:
 	int mNextDiscontinuousTransactionID = 1; // 非连续入场事务稳定排序 ID
 	int mAuroraPriestsSpawnedThisWave = 0; // 本波累计创建的敌对极光祭司
 	int mClockmakersSpawnedThisWave = 0; // 本波累计创建的敌对极夜钟匠
+	int mCrystalMinersSpawnedThisWave = 0; // 本波累计晶角矿工，限制为一只
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
 	float mDawnNavigationTimer = 0.0f; // 曙光莲强风模块全场导航剩余游戏秒
@@ -871,6 +872,32 @@ public:
 	/** 矿场地形、施工与查询只有 Board 拥有；预览只读副本不提交地形。 */
 	bool IsMineBackground() const { return mBackGround == Background::GLOOMCRYSTAL_MINE; }
 	MineGrid mMineGrid;
+	float mMineFogElapsed = -1.0f; // -1 表示无雾，其余为本次雾潮已过游戏秒
+	int mMineFogNextWave = 10; // 完全散尽后按所在波次加五，首次为旗帜波
+	bool mMineFogTutorialSeen = false;
+	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
+	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
+	bool SupportsMineFog() const { return IsMineBackground() && (mLevel == 75 || mLevel == 76); }
+	float GetMineFogStrength() const;
+	int GetCrystalMinersSpawnedThisWave() const { return mCrystalMinersSpawnedThisWave; }
+	float GetMineFogProtection(const Zombie* zombie) const;
+	int ScaleMineFogDamage(int damage, const Zombie* zombie) const;
+	void UpdateMineFog(float delta);
+	void DrawMineFog(Graphics* g) const;
+	struct EchoWave {
+		int row = 0, column = 0;
+		float elapsed = 0.0f;
+		bool hitIceWall = false; // 全场唯一冰墙在单轮声波中仅承伤一次
+		std::vector<int> distances; // 发射时冻结的最短路，-1 表示本轮不可达
+		std::vector<int> hitIDs; // 稳定实体 ID，同一波最多结算一次
+	};
+	std::vector<EchoWave> mEchoWaves;
+	/** 发射时锁定可通行图；在途不再读取会变化的岩壁布局。 */
+	EchoWave BuildEchoWave(int row, int column) const;
+	bool HasEchoTarget(int row, int column);
+	void EmitEchoWave(int row, int column);
+	void UpdateEchoWaves(float delta);
+	void DrawEchoWaves(Graphics* g) const;
 	std::array<int, MineGrid::Count> mMineWallOwners{}; // 预留索引由有效个体派生，读档时由个体重建
 	/** 取得仍有效的施工预留者；失效 ID 不阻止重新选墙。 */
 	Zombie* GetMineWallOwner(int cell) const;

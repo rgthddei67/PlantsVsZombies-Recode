@@ -24,6 +24,7 @@
     "PLANT_LILYPAD":         { "cost": 25,  "cooldown": 7.5,  "offset": [-37.6, -19.0], "scale": 1.0, "simulation": { "baseHealth": 300, "supportOnly": true } },
     "PLANT_SQUASH":          { "cost": 50,  "cooldown": 30.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_THREEPEATER":     { "cost": 275, "cooldown": 10.0,  "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 13.33, "attackRowRadius": 1 } },
+    "PLANT_ECHOSHROOM": { "cost": 250, "cooldown": 15.0, "offset": [-37.6, -36.0], "scale": 0.92, "simulation": { "baseHealth": 300, "attackDps": 50.0, "daytimeDormant": true } },
     "PLANT_CARRYVINE": { "cost": 75, "cooldown": 20.0, "offset": [-37.6, -28.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_TANGLEKELP":      { "cost": 25,  "cooldown": 30.0, "offset": [-37.6, -28.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_JALAPENO":        { "cost": 125, "cooldown": 50.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
@@ -66,6 +67,7 @@
   },
   "zombies": {
     "ZOMBIE_NORMAL":       { "weight": 1000, "appearWave": 1, "survivalRound": 1, "offset": [-50.0, -85.0], "scale": 1.0 },
+    "ZOMBIE_CRYSTAL_HORN_MINER": { "weight": 3000, "appearWave": 3, "survivalRound": 34, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_EXCAVATOR":    { "weight": 2500, "appearWave": 3, "survivalRound": 33, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_TRAFFIC_CONE": { "weight": 1300, "appearWave": 3, "survivalRound": 2, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_POLEVAULTER":  { "weight": 1400, "appearWave": 5, "survivalRound": 3, "offset": [-50.0, -85.0], "scale": 1.0 },

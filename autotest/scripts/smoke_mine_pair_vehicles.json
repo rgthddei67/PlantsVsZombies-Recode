@@ -1,0 +1,178 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 4,
+      "x": 802
+    },
+    {
+      "op": "damage_zombie",
+      "damage": 1900,
+      "source": "OTHER"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_IMP.impPhase",
+      "equals": "THROWN",
+      "timeout": 30
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "imp"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "imp"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_IMP.impPhase",
+      "equals": "WALKING",
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "imp_landed.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "01_imp_landed.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "mine_dig",
+      "row": 3,
+      "col": 8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8.1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 3,
+      "x": 922
+    },
+    {
+      "op": "damage_zombie",
+      "damage": 1900,
+      "source": "OTHER"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_IMP.impPhase",
+      "equals": "THROWN",
+      "timeout": 30
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "rock_imp"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "rock_imp"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_IMP.impPhase",
+      "equals": "WALKING",
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "imp_rock_fallback.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "02_imp_rock_fallback.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ZAMBONI",
+      "row": 0,
+      "x": 922
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "ice_car.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "03_ice_car.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

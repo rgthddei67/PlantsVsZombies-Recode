@@ -224,7 +224,7 @@ namespace {
 		DEVZ(ZOMBIE_SNOW_BURROW),
 		DEVZ(ZOMBIE_ADAPTIVE_HELMET),
 		DEVZ(ZOMBIE_THERMAL_SNIPER),
-		DEVZ(ZOMBIE_AURORA_PRIEST), DEVZ(ZOMBIE_POLAR_CLOCKMAKER), DEVZ(ZOMBIE_EXCAVATOR)
+		DEVZ(ZOMBIE_AURORA_PRIEST), DEVZ(ZOMBIE_POLAR_CLOCKMAKER), DEVZ(ZOMBIE_EXCAVATOR), DEVZ(ZOMBIE_CRYSTAL_HORN_MINER)
 	};
 #undef DEVZ
 
@@ -794,10 +794,12 @@ void GameScene::DrawFog(Graphics* g) const
 void GameScene::DrawWorldOverlay(Graphics* g)
 {
 	if (!g || !mBoard) return;
+	mBoard->DrawEchoWaves(g);
 	// 岩壁属于战场前景，必须在 GOM 的 UI 尾段之前提交；Scene 命令数值不能插入 GOM 内部层级。
 	if (mBoard->IsMineBackground()) {
 		PROFILE_SCOPE("8b0.Draw_mineWalls");
 		mBoard->DrawMineWalls(g);
+		mBoard->DrawMineFog(g);
 	}
 	// 雾先遮住战场与世界粒子，随后再统一接受雨天暗幕；闪电最后照亮雾层但仍不覆盖 UI。
 	{

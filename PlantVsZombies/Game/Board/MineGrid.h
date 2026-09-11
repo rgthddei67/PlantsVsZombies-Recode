@@ -19,8 +19,8 @@ public:
 	static bool Valid(int row, int col) { return row >= 0 && row < Rows && col >= 0 && col < Columns; }
 	static int Index(int row, int col) { return row * Columns + col; }
 	bool IsRock(int row, int col) const { return Valid(row, col) && rock[Index(row, col)]; }
-	/** 初始化9-1的两条独立天然通路；其他关卡由后续关卡设计提供布局。 */
-	void Initialize();
+	/** 每两关共用固定布局；第二组采用上下入口与不对称矿道。 */
+	void Initialize(int layoutGroup = 0);
 	/** 地形提交后重建房屋连通性与有向距离；固定数组队列，无每帧分配。 */
 	void Rebuild();
 	bool CanExcavate(int row, int col) const;

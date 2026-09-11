@@ -5,6 +5,23 @@
 /** 穷举9-1全部可拆岩壁子集，验证连通性、防环和不向右/不穿墙的约束。 */
 int main()
 {
+	// 第二组的双入口必须保留不同长度；逐墙开凿不能增加任一已有通路距离。
+	MineGrid second;
+	second.Initialize(1);
+	if (!second.Validate() || second.distance[8] != 8 || second.distance[44] != 9
+		|| !second.entrance[0] || !second.entrance[4]) return 8;
+	int secondWalls = 0;
+	for (int wall = 0; wall < MineGrid::Count; ++wall) {
+		if (!second.rock[wall]) continue;
+		++secondWalls;
+		MineGrid dug = second;
+		dug.rock[wall] = false;
+		dug.Rebuild();
+		if (!dug.Validate()) return 9;
+		for (int cell = 0; cell < MineGrid::Count; ++cell)
+			if (dug.distance[cell] > second.distance[cell]) return 10;
+	}
+	if (secondWalls != 20) return 11;
 	MineGrid initial;
 	initial.Initialize();
 	if (!initial.Validate() || initial.distance[17] != 9 || initial.distance[35] != 9) return 1;

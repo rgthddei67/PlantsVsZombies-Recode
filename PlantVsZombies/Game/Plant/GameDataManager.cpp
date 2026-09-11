@@ -27,6 +27,8 @@
 #include "PuffShroom.h"
 #include "SunShroom.h"
 #include "FumeShroom.h"
+#include "EchoShroom.h"
+#include "Game/Zombie/CrystalHornMinerZombie.h"
 #include "GloomShroom.h"
 #include "IceFumeShroom.h"
 #include "HypnoShroom.h"
@@ -257,6 +259,11 @@ void GameDataManager::InitializeHardcodedData() {
 		ResourceKeys::Textures::IMAGE_SUNSHROOM,
 		AnimationType::ANIM_SUNSHROOM,
 		"SunShroom", &MakePlant<SunShroom>);
+
+	RegisterPlant(PlantType::PLANT_ECHOSHROOM, "PLANT_ECHOSHROOM", "IMAGE_ECHOSHROOM",
+		AnimationType::ANIM_ECHOSHROOM, "EchoShroom", &MakePlant<EchoShroom>);
+	RegisterZombie(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER, "ZOMBIE_CRYSTAL_HORN_MINER",
+		AnimationType::ANIM_CRYSTAL_HORN_MINER, "CrystalHornMinerZombie", &MakeZombie<CrystalHornMinerZombie>);
 
 	RegisterPlant(PlantType::PLANT_FUMESHROOM, "PLANT_FUMESHROOM",
 		ResourceKeys::Textures::IMAGE_FUMESHROOM,

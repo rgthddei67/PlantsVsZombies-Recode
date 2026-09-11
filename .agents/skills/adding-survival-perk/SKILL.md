@@ -65,7 +65,7 @@ description: Use when adding or tuning any 生存模式词条 (survival perk) in
 ### A. 无状态倍率
 
 - 0 层必须返回 `1.0` 或原值，避免调用方额外判断模式。
-- 伤害缩放走现有 `RoundScale`，其会保留 `INT32_MAX` 一类秒杀哨兵，并保证正常正伤害至少为 1。
+- 伤害缩放走现有 `RoundScale`，其会保留 `INT32_MAX` 一类秒杀哨兵，并保证正常正伤害至少为 1。其他独立机制需要同一规则时调用公开的 `ScaleNumericDamage`，不要复制取整或哨兵判断；矿雾在防具分层前只缩放一次，灰烬致死预判必须使用同一倍率。
 - `DamageSource` 是所有植物/僵尸受伤调用的必填参数：植物子弹、爆炸、寒冰菇为 `PLANT`，僵尸啃食/互啃为 `ZOMBIE`，小推车和无阵营直伤为 `OTHER`。新增攻击不标来源应直接编译失败，不能给参数补默认值。
 - `Zombie::TakeDamage` 只对 `DamageSource::PLANT` 应用植物增伤，再对所有来源应用僵尸免伤。`Board::CreateBoom/CreateDoomBoom` 只能用 `ScaleTotalDamageToZombie` 预测植物爆炸的 Charred 阈值，传给 `TakeDamage` 的仍是未缩放原伤害，不能重复放大。
 - `Plant::TakeDamage` 只对 `DamageSource::ZOMBIE` 应用僵尸增伤，再对所有来源应用植物韧性。僵尸攻击方传原始 `mAttackDamage`，不得自行调用 `ScaleZombieDamage` 或写回攻击字段。

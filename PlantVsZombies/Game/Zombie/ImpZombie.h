@@ -16,6 +16,8 @@ public:
 	/** 配置巨人脱手后的飞行，并在阵营提交后原样继承巨人的剩余减速秒数。 */
 	void ConfigureThrown(float throwDistance, bool movingRight,
 		float inheritedCooldown, bool inheritMindControl);
+	/** 视觉离手位置校准后，沿原抛物线向投手一侧收短至合法矿道落点。 */
+	void ConstrainMineLanding();
 
 	void ZombieUpdate(float scaledTime) override;
 	void StartEat(ColliderComponent* other) override;
@@ -61,6 +63,8 @@ protected:
 	bool ShouldPlayDeathAnimation() const override { return mPhase == Phase::WALKING; }
 
 private:
+	float mMineLandingX = 0.0f; // 已锁定矿道落点，世界像素
+	bool mHasMineLanding = false;
 	/** 飞行高度落至地面时关闭飞行并播放一次落地轨道。 */
 	void BeginLanding();
 	/** 落地轨结束后恢复地面碰撞、阴影与稳态走路。 */

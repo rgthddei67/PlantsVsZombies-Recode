@@ -93,6 +93,7 @@
 #include "../Zombie/EliteDancerZombie.h"
 #include "../Zombie/Polevaulter.h"
 #include "../Zombie/DolphinRiderZombie.h"
+#include "../Zombie/CrystalHornMinerZombie.h"
 #include "../Zombie/JackInTheBoxZombie.h"
 #include "../Zombie/EliteJackInTheBoxZombie.h"
 #include "../Zombie/BalloonZombie.h"
@@ -316,6 +317,7 @@ namespace {
 		case HelmType::HELMTYPE_WALLNUT: return "HELMTYPE_WALLNUT";
 		case HelmType::HELMTYPE_TALLNUT: return "HELMTYPE_TALLNUT";
 		case HelmType::HELMTYPE_INSULATOR: return "HELMTYPE_INSULATOR";
+		case HelmType::HELMTYPE_CRYSTAL_HORN: return "HELMTYPE_CRYSTAL_HORN";
 		case HelmType::HELMTYPE_ADAPTIVE: return "HELMTYPE_ADAPTIVE";
 		case HelmType::HELMTYPE_AURORA_DEVICE: return "HELMTYPE_AURORA_DEVICE";
 		case HelmType::HELMTYPE_CLOCK_DISK: return "HELMTYPE_CLOCK_DISK";
@@ -386,7 +388,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -422,7 +424,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -860,6 +862,15 @@ bool TestDriver::ExecuteCurrent() {
 		mWaitAccum += DeltaTime::GetDeltaTime();
 		return mWaitAccum >= cmd.value("value", 0.0f);
 	}
+	if (op == "wait_value") {
+		// 只等待正式状态到达断言边沿，不推进动画、不直接触发能力。
+		nlohmann::json state;
+		if (!BuildStateJson("wait_value",state)) return false;
+		std::string path = "/" + cmd.value("path","");
+		std::replace(path.begin(),path.end(),'.','/');
+		const nlohmann::json::json_pointer pointer(path);
+		return state.contains(pointer) && state.at(pointer) == cmd.at("equals");
+	}
 	if (op == "wait_frames") {
 		if (mFramesLeft < 0) mFramesLeft = cmd.value("value", 0);
 		if (mFramesLeft == 0) return true;   // value=0 或已数完：立即完成
@@ -971,6 +982,14 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "set_spawn_paused") {
 		// 只暂停 Board 的自然出波；spawn_zombie / summon_next_wave 等显式测试命令不受影响。
 		GameAPP::mDevSpawnPaused = cmd.value("value", true);
+		return true;
+	}
+	if (op == "set_mine_fog") {
+		GameScene* gs = CurrentGameScene();
+		if (!gs || !gs->GetBoard() || !gs->GetBoard()->SupportsMineFog()) { Fail("set_mine_fog: unsupported board"); return false; }
+		Board* board = gs->GetBoard();
+		board->mMineFogElapsed = std::clamp(cmd.value("elapsed",5.0f),-1.0f,60.0f);
+		board->mMineFogNextWave = cmd.value("nextWave",10);
 		return true;
 	}
 	if (op == "choose_cards") {
@@ -4587,6 +4606,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			resourcesReady = resourcesReady && ResourceManager::GetInstance().GetTexture(key, false) != nullptr;
 		}
 		out["mine"] = { {"rocks", board->mMineGrid.rock}, {"distances", board->mMineGrid.distance},
+			{"rockCount",std::count(board->mMineGrid.rock.begin(),board->mMineGrid.rock.end(),true)},
+			{"fogStrength1000",static_cast<int>(std::lround(board->GetMineFogStrength()*1000))},
+			{"fogElapsedMs",static_cast<int>(std::lround(board->mMineFogElapsed*1000))},
+			{"fogNextWave",board->mMineFogNextWave}, {"fogTutorialSeen",board->mMineFogTutorialSeen},
+			{"crystalSpawnedThisWave",board->GetCrystalMinersSpawnedThisWave()},
 			{"connected", board->mMineGrid.connected}, {"entrances", board->mMineGrid.entrance},
 			{"pathValid", board->mMineGrid.Validate()}, {"digCell", board->mMineDigCell},
 			{"digRemainingMs", static_cast<int>(std::lround(board->mMineDigRemaining * 1000))},
@@ -4596,6 +4620,19 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"forecastWave", board->mMinePlannedWave}, {"forecastMask", board->GetMineForecastEntranceMask()},
 			{"wavePlan", board->mMineWavePlan} };
 	}
+	out["echoWaves"] = nlohmann::json::array();
+	out["echoWaveCount"] = board->mEchoWaves.size();
+	for (const auto& wave : board->mEchoWaves) out["echoWaves"].push_back({
+		{"row",wave.row},{"column",wave.column},{"elapsedMs",static_cast<int>(std::lround(wave.elapsed*1000))},
+		{"distances",wave.distances},{"hitIDs",wave.hitIDs},{"hitIceWall",wave.hitIceWall}});
+	out["minePairResourcesReady"] = ResourceManager::GetInstance().HasReanimation("EchoShroom")
+		&& ResourceManager::GetInstance().HasReanimation("CrystalHornMinerZombie")
+		&& ResourceManager::GetInstance().GetTexture("IMAGE_ECHOSHROOM",false)
+		&& ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_ECHOSHROOM_HEAD",false)
+		&& ResourceManager::GetInstance().GetTexture("IMAGE_CRYSTALHORN_INTACT",false)
+		&& ResourceManager::GetInstance().GetTexture("IMAGE_CRYSTALHORN_CRACKED",false)
+		&& ResourceManager::GetInstance().GetTexture("IMAGE_CRYSTALHORN_BROKEN",false)
+		&& ResourceManager::GetInstance().GetTexture("PARTICLE_CRYSTALHORNHEAD",false);
 	out["winterGardenBackgroundLoaded"] = ResourceManager::GetInstance().GetTexture(
 		ResourceKeys::Textures::IMAGE_BACKGROUND_WINTERGARDEN, false) != nullptr;
 	out["polarNightBackgroundLoaded"] = ResourceManager::GetInstance().GetTexture(
@@ -7094,6 +7131,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["drillRigVisible"] = drill->IsDrillRigVisible();
 			zombieState["interruptibleSpecialRemainingMs"] = static_cast<int>(std::lround(
 				drill->GetInterruptibleSpecialActionRemaining() * 1000.0f));
+		}
+		zombieState["mineFogProtection1000"] = static_cast<int>(std::lround(board->GetMineFogProtection(z)*1000));
+		if (auto* miner = dynamic_cast<CrystalHornMinerZombie*>(z)) {
+			const char* names[] = {"READY","WINDUP","CHARGING","COOLDOWN"};
+			zombieState["chargePhase"] = names[static_cast<int>(miner->GetChargePhase())];
+			zombieState["chargeRemainingMs"] = static_cast<int>(std::lround(miner->GetChargeRemaining()*1000));
+			zombieState["chargeTravelled1000"] = static_cast<int>(std::lround(miner->GetChargeTravelled()*1000));
+			zombieState["crystalHelmetVisible"] = anim && anim->GetTrackFollowerVisible("anim_head1","crystal_horn");
 		}
 		if (auto* excavator = dynamic_cast<ExcavatorZombie*>(z)) {
 			const char* names[] = {"READY","APPROACHING","DRILLING","RETRY","SPENT","DISABLED"};

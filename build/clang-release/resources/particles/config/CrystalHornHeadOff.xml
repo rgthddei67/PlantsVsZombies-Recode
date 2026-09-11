@@ -1,0 +1,14 @@
+<Emitter>
+  <Name>CrystalHornHeadOff</Name>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>1.0</ParticleDuration>
+  <ParticleAlpha>1 0.9</ParticleAlpha>
+  <ParticleScale>0.6</ParticleScale>
+  <LaunchSpeed>[60 100]</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>140</ParticleGravity>
+  <ParticleSpinSpeed>[-5 5]</ParticleSpinSpeed>
+  <SystemDuration>1.1</SystemDuration>
+  <Image>PARTICLE_CRYSTALHORNHEAD</Image>
+</Emitter>

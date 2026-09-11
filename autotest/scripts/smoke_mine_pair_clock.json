@@ -1,0 +1,87 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_HORN_MINER",
+      "row": 0,
+      "x": 682,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POLAR_CLOCKMAKER",
+      "row": 0,
+      "x": 902,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "weather.temporalAnchorCount",
+      "equals": 1,
+      "timeout": 30
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_CRYSTAL_HORN_MINER",
+      "damage": 1000,
+      "source": "OTHER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_CRYSTAL_HORN_MINER.helmHealth",
+      "equals": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "clock"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "clock"
+    },
+    {
+      "op": "wait_value",
+      "path": "weather.temporalAnchorCount",
+      "equals": 0,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_CRYSTAL_HORN_MINER.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "dump_state",
+      "name": "clock_restored.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "01_clock_helmet.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

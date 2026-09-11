@@ -83,6 +83,13 @@
 - **冬季地面冲击夹具：** `resolve_winter_ground_impact` 按 `row/col` 选择当前战斗顶层植物，以 `kind=COLLISION/GROUND_CRACK` 调用植物通用冬季冲击语义；`expectedIntercepted`、`expectedContainsScatter` 与 `expectedDownstreamMultiplierOn1000` 直接断言原子响应。该命令只替代尚未实现威胁的动作提交，不施加伤害或伪造雪橇落点。
 - **寒潮预报依赖夹具：** `disrupt_cold_wave_forecast` 只调用 Board 正式干扰入口；`set_melt_snow_pult_shoot_cycle` 与 `set_melt_snow_pult_salt_state` 分别固定融雪投手本次出手和库存/蓄力状态。`meltSnowPultsByCell` 导出库存、蓄力与观测预报状态，bullet 条目的 `winterCorrosionDamage` 只投影盐晶携带的独立目标层腐蚀值；脚本仍须断言普通目标只承受基础 20 点本体伤害，并覆盖干扰前已离手盐晶的存档往返。
 
+### 矿场9-3/9-4专项
+
+`smoke_mine_pair*` 覆盖第二组地形、正式波次、雾潮、声波、晶角冲撞与跨品种交互。
+`set_mine_fog` 只在75/76设置雾潮已过游戏秒（`elapsed=-1`为无雾）和下一波，用于隔离伤害与视觉；正式首次/重复触发由 waves 脚本验证。
+`wait_value` 与 `assert_state` 使用同一状态投影和点路径，但等待 `equals` 状态出现才继续，不直接提交能力；适用于冲撞开始/结束边沿、时间锚结算和声波已发射，仍受命令 `timeout` 保护。
+`mine` 投影增加岩壁数量、雾强度/计时/下一波和晶角当波计数；`echoWaves` 导出冻结路图、已命中ID及冰墙标志。`plant` 是直接创建夹具，不扣卡费；成本验证须走真实卡槽/草坪点击。
+
 ### 全局模态与图鉴往返
 
 `smoke_plant_reward_almanac` 覆盖真实奖杯结算后的新植物奖励页、无奖励/重打/已有卡跳过，

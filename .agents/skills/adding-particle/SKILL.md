@@ -5,6 +5,8 @@ description: Use when adding or tuning ANY particle effect (粒子特效) in PvZ
 
 # 给 PvZ 写粒子特效（XML 配置全参考）
 
+装备缩小时也核对掉落和带装备断头效果的最终尺寸；运行时 follower 缩放不会自动传给独立粒子。以场上合成尺寸对照粒子自身缩放和贴图尺寸，避免装备脱落后突然变大；同步更新确定性生成器及经过审核的输出哈希。
+
 本文件每个标签的语义都是 2026-07-15 从 `ParticleSystem/` 源码逐行实证的（IceFumeCloud 蓝色孢子云实战），
 2026-07-16 随毁灭菇 Doom.xml 移植更新（ImageFrames 序列帧实装 + 原版 XML 移植口径），
 2026-07-20 随雨天特效补充 ParticleRotation 初始朝向，

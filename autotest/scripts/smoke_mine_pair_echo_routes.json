@@ -1,0 +1,262 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ECHOSHROOM",
+      "row": 3,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 4,
+      "x": 922,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "wait_value",
+      "path": "echoWaveCount",
+      "equals": 1,
+      "timeout": 30
+    },
+    {
+      "op": "shovel_plant_at",
+      "row": 3,
+      "col": 3
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "inflight"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "inflight"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "echoWaveCount",
+      "equals": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "dump_state",
+      "name": "orphan_wave.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ECHOSHROOM",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 0,
+      "x": 362,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 3,
+      "x": 522,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 4,
+      "x": 522,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 0,
+      "x": 762,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "wait_value",
+      "path": "echoWaveCount",
+      "equals": 1,
+      "timeout": 30
+    },
+    {
+      "op": "shovel_plant_at",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.2.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.3.helmHealth",
+      "equals": 1100
+    },
+    {
+      "op": "dump_state",
+      "name": "branches.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ECHOSHROOM",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 2,
+      "x": 682,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "echoWaveCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1100
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_INSTANT_COFFEE",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "wait_value",
+      "path": "echoWaveCount",
+      "equals": 1,
+      "timeout": 30
+    },
+    {
+      "op": "screenshot",
+      "name": "01_awake_echo.png"
+    },
+    {
+      "op": "shovel_plant_at",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 1000
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

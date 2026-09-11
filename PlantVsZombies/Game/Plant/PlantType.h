@@ -76,6 +76,7 @@ enum class PlantType
 	PLANT_BOUNDARYFLOWER,	// 界碑花；8-7 奖励，以可充能碎片拒绝九格内非连续敌方入场
 	PLANT_DAWNLOTUS,	// 曙光莲；8-8 奖励，满能量后按当前红色极夜仪表人工点亮黎明
 	PLANT_CARRYVINE, // 搬搬藤；9-1 奖励，整组瞬间搬运工具卡
+	PLANT_ECHOSHROOM, // 回声菇，9-3 奖励
 	NUM_PLANT_TYPES,
 };
 

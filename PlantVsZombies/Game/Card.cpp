@@ -483,7 +483,7 @@ void Card::DrawPlantImage(
 {
 	if (!mPlantTexture) return;
 	const PlantType displayType = GetDisplayPlantType();
-	if (displayType == PlantType::PLANT_CARRYVINE) {
+	if (displayType == PlantType::PLANT_CARRYVINE || displayType == PlantType::PLANT_ECHOSHROOM) {
 		// 新卡图是紧裁切合成，不能沿用经典贴图含透明边距的左上偏移。
 		constexpr float inset = 4.0f; // 卡图左右安全边距，UI px
 		constexpr float top = 8.0f; // 卡图区域上边距，UI px
@@ -493,8 +493,11 @@ void Card::DrawPlantImage(
 			height / mPlantTexture->height);
 		const float w = mPlantTexture->width * scale;
 		const float h = mPlantTexture->height * scale;
-		g->DrawTexture(mPlantTexture, position.x + inset + (width - w) * 0.5f,
-			position.y + top + (height - h) * 0.5f, w, h, 0.0f, color);
+		const float x = position.x + inset + (width - w) * 0.5f;
+		const float y = position.y + top + (height - h) * 0.5f;
+		if (mPlantType == PlantType::PLANT_IMITATER && HasImitaterTarget())
+			DrawImitaterPlantImage(g,mPlantTexture,x,y,w,h,color,false);
+		else g->DrawTexture(mPlantTexture,x,y,w,h,0.0f,color);
 		return;
 	}
 	const bool isMelonFamily = displayType == PlantType::PLANT_MELONPULT

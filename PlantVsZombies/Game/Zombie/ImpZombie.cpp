@@ -1,4 +1,5 @@
 #include "ImpZombie.h"
+#include "Game/Board/Board.h"
 
 #include "ImpCharred.h"
 #include "../AudioSystem.h"
@@ -103,6 +104,28 @@ void ImpZombie::ZombieMove(float scaledDelta, Transform* transform)
 	}
 }
 
+void ImpZombie::ConstrainMineLanding()
+{
+	if (!mBoard || !mBoard->IsMineBackground() || mPhase != Phase::THROWN) return;
+	const float seconds = (mVerticalVelocity + std::sqrt(mVerticalVelocity*mVerticalVelocity
+		+ 2*kThrowGravity*mAltitude)) / kThrowGravity;
+	const float direction = mThrowMovingRight ? 1.0f : -1.0f;
+	const float source = GetPosition().x;
+	const float proposed = source + direction*mHorizontalVelocity*seconds;
+	const float first = mBoard->GetCellCenterPosition(mRow,0).x;
+	int column = std::clamp(static_cast<int>(std::lround((proposed-first)/CELL_COLLIDER_SIZE_X)),0,mBoard->mColumns-1);
+	for (; column >= 0 && column < mBoard->mColumns; column += mThrowMovingRight ? -1 : 1) {
+		const int cell = MineGrid::Index(mRow,column);
+		if (mBoard->mMineGrid.rock[cell] || !mBoard->mMineGrid.connected[cell]) continue;
+		const float center = mBoard->GetCellCenterPosition(mRow,column).x;
+		mMineLandingX = mBoard->mMineGrid.IsRock(mRow,std::clamp(static_cast<int>(std::lround((proposed-first)/CELL_COLLIDER_SIZE_X)),0,mBoard->mColumns-1))
+			? center : std::clamp(proposed,first,mBoard->GetCellCenterPosition(mRow,mBoard->mColumns-1).x);
+		mHorizontalVelocity = std::max(0.0f,(mMineLandingX-source)*direction/seconds);
+		mHasMineLanding = true;
+		return;
+	}
+}
+
 void ImpZombie::ZombieUpdate(float scaledTime)
 {
 	if (mPhase == Phase::THROWN) {
@@ -119,6 +142,10 @@ void ImpZombie::ZombieUpdate(float scaledTime)
 void ImpZombie::BeginLanding()
 {
 	if (mPhase != Phase::THROWN) return;
+	if (mHasMineLanding) {
+		GetTransform()->SetPosition(Vector(mMineLandingX,mBoard->GetZombieSpawnY(mRow,mMineLandingX)));
+		mMineTargetCell = -1;
+	}
 	mPhase = Phase::LANDING;
 	mAltitude = 0.0f;
 	mVerticalVelocity = 0.0f;
@@ -229,6 +256,8 @@ void ImpZombie::Charred()
 
 void ImpZombie::SaveExtraData(nlohmann::json& j) const
 {
+	j["mineLandingX"] = mMineLandingX;
+	j["hasMineLanding"] = mHasMineLanding;
 	j["phase"] = static_cast<int>(mPhase);
 	j["altitude"] = mAltitude;
 	j["verticalVelocity"] = mVerticalVelocity;
@@ -238,6 +267,9 @@ void ImpZombie::SaveExtraData(nlohmann::json& j) const
 
 void ImpZombie::LoadExtraData(const nlohmann::json& j)
 {
+	mMineLandingX = j.value("mineLandingX",0.0f);
+	mHasMineLanding = j.value("hasMineLanding",false) && mBoard && mBoard->IsMineBackground()
+		&& std::isfinite(mMineLandingX);
 	mPhase = static_cast<Phase>(std::clamp(j.value("phase", 0), 0,
 		static_cast<int>(Phase::LANDING)));
 	mAltitude = std::clamp(j.value("altitude", 0.0f), 0.0f, 1000.0f);

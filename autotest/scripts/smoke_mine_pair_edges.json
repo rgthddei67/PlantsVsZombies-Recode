@@ -1,0 +1,260 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_HORN_MINER",
+      "row": 0,
+      "x": 670
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "WINDUP",
+      "timeout": 30
+    },
+    {
+      "op": "apply_zombie_control",
+      "effect": "PARALYSIS",
+      "duration": 1,
+      "expectedApplied": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.chargePhase",
+      "equals": "WINDUP"
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "expectedChanged": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.chargePhase",
+      "equals": "COOLDOWN"
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "expectedChanged": false
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "CHARGING",
+      "timeout": 30
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "expectedChanged": false
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "charge"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "charge"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "COOLDOWN",
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "exact_impact.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_3.health",
+      "equals": 3500
+    },
+    {
+      "op": "screenshot",
+      "name": "01_impact.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_HORN_MINER",
+      "row": 0,
+      "x": 922
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "WINDUP",
+      "timeout": 30
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 6,
+      "row": 3,
+      "col": 3
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "CHARGING",
+      "timeout": 30
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "miss"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "miss"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.chargePhase",
+      "equals": "COOLDOWN",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.chargeTravelled1000",
+      "equals": 6000
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.3_3.health",
+      "equals": 4000
+    },
+    {
+      "op": "dump_state",
+      "name": "six_cells.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 76,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_HORN_MINER",
+      "row": 2,
+      "x": 342,
+      "paralyzedFor": 60
+    },
+    {
+      "op": "screenshot",
+      "name": "02_helmet_fit.png"
+    },
+    {
+      "op": "damage_zombie",
+      "damage": 600,
+      "source": "OTHER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.helmHealth",
+      "equals": 400
+    },
+    {
+      "op": "screenshot",
+      "name": "03_cracked.png"
+    },
+    {
+      "op": "damage_zombie",
+      "damage": 400,
+      "source": "OTHER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.crystalHelmetVisible",
+      "equals": false
+    },
+    {
+      "op": "screenshot",
+      "name": "04_broken.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -234,6 +234,8 @@ public:
 	virtual void RestoreTemporalAbilityState(const ZombieTemporalAbilityState&) {}
 	/** 时间锚恢复核心数值后，静默重建可逆分件与品种派生状态；不得回滚动作相位或重放掉落效果。 */
 	virtual void OnTemporalCoreStateRestored();
+	/** 时间锚重建新实体后收敛不可退款的本地能力；存活目标不调用。 */
+	virtual void OnTemporalRecreated() {}
 	/** 时间锚恢复全部局部阶段后，重建有效啮食表现并原子收尾失效植物目标。 */
 	void ReconcileTemporalEatingPresentation();
 	/**

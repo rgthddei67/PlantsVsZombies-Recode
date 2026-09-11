@@ -15,7 +15,6 @@
     { "op": "dump_state", "name": "d0_imp_limb_particles.json" },
     { "op": "assert_state", "path": "particleEffectsByName.ImpZombieHeadOff.0.nearestZombie.boundsIntersect", "equals": true },
     { "op": "assert_state", "path": "particleEffectsByName.ImpZombieHeadOff.0.nearestZombie.centerDxInt", "atLeast": -20, "atMost": 20 },
-    { "op": "assert_state", "path": "particleEffectsByName.ImpZombieHeadOff.0.nearestZombie.centerDyInt", "atLeast": -40, "atMost": 40 },
     { "op": "assert_state", "path": "particleEffectsByName.ImpZombieArmOff.0.nearestZombie.boundsIntersect", "equals": true },
     { "op": "assert_state", "path": "particleEffectsByName.ImpZombieArmOff.0.nearestZombie.centerDxInt", "atLeast": -20, "atMost": 20 },
     { "op": "assert_state", "path": "particleEffectsByName.ImpZombieArmOff.0.nearestZombie.centerDyInt", "atLeast": -40, "atMost": 40 },

@@ -251,7 +251,10 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	}
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
-	if (IsMineBackground()) { mMineGrid.Initialize(); mSun = 200; }
+	if (IsMineBackground()) {
+		mMineGrid.Initialize(mLevel == 75 || mLevel == 76 ? 1 : 0);
+		mSun = mLevel == 75 || mLevel == 76 ? 300 : 200;
+	}
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
 	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
 	// 屋顶预览会读取行高与连续坡面；必须在网格尺寸完成初始化后再生成。
@@ -682,6 +685,11 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
 		++mClockmakersSpawnedThisWave;
+	}
+	if (selected == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) {
+		if (mCrystalMinersSpawnedThisWave >= 1 || CountActiveOrPendingZombieType(selected) >= 2)
+			return ZombieType::NUM_ZOMBIE_TYPES;
+		++mCrystalMinersSpawnedThisWave;
 	}
 	return ResolveRainMutationType(selected, mutationRoll);
 }
@@ -2617,6 +2625,7 @@ void Board::SummonNextWave()
 	mThermalSnipersSpawnedThisWave = 0;
 	mAuroraPriestsSpawnedThisWave = 0;
 	mClockmakersSpawnedThisWave = 0;
+	mCrystalMinersSpawnedThisWave = 0;
 	mMistFuelAssignedThisWave = 0;
 	if (mCurrentWave == 1)
 	{
@@ -2639,8 +2648,11 @@ void Board::SummonNextWave()
 	}
 
 	if (IsMineBackground() && mMinePlannedWave == mCurrentWave) {
-		for (const auto& entry : mMineWavePlan)
-			CreateOrQueueWaveZombie(entry.first, entry.second, static_cast<float>(SCENE_WIDTH) + 40.0f);
+		for (const auto& entry : mMineWavePlan) {
+			const ZombieType actual = ResolveWaveZombieType(entry.first);
+			if (actual != ZombieType::NUM_ZOMBIE_TYPES)
+				CreateOrQueueWaveZombie(actual, entry.second, static_cast<float>(SCENE_WIDTH) + 40.0f);
+		}
 		mMineWavePlan.clear();
 	} else TrySummonZombie();
 	TrySummonAdventureBoss();
@@ -2769,6 +2781,8 @@ void Board::SetRowLoseMower(int row)
 
 bool Board::IsSpawnRowCompatible(ZombieType type, int row) const
 {
+	// 车辆没有转弯能力；第二组唯一完整直道位于上入口。
+	if (SupportsMineFog() && type == ZombieType::ZOMBIE_ZAMBONI) return row == 0;
 	// 海豚僵尸依赖池沿入水状态机，只能在泳池背景的两条水路生成。
 	if (type == ZombieType::ZOMBIE_DOLPHIN_RIDER
 		|| type == ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER) {
@@ -3305,6 +3319,8 @@ void Board::Update()
 	UpdateIceTrails(DeltaTime::GetDeltaTime());
 	UpdatePolarFinaleRituals(DeltaTime::GetDeltaTime());
 	UpdateMine(DeltaTime::GetDeltaTime());
+	UpdateMineFog(DeltaTime::GetDeltaTime());
+	UpdateEchoWaves(DeltaTime::GetDeltaTime());
 	CleanupExpiredObjects();
 	mUpdateZombieMetricsTimer += DeltaTime::GetDeltaTime();
 	if (mUpdateZombieMetricsTimer >= 0.5f)
@@ -3324,6 +3340,14 @@ void Board::PrepareMineWave()
 	if (mMinePlannedWave > mMaxWave) return;
 	int remaining = CalculateWaveZombiePoints(mMinePlannedWave);
 	bool excavatorPlanned = false;
+	bool crystalPlanned = false;
+	if (mLevel == 75 && mMinePlannedWave == 3) {
+		mMineWavePlan.emplace_back(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER,0);
+		mMineWavePlan.emplace_back(ZombieType::ZOMBIE_NORMAL,0);
+		mMineWavePlan.emplace_back(ZombieType::ZOMBIE_NORMAL,0);
+		remaining = std::max(0,remaining - 5000);
+		crystalPlanned = true;
+	}
 	// 第三波的保证名额先扣正常预算；后续随机抽取至多占用一个本波名额。
 	if (mLevel == 74 && mMinePlannedWave == 3) {
 		const int row = SelectSpawnRow(ZombieType::ZOMBIE_EXCAVATOR,mMinePlannedWave);
@@ -3337,6 +3361,14 @@ void Board::PrepareMineWave()
 		&& mMineWavePlan.size() < MAX_ZOMBIES_PER_WAVE; ++attempt) {
 		const ZombieType type = PickZombieType(remaining, mMinePlannedWave);
 		if (type == ZombieType::ZOMBIE_EXCAVATOR && excavatorPlanned) continue;
+		if (type == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER
+			&& (crystalPlanned || CountActiveOrPendingZombieType(type) >= 2)) continue;
+		if (type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER) {
+			const int planned = static_cast<int>(std::count_if(mMineWavePlan.begin(),mMineWavePlan.end(),
+				[type](const auto& entry) { return entry.first == type; }));
+			if (planned >= kPolarClockmakerMaxPerWave
+				|| planned + CountActiveOrPendingZombieType(type) >= kPolarClockmakerMaxActive) continue;
+		}
 		// 预报必须包含实际可生成的阵容；沿用精英小丑既有上限，不另设9-2专属限制。
 		if (type == ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX
 			&& std::count_if(mMineWavePlan.begin(),mMineWavePlan.end(),[type](const auto& entry) {
@@ -3353,6 +3385,7 @@ void Board::PrepareMineWave()
 		mRowInfos[row].lastPicked = 0;
 		mMineWavePlan.emplace_back(type, row);
 		if (type == ZombieType::ZOMBIE_EXCAVATOR) excavatorPlanned = true;
+		if (type == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) crystalPlanned = true;
 		remaining -= cost;
 	}
 }

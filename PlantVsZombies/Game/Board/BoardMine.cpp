@@ -251,10 +251,14 @@ void Board::DrawMineGround(Graphics* g)
 		const PlantType type = mCardSlotManager->GetPlacementPreviewType();
 		if (hovered && CanPlantOnMineCell(hovered->mRow, hovered->mColumn)) {
 			const Vector origin = GetCellCenterPosition(hovered->mRow, hovered->mColumn);
+			const bool echo = type == PlantType::PLANT_ECHOSHROOM;
+			const EchoWave wave = echo ? BuildEchoWave(hovered->mRow,hovered->mColumn) : EchoWave{};
 			for (int r = 0; r < mRows; ++r) for (int c = 0; c < mColumns; ++c) {
 				const Vector p = GetCellCenterPosition(r,c);
-				if (!CoversMinePreview(type,r - hovered->mRow,p.x - origin.x,p.y - origin.y)) continue;
-				const bool blocked = type != PlantType::PLANT_ICESHROOM && MineBlocksSegment(origin,p);
+				// 回声菇的预览与发射共用通路图，不能套用普通射手的直线遮挡投影。
+				if (echo ? wave.distances[r*mColumns+c] < 0
+					: !CoversMinePreview(type,r - hovered->mRow,p.x - origin.x,p.y - origin.y)) continue;
+				const bool blocked = !echo && type != PlantType::PLANT_ICESHROOM && MineBlocksSegment(origin,p);
 				g->FillRect(p.x - 39,p.y - mCellHeight * 0.5f + 1,78,mCellHeight - 2,
 					blocked ? glm::vec4(18,21,31,115) : glm::vec4(90,219,213,58));
 			}
@@ -336,6 +340,10 @@ void Board::DrawMineWalls(Graphics* g)
 void Board::DrawMineUI(Graphics* g)
 {
 	if (!IsMineBackground() || mBoardState != BoardState::GAME) return;
+	if (mMineFogNoticeRemaining > 0.0f) {
+		GameAPP::GetInstance().DrawText(u8"幽晶雾潮：雾中僵尸受到的伤害降低25%，迷雾无法驱散。",
+			Vector(g->LogicalToWorld(215, 105)), {185,230,255,255}, ResourceKeys::Fonts::FONT_FZCQ, 19);
+	}
 	// 施工进度独立在 UI 层绘制，避免被后绘制的前排岩壁和碎石遮挡。
 	if (mMineDigCell >= 0) {
 		const Vector p = GetCellCenterPosition(mMineDigCell / mColumns, mMineDigCell % mColumns);

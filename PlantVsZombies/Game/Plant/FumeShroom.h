@@ -18,7 +18,9 @@ protected:
 	virtual const char* FumeParticleName() const { return "FumeCloud"; }
 	virtual void OnFumeHit(Zombie* zombie) {}
 
-	bool HasZombieInRow();		// 检测本行是否有僵尸
+	virtual bool HasZombieInRow(); // 检测合法目标，变种可沿通路搜索
+	/** 共用已批准的第 27 帧事件；变种只替换发射效果。 */
+	virtual void FireFume();
 	float FumeAttack();			// 按近到远结算喷雾；返回阻断点世界 X，负值表示未被阻断
 
 	void SetupPlant() override;

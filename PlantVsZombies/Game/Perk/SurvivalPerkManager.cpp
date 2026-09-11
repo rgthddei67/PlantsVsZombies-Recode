@@ -134,6 +134,10 @@ int SurvivalPerkManager::ScaleTotalDamageToZombie(int base) const {
 	return ScaleDamageToZombie(ScalePlantDamage(base));
 }
 
+int SurvivalPerkManager::ScaleNumericDamage(int base, double multiplier) {
+	return RoundScale(base, multiplier);
+}
+
 int SurvivalPerkManager::ScaleDamageToPlant(int base) const {
 	return RoundScale(base, GetPlantDamageTakenMultiplier());
 }

@@ -1,14 +1,19 @@
 #include "Game/Board/MineGrid.h"
 #include <algorithm>
 
-void MineGrid::Initialize()
+void MineGrid::Initialize(int layoutGroup)
 {
 	constexpr const char* layout[Rows] = {
 		"....#####", "..#......", "..#######", "..#......", "....#####"
 	};
+	constexpr const char* secondLayout[Rows] = {
+		".........", "..#######", "..#######", "....#####", "..#......"
+	};
 	for (int r = 0; r < Rows; ++r)
-		for (int c = 0; c < Columns; ++c) rock[Index(r, c)] = layout[r][c] == '#';
-	entrance = { false, true, false, true, false };
+		for (int c = 0; c < Columns; ++c)
+			rock[Index(r, c)] = (layoutGroup == 1 ? secondLayout : layout)[r][c] == '#';
+	entrance = layoutGroup == 1 ? std::array<bool, Rows>{ true, false, false, false, true }
+		: std::array<bool, Rows>{ false, true, false, true, false };
 	Rebuild();
 }
 

@@ -210,6 +210,7 @@
     <Image>./resources/image/PlantImage/EliteScaredyShroom.png</Image>
     <Image>./resources/image/PlantImage/FlowerPot.png</Image>
     <Image>./resources/image/PlantImage/FumeShroom.png</Image>
+    <Image>./resources/image/PlantImage/EchoShroom.png</Image>
     <Image>./resources/image/PlantImage/Garlic.png</Image>
     <Image>./resources/image/PlantImage/GatlingPea.png</Image>
     <Image>./resources/image/PlantImage/GloomShroom.png</Image>
@@ -441,6 +442,7 @@
     <Texture>./resources/particles/ZombieFootballHead.png</Texture>
     <Texture>./resources/particles/ZombieHead.png</Texture>
     <Texture>./resources/particles/ExcavatorHead.png</Texture>
+    <Texture>./resources/particles/CrystalHornHead.png</Texture>
     <Texture>./resources/particles/ZombieRoofMarshalHead.png</Texture>
     <Texture>./resources/particles/ZombieBalloonHead.png</Texture>
     <Texture>./resources/image/reanim/Zombie_polevaulter_innerhand.png</Texture>
@@ -690,6 +692,8 @@
     <Reanimation name="Imitater">./resources/reanim/Imitater.reanim</Reanimation>
 
     <Reanimation name="NormalZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="EchoShroom">./resources/reanim/EchoShroom.reanim</Reanimation>
+    <Reanimation name="CrystalHornMinerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="ExcavatorZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="RoofMarshalZombie">./resources/reanim/RoofMarshal.reanim</Reanimation>
     <Reanimation name="RoofMarshalAssaultFlag">./resources/reanim/RoofMarshalAssaultFlag.reanim</Reanimation>

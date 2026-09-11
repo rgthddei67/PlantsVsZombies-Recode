@@ -373,8 +373,14 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	if (board->IsMineBackground()) {
 		j["mine"] = { {"rocks", board->mMineGrid.rock}, {"digCell", board->mMineDigCell},
 			{"digRemaining", board->mMineDigRemaining}, {"tutorialSeen", board->mMineTutorialSeen},
+			{"fogElapsed",board->mMineFogElapsed}, {"fogNextWave",board->mMineFogNextWave},
+			{"fogTutorialSeen",board->mMineFogTutorialSeen}, {"fogNotice",board->mMineFogNoticeRemaining},
 			{"plannedWave", board->mMinePlannedWave}, {"wavePlan", board->mMineWavePlan} };
 	}
+	j["echoWaves"] = nlohmann::json::array();
+	for (const auto& wave : board->mEchoWaves) j["echoWaves"].push_back({
+		{"row",wave.row},{"column",wave.column},{"elapsed",wave.elapsed},
+		{"distances",wave.distances},{"hitIDs",wave.hitIDs},{"hitIceWall",wave.hitIceWall}});
 	j["polarNightInitialized"] = board->mPolarNightInitialized;
 	j["polarNightPhase"] = static_cast<int>(board->mPolarNightPhase);
 	j["polarPlanIsWhiteout"] = board->mPolarPlanIsWhiteout;
@@ -549,6 +555,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["thermalSniperTutorialSpawned"] = board->mThermalSniperTutorialSpawned;
 	j["auroraPriestsSpawnedThisWave"] = board->mAuroraPriestsSpawnedThisWave;
 	j["clockmakersSpawnedThisWave"] = board->mClockmakersSpawnedThisWave;
+	j["crystalMinersSpawnedThisWave"] = board->mCrystalMinersSpawnedThisWave;
 	j["auroraPriestGuaranteeConsumed"] = board->mAuroraPriestGuaranteeConsumed;
 	j["clockmakerGuaranteeConsumed"] = board->mClockmakerGuaranteeConsumed;
 	j["mistFuelDropAccumulator"] = board->mMistFuelDropAccumulator;
@@ -583,7 +590,8 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	nlohmann::json plantsArr = nlohmann::json::array();
 	for (int id : board->mEntityRegistry.GetAllPlantIDs()) {
 		auto plant = board->mEntityRegistry.GetPlant(id);
-		if (!plant) continue;
+		// 死亡/替换先失活、下一帧才从注册表移除；此间存档不能把旧壳重新保存为活株。
+		if (!plant || !plant->IsActive()) continue;
 		nlohmann::json p;
 		p["id"] = id;
 		p["type"] = static_cast<int>(plant->mPlantType);
@@ -1073,6 +1081,10 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		? std::clamp(j.value("winterFrostVariant", 0), 0, 2) : 0;
 	if (board->IsMineBackground() && j.contains("mine") && j["mine"].is_object()) {
 		const auto& mine = j["mine"];
+		board->mMineFogElapsed = std::clamp(mine.value("fogElapsed",-1.0f),-1.0f,60.0f);
+		board->mMineFogNextWave = std::max(10,mine.value("fogNextWave",10));
+		board->mMineFogTutorialSeen = mine.value("fogTutorialSeen",false);
+		board->mMineFogNoticeRemaining = std::clamp(mine.value("fogNotice",0.0f),0.0f,8.0f);
 		if (mine.contains("rocks") && mine["rocks"].is_array() && mine["rocks"].size() == MineGrid::Count) {
 			for (int cell = 0; cell < MineGrid::Count; ++cell) {
 				if (mine["rocks"][cell].is_boolean())
@@ -1222,6 +1234,21 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		board->mPolarFluctuationDuration = 0.0f;
 	}
 	board->mPendingAuroraRifts.clear();
+	board->mEchoWaves.clear();
+	if (j.contains("echoWaves") && j["echoWaves"].is_array()) for (const auto& saved : j["echoWaves"]) {
+		if (!saved.is_object()) continue;
+		Board::EchoWave wave;
+		wave.row = saved.value("row",0); wave.column = saved.value("column",0);
+		wave.elapsed = saved.value("elapsed",0.0f);
+		wave.hitIceWall = saved.value("hitIceWall",false);
+		wave.distances = saved.value("distances",std::vector<int>{});
+		wave.hitIDs = saved.value("hitIDs",std::vector<int>{});
+		if (!std::isfinite(wave.elapsed) || wave.elapsed < 0 || wave.elapsed > 1.55f
+			|| wave.row < 0 || wave.row >= board->mRows || wave.column < 0 || wave.column >= board->mColumns
+			|| wave.distances.size() != static_cast<size_t>(board->mRows * board->mColumns)
+			|| std::any_of(wave.distances.begin(),wave.distances.end(),[](int d){return d < -1 || d > 6;})) continue;
+		board->mEchoWaves.push_back(std::move(wave));
+	}
 	board->mTemporalAnchors.clear();
 	board->mNextDiscontinuousTransactionID = std::max(1,
 		j.value("nextDiscontinuousTransactionID", 1));
@@ -1267,7 +1294,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 				target.helmType = static_cast<HelmType>(std::clamp(savedTarget.value(
 					"helmType", static_cast<int>(HelmType::HELMTYPE_NONE)),
 					static_cast<int>(HelmType::HELMTYPE_NONE),
-					static_cast<int>(HelmType::HELMTYPE_CLOCK_DISK)));
+					static_cast<int>(HelmType::HELMTYPE_CRYSTAL_HORN)));
 				target.helmHealth = std::max(0, savedTarget.value("helmHealth", 0));
 				target.shieldType = static_cast<ShieldType>(std::clamp(savedTarget.value(
 					"shieldType", static_cast<int>(ShieldType::SHIELDTYPE_NONE)),
@@ -1543,7 +1570,8 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->mAuroraPriestsSpawnedThisWave = std::clamp(
 		j.value("auroraPriestsSpawnedThisWave", 0), 0, 3);
 	board->mClockmakersSpawnedThisWave = std::clamp(
-		j.value("clockmakersSpawnedThisWave", 0), 0, 2);
+		j.value("clockmakersSpawnedThisWave", 0), 0, 3);
+	board->mCrystalMinersSpawnedThisWave = std::clamp(j.value("crystalMinersSpawnedThisWave",0),0,1);
 	board->mAuroraPriestGuaranteeConsumed =
 		j.value("auroraPriestGuaranteeConsumed", false);
 	board->mClockmakerGuaranteeConsumed =
