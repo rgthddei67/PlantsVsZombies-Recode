@@ -30,7 +30,9 @@ description: Use when adding ANY new plant (新增植物) to PvZ — 射手/生�
 - 修改 gamedata offset、附件、整株变换或 `SetRenderScale` 时，在默认实例路径跑同一静止用例并比较整数 `worldBounds`；截图负责肉眼基线，运动对象瞬时绝对 X/Y 只供诊断、不作稳定断言。
 - 战场主体按 `row N 植物 → row N 僵尸/扶梯 → row N+1 植物` 交错绘制；同排僵尸仍在植物之上，下一行植物遮挡上一行越界身体。植物运行期换行/搬格若改变 `mRow`，必须同步调用 `GameObjectManager` 的排序键刷新入口；小推车与子弹层不得顺带改动。专项同时断言语义 `renderLayer` 未变、实际 `renderOrder` 行带正确，并以默认屋顶跨行截图验收。
 
-## 第 0 步：勘察（动手前全部做完）
+## 新增植物的勘察
+
+以下清单用于新植物或相应契约的实质修改。单纯调参直接检查权威参数、单位、相关限制及必要测试，不重做未涉及的动画、音效和注册勘察；历史原因按需查记忆。
 
 1. **读 reanim**：`build/clang-release/resources/reanim/<Name>.reanim`，用 Grep `<name>` 提取全部 track 名，`anim_xxx` 即可用动画（具体可以询问主人，有些anim_xxx并不是可用动画，而是一个track）；`<f>-1/0</f>` 对定位 anim 轨活跃帧区间。
 2. **读 C# 参考并主动盘点音效**：`D:\PVZ\PlantsVsZombies.NET-master\Lawn_Shared\Lawn\Plant\Plant.cs`，grep 植物名，读专属 Update 函数 + 发射物类型 + mShootingCounter/state 分支，先记录必须忠实的行为与数值，再按本项目现有所有权、坐标、更新、绘制和存档契约实现；同时收集相关路径的全部 `PlayFoley` / `PlaySample`，不要等主人听出缺声才补。受啃、受击等由外部对象触发的反馈还必须搜索消费方（例如 `Zombie::AnimateChewSound` 会按植物类型选择 `ChompSoft`），不能只读 `Plant.cs`。沿 `FoleyType → Sexy.TodLib/Foley/TodFoley.cs → Resources.SOUND_*` 得到精确资源键，以资源键去掉 `SOUND_` 后的小写名到 `D:\PVZ\中文年度加强版完整版\Test\sounds\` 查同名 `.ogg`。找到后复制到唯一权威 `build/clang-release/resources/sounds/` 合理子目录，并同步 `resources.xml` 与 `ResourceKeys.h`；找不到才问主人，禁止用相近声音静默替代。构建后检查 `manifest.txt` 和启动日志无 missing sound，并用可见行为路径及 `GetSoundPlayRequestCount` 投影验证触发次数（含读档不得重响）。
@@ -189,15 +191,15 @@ description: Use when adding ANY new plant (新增植物) to PvZ — 射手/生�
 
 15. 只更换弹种、音效或命中语义且共享射击周期、动画帧和存档状态的升级变体，让基础射手持有全部状态并暴露窄虚入口返回 `BulletType`，派生类只覆写品种差异；禁止复制一套计时/存档状态机。若穿透伤害已实际进入持盾目标后层，而 C# 状态语义要求同次命中影响该目标，状态入口须显式采用与该伤害一致的护盾口径，并分别断言盾、本体与状态，不能让仍存在的盾再次把状态挡掉。
 
-这类跨系统植物**不走"简短 spec 直实现"捷径**：回到完整 brainstorm（交互矩阵集中一次问齐）→spec→必要时 writing-plans。
+跨系统植物先集中确认本次新增的交互边界，再实施；是否需要保存设计或计划按根目录 AGENTS.md 的“文档与记忆”判断，不因跨系统就机械生成多份文档。
 
 ## 流程与模板
 
 验证矩阵按实际改动面分流：新植物、新 reanim、新附件、新粒子或普通资源本身只要求默认 `clang-release` 可见专项与相关资源/截图断言，不机械加跑 `-NoInstance` 或 OpenGL。只有实际改到渲染后端、后端兼容路径或跨后端提交实现时，才补默认 Vulkan + `-NoInstance` + 强制 OpenGL 回归。本条覆盖本 skill 前文各专项沿用的旧“默认双路径截图”表述：未改渲染后端时，那些专项只跑默认路径。
 
-纯植物侧的小套路：brainstorm 问清关键项→简短 spec 存 `docs/superpowers/specs/`→直接实现（不必单独 writing-plans）。模板：`2026-07-08-scaredyshroom-design.md`。完成并验证后由 Codex 提交，再按仓库风险、工作区状态和上游是否明确决定是否常规 push。
+先确认未定玩法，再实现与验证。简单调参或已明确的小改动不新建 spec/计划；需跨任务接续或暂不实现的复杂设计只保存一份简短规格。当前数值直接查源码/权威配置，意图和扩展边界优先写在代码注释；不要求主人同步维护文档。提交与 push 遵循根目录 AGENTS.md。
 
-**每次完成并验证任何植物新增或实质修改后，必须在提交前完善本 skill**：把本次实际暴露的新坐标换算、交互契约、foot-gun 或验证手法浓缩进相关章节；已有规则则合并强化，不堆一次性日志。任务同时修改粒子、僵尸或天气时，也同步完善本次实际使用的对应 skill。更新后运行 skill-creator 的 `quick_validate.py` 校验全部改动过的 skill。
+仅发现可复用的接口、坐标、生命周期或验证经验变化时，更新对应 skill/reference；已有规则足够或只是调参则不修改，不复制品种数值和一次性任务日志。只审阅实际受影响的条款，改过的技能运行 skill-creator 的 `quick_validate.py`。
 
 **最终视觉占位符审计（提交前必做）**：逐项列出本次新增或实质修改植物的卡图、reanim 分件、运行时 `Draw*` 图形、子弹、粒子、状态标志、范围框和阶段反馈，并主动搜索相关 `DrawCircle` / `FillCircle` / `DrawRect` / `DrawLine` 调用及临时资源键。简单图元可以作为完整设计的构成元素，但若单个圆圈、十字、单条斜线、单像素边框、纯色矩形、默认贴图或未细化复用图单独承担机制身份，就视为尚未完成的占位符。每个关键完整状态都要保留实机尺度同步截图，不能只截破损、消失或被其他效果遮住后的残片；在目标关卡背景、血量文字、粒子和相邻单位叠加下检查轮廓、材质层次、锚点与可读性。发现简单占位符必须先完善再交付，并在完工汇报中明确说明审计范围和结果。
 

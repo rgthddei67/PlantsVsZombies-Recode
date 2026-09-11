@@ -7,9 +7,9 @@ description: Use when adding or tuning ANY rain-weather-dependent feature or Boa
 
 雨天状态由 `Board` 统一持有。优先在效果的唯一结算点读取天气，不要让每个实体复制一份可由 `Board` 推导的雨势状态；只有“随机结果只判定一次”“进入/离开雨天触发一次”或“可逆形态”才新增实体字段。
 
-若原版或 C# 已有对应天气行为，先把玩家可感知的档位、触发边界、时序、数值、音画反馈和关卡门禁写成行为契约，并保持功能一致；随后核对本项目现有 `Board` 权威、独立天气维度、1100×600 场景、展示端口和存档 schema，再用当前接口实现。禁止把 C# 的 Board/Scene 耦合、800×600 坐标或字段布局机械复制进来。原版没有的天气扩展以主人规格和当前项目契约为准，不得为了“像 C#”破坏已经独立的天气状态。
+若原版或 C# 已有对应天气行为，先核对玩家可感知的档位、触发边界、时序、数值、音画反馈和关卡门禁，并保持功能一致；关键契约优先写在接口注释，是否另存设计按根目录 AGENTS.md 判断。随后核对本项目现有 `Board` 权威、独立天气维度、1100×600 场景、展示端口和存档 schema，再用当前接口实现。禁止把 C# 的 Board/Scene 耦合、800×600 坐标或字段布局机械复制进来。原版没有的天气扩展以主人规格和当前项目契约为准，不得为了“像 C#”破坏已经独立的天气状态。
 
-开始前先读仓库根目录 `AGENTS.md`，并按任务范围阅读 `docs/agent-guide/PROJECT_GUIDE.md`。必须完整阅读 [references/contracts.md](references/contracts.md)，再以当前源码核实其中的路径和行为；历史文档只作上下文。
+遵循根目录 `AGENTS.md`，按任务范围读取项目指南和 [references/contracts.md](references/contracts.md) 的相关章节。当前数值/行为直接定位源码与配置；需要历史原因或陷阱时再查记忆，不因调参遍历全部天气合同。
 
 若任务同时涉及以下内容，必须一并使用对应技能：
 
@@ -47,7 +47,7 @@ description: Use when adding or tuning ANY rain-weather-dependent feature or Boa
    - 若限制语义是“每波最多 N 次”，计数只在正式 `Board::SummonNextWave()` 推进到新波时清零；`StopTyphoon()`、放晴或重新起台风都不得返还同一波额度。计数进入 Board 存档，旧字段按保守已消费量迁移。
    - 新字段能用中性默认值表示旧档时保持兼容；结构或语义变化无法只靠默认值表达时，提升 `SaveSchema::kCurrentLevelVersion`，增加逐版本迁移和 `SaveSchemaTests`。JSON 必须先升级成功，再修改 `Board`。
 6. 增加 AutoTest 可观测字段与最小脚本，覆盖晴天、目标雨势、放晴、减速/冻结组合，以及随机变异的固定种子结果。
-7. 更新对应天气/场景主题、相关僵尸/植物主题和 `docs/agent-memory/MEMORY.md`。
+7. 仅有可复用经验、入口或有效契约变化时更新相关主题/技能；简单调参不抄写数值到记忆，已有设计只链接，按根目录 AGENTS.md 的“文档与记忆”执行。
 8. 所有天气任务的编译、F5、范围最小可见 AutoTest 和最终相关回归都默认直接使用带 LTO/精简行表 PDB 的 `clang-release`。同一份当前源码已用该产物完成相关验证时，不再重复编译 Debug 或重跑同一轮 AutoTest。只有主人明确要求 Debug CRT/Debug 语义，或 Release 问题确实需要辅助诊断时，才显式切换 `clang-debug`。仅改技能文档时无需构建游戏。
 
 ## 不可破坏的契约

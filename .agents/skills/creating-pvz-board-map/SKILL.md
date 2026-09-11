@@ -7,11 +7,11 @@ description: Use when creating or substantially reworking a playable PvZ map/bac
 
 地图不是一张“看起来像草坪”的插画，而是美术、Cell 几何、场景语义和资源接入共同组成的可玩契约。AI 生成图只负责候选画面；当前源码中的 Board 坐标和最终实机截图才是几何事实。
 
-开始前先读仓库根目录 `AGENTS.md`，按任务范围阅读 `docs/agent-guide/PROJECT_GUIDE.md`，并搜索 `docs/agent-memory/MEMORY.md` 中对应地图或场景主题。必须完整阅读 [references/map-contract.md](references/map-contract.md)，再以当前源码核实其中的搜索锚点和示例数值。
+遵循根目录 `AGENTS.md`，按任务范围读取项目指南和 [references/map-contract.md](references/map-contract.md) 的相关章节。当前几何、资源键和数值直接查源码；需要设计原因、历史例外或排查入口时再搜索记忆，不反复加载无关地图案例。
 
 若需要生成或编辑位图，必须同时使用 `imagegen` 技能；地图内新增天气、粒子、植物、僵尸或复用 reanim 时，再叠加对应仓库技能。新增动画帧事件前仍须先询问主人。
 
-## 先写地图契约
+## 先明确地图契约
 
 在画图和改代码前，先明确：
 
@@ -21,7 +21,7 @@ description: Use when creating or substantially reworking a playable PvZ map/bac
 4. **构图禁区**：左侧建筑、右侧入口、上方卡槽和下方字幕分别能占多少空间；哪些景物不得压住 Cell、推车或僵尸入口。
 5. **资源闭环**：背景枚举、关卡映射、纹理键、选择页缩略图、AutoTest 状态与截图名称。
 
-不要让美术暗示未实现的机制。帐篷、观测站、洞穴或护栏默认只是景物；只有规格明确时才赋予碰撞、出生或防御行为。
+这些契约可在当前讨论及代码注释中明确，不要求每次另写文档；只有需跨任务接续或暂不实现的复杂设计才保存一份简短规格，按根目录 AGENTS.md 执行。不要让美术暗示未实现的机制。帐篷、观测站、洞穴或护栏默认只是景物；只有规格明确时才赋予碰撞、出生或防御行为。
 
 ## 选择参考图
 
@@ -77,7 +77,7 @@ description: Use when creating or substantially reworking a playable PvZ map/bac
 3. 在四角、中心及边缘 Cell 放置对象，截取完整 1100×600 场景；同时检查左侧建筑底部、右侧入口、推车、卡槽和字幕区域。
 4. 查看原始尺寸截图，不以缩略图判断对齐。检查行列接缝、累计漂移、建筑是否压扁、底边是否漏出、夜景轮廓是否清楚。
 5. 同时检查退出码、`run.log`、状态文件和截图。未改渲染后端时，不机械增加 Vulkan、`-NoInstance`、OpenGL 三路径矩阵。
-6. 更新地图设计文档、对应仓库记忆与必要的测试说明。
+6. 只有入口、设计原因、特殊例外或可复用经验变化时更新相关说明；已实现几何和数值以源码为准，不重复维护设计、主题记忆和索引中的参数副本。
 
 ## 常见失败模式
 

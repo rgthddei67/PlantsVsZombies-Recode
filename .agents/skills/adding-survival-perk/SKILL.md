@@ -50,7 +50,9 @@ description: Use when adding or tuning any 生存模式词条 (survival perk) in
 
 优先选 A。只有“每个实体各自计数”才选 B；全场同频发生的周期效果才选 C。
 
-## 通用实现步骤
+## 新增词条的实现步骤
+
+以下用于新增词条；仅调整已有倍率或上限时，直接定位现有定义、聚合入口和必要断言，不重复新增/注册流程。
 
 1. 在 `Game/Perk/PerkType.h` 的 `COUNT` 前加入枚举项，并确定 `PerkCategory::PLANT_BUFF` 或 `ZOMBIE_CURSE`。
 2. 在 `SurvivalPerkManager.cpp::kPerks[]` 的对应位置加入 `{key, nameZh, descZh, perStack, maxStacks, category, rarity, condition}`。顺序必须与枚举一致，`static_assert` 会检查数量。地图准入与稀有度是两个正交字段，不要用稀有度冒充地图条件。
@@ -58,7 +60,7 @@ description: Use when adding or tuning any 生存模式词条 (survival perk) in
 4. 把效果接到覆盖面最完整的唯一钟点。接入前用 `rg` 核实所有实际路径，尤其是新植物、新僵尸或旁路伤害。伤害调用必须显式传 `DamageSource`，不可增加默认来源来绕过编译器审计。
 5. 在 `TestDriver.cpp` 的 `kPerkNames` 加 `PK(NEW_TYPE)`，并在 `dump_state.perks` 暴露层数和可精确断言的聚合结果。
 6. 新增范围最小的 `autotest/scripts/smoke_perks_<name>.json`，用数学闭合值断言；再跑既有词条与选择 UI 回归。
-7. 更新 `docs/agent-memory/project_pvz_perk_system.md` 和 `docs/agent-memory/MEMORY.md` 当前摘要。
+7. 只有入口、设计原因、特殊例外或可复用陷阱变化时，才更新相关主题/技能；简单倍率调参直接改权威配置及必要注释，不把词条数值复制到记忆。记录范围遵循根目录 AGENTS.md。
 
 ## 三类原型的关键约束
 

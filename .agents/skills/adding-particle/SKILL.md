@@ -166,7 +166,7 @@ description: Use when adding or tuning ANY particle effect (粒子特效) in PvZ
 
 粒子寿命都是亚秒级，AutoTest 截图要卡时机：首次发射前先以 `GetTexture(imageKey, false)` 导出所有新增 `<Image>` 键的加载断言，不能只看 manifest 或控制台 WARN；帧事件/命中发生后 `wait_frames` 2~20 再 `screenshot`（多截几张挑）。截图成功后断言 `particleEffectNameCounts`、实际四边形数和相对包围盒，再逐张 Read 核对颜色、铺开范围、方向、有没有“看不见”（foot-gun ③）；参考 `smoke_particle_render_probe.json`。专属头部/装备先高分辨率合成再缩放时，验收对象必须是 XML 实际引用的最终 PNG 和游戏内缩放后的同步截图；高分辨率母图细节不能替代低分辨率轮廓、描边、明暗层级与透明边缘检查。范围爆炸必须给 `worldBounds.widthInt/heightInt` 设与设计半径相称的下界，不能只断言 quad 数，否则所有粒子挤在中心也会假绿。动画中段才触发的命中/阻拦粒子必须做一负一正两段取证：节点前断言仍在对应动作轨且计数为 0，越过节点后立即断言计数为 1 并截图，防止“效果存在但提前播放”的时序假绿。植物与荷叶/花盆同格时，`nearestPlant.type` 会按几何距离命中下层载体，改断言稳定的 `row/col` 与粒子包围盒，不能把“最近类型”当成触发者身份。改 XML 数值免编译，跑脚本前重启即可。
 
-**每次完成并验证任何粒子新增、配置调参或触发点实质修改后，必须在提交前完善本 skill**：把本次实际暴露的新坐标换算、XML 语义、生命周期 foot-gun 或截图取证方法浓缩进相关章节；已有规则则合并强化，不堆一次性配方日志。任务同时修改植物、僵尸或天气时，也同步完善本次实际使用的对应 skill。更新后运行 skill-creator 的 `quick_validate.py` 校验全部改动过的 skill。
+仅发现可复用的 XML 语义、坐标、生命周期或取证经验变化时，更新对应 skill/reference；已有规则足够或只是调参则不修改，不记录一次性配方日志。只审阅实际受影响的条款，改过的技能运行 skill-creator 的 `quick_validate.py`；设计与记忆按根目录 AGENTS.md 按需维护。
 
 互斥效果测试需要断言“派生效果为 1、基础效果为 0”时，`BuildStateJson` 应为两者预置显式零键；仅按当前活动效果动态建 map 会让基础效果不存在而使 `assert_state equals 0` 无法表达负例。
 

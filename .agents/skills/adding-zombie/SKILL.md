@@ -46,12 +46,14 @@ description: Use when adding or tuning any PvZ zombie, or integrating zombies in
 - 修改出生 offset、受伤偏移、附件、翻转或整身变换时，在默认实例路径跑同一静止用例并比较整数 `worldBounds`；运动对象瞬时绝对 X/Y 只供诊断，不作稳定断言。
 - 战场主体按 `row N 植物 → row N 僵尸/扶梯 → row N+1 植物` 交错绘制；同排僵尸仍在植物之上，下一行植物遮挡上一行越界身体。大蒜改道、蹦极选格、首领换行等运行期 `mRow` 提交必须走基类行提交/排序键刷新入口，不能只改字段；小推车与子弹层保持原顺序。专项同时断言语义 `renderLayer` 未变、实际 `renderOrder` 行带正确，并以默认/`-NoInstance` 屋顶跨行截图验收。
 
-## 第 0 步：勘察（动手前全部做完）
+## 新增僵尸的勘察
+
+以下清单用于新僵尸或相应契约的实质修改。单纯调参直接检查权威参数、单位、相关限制及必要测试，不重做未涉及的动画、音效和注册勘察；历史原因按需查记忆。
 
 1. **读 reanim**：`build/clang-release/resources/reanim/<Name>.reanim`，Grep `<name>` 提取全部 track，并 Grep `<i>` 列出每个实际图片键；`anim_*` 是剪辑轨（`<f>0/-1</f>` 定活跃帧区间），其余是部件轨。重点记下：头部组（`anim_head1`=头、`anim_head2`=下巴、`anim_hair`，可能有 tongue/earing 等挂件）、外臂三段（`*_outerarm_upper/lower/hand`，注意前缀可能不统一）、有无残肢轨（`_bone`/`upper2`）、`_ground` 轨（位移速度来源），以及 `rise2～6` 这类把帽子、脸和衣服烘在一起的阶段合成图。独立部件换色不会影响合成图，必须按实际 `<i>` 引用逐张盘点。
 2. **读 C# 参考并主动盘点音效**：`D:\PVZ\PlantsVsZombies.NET-master\Lawn_Shared\Lawn\Zombie\Zombie.cs` grep 僵尸名，读 UpdateZombieXxx 状态机 + SetupReanimForLostArm/LostHead + 数值，先记录必须忠实的玩家行为，再按本项目当前所有权、更新、碰撞、动画、资源和存档契约实现；同时收集相关路径的全部 `PlayFoley` / `PlaySample`，不要等主人听出缺声才补。沿 `FoleyType → Sexy.TodLib/Foley/TodFoley.cs → Resources.SOUND_*` 得到精确资源键，以资源键去掉 `SOUND_` 后的小写名到 `D:\PVZ\中文年度加强版完整版\Test\sounds\` 查同名 `.ogg`。找到后复制到唯一权威 `build/clang-release/resources/sounds/` 合理子目录，并同步 `resources.xml` 与 `ResourceKeys.h`；找不到才问主人，禁止用相近声音静默替代。构建后检查 `manifest.txt` 和启动日志无 missing sound，并用可见行为路径及 `GetSoundPlayRequestCount` 投影验证触发次数（含读档不得重响）。出生/登场声若只属于“新刷新”，必须从 `Board::CreateZombie` 的正式新建路径调用品种钩子，禁止塞进 `SetupZombie()`（预览与 `CreateZombieWithID` 读档也会经过 Setup）。**警惕版本错位**：C# 是后期资源（舞王=disco 版有 `_upper_bone` 残肢轨；主人给的 MJ 版没有）——玩家可感知的状态机保持原版，断肢轨道和素材方案按手头 reanim 实际能力适配。
 3. **盘点已就位基建**（常常提前有了，别重复加）：`ZombieType.h` 枚举（**多半在 `NUM_ZOMBIE_TYPES` 哨兵之后，要移进去才可出怪**）、`TestDriver.cpp` kZombieNames、`GameScene.cpp` kDevZombieTable、`AnimationTypes.h`、resources.xml 的 `<Reanimation name>`、粒子贴图。缺哪补哪。**reanim 文件进入 manifest 不等于已注册**：新角色必须同时把文件放入权威 `resources/reanim/` 并在 `resources.xml` 写 `<Reanimation name="...">`；漏后者会让 `AnimatedObject` 得到空 Animator，僵尸构造阶段访问轨道时直接 Access Violation。AutoTest 在首次直造前用 `ResourceManager::HasReanimation` 断言注册键。不要给 `Zombie`/`AnimatedObject` 基类加宽泛空 Animator 早退来“止崩”，`Start()`/`SetupZombie()` 仍会访问它，且坏注册会被掩盖。每个可直造的新类型必须在同一改动同时加入 `TestDriver.cpp` 的 `kZombieNames` 与 `GameScene.cpp` 的 `kDevZombieTable`；提交前比较两表的新类型集合，不能用 `spawn_zombie` 专项通过替代开发者面板登记。开发者面板会把所选僵尸的**枚举名字符串**写入 `PlayerInfo.json`；禁止改存表下标或枚举整数，因为新类型移入哨兵前会让旧数值漂移。新增表项继续用 `DEVZ(ZOMBIE_X)`；需要自动回归时，让 `smoke_develop` 实际选到该类型并断言召唤及跨场景重建仍保持，不能只循环到早期旧类型。
-4. **若任务含冒险出怪表**：完整阅读 [references/adventure-spawnlist-pacing.md](references/adventure-spawnlist-pacing.md)，先画整大关的首次登场/复习/综合表，再改 JSON；禁止只盯被抱怨的单关局部挪怪。
+4. **若任务含冒险出怪表**：按 [references/adventure-spawnlist-pacing.md](references/adventure-spawnlist-pacing.md) 核对受影响关卡及相邻奖励/教学关系。重排整大关时再检查完整序列，单关调参不机械生成整大关文档。
 5. **若僵尸会部署脱离建造者后持续存在、独立承伤或拦截弹道的世界对象**：完整阅读 [references/persistent-built-world-object.md](references/persistent-built-world-object.md)，先定所有权、原子提交、碰撞优先级与双方存档边界，再写状态机。
 
 ## 实现清单
@@ -214,9 +216,9 @@ description: Use when adding or tuning any PvZ zombie, or integrating zombies in
 
 ## 流程
 
-复杂僵尸（状态机/召唤/新机制）走完整 brainstorm（关键决策集中一次问齐：帧号、断肢方案、召唤细节、魅惑交互）→spec→writing-plans；换皮/纯防具类可简短 spec 直实现。模板：`docs/superpowers/specs+plans/2026-07-10-dancer-zombie*.md`。完成且验证通过后由 Codex 提交；是否 push 服从当前 `AGENTS.md` 与主人本次指令，不在 skill 内写死。
+复杂僵尸先集中确认新增玩法、断肢、召唤与魅惑边界，再实现与验证。只有需跨任务接续、暂不实现或主人要求时才保存简短规格，依赖复杂时再用实施计划；换皮、调参和明确的小修复不强制写文档。扩展接口、所有权及提交边界优先写在代码注释，当前数值以源码/配置为准。提交与 push 遵循根目录 AGENTS.md。
 
-**每次完成并验证任何僵尸新增或实质修改后，必须在提交前完善本 skill**：把本次实际暴露的新坐标换算、生命周期契约、foot-gun 或验证手法浓缩进现有章节；已有规则则合并强化，不堆一次性日志。任务同时修改粒子、植物或天气时，也同步完善本次实际使用的对应 skill。更新后运行 skill-creator 的 `quick_validate.py` 校验全部改动过的 skill，不再等待主人确认查收才复盘。
+仅发现可复用的接口、坐标、生命周期或验证经验变化时，更新对应 skill/reference；已有规则足够或只是调参则不修改，不复制品种数值和一次性任务日志。只审阅实际受影响的条款，改过的技能运行 skill-creator 的 `quick_validate.py`。
 
 **最终视觉占位符审计（提交前必做）**：逐项列出本次新增或实质修改僵尸的本体与附件、reanim 分件、运行时 `Draw*` 图形、枪口/发射轨迹/弹丸、头顶与状态提示、粒子、范围框及各阶段反馈，并主动搜索相关 `DrawCircle` / `FillCircle` / `DrawRect` / `DrawLine` 调用及临时资源键。简单图元可以作为完整设计的构成元素，但若单个圆圈、十字、单条斜线、单像素边框、纯色矩形、默认贴图或未细化复用图单独承担机制身份，就视为尚未完成的占位符。每个关键完整状态都要保留实机尺度同步截图，不能只截破甲、脱落、死亡或被其他效果遮住后的残片；在目标关卡背景、血量文字、粒子和相邻单位叠加下检查轮廓、材质层次、锚点、遮挡与可读性。发现简单占位符必须先完善再交付，并在完工汇报中明确说明审计范围和结果。
 
