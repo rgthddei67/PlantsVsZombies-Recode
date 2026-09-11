@@ -444,6 +444,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 				{ "zombieID", target.zombieID }, { "type", static_cast<int>(target.type) },
 				{ "row", target.row }, { "x", target.x },
 				{ "mineRowOffset", target.mineRowOffset }, { "mineTargetCell", target.mineTargetCell },
+				{ "mineTargetReturning", target.mineTargetReturning },
 				{ "bodyHealth", target.bodyHealth }, { "helmType", static_cast<int>(target.helmType) },
 				{ "helmHealth", target.helmHealth }, { "shieldType", static_cast<int>(target.shieldType) },
 				{ "shieldHealth", target.shieldHealth }, { "slowTimer", target.slowTimer },
@@ -1294,6 +1295,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 				target.mineRowOffset = std::clamp(savedTarget.value("mineRowOffset", 0.0f),
 					-CELL_COLLIDER_SIZE_Y * 0.5f, CELL_COLLIDER_SIZE_Y * 0.5f);
 				target.mineTargetCell = std::clamp(savedTarget.value("mineTargetCell", -1), -1, MineGrid::Count - 1);
+				target.mineTargetReturning = savedTarget.value("mineTargetReturning", false);
 				target.bodyHealth = std::max(1, savedTarget.value("bodyHealth", 1));
 				target.helmType = static_cast<HelmType>(std::clamp(savedTarget.value(
 					"helmType", static_cast<int>(HelmType::HELMTYPE_NONE)),

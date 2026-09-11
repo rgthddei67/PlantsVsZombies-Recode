@@ -19,6 +19,7 @@ public:
 	/** 节点上选择或继续已锁定任务，到达施工点后原地施工。 */
 	int SelectMineNextCell(int cell) override;
 	bool IsMovingRight() const override;
+	bool UsesMineExitRoute() const override { return IsMindControlled(); }
 	bool CanTriggerGameOver() const override { return !IsMindControlled(); }
 	bool InterruptUncommittedSpecialAction() override;
 	float GetInterruptibleSpecialActionRemaining() const override;

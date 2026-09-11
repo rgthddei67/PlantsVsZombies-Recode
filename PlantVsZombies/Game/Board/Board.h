@@ -281,6 +281,7 @@ private:
 		float x = 0.0f;
 		float mineRowOffset = 0.0f; // 矿道连续换行相对行基线的 Y 偏移，旧档默认为已到行
 		int mineTargetCell = -1; // 矿道已承诺节点，随回位一起恢复
+		bool mineTargetReturning = false; // 与节点一起恢复，避免把回溯误判为再次掉头
 		int bodyHealth = 0;
 		HelmType helmType = HelmType::HELMTYPE_NONE;
 		int helmHealth = 0;
@@ -954,7 +955,7 @@ public:
 	void DrawMineWalls(Graphics* g);
 	/** 绘制开战后工具底座、手持镐子、路线按钮及施工说明。 */
 	void DrawMineUI(Graphics* g);
-	/** 将既有根运动距离映射到矿道，行进目标由僵尸保存以跨开凿/读档稳定续行。 */
+	/** 将根运动映射到矿道；返程意图改变时立即反走当前边，节点和意图共同保存以稳定续行。 */
 	void AdvanceMineZombie(Zombie* zombie, float distance);
 	bool IsPolarNightInitialized() const { return mPolarNightInitialized; }
 	PolarNightPhase GetPolarNightPhase() const { return mPolarNightPhase; }

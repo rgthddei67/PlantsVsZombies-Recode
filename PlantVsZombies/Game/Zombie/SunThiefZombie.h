@@ -30,7 +30,7 @@ protected:
 	float GetAbilityAnimSpeedMultiplier() const override;
 	void OnMindControlled() override;
 private:
-	/** 原子离开停步前摇，保留承诺中的矿道边和已经提交的经济记录。 */
+	/** 原子离开停步前摇；公共矿道移动响应返程意图，已经提交的经济记录保持有效。 */
 	void FinishWindup(Phase phase);
 	/** 由携款和动作阶段派生静态装备槽，读档/复活不另存视觉状态。 */
 	void SyncEquipment() const;

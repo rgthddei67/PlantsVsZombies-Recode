@@ -150,8 +150,29 @@ bool Board::CompleteMineExcavation(int wall, bool byZombie)
 void Board::AdvanceMineZombie(Zombie* zombie, float movement)
 {
 	if (!zombie || movement <= 0.0f) return;
-	const bool returning = zombie->IsMovingRight();
+	const bool returning = zombie->UsesMineExitRoute();
 	Vector position = zombie->GetPosition();
+	if (zombie->mMineTargetCell >= 0 && returning != zombie->mMineTargetReturning) {
+		const int target = zombie->mMineTargetCell;
+		const int row = target / mColumns, column = target % mColumns;
+		const Vector destination(GetCellCenterPosition(row, column).x,
+			GetZombieSpawnY(row, GetCellCenterPosition(row, column).x));
+		const Vector offset = position - destination;
+		// 只把当前边的目标换成另一端，不从四舍五入后的当前格重规划，避免拐角斜穿墙。
+		if (std::abs(offset.x) <= 0.01f && std::abs(offset.y) <= 0.01f) {
+			zombie->mMineTargetCell = -1;
+		} else {
+			int sourceRow = row, sourceColumn = column;
+			if (std::abs(offset.y) <= 0.01f && std::abs(offset.x) <= CELL_COLLIDER_SIZE_X + 0.01f)
+				sourceColumn += offset.x > 0.0f ? 1 : -1;
+			else if (std::abs(offset.x) <= 0.01f && std::abs(offset.y) <= mCellHeight + 0.01f)
+				sourceRow += offset.y > 0.0f ? 1 : -1;
+			// 非标准出生/旧档位置仍续行到合法节点，不猜测不存在的路段起点。
+			if (MineGrid::Valid(sourceRow, sourceColumn) && !mMineGrid.IsRock(sourceRow, sourceColumn))
+				zombie->mMineTargetCell = MineGrid::Index(sourceRow, sourceColumn);
+		}
+	}
+	zombie->mMineTargetReturning = returning;
 	const float entranceX = GetCellCenterPosition(zombie->mRow, mColumns - 1).x;
 	if (returning && position.x >= entranceX && mMineGrid.entrance[zombie->mRow] && zombie->mMineTargetCell < 0) {
 		zombie->GetTransform()->Translate(movement, 0.0f);

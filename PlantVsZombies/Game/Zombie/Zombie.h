@@ -76,6 +76,7 @@ public:
 	bool mNeedDropHead = true;
 	int mZombieID = NULL_ZOMBIE_ID;
 	int mMineTargetCell = -1; // 矿道当前已锁定行进格；-1表示到达决策点
+	bool mMineTargetReturning = false; // 当前路段选定时的返程意图，改变时沿原边立即掉头
 	/** 矿道决策点的品种路由；-2 沿用普通路线，-1 在节点停步。 */
 	virtual int SelectMineNextCell(int) { return -2; }
 	/** 矿道跨越行中线时复用正式排序/行索引提交。 */
@@ -337,6 +338,8 @@ public:
 	float GetTargetLeadX(float seconds) const;
 	/** 当前自主行走是否朝战场前线（世界坐标 +X）；反向品种覆写后由位移、风速与预测共用。 */
 	virtual bool IsMovingRight() const { return mIsMindControlled; }
+	/** 矿道返程意图；变化时公共移动立即反走当前路段。施工绕行的朝向不能冒充返程。 */
+	virtual bool UsesMineExitRoute() const { return IsMovingRight(); }
 	/**
 	 * 判断子弹本次是否绕过二类护盾。背后追击保留物理绕盾语义；特殊弹丸的主动
 	 * 绕盾请求还必须通过目标自身的 BlocksProjectileShieldBypass 门禁。

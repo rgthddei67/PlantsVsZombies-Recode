@@ -30,6 +30,39 @@
     },
     {
       "op": "wait_value",
+      "path": "zombies.0.theftCarried",
+      "equals": 100,
+      "timeout": 16
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.theftPhase",
+      "equals": "WINDUP",
+      "timeout": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineTargetOffsetXOn1000",
+      "atMost": -1000
+    },
+    {
+      "op": "dump_state",
+      "name": "before_turn.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "00_before_turn.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "before_turn"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "before_turn"
+    },
+    {
+      "op": "wait_value",
       "path": "zombies.0.theftPhase",
       "equals": "RETREAT",
       "timeout": 22
@@ -44,12 +77,49 @@
       "name": "retreat_start.json"
     },
     {
+      "op": "assert_state",
+      "path": "zombies.0.mineTargetOffsetXOn1000",
+      "atLeast": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineTargetOffsetYOn1000",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.mineTargetReturning",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.flipX",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "01_immediate_turn.png"
+    },
+    {
       "op": "save_level_snapshot",
       "name": "retreat"
     },
     {
       "op": "reload_level_snapshot",
       "name": "retreat"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "atLeast": 1000,
+      "op": "assert_state",
+      "path": "zombies.0.mineTargetOffsetXOn1000"
+    },
+    {
+      "op": "dump_state",
+      "name": "retreat_reloaded.json"
     },
     {
       "op": "set_timescale",

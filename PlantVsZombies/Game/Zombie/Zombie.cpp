@@ -268,6 +268,7 @@ void Zombie::ApplyHealthMultiplier(double multiplier, double armorMultiplier)
 void Zombie::SaveProtectedData(nlohmann::json& j) const {
 	j["prismMarkRemaining"] = GetPrismMarkRemaining();
 	j["mineTargetCell"] = mMineTargetCell;
+	j["mineTargetReturning"] = mMineTargetReturning;
 	j["isMindControlled"] = mIsMindControlled;
 	j["freeHitsRemaining"] = mFreeHitsRemaining;
 	j["isEating"] = mIsEating;
@@ -321,6 +322,8 @@ void Zombie::LoadProtectedData(const nlohmann::json& j) {
 	if (mMineTargetCell < -1 || mMineTargetCell >= MineGrid::Count
 		|| (mMineTargetCell >= 0 && mBoard->mMineGrid.rock[mMineTargetCell])) mMineTargetCell = -1;
 	mIsMindControlled = j.value("isMindControlled", false);
+	// 旧档没有路段意图：敌方旧前进边首次返程时掉头，已魅惑单位继续原返程边。
+	mMineTargetReturning = j.value("mineTargetReturning", mIsMindControlled);
 	mFreeHitsRemaining = j.value("freeHitsRemaining", 0);   // 旧档缺字段→0
 	mIsEating = j.value("isEating", false);
 	mEatPlantID = j.value("eatPlantID", NULL_PLANT_ID);

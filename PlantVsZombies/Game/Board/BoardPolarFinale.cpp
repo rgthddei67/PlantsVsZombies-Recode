@@ -167,6 +167,7 @@ void Board::CommitPolarClockAnchor(int ownerZombieID, int sourceRow)
 			// 连续换行的实际位置与已承诺节点必须一起回溯，不能只恢复行桶。
 			target.mineRowOffset = zombie->GetPosition().y - GetZombieSpawnY(target.row, target.x);
 			target.mineTargetCell = zombie->mMineTargetCell;
+			target.mineTargetReturning = zombie->mMineTargetReturning;
 		}
 		target.bodyHealth = zombie->mBodyHealth;
 		target.helmType = zombie->mHelmType;
@@ -320,6 +321,7 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 				zombie->SetPosition(Vector(target.x,
 					GetZombieSpawnY(target.row, target.x) + target.mineRowOffset));
 				zombie->mMineTargetCell = target.mineTargetCell;
+				zombie->mMineTargetReturning = target.mineTargetReturning;
 			}
 			if (target.abilityStateValid) {
 				// 只回放目标自己的阶段；锚内已提交的裂隙和时间锚仍留在 Board。
