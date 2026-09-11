@@ -31,6 +31,8 @@ namespace {
 	constexpr float kImitaterDialogY = 42.0f; // 模仿者目标面板左上角 Y，单位：UI px
 	constexpr float kImitaterDialogWidth = 520.0f; // 模仿者目标面板宽度，单位：UI px
 	constexpr float kImitaterDialogHeight = 496.0f; // 模仿者目标面板高度，单位：UI px
+	constexpr float kImitaterFooterHeight = 48.0f; // 面板底部导航预留高度，单位：UI px
+	constexpr float kImitaterPageButtonSize = 40.0f; // 弹窗导航箭头边长，单位：UI px
 	constexpr float kImitaterCancelX = 718.0f; // 模态取消按钮左上角 X，单位：UI px
 	constexpr float kImitaterCancelY = 50.0f; // 模态取消按钮左上角 Y，单位：UI px
 	constexpr float kImitaterCancelWidth = 76.0f; // 模态取消按钮宽度，单位：UI px
@@ -141,6 +143,27 @@ ChooseCardUI::ChooseCardUI(GameScene* gameScene)
 	cancelButton->SetClickCallBack([this](bool) {
 		CloseImitaterDialog();
 		});
+	// 页脚位于五行卡片之后；两个独立方向也支持以后继续增加候选页。
+	for (const int direction : { -1, 1 }) {
+		auto navigation = mGameScene->GetUIManager().CreateButton(
+			Vector(kImitaterDialogX + kImitaterDialogWidth * 0.5f
+				+ direction * 90.0f - kImitaterPageButtonSize * 0.5f,
+				kImitaterDialogY + kImitaterDialogHeight - kImitaterFooterHeight + 4.0f),
+			Vector(kImitaterPageButtonSize, kImitaterPageButtonSize));
+		if (direction < 0) mImitaterPreviousPageButton = navigation;
+		else mImitaterNextPageButton = navigation;
+		navigation->SetAsCheckbox(false);
+		navigation->SetImageKeys(ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN,
+			ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN,
+			ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN);
+		navigation->SetImageRotationDegrees(direction < 0
+			? kPageBackRotation : kPageForwardRotation);
+		navigation->SetEnabled(false);
+		navigation->SetSkipDraw(true);
+		navigation->SetClickCallBack([this, direction](bool) {
+			ChangeImitaterDialogPage(direction);
+			});
+	}
 	SyncRestoreButtonPosition();
 	SyncPageButtonPosition();
 }
@@ -153,6 +176,8 @@ ChooseCardUI::~ChooseCardUI() {
 	SceneManager::GetInstance().GetCurrectSceneUIManager().RemoveButton(mPageButton.lock());
 	SceneManager::GetInstance().GetCurrectSceneUIManager().RemoveButton(
 		mImitaterCancelButton.lock());
+	SceneManager::GetInstance().GetCurrectSceneUIManager().RemoveButton(mImitaterPreviousPageButton.lock());
+	SceneManager::GetInstance().GetCurrectSceneUIManager().RemoveButton(mImitaterNextPageButton.lock());
 	mGameScene = nullptr;
 	for (Card* card : mCards) {
 		if (card) card->BindChooseCardUI(nullptr);
@@ -258,12 +283,14 @@ void ChooseCardUI::DrawImitaterDialog(Graphics* g) const
 	g->FillRect(screenTopLeft.x, screenTopLeft.y, 1100.0f, 600.0f,
 		glm::vec4(18.0f, 10.0f, 7.0f, 178.0f));
 	const Vector panel = g->LogicalToWorld(kImitaterDialogX, kImitaterDialogY);
-	g->FillRect(panel.x, panel.y, kImitaterDialogWidth, kImitaterDialogHeight,
+	const bool multiplePages = GetImitaterDialogPageCount() > 1;
+	const float panelHeight = kImitaterDialogHeight;
+	g->FillRect(panel.x, panel.y, kImitaterDialogWidth, panelHeight,
 		glm::vec4(104.0f, 48.0f, 24.0f, 248.0f));
-	g->DrawRect(panel.x, panel.y, kImitaterDialogWidth, kImitaterDialogHeight,
+	g->DrawRect(panel.x, panel.y, kImitaterDialogWidth, panelHeight,
 		glm::vec4(244.0f, 145.0f, 48.0f, 255.0f));
 	g->DrawRect(panel.x + 3.0f, panel.y + 3.0f,
-		kImitaterDialogWidth - 6.0f, kImitaterDialogHeight - 6.0f,
+		kImitaterDialogWidth - 6.0f, panelHeight - 6.0f,
 		glm::vec4(74.0f, 29.0f, 16.0f, 255.0f));
 	const std::string title = u8"选择模仿的植物";
 	const float titleWidth = g->MeasureTextWidth(
@@ -272,6 +299,15 @@ void ChooseCardUI::DrawImitaterDialog(Graphics* g) const
 		glm::vec4(255.0f, 198.0f, 62.0f, 255.0f),
 		panel.x + (kImitaterDialogWidth - titleWidth) * 0.5f,
 		panel.y + 9.0f);
+	if (multiplePages) {
+		const std::string page = std::to_string(mImitaterDialogPage + 1)
+			+ " / " + std::to_string(GetImitaterDialogPageCount());
+		const float width = g->MeasureTextWidth(page, ResourceKeys::Fonts::FONT_FZCQ, 20);
+		g->DrawGlyphRun(page, ResourceKeys::Fonts::FONT_FZCQ, 20,
+			glm::vec4(255.0f, 198.0f, 62.0f, 255.0f),
+			panel.x + (kImitaterDialogWidth - width) * 0.5f,
+			panel.y + kImitaterDialogHeight - kImitaterFooterHeight + 12.0f);
+	}
 }
 
 void ChooseCardUI::AddCard(PlantType type) {
@@ -525,6 +561,32 @@ std::vector<PlantType> ChooseCardUI::GetImitaterDialogOptionTypes() const
 	return types;
 }
 
+int ChooseCardUI::GetImitaterDialogPageCount() const
+{
+	return std::max(1, (static_cast<int>(mImitaterDialogCards.size())
+		+ IMITATER_DIALOG_CARDS_PER_PAGE - 1) / IMITATER_DIALOG_CARDS_PER_PAGE);
+}
+
+std::vector<PlantType> ChooseCardUI::GetVisibleImitaterDialogOptionTypes() const
+{
+	std::vector<PlantType> types;
+	for (const Card* card : mImitaterDialogCards) {
+		if (card && card->IsActive() && card->HasImitaterTarget()) {
+			types.push_back(card->GetImitaterTarget());
+		}
+	}
+	return types;
+}
+
+void ChooseCardUI::ChangeImitaterDialogPage(int delta)
+{
+	if (!mImitaterDialogOpen) return;
+	mImitaterDialogPage = std::clamp(mImitaterDialogPage + delta,
+		0, GetImitaterDialogPageCount() - 1);
+	SyncCardPageVisibility();
+	RefreshImitaterDialogControls();
+}
+
 void ChooseCardUI::SyncRestoreButtonPosition() {
 	auto button = mRestoreButton.lock();
 	if (!button || !GetTransform() || !mCardUITexture) return;
@@ -596,10 +658,13 @@ void ChooseCardUI::SyncCardPageVisibility() {
 		mImitaterCard->SetActive(true);
 		mImitaterCard->SetChooseCardInputEnabled(!mImitaterDialogOpen);
 	}
-	for (Card* card : mImitaterDialogCards) {
+	for (size_t i = 0; i < mImitaterDialogCards.size(); ++i) {
+		Card* card = mImitaterDialogCards[i];
 		if (!card) continue;
-		card->SetActive(mImitaterDialogOpen);
-		card->SetChooseCardInputEnabled(mImitaterDialogOpen);
+		const bool visible = mImitaterDialogOpen
+			&& static_cast<int>(i / IMITATER_DIALOG_CARDS_PER_PAGE) == mImitaterDialogPage;
+		card->SetActive(visible);
+		card->SetChooseCardInputEnabled(visible);
 	}
 }
 
@@ -663,6 +728,7 @@ bool ChooseCardUI::OpenImitaterDialog(Card* imitaterCard)
 		return false;
 	}
 	mImitaterDialogOpen = true;
+	mImitaterDialogPage = 0;
 	mPendingImitaterCard = imitaterCard;
 	DestroyImitaterDialogCards();
 	DestroyImitaterDialogOverlay();
@@ -675,8 +741,9 @@ bool ChooseCardUI::OpenImitaterDialog(Card* imitaterCard)
 		const PlantType target = sourceCard->GetPlantType();
 		// C# SeedPacketsWidget 的模仿模式只遍历前 44 张基础卡，不包含紫卡升级。
 		if ((target == PlantType::PLANT_IMITATER || target == PlantType::PLANT_CARRYVINE) || IsUpgradePlantType(target)) continue;
-		const int row = optionIndex / IMITATER_DIALOG_CARDS_PER_ROW;
-		const int column = optionIndex % IMITATER_DIALOG_CARDS_PER_ROW;
+		const int pageSlot = optionIndex % IMITATER_DIALOG_CARDS_PER_PAGE;
+		const int row = pageSlot / IMITATER_DIALOG_CARDS_PER_ROW;
+		const int column = pageSlot % IMITATER_DIALOG_CARDS_PER_ROW;
 		Card* option = GameObjectManager::GetInstance().CreateGameObjectImmediate<Card>(
 			kImitaterDialogCardLayer, PlantType::PLANT_IMITATER,
 			gameData.GetPlantSunCost(PlantType::PLANT_IMITATER),
@@ -734,7 +801,9 @@ void ChooseCardUI::DestroyImitaterDialogOverlay()
 bool ChooseCardUI::SelectImitaterTarget(Card* targetCard)
 {
 	if (!mImitaterDialogOpen || !mPendingImitaterCard || !targetCard
-		|| !targetCard->HasImitaterTarget()) {
+		|| !targetCard->IsActive() || !targetCard->HasImitaterTarget()
+		|| std::find(mImitaterDialogCards.begin(), mImitaterDialogCards.end(), targetCard)
+			== mImitaterDialogCards.end()) {
 		return false;
 	}
 	const PlantType target = targetCard->GetImitaterTarget();
@@ -747,6 +816,15 @@ bool ChooseCardUI::SelectImitaterTarget(Card* targetCard)
 
 void ChooseCardUI::RefreshImitaterDialogControls()
 {
+	const bool showPages = mImitaterDialogOpen && GetImitaterDialogPageCount() > 1;
+	if (auto button = mImitaterPreviousPageButton.lock()) {
+		button->SetSkipDraw(!showPages);
+		button->SetEnabled(showPages && mImitaterDialogPage > 0);
+	}
+	if (auto button = mImitaterNextPageButton.lock()) {
+		button->SetSkipDraw(!showPages);
+		button->SetEnabled(showPages && mImitaterDialogPage + 1 < GetImitaterDialogPageCount());
+	}
 	if (auto button = mButton.lock()) {
 		button->SetEnabled(!mImitaterDialogOpen);
 		button->SetSkipDraw(mImitaterDialogOpen);

@@ -104,3 +104,11 @@
 
 
 - **可见点击诊断：** `click` 命令可选 `trace=true`，在按下后与释放前将实际鼠标位置、目标矩形内按钮的 pressed/hovered 状态写入 `run.log`；仅增加日志，不绕过 SDL 输入和模态命中。`smoke_adventure_skip` 保留此取证，并覆盖满页选关确认框的最终绘制层级。
+
+
+### 模仿者目标分页
+
+`smoke_imitater_pagination` 使用 `click target=imitater_previous_page/imitater_next_page` 走真实翻页按钮，
+`imitaterPagination` 导出独立页码、页数、实际活动候选及导航显隐/可用/纹理状态；完整候选仍在
+`chooseCardImitaterDialogOptions`。`set_all_owned_cards` 可指定 `maxCards` 截取正式奖励前缀，验证早期单页卡池；
+省略该字段仍包含全部已实装奖励，夹具只修改AutoTest内存。

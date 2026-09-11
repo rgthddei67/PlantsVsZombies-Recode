@@ -44,3 +44,10 @@ Vulkan `-NoInstance` 与强制 OpenGL，并回归普通分页和上次选卡。
 `smoke_renderer_vulkan`、`smoke_renderer_vulkan_noinstance`、`smoke_renderer_opengl`、
 `smoke_choose_card_pagination`、`smoke_last_selected_cards` 父回归均通过。默认 Alpha/Additive shader 未被替换，
 两档滤镜只增加独立 pipeline/program，避免影响普通对象绘制。
+
+
+2026-09-11 目标窗增加独立9×5分页：当前54个目标分45/9两页，底部左右箭头与页码，单页隐藏导航；
+隐藏临时卡停用输入，选定/取消恢复主面板页，重开归首页。实现及93命令专项记录见
+[选卡分页](project_pvz_choose_card_pagination.md#2026-09-11-模仿者目标窗独立翻页)。
+本轮仅UI分页，按当前验证矩阵跑默认Vulkan可见 `smoke_imitater_pagination` 与 `smoke_imitater_ui`，均通过；
+前述三后端矩阵为原滤镜实现的历史验收范围，不作为普通UI改动的重复要求。

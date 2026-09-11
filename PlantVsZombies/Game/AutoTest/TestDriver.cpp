@@ -959,6 +959,10 @@ bool TestDriver::ExecuteCurrent() {
 			}
 			ownedCards.push_back(reward);
 		}
+		// 可截取正式奖励前缀，验证早期卡池的单页边界而不伪造植物。
+		const int maxCards = cmd.value("maxCards", static_cast<int>(ownedCards.size()));
+		if (maxCards < 1) { Fail("set_all_owned_cards: maxCards 必须为正数"); return false; }
+		if (maxCards < static_cast<int>(ownedCards.size())) ownedCards.resize(maxCards);
 		return true;
 	}
 	if (op == "reset_test_state") {
@@ -3221,12 +3225,15 @@ bool TestDriver::ExecuteCurrent() {
 			x = center.x;
 			y = center.y;
 		}
-		else if (target == "choose_card_page") {
+		else if (target == "choose_card_page"
+			|| target == "imitater_previous_page" || target == "imitater_next_page") {
 			GameScene* gs = CurrentGameScene();
 			ChooseCardUI* ui = gs ? gs->GetChooseCardUI() : nullptr;
-			auto button = ui ? ui->GetPageButton() : nullptr;
+			auto button = ui ? (target == "imitater_previous_page"
+				? ui->GetImitaterPreviousPageButton() : target == "imitater_next_page"
+				? ui->GetImitaterNextPageButton() : ui->GetPageButton()) : nullptr;
 			if (!button || !button->IsEnabled() || button->IsSkipDraw()) {
-				Fail("click target=choose_card_page: 选卡翻页按钮不存在或不可用");
+				Fail("click target=" + target + ": 选卡翻页按钮不存在或不可用");
 				return false;
 			}
 			const Vector center = button->GetCenter();
@@ -4518,6 +4525,27 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			out["chooseCardSelectedCardKeys"].push_back(key);
 		}
 		out["chooseCardImitaterDialogOpen"] = chooseUI->IsImitaterDialogOpen();
+		out["imitaterPagination"] = {
+			{ "pageIndex", chooseUI->GetImitaterDialogPage() },
+			{ "pageCount", chooseUI->GetImitaterDialogPageCount() },
+			{ "visibleOptions", nlohmann::json::array() }
+		};
+		auto& pagination = out["imitaterPagination"];
+		for (PlantType type : chooseUI->GetVisibleImitaterDialogOptionTypes()) {
+			pagination["visibleOptions"].push_back(PlantTypeName(type));
+		}
+		pagination["visibleCount"] = pagination["visibleOptions"].size();
+		for (const bool previous : { true, false }) {
+			auto button = previous ? chooseUI->GetImitaterPreviousPageButton()
+				: chooseUI->GetImitaterNextPageButton();
+			if (!button) continue;
+			pagination[previous ? "previous" : "next"] = {
+				{ "visible", !button->IsSkipDraw() },
+				{ "enabled", button->IsEnabled() },
+				{ "textureLoaded", ResourceManager::GetInstance().GetTexture(
+					ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN, false) != nullptr }
+			};
+		}
 		for (PlantType type : chooseUI->GetImitaterDialogOptionTypes()) {
 			out["chooseCardImitaterDialogOptions"].push_back(PlantTypeName(type));
 			if (IsUpgradePlantType(type)) {

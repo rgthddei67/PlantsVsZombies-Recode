@@ -1,6 +1,6 @@
 {
   "commands": [
-    { "op": "set_all_owned_cards" },
+    { "op": "set_all_owned_cards", "maxCards": 50 },
     { "op": "set_last_selected_cards", "cards": ["PLANT_IMITATER:PLANT_PEASHOOTER"] },
     { "op": "goto_level", "level": 1 },
     { "op": "wait_seconds", "value": 5.0 },

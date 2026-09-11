@@ -119,6 +119,8 @@ description: Use when adding ANY new plant (新增植物) to PvZ — 射手/生�
 
 紫卡升级同帧内，旧基础株已失活但可能尚未从实体表移除；所有按格布置状态的 AutoTest 夹具必须过滤 `IsActive()`，断言优先用 `normalPlantsByCell/topPlantsByCell.<row>_<col>`，不能让 `plants.N` 或实体枚举顺序选中旧株。
 
+模仿者目标窗使用独立临时 Card 和独立页码，按过滤后的候选顺序每页 9×5 张，底部留导航；翻页同时关闭隐藏目标的绘制、更新和输入，提交入口也拒绝隐藏或不属于该窗的 Card。总候选列表与实际活动列表分别导出，不能以“全部候选存在”替代可见性验证。`smoke_imitater_pagination` 覆盖两页往返、边界、空白处不命中隐藏卡、末页选定、取消重开归首页及主面板页码保留；`set_all_owned_cards.maxCards` 可截取正式奖励前缀验证单页，不写玩家存档。
+
 ## 特性侵入其他系统时（寒冰菇冻结、魅惑、穿透这类）
 
 纯植物侧的清单不够用了，先按效果落点归类，逐类有先例可抄：

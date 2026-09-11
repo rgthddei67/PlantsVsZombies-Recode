@@ -69,6 +69,12 @@ public:
 	bool IsImitaterDialogOpen() const { return mImitaterDialogOpen; }
 	/** 返回当前模态层临时 Card 所代表的目标类型，供 UI 回归验证。 */
 	std::vector<PlantType> GetImitaterDialogOptionTypes() const;
+	/** 目标弹窗独立分页；仅当前页临时卡可绘制和点击。 */
+	int GetImitaterDialogPage() const { return mImitaterDialogPage; }
+	int GetImitaterDialogPageCount() const;
+	std::vector<PlantType> GetVisibleImitaterDialogOptionTypes() const;
+	std::shared_ptr<Button> GetImitaterPreviousPageButton() const { return mImitaterPreviousPageButton.lock(); }
+	std::shared_ptr<Button> GetImitaterNextPageButton() const { return mImitaterNextPageButton.lock(); }
 	/** 返回满配卡组最后一张卡的右边缘，供卡槽底板按真实容量收口。 */
 	static float GetGameSlotRightEdge();
 
@@ -82,6 +88,8 @@ private:
 	std::weak_ptr<Button> mRestoreButton;
 	std::weak_ptr<Button> mPageButton;
 	std::weak_ptr<Button> mImitaterCancelButton;
+	std::weak_ptr<Button> mImitaterPreviousPageButton;
+	std::weak_ptr<Button> mImitaterNextPageButton;
 
 	std::vector<Card*> mCards;  // 存储选卡界面的卡牌（观察者，所有权在 GameObjectManager）
 	Card* mImitaterCard = nullptr; // 原版右侧独立入口，不计入普通卡池分页
@@ -90,6 +98,7 @@ private:
 	std::vector<Card*> mSelectedCards;   // 存储选中的卡牌对象
 	int mCurrentPage = 0; // 0-based 当前页；现有完整卡池为两页
 	bool mImitaterDialogOpen = false; // 独立目标选择层是否正在接管 Card 输入
+	int mImitaterDialogPage = 0; // 弹窗独立的 0-based 页码，每次打开重置
 	Card* mPendingImitaterCard = nullptr; // 等待目标的模仿者卡；观察者
 
 	static constexpr int MAX_SELECTED = 11;              // 最大选择数量
@@ -105,7 +114,8 @@ private:
 	static constexpr int CARD_VERTICAL_SPACING = 4;   // 垂直间距（
 	static constexpr float START_X = 210;                 // 第一张卡牌的起始X坐标 屏幕坐标
 	static constexpr float START_Y = 115;                // 第一行起始Y坐标  屏幕坐标
-	static constexpr int IMITATER_DIALOG_CARDS_PER_ROW = 9; // 基础植物目标在六行内完整展示
+	static constexpr int IMITATER_DIALOG_CARDS_PER_ROW = 9; // 目标网格每行9张
+	static constexpr int IMITATER_DIALOG_CARDS_PER_PAGE = IMITATER_DIALOG_CARDS_PER_ROW * 5; // 每页45张，底部预留导航
 	static constexpr float IMITATER_DIALOG_START_X = 310.0f; // 模态目标网格首列 X，单位：UI px
 	static constexpr float IMITATER_DIALOG_START_Y = 90.0f; // 模态目标网格首行 Y，单位：UI px
 
@@ -128,6 +138,8 @@ private:
 	bool SelectImitaterTarget(Card* targetCard);
 	/** 按模态状态同步开始、恢复、分页与取消按钮。 */
 	void RefreshImitaterDialogControls();
+	/** 在有效页范围内切换目标页，同步临时卡输入和导航边界。 */
+	void ChangeImitaterDialogPage(int delta);
 	/** 在主选卡 Card 之后绘制遮罩、面板和标题。 */
 	void DrawImitaterDialog(Graphics* g) const;
 	/** 停用并延迟销毁独立模态背景对象。 */
