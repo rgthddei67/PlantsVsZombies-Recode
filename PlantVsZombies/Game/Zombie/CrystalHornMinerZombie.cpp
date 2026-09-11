@@ -12,7 +12,7 @@ namespace {
 	constexpr int kImpactDamage = 500; // 首株植物战斗顶层的一次冲撞伤害
 	constexpr float kWindupSeconds = 1.2f; // 蓄力游戏秒，受普通减速影响
 	constexpr float kCooldownSeconds = 6.0f; // 完整冲撞冷却，游戏秒
-	constexpr float kTriggerCells = 2.0f; // 触发距离，当前前进方向格数
+	constexpr float kTriggerCells = 5.0f; // 触发距离，当前前进方向格数
 	constexpr float kChargeCells = 6.0f; // 冲撞最大行进距离，格数
 	constexpr float kWindupHeadX = -4.0f; // 低头时整组头部分件前移，动画像素
 	constexpr float kWindupHeadY = 4.0f; // 低头时整组头部分件下移，保持颈部重叠
