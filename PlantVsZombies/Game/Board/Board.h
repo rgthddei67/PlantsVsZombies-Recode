@@ -196,6 +196,7 @@ public:
 	std::weak_ptr<Shovel> mShovel;
 	CursorObjectManager mCursorObjectManager;
 	int mSun = 50;
+	bool mHxyModeEnabled = false; // 本局锁定的 HXY专属规则，随关卡保存，读档不跟随菜单开关变化
 	float mSunCountDown = 5.0f;
 	float mPoolSunCountDown = POOL_SUN_SPAWN_TIME;
 	EntityRegistry mEntityRegistry;

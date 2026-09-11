@@ -47,6 +47,9 @@
 #include <limits>
 
 namespace {
+	constexpr float kHxyWaveBudgetMultiplier = 0.7f; // HXY专属出怪预算相对难度1的倍率
+	constexpr int kHxyStartingSunBonus = 300; // HXY专属每次新开局额外阳光，续局与生存换轮不重复发放
+	constexpr double kHxyArmorHealthMultiplier = 0.75; // HXY专属所有防具当前及最大生命倍率，本体不变
 	/** 返回当前地形唯一的关卡音乐资源键，供预构建与正式播放共用。 */
 	const std::string& BackgroundMusicKey(Background background)
 	{
@@ -211,6 +214,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	mLevel = level;
 	mBackGround = background;
 	mIsSurvival = IsSurvivalEndlessLevel(level);
+	mHxyModeEnabled = GameAPP::GetInstance().mHxyModeEnabled;
 	mPlantDamageEchoHitCounter = 0; // 每次进入新棋盘都清掉旧局的十连击进度，读档随后按存档覆盖。
 
 	if (mLevel >= 1)
@@ -248,6 +252,8 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) { mMineGrid.Initialize(); mSun = 200; }
+	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
+	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
 	// 屋顶预览会读取行高与连续坡面；必须在网格尺寸完成初始化后再生成。
 	CreatePreviewZombies();
 	mIceMinX.fill(GetIceTrailRightX());
@@ -2386,7 +2392,8 @@ Zombie* Board::CreateZombie(ZombieType zombieType, int row, float x, bool skipse
 		zombie->mSpawnWave = this->mCurrentWave;
 		// 按当前难度来源对整只僵尸血量施加全局倍率（默认 1，目前由生存模式按轮次提供）。
 		// 仅在此波次生成路径施加；读档走 CreateZombieWithID 直接还原已含倍率的存档血量，不重复缩放。
-		zombie->ApplyHealthMultiplier(GetZombieHpMultiplier());
+		zombie->ApplyHealthMultiplier(GetZombieHpMultiplier(),
+			mHxyModeEnabled ? kHxyArmorHealthMultiplier : 1.0);
 		// 词条②：按当前词条层数设定出生免伤次数（无词条→0）。读档走 CreateZombieWithID 不在此赋值，
 		// 由 LoadProtectedData 还原（与血量倍率同契约）。
 		zombie->mFreeHitsRemaining = GetPerkManager().GetZombieInvulnHits();
@@ -3190,7 +3197,9 @@ inline int Board::CalculateWaveZombiePoints(int wave) const
 	// 基础点数
 	float points = (static_cast<float>(wave) / 3 + 1.0f) * 1000.0f;
 
-	points *= (GameAPP::GetInstance().Difficulty * 0.5f);
+	// 专属模式固定以难度1为基准，不再叠乘菜单难度；地图与生存轮次修正照常保留。
+	points *= (mHxyModeEnabled ? kHxyWaveBudgetMultiplier
+		: static_cast<float>(GameAPP::GetInstance().Difficulty)) * 0.5f;
 	if (IsStormyNightActive()) {
 		points *= kStormyNightWavePointMultiplier;
 	}

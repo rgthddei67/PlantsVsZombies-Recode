@@ -240,27 +240,29 @@ void Zombie::RegisterFrameEvents()
 	mAnimator->AddFrameEvent(171, [this]() { this->EatTarget(); }, true);
 }
 
-void Zombie::ApplyHealthMultiplier(double multiplier)
+void Zombie::ApplyHealthMultiplier(double multiplier, double armorMultiplier)
 {
-	if (multiplier <= 0.0 || multiplier == 1.0) return;
+	if (multiplier <= 0.0 || armorMultiplier <= 0.0
+		|| (multiplier == 1.0 && armorMultiplier == 1.0)) return;
 	// 同一原值 × 同一倍率 → 同一舍入结果，故缩放后 current 仍等于 max。血量非负，四舍五入用 +0.5。
 	// 用 double 而非 float：float 尾数仅 24 位，血量 > 2^24(≈1677万) 时整数会丢精度；double 尾数 52 位，
 	// 整数精确到 ~9e15，远超 int 上限，故缩放链路上 float 是比 int 字段更先暴露的弱点（缩放仅出生时算一次，无热路径开销）。
-	auto scale = [multiplier](int v) {
-		double scaled = static_cast<double>(v) * multiplier + 0.5;
+	auto scale = [](int v, double factor) {
+		double scaled = static_cast<double>(v) * factor + 0.5;
 		// 防溢出：缩放后血量超过 INT_MAX 时 static_cast<int> 是 UB(实测得 INT_MIN)，钳到 INT_MAX。
 		// (double)INT_MAX == 2147483647.0 精确可表示(2^31-1 < 2^53)，故用 >= 比较即可。
 		if (scaled >= static_cast<double>(INT_MAX)) return INT_MAX;
 		return static_cast<int>(scaled);
 		};
 
-	mBodyHealth = scale(mBodyHealth);
-	mBodyMaxHealth = scale(mBodyMaxHealth);
-	mHelmHealth = scale(mHelmHealth);
-	mHelmMaxHealth = scale(mHelmMaxHealth);
-	mShieldHealth = scale(mShieldHealth);
-	mShieldMaxHealth = scale(mShieldMaxHealth);
-	ApplyExtraHealthMultiplier(multiplier);
+	mBodyHealth = scale(mBodyHealth, multiplier);
+	mBodyMaxHealth = scale(mBodyMaxHealth, multiplier);
+	const double armorFactor = multiplier * armorMultiplier;
+	mHelmHealth = scale(mHelmHealth, armorFactor);
+	mHelmMaxHealth = scale(mHelmMaxHealth, armorFactor);
+	mShieldHealth = scale(mShieldHealth, armorFactor);
+	mShieldMaxHealth = scale(mShieldMaxHealth, armorFactor);
+	ApplyExtraHealthMultiplier(armorFactor);
 }
 
 void Zombie::SaveProtectedData(nlohmann::json& j) const {

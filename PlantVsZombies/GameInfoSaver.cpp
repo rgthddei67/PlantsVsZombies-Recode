@@ -209,6 +209,7 @@ bool GameInfoSaver::SavePlayerInfoImpl()
 	j["autoCollected"] = gameApp.mAutoCollected;
 	j["enableMonteCarloAI"] = gameApp.mEnableMonteCarloAI;
 	j["advancedPauseEnabled"] = gameApp.mAdvancedPauseEnabled;
+	j["hxyModeEnabled"] = gameApp.mHxyModeEnabled;
 	j["openingTyphoonProtectionEnabled"] = gameApp.mOpeningTyphoonProtectionEnabled;
 	j["typhoonWeatherEnabled"] = gameApp.mTyphoonWeatherEnabled;
 	j["lastSelectedCards"] = gameApp.mLastSelectedCards;
@@ -263,6 +264,7 @@ bool GameInfoSaver::LoadPlayerInfoImpl()
 	gameApp.mAutoCollected = j.value("autoCollected", true);
 	gameApp.mEnableMonteCarloAI = j.value("enableMonteCarloAI", true);
 	gameApp.mAdvancedPauseEnabled = j.value("advancedPauseEnabled", false);
+	gameApp.mHxyModeEnabled = j.value("hxyModeEnabled", false);
 	gameApp.mOpeningTyphoonProtectionEnabled =
 		j.value("openingTyphoonProtectionEnabled", true);
 	gameApp.mTyphoonWeatherEnabled = j.value("typhoonWeatherEnabled", true);
@@ -305,6 +307,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		j["poolGridVersion"] = kPoolGridSaveVersion;
 	}
 	j["isSurvival"] = board->mIsSurvival;
+	j["hxyModeEnabled"] = board->mHxyModeEnabled;
 	j["survivalRound"] = board->mSurvivalRound;
 	if (board->mIsSurvival) {
 		nlohmann::json perks;                    // 不直接写 j["perks"]：operator[] 会先物化成 null
@@ -899,6 +902,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	// 恢复 Board 状态
 	board->mBoardState = static_cast<BoardState>(j.value("boardState", static_cast<int>(BoardState::GAME)));
 	board->mIsSurvival = j.value("isSurvival", false);
+	board->mHxyModeEnabled = j.value("hxyModeEnabled", false);
 	board->mSurvivalRound = j.value("survivalRound", 1);
 	if (board->mIsSurvival) {
 		if (j.contains("perks")) board->GetPerkManager().Load(j["perks"]);   // 旧档无 perks 字段→天然兼容

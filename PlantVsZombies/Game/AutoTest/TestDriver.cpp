@@ -785,6 +785,7 @@ void TestDriver::ResetTestState() {
 	GameAPP::mDevSpawnPaused = false;
 	GameAPP::GetInstance().mEnableMonteCarloAI = true;
 	GameAPP::GetInstance().mAdvancedPauseEnabled = false;
+	GameAPP::GetInstance().mHxyModeEnabled = false;
 	GameAPP::GetInstance().mOpeningTyphoonProtectionEnabled = true;
 	GameAPP::GetInstance().mTyphoonWeatherEnabled = true;
 	GameAPP::GetInstance().mCrazyDaveTutorialsSeen.clear();
@@ -3392,6 +3393,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["encounteredEliteDancer"] = gameApp.HasEncounteredEliteDancer();
 	out["monteCarloAIEnabled"] = gameApp.mEnableMonteCarloAI;
 	out["advancedPauseEnabled"] = gameApp.mAdvancedPauseEnabled;
+	out["hxyModeEnabled"] = gameApp.mHxyModeEnabled;
 	out["cursorType"] = CursorTypeName(
 		CursorManager::GetInstance().GetCurrentCursorType());
 	out["cursorHoverCount"] = CursorManager::GetInstance().GetHoverCount();
@@ -4948,6 +4950,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["nextWaveCountdownMs"] = static_cast<int>(std::lround(
 		board->mZombieCountDown * 1000.0f));
 	out["waveZombiePoints"] = board->GetCurrentWaveZombiePoints();
+	out["boardHxyModeEnabled"] = board->mHxyModeEnabled;
 	out["zombieNumber"] = board->mZombieNumber;
 	out["hostileZombieCountForMusic"] = board->GetHostileZombieCountForMusic();
 	out["mowerCount"] = static_cast<int>(board->mEntityRegistry.GetAllMowerIDs().size());
@@ -6282,6 +6285,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "roofMarshalAssaultFlagVisible", z->IsRoofMarshalAssaultFlagVisible() },
 			{ "helmType", ZombieHelmTypeName(z->mHelmType) },
 			{ "helmHealth", z->mHelmHealth }, { "shieldHealth", z->mShieldHealth },
+			{ "helmMaxHealth", z->mHelmMaxHealth }, { "shieldMaxHealth", z->mShieldMaxHealth },
 			{ "fireResistant", z->IsFireResistant() },
 			{ "mindControlled", z->IsMindControlled() },
 			{ "mineTargetCell", z->mMineTargetCell },

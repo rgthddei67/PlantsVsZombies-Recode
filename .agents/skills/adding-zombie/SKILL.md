@@ -177,6 +177,8 @@ description: Use when adding or tuning any PvZ zombie, or integrating zombies in
 
 ## 存读档心智清单
 
+- **出生防具倍率只在创建边沿应用**：`Board::CreateZombie` 在各派生 `SetupZombie` 完成后调用 `ApplyHealthMultiplier`；全身倍率与额外防具倍率先合并，再同时缩放当前/最大生命并统一取整，额外保护层也须通过虚钩子覆盖。`CreateZombieWithID` 直接恢复已缩放的保存值；派生读档或时间锚修复不得把最大防具生命写回固定出生常量。模式开关若仅对新局生效，由 Board 锁定并存档，阳光奖励只在新局初始化叠加，续局及生存换轮不得重复发放。专项覆盖治疗夹紧、残甲连续读档、关闭菜单开关后旧局续接与新局恢复默认。
+
 普通 AutoTest 仍会短路玩家 `saves/`，但可用 `save_level_snapshot` → 主动改局面 →
 `reload_level_snapshot` 在脚本输出目录内验证“正式序列化 → 销毁旧 `GameScene` →
 新场景正式反序列化”。这能覆盖实体与 Animator 的进程内往返；中央存档路径、跨进程

@@ -220,13 +220,14 @@ void AdaptiveHelmetZombie::ApplyAdaptedOriginState(PlantDamageOrigin origin)
 		return;
 	}
 
-	mHelmMaxHealth = kAdaptiveHelmetHealth;
+	// 读档或时间锚已恢复缩放后的上限，不能用出生常量覆盖专属模式/生存倍率。
+	if (mHelmMaxHealth <= 0) mHelmMaxHealth = kAdaptiveHelmetHealth;
 	if (mHelmType == HelmType::HELMTYPE_ADAPTIVE && mHelmHealth > 0) {
-		mHelmHealth = std::clamp(mHelmHealth, 1, kAdaptiveHelmetHealth);
+		mHelmHealth = std::clamp(mHelmHealth, 1, mHelmMaxHealth);
 	}
 	else {
 		// 损坏旧档或非法时间锚不能留下“无头盔且无免疫”的弱化组合。
-		mHelmHealth = kAdaptiveHelmetHealth;
+		mHelmHealth = mHelmMaxHealth;
 		mHelmType = HelmType::HELMTYPE_ADAPTIVE;
 	}
 }

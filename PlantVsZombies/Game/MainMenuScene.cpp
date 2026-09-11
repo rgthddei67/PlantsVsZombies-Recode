@@ -324,6 +324,14 @@ void MainMenuScene::OpenConsole()
 		.Panel(static_cast<float>(SCENE_WIDTH), static_cast<float>(SCENE_HEIGHT))
 		.Text(panelCenter + Vector(-76.0f, -190.0f), 38, u8"控制台", titleColor)
 		.TooltipPanel(kConsoleTooltipMaxWidth, 17.0f)
+		.Checkbox(panelCenter + Vector(-205.0f, -135.0f), Vector(50.0f, 46.0f), []() {
+			auto& app = GameAPP::GetInstance();
+			app.mHxyModeEnabled = !app.mHxyModeEnabled;
+		}, gameApp.mHxyModeEnabled,
+			u8"新开局生效：出怪预算固定为难度1的70%（实际只数随种类和固定出怪变化）；开局额外300阳光；僵尸所有防具（含气球）的初始及最大血量为原来的75%，本体血量不变。续局沿用该局设置，不重复赠送阳光。",
+			kConsoleOptionHitSize)
+		.Text(panelCenter + Vector(-140.0f, -120.0f), 22,
+			u8"HXY专属", labelColor)
 		.Checkbox(panelCenter + Vector(-205.0f, -75.0f), Vector(50.0f, 46.0f), []() {
 			auto& app = GameAPP::GetInstance();
 			app.mEnableMonteCarloAI = !app.mEnableMonteCarloAI;

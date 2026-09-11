@@ -118,3 +118,7 @@ Win7 378 项导入审计通过；桌面可见运行该专项、`smoke_mainmenu_b
 objdump 工具，但未阻断链接与运行。桌面可见 `smoke_mainmenu_console` 75 条命令
 exit 0、`status=passed`、`script finished OK`，日志无 WARN/ERROR/FATAL；截图确认
 加长说明完整分成三行并扩高背景，开局保护短说明保持单行且背景按实测宽度收缩。
+
+## 2026-09-11：HXY专属
+
+控制台在原四项之上增加默认关闭的「HXY专属」，沿用整行命中与 Tooltip，原四项坐标不变。新局固定难度1的70%出怪预算、额外300阳光、所有防具75%当前/最大生命；玩家偏好与关卡分别保存，续局不重复发放或缩放，详见 [HXY专属](project_pvz_hxy_mode.md)。原控制台专项的四项 Tooltip 断言同步当前源码已有的推荐文案。

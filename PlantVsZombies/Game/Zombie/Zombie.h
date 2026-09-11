@@ -547,9 +547,10 @@ public:
 
 	void ValidateEatingState(EntityRegistry& em);
 
-	// 将本体/头盔/护盾的当前血量与上限整体按倍率缩放（与具体模式无关，由调用方决定倍率来源）。
-	// 倍率<=0 或 ==1 时不作处理；缩放后保持 current==max（同源同舍入）。
-	void ApplyHealthMultiplier(double multiplier);
+	/** 出生时缩放各层当前及最大生命；防具与额外保护层另乘 armorMultiplier，本体仅乘 multiplier。
+	 * 非正倍率不处理；各层合并倍率后仅四舍五入一次，满血仍保持 current==max。读档不得重乘。
+	 */
+	void ApplyHealthMultiplier(double multiplier, double armorMultiplier = 1.0);
 	/** 治疗等正向耐久变化后，按当前生命重新派生本品种全部可逆破损贴图。 */
 	virtual void RefreshEquipmentPresentationAfterRepair() {
 		CheckHelmImage();
