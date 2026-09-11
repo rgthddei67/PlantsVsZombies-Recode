@@ -98,9 +98,8 @@ void PolarClockmakerZombie::Update()
 
 void PolarClockmakerZombie::BeginWindup()
 {
-	// 准备和冷却可在入场途中完成，但必须走进最右列才停步施法。
-	if (!mBoard || GetPosition().x > mBoard->GetCellCenterPosition(
-		mRow, mBoard->mColumns - 1).x + CELL_COLLIDER_SIZE_X * 0.5f) return;
+	// 场外也可在准备或冷却到期后停步施法，独立时间锚仍由 Board 提交。
+	if (!mBoard) return;
 	if (mClockPhase == ClockPhase::COMMITTED
 		|| mClockPhase == ClockPhase::DISABLED) return;
 	CancelEatingForSpecialAction();

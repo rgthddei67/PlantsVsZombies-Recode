@@ -52,11 +52,12 @@ protected:
 	void SetupZombie() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void OnMindControlled() override;
-	float GetAbilityAnimSpeedMultiplier() const override {
-		return mOverloaded ? 1.15f : 0.65f;
-	}
+	/** 右侧场外行走时同步加快步频与根运动，其他动作保持原倍率。 */
+	float GetAbilityAnimSpeedMultiplier() const override;
 
 private:
+	/** 按逻辑 X 与 Board 最右列右缘判断是否仍在入场途中。 */
+	bool IsOutsideEntryBoundary() const;
 	/** 配置不新增时间轴的极光仪器与光谱片 follower。 */
 	void ConfigureFollowers();
 	/** 入场后，从首次准备、循环冷却或打断重试边沿抢占啃食并进入完整前摇。 */

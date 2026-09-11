@@ -15,6 +15,7 @@ constexpr int kBodyHealth = 1200; // 极光祭司本体生命
 constexpr int kDeviceHealth = 800; // 非磁性极光仪器生命
 constexpr int kNormalBiteDamage = 50; // 仪器完整时单口伤害
 constexpr int kOverloadBiteDamage = 150; // 仪器破坏后的过载单口伤害
+constexpr float kOutsideWalkMultiplier = 2.0f; // 最右列右缘之外的行走速度倍率
 constexpr float kPreparationSeconds = 6.0f; // 实体完成创建后的仪式准备游戏秒
 constexpr float kWindupSeconds = 2.8f; // 裂隙提交前可被警铃草打断的完整前摇
 constexpr float kRetryWaitSeconds = 5.0f; // 被打断后再次尝试前的等待游戏秒
@@ -101,15 +102,30 @@ void AuroraPriestZombie::Update()
 			}
 		}
 	}
+	// 场内外资格由当前位置派生；每步在动画推进前刷新，读档和回溯无需另存倍率。
+	if (!mIsPreview) UpdateAnimSpeed();
 	Zombie::Update();
 	SyncFollowerPresentation();
+}
+
+bool AuroraPriestZombie::IsOutsideEntryBoundary() const
+{
+	return mBoard && GetPosition().x > mBoard->GetCellCenterPosition(
+		mRow, mBoard->mColumns - 1).x + CELL_COLLIDER_SIZE_X * 0.5f;
+}
+
+float AuroraPriestZombie::GetAbilityAnimSpeedMultiplier() const
+{
+	const float baseMultiplier = mOverloaded ? 1.15f : 0.65f;
+	const bool outsideWalking = !mIsPreview && !mIsEating && !mIsDying
+		&& mRitualPhase != RitualPhase::WINDUP && IsOutsideEntryBoundary();
+	return baseMultiplier * (outsideWalking ? kOutsideWalkMultiplier : 1.0f);
 }
 
 void AuroraPriestZombie::BeginWindup()
 {
 	// 准备和冷却可在入场途中完成，但必须走进最右列才停步施法。
-	if (!mBoard || GetPosition().x > mBoard->GetCellCenterPosition(
-		mRow, mBoard->mColumns - 1).x + CELL_COLLIDER_SIZE_X * 0.5f) return;
+	if (!mBoard || IsOutsideEntryBoundary()) return;
 	if (mRitualPhase == RitualPhase::COMMITTED
 		|| mRitualPhase == RitualPhase::DISABLED
 		|| mRitualReleaseCount >= kMaxRitualReleases) return;
