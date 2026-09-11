@@ -15,7 +15,7 @@ namespace {
 	constexpr int kCapacity = 150; // 满载撤退所需累计盗取阳光
 	constexpr float kWindupSeconds = 2.0f; // 可被打断的抽取前摇，游戏秒
 	constexpr float kCooldownSeconds = 4.0f; // 成功、空吸和被打断后的冷却，游戏秒
-	constexpr float kRetreatMultiplier = 4.0f; // 逃跑步频与位移倍率
+	constexpr float kRetreatMultiplier = 4.0f; // 撤离步频、啃食动画与位移共用倍率
 	constexpr float kFacingPivot = 48.0f; // 复用普通魅惑骨架镜像轴，动画像素
 }
 
@@ -33,7 +33,7 @@ int SunThiefZombie::GetCarriedSun() const
 
 float SunThiefZombie::GetAbilityAnimSpeedMultiplier() const
 {
-	return mPhase == Phase::RETREAT && !mIsEating ? kRetreatMultiplier : 1.0f;
+	return mPhase == Phase::RETREAT ? kRetreatMultiplier : 1.0f;
 }
 
 void SunThiefZombie::Update()
@@ -55,8 +55,10 @@ void SunThiefZombie::Update()
 				FinishWindup(full ? Phase::RETREAT : Phase::COOLDOWN);
 				if (full) mFullNotice = 1.5f;
 			}
-			if (mPhase == Phase::READY && !mIsEating && HasHead() && mBoard->GetSun() > 0
+			if (mPhase == Phase::READY && HasHead() && mBoard->GetSun() > 0
 				&& GetPosition().x <= mBoard->GetCellCenterPosition(mRow,mBoard->mColumns-1).x + CELL_COLLIDER_SIZE_X*0.5f) {
+				// 抽取就绪后抢占啃食；统一解除目标关系，避免残留食客计数或迟到咬伤。
+				CancelEatingForSpecialAction();
 				mPhase = Phase::WINDUP;
 				mRemaining = kWindupSeconds;
 				PlayTrack("anim_idle", 1.0f, 0.15f);
