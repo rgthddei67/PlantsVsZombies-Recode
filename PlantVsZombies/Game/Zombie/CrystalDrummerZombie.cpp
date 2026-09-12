@@ -6,6 +6,8 @@
 #include <cmath>
 
 namespace {
+	// 时间锚持久化编码，不能因后续添加阶段而重排。
+	enum class DrumSnapshotPhase { WAITING, WINDUP, DISABLED };
 	constexpr int kHealth=800; // 鼓手本体生命，晶鼓不是额外防具
 	constexpr int kRange=3; // 鼓舞沿连通矿道的最大格数
 	constexpr float kBeatInterval=5.0f; // 两次敲响之间的基础游戏秒，包含前摇
@@ -99,10 +101,41 @@ void CrystalDrummerZombie::HeadDrop() { FinishBeat(true); Zombie::HeadDrop(); }
 void CrystalDrummerZombie::Die() { FinishBeat(true); Zombie::Die(); }
 void CrystalDrummerZombie::OnMindControlled() { FinishBeat(true); }
 void CrystalDrummerZombie::ZombieItemUpdate() const { Zombie::ZombieItemUpdate(); SyncEquipment(); }
-void CrystalDrummerZombie::OnTemporalRecreated() { FinishBeat(!HasHead() || IsMindControlled()); }
+bool CrystalDrummerZombie::CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const
+{
+	state.phase = static_cast<int>(mDisabled ? DrumSnapshotPhase::DISABLED
+		: mWindingUp ? DrumSnapshotPhase::WINDUP : DrumSnapshotPhase::WAITING);
+	state.remaining = mRemaining;
+	return true;
+}
+
+void CrystalDrummerZombie::RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state)
+{
+	const auto phase = static_cast<DrumSnapshotPhase>(std::clamp(state.phase,
+		static_cast<int>(DrumSnapshotPhase::WAITING), static_cast<int>(DrumSnapshotPhase::DISABLED)));
+	mDisabled = phase == DrumSnapshotPhase::DISABLED || !HasHead() || IsMindControlled()
+		|| mIsDead || mIsDying;
+	mWindingUp = !mDisabled && phase == DrumSnapshotPhase::WINDUP;
+	mRemaining = mDisabled ? 0.0f : std::clamp(state.remaining, 0.0f,
+		mWindingUp ? kWindup : kBeatInterval-kWindup);
+	// 只恢复可撤销的本地进度；已敲次数、受益者增益和提交时音画均不倒放或补发。
+	mPulseRemaining = 0.0f;
+	if (IsActive() && !mIsDead && !mIsDying) {
+		if (mWindingUp) {
+			CancelEatingForSpecialAction();
+			PlayTrack("anim_idle", 1.0f, 0.12f);
+		} else if (!mIsEating) {
+			PlayWalkAnimation(0.12f);
+		}
+	}
+	SyncEquipment();
+}
+
 void CrystalDrummerZombie::OnTemporalCoreStateRestored()
 {
 	Zombie::OnTemporalCoreStateRestored();
+	// 核心恢复先为没有能力快照的旧锚提供安全起点；新锚随后覆盖精确阶段。
+	// 复活后的 OnTemporalRecreated 不再重置，避免覆盖刚恢复的前摇。
 	FinishBeat(!HasHead() || IsMindControlled());
 }
 

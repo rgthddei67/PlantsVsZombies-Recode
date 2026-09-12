@@ -14,7 +14,10 @@ public:
 	void LoadExtraData(const nlohmann::json& j) override;
 	float GetInterruptibleSpecialActionRemaining() const override;
 	bool InterruptUncommittedSpecialAction() override;
-	void OnTemporalRecreated() override;
+	/** 保存等待/前摇/禁用阶段与剩余游戏秒；已提交鼓舞仍归受益目标。 */
+	bool CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const override;
+	/** 恢复本地敲鼓进度并同步停步与装备表现，不补发鼓舞或重放敲击反馈。 */
+	void RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state) override;
 	void OnTemporalCoreStateRestored() override;
 	bool IsDrumWindingUp() const { return mWindingUp; }
 	float GetDrumRemaining() const { return mRemaining; }
