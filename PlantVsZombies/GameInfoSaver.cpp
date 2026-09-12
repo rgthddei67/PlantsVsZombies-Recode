@@ -556,6 +556,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["thermalSniperTutorialSpawned"] = board->mThermalSniperTutorialSpawned;
 	j["auroraPriestsSpawnedThisWave"] = board->mAuroraPriestsSpawnedThisWave;
 	j["clockmakersSpawnedThisWave"] = board->mClockmakersSpawnedThisWave;
+	j["crystalDrummersSpawnedThisWave"] = board->mCrystalDrummersSpawnedThisWave;
 	j["crystalMinersSpawnedThisWave"] = board->mCrystalMinersSpawnedThisWave;
 	j["sunThievesSpawnedThisWave"] = board->mSunThievesSpawnedThisWave;
 	j["sunTheftLedger"] = nlohmann::json::array();
@@ -1577,6 +1578,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		j.value("auroraPriestsSpawnedThisWave", 0), 0, 3);
 	board->mClockmakersSpawnedThisWave = std::clamp(
 		j.value("clockmakersSpawnedThisWave", 0), 0, 3);
+	board->mCrystalDrummersSpawnedThisWave = std::clamp(j.value("crystalDrummersSpawnedThisWave",0),0,1);
 	board->mCrystalMinersSpawnedThisWave = std::clamp(j.value("crystalMinersSpawnedThisWave",0),0,1);
 	board->mSunThievesSpawnedThisWave = std::clamp(j.value("sunThievesSpawnedThisWave",0),0,2);
 	board->mSunTheftLedger.clear();

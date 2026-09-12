@@ -77,7 +77,7 @@ void Board::DrawMineFog(Graphics* g) const
 		if (const Texture* texture = ResourceManager::GetInstance().GetTexture(key,false)) {
 			const float pulse = 0.94f + 0.06f*std::sin(mMineFogElapsed*0.45f+seed);
 			g->DrawTexture(texture,px-105,py-95,210,190,0,
-				glm::vec4(HasPurpleMineFog() ? 190 : 176, HasPurpleMineFog() ? 145 : 206, HasPurpleMineFog() ? 235 : 220, (layer == 0 ? 62.0f : 35.0f)*strength*arrival*pulse));
+				glm::vec4(HasGoldenMineFog() ? 246 : HasPurpleMineFog() ? 190 : 176, HasGoldenMineFog() ? 195 : HasPurpleMineFog() ? 145 : 206, HasGoldenMineFog() ? 90 : HasPurpleMineFog() ? 235 : 220, (layer == 0 ? 62.0f : 35.0f)*strength*arrival*pulse));
 		}
 	}
 	g->PopClipRect();

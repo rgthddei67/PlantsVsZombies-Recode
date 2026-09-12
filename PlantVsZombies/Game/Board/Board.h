@@ -421,6 +421,7 @@ private:
 	int mAuroraPriestsSpawnedThisWave = 0; // 本波累计创建的敌对极光祭司
 	int mClockmakersSpawnedThisWave = 0; // 本波累计创建的敌对极夜钟匠
 	int mSunThievesSpawnedThisWave = 0; // 本波累计盗晶；读档与正式生成共用
+	int mCrystalDrummersSpawnedThisWave = 0; // 本波累计鼓手；最多一只，场上同时最多两只
 	int mCrystalMinersSpawnedThisWave = 0; // 本波累计晶角矿工，限制为一只
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
@@ -875,16 +876,17 @@ public:
 	/** 矿场地形、施工与查询只有 Board 拥有；预览只读副本不提交地形。 */
 	bool IsMineBackground() const { return mBackGround == Background::GLOOMCRYSTAL_MINE; }
 	MineGrid mMineGrid;
-	static constexpr float kMineFogDuration = 90.0f; // 蓝雾与紫雾单次总时长，游戏秒，包含渐入渐退
+	static constexpr float kMineFogDuration = 90.0f; // 各色矿雾单次总时长，游戏秒，包含渐入渐退
 	float mMineFogElapsed = -1.0f; // -1 表示无雾，其余为本次雾潮已过游戏秒
 	int mMineFogNextWave = 10; // 完全散尽后按所在波次加三，首次为第十波
 	bool mMineFogTutorialSeen = false;
 	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
 	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
-	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 78); }
-	bool HasPurpleMineFog() const { return SupportsMineFog() && mLevel >= 77; }
-	int GetMineFogFirstColumn() const { return HasPurpleMineFog() ? 4 : 5; }
-	float GetMineFogReduction() const { return HasPurpleMineFog() ? 0.5f : 0.25f; }
+	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 80); }
+	bool HasPurpleMineFog() const { return SupportsMineFog() && mLevel >= 77 && mLevel <= 78; }
+	bool HasGoldenMineFog() const { return SupportsMineFog() && mLevel >= 79; }
+	int GetMineFogFirstColumn() const { return HasGoldenMineFog() ? 3 : HasPurpleMineFog() ? 4 : 5; }
+	float GetMineFogReduction() const { return HasGoldenMineFog() ? 0.75f : HasPurpleMineFog() ? 0.5f : 0.25f; }
 	float GetMineFogStrength() const;
 	struct SunTheftRecord { int stolen = 0; int carried = 0; bool escaped = false; bool disabled = false; };
 	// 经济账本独立于可被时间锚回溯的实体；死亡返款后仍保留同 ID 记录。
@@ -897,6 +899,7 @@ public:
 	void DisableSunTheft(int zombieID);
 	int GetSunThievesSpawnedThisWave() const { return mSunThievesSpawnedThisWave; }
 	int GetCrystalMinersSpawnedThisWave() const { return mCrystalMinersSpawnedThisWave; }
+	int GetCrystalDrummersSpawnedThisWave() const { return mCrystalDrummersSpawnedThisWave; }
 	/** 取得雾区及其右侧场外敌方僵尸的减伤比例；魅惑与棱镜标记目标不受保护。 */
 	float GetMineFogProtection(const Zombie* zombie) const;
 	int ScaleMineFogDamage(int damage, const Zombie* zombie) const;
@@ -1482,6 +1485,10 @@ public:
 	/** 水路出怪扩展点：集中列出冰车、跳跳等禁水类型。 */
 	bool CanZombieTypeSpawnInPool(ZombieType type) const;
 	Vector GetCellCenterPosition(int row, int col) const;
+	/** 四邻接连通距离；矿雾辅助效果绕弯但不穿岩壁，普通地图按曼哈顿距离。 */
+	bool IsCellWithinConnectedRange(int sourceRow, int sourceColumn, int row, int column, int range) const;
+	/** 合并活动植物提供的地面移动减速，只取最强来源；不改啃食和技能时间。 */
+	float GetGroundSlowFactor(const Zombie& zombie) const;
 	float GetCellHeight() const { return mCellHeight; }
 	/** 冰车用车辆前缘把指定行冰道向房屋方向延伸，并刷新原版 30 秒寿命。 */
 	void ExtendIceTrail(int row, float frontX);

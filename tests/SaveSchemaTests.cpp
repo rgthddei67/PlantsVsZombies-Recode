@@ -206,7 +206,9 @@ namespace {
 		Expect(document["schemaVersion"] == SaveSchema::kCurrentLevelVersion,
 			"关卡旧档应写入当前版本");
 		for (const auto& [key, value] : legacy.items()) {
-			Expect(document[key] == value, "关卡玩法字段必须原样保留");
+			auto migrated=document[key];
+			if (key=="zombies") for (auto& zombie : migrated) zombie.erase("drumInspiration");
+			Expect(migrated == value, "旧玩法字段必须保留；允许新增中性的鼓舞字段");
 		}
 	}
 
@@ -603,6 +605,14 @@ namespace {
 }
 
 int main() {
+	{
+		nlohmann::json previous={{"schemaVersion",13},{"zombies",nlohmann::json::array({{{"bodyHealth",270}}})}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"v13 应迁移鼓舞单位元");
+		Expect(previous["crystalDrummersSpawnedThisWave"]==0,"旧档不凭空消耗鼓手名额");
+		Expect(previous["zombies"][0]["drumInspiration"].empty(),"旧目标没有已提交鼓舞");
+		Expect(previous["zombies"][0]["bodyHealth"]==270,"迁移保持旧目标生命");
+	}
 	TestLegacyPlayerUpgradePreservesFields();
 	TestMovedToxicRewardPlayerUpgrade();
 	TestCurrentPlayerDocumentIsStable();

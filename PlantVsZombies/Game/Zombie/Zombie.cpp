@@ -266,6 +266,7 @@ void Zombie::ApplyHealthMultiplier(double multiplier, double armorMultiplier)
 }
 
 void Zombie::SaveProtectedData(nlohmann::json& j) const {
+	SaveDrumInspiration(j);
 	j["prismMarkRemaining"] = GetPrismMarkRemaining();
 	j["mineTargetCell"] = mMineTargetCell;
 	j["mineTargetReturning"] = mMineTargetReturning;
@@ -322,6 +323,7 @@ void Zombie::LoadProtectedData(const nlohmann::json& j) {
 	if (mMineTargetCell < -1 || mMineTargetCell >= MineGrid::Count
 		|| (mMineTargetCell >= 0 && mBoard->mMineGrid.rock[mMineTargetCell])) mMineTargetCell = -1;
 	mIsMindControlled = j.value("isMindControlled", false);
+	LoadDrumInspiration(j);
 	// 旧档没有路段意图：敌方旧前进边首次返程时掉头，已魅惑单位继续原返程边。
 	mMineTargetReturning = j.value("mineTargetReturning", mIsMindControlled);
 	mFreeHitsRemaining = j.value("freeHitsRemaining", 0);   // 旧档缺字段→0
@@ -598,6 +600,7 @@ void Zombie::Update()
 		if (!transform || !mBoard) return;
 
 		// 标记与毒素不受减速、冻结、啃食和水草早退影响，先推进目标自身的游戏时间。
+		UpdateDrumInspiration(deltaTime);
 		mPrismMarkRemaining = std::max(0.0f, GetPrismMarkRemaining() - deltaTime);
 		UpdateToxin(deltaTime);
 		if (!IsActive()) return;
@@ -811,7 +814,9 @@ void Zombie::Update()
 
 		if (mIsEating) return;
 
-		ZombieMove(scaledDelta, transform);
+		// 移动类增益只进入位移阶段；固定车速、飞行与普通根运动共用，技能倒计时不被加速。
+		ZombieMove(scaledDelta * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())
+			* GetAmberMovementMultiplier(), transform);
 		// 品种只负责水平推进；坡面高度统一由基类在同帧收敛。
 		SyncToRoofTerrain(transform);
 		ZombieUpdate(scaledDelta);
@@ -1338,7 +1343,8 @@ void Zombie::UpdateAnimSpeed()
 		GetAmplifiedAbilitySpeedMultiplier()
 		* AmplifySpeedMultiplierForGoldenIce(
 			mCooldownTimer > 0.0f ? GetSlowAnimFactor() : 1.0f)
-		* AmplifySpeedMultiplierForGoldenIce(rainMultiplier));
+		* AmplifySpeedMultiplierForGoldenIce(rainMultiplier)
+		* (mIsEating ? AmplifySpeedMultiplierForGoldenIce(GetDrumBiteMultiplier()) : 1.0f));
 }
 
 int Zombie::GetCountableExecutionHealth() const
@@ -1899,7 +1905,9 @@ void Zombie::StartMindControlled()
 
 	mIsMindControlled = true;
 	mPrismMarkRemaining = 0.0f;
+	mDrumInspiration.reset();
 	ApplyCharmEffects();
+	UpdateAnimSpeed(); // 阵营切换即时撤销鼓舞的啃食倍率，不等下一次状态刷新。
 	// 天气等中立来源的麻痹可跨阵营保留；麻痹紫色在持续期间优先于魅惑红色。
 	UpdateStatusOverlay();
 	if (!mIsDead) OnMindControlled();
@@ -2246,6 +2254,7 @@ void Zombie::Die()
 	if (mIsDead) return;
 	mIsDead = true;
 	mPrismMarkRemaining = 0.0f;
+	mDrumInspiration.reset();
 	CancelGarlicRedirect(false);
 	mButterTimer = 0.0f;
 	mParalysisTimer = 0.0f;
@@ -2894,7 +2903,8 @@ float Zombie::GetCurrentHorizontalMoveSpeed() const
 		velocity *= AmplifySpeedMultiplierForGoldenIce(
 			mBoard->GetZombieWindMoveMultiplier(IsMovingRight()));
 	}
-	velocity *= GetRoofMarshalAssaultMoveMultiplier();
+	velocity *= GetRoofMarshalAssaultMoveMultiplier()
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
 	return std::max(0.0f, velocity);
 }
 
@@ -2912,7 +2922,8 @@ float Zombie::GetUncontrolledHorizontalMoveSpeed() const
 		velocity *= AmplifySpeedMultiplierForGoldenIce(
 			mBoard->GetZombieWindMoveMultiplier(IsMovingRight()));
 	}
-	velocity *= GetRoofMarshalAssaultMoveMultiplier();
+	velocity *= GetRoofMarshalAssaultMoveMultiplier()
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
 	return std::max(0.0f, velocity);
 }
 
@@ -2951,6 +2962,15 @@ void Zombie::Draw(Graphics* g)
 		mTangleKelpState->mGrabBack->Draw(g, grabPosition.x, grabPosition.y, scale);
 	}
 	AnimatedObject::Draw(g);	// 水草后层之后画僵尸本体
+	if (g && !mIsPreview && GetDrumInspirationStacks()>0) {
+		const Vector p=GetButterSplatAnchor();
+		// 最多绘制三个上行标记仅限制表现密度，不限制真实鼓舞层数。
+		for (int layer=0; layer<std::min(3,GetDrumInspirationStacks()); ++layer) {
+			const float y=p.y-27.0f-layer*6.0f;
+			g->DrawLine(p.x-7,y+4,p.x,y,glm::vec4(255,201,64,225));
+			g->DrawLine(p.x,y,p.x+7,y+4,glm::vec4(255,201,64,225));
+		}
+	}
 	if (g && GetPrismMarkRemaining() > 0.0f) {
 		const Vector p = GetButterSplatAnchor();
 		if (const Texture* t = ResourceManager::GetInstance().GetTexture("IMAGE_PRISM_MARK",false)) {
@@ -2966,7 +2986,7 @@ void Zombie::Draw(Graphics* g)
 			const Vector p = GetPosition();
 			const float alpha = prismMarked ? 105.0f : std::min(220.0f, protection * (mGlowingTimer > 0.0f ? 900.0f : 460.0f));
 			const glm::vec4 color = prismMarked ? glm::vec4(255,221,120,alpha)
-				: mBoard->HasPurpleMineFog() ? glm::vec4(213,160,255,alpha) : glm::vec4(165,235,255,alpha);
+				: mBoard->HasGoldenMineFog() ? glm::vec4(255,203,83,alpha) : mBoard->HasPurpleMineFog() ? glm::vec4(213,160,255,alpha) : glm::vec4(165,235,255,alpha);
 			for (int side : {-1,1}) for (int segment = 0; segment < 18; ++segment) {
 				const float t0 = segment/18.0f, t1 = (segment+1)/18.0f;
 				const float phase = mBoard->mMineFogElapsed*1.8f + mZombieID*0.7f;

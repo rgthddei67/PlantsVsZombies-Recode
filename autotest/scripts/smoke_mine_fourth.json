@@ -1,0 +1,276 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 79,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 1200
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 35
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.rockCount",
+      "equals": 22
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.pathValid",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.entrances",
+      "equals": [
+        true,
+        false,
+        false,
+        false,
+        true
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.goldenFog",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.fogFirstColumn",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "mineFourthResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "spawnList",
+      "equals": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_FASTPAPER",
+        "ZOMBIE_POLEVAULTER",
+        "ZOMBIE_LADDER",
+        "ZOMBIE_ADAPTIVE_HELMET",
+        "ZOMBIE_CRYSTAL_DRUMMER"
+      ]
+    },
+    {
+      "op": "set_mine_fog",
+      "elapsed": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 602,
+      "stationary": true
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 100
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 245
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PRISMFLOWER",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 100
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 120
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "01_golden_mine.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "golden"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "golden"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.goldenFog",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "mine.pathValid",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 120
+    },
+    {
+      "op": "goto_level",
+      "level": 80,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 1600
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 50
+    },
+    {
+      "op": "assert_state",
+      "path": "spawnList",
+      "equals": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_FASTPAPER",
+        "ZOMBIE_ELITE_POLEVAULTER",
+        "ZOMBIE_ELITE_LADDER",
+        "ZOMBIE_ADAPTIVE_HELMET",
+        "ZOMBIE_BUNGEE",
+        "ZOMBIE_THERMAL_SNIPER",
+        "ZOMBIE_REDEYE_GARGANTUAR",
+        "ZOMBIE_EXCAVATOR",
+        "ZOMBIE_CRYSTAL_DRUMMER"
+      ]
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 682,
+      "stationary": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 650
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 650
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 1,
+      "fromCol": 6,
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 2,
+      "fromCol": 5,
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 1000
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "relocated"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "relocated"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 1000
+    },
+    {
+      "op": "screenshot",
+      "name": "02_relocated_lichen.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

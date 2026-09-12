@@ -94,6 +94,7 @@ enum class ZombieType {
 	//   注：Board::LoadSpawnListFromJson 亦以此为上界校验 JSON 僵尸ID，效果一致。
 	ZOMBIE_CRYSTAL_HORN_MINER, // 晶角矿工，9-3 首次登场
 	ZOMBIE_SUN_THIEF, // 盗晶僵尸，窃取阳光后沿矿道撤退
+	ZOMBIE_CRYSTAL_DRUMMER, // 震晶鼓手，矿道范围鼓舞
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

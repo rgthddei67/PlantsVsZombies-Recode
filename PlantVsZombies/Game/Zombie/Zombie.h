@@ -60,6 +60,8 @@ struct ZombieTemporalAbilityState {
 
 class Zombie : public AnimatedObject {
 private:
+	struct DrumInspirationState { std::vector<std::pair<int,float>> layers; };
+	std::unique_ptr<DrumInspirationState> mDrumInspiration;
 	struct ToxinState;
 	struct RoofMarshalAssaultState;
 	struct TangleKelpState;
@@ -548,6 +550,18 @@ public:
 	void SaveProtectedData(nlohmann::json& j) const;
 	/** 立即标记六秒，控制不延长，死亡/魅惑清除；普通存档保存但时间锚不复制。 */
 	void ApplyPrismMark();
+	/** 不同鼓手按稳定 ID 加算，同源刷新；效果独立于来源寿命。 */
+	void ApplyDrumInspiration(int sourceID);
+	int GetDrumInspirationStacks() const;
+	float GetDrumMoveMultiplier() const;
+	float GetDrumBiteMultiplier() const;
+	/** 输出/恢复每个来源的独立余时；重复来源取较长余时，不补满。 */
+	void SaveDrumInspiration(nlohmann::json& j) const;
+	void LoadDrumInspiration(const nlohmann::json& j);
+	/** 按游戏时间衰减，硬控不冻结已提交效果。 */
+	void UpdateDrumInspiration(float delta);
+	/** 普通冰减速已进入动画与逻辑步，地衣仅补充未被更强冰减速覆盖的移动倍率。 */
+	float GetAmberMovementMultiplier() const;
 	float GetPrismMarkRemaining() const { return IsActive() && !mIsDying && !mIsDead && !mIsMindControlled ? mPrismMarkRemaining : 0.0f; }
 	/** 统一状态增伤和矿雾减伤；灰烬致死预判也必须调用，避免错判直接删除。 */
 	int ScaleStatusDamage(int damage) const;

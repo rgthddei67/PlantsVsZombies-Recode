@@ -1,0 +1,147 @@
+{
+  "commands": [
+    {
+      "op": "set_adventure_level",
+      "level": 79
+    },
+    {
+      "op": "goto_level",
+      "level": 79,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.6
+    },
+    {
+      "op": "click",
+      "target": "trophy"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "boardState",
+      "equals": "WIN"
+    },
+    {
+      "op": "assert_state",
+      "path": "adventureLevel",
+      "equals": 80
+    },
+    {
+      "op": "assert_state",
+      "path": "haveCards.1",
+      "equals": "PLANT_AMBERLICHEN"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "reward.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "01_amber_reward.png"
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_AMBERLICHEN"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacName",
+      "equals": "琥珀地衣"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 80
+    },
+    {
+      "op": "assert_state",
+      "path": "boardState",
+      "equals": "CHOOSE_CARD"
+    },
+    {
+      "op": "wait_value",
+      "path": "chooseCardReady",
+      "equals": true,
+      "timeout": 30
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02_amber_choose_card.png"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_AMBERLICHEN"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "screenshot",
+      "name": "03_amber_card_slot.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

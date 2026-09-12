@@ -1,0 +1,252 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 80,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_AMBERLICHEN",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_AMBERLICHEN.simulationBaseHealth",
+      "equals": 300
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_AMBERLICHEN.simulationPersistent",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_0.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_1.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_2.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_3.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_4.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_5.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_6.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_7.png"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 682,
+      "stationary": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 650
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "SLOW",
+      "duration": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 1000
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 650
+    },
+    {
+      "op": "damage_plant",
+      "row": 2,
+      "col": 5,
+      "damage": 300
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.amberMove1000",
+      "equals": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 2,
+      "x": 762,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.1.drumWindingUp",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "index": 1,
+      "damage": 600
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.hasHead",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.drumWindingUp",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "headless.json"
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 80
+    },
+    {
+      "op": "goto_zombie_almanac"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "click",
+      "target": "zombie_almanac_next_page"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "x": 268,
+      "y": 238
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieAlmanacSelected",
+      "equals": "ZOMBIE_CRYSTAL_DRUMMER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieAlmanacInfo.name",
+      "equals": "震晶鼓手僵尸"
+    },
+    {
+      "op": "dump_state",
+      "name": "drummer_almanac.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "drummer_almanac.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

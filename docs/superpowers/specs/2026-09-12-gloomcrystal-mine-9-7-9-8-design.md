@@ -1,12 +1,12 @@
 # 幽晶矿场 9-7～9-8：金雾、琥珀地衣与震晶鼓手
 
-状态：待实现
+状态：已实现
 
 核实日期：2026-09-12
 
-当前实现或结果：本轮玩法、布局、阵容和教学已确认，尚未修改运行代码；现有关卡入口见 [AdventureProgression.h](../../../PlantVsZombies/Game/AdventureProgression.h)。
+当前实现或结果：[关卡与奖励](../../../PlantVsZombies/Game/AdventureProgression.h)、[琥珀地衣](../../../PlantVsZombies/Game/Plant/AmberLichen.cpp)、[震晶鼓手](../../../PlantVsZombies/Game/Zombie/CrystalDrummerZombie.cpp)已接入；验证入口见文末。
 
-按主人要求，本文件只保留设计决定、原因与关键边界，不记录阳光、波数、血量、冷却、持续时间、倍率、权重等调参数值。实施时采用本任务对话中的最后确认值，集中写入源码或权威配置；不能因本文省略参数而重新采用早期提案。
+按主人要求，本文件只保留设计决定、原因与关键边界，不记录阳光、波数、血量、冷却、持续时间、倍率、权重等调参数值。参数现已集中写入源码或权威配置，不再以对话中的早期提案或本文作为第二份配置。
 
 ## 布局与关卡定位
 
@@ -21,13 +21,12 @@
    ~~~~~~ 金雾
 ```
 
-汇流便于集中火力，也使鼓舞队伍集中冲击主矿道；向侧面开墙能扩大种植和射界，但可能分出更早进入其他防线的路线。该矩阵已按当前寻路规则静态核对可达性，尚无实体运行验收。
+汇流便于集中火力，也使鼓舞队伍集中冲击主矿道；向侧面开墙能扩大种植和射界，但可能分出更早进入其他防线的路线。当前矩阵以 [MineGrid.cpp](../../../PlantVsZombies/Game/Board/MineGrid.cpp) 为准。
 
 - 9-7 学习金雾与鼓手，通关奖励琥珀地衣；不能在本关教学中假定玩家已能选用它。
-- 9-8 使用琥珀地衣应对综合压力，保留较充足的开局部署资源和更长的战斗；具体开局与波数按最后确认值落地。
+- 9-8 使用琥珀地衣应对综合压力，保留较充足的开局部署资源和更长的战斗。
 - 阵容选择强调复用不同旧能力，撤下早期提案中的粉色橄榄球、强化铁门和急救员。
-- 9-7：普通、加强读报、普通撑杆、普通扶梯、适应头盔、震晶鼓手。
-- 9-8：普通、加强读报、精英撑杆、精英扶梯、适应头盔、蹦极、热感狙击、红眼巨人、开凿、震晶鼓手。
+- 完整阵容只维护在 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json)：前关复习破报、撑杆、扶梯与适应免疫，后关强化越障并加入后排干扰和重型推进。
 - 鼓手在金雾首次到来前，于已确认的早期教学波从上入口保底登场，并配普通僵尸展示鼓舞；之后进入随机池。沿用分别约束每波累计量与场上同时量的上限，不增加整关累计上限。
 
 ## 金色迷雾
@@ -54,7 +53,7 @@
 
 ## 实施边界与入口
 
-- 尚未核实动画素材与时间轴。优先复用已有事件；如确需新增动画帧事件，仍须单独询问主人，设计确认不替代该授权。
+- 琥珀地衣复用地刺待机时间线，采用有重叠根部的独立叶扇与前景芽座，避免切割整图造成裂缝。鼓手保留普通僵尸事件，使用复制躯干姿态的独立锚点把鼓排在领带之后、前臂之前；没有新增帧事件。
 - 地形与移动从 [MineGrid.cpp](../../../PlantVsZombies/Game/Board/MineGrid.cpp) 接入；撑杆落点及召唤、扶梯转角交互、巨人小鬼落点需在新布局验证，不能把普通矿道步行适配当作所有特殊运动已通过。
-- 植物与僵尸注册、参数从 [GameDataManager.cpp](../../../PlantVsZombies/Game/Plant/GameDataManager.cpp)、[gamedata.json](../../../build/clang-release/resources/gamedata.json) 接入；关卡编排只维护 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json)。这些是现有入口，不代表新内容已落地。
-- 实施后按实际变更验证正式出波、雾潮排期、鼓舞叠加与刷新、黄色冰道组合、减速交互、存读档及可见表现；本次纯设计整理不构建或运行游戏。
+- 注册与经济参数在 [GameDataManager.cpp](../../../PlantVsZombies/Game/Plant/GameDataManager.cpp)、[gamedata.json](../../../build/clang-release/resources/gamedata.json)；鼓舞目标计时与加算在 [ZombieDrumInspiration.cpp](../../../PlantVsZombies/Game/Zombie/ZombieDrumInspiration.cpp)，公共地形范围在 [BoardGroundEffects.cpp](../../../PlantVsZombies/Game/Board/BoardGroundEffects.cpp)。
+- 默认可见验证入口为 `autotest/scripts/smoke_mine_fourth*.json`、`smoke_crystal_drummer.json` 与 [专项结果校验](../../../autotest/verify_mine_fourth.py)，另有 `mine-grid`、`save-schema` 纯逻辑测试。黄色冰道由组合专项显式布置，鼓手本身不生成冰道。

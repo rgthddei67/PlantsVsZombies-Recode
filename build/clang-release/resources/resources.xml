@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/AmberLichen.png</Image>
     <Image>./resources/image/kid.jpg</Image>
     <Image>./resources/image/AwardGlow.png</Image>
     <Image>./resources/image/trophy_hi_res.png</Image>
@@ -626,6 +627,8 @@
 
   <!-- 动画资源 此处的name要与ResourceKey里面的一样-->
   <Reanimations>
+    <Reanimation name="AmberLichen">./resources/reanim/AmberLichen.reanim</Reanimation>
+    <Reanimation name="CrystalDrummerZombie">./resources/reanim/CrystalDrummerZombie.reanim</Reanimation>
     <Reanimation name="Sun">./resources/reanim/Sun.reanim</Reanimation>
     <Reanimation name="CrazyDave">./resources/reanim/CrazyDave.reanim</Reanimation>
 

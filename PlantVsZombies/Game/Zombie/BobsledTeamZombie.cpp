@@ -469,7 +469,8 @@ float BobsledTeamZombie::GetCurrentHorizontalMoveSpeed() const
 		speed *= AmplifySpeedMultiplierForGoldenIce(
 			mBoard->GetZombieWindMoveMultiplier(false));
 	}
-	return std::max(0.0f, speed * GetRoofMarshalAssaultMoveMultiplier());
+	return std::max(0.0f, speed * GetRoofMarshalAssaultMoveMultiplier()
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier());
 }
 
 Vector BobsledTeamZombie::GetVisualPosition() const

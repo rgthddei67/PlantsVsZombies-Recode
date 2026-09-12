@@ -104,6 +104,8 @@ public:
 	}
 	/** 绘制需要夹在承载/普通层与本体前层之间的格子背景；默认植物没有这一层。 */
 	virtual void DrawStackBackground(Graphics*) {}
+	/** 指定格的持续地面移动倍率；来源自行判断位置、活动与范围，默认不减速。 */
+	virtual float GetGroundSlowFactorAtCell(int, int) const { return 1.0f; }
 	// 统一结算植物承伤；source 必填，使僵尸增伤只作用于僵尸来源。
 	virtual void TakeDamage(int damage, DamageSource source);
 	/**

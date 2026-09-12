@@ -1,5 +1,6 @@
 {
   "plants": {
+    "PLANT_AMBERLICHEN": { "cost": 150, "cooldown": 20, "offset": [-37.6, -36.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_PRISMFLOWER": { "cost": 175, "cooldown": 20, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_SUNFLOWER":       { "cost": 50,  "cooldown": 7.5,  "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "sunPerSecond": 1.25, "firstSunDelay": 5.55 } },
     "PLANT_TWINSUNFLOWER":   { "cost": 150, "cooldown": 50.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "sunPerSecond": 3.33, "firstSunDelay": 5.55 } },
@@ -67,6 +68,7 @@
     "PLANT_ICEMIRRORGRASS":  { "cost": 100, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } }
   },
   "zombies": {
+    "ZOMBIE_CRYSTAL_DRUMMER": { "weight": 3000, "appearWave": 3, "survivalRound": 35, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_SUN_THIEF": { "weight": 2500, "appearWave": 5, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_NORMAL":       { "weight": 1000, "appearWave": 1, "survivalRound": 1, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_CRYSTAL_HORN_MINER": { "weight": 3000, "appearWave": 3, "survivalRound": 34, "offset": [-50.0, -85.0], "scale": 1.0 },

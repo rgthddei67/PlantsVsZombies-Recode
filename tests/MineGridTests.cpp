@@ -46,6 +46,23 @@ int main()
 		}
 	}
 	if (thirdWalls != 21) return 17;
+	// 第四组上下入口汇流；任一单墙开凿后都不得增加原路线距离或破坏返回入口路径。
+	MineGrid fourth;
+	fourth.Initialize(3);
+	if (!fourth.Validate() || !fourth.entrance[0] || !fourth.entrance[4]
+		|| fourth.distance[8]!=10 || fourth.distance[44]!=10) return 18;
+	int fourthWalls=0;
+	for (int wall=0; wall<MineGrid::Count; ++wall) {
+		if (!fourth.rock[wall]) continue;
+		++fourthWalls;
+		MineGrid dug=fourth;
+		dug.rock[wall]=false; dug.Rebuild();
+		if (!dug.Validate()) return 19;
+		for (int cell=0; cell<MineGrid::Count; ++cell)
+			if (dug.distance[cell]>fourth.distance[cell]
+				|| (dug.connected[cell] && !dug.rock[cell] && dug.exitDistance[cell]>=MineGrid::Unreachable)) return 20;
+	}
+	if (fourthWalls!=22) return 21;
 	MineGrid initial;
 	initial.Initialize();
 	if (!initial.Validate() || initial.distance[17] != 9 || initial.distance[35] != 9) return 1;

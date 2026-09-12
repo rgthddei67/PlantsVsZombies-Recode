@@ -340,6 +340,17 @@ namespace {
 				version = 13;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 13:
+				// v14 按来源保存鼓舞，旧档没有已提交鼓舞或鼓手投放。
+				if (kind == DocumentKind::Level) {
+					if (!upgraded.contains("crystalDrummersSpawnedThisWave")) upgraded["crystalDrummersSpawnedThisWave"] = 0;
+					if (upgraded.contains("zombies") && upgraded["zombies"].is_array())
+						for (auto& zombie : upgraded["zombies"])
+							if (zombie.is_object() && !zombie.contains("drumInspiration")) zombie["drumInspiration"] = nlohmann::json::array();
+				}
+				version = 14;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

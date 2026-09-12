@@ -252,8 +252,8 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
-		mSun = mLevel >= 75 ? 300 : 200;
+		mMineGrid.Initialize(mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
+		// 初始阳光由关卡表唯一维护；地形初始化不能覆盖已经加载的开局经济。
 	}
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
 	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
@@ -685,6 +685,10 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
 		++mClockmakersSpawnedThisWave;
+	}
+	if (selected == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) {
+		if (mCrystalDrummersSpawnedThisWave >= 1 || CountActiveOrPendingZombieType(selected) >= 2) return ZombieType::NUM_ZOMBIE_TYPES;
+		++mCrystalDrummersSpawnedThisWave;
 	}
 	if (selected == ZombieType::ZOMBIE_SUN_THIEF) {
 		if (mSunThievesSpawnedThisWave >= 2 || CountActiveOrPendingZombieType(selected) >= 3) return ZombieType::NUM_ZOMBIE_TYPES;
@@ -2630,6 +2634,7 @@ void Board::SummonNextWave()
 	mAuroraPriestsSpawnedThisWave = 0;
 	mClockmakersSpawnedThisWave = 0;
 	mCrystalMinersSpawnedThisWave = 0;
+	mCrystalDrummersSpawnedThisWave = 0;
 	mSunThievesSpawnedThisWave = 0;
 	mMistFuelAssignedThisWave = 0;
 	if (mCurrentWave == 1)
@@ -3350,6 +3355,11 @@ void Board::PrepareMineWave()
 		mMineWavePlan = {{ZombieType::ZOMBIE_SUN_THIEF,1},{ZombieType::ZOMBIE_NORMAL,1},{ZombieType::ZOMBIE_NORMAL,1}};
 		return;
 	}
+	// 新鼓手独立教学组合占用整波，沿用正式出生解析器的累计/同时上限。
+	if (mLevel == 79 && mMinePlannedWave == 3) {
+		mMineWavePlan = {{ZombieType::ZOMBIE_CRYSTAL_DRUMMER,0},{ZombieType::ZOMBIE_NORMAL,0},{ZombieType::ZOMBIE_NORMAL,0}};
+		return;
+	}
 	bool excavatorPlanned = false;
 	bool crystalPlanned = false;
 	if (mLevel == 75 && mMinePlannedWave == 3) {
@@ -3373,6 +3383,19 @@ void Board::PrepareMineWave()
 		const ZombieType type = PickZombieType(remaining, mMinePlannedWave);
 		const int alreadyPlanned = static_cast<int>(std::count_if(mMineWavePlan.begin(),mMineWavePlan.end(),
 			[type](const auto& entry) { return entry.first == type; }));
+		// 本组重引入的旧威胁在预抽时就遵守正式累计上限，避免预报超额、出生时丢掉预算。
+		int planLimit=MAX_ZOMBIES_PER_WAVE;
+		switch (type) {
+		case ZombieType::ZOMBIE_ELITE_POLEVAULTER: planLimit=kElitePolevaulterMaxPerWave; break;
+		case ZombieType::ZOMBIE_ELITE_LADDER: planLimit=kEliteLadderMaxPerWave; break;
+		case ZombieType::ZOMBIE_ADAPTIVE_HELMET: planLimit=kAdaptiveHelmetMaxPerWave; break;
+		case ZombieType::ZOMBIE_THERMAL_SNIPER: planLimit=kThermalSniperCompositeMaxPerWave; break;
+		case ZombieType::ZOMBIE_REDEYE_GARGANTUAR: planLimit=kRedeyeGargantuarMaxPerAdventureWave; break;
+		default: break;
+		}
+		if (alreadyPlanned>=planLimit) continue;
+		if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER && (alreadyPlanned >= 1
+			|| alreadyPlanned + CountActiveOrPendingZombieType(type) >= 2)) continue;
 		if (type == ZombieType::ZOMBIE_SUN_THIEF && (alreadyPlanned >= 2
 			|| alreadyPlanned + CountActiveOrPendingZombieType(type) >= 3)) continue;
 		if (type == ZombieType::ZOMBIE_AURORA_PRIEST && (alreadyPlanned >= kAuroraPriestMaxPerWave

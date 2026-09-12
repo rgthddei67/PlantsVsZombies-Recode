@@ -10,10 +10,11 @@ void MineGrid::Initialize(int layoutGroup)
 		".........", "..#######", "..#######", "....#####", "..#......"
 	};
 	constexpr const char* thirdLayout[Rows] = {"..#######", "....##...", "..#....##", "....##...", "..#######"};
+	constexpr const char* fourthLayout[Rows] = {"..####...", "..####.##", ".......##", "..####.##", "..####..."};
 	for (int r = 0; r < Rows; ++r)
 		for (int c = 0; c < Columns; ++c)
-			rock[Index(r, c)] = (layoutGroup == 2 ? thirdLayout : layoutGroup == 1 ? secondLayout : layout)[r][c] == '#';
-	entrance = layoutGroup == 1 ? std::array<bool, Rows>{ true, false, false, false, true }
+			rock[Index(r, c)] = (layoutGroup == 3 ? fourthLayout : layoutGroup == 2 ? thirdLayout : layoutGroup == 1 ? secondLayout : layout)[r][c] == '#';
+	entrance = (layoutGroup == 1 || layoutGroup == 3) ? std::array<bool, Rows>{ true, false, false, false, true }
 		: std::array<bool, Rows>{ false, true, false, true, false };
 	Rebuild();
 }

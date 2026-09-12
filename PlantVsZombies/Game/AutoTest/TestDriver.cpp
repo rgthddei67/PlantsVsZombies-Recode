@@ -66,6 +66,7 @@
 #include "../Plant/BoundaryFlower.h"
 #include "../Plant/PrismFlower.h"
 #include "../Zombie/SunThiefZombie.h"
+#include "../Zombie/CrystalDrummerZombie.h"
 #include "../Plant/DawnLotus.h"
 #include "../Plant/KernelPult.h"
 #include "../Plant/MelonPult.h"
@@ -390,7 +391,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -426,7 +427,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -4671,6 +4672,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"fogNextWave",board->mMineFogNextWave}, {"fogTutorialSeen",board->mMineFogTutorialSeen},
 			{"crystalSpawnedThisWave",board->GetCrystalMinersSpawnedThisWave()},
 			{"sunThievesSpawnedThisWave",board->GetSunThievesSpawnedThisWave()},
+			{"goldenFog",board->HasGoldenMineFog()}, {"drummersSpawnedThisWave",board->GetCrystalDrummersSpawnedThisWave()},
 			{"purpleFog",board->HasPurpleMineFog()}, {"fogFirstColumn",board->GetMineFogFirstColumn()},
 			{"connected", board->mMineGrid.connected}, {"entrances", board->mMineGrid.entrance},
 			{"pathValid", board->mMineGrid.Validate()}, {"digCell", board->mMineDigCell},
@@ -4695,6 +4697,13 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	for (int part = 0; part < 7; ++part)
 		thirdPairReady = thirdPairReady && ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_PRISMFLOWER_PART"+std::to_string(part),false);
 	out["mineThirdResourcesReady"] = thirdPairReady;
+	bool fourthReady = ResourceManager::GetInstance().HasReanimation("AmberLichen")
+		&& ResourceManager::GetInstance().HasReanimation("CrystalDrummerZombie");
+	for (const char* key : {"IMAGE_AMBERLICHEN", "IMAGE_AMBERLICHEN_RESIN", "IMAGE_CRYSTALDRUMMER_DRUM", "IMAGE_CRYSTALDRUMMER_MALLET"})
+		fourthReady = fourthReady && ResourceManager::GetInstance().GetTexture(key,false);
+	for (int part=0; part<5; ++part)
+		fourthReady = fourthReady && ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_AMBERLICHEN_PART"+std::to_string(part),false);
+	out["mineFourthResourcesReady"] = fourthReady;
 	out["echoWaveCount"] = board->mEchoWaves.size();
 	for (const auto& wave : board->mEchoWaves) out["echoWaves"].push_back({
 		{"row",wave.row},{"column",wave.column},{"elapsedMs",static_cast<int>(std::lround(wave.elapsed*1000))},
@@ -7037,6 +7046,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				std::lround((impArmAnchor.x - impVisual.x) * 1000.0f));
 			zombieState["impArmAnchorFromVisualYOn1000"] = static_cast<int>(
 				std::lround((impArmAnchor.y - impVisual.y) * 1000.0f));
+		}
+		zombieState["drumStacks"] = z->GetDrumInspirationStacks();
+		zombieState["drumMove1000"] = static_cast<int>(std::lround(z->GetDrumMoveMultiplier()*1000));
+		zombieState["drumBite1000"] = static_cast<int>(std::lround(z->GetDrumBiteMultiplier()*1000));
+		zombieState["amberMove1000"] = static_cast<int>(std::lround(z->GetAmberMovementMultiplier()*1000));
+		z->SaveDrumInspiration(zombieState);
+		if (auto* drummer = dynamic_cast<CrystalDrummerZombie*>(z)) {
+			zombieState["drumWindingUp"] = drummer->IsDrumWindingUp();
+			zombieState["drumRemainingMs"] = static_cast<int>(std::lround(drummer->GetDrumRemaining()*1000));
+			zombieState["drumBeatCount"] = drummer->GetDrumBeatCount();
 		}
 		if (auto* gilded = dynamic_cast<GildedZamboniZombie*>(z)) {
 			zombieState["gildedUndamagedMs"] = static_cast<int>(std::lround(

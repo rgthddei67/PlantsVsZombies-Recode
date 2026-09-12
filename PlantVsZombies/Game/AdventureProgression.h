@@ -10,7 +10,7 @@ namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
 	inline constexpr int ADVENTURE_AREA_COUNT = 9;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 78; // 当前开放至9-6紫晶雾潮与盗晶
+	inline constexpr int LAST_ADVENTURE_LEVEL = 80; // 当前开放至9-8金雾与鼓舞综合矿场
 	inline constexpr int RESERVED_AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * ADVENTURE_AREA_COUNT;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
@@ -127,6 +127,8 @@ namespace AdventureProgression
 		NO_PLANT_REWARD, // 9-4 复习强化
 		PlantType::PLANT_PRISMFLOWER, // 9-5 棱光花
 		NO_PLANT_REWARD, // 9-6 综合矿场
+		PlantType::PLANT_AMBERLICHEN, // 9-7 琥珀地衣
+		NO_PLANT_REWARD, // 9-8 金雾综合矿场
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */

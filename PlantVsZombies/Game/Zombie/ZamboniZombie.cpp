@@ -323,7 +323,7 @@ float ZamboniZombie::GetCurrentHorizontalMoveSpeed() const
 		speed *= AmplifySpeedMultiplierForGoldenIce(
 			mBoard->GetZombieWindMoveMultiplier(false));
 	}
-	return std::max(0.0f, speed);
+	return std::max(0.0f, speed * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier());
 }
 
 void ZamboniZombie::Die()

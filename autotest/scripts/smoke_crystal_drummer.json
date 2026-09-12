@@ -1,0 +1,210 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 80,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 682,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 2,
+      "x": 762,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 1,
+      "x": 762,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.1.drumWindingUp",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "01_drum_windup.png"
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.drumStacks",
+      "equals": 2,
+      "timeout": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumMove1000",
+      "equals": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumBite1000",
+      "equals": 2500
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.drumStacks",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.2.drumStacks",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "two_sources.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 2
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "drums"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "drums"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 2
+    },
+    {
+      "op": "kill_zombie",
+      "row": 2,
+      "index": 1
+    },
+    {
+      "op": "charm_zombie",
+      "row": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "expired.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 79,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 682,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 2,
+      "x": 762,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.1.drumWindingUp",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.1.drumWindingUp",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.drumStacks",
+      "equals": 0
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.drumStacks",
+      "equals": 1,
+      "timeout": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "after_interrupt.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "02_drum_recovered.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -171,6 +171,20 @@ void Polevaulter::EndJump()
 	JumpMove(kBakedVaultDistance + remainingExtraDistance);
 	mVaultExtraDistanceApplied = targetExtraDistance;
 	mLastVaultDistance = vaultDistance;
+	if (mBoard && mBoard->IsMineBackground()) {
+		// 跳跃可以跨过岩壁，但落地及精英召唤必须落在连通空地；从预计落点朝起跳侧回退。
+		const float first = mBoard->GetCellCenterPosition(mRow,0).x;
+		const float proposed = GetPosition().x;
+		int column = std::clamp(static_cast<int>(std::lround((proposed-first)/CELL_COLLIDER_SIZE_X)),0,mBoard->mColumns-1);
+		for (; column>=0 && column<mBoard->mColumns; column += IsMovingRight() ? -1 : 1) {
+			if (!mBoard->CanPlantOnMineCell(mRow,column)) continue;
+			const int originalColumn=static_cast<int>(std::lround((proposed-first)/CELL_COLLIDER_SIZE_X));
+			if (column!=originalColumn) SetPosition(Vector(mBoard->GetCellCenterPosition(mRow,column).x,GetPosition().y));
+			break;
+		}
+		mMineTargetCell=-1;
+		mLastVaultDistance=std::abs(GetPosition().x-mVaultStartX);
+	}
 
 	// 切换为走路动画和普通速度：跳跃后永久降速，写入动画 base（而非临时 clip）
 	SetAnimationSpeed(GameRandom::Range(0.9f, 1.7f));
