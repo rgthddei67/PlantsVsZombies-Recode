@@ -12,7 +12,8 @@
 namespace {
 constexpr int kHealth = 500; // 曙光莲本体生命
 constexpr float kMaxEnergy = 60.0f; // 一次组合黎明所需能量
-constexpr float kBaseEnergyPerSecond = 2.5f; // 每游戏秒固定恢复能量，平稳天气也能预先蓄能
+constexpr float kBaseEnergyPerSecond = 2.5f; // 极夜雪原每游戏秒固定恢复的能量
+constexpr float kNonPolarEnergyPerSecond = 3.0f; // 非极夜雪原每游戏秒固定恢复的能量，不叠加极夜仪表
 constexpr float kDangerEnergyPerSecond = 1.0f; // 每项红色危险仪表每游戏秒额外提供的能量
 constexpr float kReadyBadgeWidth = 78.0f; // 就绪牌宽度，逻辑 px
 constexpr float kReadyBadgeHeight = 24.0f; // 就绪牌高度，逻辑 px
@@ -35,13 +36,17 @@ void DawnLotus::SetupPlant()
 void DawnLotus::PlantUpdate()
 {
 	if (mIsPreview || !mBoard || IsShutdown() || mEnergy >= kMaxEnergy) return;
+	const bool polarNight = mBoard->SupportsPolarNightEnvironment();
 	int dangerousGauges = 0;
-	if (mBoard->IsPolarTemperatureDangerous()) ++dangerousGauges;
-	if (mBoard->IsPolarHumidityDangerous()) ++dangerousGauges;
-	if (mBoard->IsPolarWindDangerous()) ++dangerousGauges;
+	if (polarNight) {
+		if (mBoard->IsPolarTemperatureDangerous()) ++dangerousGauges;
+		if (mBoard->IsPolarHumidityDangerous()) ++dangerousGauges;
+		if (mBoard->IsPolarWindDangerous()) ++dangerousGauges;
+	}
+	const float baseEnergy = polarNight ? kBaseEnergyPerSecond : kNonPolarEnergyPerSecond;
 	mEnergy = std::min(kMaxEnergy,
 		mEnergy + DeltaTime::GetDeltaTime()
-			* (kBaseEnergyPerSecond + kDangerEnergyPerSecond * dangerousGauges));
+			* (baseEnergy + kDangerEnergyPerSecond * dangerousGauges));
 	if (mEnergy >= kMaxEnergy && g_particleSystem) {
 		g_particleSystem->EmitEffect("DawnLotusReady", GetVisualPosition());
 	}
@@ -77,7 +82,7 @@ void DawnLotus::Draw(Graphics* g)
 
 int DawnLotus::GetDangerMask() const
 {
-	if (!mBoard) return 0;
+	if (!mBoard || !mBoard->SupportsPolarNightEnvironment()) return 0;
 	return (mBoard->IsPolarTemperatureDangerous() ? 1 : 0)
 		| (mBoard->IsPolarHumidityDangerous() ? 2 : 0)
 		| (mBoard->IsPolarWindDangerous() ? 4 : 0);
@@ -85,8 +90,8 @@ int DawnLotus::GetDangerMask() const
 
 bool DawnLotus::IsReadyToActivate() const
 {
-	return IsActive() && !mIsPreview && !IsSquished() && !IsBungeeTargeted()
-		&& !IsActionPaused() && IsFullyCharged() && GetDangerMask() != 0;
+	return mBoard && IsActive() && !mIsPreview && !IsSquished() && !IsBungeeTargeted()
+		&& !IsActionPaused() && IsFullyCharged();
 }
 
 bool DawnLotus::TryActivate()

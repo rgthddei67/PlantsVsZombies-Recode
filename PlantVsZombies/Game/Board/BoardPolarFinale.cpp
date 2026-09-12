@@ -22,8 +22,8 @@ constexpr int kAuroraRiftCount = 3; // 常态单次裂隙数量
 constexpr int kWhiteoutAuroraRiftCount = 4; // 白毛风提交时的裂隙数量
 constexpr int kTemporalTargetLimit = 12; // 单个时间锚最多记录的僵尸数
 constexpr float kDawnNavigationSeconds = 8.0f; // 强风模块全场导航持续游戏秒
-constexpr int kDawnDamage = 1400; // 低温模块每行最高威胁目标的普通数值伤害
-constexpr int kDawnSplashDamage = 300; // 低温模块对主目标附近其他敌人的普通溅射伤害
+constexpr int kDawnDamage = 1400; // 每次释放对每行最高威胁目标的普通数值伤害
+constexpr int kDawnSplashDamage = 300; // 每次释放对主目标附近其他敌人的普通溅射伤害
 constexpr float kDawnSplashRadiusCells = 1.5f; // 同行溅射半径，按当前棋盘格宽换算
 constexpr std::array<ZombieType, 5> kAuroraSummonTypes{
 	ZombieType::ZOMBIE_BUCKET,
@@ -350,41 +350,41 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 bool Board::ActivateDawnLotus(int sourcePlantID, int dangerMask)
 {
 	Plant* source = mEntityRegistry.GetPlant(sourcePlantID);
-	if (!source || !source->IsActive() || source->IsShutdown() || dangerMask == 0) return false;
-	if ((dangerMask & 1) != 0) {
-		for (int row = 0; row < mRows; ++row) {
-			Zombie* target = nullptr;
-			mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
-				if (!candidate || candidate->IsMindControlled() || candidate->IsDying()) return;
-				if (!target || ThreatScore(candidate) > ThreatScore(target)
-					|| (ThreatScore(candidate) == ThreatScore(target)
-						&& candidate->mZombieID < target->mZombieID)) target = candidate;
-			});
-			if (!target) continue;
-			// 命中前固定中心与目标 ID；主目标只吃主伤害，溅射不会连锁或跨行。
-			const int targetID = target->mZombieID;
-			const float targetX = target->GetPosition().x;
-			const float splashRadius = CELL_COLLIDER_SIZE_X * kDawnSplashRadiusCells;
-			const auto origin = PlantDamageOrigin::FromPlant(source->mPlantType);
-			if (g_particleSystem) {
-				// 死亡或破甲前取当前受击区域中心，离体短爆发不依赖随后变化的动画轨。
-				Vector strikeCenter = target->GetVisualPosition();
-				if (const ColliderComponent* collider = target->GetColliderComponent()) {
-					const SDL_FRect bounds = collider->GetBoundingBox();
-					strikeCenter = Vector(bounds.x + bounds.w * 0.5f,
-						bounds.y + bounds.h * 0.5f);
-				}
-				g_particleSystem->EmitEffect("DawnLotusStrike", strikeCenter);
+	if (!source || !source->IsActive() || source->IsShutdown()) return false;
+	// 非极夜不读取遗留仪表；基础打击始终提交，红色位只决定附加模块。
+	if (!SupportsPolarNightEnvironment()) dangerMask = 0;
+	for (int row = 0; row < mRows; ++row) {
+		Zombie* target = nullptr;
+		mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
+			if (!candidate || candidate->IsMindControlled() || candidate->IsDying()) return;
+			if (!target || ThreatScore(candidate) > ThreatScore(target)
+				|| (ThreatScore(candidate) == ThreatScore(target)
+					&& candidate->mZombieID < target->mZombieID)) target = candidate;
+		});
+		if (!target) continue;
+		// 命中前固定中心与目标 ID；主目标只吃主伤害，溅射不会连锁或跨行。
+		const int targetID = target->mZombieID;
+		const float targetX = target->GetPosition().x;
+		const float splashRadius = CELL_COLLIDER_SIZE_X * kDawnSplashRadiusCells;
+		const auto origin = PlantDamageOrigin::FromPlant(source->mPlantType);
+		if (g_particleSystem) {
+			// 死亡或破甲前取当前受击区域中心，离体短爆发不依赖随后变化的动画轨。
+			Vector strikeCenter = target->GetVisualPosition();
+			if (const ColliderComponent* collider = target->GetColliderComponent()) {
+				const SDL_FRect bounds = collider->GetBoundingBox();
+				strikeCenter = Vector(bounds.x + bounds.w * 0.5f,
+					bounds.y + bounds.h * 0.5f);
 			}
-			target->TakeDamage(kDawnDamage, DamageSource::PLANT, false, false, false, origin);
-			mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
-				if (!candidate || candidate->mZombieID == targetID
-					|| candidate->IsMindControlled() || candidate->IsDying()
-					|| std::abs(candidate->GetPosition().x - targetX) > splashRadius) return;
-				candidate->TakeDamage(kDawnSplashDamage, DamageSource::PLANT,
-					false, false, false, origin);
-			});
+			g_particleSystem->EmitEffect("DawnLotusStrike", strikeCenter);
 		}
+		target->TakeDamage(kDawnDamage, DamageSource::PLANT, false, false, false, origin);
+		mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
+			if (!candidate || candidate->mZombieID == targetID
+				|| candidate->IsMindControlled() || candidate->IsDying()
+				|| std::abs(candidate->GetPosition().x - targetX) > splashRadius) return;
+			candidate->TakeDamage(kDawnSplashDamage, DamageSource::PLANT,
+				false, false, false, origin);
+		});
 	}
 	if ((dangerMask & 2) != 0) {
 		for (int row = 0; row < mRows; ++row) SealSnowHole(row);

@@ -11,7 +11,7 @@ public:
 	void PlantUpdate() override;
 	/** 在本体上方持续显示当前可点击释放的标志。 */
 	void Draw(Graphics* g) override;
-	/** 共享点击与就绪提示的资格，实时检查能量、行动状态和红色模块。 */
+	/** 共享点击与就绪提示的资格；只检查能量和行动状态，不要求红色仪表。 */
 	bool IsReadyToActivate() const;
 	bool TryActivate();
 	void SaveExtraData(nlohmann::json& j) const override;
