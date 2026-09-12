@@ -7969,6 +7969,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			plantState["dawnEnergyOn1000"] = static_cast<int>(std::lround(
 				dawn->GetEnergy() * 1000.0f));
 			plantState["dawnFullyCharged"] = dawn->IsFullyCharged();
+			plantState["dawnCanActivate"] = dawn->IsReadyToActivate();
 			plantState["dawnTextureLoaded"] = ResourceManager::GetInstance().GetTexture(
 				ResourceKeys::Textures::IMAGE_REANIM_DAWNLOTUS_CROWN, false) != nullptr;
 		}
