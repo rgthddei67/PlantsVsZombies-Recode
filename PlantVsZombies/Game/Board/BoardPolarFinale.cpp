@@ -22,7 +22,9 @@ constexpr int kAuroraRiftCount = 3; // 常态单次裂隙数量
 constexpr int kWhiteoutAuroraRiftCount = 4; // 白毛风提交时的裂隙数量
 constexpr int kTemporalTargetLimit = 12; // 单个时间锚最多记录的僵尸数
 constexpr float kDawnNavigationSeconds = 8.0f; // 强风模块全场导航持续游戏秒
-constexpr int kDawnDamage = 1200; // 低温模块每行单目标普通数值伤害
+constexpr int kDawnDamage = 1400; // 低温模块每行最高威胁目标的普通数值伤害
+constexpr int kDawnSplashDamage = 300; // 低温模块对主目标附近其他敌人的普通溅射伤害
+constexpr float kDawnSplashRadiusCells = 1.5f; // 同行溅射半径，按当前棋盘格宽换算
 constexpr std::array<ZombieType, 5> kAuroraSummonTypes{
 	ZombieType::ZOMBIE_BUCKET,
 	ZombieType::ZOMBIE_DOOR,
@@ -358,8 +360,20 @@ bool Board::ActivateDawnLotus(int sourcePlantID, int dangerMask)
 					|| (ThreatScore(candidate) == ThreatScore(target)
 						&& candidate->mZombieID < target->mZombieID)) target = candidate;
 			});
-			if (target) target->TakeDamage(kDawnDamage, DamageSource::PLANT,
-				false, false, false, PlantDamageOrigin::FromPlant(source->mPlantType));
+			if (!target) continue;
+			// 命中前固定中心与目标 ID；主目标只吃主伤害，溅射不会连锁或跨行。
+			const int targetID = target->mZombieID;
+			const float targetX = target->GetPosition().x;
+			const float splashRadius = CELL_COLLIDER_SIZE_X * kDawnSplashRadiusCells;
+			const auto origin = PlantDamageOrigin::FromPlant(source->mPlantType);
+			target->TakeDamage(kDawnDamage, DamageSource::PLANT, false, false, false, origin);
+			mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
+				if (!candidate || candidate->mZombieID == targetID
+					|| candidate->IsMindControlled() || candidate->IsDying()
+					|| std::abs(candidate->GetPosition().x - targetX) > splashRadius) return;
+				candidate->TakeDamage(kDawnSplashDamage, DamageSource::PLANT,
+					false, false, false, origin);
+			});
 		}
 	}
 	if ((dangerMask & 2) != 0) {

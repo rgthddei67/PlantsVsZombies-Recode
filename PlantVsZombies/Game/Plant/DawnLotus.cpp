@@ -11,6 +11,8 @@
 namespace {
 constexpr int kHealth = 500; // 曙光莲本体生命
 constexpr float kMaxEnergy = 60.0f; // 一次组合黎明所需能量
+constexpr float kBaseEnergyPerSecond = 2.5f; // 每游戏秒固定恢复能量，平稳天气也能预先蓄能
+constexpr float kDangerEnergyPerSecond = 1.0f; // 每项红色危险仪表每游戏秒额外提供的能量
 constexpr const char* kFollowerTrack = "anim_idle"; // 睡莲单轨稳定浮动时间轴
 constexpr const char* kCrownSlot = "dawn_lotus_crown"; // 黎明花冠命名槽
 constexpr float kFollowerOffsetX = 2.0f; // 花冠相对睡莲局部水平偏移，动画 px
@@ -33,7 +35,8 @@ void DawnLotus::PlantUpdate()
 	if (mBoard->IsPolarHumidityDangerous()) ++dangerousGauges;
 	if (mBoard->IsPolarWindDangerous()) ++dangerousGauges;
 	mEnergy = std::min(kMaxEnergy,
-		mEnergy + DeltaTime::GetDeltaTime() * static_cast<float>(dangerousGauges));
+		mEnergy + DeltaTime::GetDeltaTime()
+			* (kBaseEnergyPerSecond + kDangerEnergyPerSecond * dangerousGauges));
 	if (mEnergy >= kMaxEnergy && g_particleSystem) {
 		g_particleSystem->EmitEffect("DawnLotusReady", GetVisualPosition());
 	}

@@ -1031,7 +1031,7 @@ public:
 	void MarkTemporalTargetIrreversible(int zombieID);
 	/** 磁力抽取后禁止时间锚恢复相应装备生命层。 */
 	void MarkTemporalTargetEquipmentExtracted(int zombieID, bool shieldLayer);
-	/** 点击满能曙光莲后按锁定三红位提交组合效果。 */
+	/** 按锁定三红位提交组合效果；低温逐行重击最高威胁目标，并向同行近邻溅射。 */
 	bool ActivateDawnLotus(int sourcePlantID, int dangerMask);
 	/** 无选卡点击格子的交互入口；只有该格满能曙光莲会消费点击。 */
 	bool ActivateDawnLotusAt(int row, int column);

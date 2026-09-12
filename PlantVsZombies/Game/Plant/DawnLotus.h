@@ -2,11 +2,12 @@
 
 #include "Plant.h"
 
-/** 曙光莲：按极夜三红仪表充能，满能后由玩家点击提交一次组合黎明。 */
+/** 曙光莲：持续充能并受极夜红色仪表加速，满能后由玩家点击提交一次组合黎明。 */
 class DawnLotus final : public Plant {
 public:
 	using Plant::Plant;
 
+	/** 按游戏时间累积固定与危险仪表能量，封顶时提示就绪。 */
 	void PlantUpdate() override;
 	bool TryActivate();
 	void SaveExtraData(nlohmann::json& j) const override;
