@@ -366,6 +366,16 @@ bool Board::ActivateDawnLotus(int sourcePlantID, int dangerMask)
 			const float targetX = target->GetPosition().x;
 			const float splashRadius = CELL_COLLIDER_SIZE_X * kDawnSplashRadiusCells;
 			const auto origin = PlantDamageOrigin::FromPlant(source->mPlantType);
+			if (g_particleSystem) {
+				// 死亡或破甲前取当前受击区域中心，离体短爆发不依赖随后变化的动画轨。
+				Vector strikeCenter = target->GetVisualPosition();
+				if (const ColliderComponent* collider = target->GetColliderComponent()) {
+					const SDL_FRect bounds = collider->GetBoundingBox();
+					strikeCenter = Vector(bounds.x + bounds.w * 0.5f,
+						bounds.y + bounds.h * 0.5f);
+				}
+				g_particleSystem->EmitEffect("DawnLotusStrike", strikeCenter);
+			}
 			target->TakeDamage(kDawnDamage, DamageSource::PLANT, false, false, false, origin);
 			mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
 				if (!candidate || candidate->mZombieID == targetID

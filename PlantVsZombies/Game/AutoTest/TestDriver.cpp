@@ -4885,6 +4885,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ResourceKeys::Particles::PARTICLE_ALARMBELLROWPULSE, false) != nullptr },
 	};
 	out["area8FinaleResources"] = {
+		{ "dawnStrikeTexturesLoaded", ResourceManager::GetInstance().GetTexture(
+			ResourceKeys::Particles::PARTICLE_DAWNFLARE, false) != nullptr
+			&& ResourceManager::GetInstance().GetTexture(
+				ResourceKeys::Particles::PARTICLE_STAR40, false) != nullptr
+			&& ResourceManager::GetInstance().GetTexture("PARTICLE_RAIN_CIRCLE", false) != nullptr },
 		{ "boundaryReanimationLoaded", ResourceManager::GetInstance().HasReanimation(
 			ResourceKeys::Reanimations::REANIM_BOUNDARYFLOWER) },
 		{ "dawnReanimationLoaded", ResourceManager::GetInstance().HasReanimation(
@@ -8077,6 +8082,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["particleEffectNameCounts"]["SnowHolePuff"] = 0;
 	out["particleEffectNameCounts"]["PolarWindUp"] = 0;
 	out["particleEffectNameCounts"]["PolarWindDown"] = 0;
+	out["particleEffectNameCounts"]["DawnLotusStrike"] = 0;
 	if (g_particleSystem) {
 		for (const auto& effect : g_particleSystem->GetEffectsForTesting()) {
 			if (!effect) continue;

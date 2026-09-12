@@ -1,0 +1,61 @@
+<!-- 命中中心由 Board 提供；局部竖直偏移只走 Position，避免 EmitterOffset 双重偏移。 -->
+<Emitter>
+  <Name>DawnLotusStrike</Name>
+  <SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>.72</ParticleDuration><SystemDuration>.76</SystemDuration>
+  <ParticleAlpha>0 .56,10 .32,55 0</ParticleAlpha>
+  <ParticleScale>1.6 .9</ParticleScale><ParticleStretch>7</ParticleStretch>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.8</ParticleGreen><ParticleBlue>.38</ParticleBlue>
+  <Field><FieldType>Position</FieldType><Y>-65 -40,20 -40</Y></Field>
+  <Image>PARTICLE_RAIN_CIRCLE</Image>
+</Emitter>
+<Emitter>
+  <Name>DawnLotusStrikeCore</Name>
+  <SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>.55</ParticleDuration><SystemDuration>.6</SystemDuration>
+  <ParticleAlpha>0 .95,8 .6,48 0</ParticleAlpha>
+  <ParticleScale>.55 .22</ParticleScale><ParticleStretch>18</ParticleStretch>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.95</ParticleGreen><ParticleBlue>.72</ParticleBlue>
+  <Field><FieldType>Position</FieldType><Y>-65 -40,20 -40</Y></Field>
+  <Image>PARTICLE_STAR40</Image>
+</Emitter>
+<Emitter>
+  <Name>DawnLotusStrikeHalo</Name>
+  <SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>.8</ParticleDuration><SystemDuration>.85</SystemDuration>
+  <ParticleAlpha>.32 .22,28 0</ParticleAlpha><ParticleScale>1 6.2</ParticleScale>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.72</ParticleGreen><ParticleBlue>.3</ParticleBlue>
+  <Image>PARTICLE_RAIN_CIRCLE</Image>
+</Emitter>
+<Emitter>
+  <Name>DawnLotusStrikeSigil</Name>
+  <SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>.95</ParticleDuration><SystemDuration>1</SystemDuration>
+  <ParticleAlpha>0 .95,12 .8,48 0</ParticleAlpha><ParticleScale>.35 1.1,20 .8</ParticleScale>
+  <ParticleSpinSpeed>110</ParticleSpinSpeed>
+  <Image>PARTICLE_DAWNFLARE</Image>
+</Emitter>
+<Emitter>
+  <Name>DawnLotusStrikeGoldSparks</Name>
+  <SpawnMinActive>18</SpawnMinActive><SpawnMaxLaunched>18</SpawnMaxLaunched>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[12 28]</EmitterRadius>
+  <ParticleDuration>[.55 .85]</ParticleDuration><SystemDuration>.9</SystemDuration>
+  <ParticleAlpha>.95 .8,38 0</ParticleAlpha><ParticleScale>[.16 .32],40 0</ParticleScale>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.83</ParticleGreen><ParticleBlue>.35</ParticleBlue>
+  <ParticleSpinSpeed>[-240 240]</ParticleSpinSpeed>
+  <Field><FieldType>Away</FieldType><X>100 20</X></Field>
+  <Field><FieldType>Circle</FieldType><X>70</X></Field>
+  <Image>PARTICLE_STAR40</Image>
+</Emitter>
+<Emitter>
+  <Name>DawnLotusStrikeVioletSparks</Name>
+  <SpawnMinActive>10</SpawnMinActive><SpawnMaxLaunched>10</SpawnMaxLaunched>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[22 38]</EmitterRadius>
+  <ParticleDuration>[.65 1.0]</ParticleDuration><SystemDuration>1.05</SystemDuration>
+  <ParticleAlpha>.8 .6,45 0</ParticleAlpha><ParticleScale>[.13 .24],35 0</ParticleScale>
+  <ParticleRed>.85</ParticleRed><ParticleGreen>.48</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <ParticleSpinSpeed>[-180 180]</ParticleSpinSpeed>
+  <Field><FieldType>Away</FieldType><X>65 15</X></Field>
+  <Field><FieldType>Circle</FieldType><X>-95</X></Field>
+  <Image>PARTICLE_STAR40</Image>
+</Emitter>
