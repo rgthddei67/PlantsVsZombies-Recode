@@ -12,10 +12,10 @@ It was migrated on 2026-07-17 from the Claude Code project key `D--PVZ-PlantsVsZ
 
 ## Usage contract
 
-1. Search `MEMORY.md` for the subsystem or task topic.
-2. Read only the linked topic files needed for the current task.
-3. Verify historical status claims against the current Git state, source, build, and tests.
-4. Update the relevant topic file and its index entry when new work makes a memory stale.
-5. Keep durable mandatory rules in the repository's `AGENTS.md`; keep detailed historical context here.
+1. For current behavior or small changes, start with source/configuration. Search `MEMORY.md` only for needed historical reasons, exceptions or missing entrypoints.
+2. Read only the linked topic sections needed for the current task.
+3. Verify only historical claims the current conclusion relies on; old instructions do not override current AGENTS.md or the user.
+4. Maintain only reusable knowledge actually affected by the task, following [AGENTS.md](../../AGENTS.md#文档与记忆); routine tuning does not require memory updates.
+5. Keep durable mandatory rules in AGENTS.md and conditional technical detail in skill references. Do not copy current tuning tables or per-run logs here.
 
 The old `~/.claude/projects/.../memory/` directory may remain as a backup, but it is no longer the authoritative copy.

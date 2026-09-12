@@ -6,7 +6,7 @@
 
 - [矿场9-3/9-4与回声菇、晶角矿工](project_pvz_mine_pair_9_3_9_4.md) — 2026-09-11 已接入20岩壁/300阳光、30/40波阵容、25%独立雾潮、回声菇六步通路声波与晶角六格500伤冲撞；维护在途存档、分件完整性/低头联动、冰车上路、小鬼合法落点、钟匠复活冷却及本轮验收入口
 
-- [设计问题集中询问](feedback_design_question_batching.md) — 2026-09-11：同一植物、僵尸或机制的全部可预见待定问题一次编号问齐并给建议；已确认不重问，仅新分支补问，当次明确单问优先
+- [关键设计决策集中询问](feedback_design_question_batching.md) — 2026-09-12：只问缺少依据的关键决策，普通细节自主处理；帧事件必问规则保留
 
 - [HXY专属轻松模式](project_pvz_hxy_mode.md) — 2026-09-11 控制台默认关闭，新局锁定难度1的70%预算、额外300阳光与所有防具75%当前/最大生命；关卡独立存档、治疗上限与连续读档防重乘
 
@@ -189,7 +189,7 @@
 - [Build permission](feedback_build_permission_msbuild.md) — 主人解除构建限制:可直接命令行编译,不必F7不必核对时间戳(现用cmake preset)
 - [PvZ轻量备份节点](project_pvz_backup_node.md) — 2026-08-13 Git SSH副本与GitHub独立镜像引用；AutoTest证据带提交/状态/逐文件SHA-256离机归档90天；每日健康报告、每周Git fsck；不替代Windows clang-release与可见AutoTest
 - [perf optimization](project_pvz_perf_optimization.md) — 最新2026-08-27:2万真实存档须`-AutoTestLoadSave`并只取小推车事件前稳定窗；保留自适应48有序slot、2048点插值trig表、常规Animator连续直写、48B per-instance vertex input和4顶点strip、无裁剪实例免clip分支、IMMEDIATE优先及GPU查询；满血整行后完整Profile稳定约137-138FPS，单窗140.1不算稳定达标
-- [Collaboration style](feedback_collaboration_style.md) — measure-first, steady-state numbers, honest framing, user builds in VS, responds in Chinese
+- [Collaboration style](feedback_collaboration_style.md) — measure-first, steady-state numbers, honest framing, autonomous builds per AGENTS.md, Chinese
 - [Phase6 OpenGL cleanup ✅](project_pvz_phase6_opengl_cleanup.md) — 7Task全过;执行期修预存LNK2019(geom-batch死子系统);commits user-driven
 - [并行Update phase-1 已REVERT](project_pvz_parallel_update_phase1.md) — Animator帧推进仅占Update12%(plan误判80%),dispatch0.05ms非瓶颈
 - [并行Update phase-2 ✅](project_pvz_parallel_update_phase2.md) — 292f68e 整Animator::Update并行+deferred events;-3.44ms/69.3→91FPS

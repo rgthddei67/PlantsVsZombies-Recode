@@ -18,16 +18,12 @@ it; recalibrate when new context arrives).
 both when I guessed without evidence AND when I was over-pessimistic about a result.
 They value intellectual honesty over performative progress.
 **How to apply:**
-- Always request STEADY-STATE / warmed-up measurements. The user's first run is often
-  a cold-load reading ~10ms slow and will mislead you. Ask explicitly for the warmed-up number.
+- Use steady-state / warmed-up measurements for performance comparisons and distinguish cold-load cost. Collect measurements autonomously where tooling permits; ask the user only for evidence that cannot be collected locally.
 - Before claiming a change helped/didn't, get the real number; recalibrate framing if cold data misled.
 - Don't add changes that don't actually help (e.g. cargo-cult `reserve()`); call it out and skip it.
 - Offer the next step as an experiment with a clear hypothesis and a data table comparing before/after.
 
-Build workflow: the user builds manually in Visual Studio 2026 (CLAUDE.md forbids me
-from building). I deliver code edits + lightweight instrumentation; the user runs the
-exe and pastes back console profile output. Design diagnostics to print to the Debug
-console (std::cout/printf) since that's their feedback channel.
+Build workflow (updated 2026-09-12): the former manual-build restriction is superseded. Follow [AGENTS.md](../../AGENTS.md#构建与验证) and the [build guide](../agent-guide/BUILD_AND_DEBUG.md) for autonomous builds and diagnostics. Do not require the user to compile or collect console output when Codex can do it. The user may explicitly choose to build or test personally for a particular task.
 
 Language: the user writes in Chinese; respond in Chinese.
 
