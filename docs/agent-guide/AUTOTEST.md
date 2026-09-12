@@ -13,6 +13,29 @@
 
 ## AutoTest 测试套件
 
+### 交互试玩信箱
+
+脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
+普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
+仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。
+
+用 Python 标准库客户端发送一批命令（PowerShell 从仓库根目录执行）：
+
+```powershell
+python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8
+python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[{"op":"player_plant","slot":0,"row":2,"col":0},{"op":"advance","steps":120}]'
+python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[{"op":"screenshot","name":"live.png"}]'
+python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[{"op":"quit"}]'
+```
+
+- `slot/row/col` 全部从 **0** 开始。`player_plant` 使用实际卡槽，经过正式落种、费用、冷却、地形和暂停门禁；失败返回原因且不收费。搬搬藤的两阶段搬运暂不支持。交互指令不接受 `plant`、`set_sun` 等夹具作弊命令。
+- `collect_sun` 用导出阳光的实体 `id` 触发正常收集，飞回阳光栏后才增加余额；重复收集返回 `sun_unavailable`。
+- `advance` 接收 `steps=0..3600`，每步沿用正常固定逻辑步及当前倍速。预算耗尽后跳过整个场景 Update 和游戏时钟推进，避免按帧技能在等待中漂移；绘制、SDL 事件与窗口关闭继续运行。玩家的暂停没有解除时返回 `player_paused`。
+- 每批结束自动返回精简状态、每项操作结果和 `simulationSteps`。无参数即 `observe`；`--full-state` 返回原完整诊断投影；`--file commands.json` 从文件读取命令数组。截图沿用原渲染器捕获屏障，不推进战斗；输出在脚本目录中。
+- 同一游戏只用一个客户端控制。`status.json` 给出本次唯一 `session`、`liveDir`、`lastRequestId`；请求为该目录下严格递增的 `request_N.json`，包含 `session/id/commands`，先写临时文件再改名。响应 `response_N.json` 同样原子发布，旧请求/响应保留作记录。
+- 超时只代表结果未知，使用**原指令和原 `--id N`** 重试。旧序号不会再次执行；新进程创建新会话目录，不重放旧请求。参数或玩法拒绝记录到结果并继续本批后续命令，不自动重试；渲染器/状态导出失败仍按 AutoTest 故障退出。
+- 验证：可见启动 `interactive_contract.json`，随后运行 `python autotest/verify_interactive.py build/clang-release/autotest/out/interactive_contract`。检查其验证 JSON、退出码、`run.log` 和同步截图；普通卡槽/暂停路径回归用 `smoke_advanced_pause.json`。
+
 `smoke_glyph_atlas_rebuild.json` 在同帧按血量串逐步扩充字形图集，并交错 Add 绘制；
 `glyph_atlas_rebuild_probe` 后必须立即截图，后续帧会掩盖旧纹理提前释放问题。
 运行 `python autotest/verify_glyph_atlas_rebuild.py <输出目录>`，比较重建帧与稳定帧的左右同串像素和绿色墨迹。

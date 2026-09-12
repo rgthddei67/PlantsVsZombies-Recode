@@ -87,6 +87,8 @@ public:
 
 	// 处理Cell点击
 	void HandleCellClick(int row, int col);
+	/** 按实际卡槽落种（slot 从 0 起）；成功返回空串，失败返回原因，不绕过费用、冷却或暂停门禁。 */
+	std::string TryPlantFromSlot(int slot, int row, int col);
 
 	// 获取当前选中的植物类型
 	PlantType GetSelectedPlantType() const;
@@ -113,7 +115,7 @@ private:
 	bool CanPlaceInCell(Cell* cell) const;
 
 	// 在指定Cell放置植物
-	void PlacePlantInCell(int row, int col);
+	bool PlacePlantInCell(int row, int col);
 	Card* FindPlanternCard() const;
 	void UpdatePlanternGearMenuInput();
 	/** 空手悬停于有效路灯花格时请求手型光标；手持状态保留格子原本的落种或工具语义。 */

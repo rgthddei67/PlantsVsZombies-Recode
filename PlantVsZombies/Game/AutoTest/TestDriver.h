@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <chrono>
 #include <nlohmann/json.hpp>
 
 // -AutoTest 脚本自动驾驶：解析 JSON 命令队列，挂在主循环每帧推进。
@@ -21,6 +22,10 @@ public:
 
 	// 每帧调用（GameAPP::Run 中 sceneManager.Update() 之后）。未激活时立即返回。
 	void Update();
+	/** 交互模式只在明确的 advance 预算内更新场景；普通脚本始终照常运行。 */
+	bool ShouldUpdateScene() const { return !mInteractiveReady || mAdvanceSteps > 0; }
+	/** 在一次完整场景更新后扣除交互步数预算。 */
+	void OnSceneUpdated();
 
 	const std::string& OutDir() const { return mOutDir; }
 
@@ -41,6 +46,30 @@ private:
 	void Finish();                          // 全部命令跑完，正常收尾
 	void Log(const std::string& msg);       // 写 run.log（带帧号）并 flush
 	void WriteStatus(const char* status, const std::string& detail = {});
+	/** 开局脚本结束后创建独立会话信箱并发布初始局面。 */
+	void BeginInteractive();
+	/** 限频读取下一序号文件；请求格式错误也返回结果，保持游戏可继续控制。 */
+	void PollInteractive();
+	/** 完成本批请求，返回冻结局面；显式 quit 才结束进程。 */
+	void CompleteInteractive();
+	/** 执行允许的玩家操作或安排有限步进；操作拒绝作为结果返回。 */
+	bool ExecuteInteractive(const nlohmann::json& command);
+	/** 复用现有投影生成完整或精简局面，附带实际卡槽与地形资格。 */
+	nlohmann::json BuildInteractiveState();
+	/** 先写临时文件再发布唯一序号的响应，避免读取半份状态。 */
+	void PublishInteractiveReply();
+	bool mInteractive = false;
+	bool mInteractiveReady = false;
+	bool mInteractiveBusy = false;
+	bool mInteractiveQuit = false;
+	bool mInteractiveFullState = false;
+	int mAdvanceSteps = 0;
+	uint64_t mSimulationSteps = 0;
+	uint64_t mRequestId = 0;
+	std::string mSession;
+	std::string mLiveDir;
+	nlohmann::json mInteractiveResults = nlohmann::json::array();
+	std::chrono::steady_clock::time_point mNextInboxPoll{};
 
 	bool mActive = false;
 	int  mExitCode = 0;

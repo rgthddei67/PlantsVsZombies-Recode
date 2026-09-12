@@ -664,15 +664,32 @@ bool CardSlotManager::CanPlaceInCell(Cell* cell) const {
 	return true;
 }
 
-void CardSlotManager::PlacePlantInCell(int row, int col) {
-	if (!selectedCard || !mBoard) return;
+std::string CardSlotManager::TryPlantFromSlot(int slot, int row, int col) {
+	if (!CanAcceptGameplayInput()) return "gameplay_input_blocked";
+	if (GameAPP::mDevelopMode && (GameAPP::mDevFreePlant || GameAPP::mDevNoCooldown))
+		return "developer_cheat_enabled";
+	if (slot < 0 || slot >= static_cast<int>(cards.size()) || !cards[slot]) return "invalid_slot";
+	Card* card = cards[slot];
+	if (!card->IsReady()) return "cooldown";
+	if (mBoard->GetSun() < card->GetSunCost()) return "insufficient_sun";
+	if (!mBoard->HasPlantingQuota(card->GetGameplayPlantType())) return "planting_quota";
+	if (!mBoard->HasPlantingRequirement(card->GetGameplayPlantType())) return "planting_requirement";
+	// 搬搬藤是两阶段搬运工具，不能伪装成一次普通落种。
+	if (card->GetGameplayPlantType() == PlantType::PLANT_CARRYVINE) return "requires_relocation";
+	if (!mBoard->GetCell(row, col) || !mBoard->CanPlantAt(card->GetGameplayPlantType(), row, col))
+		return "invalid_cell";
+	DeselectCard();
+	SelectCard(card);
+	if (selectedCard != card) return "selection_rejected";
+	return PlacePlantInCell(row, col) ? "" : "creation_rejected";
+}
+
+/** 提交已选卡的正式落种；只有创建成功才结算费用与冷却。 */
+bool CardSlotManager::PlacePlantInCell(int row, int col) {
+	if (!selectedCard || !mBoard || !selectedCard->IsReady()) return false;
 
 	Cell* cell = mBoard->GetCell(row, col);
-	if (!cell) return;
-
-	if (!SpendSun(selectedCard->GetSunCost())) {
-		return;
-	}
+	if (!CanPlaceInCell(cell)) return false;
 
 	DestroyPlantPreview();
 	DestroyCellPlantPreview();
@@ -686,6 +703,8 @@ void CardSlotManager::PlacePlantInCell(int row, int col) {
 		: mBoard->CreatePlayerPlant(selectedCard->GetPlantType(), row, col);
 
 	if (plant) {
+		// 校验和创建位于同一主线程事务；失败创建不得吞掉玩家阳光。
+		SpendSun(selectedCard->GetSunCost());
 		if (auto* blover = dynamic_cast<Blover*>(plant)) {
 			blover->SetBlowDirection(selectedCard->GetBloverDirection());
 		}
@@ -698,6 +717,7 @@ void CardSlotManager::PlacePlantInCell(int row, int col) {
 	// 取消选择
 	DeselectCard();
 	mBoard->mCursorObjectManager.ClearActive();
+	return plant != nullptr;
 }
 
 PlantType CardSlotManager::GetSelectedPlantType() const {

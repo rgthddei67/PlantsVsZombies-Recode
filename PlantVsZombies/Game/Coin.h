@@ -30,6 +30,7 @@ protected:
 	bool mIsDestroyed = false;            // 是否已销毁
 
 public:
+	bool IsCollected() const { return mIsCollected; }
 	int mCoinID = NULL_COIN_ID;
 
 public:

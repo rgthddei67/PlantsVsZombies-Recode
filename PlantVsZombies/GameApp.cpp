@@ -613,11 +613,16 @@ int GameAPP::Run()
 #if defined(__ANDROID__)
 				if (appInBackground || skipResumedFrame) break;
 #endif
-				DeltaTime::BeginStep();
-				CursorManager::GetInstance().ResetHoverCount();
-				sceneManager.Update();
-				CursorManager::GetInstance().Update();
-				TestDriver::GetInstance().Update();   // 非 AutoTest 模式下首行 !mActive 即返回
+				auto& testDriver = TestDriver::GetInstance();
+				// 信箱等待期间跳过整个场景更新，连按帧计数的技能也冻结；SDL 退出事件与绘制仍正常。
+				if (testDriver.ShouldUpdateScene()) {
+					DeltaTime::BeginStep();
+					CursorManager::GetInstance().ResetHoverCount();
+					sceneManager.Update();
+					CursorManager::GetInstance().Update();
+					testDriver.OnSceneUpdated();
+				}
+				testDriver.Update();   // 非 AutoTest 模式下首行 !mActive 即返回
 				// 边沿衰减（PRESSED→DOWN 等）每逻辑步一次：保证一次点击恰好被一个
 				// 逻辑步消费——追帧补 2~3 步时不会把同一次点击种成两棵植物；
 				// 本帧 0 步时边沿保留到下一步，点击不会丢

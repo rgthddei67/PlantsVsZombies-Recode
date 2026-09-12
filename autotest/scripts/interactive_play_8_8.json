@@ -1,0 +1,8 @@
+{
+  "interactive": true,
+  "commands": [
+    {"op": "goto_level", "level": 71, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_SUNFLOWER", "PLANT_MELONPULT", "PLANT_CHERRYBOMB", "PLANT_SQUASH", "PLANT_PUMPKINSHELL", "PLANT_JALAPENO", "PLANT_REPEATER", "PLANT_TORCHWOOD", "PLANT_UMBRELLA", "PLANT_KERNELPULT"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30}
+  ]
+}

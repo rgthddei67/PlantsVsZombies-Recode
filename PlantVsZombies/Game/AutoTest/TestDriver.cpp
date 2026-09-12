@@ -720,6 +720,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 		return false;
 	}
 	for (const auto& c : j["commands"]) mCommands.push_back(c);
+	mInteractive = j.value("interactive", false);
 
 	mOutDir = (std::filesystem::path("./autotest/out") /
 		std::filesystem::path(path).stem()).string();
@@ -759,6 +760,11 @@ void TestDriver::WriteStatus(const char* status, const std::string& detail) {
 		{ "commandIndex", mIndex },
 	};
 	if (!detail.empty()) value["detail"] = detail;
+	if (mInteractiveReady) {
+		value["session"] = mSession;
+		value["liveDir"] = mLiveDir;
+		value["lastRequestId"] = mRequestId;
+	}
 	std::ofstream output(mOutDir + "/status.json", std::ios::trunc);
 	if (output) output << value.dump(2);
 }
@@ -798,6 +804,10 @@ void TestDriver::ResetTestState() {
 
 void TestDriver::Update() {
 	if (!mActive) return;
+	if (mInteractiveReady && !mInteractiveBusy) {
+		PollInteractive();
+		if (!mInteractiveBusy) return;
+	}
 	++mFrame;
 	if (mFrame == 1) {
 		// 把实际能力路径写入权威 run.log；Release 构建不会保留普通 Logger 信息，
@@ -846,12 +856,17 @@ void TestDriver::Update() {
 		mCaptureTicket = 0;
 		if (++guard > 64) break;               // 单帧推进上限，防脚本自旋
 	}
-	if (mActive && mIndex >= mCommands.size()) Finish();
+	if (mActive && mIndex >= mCommands.size()) {
+		if (mInteractiveReady) CompleteInteractive();
+		else if (mInteractive) BeginInteractive();
+		else Finish();
+	}
 }
 
 bool TestDriver::ExecuteCurrent() {
 	const auto& cmd = mCommands[mIndex];
 	const std::string op = cmd.value("op", "");
+	if (mInteractiveReady && op != "screenshot") return ExecuteInteractive(cmd);
 
 	// 等待型命令的超时看门狗（墙钟语义，不受 timescale 影响）
 	mTimeoutAccum += DeltaTime::GetUnscaledDeltaTime();
@@ -3096,6 +3111,8 @@ bool TestDriver::ExecuteCurrent() {
 		}
 		Log("capture ticket " + std::to_string(mCaptureTicket)
 			+ " persisted: " + path.u8string());
+		if (mInteractiveReady) mInteractiveResults.push_back({
+			{"op", "screenshot"}, {"ok", true}, {"reason", ""}, {"path", path.u8string()} });
 		return true;
 	}
 	if (op == "dump_state") {
@@ -5059,6 +5076,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "small", isSmall },
 			{ "xInt", static_cast<int>(std::lround(sun->GetPosition().x)) },
 			{ "yInt", static_cast<int>(std::lround(sun->GetPosition().y)) },
+			{ "collected", sun->IsCollected() },
 		});
 	}
 	out["normalSunCount"] = normalSunCount;
@@ -5425,6 +5443,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				{ "ready", card->IsReady() },
 				{ "selected", card->IsSelected() },
 				{ "cooldown", card->IsCooldown() },
+				{ "sunCost", card->GetSunCost() },
+				{ "cooldownRemainingMs", static_cast<int>(std::lround(card->GetCooldownTimer() * 1000.0f)) },
 			};
 			if (card->GetPlantType() == PlantType::PLANT_IMITATER) {
 				cardState["imitaterTarget"] = PlantTypeName(card->GetImitaterTarget());
