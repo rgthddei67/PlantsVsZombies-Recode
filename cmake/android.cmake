@@ -26,6 +26,9 @@ target_include_directories(main SYSTEM PRIVATE "${PVZ_VMA_INCLUDE_DIR}")
 target_compile_definitions(main PRIVATE VK_NO_PROTOTYPES
     VMA_STATIC_VULKAN_FUNCTIONS=0 VMA_DYNAMIC_VULKAN_FUNCTIONS=1)
 target_compile_options(main PRIVATE -Wall -Wno-unused-parameter)
+# Android Release 明确使用 Full LTO；编译与链接必须同时启用，避免只生成 bitcode 却未做链接时优化。
+target_compile_options(main PRIVATE $<$<CONFIG:Release>:-flto=full>)
+target_link_options(main PRIVATE $<$<CONFIG:Release>:-flto=full>)
 set_source_files_properties(PlantVsZombies/Game/AutoTest/TestDriver.cpp
     PROPERTIES COMPILE_OPTIONS -O0)
 target_link_libraries(main PRIVATE SDL2::SDL2

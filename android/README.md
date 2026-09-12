@@ -6,6 +6,10 @@ Android 9（API 28）起，arm64-v8a，横屏，OpenGL ES 3.0。当前是首次�
 
 在仓库根运行 `./android/build.ps1`。脚本导入 VS host 工具环境，使用 NDK Clang 编译 Android 目标，再用 Gradle 打包带调试签名的 APK；不安装到设备、不启动游戏。
 
+原生游戏目标 `main` 的 Release 构建使用 NDK 的 `-O3` 与显式 `-flto=full`（编译和链接两端），
+配置入口为 `cmake/android.cmake`。AutoTest 驱动保留源文件级 `-O0` 例外；既有第三方库不因此重新启用 LTO。
+首次启用或改变 LTO 模式会重编游戏目标，后续仍按源码/头文件依赖增量编译，但修改代码后需重新执行 LTO 链接。
+
 - APK：`android/app/build/outputs/apk/debug/app-debug.apk`
 - 原生库与 CMake：`build/android-arm64/`
 - APK 资产和 Java 桥暂存：`build/android-package/`
