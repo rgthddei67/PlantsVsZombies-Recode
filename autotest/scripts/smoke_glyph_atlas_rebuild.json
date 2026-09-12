@@ -1,0 +1,30 @@
+{
+  "commands": [
+    { "op": "wait_frames", "value": 10 },
+    { "op": "set_fullscreen", "value": false },
+    { "op": "wait_frames", "value": 3 },
+    { "op": "glyph_atlas_rebuild_probe" },
+    { "op": "screenshot", "name": "rebuild.png" },
+    { "op": "wait_frames", "value": 3 },
+    { "op": "screenshot", "name": "stable.png" },
+    { "op": "dump_state", "name": "renderer_state.json" },
+    { "op": "glyph_atlas_rebuild_probe", "on": false },
+    { "op": "goto_level", "level": 1 },
+    { "op": "choose_cards", "cards": ["PLANT_PEASHOOTER"] },
+    { "op": "wait_state", "state": "GAME", "timeout": 15 },
+    { "op": "set_spawn_paused", "value": true },
+    { "op": "show_plant_hp", "on": true },
+    { "op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 1 },
+    { "op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 3 },
+    { "op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 5 },
+    { "op": "wait_frames", "value": 3 },
+    { "op": "damage_plant", "row": 2, "col": 3, "damage": 1 },
+    { "op": "damage_plant", "row": 2, "col": 5, "damage": 113 },
+    { "op": "screenshot", "name": "plant_hit.png" },
+    { "op": "assert_state", "path": "plantCount", "equals": 3 },
+    { "op": "dump_state", "name": "plant_hit_state.json" },
+    { "op": "wait_seconds", "value": 0.2 },
+    { "op": "screenshot", "name": "plant_recovered.png" },
+    { "op": "quit" }
+  ]
+}

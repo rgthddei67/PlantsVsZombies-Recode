@@ -1957,6 +1957,10 @@ void Graphics::BuildGlyphAtlas(const std::string& fontKey, int fontSize, GlyphAt
 	atlas.glyphs.clear();
 	// 旧纹理先还给当前后端（重建场景：新码点 / letterbox 变化）。
 	if (m_textureBackend && atlas.texture) {
+		// GL 立即删除 texture name；前面排队的字形仍引用旧纹理及旧 UV。
+		// 必须先提交 CPU batch，否则名称复用后会采样新图集的错误位置，或变黑/消失。
+		// Vulkan 已延迟回收纹理和 descriptor 槽位，无需在这里打断其批次。
+		if (m_gl) FlushBatch();
 		m_textureBackend->DestroyTexture(atlas.texture);
 		atlas.texture = nullptr;
 	}

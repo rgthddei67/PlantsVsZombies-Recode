@@ -13,6 +13,11 @@
 
 ## AutoTest 测试套件
 
+`smoke_glyph_atlas_rebuild.json` 在同帧按血量串逐步扩充字形图集，并交错 Add 绘制；
+`glyph_atlas_rebuild_probe` 后必须立即截图，后续帧会掩盖旧纹理提前释放问题。
+运行 `python autotest/verify_glyph_atlas_rebuild.py <输出目录>`，比较重建帧与稳定帧的左右同串像素和绿色墨迹。
+后端回归覆盖 Vulkan、`-NoInstance`、OpenGL SSBO 及 `-Renderer=opengl -OpenGL33` CPU 路径。
+
 启动参数 `-AutoTest <script.json>` 会通过 JSON 脚本自动驱动游戏（进入关卡、选卡、种植、生成僵尸、截图、导出状态，然后退出）。Codex 可以独立完成“修改代码 → 构建 → 运行脚本 → 读取截图验证”的完整闭环，无需主人手动提供游戏截图。
 
 - **验证矩阵按改动面分流：** 新增或修改植物、僵尸、粒子、出怪池、数值、逻辑或普通资源时，默认只跑 `clang-release` 的当前桌面可见用例与实际影响范围内的状态/资源/截图断言，不因“是新内容”就机械加跑 `-NoInstance` 或强制 OpenGL。只有实际改动渲染后端、后端兼容路径或跨后端提交实现（如 Vulkan instance/batch、`-NoInstance` CPU 矩阵路径、OpenGL CPU batch/shader/texture 生命周期）时，才要在默认 Vulkan 之外加跑 `-NoInstance` 和强制 OpenGL 兼容回归。

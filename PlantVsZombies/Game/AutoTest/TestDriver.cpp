@@ -3038,6 +3038,35 @@ bool TestDriver::ExecuteCurrent() {
 		Log("snapshot reloaded into fresh GameScene: " + path);
 		return true;
 	}
+	if (op == "glyph_atlas_rebuild_probe") {
+		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
+		if (!scene) { Fail("glyph_atlas_rebuild_probe: scene 为空"); return false; }
+		if (!cmd.value("on", true)) {
+			scene->UnregisterDrawCommand("GlyphAtlasRebuildProbe");
+			return true;
+		}
+		// Update 阶段清缓存；下一条 screenshot 必须紧接本命令，捕获首次扩图的同一帧。
+		GameAPP::GetInstance().GetGraphics().ClearTextCache();
+		scene->RegisterDrawCommand("GlyphAtlasRebuildProbe", [](Graphics* g) {
+			// 左列依次引入新数字，右列用完整图集重画同串，供截图逐像素比较。
+			const BlendMode savedBlend = g->GetBlendMode();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(100.0f, 140.0f, 900.0f, 300.0f, glm::vec4(48, 48, 48, 255));
+			const char* labels[] = { "300/300", "299/300", "187/300", "654/300" };
+			for (int column = 0; column < 2; ++column) {
+				for (int row = 0; row < 4; ++row) {
+					const float x = 140.0f + column * 480.0f;
+					const float y = 170.0f + row * 60.0f;
+					g->SetBlendMode(BlendMode::Add);
+					g->FillRect(x + 270.0f, y, 12.0f, 12.0f, glm::vec4(80, 80, 80, 255));
+					g->DrawGlyphRun(labels[row], ResourceKeys::Fonts::FONT_FZCQ, 37,
+						glm::vec4(0, 255, 0, 255), x, y);
+				}
+			}
+			g->SetBlendMode(savedBlend);
+		}, LAYER_UI + 100);
+		return true;
+	}
 	if (op == "screenshot") {
 		const std::string name = cmd.value("name", "shot.png");
 		auto* renderer = GameAPP::GetInstance().GetCaptureBackend();
