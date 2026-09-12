@@ -59,10 +59,12 @@ void Board::DrawMineFog(Graphics* g) const
 	if (!g || strength <= 0.0f) return;
 	const Vector first = GetCellCenterPosition(0, GetMineFogFirstColumn());
 	const float left = first.x - CELL_COLLIDER_SIZE_X * 0.5f;
-	const float top = first.y - mCellHeight * 0.5f - 30.0f;
-	const float bottom = GetCellCenterPosition(mRows-1,5).y + mCellHeight * 0.5f;
+	// 雾片采样锚点保持不变；绘制裁剪扩展到场景上下沿，避免网格外留下无雾窄条。
+	const float sampleTop = first.y - mCellHeight * 0.5f - 30.0f;
+	const float top = 0.0f;
+	const float bottom = static_cast<float>(SCENE_HEIGHT);
 	// 复用普通迷雾原生 210x190 雾片与多层错位；采样网与棋盘格无关，岩壁不截断雾幕。
-	// 防护从配置列向右延伸至场外；背景雾铺满屏幕右缘，避免在矿洞入口形成裁切线。
+	// 防护从配置列向右延伸至场外；背景雾铺满上下与右缘，UI仍由后续绘制层覆盖。
 	const float right = static_cast<float>(SCENE_WIDTH);
 	const int samples = static_cast<int>(std::ceil((right-left)/103.0f)) + 2;
 	g->PushClipRect(static_cast<int>(left),static_cast<int>(top),static_cast<int>(right-left),static_cast<int>(bottom-top));
@@ -70,7 +72,7 @@ void Board::DrawMineFog(Graphics* g) const
 		const int seed = (y+3)*37+(x+3)*19+layer*53;
 		const float drift = std::sin(mMineFogElapsed * (0.14f+layer*0.035f) + seed*0.7f)*14.0f;
 		const float px = left + 105 + x*103.0f + (y%2)*35.0f + layer*27.0f + drift;
-		const float py = top + y*79.0f + layer*23.0f + (seed%17) - 8;
+		const float py = sampleTop + y*79.0f + layer*23.0f + (seed%17) - 8;
 		const float arrival = mMineFogElapsed < kFadeSeconds
 			? std::clamp((mMineFogElapsed*(right-left+120.0f)/kFadeSeconds-(right-px-105.0f))/120.0f,0.0f,1.0f) : 1.0f;
 		const std::string key = "IMAGE_FOG_PART_" + std::to_string(seed%8);

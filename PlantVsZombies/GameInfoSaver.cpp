@@ -1088,7 +1088,8 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	if (board->IsMineBackground() && j.contains("mine") && j["mine"].is_object()) {
 		const auto& mine = j["mine"];
 		board->mMineFogElapsed = std::clamp(mine.value("fogElapsed",-1.0f),-1.0f,Board::kMineFogDuration);
-		board->mMineFogNextWave = std::max(10,mine.value("fogNextWave",10));
+		const int openingFogWave = board->GetMineFogOpeningWave();
+		board->mMineFogNextWave = std::max(openingFogWave,mine.value("fogNextWave",openingFogWave));
 		board->mMineFogTutorialSeen = mine.value("fogTutorialSeen",false);
 		board->mMineFogNoticeRemaining = std::clamp(mine.value("fogNotice",0.0f),0.0f,8.0f);
 		if (mine.contains("rocks") && mine["rocks"].is_array() && mine["rocks"].size() == MineGrid::Count) {

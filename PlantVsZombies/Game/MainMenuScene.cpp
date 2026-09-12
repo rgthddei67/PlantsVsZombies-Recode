@@ -107,6 +107,7 @@ void MainMenuScene::Update()
 	}
 }
 
+/** 注册主菜单绘制层；全部通关后关卡角标仍指向最后一个可重玩的冒险关。 */
 void MainMenuScene::BuildDrawCommands()
 {
 	Scene::BuildDrawCommands();
@@ -114,8 +115,10 @@ void MainMenuScene::BuildDrawCommands()
 		[this](Graphics* g) {
 			if (this->mOpenMenu || this->mOpenConsole) return;
 			auto& gameApp = GameAPP::GetInstance();
-			int mBigLevel = AdventureProgression::GetAreaNumber(gameApp.mAdventureLevel);
-			int mSmallLevel = AdventureProgression::GetLevelNumberInArea(gameApp.mAdventureLevel);
+			// 通关哨兵用于保存完成状态，不作为尚未存在的下一大关显示。
+			const int displayLevel = std::clamp(gameApp.mAdventureLevel, 1, AdventureProgression::LAST_ADVENTURE_LEVEL);
+			int mBigLevel = AdventureProgression::GetAreaNumber(displayLevel);
+			int mSmallLevel = AdventureProgression::GetLevelNumberInArea(displayLevel);
 			// 坐标与冒险按钮 (545,85) 缩放 1.00 绑定：石碑贴图内角标的相对位置换算而来
 			gameApp.DrawText(std::to_string(mBigLevel), Vector(695, 168),
 				glm::vec4(255.0f, 255.0f, 255.0f, 255.0f));

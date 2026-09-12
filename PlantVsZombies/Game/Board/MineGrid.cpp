@@ -11,10 +11,13 @@ void MineGrid::Initialize(int layoutGroup)
 	};
 	constexpr const char* thirdLayout[Rows] = {"..#######", "....##...", "..#....##", "....##...", "..#######"};
 	constexpr const char* fourthLayout[Rows] = {"..####...", "..####.##", ".......##", "..####.##", "..####..."};
+	// 三入口在第七列汇流，再由第四列分到第二/四行；左侧两列保持固定防守区。
+	constexpr const char* finalLayout[Rows] = {"..####...", "....##.##", "..#......", "....##.##", "..####..."};
 	for (int r = 0; r < Rows; ++r)
 		for (int c = 0; c < Columns; ++c)
-			rock[Index(r, c)] = (layoutGroup == 3 ? fourthLayout : layoutGroup == 2 ? thirdLayout : layoutGroup == 1 ? secondLayout : layout)[r][c] == '#';
-	entrance = (layoutGroup == 1 || layoutGroup == 3) ? std::array<bool, Rows>{ true, false, false, false, true }
+			rock[Index(r, c)] = (layoutGroup == 4 ? finalLayout : layoutGroup == 3 ? fourthLayout : layoutGroup == 2 ? thirdLayout : layoutGroup == 1 ? secondLayout : layout)[r][c] == '#';
+	entrance = layoutGroup == 4 ? std::array<bool, Rows>{ true, false, true, false, true }
+		: (layoutGroup == 1 || layoutGroup == 3) ? std::array<bool, Rows>{ true, false, false, false, true }
 		: std::array<bool, Rows>{ false, true, false, true, false };
 	Rebuild();
 }

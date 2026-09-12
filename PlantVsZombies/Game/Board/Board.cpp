@@ -252,7 +252,8 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
+		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
+		mMineFogNextWave = GetMineFogOpeningWave();
 		// 初始阳光由关卡表唯一维护；地形初始化不能覆盖已经加载的开局经济。
 	}
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
@@ -2689,6 +2690,7 @@ void Board::TrySummonAdventureBoss()
 }
 
 /** 为每个出怪候选创建选卡展示对象，并为编队候选补充无玩法注册的纯展示成员。 */
+/** 为选卡创建独立展示对象；大型角色在收官预览中避开顶部卡槽。 */
 void Board::CreatePreviewZombies()
 {
 	if (mBoardState != BoardState::CHOOSE_CARD || !mPreviewZombieList.empty()
@@ -2710,7 +2712,10 @@ void Board::CreatePreviewZombies()
 				zombieType, this, spawnX, GetZombieSpawnY(row, spawnX), row, true);
 		}
 		else {
-			const float spawnY = GameRandom::Range(mSpawnZombiePos1.y, mSpawnZombiePos2.y);
+			float spawnY = GameRandom::Range(mSpawnZombiePos1.y, mSpawnZombiePos2.y);
+			// 红眼巨人的头部高于普通僵尸，9-9预览保留足够上沿空间。
+			if (mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL
+				&& zombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) spawnY = std::max(spawnY, 225.0f);
 			preview = GameAPP::GetInstance().InstantiateZombieFree(
 				zombieType, this, spawnX, spawnY);
 		}
@@ -2951,6 +2956,7 @@ inline ZombieType Board::GetCheapestZombie()
 	return cheapest;
 }
 
+/** 按预算和当前关的登场门槛抽取品种；矿场预报传入下一波，不能使用当前波判断阶段。 */
 inline ZombieType Board::PickZombieType(int remainingPoints, int wave)
 {
 	if (wave < 0) wave = mCurrentWave;
@@ -2959,6 +2965,18 @@ inline ZombieType Board::PickZombieType(int remainingPoints, int wave)
 		ZombieType type = GetWeightedRandomZombie();
 		int cost = GameDataManager::GetInstance().GetZombieWeight(type);
 		int minWave = GameDataManager::GetInstance().GetZombieAppearWave(type);
+		// 收官先留开凿与布阵时间，再叠加金雾、支援和重装；仅延后本关，不改全局品种配置。
+		if (!mIsSurvival && mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL) {
+			switch (type) {
+			case ZombieType::ZOMBIE_ADAPTIVE_HELMET: minWave = 8; break; // 第8波起加入抗性前排
+			case ZombieType::ZOMBIE_CRYSTAL_HORN_MINER: minWave = 10; break; // 第10波起加入冲阵压力
+			case ZombieType::ZOMBIE_SUN_THIEF: minWave = 12; break; // 第12波起干扰扩建经济
+			case ZombieType::ZOMBIE_CRYSTAL_DRUMMER: minWave = 15; break; // 第15波起叠加鼓舞
+			case ZombieType::ZOMBIE_HEALER: minWave = 20; break; // 第20波起加入续航支援
+			case ZombieType::ZOMBIE_REDEYE_GARGANTUAR: minWave = 30; break; // 第30波后进入重装收官段
+			default: break;
+			}
+		}
 		if (!mIsSurvival && mLevel == 78 && type == ZombieType::ZOMBIE_AURORA_PRIEST) minWave = 15;
 		if (!mIsSurvival && mLevel == 74 && (type == ZombieType::ZOMBIE_PINK_FOOTBALL
 			|| type == ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX)) minWave = 4;

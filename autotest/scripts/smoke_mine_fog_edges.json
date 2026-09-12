@@ -1,0 +1,32 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 75, "resetTestState": true},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_mine_fog", "elapsed": -1},
+    {"op": "screenshot", "name": "blue_clear.png"},
+    {"op": "set_mine_fog", "elapsed": 5},
+    {"op": "assert_state", "path": "mine.fogStrength1000", "equals": 1000},
+    {"op": "screenshot", "name": "blue_fog.png"},
+    {"op": "goto_level", "level": 77, "resetTestState": true},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_mine_fog", "elapsed": -1},
+    {"op": "screenshot", "name": "purple_clear.png"},
+    {"op": "set_mine_fog", "elapsed": 5},
+    {"op": "assert_state", "path": "mine.fogStrength1000", "equals": 1000},
+    {"op": "screenshot", "name": "purple_fog.png"},
+    {"op": "goto_level", "level": 81, "resetTestState": true},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_mine_fog", "elapsed": -1},
+    {"op": "screenshot", "name": "gold_clear.png"},
+    {"op": "set_mine_fog", "elapsed": 5},
+    {"op": "assert_state", "path": "mine.fogStrength1000", "equals": 1000},
+    {"op": "screenshot", "name": "gold_fog.png"},
+    {"op": "quit"}
+  ]
+}

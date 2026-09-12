@@ -19,7 +19,7 @@ public:
 	static bool Valid(int row, int col) { return row >= 0 && row < Rows && col >= 0 && col < Columns; }
 	static int Index(int row, int col) { return row * Columns + col; }
 	bool IsRock(int row, int col) const { return Valid(row, col) && rock[Index(row, col)]; }
-	/** 每两关共用固定布局；第二组采用上下入口与不对称矿道。 */
+	/** 前四组每两关共用布局；组4为9-9三入口汇流、双出口分流的收官布局。 */
 	void Initialize(int layoutGroup = 0);
 	/** 地形提交后重建房屋连通性与有向距离；固定数组队列，无每帧分配。 */
 	void Rebuild();

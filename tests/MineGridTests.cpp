@@ -63,6 +63,21 @@ int main()
 				|| (dug.connected[cell] && !dug.rock[cell] && dug.exitDistance[cell]>=MineGrid::Unreachable)) return 20;
 	}
 	if (fourthWalls!=22) return 21;
+	// 收官三入口先汇流再分到两条防线；逐墙开凿不能破坏任一入口和魅惑退路。
+	MineGrid finale;
+	finale.Initialize(4);
+	if (!finale.Validate() || finale.entrance != std::array<bool,5>{true,false,true,false,true}
+		|| finale.distance[8] != 11 || finale.distance[26] != 9 || finale.distance[44] != 11) return 22;
+	for (int wall = 0; wall < MineGrid::Count; ++wall) {
+		if (!finale.rock[wall]) continue;
+		MineGrid dug = finale;
+		dug.rock[wall] = false;
+		dug.Rebuild();
+		if (!dug.Validate()) return 23;
+		for (int cell = 0; cell < MineGrid::Count; ++cell)
+			if (dug.distance[cell] > finale.distance[cell]
+				|| (dug.connected[cell] && !dug.rock[cell] && dug.exitDistance[cell] >= MineGrid::Unreachable)) return 24;
+	}
 	MineGrid initial;
 	initial.Initialize();
 	if (!initial.Validate() || initial.distance[17] != 9 || initial.distance[35] != 9) return 1;

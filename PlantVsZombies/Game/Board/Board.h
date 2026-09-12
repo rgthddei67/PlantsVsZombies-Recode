@@ -878,11 +878,13 @@ public:
 	MineGrid mMineGrid;
 	static constexpr float kMineFogDuration = 90.0f; // 各色矿雾单次总时长，游戏秒，包含渐入渐退
 	float mMineFogElapsed = -1.0f; // -1 表示无雾，其余为本次雾潮已过游戏秒
-	int mMineFogNextWave = 10; // 完全散尽后按所在波次加三，首次为第十波
+	int mMineFogNextWave = 10; // 完全散尽后按所在波次加三；初始化时按关卡设定首次波次
 	bool mMineFogTutorialSeen = false;
 	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
+	/** 首次矿雾波次；收官提前，其余关卡仍保留原教学窗口。 */
+	int GetMineFogOpeningWave() const { return mLevel == 81 ? 5 : 10; }
 	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
-	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 80); }
+	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 81); }
 	bool HasPurpleMineFog() const { return SupportsMineFog() && mLevel >= 77 && mLevel <= 78; }
 	bool HasGoldenMineFog() const { return SupportsMineFog() && mLevel >= 79; }
 	int GetMineFogFirstColumn() const { return HasGoldenMineFog() ? 3 : HasPurpleMineFog() ? 4 : 5; }
