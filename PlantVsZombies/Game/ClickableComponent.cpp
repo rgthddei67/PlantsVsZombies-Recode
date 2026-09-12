@@ -65,7 +65,7 @@ void ClickableComponent::ProcessMouseEvents() {
 	// 按渲染顺序降序排序（order大的在前）
 	std::sort(clickableObjects.begin(), clickableObjects.end(),
 		[](const auto& a, const auto& b) {
-			return a.first->GetRenderOrder() > b.first->GetRenderOrder();
+			return b.first->IsDrawnBefore(*a.first);
 		});
 
 	// 更新所有对象的鼠标悬停状态 后标记处理过的对象

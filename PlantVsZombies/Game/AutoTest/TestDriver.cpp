@@ -6165,9 +6165,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	int plantPreviewCount = 0;
 	out["cellPlantPreview"] = nullptr;
 	out["plantPreview"] = nullptr;
+	// 记录已提交列表中的稳定实体 ID 顺序，用于比较悬停前后已有植物的遮挡关系。
+	out["plantDrawOrder"] = nlohmann::json::array();
 	for (const auto& object : GameObjectManager::GetInstance().GetAllGameObjects()) {
 		auto* preview = object ? dynamic_cast<Plant*>(object.get()) : nullptr;
-		if (!preview || !preview->IsActive() || !preview->IsPreview()) continue;
+		if (!preview || !preview->IsActive()) continue;
+		if (!preview->IsPreview()) {
+			out["plantDrawOrder"].push_back(preview->mPlantID);
+			continue;
+		}
 		const Vector pos = preview->GetPosition();
 		nlohmann::json previewState = {
 			{ "type", PlantTypeName(preview->mPlantType) },

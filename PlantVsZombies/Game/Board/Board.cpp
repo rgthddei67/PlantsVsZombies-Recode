@@ -2166,18 +2166,16 @@ void Board::RefreshPlantStackRenderOrder(Cell* cell)
 	Plant* normal = mEntityRegistry.GetPlant(cell->GetNormalPlantID());
 	Plant* pumpkin = mEntityRegistry.GetPlant(cell->GetPumpkinPlantID());
 	Plant* overlay = mEntityRegistry.GetPlant(cell->GetOverlayPlantID());
-	std::vector<int> orders;
-	if (under) orders.push_back(under->GetRenderOrder());
-	if (normal) orders.push_back(normal->GetRenderOrder());
-	if (pumpkin) orders.push_back(pumpkin->GetRenderOrder());
-	if (overlay) orders.push_back(overlay->GetRenderOrder());
-	if (orders.size() < 2) return;
-	std::sort(orders.begin(), orders.end());
-	size_t index = 0;
-	if (under) under->SetRenderOrder(orders[index++]);
-	if (normal) normal->SetRenderOrder(orders[index++]);
-	if (pumpkin) pumpkin->SetRenderOrder(orders[index++]);
-	if (overlay) overlay->SetRenderOrder(orders[index]);
+	std::vector<Plant*> stack;
+	for (Plant* plant : { under, normal, pumpkin, overlay }) {
+		if (plant) stack.push_back(plant);
+	}
+	// 按承载层次排列已有号，分配凭据随号转移；之后铲除任意层只释放该层自己的号。
+	for (size_t i = 0; i < stack.size(); ++i) {
+		const auto lowest = std::min_element(stack.begin() + i, stack.end(),
+			[](const Plant* a, const Plant* b) { return a->IsDrawnBefore(*b); });
+		GameObjectManager::GetInstance().SwapRenderOrders(stack[i], *lowest);
+	}
 }
 
 Plant* Board::CreatePlant(PlantType plantType, int row, int column,

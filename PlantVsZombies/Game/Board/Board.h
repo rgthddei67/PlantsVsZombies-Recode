@@ -536,6 +536,7 @@ private:
 	int mTargetingCobCannonID = NULL_PLANT_ID; // 当前等待玩家指定落点的加农炮；纯 UI 瞬态不入存档
 
 	void LoadSpawnListFromJson();
+	/** 按底座、本体、南瓜、覆盖层排列同格绘制号，并同步转移号的分配所有权。 */
 	void RefreshPlantStackRenderOrder(Cell* cell);
 	/** 校验双玉米投手、两格外壳与边界，供加农炮放置和卡片可用性共用。 */
 	bool IsValidCobCannonAnchor(int row, int anchorColumn) const;

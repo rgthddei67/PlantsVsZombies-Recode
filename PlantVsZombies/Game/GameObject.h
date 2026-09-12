@@ -13,6 +13,7 @@
 #include <string>
 #include <optional>
 #include <utility>
+#include <cstdint>
 
 enum class ObjectType {
 	OBJECT_NONE,
@@ -27,6 +28,7 @@ enum class ObjectType {
 
 class ShadowComponent;
 class ClickableComponent;
+class GameObjectManager;
 
 class GameObject {
 public:
@@ -48,6 +50,17 @@ protected:
 	int mSortingKey = -1; // 可选的行深度键；普通对象保持 -1，按行残影可在构造期继承来源行
 
 private:
+	friend class GameObjectManager;
+	// 分配凭据独立于显示顺序，不入档；只有 GOM 能分配、交换或回收。
+	struct RenderOrderAllocation {
+		int order = 0;
+		RenderLayer layer = LAYER_GAME_OBJECT;
+		int key = -1;
+		bool allocated = false;
+	} mRenderOrderAllocation;
+	GameObjectManager* mRenderOrderManager = nullptr; // 非拥有；允许管理器构造对象池时直接标脏，避免重入单例初始化
+	uint64_t mRenderSequence = 0; // 首次加入 GOM 的序号；同值排序不依赖列表重排或地址
+	int mRenderSubOrder = 0;
 	void RegisterColliderIfNeeded();
 
 public:
@@ -113,7 +126,10 @@ public:
 
 	ObjectType GetObjectType() const { return mObjectType; }
 	int GetRenderOrder() const { return mRenderOrder; }
-	void SetRenderOrder(int order) { mRenderOrder = order; }
+	/** @brief 覆盖显示顺序并触发重排，不转移分配凭据；subOrder 在同号内排序。 */
+	void SetRenderOrder(int order, int subOrder = 0);
+	/** @brief 按显示号、同号子序及首次加入序号比较；绘制与点击命中共用。 */
+	bool IsDrawnBefore(const GameObject& other) const;
 	RenderLayer GetLayer() const { return mLayer; }
 	void SetLayer(RenderLayer layer) { mLayer = layer; }
 

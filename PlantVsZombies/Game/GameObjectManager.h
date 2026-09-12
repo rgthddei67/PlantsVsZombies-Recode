@@ -34,6 +34,7 @@ private:
 
 	std::unique_ptr<ThreadPool> mThreadPool;
 	bool mSortDirty = true;
+	uint64_t mNextRenderSequence = 1;
 
 	// 主体（< LAYER_UI）绘制完、UI GameObject 绘制前的注入点（主线程串行调用）。
 	// 用于世界粒子、天气覆盖层和 Scene UI 贴图的有序合成，避免依赖具体子系统头文件。
@@ -135,17 +136,21 @@ public:
 	// 初始化所有图层
 	void ResetAllLayers();
 
+	/** @brief 回收对象实际持有的旧号，再按当前层/行分配；未分配对象不会回收默认显示值。 */
 	void AssignRenderOrder(GameObject* gameObject, RenderLayer layer);
+	void MarkRenderOrderDirty() { mSortDirty = true; }
+	/** @brief 同格层次重排时同时交换显示顺序与分配凭据，避免释放仍被另一层使用的号。 */
+	void SwapRenderOrders(GameObject* first, GameObject* second);
 	/**
 	 * @brief 对象的行等排序键变化后，回收旧区间并在新键区间重新分配绘制号。
 	 * @param previousKey 变化前的排序键；当前键由 gameObject 重新读取。
 	 */
 	void RefreshRenderOrderForSortingKey(GameObject* gameObject, int previousKey);
 
-	// 回收渲染顺序
-	void RecycleRenderOrder(int renderOrder, RenderLayer layer, int key = -1);
-
 private:
+	// 只回收对象持有的分配凭据，并立即作废以防重复回收。
+	void ReleaseRenderOrder(GameObject* gameObject);
+	void RecycleRenderOrder(int renderOrder, RenderLayer layer, int key);
 	// 只按对象当前 layer/key 分配新绘制号；调用方负责先回收旧号。
 	void AssignNewRenderOrder(GameObject* gameObject, RenderLayer layer);
 

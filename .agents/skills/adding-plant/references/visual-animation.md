@@ -13,6 +13,7 @@
 - AutoTest 先执行同步 `screenshot`，再用 `animatedObjectsByTag.Plant` 的 `renderProbeReady/worldBounds/visualToRenderCenterD*Int/nearestPlant` 验证本项目最终绘制几何相对格子与植物 collider 的关系；优先用稳定实体 ID 或格位选择目标；只有依赖数组下标的单体夹具才限制为一株。
 - 修改 gamedata offset、附件、整株变换或 `SetRenderScale` 时，在默认实例路径跑同一静止用例并比较整数 `worldBounds`；截图负责肉眼基线，运动对象瞬时绝对 X/Y 只供诊断、不作稳定断言。
 - 战场主体按 `row N 植物 → row N 僵尸/扶梯 → row N+1 植物` 交错绘制；同排僵尸仍在植物之上，下一行植物遮挡上一行越界身体。植物运行期换行/搬格若改变 `mRow`，必须同步调用 `GameObjectManager` 的排序键刷新入口；小推车与子弹层不得顺带改动。专项同时断言语义 `renderLayer` 未变、实际 `renderOrder` 行带正确，并以默认屋顶跨行截图验收。
+- `SetRenderOrder(order, subOrder)` 只覆盖显示顺序并标脏，不改变 GOM 持有的分配凭据。悬停预览用承载植物的同号子序插入，不能用 `order + 1` 借用邻株的号；同格底座/本体/南瓜重排必须通过 `SwapRenderOrders` 同时交换显示值与分配凭据，否则铲除后会误回收仍在使用的号。绘制与点击共用 `IsDrawnBefore`，并列由首次加入序号固定。回归入口为 `smoke_pumpkin_preview_order.json` 和 `autotest/verify_pumpkin_preview_order.py <输出目录>`，覆盖悬停、取消、换层后铲除补种及未受影响区域的像素一致性。
 
 ### 动画状态机
 

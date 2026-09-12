@@ -46,7 +46,7 @@ GameObjectManager::GameObjectManager() {
 
 void GameObjectManager::DestroyGameObject(std::shared_ptr<GameObject> obj) {
 	if (obj) {
-		RecycleRenderOrder(obj->GetRenderOrder(), obj->GetLayer(), obj->GetSortingKey());
+		ReleaseRenderOrder(obj.get());
 		mObjectsToRemove.push_back(obj);
 	}
 }
@@ -201,13 +201,13 @@ void GameObjectManager::Update() {
 }
 
 void GameObjectManager::DrawAll(Graphics* g) {
-	// 按渲染顺序排序（仅在有增删时重新排序）
+	// 增删或显式改序后重排；同号用创建序号打破并列，预览不能扰动已有对象的先后。
 	{
 		PROFILE_SCOPE("4.Draw_sort(serial)");
 		if (mSortDirty) {
 			std::sort(mGameObjects.begin(), mGameObjects.end(),
 				[](const std::shared_ptr<GameObject>& a, const std::shared_ptr<GameObject>& b) {
-					return a->GetRenderOrder() < b->GetRenderOrder();
+					return a->IsDrawnBefore(*b);
 				});
 			mSortDirty = false;
 		}
@@ -446,16 +446,35 @@ void GameObjectManager::ResetAllLayers() {
 }
 
 void GameObjectManager::AssignRenderOrder(GameObject* gameObject, RenderLayer layer) {
-	// 先回收旧的渲染顺序（需要知道旧的 key）
-	RecycleRenderOrder(gameObject->GetRenderOrder(), gameObject->GetLayer(), gameObject->GetSortingKey());
+	if (!gameObject) return;
+	ReleaseRenderOrder(gameObject);
+	gameObject->mRenderOrderManager = this;
+	if (gameObject->mRenderSequence == 0) gameObject->mRenderSequence = mNextRenderSequence++;
 	AssignNewRenderOrder(gameObject, layer);
+}
+
+void GameObjectManager::ReleaseRenderOrder(GameObject* gameObject)
+{
+	auto& allocation = gameObject->mRenderOrderAllocation;
+	if (!allocation.allocated) return;
+	RecycleRenderOrder(allocation.order, allocation.layer, allocation.key);
+	allocation.allocated = false;
+}
+
+void GameObjectManager::SwapRenderOrders(GameObject* first, GameObject* second)
+{
+	if (!first || !second || first == second) return;
+	std::swap(first->mRenderOrderAllocation, second->mRenderOrderAllocation);
+	std::swap(first->mRenderOrder, second->mRenderOrder);
+	std::swap(first->mRenderSubOrder, second->mRenderSubOrder);
+	mSortDirty = true;
 }
 
 void GameObjectManager::RefreshRenderOrderForSortingKey(
 	GameObject* gameObject, int previousKey)
 {
 	if (!gameObject || previousKey == gameObject->GetSortingKey()) return;
-	RecycleRenderOrder(gameObject->GetRenderOrder(), gameObject->GetLayer(), previousKey);
+	ReleaseRenderOrder(gameObject);
 	AssignNewRenderOrder(gameObject, gameObject->GetLayer());
 	mSortDirty = true;
 }
@@ -474,6 +493,7 @@ void GameObjectManager::AssignNewRenderOrder(GameObject* gameObject, RenderLayer
 		const int localIndex = subOrder - key * SUBORDER_PER_KEY;
 		renderOrder = GetBattlefieldRowBandBase(layer, key) + localIndex;
 	}
+	gameObject->mRenderOrderAllocation = { renderOrder, layer, key, true };
 	gameObject->SetRenderOrder(renderOrder);
 }
 

@@ -3,6 +3,8 @@
 #include "ColliderComponent.h"
 #include "ShadowComponent.h"
 #include "ClickableComponent.h"
+#include "GameObjectManager.h"
+#include <tuple>
 
 GameObject::GameObject(ObjectType type)
 	: mObjectType(type),
@@ -14,6 +16,20 @@ GameObject::GameObject(ObjectType type)
 GameObject::~GameObject()
 {
 	DestroyAttachments();
+}
+
+void GameObject::SetRenderOrder(int order, int subOrder)
+{
+	if (mRenderOrder == order && mRenderSubOrder == subOrder) return;
+	mRenderOrder = order;
+	mRenderSubOrder = subOrder;
+	if (mRenderOrderManager) mRenderOrderManager->MarkRenderOrderDirty();
+}
+
+bool GameObject::IsDrawnBefore(const GameObject& other) const
+{
+	return std::tie(mRenderOrder, mRenderSubOrder, mRenderSequence)
+		< std::tie(other.mRenderOrder, other.mRenderSubOrder, other.mRenderSequence);
 }
 
 void GameObject::Start() {
