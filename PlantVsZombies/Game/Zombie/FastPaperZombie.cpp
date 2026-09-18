@@ -35,6 +35,8 @@ void FastPaperZombie::CheckShieldImage()
 {
 	// 与 PaperZombie::CheckShieldImage 完全同构，只把报纸破碎贴图换成 FastZombie 版本。
 	if (mShieldType == ShieldType::SHIELDTYPE_NONE) return;
+	// 耐久恢复可能跨越掉甲边沿，换图时一并撤销旧的隐藏覆盖。
+	mAnimator->SetTrackVisible("Zombie_paper_paper", true);
 	mShieldStage = mShieldHealth > static_cast<int64_t>(mShieldMaxHealth) * 2 / 3
 		? ArmorBrokenState::NO_BROKEN
 		: (mShieldHealth > mShieldMaxHealth / 3

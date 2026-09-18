@@ -29,6 +29,8 @@ protected:
 
 public:
 	using Zombie::Zombie;
+	/** 回溯恢复报纸时撤销失报狂暴，并同步持报动作，避免有护盾却仍播放空手轨道。 */
+	void OnTemporalCoreStateRestored() override;
 
 	void ZombieItemUpdate() const override {
 		if (!mHasArm) {

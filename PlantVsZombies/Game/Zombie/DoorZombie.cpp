@@ -110,6 +110,8 @@ void DoorZombie::ShowBrokenArm() const
 void DoorZombie::CheckShieldImage()
 {
 	if (mShieldType == ShieldType::SHIELDTYPE_NONE) return;
+	// 回溯可恢复已经掉落的门，同时撤销 ShieldDrop 留下的隐藏覆盖。
+	mAnimator->SetTrackVisible("anim_screendoor", true);
 	mShieldStage = mShieldHealth > static_cast<int64_t>(mShieldMaxHealth) * 2 / 3
 		? ArmorBrokenState::NO_BROKEN
 		: (mShieldHealth > mShieldMaxHealth / 3
@@ -207,10 +209,8 @@ void DoorZombie::OnTemporalCoreStateRestored()
 	mAnimator->SetTrackImage("Zombie_outerarm_upper", nullptr);
 	const bool shieldGone = mShieldType == ShieldType::SHIELDTYPE_NONE;
 	ShowArm(shieldGone || mIsEating);
-	if (!shieldGone) {
-		// HeadDrop 会连同持门手臂一起隐藏；原地回溯必须显式撤销这些负向覆盖。
-		mAnimator->SetTrackVisible("Zombie_innerarm_screendoor", true);
-		mAnimator->SetTrackVisible("Zombie_outerarm_screendoor", true);
-		mAnimator->SetTrackVisible("Zombie_innerarm_screendoor_hand", true);
-	}
+	// 持门手臂与恢复后的门成套显隐，既撤销掉落覆盖，也保留无门快照的空手姿势。
+	mAnimator->SetTrackVisible("Zombie_innerarm_screendoor", !shieldGone);
+	mAnimator->SetTrackVisible("Zombie_outerarm_screendoor", !shieldGone);
+	mAnimator->SetTrackVisible("Zombie_innerarm_screendoor_hand", !shieldGone);
 }

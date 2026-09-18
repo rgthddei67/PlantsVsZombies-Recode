@@ -548,6 +548,8 @@ bool DiggerZombie::TryGetDrawClipBottom(float& clipBottom) const
 void DiggerZombie::CheckHelmImage()
 {
 	if (mHelmType == HelmType::HELMTYPE_NONE) return;
+	// 耐久恢复可能跨越掉甲边沿，换图时一并撤销旧的隐藏覆盖。
+	mAnimator->SetTrackVisible("Zombie_digger_hardhat", true);
 	// 治疗允许伤势阶段向上恢复；外观必须完全由当前生命派生，不能只单向破损。
 	mHelmStage = mHelmHealth > static_cast<int64_t>(mHelmMaxHealth) * 2 / 3
 		? ArmorBrokenState::NO_BROKEN

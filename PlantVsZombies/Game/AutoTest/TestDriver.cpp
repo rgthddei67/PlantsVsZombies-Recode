@@ -6569,7 +6569,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "doorArmVisible", anim && (anim->GetTrackVisible("Zombie_outerarm_screendoor")
 				|| anim->GetTrackVisible("Zombie_innerarm_screendoor")
 				|| anim->GetTrackVisible("Zombie_innerarm_screendoor_hand")) },
+			{ "doorVisible", anim && anim->GetTrackVisible("anim_screendoor") },
+			{ "coneVisible", anim && anim->GetTrackVisible("anim_cone") },
+			{ "bucketVisible", anim && anim->GetTrackVisible("anim_bucket") },
+			{ "footballHelmetVisible", anim && anim->GetTrackVisible("zombie_football_helmet") },
 		};
+		// 读取品种的正式持久状态，核对回溯后的破损阶段，避免只验血量漏掉出生贴图。
+		nlohmann::json equipmentState = nlohmann::json::object();
+		z->SaveExtraData(equipmentState);
+		zombieState["helmStage"] = equipmentState.value("helmStage", -1);
+		zombieState["shieldStage"] = equipmentState.value("shieldStage", -1);
 		if (auto* thermal = dynamic_cast<ThermalSniperZombie*>(z)) {
 			zombieState["thermalSniperPhase"] = static_cast<int>(thermal->GetSniperPhase());
 			zombieState["thermalReloadRemainingMs"] = static_cast<int>(std::lround(

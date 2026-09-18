@@ -53,6 +53,8 @@ void PaperZombie::SetupZombie()
 void PaperZombie::CheckShieldImage()
 {
 	if (mShieldType == ShieldType::SHIELDTYPE_NONE) return;
+	// 耐久恢复可能跨越掉甲边沿，换图时一并撤销旧的隐藏覆盖。
+	mAnimator->SetTrackVisible("Zombie_paper_paper", true);
 	mShieldStage = mShieldHealth > static_cast<int64_t>(mShieldMaxHealth) * 2 / 3
 		? ArmorBrokenState::NO_BROKEN
 		: (mShieldHealth > mShieldMaxHealth / 3
@@ -97,6 +99,21 @@ void PaperZombie::ShieldDrop()
 		PlayTrackOnce("anim_gasp", "anim_eat_nopaper", 0.0f, 0.05f, kNoPaperEatClip);
 	else
 		PlayTrackOnce("anim_gasp", "anim_walk_nopaper", 0.0f, 0.05f, kNoPaperWalkClip);
+}
+
+void PaperZombie::OnTemporalCoreStateRestored()
+{
+	Zombie::OnTemporalCoreStateRestored();
+	if (mShieldType != ShieldType::SHIELDTYPE_NEWSPAPER || mHasNewspaper) return;
+
+	// ShieldDrop 的狂暴倍率只撤销一次；保留词条、出生倍率和夹具设置的其余数值。
+	mHasNewspaper = true;
+	mIsGasp = false;
+	mSpeed /= 1.35f;
+	mAttackDamage /= 2;
+	RestoreHeadImageAfterGarlic();
+	if (mIsEating) PlayTrack("anim_eat", 2.1f, 0.0f);
+	else PlayWalkAnimation(0.0f);
 }
 
 void PaperZombie::LoadExtraData(const nlohmann::json& j)

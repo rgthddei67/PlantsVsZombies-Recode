@@ -1937,6 +1937,9 @@ void Zombie::RestoreTemporalCoreState(int row, float x, int bodyHealth,
 	mParalysisTimer = std::max(0.0f, paralysisTimer);
 	if (mHelmHealth <= 0) HelmDrop();
 	if (mShieldHealth <= 0) ShieldDrop();
+	// 存活者可能保留掉甲后的 NONE 阶段，复建者则仍是满甲出生阶段。
+	// 必须先按恢复后的耐久重建装备，再让分件更新消费它，不能等下一次受击才换图。
+	RefreshEquipmentPresentationAfterRepair();
 	ZombieItemUpdate();
 	OnTemporalCoreStateRestored();
 	UpdateAnimSpeed();

@@ -38,6 +38,8 @@ void BucketZombie::HelmDrop()
 void BucketZombie::CheckHelmImage()
 {
 	if (mHelmType == HelmType::HELMTYPE_NONE) return;
+	// 耐久恢复可能跨越掉甲边沿，换图时一并撤销旧的隐藏覆盖。
+	mAnimator->SetTrackVisible("anim_bucket", true);
 	mHelmStage = mHelmHealth > static_cast<int64_t>(mHelmMaxHealth) * 2 / 3
 		? ArmorBrokenState::NO_BROKEN
 		: (mHelmHealth > mHelmMaxHealth / 3
