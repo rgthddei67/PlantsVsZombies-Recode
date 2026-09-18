@@ -83,6 +83,7 @@ struct ZombieInfo {
 	int appearWave = 0;          // 能出现的波数
 	float scale = 1.0f;          // 创建时的缩放
 	int survivalRound = 0;       // 生存模式最早出场轮(1起；0=不进生存，安全默认)
+	int mineFormationRole = 0; // 矿场出波编队：0普通、1前排、2辅助、3侧路工兵；不改变战斗能力
 	ZombieFactoryFn factory = nullptr;  // 具体类的构造工厂
 
 	ZombieInfo() = default;
@@ -232,6 +233,7 @@ public:
 	 * @param zombieType 僵尸类型
 	 */
 	int GetZombieWeight(ZombieType zombieType) const;
+	int GetZombieMineFormationRole(ZombieType zombieType) const;
 
 	/**
 	 * @brief 获取僵尸的出现波数

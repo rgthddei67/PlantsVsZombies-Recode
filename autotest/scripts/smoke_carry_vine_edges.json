@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op":"goto_level","level":1,"resetTestState":true},
     {"op":"choose_cards","cards":["PLANT_CARRYVINE"]},

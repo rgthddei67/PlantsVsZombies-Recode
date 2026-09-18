@@ -15,12 +15,14 @@ public:
 	std::array<int, Count> exitDistance{};
 	std::array<bool, Count> connected{};
 	std::array<bool, Rows> entrance{};
+	int layoutGroup = 0;
+	int layoutRevision = 0; // 0=旧档双口布局，1=多线策略布局；开凿不改变版本
 
 	static bool Valid(int row, int col) { return row >= 0 && row < Rows && col >= 0 && col < Columns; }
 	static int Index(int row, int col) { return row * Columns + col; }
 	bool IsRock(int row, int col) const { return Valid(row, col) && rock[Index(row, col)]; }
-	/** 前四组每两关共用布局；组4为9-9三入口汇流、双出口分流的收官布局。 */
-	void Initialize(int layoutGroup = 0);
+	/** 前四组每两关共用布局，组4收官；revision=0 仅保留旧档/旧专项地形，正式新局使用1。 */
+	void Initialize(int layoutGroup = 0, int revision = 0);
 	/** 地形提交后重建房屋连通性与有向距离；固定数组队列，无每帧分配。 */
 	void Rebuild();
 	bool CanExcavate(int row, int col) const;

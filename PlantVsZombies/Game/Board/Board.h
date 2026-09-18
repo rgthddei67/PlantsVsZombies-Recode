@@ -934,8 +934,12 @@ public:
 	std::vector<std::pair<ZombieType, int>> mMineWavePlan;
 	/** 提前锁定下一波的正常点数选池结果，入口预报只投影该计划，不增兵。 */
 	void PrepareMineWave();
+	/** 在原抽取预算内组织多方向队伍；只在新矿道预报提交时执行，读档不重抽。 */
+	void ArrangeMineWave();
 	/** 返回已锁定下一波计划实际使用的入口行位掩码，不表示兵力数量。 */
 	int GetMineForecastEntranceMask() const;
+	/** 冻结预报中占至少四成点数的最重入口；均衡波次返回0，不透露精确阵容/数量。 */
+	int GetMineForecastMainEntranceMask() const;
 	int mMineDigCell = -1;
 	float mMineDigRemaining = 0.0f;
 	int mMineLastDugCell = -1;

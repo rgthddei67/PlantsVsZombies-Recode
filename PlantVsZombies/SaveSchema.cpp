@@ -351,6 +351,13 @@ namespace {
 				version = 14;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 14:
+				// v15 冻结矿道布局版本；旧关继续旧矿道，重开才进入新布局。
+				if (kind == DocumentKind::Level && upgraded.contains("mine") && upgraded["mine"].is_object())
+					upgraded["mine"]["layoutRevision"] = 0;
+				version = 15;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

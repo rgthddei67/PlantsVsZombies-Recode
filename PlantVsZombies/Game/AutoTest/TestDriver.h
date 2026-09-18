@@ -78,6 +78,7 @@ private:
 	std::string mOutDir;
 	std::ofstream mRunLog;
 	uint64_t mFrame = 0;
+	int mMineLayoutRevision = 1; // 专项可显式固定旧矿道夹具；默认始终检验当前冒险布局
 
 	// 等待型命令的逐命令状态（推进到下一条时清零）
 	float mWaitAccum = 0.0f;     // wait_seconds 已累计（缩放后游戏时间）

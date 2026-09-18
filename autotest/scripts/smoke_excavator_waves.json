@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op":"goto_level","level":74,"resetTestState":true},
     {"op":"wait_seconds","value":5},

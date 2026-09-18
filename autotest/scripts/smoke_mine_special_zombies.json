@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"resetTestState": true, "op": "goto_level", "level": 73},
     {"cards": ["PLANT_WALLNUT"], "op": "choose_cards"},

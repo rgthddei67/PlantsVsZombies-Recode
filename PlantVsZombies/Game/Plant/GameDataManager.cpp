@@ -1090,6 +1090,9 @@ bool GameDataManager::LoadNumbersFromJson() {
 				readInt(e, "weight", info.enumName, info.weight);
 				readInt(e, "appearWave", info.enumName, info.appearWave);
 				readInt(e, "survivalRound", info.enumName, info.survivalRound);
+				if (e.contains("mineFormationRole")) readInt(e,"mineFormationRole",info.enumName,info.mineFormationRole);
+				if (info.mineFormationRole < 0 || info.mineFormationRole > 3)
+					errors.push_back(info.enumName + ".mineFormationRole 须为 0..3");
 				readOffset(e, info.enumName, info.offset);
 				readFloat(e, "scale", info.enumName, info.scale);
 			}
@@ -1280,6 +1283,12 @@ void GameDataManager::SetZombieOffset(ZombieType zombieType, const Vector& offse
 		LOG_DEBUG("GameData") << "设置僵尸偏移: " << it->second.animName
 			<< " -> (" << offset.x << ", " << offset.y << ")";
 	}
+}
+
+int GameDataManager::GetZombieMineFormationRole(ZombieType type) const
+{
+	const auto it = mZombieInfo.find(type);
+	return it != mZombieInfo.end() ? it->second.mineFormationRole : 0;
 }
 
 int GameDataManager::GetZombieWeight(ZombieType zombieType) const

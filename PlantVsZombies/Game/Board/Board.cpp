@@ -1,4 +1,5 @@
 #include "Game/Board/Board.h"
+#include "Game/AI/MineWaveFormation.h"
 #include "Logger.h"
 #include "Game/Board/BoardPresentation.h"
 #include "Game/LawnMower.h"
@@ -252,7 +253,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0);
+		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,1);
 		mMineFogNextWave = GetMineFogOpeningWave();
 		// 初始阳光由关卡表唯一维护；地形初始化不能覆盖已经加载的开局经济。
 	}
@@ -2660,7 +2661,9 @@ void Board::SummonNextWave()
 		for (const auto& entry : mMineWavePlan) {
 			const ZombieType actual = ResolveWaveZombieType(entry.first);
 			if (actual != ZombieType::NUM_ZOMBIE_TYPES)
-				CreateOrQueueWaveZombie(actual, entry.second, static_cast<float>(SCENE_WIDTH) + 40.0f);
+				CreateOrQueueWaveZombie(actual, entry.second, static_cast<float>(SCENE_WIDTH) + 40.0f
+					+ (mMineGrid.layoutRevision == 1 ? CELL_COLLIDER_SIZE_X * MineWaveFormation::RankOffset(
+						GameDataManager::GetInstance().GetZombieMineFormationRole(actual)) : 0.0f));
 		}
 		mMineWavePlan.clear();
 	} else TrySummonZombie();
@@ -3368,7 +3371,8 @@ void Board::PrepareMineWave()
 	int remaining = CalculateWaveZombiePoints(mMinePlannedWave);
 	// 第五波独立教学：组合占用本波预算，不再追加随机候选。
 	if (mLevel == 77 && mMinePlannedWave == 5) {
-		mMineWavePlan = {{ZombieType::ZOMBIE_SUN_THIEF,1},{ZombieType::ZOMBIE_NORMAL,1},{ZombieType::ZOMBIE_NORMAL,1}};
+		const int row = mMineGrid.layoutRevision == 0 ? 1 : 2;
+		mMineWavePlan = {{ZombieType::ZOMBIE_SUN_THIEF,row},{ZombieType::ZOMBIE_NORMAL,row},{ZombieType::ZOMBIE_NORMAL,row}};
 		return;
 	}
 	// 新鼓手独立教学组合占用整波，沿用正式出生解析器的累计/同时上限。
@@ -3445,6 +3449,7 @@ void Board::PrepareMineWave()
 		if (type == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) crystalPlanned = true;
 		remaining -= cost;
 	}
+	ArrangeMineWave();
 }
 
 int Board::GetMineForecastEntranceMask() const

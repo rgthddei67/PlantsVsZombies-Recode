@@ -280,10 +280,17 @@ void Board::DrawMineGround(Graphics* g)
 		if (mMineGrid.entrance[r]) {
 			const Vector p = GetCellCenterPosition(r, mColumns - 1);
 			const bool forecast = (GetMineForecastEntranceMask() & (1 << r)) != 0;
-			DrawAsset(g, ResourceKeys::Textures::IMAGE_MINE_ENTRANCE, p.x + 47, p.y - 88, 98, 138, forecast ? 255.0f : 145.0f);
+			// 相邻入口按行高收小并保留底部锚点，不能让上洞口盖住下洞口的进攻预告。
+			const bool adjacent = (r > 0 && mMineGrid.entrance[r-1]) || (r+1 < mRows && mMineGrid.entrance[r+1]);
+			const float height = adjacent ? mCellHeight*0.94f : 138.0f;
+			const float width = height*(98.0f/138.0f);
+			DrawAsset(g, ResourceKeys::Textures::IMAGE_MINE_ENTRANCE, p.x+96-width*0.5f, p.y+50-height,
+				width,height,forecast ? 255.0f : 145.0f);
 			if (forecast) {
 				const Vector label(p.x + 56, p.y + 24);
-				GameAPP::GetInstance().DrawText(u8"下波入口",label,{255,214,135,255},ResourceKeys::Fonts::FONT_FZCQ,13);
+				const bool mainAttack = (GetMineForecastMainEntranceMask() & (1 << r)) != 0;
+				GameAPP::GetInstance().DrawText(mainAttack ? u8"下波主攻" : u8"下波入口",label,
+					mainAttack ? glm::vec4{255,151,89,255} : glm::vec4{255,214,135,255},ResourceKeys::Fonts::FONT_FZCQ,13);
 			}
 		}
 	}

@@ -371,7 +371,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["coldWaveForecastDisrupted"] = board->mColdWaveForecastDisrupted;
 	j["winterFrostVariant"] = board->mWinterFrostVariant;
 	if (board->IsMineBackground()) {
-		j["mine"] = { {"rocks", board->mMineGrid.rock}, {"digCell", board->mMineDigCell},
+		j["mine"] = { {"layoutRevision", board->mMineGrid.layoutRevision}, {"rocks", board->mMineGrid.rock}, {"digCell", board->mMineDigCell},
 			{"digRemaining", board->mMineDigRemaining}, {"tutorialSeen", board->mMineTutorialSeen},
 			{"fogElapsed",board->mMineFogElapsed}, {"fogNextWave",board->mMineFogNextWave},
 			{"fogTutorialSeen",board->mMineFogTutorialSeen}, {"fogNotice",board->mMineFogNoticeRemaining},
@@ -1087,6 +1087,8 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		? std::clamp(j.value("winterFrostVariant", 0), 0, 2) : 0;
 	if (board->IsMineBackground() && j.contains("mine") && j["mine"].is_object()) {
 		const auto& mine = j["mine"];
+		// 旧档沿用自己的入口/岩壁模板，再应用已挖结果；不能把旧植物压进新地图的墙。
+		board->mMineGrid.Initialize(board->mMineGrid.layoutGroup,mine.value("layoutRevision",0));
 		board->mMineFogElapsed = std::clamp(mine.value("fogElapsed",-1.0f),-1.0f,Board::kMineFogDuration);
 		const int openingFogWave = board->GetMineFogOpeningWave();
 		board->mMineFogNextWave = std::max(openingFogWave,mine.value("fogNextWave",openingFogWave));

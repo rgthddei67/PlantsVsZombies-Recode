@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op":"wait_value","path":"adaptiveMusic.volumePct","equals":0,"timeout":20},
     {"op":"goto_level","level":79,"resetTestState":true},

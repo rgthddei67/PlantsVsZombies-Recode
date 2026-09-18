@@ -721,6 +721,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	}
 	for (const auto& c : j["commands"]) mCommands.push_back(c);
 	mInteractive = j.value("interactive", false);
+	mMineLayoutRevision = j.value("mineLayoutRevision",1);
 
 	mOutDir = (std::filesystem::path("./autotest/out") /
 		std::filesystem::path(path).stem()).string();
@@ -897,6 +898,8 @@ bool TestDriver::ExecuteCurrent() {
 	}
 	if (op == "goto_level") {
 		if (!cmd.contains("level")) { Fail("goto_level 缺 level 字段"); return false; }
+		const int mineRevision = cmd.value("mineLayoutRevision",mMineLayoutRevision);
+		if (mineRevision < 0 || mineRevision > 1) { Fail("mineLayoutRevision 须为 0 或 1"); return false; }
 		if (cmd.value("resetTestState", false)) ResetTestState();
 		auto& sm = SceneManager::GetInstance();
 		const std::string backgroundName = cmd.value("background", "");
@@ -907,6 +910,12 @@ bool TestDriver::ExecuteCurrent() {
 		sm.SetGlobalData("AutoTestBackground", backgroundName);
 		sm.SetGlobalData("EnterLevel", std::to_string(cmd["level"].get<int>()));
 		if (!sm.SwitchTo("GameScene")) { Fail("SwitchTo(GameScene) 失败"); return false; }
+		if (auto* gs = CurrentGameScene(); gs && gs->GetBoard() && gs->GetBoard()->IsMineBackground() && mineRevision == 0) {
+			auto* board = gs->GetBoard();
+			board->mMineGrid.Initialize(board->mMineGrid.layoutGroup,0);
+			board->mMinePlannedWave = -1;
+			board->PrepareMineWave();
+		}
 		return true;
 	}
 	if (op == "goto_zombie_almanac") {
@@ -2685,7 +2694,14 @@ bool TestDriver::ExecuteCurrent() {
 		if (!gs || !gs->GetBoard()) { Fail("summon_next_wave: 不在 GameScene 或 Board 为空"); return false; }
 		const int count = cmd.value("count", 1);
 		if (count < 1 || count > 100) { Fail("summon_next_wave: count 必须在 1～100"); return false; }
-		for (int i = 0; i < count; ++i) gs->GetBoard()->SummonNextWave();
+		for (int i = 0; i < count; ++i) {
+			// 波次编排专项可释放上一波实体，仍保留已经承诺的下一波预报与正式累计上限。
+			if (cmd.value("clearPrevious",false)) {
+				const auto ids = gs->GetBoard()->mEntityRegistry.GetAllZombieIDs();
+				for (int id : ids) if (auto* zombie = gs->GetBoard()->mEntityRegistry.GetZombie(id)) zombie->Die();
+			}
+			gs->GetBoard()->SummonNextWave();
+		}
 		return true;
 	}
 	if (op == "damage_zombie" || op == "ash_damage_zombie") {
@@ -4703,6 +4719,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"sunThievesSpawnedThisWave",board->GetSunThievesSpawnedThisWave()},
 			{"goldenFog",board->HasGoldenMineFog()}, {"drummersSpawnedThisWave",board->GetCrystalDrummersSpawnedThisWave()},
 			{"purpleFog",board->HasPurpleMineFog()}, {"fogFirstColumn",board->GetMineFogFirstColumn()},
+			{"layoutRevision", board->mMineGrid.layoutRevision},
 			{"connected", board->mMineGrid.connected}, {"entrances", board->mMineGrid.entrance},
 			{"pathValid", board->mMineGrid.Validate()}, {"digCell", board->mMineDigCell},
 			{"digRemainingMs", static_cast<int>(std::lround(board->mMineDigRemaining * 1000))},
@@ -4711,6 +4728,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"previewCell", board->mMinePreviewCell}, {"resourcesReady", resourcesReady},
 			{"forecastWave", board->mMinePlannedWave}, {"forecastMask", board->GetMineForecastEntranceMask()},
 			{"wavePlan", board->mMineWavePlan} };
+		out["mine"]["wavePlanDetails"] = nlohmann::json::array();
+		out["mine"]["forecastMainMask"] = board->GetMineForecastMainEntranceMask();
+		for (const auto& entry : board->mMineWavePlan)
+			out["mine"]["wavePlanDetails"].push_back({{"type",ZombieTypeName(entry.first)},{"row",entry.second},
+				{"role",GameDataManager::GetInstance().GetZombieMineFormationRole(entry.first)}});
 	}
 	out["echoWaves"] = nlohmann::json::array();
 	out["sunTheftLedger"] = nlohmann::json::object();

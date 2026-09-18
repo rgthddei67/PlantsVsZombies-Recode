@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op": "goto_level", "level": 73, "resetTestState": true},
     {"op": "wait_state", "state": "CHOOSE_CARD", "timeout": 20},

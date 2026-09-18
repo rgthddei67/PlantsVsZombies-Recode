@@ -1,8 +1,10 @@
 #include "Game/Board/MineGrid.h"
 #include <algorithm>
 
-void MineGrid::Initialize(int layoutGroup)
+void MineGrid::Initialize(int group, int revision)
 {
+	layoutGroup = std::clamp(group,0,4);
+	layoutRevision = std::clamp(revision,0,1);
 	constexpr const char* layout[Rows] = {
 		"....#####", "..#......", "..#######", "..#......", "....#####"
 	};
@@ -19,6 +21,21 @@ void MineGrid::Initialize(int layoutGroup)
 	entrance = layoutGroup == 4 ? std::array<bool, Rows>{ true, false, true, false, true }
 		: (layoutGroup == 1 || layoutGroup == 3) ? std::array<bool, Rows>{ true, false, false, false, true }
 		: std::array<bool, Rows>{ false, true, false, true, false };
+	if (layoutRevision == 1) {
+		// 三条独立进攻方向逐步发展成四入口；直路、折返矿道和侧向连接同时存在。
+		// 墙保护后方阵地也截断直射，开挖能扩展火力但同时给敌人缩短路线。
+		constexpr const char* strategic[5][Rows] = {
+			{"....#....", "..#...###", ".........", "..#....##", "....##..."},
+			{".........", "..###..##", "....#....", "..#....##", "....##..."},
+			{"..#......", "....#.###", "....#....", "..#....##", "........."},
+			{".........", "..###....", ".......##", "..###....", "........."},
+			{".....#...", "..#......", ".......##", "..##.....", "........."}
+		};
+		for (int r = 0; r < Rows; ++r) for (int c = 0; c < Columns; ++c)
+			rock[Index(r,c)] = strategic[layoutGroup][r][c] == '#';
+		entrance = layoutGroup < 3 ? std::array<bool,Rows>{true,false,true,false,true}
+			: std::array<bool,Rows>{true,true,false,true,true};
+	}
 	Rebuild();
 }
 

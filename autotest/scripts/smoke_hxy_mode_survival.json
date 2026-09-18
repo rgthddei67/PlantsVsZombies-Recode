@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op": "reset_test_state"},
     {"op": "wait_frames", "value": 60},

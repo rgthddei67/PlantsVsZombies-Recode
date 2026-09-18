@@ -1,4 +1,5 @@
 {
+  "mineLayoutRevision": 0,
   "commands": [
     {"op":"goto_level","level":75,"resetTestState":true},
     {"op":"choose_cards","cards":[]},
