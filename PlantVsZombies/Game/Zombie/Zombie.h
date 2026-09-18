@@ -336,6 +336,11 @@ public:
 	virtual float GetCurrentHorizontalMoveSpeed() const;
 	/** 轻量推演使用的未受减速或硬控影响水平速度；品种、天气和场地倍率仍保留。 */
 	float GetUncontrolledHorizontalMoveSpeed() const;
+	/** 矿道短视估计使用的持续对植物伤害；特殊锤击另声明等效周期，不复制品种判断。 */
+	virtual float GetMineSimulationAttackDps() const;
+	/** 取稳态行走片段的根运动；硬控余时由推演单独消费，避免当前停格被当成永久静止。 */
+	float GetMineSimulationMoveSpeed() const;
+	virtual float GetMineSimulationSmashSeconds() const { return 0.0f; }
 	/** 按当前碰撞矩形中心与片段平均行走速度预测水平落点，供投手和倭瓜复刻 ZombieTargetLeadX。 */
 	float GetTargetLeadX(float seconds) const;
 	/** 当前自主行走是否朝战场前线（世界坐标 +X）；反向品种覆写后由位移、风速与预测共用。 */

@@ -1,5 +1,6 @@
 #include "Game/Board/MineGrid.h"
 #include <iostream>
+bool TestMineExcavationTactics();
 
 /** 验证队伍捷径、预留排除、绕行每步相邻/不入防守区，以及单格拆除后的路径收敛。 */
 int main()
@@ -52,6 +53,7 @@ int main()
 				&& steps + opened.distance[stand] >= sample.distance[start])) return 6;
 		}
 	}
+	if (!TestMineExcavationTactics()) return 10;
 	std::cout << "Excavation benefit, reservation and route boundaries passed\n";
 	return 0;
 }

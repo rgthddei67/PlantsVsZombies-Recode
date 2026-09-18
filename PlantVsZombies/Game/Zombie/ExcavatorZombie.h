@@ -1,5 +1,6 @@
 #pragma once
 #include "Zombie.h"
+#include "Game/AI/MineExcavationTactics.h"
 
 /** 开凿者保留普通僵尸战斗与动画事件，只拥有一次开墙任务的阶段和计时。 */
 class ExcavatorZombie final : public Zombie {
@@ -29,6 +30,11 @@ public:
 	float GetWorkRemaining() const { return mRemaining; }
 	float GetRetryRemaining() const { return mRetry; }
 	float GetWorkProgress() const;
+	static float GetWorkSeconds();
+	static float GetApproachMultiplier();
+	// 最近一次节点决策诊断，不入档；存档恢复后下一次决策自行刷新。
+	MineExcavationTactics::Result mLastDecision;
+	int mDecisionMicros = 0;
 protected:
 	void SetupZombie() override;
 	void ZombieMove(float delta, Transform* transform) override;

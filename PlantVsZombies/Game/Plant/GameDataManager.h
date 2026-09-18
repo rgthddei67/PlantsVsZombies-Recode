@@ -26,6 +26,9 @@ struct PlantSimulationProfile {
 	int baseHealth = 300;             // 未来种植的基础生命值；在场植物始终使用实体真实生命
 	float attackDps = 0.0f;           // 对每个覆盖行的等效持续伤害，单位：生命/游戏秒
 	int attackRowRadius = 0;          // 攻击覆盖自身行上下各几行；0=仅本行
+	int mineAttackShape = 0;          // 矿道估计：0=直线挡墙（包括抛物）、2=近身周围、3=四向回声
+	int mineAttackRange = 9;          // 矿道估计的最大格距；回声使用最短通路距离
+	bool mineMultiTarget = false;     // 群体伤害对覆盖内每只结算，不能按队伍人数分摊
 	float sunPerSecond = 0.0f;        // 简化后的长期产光速率，单位：阳光/游戏秒
 	float firstSunDelay = 0.0f;       // 新种下后开始贡献长期产能前的等待秒数
 	float slowApplicationsPerSecond = 0.0f; // 对当前等效攻击目标施加减速的平均频率

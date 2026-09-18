@@ -313,6 +313,7 @@ if(BUILD_TESTING)
     add_test(NAME mine-grid COMMAND MineGridTests)
 
     add_executable(ExcavationPlannerTests tests/ExcavationPlannerTests.cpp
+        tests/MineExcavationTacticsTests.cpp PlantVsZombies/Game/AI/MineExcavationTactics.cpp
         PlantVsZombies/Game/Board/MineGrid.cpp PlantVsZombies/Game/Board/MineGridPlanner.cpp)
     target_include_directories(ExcavationPlannerTests PRIVATE ${SRC_DIR})
     target_compile_options(ExcavationPlannerTests PRIVATE /utf-8 /W3 /sdl /EHsc)

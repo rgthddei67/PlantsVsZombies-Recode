@@ -52,7 +52,7 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 - **脚本位置：** `autotest/scripts/*.json`（纯数据，不属于编译目标；修改脚本无需重新编译）。
 - **音乐：** AutoTest 每次启动默认将音乐音量设为 0，音效仍沿用原设置；这是本次测试进程的初始值，不写回普通游玩偏好。状态投影 `adaptiveMusic.volumePct` 可校验菜单、换关与快照往返后的音乐音量。
 - **开墙对照夹具：** `complete_mine_dig` 按 `row/col` 通过正式地形提交入口立即打开一块可挖岩壁，不收费、不推进施工时间；只用于从同一快照比较开墙后的战斗结果。玩家费用、工期和工兵施工风险仍须用 `mine_dig` 或真实开凿僵尸验证，不能用此夹具替代。
-  `probe_mine_wall_choices.json` 交换上下路的经济植物与回声菇，从同一阵容快照对比不拆墙、拆上路和拆下路；`python autotest/verify_mine_wall_choices.py [输出目录...]` 核对初始阵容一致、当前选墙、静音与战斗结果，并在每个输出目录写入 `comparison.json`。该探针记录当前纯地形AI的盲点，后续加入植物感知时须同步更新选墙预期，不能把固定选上路视作玩法契约。
+  `probe_mine_wall_choices.json` 交换上下路的经济植物与回声菇，选墙前先生成实际跟进队伍，再从同一阵容快照对比不拆墙、拆上路和拆下路；`python autotest/verify_mine_wall_choices.py [输出目录...]` 核对初始阵容一致、植物感知选墙、静音与战斗结果，并在每个输出目录写入 `comparison.json`。真实工兵的放弃/重试和施工结果另由 `smoke_excavator_tactics.json` 对比孤身工兵与红眼队伍；运行 python autotest/verify_excavator_tactics.py 核对提交边沿和后续破阵，不能只凭瞬间开墙探针断言施工可完成。
 - **运行方式（工作目录必须是 exe 所在的 `build\<preset>\`）：** Codex 默认必须让窗口显示在主人当前桌面。GUI 启动属于沙箱外桌面操作，调用 shell 时使用 `sandbox_permissions="require_escalated"`；仅写 `-WindowStyle Normal` 而不提升权限，进程仍可能落入隔离会话、主人看不到。推荐命令：
 
   ```powershell

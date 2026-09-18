@@ -20,6 +20,7 @@ public:
 	int GetShootIntervalMilliseconds() const;
 	int GetGrowthRatePercent() const;
 	int GetGrowthProgressTenths() const;
+	float GetSimulationAttackDps(float) const override { return GetPuffDamage() / GetShootInterval(); }
 
 protected:
 	void SetupPlant() override;

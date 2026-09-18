@@ -7300,6 +7300,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			const char* names[] = {"READY","APPROACHING","DRILLING","RETRY","SPENT","DISABLED"};
 			zombieState["excavatorPhase"] = names[static_cast<int>(excavator->GetExcavatorPhase())];
 			zombieState["excavatorWall"] = excavator->GetWall();
+			zombieState["excavatorCandidates"] = excavator->mLastDecision.candidates;
+			zombieState["excavatorGain"] = static_cast<int>(std::lround(excavator->mLastDecision.gain));
+			zombieState["excavatorBaseline"] = static_cast<int>(std::lround(excavator->mLastDecision.baseline));
+			zombieState["excavatorDecisionMicros"] = excavator->mDecisionMicros;
 			zombieState["excavatorStand"] = excavator->GetStand();
 			zombieState["excavatorToolVisible"] = anim && anim->GetTrackFollowerVisible("anim_innerarm2","excavator_drill");
 			zombieState["excavatorHatVisible"] = anim && anim->GetTrackFollowerVisible("anim_head1","excavator_hat");

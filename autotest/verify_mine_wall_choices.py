@@ -1,4 +1,4 @@
-"""Compare completed-wall counterfactuals; does not estimate construction survival or alter AI."""
+"""Compare completed-wall counterfactuals; also checks the plant-aware decision with actual followers present."""
 import json
 import sys
 from collections import Counter
@@ -42,13 +42,13 @@ def metrics(start, state):
 def verify(directory):
     """Validate paired starting states, mute persistence and the observed plant-layout effect."""
     assert read(directory, "status")["status"] == "passed"
-    report = {"scope": "Outcome conditional on a wall already being opened; AI remains geometry-only.",
+    report = {"scope": "Outcome conditional on a wall already being opened; Decision sees the actual followers; outcome branches isolate already-completed walls.",
               "cases": {}}
     for layout, economic_branch in [("upper_economy", "upper"), ("lower_economy", "lower")]:
         ai = read(directory, f"{layout}_ai")
         chosen = ai["zombiesByType"]["ZOMBIE_EXCAVATOR"]["excavatorWall"]
-        # Baseline observation, not the desired contract for a future plant-aware planner.
-        assert chosen == 5
+        assert chosen == (5 if economic_branch == "upper" else 41)
+        assert ai["zombiesByType"]["ZOMBIE_EXCAVATOR"]["excavatorGain"] > 0
         start = read(directory, f"{layout}_none_start")
         case = {"ai_wall": [chosen // 9, chosen % 9], "economic_branch": economic_branch,
                 "branches": {}}

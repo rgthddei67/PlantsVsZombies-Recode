@@ -99,6 +99,13 @@ float GargantuarZombie::GetAbilityAnimSpeedMultiplier() const
 	return mAnimSpeedMultiplier;
 }
 
+float GargantuarZombie::GetMineSimulationSmashSeconds() const
+{
+	const auto range = mAnimator->GetTrackRange("anim_smash");
+	return std::max(1,range.second-range.first) / (12.0f*kSmashClipSpeed
+		* mAnimSpeedMultiplier*GetDrumBiteMultiplier());
+}
+
 float GargantuarZombie::GetButterSplatScaleMultiplier() const
 {
 	return kButterSplatScaleMultiplier;

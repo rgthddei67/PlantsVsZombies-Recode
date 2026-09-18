@@ -963,6 +963,13 @@ bool GameDataManager::LoadNumbersFromJson() {
 			readOptionalInt("baseHealth", out.baseHealth);
 			readOptionalFloat("attackDps", out.attackDps);
 			readOptionalInt("attackRowRadius", out.attackRowRadius);
+			readOptionalInt("mineAttackShape", out.mineAttackShape);
+			readOptionalInt("mineAttackRange", out.mineAttackRange);
+			if (simulation.contains("mineMultiTarget")) {
+				if (simulation["mineMultiTarget"].is_boolean())
+					out.mineMultiTarget = simulation["mineMultiTarget"].get<bool>();
+				else errors.push_back(who + ".simulation.mineMultiTarget 须为布尔值");
+			}
 			readOptionalFloat("sunPerSecond", out.sunPerSecond);
 			readOptionalFloat("firstSunDelay", out.firstSunDelay);
 			readOptionalFloat("slowApplicationsPerSecond", out.slowApplicationsPerSecond);
@@ -1021,6 +1028,8 @@ bool GameDataManager::LoadNumbersFromJson() {
 			}
 			if (out.baseHealth <= 0 || out.attackDps < 0.0f
 				|| out.attackRowRadius < 0 || out.sunPerSecond < 0.0f
+				|| out.mineAttackShape < 0 || out.mineAttackShape == 1 || out.mineAttackShape > 3
+				|| out.mineAttackRange < 0 || out.mineAttackRange > 9
 				|| out.firstSunDelay < 0.0f
 				|| out.slowApplicationsPerSecond < 0.0f || out.slowDuration < 0.0f
 				|| out.frozenApplicationsPerSecond < 0.0f || out.frozenDuration < 0.0f

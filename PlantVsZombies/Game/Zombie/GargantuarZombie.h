@@ -34,6 +34,8 @@ public:
 	float GetButterSplatScaleMultiplier() const override;
 	bool ShouldDrawButterSplatAfterAllTracks() const override { return false; }
 	float GetIceTrapScaleMultiplier() const override;
+	/** 估计锤击破障周期；真实逐层反应仍由 ResolveGargantuarSmash 提交。 */
+	float GetMineSimulationSmashSeconds() const override;
 
 	Phase GetPhase() const { return mPhase; }
 	bool HasImp() const { return mHasImp; }

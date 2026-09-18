@@ -1,4 +1,6 @@
-"""Check route benefit under echo fire and the same giant's actual smash animation."""
+"""Check locked construction under newly planted echo fire and the same giant's smash animation.
+Tactical admission before locking is covered by verify_excavator_tactics.py.
+"""
 import json
 from pathlib import Path
 

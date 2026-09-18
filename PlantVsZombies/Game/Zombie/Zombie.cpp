@@ -2927,6 +2927,30 @@ float Zombie::GetUncontrolledHorizontalMoveSpeed() const
 	return std::max(0.0f, velocity);
 }
 
+float Zombie::GetMineSimulationAttackDps() const
+{
+	return static_cast<float>(std::max(0,mAttackDamage)) * GetAbilityBiteDamageMultiplier()
+		* GetDrumBiteMultiplier() * GetRoofMarshalAssaultBiteMultiplier();
+}
+
+float Zombie::GetMineSimulationMoveSpeed() const
+{
+	if (!mAnimator || !mAnimator->GetReanimation()) return 0;
+	const auto* ground = mAnimator->GetReanimation()->GetTrack("_ground");
+	const auto range = mAnimator->GetTrackRange(mAnimator->HasTrack("anim_walk2") ? "anim_walk2" : "anim_walk");
+	if (!ground || range.first < 0 || range.second <= range.first
+		|| range.second >= static_cast<int>(ground->mFrames.size())) return GetUncontrolledHorizontalMoveSpeed();
+	float distance = 0;
+	for (int frame = range.first; frame < range.second; ++frame)
+		distance += std::abs(ground->mFrames[frame+1].x-ground->mFrames[frame].x);
+	const float rain = mBoard ? mBoard->GetZombieRainSpeedMultiplier() : 1;
+	const float wind = mBoard ? mBoard->GetZombieWindMoveMultiplier(false) : 1;
+	return distance/(range.second-range.first) * mSpeed * mAnimator->GetSpeed()
+		* GetAmplifiedAbilitySpeedMultiplier() * AmplifySpeedMultiplierForGoldenIce(rain)
+		* AmplifySpeedMultiplierForGoldenIce(wind) * GetRoofMarshalAssaultMoveMultiplier()
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+}
+
 float Zombie::GetTargetLeadX(float seconds) const
 {
 	float centerX = GetPosition().x;

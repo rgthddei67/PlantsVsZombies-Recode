@@ -46,7 +46,10 @@ int ExcavatorZombie::SelectMineNextCell(int cell)
 {
 	if (!mBoard || mIsEating || IsMindControlled() || !HasHead() || mIsDying) return -2;
 	if (mPhase == Phase::READY) {
-		if (!mBoard->ReserveMineExcavation(this,cell,mWall,mStand)) return -2;
+		if (!mBoard->ReserveMineExcavation(this,cell,mWall,mStand)) {
+			Abort(Phase::RETRY);
+			return -2;
+		}
 		mPhase = Phase::APPROACHING;
 		UpdateAnimSpeed();
 	}
@@ -141,6 +144,9 @@ float ExcavatorZombie::GetWorkProgress() const
 {
 	return mPhase == Phase::DRILLING ? 1.0f - mRemaining / kWorkSeconds : 0.0f;
 }
+
+float ExcavatorZombie::GetWorkSeconds() { return kWorkSeconds; }
+float ExcavatorZombie::GetApproachMultiplier() { return kApproachMultiplier; }
 
 void ExcavatorZombie::HeadDrop()
 {
