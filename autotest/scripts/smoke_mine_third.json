@@ -55,13 +55,12 @@
       "equals": 4
     },
     {
-      "op": "assert_state",
-      "path": "sun",
-      "equals": 300
-    },
-    {
       "op": "show_zombie_hp",
       "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 500
     },
     {
       "op": "spawn_zombie",
@@ -79,7 +78,7 @@
     {
       "op": "assert_state",
       "path": "zombies.0.bodyHealth",
-      "equals": 750
+      "equals": 1500
     },
     {
       "op": "assert_state",
@@ -98,7 +97,7 @@
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 300
+      "equals": 500
     },
     {
       "op": "assert_state",
@@ -108,13 +107,13 @@
     {
       "op": "wait_value",
       "path": "zombies.0.theftCarried",
-      "equals": 50,
+      "equals": 125,
       "timeout": 9
     },
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 250
+      "equals": 375
     },
     {
       "op": "save_level_snapshot",
@@ -127,12 +126,12 @@
     {
       "op": "assert_state",
       "path": "zombies.0.theftCarried",
-      "equals": 50
+      "equals": 125
     },
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 250
+      "equals": 375
     },
     {
       "op": "wait_value",
@@ -143,12 +142,12 @@
     {
       "op": "assert_state",
       "path": "zombies.0.theftCarried",
-      "equals": 150
+      "equals": 375
     },
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 150
+      "equals": 125
     },
     {
       "op": "screenshot",
@@ -161,7 +160,7 @@
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 300
+      "equals": 500
     },
     {
       "op": "assert_state",
@@ -180,7 +179,7 @@
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 300
+      "equals": 500
     },
     {
       "op": "goto_level",

@@ -61,6 +61,8 @@ protected:
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void PlayWalkAnimation(float blendTime) override;
 	float GetAbilityAnimSpeedMultiplier() const override;
+	/** 巨人砸击接入鼓舞攻击层；与品种步频分别处理黄色冰道，不加速投掷。 */
+	bool UsesDrumAttackSpeed() const override { return mPhase == Phase::SMASHING; }
 	void OnMindControlled() override;
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;

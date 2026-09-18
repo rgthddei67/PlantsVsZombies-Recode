@@ -29,7 +29,7 @@ protected:
 private:
 	/** 取消本地动作并收敛移动/啃食，不退款已结算伤害。 */
 	void AbortCharge();
-	/** 有前方两格目标时锁定当前直线，裁剪六格终点并进入蓄力。 */
+	/** 有前方触发范围内目标时锁定当前直线，裁剪六格终点并进入蓄力。 */
 	void TryBeginCharge();
 	/** 返回锁定方向扫掠范围内最近的可食战斗顶层；reach 单位像素。 */
 	Plant* FindChargePlant(float reach) const;

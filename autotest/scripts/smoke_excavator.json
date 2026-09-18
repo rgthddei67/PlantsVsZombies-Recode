@@ -38,7 +38,7 @@
     {"op":"wait_seconds","value":1},
     {"op":"mine_dig","row":1,"col":2},
     {"op":"assert_state","path":"sun","equals":125},
-    {"op":"wait_seconds","value":7.2},
+    {"op":"wait_seconds","value":3.2},
     {"op":"assert_state","path":"zombies.0.excavatorPhase","equals":"SPENT"},
     {"op":"assert_state","path":"sun","equals":200},
     {"op":"assert_state","path":"mine.digCell","equals":-1},

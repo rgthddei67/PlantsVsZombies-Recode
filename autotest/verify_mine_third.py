@@ -46,12 +46,12 @@ def main():
     clock = 'smoke_mine_third_clock'
     refunded = read(clock, 'refunded.json')
     revived = read(clock, 'revived.json')
-    assert refunded['sun'] == revived['sun'] == 300
+    assert refunded['sun'] == revived['sun'] == 500
     assert refunded['sunTheftLedger'] == revived['sunTheftLedger']
     escaped = read('smoke_mine_third_retreat', 'escaped.json')
-    assert escaped['sun'] == 150 and escaped['zombieCount'] == 0
+    assert escaped['sun'] == 125 and escaped['zombieCount'] == 0
     assert list(escaped['sunTheftLedger'].values()) == [
-        {'carried': 0, 'disabled': False, 'escaped': True, 'stolen': 150}]
+        {'carried': 0, 'disabled': False, 'escaped': True, 'stolen': 375}]
 
     priest = read('smoke_mine_third_combos', 'priest_rifts.json')
     assert priest['weather']['pendingAuroraRiftCount'] == 3

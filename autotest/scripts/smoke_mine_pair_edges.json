@@ -227,13 +227,13 @@
     },
     {
       "op": "damage_zombie",
-      "damage": 600,
+      "damage": 1500,
       "source": "OTHER"
     },
     {
       "op": "assert_state",
       "path": "zombies.0.helmHealth",
-      "equals": 400
+      "equals": 1000
     },
     {
       "op": "screenshot",
@@ -241,7 +241,7 @@
     },
     {
       "op": "damage_zombie",
-      "damage": 400,
+      "damage": 1000,
       "source": "OTHER"
     },
     {

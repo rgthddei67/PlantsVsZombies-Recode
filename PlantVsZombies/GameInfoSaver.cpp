@@ -1587,7 +1587,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		const int id = saved.value("id",0);
 		if (id <= 0) continue;
 		auto& record = board->mSunTheftLedger[id];
-		record.stolen = std::clamp(saved.value("stolen",0),0,150);
+		record.stolen = std::clamp(saved.value("stolen",0),0,Board::kSunTheftCapacity);
 		record.escaped = saved.value("escaped",false);
 		record.carried = record.escaped ? 0 : std::clamp(saved.value("carried",0),0,record.stolen);
 		record.disabled = saved.value("disabled",false);

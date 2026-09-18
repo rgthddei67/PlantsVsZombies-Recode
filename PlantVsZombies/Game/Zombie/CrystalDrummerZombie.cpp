@@ -8,10 +8,11 @@
 namespace {
 	// 时间锚持久化编码，不能因后续添加阶段而重排。
 	enum class DrumSnapshotPhase { WAITING, WINDUP, DISABLED };
-	constexpr int kHealth=800; // 鼓手本体生命，晶鼓不是额外防具
+	constexpr int kHealth=1600; // 鼓手本体生命，晶鼓不是额外防具
 	constexpr int kRange=3; // 鼓舞沿连通矿道的最大格数
 	constexpr float kBeatInterval=5.0f; // 两次敲响之间的基础游戏秒，包含前摇
 	constexpr float kWindup=1.5f; // 停步敲鼓前摇，游戏秒
+	constexpr float kFirstWait=0.5f; // 首拍开始前的等待游戏秒；后续敲鼓与打断仍用完整周期
 	constexpr float kPulse=0.45f; // 敲响后晶鼓高亮时间，游戏秒
 }
 
@@ -19,7 +20,7 @@ void CrystalDrummerZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
 	mBodyHealth=mBodyMaxHealth=kHealth;
-	mRemaining=kBeatInterval-kWindup;
+	mRemaining=kFirstWait;
 	SyncEquipment();
 }
 

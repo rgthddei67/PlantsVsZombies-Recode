@@ -167,6 +167,7 @@ void GargantuarZombie::PlayWalking(float blendTime)
 {
 	mPhase = Phase::WALKING;
 	mSmashApplied = false;
+	UpdateAnimSpeed();
 	mThrowReleased = false;
 	mTargetRow = -1;
 	mTargetColumn = -1;
@@ -211,6 +212,7 @@ void GargantuarZombie::BeginSmash(int row, int column, int zombieID)
 {
 	if (mPhase != Phase::WALKING || !mAnimator) return;
 	mPhase = Phase::SMASHING;
+	UpdateAnimSpeed();
 	mTargetRow = row;
 	mTargetColumn = column;
 	mTargetZombieID = zombieID;

@@ -20,7 +20,7 @@
     },
     {
       "op": "set_sun",
-      "value": 300
+      "value": 500
     },
     {
       "op": "spawn_zombie",
@@ -31,7 +31,7 @@
     {
       "op": "wait_value",
       "path": "zombies.0.theftCarried",
-      "equals": 100,
+      "equals": 250,
       "timeout": 16
     },
     {
@@ -70,7 +70,7 @@
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 150
+      "equals": 125
     },
     {
       "op": "dump_state",
@@ -134,7 +134,7 @@
     {
       "op": "assert_state",
       "path": "sun",
-      "equals": 150
+      "equals": 125
     },
     {
       "op": "dump_state",

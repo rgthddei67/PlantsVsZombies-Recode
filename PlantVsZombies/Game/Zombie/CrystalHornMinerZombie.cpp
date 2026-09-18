@@ -7,11 +7,12 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 1000; // 本体生命
-	constexpr int kHelmetHealth = 1000; // 非磁性一类晶角头盔生命
+	constexpr int kBodyHealth = 1500; // 本体生命
+	constexpr int kHelmetHealth = 2500; // 非磁性一类晶角头盔生命，优先保护冲撞资格
 	constexpr int kImpactDamage = 500; // 首株植物战斗顶层的一次冲撞伤害
-	constexpr float kWindupSeconds = 1.2f; // 蓄力游戏秒，受普通减速影响
-	constexpr float kCooldownSeconds = 6.0f; // 完整冲撞冷却，游戏秒
+	constexpr float kWindupSeconds = 1.0f; // 蓄力游戏秒，受普通减速影响
+	constexpr float kCooldownSeconds = 4.0f; // 完整冲撞冷却，游戏秒
+	constexpr float kChargeSpeedMultiplier = 5.0f; // 冲撞相对普通步行的速度倍率，缩短承受集中火力的时间
 	constexpr float kTriggerCells = 5.0f; // 触发距离，当前前进方向格数
 	constexpr float kChargeCells = 6.0f; // 冲撞最大行进距离，格数
 	constexpr float kWindupHeadX = -4.0f; // 低头时整组头部分件前移，动画像素
@@ -94,7 +95,7 @@ void CrystalHornMinerZombie::TryBeginCharge()
 	if ((mEnd-pos).sqrMagnitude() < 1.0f) return;
 	CancelEatingForSpecialAction();
 	PlayWalkAnimation(0.0f);
-	mChargeSpeed = GetUncontrolledHorizontalMoveSpeed() * 3.0f;
+	mChargeSpeed = GetUncontrolledHorizontalMoveSpeed() * kChargeSpeedMultiplier;
 	mPhase = Phase::WINDUP;
 	mRemaining = kWindupSeconds;
 	mTravelled = 0.0f;

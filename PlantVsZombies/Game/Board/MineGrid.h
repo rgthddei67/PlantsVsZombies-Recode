@@ -32,7 +32,7 @@ public:
 	bool Validate() const;
 	/** 在左侧防守区之外沿已连通四邻接矿道求施工距离，防止绕行穿墙或折返。 */
 	std::array<int, Count> WorkDistances(int start) const;
-	/** 选择净节省格数最多的单墙方案；并列按左上下来向、右向及稳定格序。 */
+	/** 按各入口的总捷径收益与赶赴施工点成本选墙；保留自身捷径候选，并列优先近工地与稳定格序。 */
 	bool FindExcavation(int start, const std::array<bool, Count>& excluded, int& wall, int& stand) const;
 	/** 返回通往已锁定施工点的严格下降相邻节点，或 -1。 */
 	int NextWork(int start, int stand) const;

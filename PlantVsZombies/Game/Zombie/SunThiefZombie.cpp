@@ -10,11 +10,11 @@
 #include <cmath>
 
 namespace {
-	constexpr int kHealth = 750; // 本体生命，储光罐不提供护甲
-	constexpr int kTheftAmount = 50; // 单次抽取上限，阳光
-	constexpr int kCapacity = 150; // 满载撤退所需累计盗取阳光
-	constexpr float kWindupSeconds = 2.0f; // 可被打断的抽取前摇，游戏秒
-	constexpr float kCooldownSeconds = 4.0f; // 成功、空吸和被打断后的冷却，游戏秒
+	constexpr int kHealth = 1500; // 本体生命，储光罐不提供护甲
+	constexpr int kTheftAmount = 125; // 单次抽取上限，阳光
+	constexpr int kCapacity = Board::kSunTheftCapacity; // 满载撤退使用 Board 账本上限，仍需三次完整抽取
+	constexpr float kWindupSeconds = 1.0f; // 可被打断的抽取前摇，游戏秒
+	constexpr float kCooldownSeconds = 1.5f; // 成功、空吸和被打断后的冷却，游戏秒
 	constexpr float kRetreatMultiplier = 4.0f; // 撤离步频、啃食动画与位移共用倍率
 	constexpr float kFacingPivot = 48.0f; // 复用普通魅惑骨架镜像轴，动画像素
 }
@@ -153,7 +153,7 @@ void SunThiefZombie::SyncEquipment() const
 {
 	if (!mAnimator) return;
 	auto& resources = ResourceManager::GetInstance();
-	const int stage = std::clamp((GetCarriedSun() + 49) / 50, 0, 3);
+	const int stage = std::clamp((GetCarriedSun() * 3 + kCapacity - 1) / kCapacity, 0, 3);
 	mAnimator->SetTrackFollowerImage("Zombie_body", "sun_tank",
 		resources.GetTexture("IMAGE_SUNTHIEF_TANK" + std::to_string(stage), false), 24.0f, -18.0f, 1, 1, false);
 	mAnimator->SetTrackFollowerVisible("Zombie_body", "sun_tank", true);

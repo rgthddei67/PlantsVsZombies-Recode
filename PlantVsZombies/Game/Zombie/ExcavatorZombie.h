@@ -32,6 +32,8 @@ public:
 protected:
 	void SetupZombie() override;
 	void ZombieMove(float delta, Transform* transform) override;
+	/** 仅赶赴已锁定施工点时加速步频与根运动，受控/天气组合仍归基类。 */
+	float GetAbilityAnimSpeedMultiplier() const override;
 	/** 消费已经过基类控制修正的施工时间，并向 Board 提交一次开墙。 */
 	void ZombieUpdate(float delta) override;
 	void OnStartEating() override;

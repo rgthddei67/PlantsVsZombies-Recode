@@ -892,6 +892,7 @@ public:
 	float GetMineFogReduction() const { return HasGoldenMineFog() ? 0.75f : HasPurpleMineFog() ? 0.5f : 0.25f; }
 	float GetMineFogStrength() const;
 	struct SunTheftRecord { int stolen = 0; int carried = 0; bool escaped = false; bool disabled = false; };
+	static constexpr int kSunTheftCapacity = 375; // 单只盗晶僵尸本关累计盗取上限；账本、满载与读档共用，不随回溯返还
 	// 经济账本独立于可被时间锚回溯的实体；死亡返款后仍保留同 ID 记录。
 	std::unordered_map<int, SunTheftRecord> mSunTheftLedger;
 	SunTheftRecord GetSunTheftRecord(int zombieID) const;

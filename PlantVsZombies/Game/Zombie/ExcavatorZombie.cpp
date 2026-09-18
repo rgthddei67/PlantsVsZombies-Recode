@@ -6,9 +6,10 @@
 #include <cmath>
 
 namespace {
-	constexpr int kHealth = 800; // 本体生命，帽子不提供护甲
-	constexpr float kWorkSeconds = 8.0f; // 无减速时施工所需游戏秒
-	constexpr float kRetrySeconds = 5.0f; // 取消或结束啃食后的重试游戏秒
+	constexpr int kHealth = 1800; // 本体生命，保证工兵有接近关键石块的耐久；帽子不提供护甲
+	constexpr float kWorkSeconds = 4.0f; // 无减速时施工所需游戏秒
+	constexpr float kRetrySeconds = 3.0f; // 取消或结束啃食后的重试游戏秒
+	constexpr float kApproachMultiplier = 3.0f; // 锁定工地后赶路的动画与根运动倍率，施工和啃食不加速
 	constexpr float kHatX = -5.0f, kHatY = -15.0f; // 矿灯帽相对头轨原点，局部像素
 	constexpr float kToolX = -48.0f, kToolY = 14.0f; // 凿岩机握持点相对内前臂，局部像素
 	constexpr float kVibrationPixels = 1.0f; // 施工机械往复幅度，局部像素
@@ -47,10 +48,12 @@ int ExcavatorZombie::SelectMineNextCell(int cell)
 	if (mPhase == Phase::READY) {
 		if (!mBoard->ReserveMineExcavation(this,cell,mWall,mStand)) return -2;
 		mPhase = Phase::APPROACHING;
+		UpdateAnimSpeed();
 	}
 	if (mPhase != Phase::APPROACHING) return mPhase == Phase::DRILLING ? -1 : -2;
 	if (cell == mStand) {
 		mPhase = Phase::DRILLING;
+		UpdateAnimSpeed();
 		mRemaining = kWorkSeconds;
 		PlayTrack("anim_idle",1.0f,0.1f);
 		return -1;
@@ -70,6 +73,13 @@ bool ExcavatorZombie::IsMovingRight() const
 void ExcavatorZombie::ZombieMove(float delta, Transform* transform)
 {
 	if (mPhase != Phase::DRILLING) Zombie::ZombieMove(delta,transform);
+}
+
+float ExcavatorZombie::GetAbilityAnimSpeedMultiplier() const
+{
+	// 根运动已消费动画倍率，不能在 ZombieMove 再乘三；死亡与取消任务即时恢复。
+	return mPhase == Phase::APPROACHING && HasHead() && !IsDying() && !IsMindControlled()
+		&& !mIsEating ? kApproachMultiplier : 1.0f;
 }
 
 void ExcavatorZombie::ZombieUpdate(float delta)
@@ -96,6 +106,7 @@ void ExcavatorZombie::Abort(Phase next)
 	mRemaining = 0.0f;
 	mRetry = next == Phase::RETRY ? kRetrySeconds : 0.0f;
 	mPhase = next;
+	UpdateAnimSpeed();
 	if (wasDrilling && !mIsEating && !mIsDying && IsActive()) PlayWalkAnimation(0.1f);
 }
 

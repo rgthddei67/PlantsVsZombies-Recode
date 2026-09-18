@@ -617,6 +617,8 @@ protected:
 	virtual float GetSlowAnimFactor() const { return 0.6f; }
 	// 僵尸自身最终提供的整体动画能力倍率；可由固定品种值、运行期状态或已持久化随机结果派生。
 	virtual float GetAbilityAnimSpeedMultiplier() const { return 1.0f; }
+	/** 当前动作是否消费鼓舞攻击加速；默认仅啃食，独立近战动作由目标品种声明。 */
+	virtual bool UsesDrumAttackSpeed() const { return mIsEating; }
 	/** 僵尸自身状态对每口啃咬伤害的倍率；与突击令倍率相乘。 */
 	virtual float GetAbilityBiteDamageMultiplier() const { return 1.0f; }
 	/** 读取旧版根字段 extraSpeed；仅仍需实例随机倍率的派生类覆写，兼容完成后不再传播旧字段。 */

@@ -1344,7 +1344,7 @@ void Zombie::UpdateAnimSpeed()
 		* AmplifySpeedMultiplierForGoldenIce(
 			mCooldownTimer > 0.0f ? GetSlowAnimFactor() : 1.0f)
 		* AmplifySpeedMultiplierForGoldenIce(rainMultiplier)
-		* (mIsEating ? AmplifySpeedMultiplierForGoldenIce(GetDrumBiteMultiplier()) : 1.0f));
+		* (UsesDrumAttackSpeed() ? AmplifySpeedMultiplierForGoldenIce(GetDrumBiteMultiplier()) : 1.0f));
 }
 
 int Zombie::GetCountableExecutionHealth() const

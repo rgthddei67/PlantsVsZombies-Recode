@@ -1,10 +1,6 @@
 #include "Board.h"
 #include <algorithm>
 
-namespace {
-	constexpr int kTheftCapacity = 150; // 单只僵尸累计最多盗取的阳光，不随回溯返还额度
-}
-
 Board::SunTheftRecord Board::GetSunTheftRecord(int zombieID) const
 {
 	const auto it = mSunTheftLedger.find(zombieID);
@@ -16,7 +12,7 @@ int Board::CommitSunTheft(int zombieID, int requested)
 	if (zombieID <= 0 || requested <= 0) return 0;
 	auto& record = mSunTheftLedger[zombieID];
 	if (record.disabled || record.escaped) return 0;
-	const int amount = std::max(0, std::min({requested, mSun, kTheftCapacity - record.stolen}));
+	const int amount = std::max(0, std::min({requested, mSun, kSunTheftCapacity - record.stolen}));
 	// 扣款和入罐在同一提交边沿，余额不会被预告阶段预扣。
 	mSun -= amount;
 	record.stolen += amount;
