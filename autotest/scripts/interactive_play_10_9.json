@@ -1,0 +1,50 @@
+{
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 90
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_TWINSUNFLOWER",
+        "PLANT_MELONPULT",
+        "PLANT_WINTERMELON",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_GATLINGPEA",
+        "PLANT_REPEATER",
+        "PLANT_TORCHWOOD",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_timescale",
+      "value": 4
+    }
+  ],
+  "interactive": true
+}

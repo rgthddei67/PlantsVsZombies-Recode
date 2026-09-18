@@ -217,7 +217,7 @@ void JackInTheBoxZombie::Explode()
 			const ColliderComponent* collider = plant->GetColliderComponent();
 			if (collider && CircleOverlapsRect(center, kPlantBlastRadius,
 				collider->GetBoundingBox())) {
-				plant->Die();
+				plant->KillByZombie();
 			}
 		}
 	}

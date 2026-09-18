@@ -12,7 +12,7 @@ def read_json(path):
     """Read a published reply, or tolerate a status file being rewritten."""
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, PermissionError, json.JSONDecodeError):
         return None
 
 

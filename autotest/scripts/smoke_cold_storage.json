@@ -1,0 +1,382 @@
+{
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8,
+      "timeout": 20
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER",
+        "PLANT_SUNFLOWER",
+        "PLANT_WALLNUT",
+        "PLANT_POTATOMINE",
+        "PLANT_CHERRYBOMB",
+        "PLANT_PUFFSHROOM",
+        "PLANT_INSTANT_COFFEE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "background",
+      "equals": "HOT_COLD_STORAGE"
+    },
+    {
+      "op": "assert_state",
+      "path": "rows",
+      "equals": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "columns",
+      "equals": 9
+    },
+    {
+      "op": "assert_state",
+      "path": "supportsWeather",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.resourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.cellCenters.0",
+      "equals": [
+        282,
+        138
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.cellCenters.44",
+      "equals": [
+        922,
+        538
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 200
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.initialEnemyIce",
+      "equals": 350
+    },
+    {
+      "op": "set_sun",
+      "value": 650
+    },
+    {
+      "op": "screenshot",
+      "name": "01_empty_map.png"
+    },
+    {
+      "op": "player_plant",
+      "slot": 0,
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 550
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 190
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 9
+      }
+    },
+    {
+      "op": "player_plant",
+      "slot": 1,
+      "row": 1,
+      "col": 0,
+      "expectedResult": "insufficient_ice"
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 550
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 9
+    },
+    {
+      "op": "buy_ice"
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 450
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.orderIce",
+      "equals": 40
+    },
+    {
+      "op": "buy_ice",
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 450
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 9
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "delivery"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "delivery"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 49
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.orderIce",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 200,
+        "enemyIce": 100,
+        "killIncome": 0
+      }
+    },
+    {
+      "op": "damage_plant",
+      "row": 0,
+      "col": 0,
+      "damage": 10000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 7
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "squish_plant",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 18
+    },
+    {
+      "op": "squish_plant",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 18
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_CHERRYBOMB",
+      "row": 3,
+      "col": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 18
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_POTATOMINE",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 20,
+      "timeout": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 640,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 18
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUFFSHROOM",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.3_1.sleeping",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "sleep_and_self_explosion.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 200
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 8
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 8
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1,
+      "timeout": 20
+    },
+    {
+      "op": "screenshot",
+      "name": "02_cell_corners_and_center.png"
+    },
+    {
+      "op": "click",
+      "x": 922,
+      "y": 23
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "03_ice_shop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "final.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

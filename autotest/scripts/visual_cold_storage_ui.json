@@ -1,0 +1,66 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER",
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "closed_shop.png"
+    },
+    {
+      "op": "click",
+      "x": 922,
+      "y": 23
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "open_shop.png"
+    },
+    {
+      "op": "click",
+      "x": 120,
+      "y": 165
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.orderIce",
+      "equals": 40
+    },
+    {
+      "op": "screenshot",
+      "name": "delivery_auto_closed.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

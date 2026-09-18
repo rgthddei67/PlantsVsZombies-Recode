@@ -635,6 +635,7 @@ namespace {
 		case Background::NIGHT_ROOF:       return "NIGHT_ROOF";
 		case Background::WINTER_GARDEN:    return "WINTER_GARDEN";
 		case Background::GLOOMCRYSTAL_MINE: return "GLOOMCRYSTAL_MINE";
+		case Background::HOT_COLD_STORAGE: return "HOT_COLD_STORAGE";
 		case Background::POLAR_NIGHT_SNOWFIELD: return "POLAR_NIGHT_SNOWFIELD";
 		}
 		return "UNKNOWN";
@@ -647,7 +648,7 @@ namespace {
 			|| name == "ROOF"
 			|| name == "NIGHT_ROOF"
 			|| name == "WINTER_GARDEN"
-			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE";
+			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE" || name == "HOT_COLD_STORAGE";
 	}
 	const char* BossSlotName(AdventureProgression::BossSlot slot) {
 		switch (slot) {
@@ -801,6 +802,7 @@ void TestDriver::ResetTestState() {
 	GameAPP::GetInstance().mOpeningTyphoonProtectionEnabled = true;
 	GameAPP::GetInstance().mTyphoonWeatherEnabled = true;
 	GameAPP::GetInstance().mCrazyDaveTutorialsSeen.clear();
+	GameAPP::GetInstance().mColdStorageHabits.fill(0.0f);
 }
 
 void TestDriver::Update() {
@@ -1009,6 +1011,32 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("set_fullscreen: SDL/后端切换失败");
 			return false;
 		}
+		return true;
+	}
+	if (op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "player_plant") {
+		GameScene* gs = CurrentGameScene();
+		Board* board = gs ? gs->GetBoard() : nullptr;
+		if (!board || !board->IsColdStorage()) { Fail("cold storage command: unsupported board"); return false; }
+		if (op == "set_cold_storage") {
+			auto state = board->SaveColdStorage();
+			state.update(cmd.value("state", nlohmann::json::object()));
+			board->LoadColdStorage(state);
+			return true;
+		}
+		if (op == "plan_ice_attack") { board->PlanColdStorageAttack(); return true; }
+		if (op == "player_plant") {
+			const std::string result = gs->GetCardSlotManager()->TryPlantFromSlot(cmd.value("slot",0),cmd.value("row",0),cmd.value("col",0));
+			if (result != cmd.value("expectedResult", std::string())) { Fail("player_plant: " + result); return false; }
+			return true;
+		}
+		bool success = false;
+		if (op == "buy_ice") success = board->BuyColdStorageIce(cmd.value("large",false));
+		else {
+			auto type = kZombieNames.find(cmd.value("type", ""));
+			if (type == kZombieNames.end()) { Fail("queue_ice_zombie: invalid type"); return false; }
+			success = board->QueueColdStorageZombie(type->second,cmd.value("row",0),cmd.value("delay",2.0f));
+		}
+		if (success != cmd.value("expectedSuccess",true)) { Fail("cold storage result mismatch"); return false; }
 		return true;
 	}
 	if (op == "set_spawn_paused") {
@@ -4705,6 +4733,29 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["level"] = board->mLevel;
 	out["levelName"] = board->mLevelName;
 	out["background"] = BackgroundName(board->mBackGround);
+	if (board->IsColdStorage()) {
+		out["coldStorage"] = board->SaveColdStorage();
+		auto& ice = out["coldStorage"];
+		ice["pendingCount"] = board->mColdStorage.pending.size();
+		ice["hostileCount"] = board->GetColdStorageHostileCount();
+		ice["trophySpawned"] = board->mTrophySpawned;
+		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
+		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
+		ice["resourcesReady"] = ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_HOT_COLD_STORAGE", false)
+			&& ResourceManager::GetInstance().GetTexture("IMAGE_COLD_STORAGE_ICE_HEAD", false);
+		ice["cellCenters"] = nlohmann::json::array();
+		for (int row=0; row<board->mRows; ++row) for (int col=0; col<board->mColumns; ++col) {
+			const Vector center=board->GetCellCenterPosition(row,col);
+			ice["cellCenters"].push_back({static_cast<int>(center.x),static_cast<int>(center.y)});
+		}
+		ice["plantCosts"] = nlohmann::json::object();
+		for (const auto& entry : kPlantNames) ice["plantCosts"][entry.first]=board->GetPlantIceCost(entry.second);
+		ice["unlockRounds"] = nlohmann::json::object();
+		for (ZombieType type : board->GetSpawnZombieList()) ice["unlockRounds"][ZombieTypeName(type)] = GameDataManager::GetInstance().GetZombieAppearWave(type);
+		ice["zombieCosts"] = nlohmann::json::object();
+		for (const auto& entry : kZombieNames) ice["zombieCosts"][entry.first]=board->GetZombieIceCost(entry.second);
+	}
+
 	if (board->IsMineBackground()) {
 		bool resourcesReady = true;
 		for (const char* key : {"IMAGE_BACKGROUND_GLOOMCRYSTAL_MINE", "IMAGE_MINE_ROCK_A", "IMAGE_MINE_ROCK_B",

@@ -423,7 +423,7 @@ void CardSlotManager::DrawPlanternGearMenu(Graphics* g)
 }
 
 bool CardSlotManager::CanUsePlant(PlantType type, int cost) const {
-	return mBoard && CanAfford(cost) && mBoard->HasPlantingQuota(type)
+	return mBoard && CanAfford(cost) && mBoard->CanAffordPlantIce(type) && mBoard->HasPlantingQuota(type)
 		&& mBoard->HasPlantingRequirement(type);
 }
 
@@ -658,7 +658,7 @@ bool CardSlotManager::CanPlaceInCell(Cell* cell) const {
 	// 检查阳光是否足够
 	if (!mBoard || !mBoard->CanPlantAt(selectedCard->GetGameplayPlantType(),
 		cell->mRow, cell->mColumn)) return false;
-	if (!CanAfford(selectedCard->GetSunCost())) {
+	if (!CanAfford(selectedCard->GetSunCost()) || !mBoard->CanAffordPlantIce(selectedCard->GetGameplayPlantType())) {
 		return false;
 	}
 
@@ -673,6 +673,7 @@ std::string CardSlotManager::TryPlantFromSlot(int slot, int row, int col) {
 	Card* card = cards[slot];
 	if (!card->IsReady()) return "cooldown";
 	if (mBoard->GetSun() < card->GetSunCost()) return "insufficient_sun";
+	if (!mBoard->CanAffordPlantIce(card->GetGameplayPlantType())) return "insufficient_ice";
 	if (!mBoard->HasPlantingQuota(card->GetGameplayPlantType())) return "planting_quota";
 	if (!mBoard->HasPlantingRequirement(card->GetGameplayPlantType())) return "planting_requirement";
 	// 搬搬藤是两阶段搬运工具，不能伪装成一次普通落种。

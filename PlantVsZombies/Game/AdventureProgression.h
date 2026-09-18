@@ -9,9 +9,9 @@
 namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
-	inline constexpr int ADVENTURE_AREA_COUNT = 9;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 81; // 第九大关以9-9金雾矿场总决战收官
-	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * ADVENTURE_AREA_COUNT;
+	inline constexpr int ADVENTURE_AREA_COUNT = 10;
+	inline constexpr int LAST_ADVENTURE_LEVEL = 90; // 第十大关冷藏站以冰块经济决定胜负
+	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * 9;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
 	inline constexpr int AREA_SEVEN_FINAL_LEVEL = LEVELS_PER_AREA * 7;
@@ -130,6 +130,10 @@ namespace AdventureProgression
 		PlantType::PLANT_AMBERLICHEN, // 9-7 琥珀地衣
 		NO_PLANT_REWARD, // 9-8 金雾综合矿场
 		NO_PLANT_REWARD, // 9-9 矿场收官，不新增植物奖励
+		// 10-1 ... 10-9：本轮只实现地图与经济，辅助产冰植物保留 TODO。
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */

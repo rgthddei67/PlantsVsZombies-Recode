@@ -1,0 +1,154 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 100,
+        "killIncome": 0
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "damage_plant",
+      "row": 0,
+      "col": 0,
+      "damage": 10000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 7
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 107
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 2,
+        "enemyIce": 100,
+        "killIncome": 0
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "damage_plant",
+      "row": 1,
+      "col": 0,
+      "damage": 10000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 110
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 3,
+        "enemyIce": 100,
+        "killIncome": 0
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "damage_plant",
+      "row": 2,
+      "col": 0,
+      "damage": 10000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 12
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 112
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 4,
+        "enemyIce": 100,
+        "killIncome": 0
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "damage_plant",
+      "row": 3,
+      "col": 0,
+      "damage": 10000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.killIncome",
+      "equals": 15
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 115
+    },
+    {
+      "op": "dump_state",
+      "name": "rewards.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

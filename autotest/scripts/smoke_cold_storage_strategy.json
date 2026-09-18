@@ -1,0 +1,65 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 90
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_CHERRYBOMB"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "elapsed": 300,
+        "decisions": 20,
+        "enemyIce": 600,
+        "playerIce": 1000
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 1000
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "bomb_ready.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "pending": [],
+        "decisions": 20,
+        "enemyIce": 600
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 0
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "bomb_unaffordable.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

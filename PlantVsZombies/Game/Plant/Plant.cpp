@@ -137,7 +137,7 @@ void Plant::UpdateParallel(std::vector<DeferredEvent>& outBuf)
 }
 
 void Plant::TakeDamage(int damage, DamageSource source) {
-	if (mIsPreview || mIsSquished || IsBungeeTargeted() || IsIceSealed()) return;
+	if (!IsActive() || mPlantHealth <= 0 || mIsPreview || mIsSquished || IsBungeeTargeted() || IsIceSealed()) return;
 	if (damage <= 0 || mUnyieldingRootsTimer > 0.0f) return;
 	// 僵尸增伤只放大僵尸来源；植物韧性则对所有实际承伤生效。两者均在 0 层返回单位元。
 	int scaledDamage = damage;
@@ -160,8 +160,16 @@ void Plant::TakeDamage(int damage, DamageSource source) {
 	mPlantHealth -= scaledDamage;
 	SetGlowingTimer(0.1f);
 	if (mPlantHealth <= 0) {
+		if (mBoard && source == DamageSource::ZOMBIE) mBoard->RewardColdStoragePlantKill(GetPlacementType());
 		Die();
 	}
+}
+
+void Plant::KillByZombie()
+{
+	if (!IsActive() || mIsPreview || mIsSquished || IsIceSealed()) return;
+	if (mBoard) mBoard->RewardColdStoragePlantKill(GetPlacementType());
+	Die();
 }
 
 void Plant::Die() {
@@ -322,7 +330,8 @@ void Plant::ResolveGargantuarSmash()
 
 void Plant::Squish()
 {
-	if (mIsPreview || mIsSquished || IsIceSealed()) return;
+	if (!IsActive() || mIsPreview || mIsSquished || IsIceSealed()) return;
+	if (mBoard) mBoard->RewardColdStoragePlantKill(GetPlacementType());
 	if (mBoard && GetPlacementType() != PlantType::PLANT_INSTANT_COFFEE) {
 		mBoard->RemoveLadderAt(mRow, mColumn);
 	}

@@ -362,7 +362,7 @@ void BungeeZombie::Die()
 	if (mBoard && mTargetPlantID != NULL_PLANT_ID) {
 		if (Plant* plant = mBoard->mEntityRegistry.GetPlant(mTargetPlantID)) {
 			if (mPhase == Phase::RISING && !IsRetiringForTemporalReplacement()) {
-				plant->Die();
+				plant->KillByZombie();
 			}
 			else plant->CancelBungeeGrab(mZombieID);
 		}

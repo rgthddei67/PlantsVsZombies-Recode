@@ -846,6 +846,8 @@ Background GameAPP::GetBackgroundID(int level) const
 		return Background::WINTER_GARDEN;
 	case 9:
 		return Background::GLOOMCRYSTAL_MINE;
+	case 10:
+		return Background::HOT_COLD_STORAGE;
 	case 8:
 		// 第八大关是极夜开放雪原；本地三仪表与白毛风不复用旧天气状态。
 		return Background::POLAR_NIGHT_SNOWFIELD;

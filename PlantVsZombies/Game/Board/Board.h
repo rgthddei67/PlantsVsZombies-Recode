@@ -1,4 +1,5 @@
 #pragma once
+#include "ColdStorageState.h"
 #include "../MiniGameDefinition.h"
 #ifndef _BOARD_H
 #define _BOARD_H
@@ -93,7 +94,8 @@ enum class Background {
 	NIGHT_ROOF,
 	WINTER_GARDEN,
 	POLAR_NIGHT_SNOWFIELD,
-	GLOOMCRYSTAL_MINE
+	GLOOMCRYSTAL_MINE,
+	HOT_COLD_STORAGE
 };
 
 inline constexpr int SURVIVAL_ENDLESS_LEVEL = 1000; // 白天无尽专用 level 号
@@ -209,6 +211,31 @@ public:
 	int64_t mNextWaveSpawnZombieHP = 0;		// 下一波僵尸刷新血量
 
 	int mZombieNumber = 0;
+
+	ColdStorageState mColdStorage;
+	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
+	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
+	int GetPlantIceCost(PlantType type) const;
+	int GetZombieIceCost(ZombieType type) const;
+	bool CanAffordPlantIce(PlantType type) const;
+	/** 接受单笔订单，立即扣阳光，按游戏时间完成后整批到账。 */
+	bool BuyColdStorageIce(bool large);
+	/** 正式玩家落种后结算冰块并更新近期战术画像。 */
+	void CommitColdStoragePlant(PlantType type);
+	/** 仅植物实际被僵尸消灭时调用；幂等由植物生命周期门禁保证。 */
+	void RewardColdStoragePlantKill(PlantType type);
+	/** 建立新局资源，不从 StartGame 重置已恢复的订单与队伍。 */
+	void InitializeColdStorage();
+	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */
+	void UpdateColdStorage(float deltaTime);
+	void PlanColdStorageAttack();
+	/** 付费与队列登记在同一主线程提交；测试与正式指挥官共用。 */
+	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
+	bool IsColdStorageCleared() const;
+	int GetColdStorageHostileCount() const;
+	/** 保存/恢复完整经济事务，旧地形保持无效果。 */
+	nlohmann::json SaveColdStorage() const;
+	void LoadColdStorage(const nlohmann::json& value);
 
 	// 全局节拍帧计数（随游戏时间推进：60Hz 基准，暂停冻结、倍速等比加速，入存档）。
 	// 用途：舞王/伴舞全队共舞节拍源——所有舞者从同一计数推导动作，不互相通信也能整齐划一。

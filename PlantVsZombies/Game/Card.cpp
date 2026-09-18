@@ -644,6 +644,13 @@ void Card::DrawCooldownMask(Graphics* g, const Vector& position)
 
 void Card::DrawSunCost(Graphics* g, const Vector& position)
 {
+	if (auto* manager = GetCardSlotManager()) {
+		if (auto* board = manager->GetBoard(); board && board->IsColdStorage()) {
+			g->FillRect(position.x + 2, position.y + 3, 40, 16, glm::vec4(15, 46, 57, 220));
+			g->DrawGlyphRun(std::to_string(board->GetPlantIceCost(GetGameplayPlantType())) + u8"冰",
+				ResourceKeys::Fonts::FONT_FZCQ, 12, glm::vec4(175, 240, 255, 255), position.x + 4, position.y + 3);
+		}
+	}
 	g->DrawCachedText(mSunTextCache, position.x + 5.0f, position.y + 51.0f,
 		kSunTextDrawScale);
 }

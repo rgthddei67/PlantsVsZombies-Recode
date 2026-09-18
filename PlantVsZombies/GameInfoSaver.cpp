@@ -213,6 +213,7 @@ bool GameInfoSaver::SavePlayerInfoImpl()
 	j["openingTyphoonProtectionEnabled"] = gameApp.mOpeningTyphoonProtectionEnabled;
 	j["typhoonWeatherEnabled"] = gameApp.mTyphoonWeatherEnabled;
 	j["lastSelectedCards"] = gameApp.mLastSelectedCards;
+	j["coldStorageHabits"] = gameApp.mColdStorageHabits;
 	j["soundVolume"] = AudioSystem::GetSoundVolume();
 	j["musicVolume"] = AudioSystem::GetMusicVolume();
 	j["havecards"] = gameApp.mHaveCards;
@@ -268,6 +269,13 @@ bool GameInfoSaver::LoadPlayerInfoImpl()
 	gameApp.mOpeningTyphoonProtectionEnabled =
 		j.value("openingTyphoonProtectionEnabled", true);
 	gameApp.mTyphoonWeatherEnabled = j.value("typhoonWeatherEnabled", true);
+	gameApp.mColdStorageHabits.fill(0.0f);
+	if (j.contains("coldStorageHabits") && j["coldStorageHabits"].is_array() && j["coldStorageHabits"].size() == 4) {
+		for (int i = 0; i < 4; ++i) {
+			const float v = j["coldStorageHabits"][i].get<float>();
+			gameApp.mColdStorageHabits[i] = std::isfinite(v) ? std::clamp(v, 0.0f, 1.0f) : 0.0f;
+		}
+	}
 	gameApp.mLastSelectedCards.clear();
 	if (auto it = j.find("lastSelectedCards"); it != j.end() && it->is_array()) {
 		// 只接收字符串并限制数量；未知或已移除的枚举名留到选卡界面按当前注册表过滤。
@@ -324,6 +332,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		j["spawnList"] = spawnList;
 	}
 	j["sun"] = board->mSun;
+	j["coldStorage"] = board->SaveColdStorage();
 	j["sunCountDown"] = board->mSunCountDown;
 	j["poolSunCountDown"] = board->mPoolSunCountDown;
 	j["currentWave"] = board->mCurrentWave;
@@ -954,12 +963,13 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		}
 	}
 	board->mSun = j.value("sun", 50);
+	board->LoadColdStorage(j.value("coldStorage", nlohmann::json::object()));
 	board->mSunCountDown = std::clamp(
 		j.value("sunCountDown", 5.0f), 0.0f, SPAWN_SUN_TIME);
 	board->mPoolSunCountDown = std::clamp(
 		j.value("poolSunCountDown", POOL_SUN_SPAWN_TIME),
 		0.0f, POOL_SUN_SPAWN_TIME);
-	board->mCurrentWave = j.value("currentWave", 0);
+	board->mCurrentWave = board->IsColdStorage() ? board->mColdStorage.decisions : j.value("currentWave", 0);
 	board->mBoardFrame = j.value("boardFrame", 0);
 	{
 		const float iceRight = board->GetIceTrailRightX();
@@ -1599,7 +1609,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->mClockmakerGuaranteeConsumed =
 		j.value("clockmakerGuaranteeConsumed", false);
 	board->mRainVisualActive = false;   // 粒子不入存档，StartGame 按剩余时间重建
-	board->mMaxWave = j.value("maxWave", 10);
+	board->mMaxWave = board->IsColdStorage() ? 0 : j.value("maxWave", 10);
 	board->mZombieCountDown = j.value("zombieCountDown", 20.0f);
 	board->mTotalZombieHP = j.value("totalZombieHP", 0LL);
 	board->mCurrectWaveZombieHP = j.value("currentWaveZombieHP", 0LL);

@@ -139,6 +139,8 @@
     <Image>./resources/image/background_wintergarden.png</Image>
     <Image>./resources/image/background_polar_night.png</Image>
     <Image>./resources/image/background_gloomcrystal_mine.png</Image>
+    <Image>./resources/image/background_hot_cold_storage.png</Image>
+    <Image>./resources/image/cold_storage_ice_head.png</Image>
     <Image>./resources/image/mine_rock_a.png</Image>
     <Image>./resources/image/mine_rock_b.png</Image>
     <Image>./resources/image/mine_rock_c.png</Image>

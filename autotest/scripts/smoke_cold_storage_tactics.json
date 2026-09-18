@@ -1,0 +1,230 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 90
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "playerIce": 1000,
+        "elapsed": 180,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "weak_row.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pending.0.row",
+      "equals": 4
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 0,
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 1,
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 2,
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 3,
+      "row": 4,
+      "col": 3
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 0,
+      "fromCol": 4,
+      "row": 4,
+      "col": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "pending": [],
+        "enemyIce": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "weak_row_zero.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pending.0.row",
+      "equals": 0
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

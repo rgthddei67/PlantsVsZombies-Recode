@@ -121,6 +121,9 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 			reason = manager->TryPlantFromSlot(command.at("slot").get<int>(),
 				command.at("row").get<int>(), command.at("col").get<int>());
 		}
+		else if (op == "buy_ice") {
+			if (!scene->GetBoard()->BuyColdStorageIce(command.value("large",false))) reason = "order_unavailable";
+		}
 		else if (op == "collect_sun") {
 			auto* sun = dynamic_cast<Sun*>(scene->GetBoard()->mEntityRegistry.GetCoin(command.at("id").get<int>()));
 			auto* clickable = sun ? sun->GetClickable() : nullptr;
@@ -142,7 +145,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 	if (mInteractiveFullState) return full;
 	auto compact = Pick(full, {"scene", "boardState", "level", "levelName", "rows", "columns", "sun",
 		"wave", "maxWave", "paused", "pauseMenuOpen", "cards", "suns", "weather", "trophy",
-		"plantCount", "zombieCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells"});
+		"coldStorage", "plantCount", "zombieCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells"});
 	for (const char* key : {"plants", "zombies"}) {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {

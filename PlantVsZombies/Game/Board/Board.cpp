@@ -56,6 +56,7 @@ namespace {
 	{
 		switch (background)
 		{
+		case Background::HOT_COLD_STORAGE:
 		case Background::GROUND_DAY:
 			return ResourceKeys::Music::MUSIC_DAY;
 		case Background::GROUND_NIGHT:
@@ -252,6 +253,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	}
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
+	InitializeColdStorage();
 	if (IsMineBackground()) {
 		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,MineGrid::CurrentLayoutRevision);
 		mMineFogNextWave = GetMineFogOpeningWave();
@@ -2206,6 +2208,7 @@ Plant* Board::CreateImitaterPlant(PlantType targetType, int row, int column)
 Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 	int row, int column, bool skipsettings, bool isPreview, bool playerDeployment)
 {
+	if (playerDeployment && !CanAffordPlantIce(placementType)) return nullptr;
 	if (!isPreview && placementType == PlantType::PLANT_CARRYVINE) return nullptr;
 	if (!isPreview && !MiniGame::AllowsPlant(mLevel, placementType)) return nullptr;
 	const int requestedRow = row;
@@ -2340,6 +2343,7 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 			mActivePlanternID = plant->mPlantID;
 		}
 		if (playerDeployment) {
+			CommitColdStoragePlant(placementType);
 			NotifyPlayerPlantDeployed(*plant, placementType);
 		}
 	}
@@ -2503,7 +2507,7 @@ void Board::UpdateLevel()
 	float deltaTime = DeltaTime::GetDeltaTime();
 
 	if (mBackGround == Background::GROUND_DAY || mBackGround == Background::WATER_POOL ||
-		mBackGround == Background::ROOF) {
+		mBackGround == Background::ROOF || IsColdStorage()) {
 		UpdateSunFalling(deltaTime);
 	}
 	if (mBackGround == Background::WATER_POOL || mBackGround == Background::NIGHT_WATER_POOL) {
@@ -2531,6 +2535,11 @@ void Board::UpdateLevel()
 				}
 			}
 		}
+	}
+
+	if (IsColdStorage()) {
+		UpdateColdStorage(deltaTime);
+		return;
 	}
 
 	if (mCurrentWave >= mMaxWave)
@@ -2597,6 +2606,7 @@ void Board::UpdateLevel()
 // 由 Update 出波倒计时归零调用；开发者面板「下一波」也直接调用（暂停中同样可出波）。
 void Board::SummonNextWave()
 {
+	if (IsColdStorage()) { PlanColdStorageAttack(); return; }
 	mCurrentWave++;
 	ActivatePolarFinalWaveImmediately();
 	// 在本波任何候选解析前承接冷却，保证整个波次（含稍后的显式正式候选）都保持封锁。
@@ -3469,6 +3479,7 @@ void Board::StartGame()
 		InitializeMowers();
 	}
 	mBoardState = BoardState::GAME;
+	if (IsColdStorage() && mPresentation) mPresentation->ActivateWaveProgress();
 	PrepareMineWave();
 	InitializeWeather();
 	InitializeWinterTemperature();
@@ -3725,7 +3736,7 @@ void Board::LoadSpawnListFromJson()
 			seen.insert(val);
 			mSpawnZombieList.push_back(static_cast<ZombieType>(val));
 		}
-		if (entry.contains("waves"))
+		if (!IsColdStorage() && entry.contains("waves"))
 		{
 			int waves = entry["waves"].get<int>();
 			if (waves > 0)

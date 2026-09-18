@@ -108,6 +108,8 @@ public:
 	virtual float GetGroundSlowFactorAtCell(int, int) const { return 1.0f; }
 	// 统一结算植物承伤；source 必填，使僵尸增伤只作用于僵尸来源。
 	virtual void TakeDamage(int damage, DamageSource source);
+	/** 僵尸技能直接移除植物时保留击杀归因；自爆、铲除与升级仍走 Die。 */
+	void KillByZombie();
 	/**
 	 * 结算热感部署拦截命中原触发实体的数值伤害。
 	 * 默认仍走普通承伤；只有拥有部署前短暂无敌的即时植物覆写以放行这一次数值攻击。

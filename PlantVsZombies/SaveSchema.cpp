@@ -235,6 +235,8 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 5:
+				if (kind == DocumentKind::Player && !upgraded.contains("coldStorageHabits"))
+					upgraded["coldStorageHabits"] = {0.0, 0.0, 0.0, 0.0};
 				if (kind == DocumentKind::Level
 					&& !upgraded.contains("redeyeGargantuarsSpawnedThisWave")) {
 					// 关卡 v6 增加冒险红眼每波上限计数；旧档从尚未消费的单位元恢复。
@@ -361,6 +363,11 @@ namespace {
 			case 15:
 				// v16 可保存补强岩墙模板；保留旧布局字段，并让不认识版本2的旧程序拒绝新档。
 				version = 16;
+				upgraded["schemaVersion"] = version;
+				break;
+			case 16:
+				if (!upgraded.contains("coldStorage")) upgraded["coldStorage"] = nlohmann::json::object();
+				version = 17;
 				upgraded["schemaVersion"] = version;
 				break;
 			default:

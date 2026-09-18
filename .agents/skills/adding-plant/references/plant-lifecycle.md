@@ -61,3 +61,7 @@
 ### 凡是被状态机消费的节流缓存，读档第一帧不得吃初值
 
 ——缓存初值=给读档后的世界注入捏造状态（胆小菇实测：`mScaredCached=false` 初值让 SCARED 态读档后误判"僵尸走了"先伸头再缩回）。修法=计时器初始即到期，首帧强制真算。
+
+### 冷藏站击杀奖励必须保留死亡来源
+
+普通伤害沿 `TakeDamage(..., DamageSource::ZOMBIE)`，僵尸碾压沿 `Squish()`；绕过生命伤害直接移除植物的僵尸技能调用 `KillByZombie()`，不要直接调用 `Die()`。奖励只在首次实际死亡边沿结算，原植物失活或压扁后不重复奖励。玩家铲除、升级替换和植物技能自毁继续用 `Die()`，包括土豆雷因僵尸接触触发的爆炸。种植冰块仅在 Board 正式玩家落种成功后按 placement type 扣一次，预览、恢复、搬运和模仿者变身不能重新扣款。入口：`BoardColdStorage.cpp`、`Plant.cpp`；验证：`smoke_cold_storage.json`。

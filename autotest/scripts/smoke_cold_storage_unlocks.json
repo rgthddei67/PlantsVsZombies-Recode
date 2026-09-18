@@ -1,0 +1,159 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 83
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "decisions": 0,
+        "elapsed": 180
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 100
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.decisions",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "round_one.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "pending": [],
+        "enemyIce": 3,
+        "decisions": 10
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.decisions",
+      "equals": 10
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "decisions": 10
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 11
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 92
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "unlock"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "unlock"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.decisions",
+      "equals": 11
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "round_twelve.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "pending": [],
+        "decisions": 100,
+        "enemyIce": 100
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "wave",
+      "equals": 101
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "wave_101.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

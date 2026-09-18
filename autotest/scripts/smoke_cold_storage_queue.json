@@ -1,0 +1,233 @@
+{
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 83
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8,
+      "timeout": 20
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER",
+        "PLANT_SUNFLOWER",
+        "PLANT_WALLNUT",
+        "PLANT_POTATOMINE",
+        "PLANT_CHERRYBOMB",
+        "PLANT_PUFFSHROOM",
+        "PLANT_INSTANT_COFFEE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 8,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30,
+        "decisions": 11
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "delay": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "pending"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "pending"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.deployments",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "wave",
+      "equals": 11
+    },
+    {
+      "op": "kill_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "bankruptcy_win.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "bankruptcy_win.png"
+    },
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 83
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8,
+      "timeout": 20
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER",
+        "PLANT_SUNFLOWER",
+        "PLANT_WALLNUT",
+        "PLANT_POTATOMINE",
+        "PLANT_CHERRYBOMB",
+        "PLANT_PUFFSHROOM",
+        "PLANT_INSTANT_COFFEE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DANCER",
+      "row": 2,
+      "x": 750
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30,
+        "decisions": 11
+      }
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12,
+      "timeout": 22
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "atLeast": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "free_summons.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

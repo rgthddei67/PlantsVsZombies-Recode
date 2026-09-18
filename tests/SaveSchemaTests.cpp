@@ -606,6 +606,18 @@ namespace {
 
 int main() {
 	{
+		nlohmann::json oldPlayer={{"schemaVersion",5},{"adventureLevel",82}};
+		std::string error;
+		Expect(SaveSchema::UpgradePlayerDocument(oldPlayer,error),"旧玩家档可迁移冷藏站习惯字段");
+		Expect(oldPlayer["coldStorageHabits"]==nlohmann::json({0.0,0.0,0.0,0.0}),"旧档没有虚构玩家偏好");
+		Expect(oldPlayer["adventureLevel"]==82,"迁移保持冒险解锁进度");
+		nlohmann::json oldLevel={{"schemaVersion",16},{"sun",123},{"level",81}};
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error),"旧关卡档可迁移冷藏站字段");
+		Expect(oldLevel["coldStorage"].is_object() && oldLevel["coldStorage"].empty(),"旧地图没有冰块事务");
+		Expect(oldLevel["sun"]==123,"迁移不改变阳光");
+	}
+
+	{
 		nlohmann::json previous={{"schemaVersion",15},{"mine",{{"layoutRevision",1},{"rocks",{true,false,true}},{"wavePlan",{{52,0}}}}}};
 		const auto mine = previous["mine"];
 		std::string error;

@@ -168,6 +168,7 @@ namespace {
 		if (overrideName == "NIGHT_ROOF") return Background::NIGHT_ROOF;
 		if (overrideName == "WINTER_GARDEN") return Background::WINTER_GARDEN;
 		if (overrideName == "GLOOMCRYSTAL_MINE") return Background::GLOOMCRYSTAL_MINE;
+		if (overrideName == "HOT_COLD_STORAGE") return Background::HOT_COLD_STORAGE;
 	if (overrideName == "POLAR_NIGHT_SNOWFIELD") return Background::POLAR_NIGHT_SNOWFIELD;
 		return configured;
 	}
@@ -1784,6 +1785,8 @@ void GameScene::DrawRoofMarshalBossHealthBar(Graphics* g) const
 void GameScene::BuildDrawCommands()
 {
 	Scene::BuildDrawCommands();
+	if (mBoard && mBoard->IsColdStorage())
+		RegisterDrawCommand("ColdStorageShop", [this](Graphics* g) { DrawColdStorageShop(g); }, LAYER_UI - 1);
 
 	Background background = ResolveEnterBackground(
 		std::stoi(SceneManager::GetInstance().GetGlobalData("EnterLevel")));
@@ -1814,6 +1817,10 @@ void GameScene::BuildDrawCommands()
 	}
 	else if (background == Background::WINTER_GARDEN) {
 		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_WINTERGARDEN,
+			mStartX, mBackgroundY, 1.0f, 1.0f, LAYER_BACKGROUND, false);
+	}
+	else if (background == Background::HOT_COLD_STORAGE) {
+		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_HOT_COLD_STORAGE,
 			mStartX, mBackgroundY, 1.0f, 1.0f, LAYER_BACKGROUND, false);
 	}
 	else if (background == Background::GLOOMCRYSTAL_MINE) {
@@ -1948,14 +1955,14 @@ void GameScene::BuildDrawCommands()
 
 			RegisterDrawCommand("LevelName",
 				[this](Graphics* g) {
-					if (!mBoard || mBoard->mBoardState != BoardState::GAME) return;  // 选卡阶段隐藏
+					if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 					DrawLevelName(GameAPP::GetInstance(), mBoard->mLevelName, mBoard->mIsSurvival || MiniGame::IsMiniGame(mBoard->mLevel));
 				},
 				LAYER_UI);
 
 			RegisterDrawCommand("Difficulty",
 				[this](Graphics* g) {
-					if (!mBoard || mBoard->mBoardState != BoardState::GAME) return;  // 选卡阶段隐藏
+					if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 					auto& gameApp = GameAPP::GetInstance();
 					gameApp.DrawText("难度: " + std::to_string(gameApp.Difficulty),
 						Vector(1030, 575), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 21);
@@ -1999,6 +2006,7 @@ void GameScene::OnEnter() {
 	mGameProgress = GameObjectManager::GetInstance().CreateGameObjectImmediate<GameProgress>(
 		LAYER_UI, mBoard.get());
 	mGameProgress->SetActive(false);
+	CreateColdStorageShop();
 
 	auto button = mUIManager.CreateButton(Vector(990, -5), Vector(125 * 0.9f, 52 * 0.9f));
 	mMainMenuButton = button;
@@ -2273,6 +2281,7 @@ void GameScene::Update() {
 		mCrazyDaveDialog->Update();
 		return;
 	}
+	UpdateColdStorageShop();
 	Scene::Update();
 
 	// 水面沿用原版逐 Update 计数器，保持与游戏倍速和天气 DeltaTime 解耦；全局暂停仍冻结画面。
@@ -3073,13 +3082,13 @@ void GameScene::RegisterSurvivalGameUiOnce()
 		LAYER_UI);
 	RegisterDrawCommand("LevelName",
 		[this](Graphics* g) {
-			if (!mBoard || mBoard->mBoardState != BoardState::GAME) return;  // 选卡阶段隐藏
+			if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 			DrawLevelName(GameAPP::GetInstance(), mBoard->mLevelName, mBoard->mIsSurvival || MiniGame::IsMiniGame(mBoard->mLevel));
 		},
 		LAYER_UI);
 	RegisterDrawCommand("Difficulty",
 		[this](Graphics* g) {
-			if (!mBoard || mBoard->mBoardState != BoardState::GAME) return;  // 选卡阶段隐藏
+			if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 			auto& gameApp = GameAPP::GetInstance();
 			gameApp.DrawText("难度: " + std::to_string(gameApp.Difficulty),
 				Vector(1030, 575), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 21);
@@ -3338,7 +3347,7 @@ void GameScene::DevTriggerNextWave()
 {
 	// 面板不关闭（按钮 autoClose=false）：直接走出波入口，暂停中也立即生成，连点连出多波
 	if (mBoard && mBoard->mBoardState == BoardState::GAME
-		&& mBoard->mCurrentWave < mBoard->mMaxWave) {
+		&& (mBoard->IsColdStorage() || mBoard->mCurrentWave < mBoard->mMaxWave)) {
 		mBoard->SummonNextWave();
 	}
 }

@@ -43,6 +43,7 @@ enum class Background;
 class GameAPP
 {
 public:
+	std::array<float, 4> mColdStorageHabits{}; // 冷藏站近期战术画像，按正式落种衰减更新
 	int Difficulty = 3; // 难度系数
 	int mAdventureLevel = 1;    // 玩到的冒险模式关卡
 	bool mEncounteredEliteDancer = false; // 是否曾由正式波次实际刷出精英舞王

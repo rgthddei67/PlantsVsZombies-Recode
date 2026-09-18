@@ -37,6 +37,11 @@ GameProgress::GameProgress(Board* board)
 	const Texture* middleTex = rm.GetTexture(IMAGE_FLAGMETERLEVELPROGRESS);
 
 	m_flagMeter->SetImages(bgTex, fillTex, headTex, middleTex);
+	if (board->IsColdStorage()) {
+		m_flagMeter->SetImages(bgTex, fillTex, headTex, nullptr);
+		m_playerIceMeter = std::make_unique<FlagMeter>(Vector(870, 531), 0.0f);
+		m_playerIceMeter->SetImages(bgTex, fillTex, rm.GetTexture(IMAGE_COLD_STORAGE_ICE_HEAD), nullptr);
+	}
 }
 
 GameProgress::~GameProgress()
@@ -48,6 +53,14 @@ GameProgress::~GameProgress()
 void GameProgress::Update()
 {
 	GameObject::Update();
+	if (mBoard && mBoard->IsColdStorage()) {
+		const auto& ice = mBoard->mColdStorage;
+		// 复用原旗帜条从右侧填充的约定；数字保留超出初始量时的真实余额。
+		m_flagMeter->SetProgress(1.0f - std::clamp(static_cast<float>(ice.enemyIce)
+			/ std::max(1, ice.initialEnemyIce), 0.0f, 1.0f));
+		m_playerIceMeter->SetProgress(1.0f - std::clamp(ice.playerIce / 200.0f, 0.0f, 1.0f));
+		return;
+	}
 	float delta = DeltaTime::GetDeltaTime();
 	if (m_flagMeter) {
 		m_flagMeter->Update(delta);
@@ -90,6 +103,18 @@ void GameProgress::Update()
 void GameProgress::Draw(Graphics* g)
 {
 	GameObject::Draw(g);
+	if (mBoard && mBoard->IsColdStorage()) {
+		const auto& ice = mBoard->mColdStorage;
+		g->FillRect(848, 501, 252, 99, glm::vec4(20, 35, 40, 195));
+		m_playerIceMeter->Draw(g);
+		m_flagMeter->Draw(g);
+		g->DrawGlyphRun(u8"植物冰块 " + std::to_string(ice.playerIce), ResourceKeys::Fonts::FONT_FZCQ,
+			16, glm::vec4(180, 245, 255, 255), 860, 504);
+		g->DrawGlyphRun(u8"僵尸 " + std::to_string(ice.enemyIce) + u8"冰  补给" +
+			std::to_string(static_cast<int>(std::ceil(ice.supplyRemaining))) + u8"秒", ResourceKeys::Fonts::FONT_FZCQ,
+			15, glm::vec4(255, 215, 170, 255), 860, 556);
+		return;
+	}
 	if (m_flagMeter)
 		m_flagMeter->Draw(g);
 }
@@ -101,6 +126,7 @@ void GameProgress::SetupFlags(const Texture* stickTex, const Texture* flagTex)
 	m_flagMeter->ClearFlags();
 	m_flagCount = 0;
 	if (!mBoard) return;
+	if (mBoard->IsColdStorage()) return;
 
 	const int maxWave = mBoard->mMaxWave;
 	if (maxWave <= 0) return;
@@ -140,6 +166,7 @@ void GameProgress::LowerAllFlags(float duration)
 void GameProgress::SnapProgressToCurrentWave()
 {
 	if (!mBoard || !m_flagMeter) return;
+	if (mBoard->IsColdStorage()) { Update(); return; }
 
 	int maxWave = mBoard->mMaxWave;
 	if (maxWave <= 0) return;

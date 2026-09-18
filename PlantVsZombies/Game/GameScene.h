@@ -298,6 +298,12 @@ private:
 	std::unique_ptr<Board> mBoard = nullptr;
 	std::unique_ptr<CrazyDaveDialog> mCrazyDaveDialog;
 	std::weak_ptr<Button> mMainMenuButton;
+	bool mColdStorageShopOpen = false;
+	std::array<std::weak_ptr<Button>, 3> mColdStorageShopButtons;
+	/** 非暂停式冰块采购面板；订单状态唯一保存在 Board。 */
+	void CreateColdStorageShop();
+	void UpdateColdStorageShop();
+	void DrawColdStorageShop(Graphics* g);
 	std::weak_ptr<Button> mSpeedSettingsButton;
 	ShovelBank* mShovelUI = nullptr;   // 所有权在 GameObjectManager
 	std::weak_ptr<GameMessageBox> mMenu;
