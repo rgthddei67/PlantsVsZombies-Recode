@@ -1043,6 +1043,17 @@ bool TestDriver::ExecuteCurrent() {
 		if (it == kBoardStateNames.end()) { Fail("未知 BoardState: " + cmd.value("state", "")); return false; }
 		return gs->GetBoard()->mBoardState == it->second;
 	}
+	if (op == "complete_mine_dig") {
+		GameScene* gs = CurrentGameScene();
+		Board* board = gs ? gs->GetBoard() : nullptr;
+		if (!board || !board->IsMineBackground()) { Fail("complete_mine_dig: no mine board"); return false; }
+		const int row = cmd.value("row", -1), col = cmd.value("col", -1);
+		// 候选墙对照夹具：沿正式提交入口开一块可挖墙，不推进八秒而扰动同一战斗快照。
+		const bool result = board->mMineGrid.CanExcavate(row, col)
+			&& board->CompleteMineExcavation(MineGrid::Index(row, col), false);
+		if (result != cmd.value("expectedSuccess", true)) { Fail("complete_mine_dig: unexpected result"); return false; }
+		return true;
+	}
 	if (op == "mine_dig" || op == "mine_cancel") {
 		GameScene* gs = CurrentGameScene();
 		Board* board = gs ? gs->GetBoard() : nullptr;
@@ -3506,6 +3517,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		};
 	}
 	out["adaptiveMusic"] = {
+		{ "volumePct", static_cast<int>(std::lround(AudioSystem::GetMusicVolume() * 100.0f)) },
 		{ "playing", AudioSystem::IsAdaptiveMusicPlaying() },
 		{ "currentTune", AudioSystem::GetAdaptiveMusicCurrentTune() },
 		{ "preparedTune", AudioSystem::GetAdaptiveMusicPreparedTune() },

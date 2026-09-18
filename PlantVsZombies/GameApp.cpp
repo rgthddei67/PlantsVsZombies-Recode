@@ -433,6 +433,8 @@ int GameAPP::Run()
 	{
 		LOG_WARN("GameApp") << "无法加载玩家存档数据！可能是没有存档!";
 	}
+	// 自动测试默认静音音乐，覆盖本次进程的加载值；普通游玩偏好与音效音量不变。
+	if (mAutoTestMode) AudioSystem::SetMusicVolume(0.0f);
 
 	// 初始化 GameAPP 自身
 	if (!Initialize()) {
