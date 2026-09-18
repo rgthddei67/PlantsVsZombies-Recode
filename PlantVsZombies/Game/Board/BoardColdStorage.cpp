@@ -17,7 +17,7 @@
 namespace {
 	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 1500, 1650, 1800, 2000}; // 各关难度1初始敌方冰块；前段削减囤兵，后段保留长流程
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
-	constexpr int kSupplyIce = 40; // 每次补给冰块，不随难度再放大
+	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
@@ -153,6 +153,21 @@ void Board::RewardColdStoragePlantKill(PlantType type)
 	mColdStorage.killIncome = std::min(kMaxIce, mColdStorage.killIncome + accepted);
 }
 
+void Board::SettleColdStorageZombieDeath(const Zombie& zombie)
+{
+	if (!IsColdStorage()) return;
+	auto& s = mColdStorage;
+	const auto it = s.refundableCosts.find(zombie.mZombieID);
+	if (it == s.refundableCosts.end()) return;
+	const int reward = it->second * 3 / 4;
+	// 先关闭资格再发放；即使库存已满也不能留到复活后再次结算。
+	s.refundableCosts.erase(it);
+	if (zombie.IsPreview() || zombie.IsMindControlled() || mBoardState != BoardState::GAME) return;
+	const int accepted = std::min(reward, kMaxIce - s.playerIce);
+	s.playerIce += accepted;
+	s.playerKillIncome = std::min(kMaxIce, s.playerKillIncome + accepted);
+}
+
 int Board::GetColdStorageHostileCount() const
 {
 	int count = 0;
@@ -170,6 +185,10 @@ bool Board::IsColdStorageCleared() const
 	if (!IsColdStorage() || !mColdStorage.battleStarted || mTrophySpawned
 		|| !mColdStorage.pending.empty() || !mPendingSnowHoleSpawns.empty()
 		|| !mPendingAuroraRifts.empty() || GetColdStorageHostileCount() != 0) return false;
+	// 钟匠已经提交的复活同样属于在途兵力；施法者死亡不能让本局提前结束。
+	for (const auto& anchor : mTemporalAnchors)
+		for (const auto& target : anchor.targets)
+			if (!target.irreversible) return false;
 	for (ZombieType type : mSpawnZombieList)
 		if (mColdStorage.enemyIce >= GetZombieIceCost(type)) return false;
 	return true;
@@ -311,6 +330,7 @@ void Board::UpdateColdStorage(float dt)
 		if (it->remaining > 0) { ++it; continue; }
 		Zombie* z = CreateResolvedWaveZombie(it->type, it->row, static_cast<float>(SCENE_WIDTH) + 40.0f);
 		if (!z) { it->remaining = 1.0f; ++it; continue; }
+		s.refundableCosts.emplace(z->mZombieID, it->cost);
 		z->mSpawnWave = s.decisions;
 		++s.deployments;
 		it = s.pending.erase(it);
@@ -330,11 +350,14 @@ nlohmann::json Board::SaveColdStorage() const
 	nlohmann::json j{{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
-		{"spent",s.spent},{"supplied",s.supplied},{"killIncome",s.killIncome},{"deployments",s.deployments},
+		{"spent",s.spent},{"supplied",s.supplied},{"killIncome",s.killIncome},{"playerKillIncome",s.playerKillIncome},{"deployments",s.deployments},
 		{"decisions",s.decisions},{"lastAttackRow",s.lastAttackRow},{"battleStarted",s.battleStarted},
 		{"habits",s.habits},{"pending",nlohmann::json::array()}};
 	for (const auto& p : s.pending) j["pending"].push_back({{"type",static_cast<int>(p.type)},
 		{"row",p.row},{"cost",p.cost},{"remaining",p.remaining}});
+	j["refundableCosts"] = nlohmann::json::array();
+	for (const auto& [id, cost] : s.refundableCosts)
+		j["refundableCosts"].push_back({{"id",id},{"cost",cost}});
 	return j;
 }
 
@@ -361,12 +384,21 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.spent = integer("spent", 0, 0, kMaxIce);
 	s.supplied = integer("supplied", 0, 0, kMaxIce);
 	s.killIncome = integer("killIncome", 0, 0, kMaxIce);
+	s.playerKillIncome = integer("playerKillIncome", 0, 0, kMaxIce);
 	s.deployments = integer("deployments", 0, 0, kMaxIce);
 	s.decisions = integer("decisions", 0, 0, kMaxIce);
 	mCurrentWave = s.decisions;
 	mMaxWave = 0;
 	s.lastAttackRow = integer("lastAttackRow", -1, -1, mRows - 1);
 	s.battleStarted = j.value("battleStarted", false);
+	// 旧档没有付费身份，不能靠品种或波号猜测（召唤物也可能继承波号）。
+	// 已在途的付款事务保留，之后入场会正常登记；已有实体不追溯补发。
+	s.refundableCosts.clear();
+	if (j.contains("refundableCosts") && j["refundableCosts"].is_array())
+		for (const auto& record : j["refundableCosts"]) {
+			const int id = record.value("id", 0), cost = record.value("cost", 0);
+			if (id > 0 && cost > 0 && cost <= 10) s.refundableCosts.emplace(id, cost);
+		}
 	if (j.contains("habits") && j["habits"].is_array() && j["habits"].size() == 4)
 		for (int i=0; i<4; ++i) { const float v=j["habits"][i].get<float>(); s.habits[i]=std::isfinite(v)?std::clamp(v,0.0f,1.0f):0; }
 	s.pending.clear();

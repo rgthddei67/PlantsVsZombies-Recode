@@ -224,6 +224,8 @@ public:
 	void CommitColdStoragePlant(PlantType type);
 	/** 仅植物实际被僵尸消灭时调用；幂等由植物生命周期门禁保证。 */
 	void RewardColdStoragePlantKill(PlantType type);
+	/** 实际死亡时结算付费单位75%返冰；免费召唤、魅惑友军与时间替身退役不返冰。 */
+	void SettleColdStorageZombieDeath(const Zombie& zombie);
 	/** 建立新局资源，不从 StartGame 重置已恢复的订单与队伍。 */
 	void InitializeColdStorage();
 	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */

@@ -2,6 +2,7 @@
 
 #include "Game/Zombie/ZombieType.h"
 #include <array>
+#include <map>
 #include <vector>
 
 /** 冷藏站出兵的已付款事务；出生之前仍占敌方兵力和同时名额。 */
@@ -26,6 +27,7 @@ struct ColdStorageState {
 	int spent = 0;
 	int supplied = 0;
 	int killIncome = 0;
+	int playerKillIncome = 0; // 玩家通过消灭付费敌人累计回收的冰块
 	int deployments = 0;
 	int decisions = 0;
 	int lastAttackRow = -1;
@@ -34,4 +36,6 @@ struct ColdStorageState {
 	bool battleStarted = false;
 	std::array<float, 4> habits{}; // 经济、爆炸、控制、保护的近期落种偏好，非难度倍率
 	std::vector<ColdStorageDeployment> pending;
+	// 只在付费队伍首次入场时登记；结算后移除，回溯/读档重建实体不会重新登记。
+	std::map<int, int> refundableCosts; // 稳定僵尸ID -> 实际支付冰价，缺项表示免费或已经结算
 };
