@@ -606,6 +606,13 @@ namespace {
 
 int main() {
 	{
+		nlohmann::json previous={{"schemaVersion",15},{"mine",{{"layoutRevision",1},{"rocks",{true,false,true}},{"wavePlan",{{52,0}}}}}};
+		const auto mine = previous["mine"];
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"v15 矿道应兼容补墙版本");
+		Expect(previous["mine"]==mine,"版本升级必须保留旧布局、开挖结果和预报");
+	}
+	{
 		nlohmann::json previous={{"schemaVersion",14},{"mine",{{"rocks",{true,false,true}},{"wavePlan",{{52,1}}}}}};
 		const auto mine = previous["mine"];
 		std::string error;

@@ -358,6 +358,11 @@ namespace {
 				version = 15;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 15:
+				// v16 可保存补强岩墙模板；保留旧布局字段，并让不认识版本2的旧程序拒绝新档。
+				version = 16;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

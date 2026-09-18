@@ -10,18 +10,19 @@ public:
 	static constexpr int Columns = 9;
 	static constexpr int Count = Rows * Columns;
 	static constexpr int Unreachable = 1000;
+	static constexpr int CurrentLayoutRevision = 2; // 新局矿道版本；旧档按各自模板恢复
 	std::array<bool, Count> rock{};
 	std::array<int, Count> distance{};
 	std::array<int, Count> exitDistance{};
 	std::array<bool, Count> connected{};
 	std::array<bool, Rows> entrance{};
 	int layoutGroup = 0;
-	int layoutRevision = 0; // 0=旧档双口布局，1=多线策略布局；开凿不改变版本
+	int layoutRevision = 0; // 0=原始布局，1=初版多线，2=补强岩墙；开凿不改变版本
 
 	static bool Valid(int row, int col) { return row >= 0 && row < Rows && col >= 0 && col < Columns; }
 	static int Index(int row, int col) { return row * Columns + col; }
 	bool IsRock(int row, int col) const { return Valid(row, col) && rock[Index(row, col)]; }
-	/** 前四组每两关共用布局，组4收官；revision=0 仅保留旧档/旧专项地形，正式新局使用1。 */
+	/** 前四组每两关共用布局，组4收官；历史模板供旧档/专项使用，新局显式使用 CurrentLayoutRevision。 */
 	void Initialize(int layoutGroup = 0, int revision = 0);
 	/** 地形提交后重建房屋连通性与有向距离；固定数组队列，无每帧分配。 */
 	void Rebuild();

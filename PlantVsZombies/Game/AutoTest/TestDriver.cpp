@@ -721,7 +721,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	}
 	for (const auto& c : j["commands"]) mCommands.push_back(c);
 	mInteractive = j.value("interactive", false);
-	mMineLayoutRevision = j.value("mineLayoutRevision",1);
+	mMineLayoutRevision = j.value("mineLayoutRevision",MineGrid::CurrentLayoutRevision);
 
 	mOutDir = (std::filesystem::path("./autotest/out") /
 		std::filesystem::path(path).stem()).string();
@@ -899,7 +899,7 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "goto_level") {
 		if (!cmd.contains("level")) { Fail("goto_level 缺 level 字段"); return false; }
 		const int mineRevision = cmd.value("mineLayoutRevision",mMineLayoutRevision);
-		if (mineRevision < 0 || mineRevision > 1) { Fail("mineLayoutRevision 须为 0 或 1"); return false; }
+		if (mineRevision < 0 || mineRevision > MineGrid::CurrentLayoutRevision) { Fail("mineLayoutRevision 超出支持范围"); return false; }
 		if (cmd.value("resetTestState", false)) ResetTestState();
 		auto& sm = SceneManager::GetInstance();
 		const std::string backgroundName = cmd.value("background", "");
@@ -910,9 +910,10 @@ bool TestDriver::ExecuteCurrent() {
 		sm.SetGlobalData("AutoTestBackground", backgroundName);
 		sm.SetGlobalData("EnterLevel", std::to_string(cmd["level"].get<int>()));
 		if (!sm.SwitchTo("GameScene")) { Fail("SwitchTo(GameScene) 失败"); return false; }
-		if (auto* gs = CurrentGameScene(); gs && gs->GetBoard() && gs->GetBoard()->IsMineBackground() && mineRevision == 0) {
+		if (auto* gs = CurrentGameScene(); gs && gs->GetBoard() && gs->GetBoard()->IsMineBackground()
+			&& mineRevision != gs->GetBoard()->mMineGrid.layoutRevision) {
 			auto* board = gs->GetBoard();
-			board->mMineGrid.Initialize(board->mMineGrid.layoutGroup,0);
+			board->mMineGrid.Initialize(board->mMineGrid.layoutGroup,mineRevision);
 			board->mMinePlannedWave = -1;
 			board->PrepareMineWave();
 		}

@@ -16,6 +16,11 @@ def read(name):
 def verify():
     """Check all nine levels; formation must preserve the announced roster and per-level pools."""
     assert read("status")["status"] == "passed"
+    before, after = read("legacy1_before"), read("legacy1_after")
+    for field in ("layoutRevision", "rocks", "entrances", "wavePlan"):
+        assert before["mine"][field] == after["mine"][field], ("legacy1", field)
+    assert before["mine"]["layoutRevision"] == 1
+    assert [(p["row"], p["col"]) for p in after["plants"]] == [(2, 4)]
     configs = json.loads((ROOT / "build/clang-release/resources/spawnlists.json").read_text(encoding="utf-8"))
     names, index = {}, 0
     for line in (ROOT / "PlantVsZombies/Game/Zombie/ZombieType.h").read_text(encoding="utf-8").splitlines():
@@ -32,7 +37,9 @@ def verify():
         initial, restored = read(f"level{level}_initial"), read(f"level{level}_restored")
         assert initial["maxWave"] == config["waves"] and initial["sun"] == config["sun"]
         assert initial["spawnList"] == [names[t] for t in config["zombies"]]
-        assert initial["mine"]["layoutRevision"] == 1 and initial["mine"]["pathValid"]
+        assert initial["mine"]["layoutRevision"] == 2 and initial["mine"]["pathValid"]
+        if level >= 77:
+            assert initial["mine"]["rockCount"] == 12
         assert sum(initial["mine"]["entrances"]) == (3 if level < 79 else 4)
         for field in ("layoutRevision", "rocks", "entrances", "wavePlan"):
             assert initial["mine"][field] == restored["mine"][field], (level, field)

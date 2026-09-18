@@ -253,7 +253,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,1);
+		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,MineGrid::CurrentLayoutRevision);
 		mMineFogNextWave = GetMineFogOpeningWave();
 		// 初始阳光由关卡表唯一维护；地形初始化不能覆盖已经加载的开局经济。
 	}
@@ -2662,7 +2662,7 @@ void Board::SummonNextWave()
 			const ZombieType actual = ResolveWaveZombieType(entry.first);
 			if (actual != ZombieType::NUM_ZOMBIE_TYPES)
 				CreateOrQueueWaveZombie(actual, entry.second, static_cast<float>(SCENE_WIDTH) + 40.0f
-					+ (mMineGrid.layoutRevision == 1 ? CELL_COLLIDER_SIZE_X * MineWaveFormation::RankOffset(
+					+ (mMineGrid.layoutRevision >= 1 ? CELL_COLLIDER_SIZE_X * MineWaveFormation::RankOffset(
 						GameDataManager::GetInstance().GetZombieMineFormationRole(actual)) : 0.0f));
 		}
 		mMineWavePlan.clear();
