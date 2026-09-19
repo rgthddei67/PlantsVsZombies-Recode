@@ -71,6 +71,8 @@
 #include "DawnLotus.h"
 #include "FurnaceCoreFlower.h"
 #include "ListeningGrass.h"
+#include "IceMint.h"
+#include "../Zombie/IceWorkerZombie.h"
 #include "NorthStarFlower.h"
 #include "IceMirrorGrass.h"
 #include "KernelPult.h"
@@ -264,6 +266,10 @@ void GameDataManager::InitializeHardcodedData() {
 		AnimationType::ANIM_SUNSHROOM,
 		"SunShroom", &MakePlant<SunShroom>);
 
+	RegisterPlant(PlantType::PLANT_ICEMINT, "PLANT_ICEMINT", "IMAGE_ICEMINT",
+		AnimationType::ANIM_ICEMINT, "IceMint", &MakePlant<IceMint>);
+	RegisterZombie(ZombieType::ZOMBIE_ICE_WORKER, "ZOMBIE_ICE_WORKER",
+		AnimationType::ANIM_ICE_WORKER, "IceWorkerZombie", &MakeZombie<IceWorkerZombie>);
 	RegisterPlant(PlantType::PLANT_AMBERLICHEN, "PLANT_AMBERLICHEN", "IMAGE_AMBERLICHEN",
 		AnimationType::ANIM_AMBERLICHEN, "AmberLichen", &MakePlant<AmberLichen>);
 	RegisterZombie(ZombieType::ZOMBIE_CRYSTAL_DRUMMER, "ZOMBIE_CRYSTAL_DRUMMER",

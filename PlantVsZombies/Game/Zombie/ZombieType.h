@@ -95,6 +95,7 @@ enum class ZombieType {
 	ZOMBIE_CRYSTAL_HORN_MINER, // 晶角矿工，9-3 首次登场
 	ZOMBIE_SUN_THIEF, // 盗晶僵尸，窃取阳光后沿矿道撤退
 	ZOMBIE_CRYSTAL_DRUMMER, // 震晶鼓手，矿道范围鼓舞
+	ZOMBIE_ICE_WORKER, // 制冰工；10-1 首次登场，产冰随存活成长
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

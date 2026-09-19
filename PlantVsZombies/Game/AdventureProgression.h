@@ -130,8 +130,8 @@ namespace AdventureProgression
 		PlantType::PLANT_AMBERLICHEN, // 9-7 琥珀地衣
 		NO_PLANT_REWARD, // 9-8 金雾综合矿场
 		NO_PLANT_REWARD, // 9-9 矿场收官，不新增植物奖励
-		// 10-1 ... 10-9：本轮只实现地图与经济，辅助产冰植物保留 TODO。
-		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		// 10-1 获得冰晶薄荷，10-2 开始使用双方经济单位。
+		PlantType::PLANT_ICEMINT, NO_PLANT_REWARD, NO_PLANT_REWARD,
 		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
 		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
 	};

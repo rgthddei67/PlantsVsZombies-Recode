@@ -29,6 +29,11 @@ struct ColdStorageState {
 	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒，限制观望的最长时间
 	int spent = 0;
 	int supplied = 0;
+	int workerIncome = 0; // 制冰工累计为敌方生产的冰块
+	int playerProductionIncome = 0; // 薄荷与魅惑制冰工累计生产的冰块
+	float predictedProduction = 0.0f; // 本次决策时域内可存活生产的预测收入
+	float economyValue = 0.0f; // 最佳经济投资的预计净收益
+	int economyRow = -1; // 本次经济路线，诊断投影不入档
 	int killIncome = 0;
 	int playerKillIncome = 0; // 玩家通过消灭付费敌人累计回收的冰块
 	int deployments = 0;

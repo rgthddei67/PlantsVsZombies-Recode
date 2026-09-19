@@ -2,6 +2,9 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/IceMint.png</Image>
+    <Image>./resources/image/reanim/Ice_mint_crystal.png</Image>
+    <Image>./resources/image/reanim/Ice_worker_machine.png</Image>
     <Image>./resources/image/PlantImage/AmberLichen.png</Image>
     <Image>./resources/image/kid.jpg</Image>
     <Image>./resources/image/AwardGlow.png</Image>
@@ -697,6 +700,8 @@
     <Reanimation name="CobCannon">./resources/reanim/CobCannon.reanim</Reanimation>
     <Reanimation name="Imitater">./resources/reanim/Imitater.reanim</Reanimation>
 
+    <Reanimation name="IceMint">./resources/reanim/IceMint.reanim</Reanimation>
+    <Reanimation name="IceWorkerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="NormalZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="PrismFlower">./resources/reanim/PrismFlower.reanim</Reanimation>
     <Reanimation name="SunThiefZombie">./resources/reanim/NormalZombie.reanim</Reanimation>

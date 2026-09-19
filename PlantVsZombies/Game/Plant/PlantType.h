@@ -79,6 +79,7 @@ enum class PlantType
 	PLANT_ECHOSHROOM, // 回声菇，9-3 奖励
 	PLANT_PRISMFLOWER, // 棱光花，9-5 奖励
 	PLANT_AMBERLICHEN, // 琥珀地衣，9-7 奖励
+	PLANT_ICEMINT, // 冰晶薄荷；10-1 奖励，长期产冰经济植物
 	NUM_PLANT_TYPES,
 };
 

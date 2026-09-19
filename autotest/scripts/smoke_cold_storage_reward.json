@@ -1,0 +1,26 @@
+{
+  "commands": [
+    {"op": "set_adventure_level", "level": 82},
+    {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 25},
+    {"op": "force_trophy"},
+    {"op": "wait_seconds", "value": 0.7},
+    {"op": "click", "target": "trophy", "hold_frames": 6},
+    {"op": "wait_frames", "value": 3},
+    {"op": "wait_seconds", "value": 4},
+    {"op": "assert_state", "path": "scene", "equals": "PlantRewardScene"},
+    {"op": "assert_state", "path": "plantAlmanacSelected", "equals": "PLANT_ICEMINT"},
+    {"op": "assert_state", "path": "plantAlmanacPreviewReady", "equals": true},
+    {"op": "screenshot", "name": "ice_mint_reward.png"},
+    {"op": "click", "x": 920, "y": 550},
+    {"op": "wait_frames", "value": 3},
+    {"op": "wait_value", "path": "chooseCardReady", "equals": true, "timeout": 25},
+    {"op": "screenshot", "name": "ice_mint_selection.png"},
+    {"op": "choose_cards", "cards": ["PLANT_ICEMINT"]},
+    {"op": "wait_state", "state": "GAME"},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "dump_state", "name": "reward_next_level.json"},
+    {"op": "quit"}
+  ]
+}

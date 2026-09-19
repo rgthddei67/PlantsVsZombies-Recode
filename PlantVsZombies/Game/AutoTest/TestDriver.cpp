@@ -61,6 +61,8 @@
 #include "../Plant/AlarmBellFlower.h"
 #include "../Plant/FurnaceCoreFlower.h"
 #include "../Plant/ListeningGrass.h"
+#include "../Plant/IceMint.h"
+#include "../Zombie/IceWorkerZombie.h"
 #include "../Plant/NorthStarFlower.h"
 #include "../Plant/IceMirrorGrass.h"
 #include "../Plant/BoundaryFlower.h"
@@ -391,7 +393,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -427,7 +429,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -4741,6 +4743,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
+		ice["predictedProductionOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedProduction * 100.0f));
+		ice["economyValueOn100"] = static_cast<int>(std::lround(board->mColdStorage.economyValue * 100.0f));
+		ice["economyRow"] = board->mColdStorage.economyRow;
+		ice["unitResourcesReady"] = ResourceManager::GetInstance().HasReanimation("IceMint")
+			&& ResourceManager::GetInstance().HasReanimation("IceWorkerZombie")
+			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICEMINT", false)
+			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICE_MINT_CRYSTAL", false)
+			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICE_WORKER_MACHINE", false);
 		ice["commanderMode"] = board->mColdStorage.commanderMode;
 		ice["commanderBudget"] = board->mColdStorage.commanderBudget;
 		ice["commanderSpent"] = board->mColdStorage.commanderSpent;
@@ -6726,6 +6736,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["hijackerLocked"] =
 				board->GetNightRoofHijackerID() == hijacker->mZombieID;
 		}
+		if (auto* worker = dynamic_cast<IceWorkerZombie*>(z)) {
+			zombieState["iceRemainingMs"] = static_cast<int>(std::lround(worker->GetIceRemaining() * 1000.0f));
+			zombieState["nextIceYieldOn1000"] = static_cast<int>(std::lround(worker->GetNextIceYield() * 1000.0f));
+			zombieState["iceBatches"] = worker->GetIceBatches();
+			zombieState["iceMachineVisible"] = worker->HasIceMachine();
+		}
 		if (auto* healer = dynamic_cast<HealerZombie*>(z)) {
 			++healerZombieCount;
 			if (healer->mSpawnWave == 3) ++healerWave3Count;
@@ -7958,6 +7974,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			const std::string cellKey =
 				std::to_string(p->mRow) + "_" + std::to_string(p->mColumn);
 			out["furnaceCoreFlowersByCell"][cellKey] = plantState;
+		}
+		if (auto* mint = dynamic_cast<IceMint*>(p)) {
+			plantState["productionRemainingMs"] = static_cast<int>(std::lround(mint->GetProductionRemaining() * 1000.0f));
+			plantState["productionBatches"] = mint->GetProductionBatches();
+			out["iceMintsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plantState;
 		}
 		if (auto* listeningGrass = dynamic_cast<ListeningGrass*>(p)) {
 			plantState["listenCooldownRemainingMs"] = static_cast<int>(std::lround(
