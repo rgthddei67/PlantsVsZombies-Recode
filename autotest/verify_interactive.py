@@ -1,11 +1,48 @@
 """Verify the visible interactive_contract game; exits the game after successful checks."""
 
 import json
+import os
 from pathlib import Path
 import sys
 import time
 
-from live import LiveClient
+from live import LiveClient, read_json
+
+
+def verify_locked_request(client):
+    """A temporarily unreadable published file must retain its request ID until it can be read."""
+    if os.name != 'nt':
+        return
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                  ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p]
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    kernel.WriteFile.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD,
+                                ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p]
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    request_id = client.last_id + 1
+    commands = [{'op': 'observe'}]
+    request = {'session': client.session, 'id': request_id, 'commands': commands, 'fullState': False}
+    path = client.mailbox / f'request_{request_id}.json'
+    handle = kernel.CreateFileW(str(path), 0x40000000, 0, None, 1, 0x80, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        data = json.dumps(request).encode('utf-8')
+        buffer = ctypes.create_string_buffer(data)
+        written = wintypes.DWORD()
+        assert kernel.WriteFile(handle, buffer, len(data), ctypes.byref(written), None)
+        assert written.value == len(data)
+        time.sleep(0.5)
+        status = read_json(client.output / 'status.json')
+        assert status and status['lastRequestId'] == client.last_id, 'locked request was consumed'
+        assert not (client.mailbox / f'response_{request_id}.json').exists()
+    finally:
+        kernel.CloseHandle(handle)
+    reply = client.send(commands, request_id=request_id)
+    assert reply['results'][0]['ok'] and reply['simulationSteps'] == 660
 
 
 def verify(output):
@@ -71,6 +108,7 @@ def verify(output):
     assert (Path(output) / "interactive_contract.png").stat().st_size > 0
     assert screenshot["state"] == arrived["state"], "capture advanced gameplay"
 
+    verify_locked_request(client)
     # A malformed published envelope must return an error and leave the mailbox usable.
     bad_id = client.last_id + 1
     bad_path = client.mailbox / f"request_{bad_id}.json"
@@ -89,7 +127,7 @@ def verify(output):
     summary = {"status": "passed", "requests": client.last_id, "simulationSteps": 660,
                "checks": ["idle freeze", "duplicate request", "sun cost", "cooldown", "occupied cell",
                           "invalid slot and cell", "fixture command rejection", "fixed steps",
-                          "sun collection", "frozen screenshot", "malformed request recovery", "quit"]}
+                          "sun collection", "frozen screenshot", "locked request recovery", "malformed request recovery", "quit"]}
     (Path(output) / "interactive_verification.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary))
 

@@ -50,6 +50,9 @@ void TestDriver::PollInteractive() {
 	const auto path = std::filesystem::path(mLiveDir) / ("request_" + std::to_string(nextId) + ".json");
 	std::error_code error;
 	if (!std::filesystem::is_regular_file(path, error)) return;
+	// 文件刚发布时可能被系统短暂占用；未取得读取句柄前不消费序号，也不把它误判为空 JSON。
+	std::ifstream input(path);
+	if (!input.is_open()) return;
 
 	// 只消费严格递增的序号；旧文件保留作记录，重试不会再次落种或推进时间。
 	mRequestId = nextId;
@@ -64,7 +67,6 @@ void TestDriver::PollInteractive() {
 	mTimeoutAccum = 0.0f;
 	try {
 		if (std::filesystem::file_size(path) > kMaxRequestBytes) throw std::runtime_error("request_too_large");
-		std::ifstream input(path);
 		nlohmann::json request;
 		input >> request;
 		if (request.at("session").get<std::string>() != mSession
