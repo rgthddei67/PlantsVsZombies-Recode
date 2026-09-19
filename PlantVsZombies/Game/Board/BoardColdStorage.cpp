@@ -3,6 +3,7 @@
 #include "Game/AdventureProgression.h"
 #include "Game/AI/PlantDefenseMonteCarlo.h"
 #include "Game/AI/ColdStorageStrategy.h"
+#include "Game/AI/ColdStoragePolicy.h"
 #include "Game/CardSlotManager.h"
 #include "Game/Card.h"
 #include "Game/Plant/GameDataManager.h"
@@ -381,7 +382,8 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| row < 0 || row >= mRows || !IsSpawnRowCompatible(type, row)
-		|| GameDataManager::GetInstance().GetZombieAppearWave(type) > mColdStorage.decisions + 1
+		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
+			&& GameDataManager::GetInstance().GetZombieAppearWave(type) > mColdStorage.decisions + 1)
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
 		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= kMaxSimultaneous) return false;
 	const int cost = GetZombieIceCost(type);
@@ -710,6 +712,100 @@ void Board::PlanColdStorageAttack()
 		combined.insert(combined.end(), additions.begin(), additions.end());
 		return ColdStorageStrategy::ForecastBlastRisk(combined, formation.size(), blastThreats, slowDuty, SCENE_WIDTH);
 	};
+	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
+	if (const auto* weights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr) {
+		ColdStorageSearch::Snapshot search;
+		search.budget = s.enemyIce;
+		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
+		search.rightEdge = SCENE_WIDTH;
+		search.houseX = GetCellCenterPosition(0, 0).x - 120;
+		search.blasts = blastThreats; search.slowDuty = slowDuty;
+		for (const auto& body : formation) search.current.push_back({body});
+		// 生产进度使用同一实体，不以成熟工人的默认第一批代替实际收入。
+		size_t index = 0;
+		for (const auto& z : snapshot.zombies) {
+			const Zombie* entity = mEntityRegistry.GetZombie(z.id);
+			if (z.mindControlled || !entity || !entity->HasHead()) continue;
+			auto& unit = search.current[index++];
+			unit.biteDps = entity->GetMineSimulationAttackDps();
+			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
+				unit.productionRemaining = worker->GetIceRemaining(); unit.nextYield = worker->GetNextIceYield();
+			}
+		}
+		for (const auto& p : snapshot.plants) {
+			ColdStorageSearch::Plant plant;
+			plant.row = p.row; plant.column = p.column; plant.layer = p.eatingLayerPriority;
+			plant.x = p.x; plant.health = p.health; plant.dps = p.attackDps;
+			plant.rowRadius = p.attackRowRadius; plant.edible = p.canBeEaten;
+			plant.slowRate = p.slowApplicationsPerSecond; plant.slowDuration = p.slowDuration;
+			plant.stopDuty = p.frozenApplicationsPerSecond * p.frozenDuration + p.butterApplicationsPerSecond * p.butterDuration;
+			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
+				const auto type = entity->GetPlacementType();
+				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
+				const auto& profile = GameDataManager::GetInstance().GetPlantSimulationProfile(type);
+				plant.multiTarget = profile.mineMultiTarget;
+				plant.around = profile.mineAttackShape == 2;
+				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
+				plant.melon = type == PlantType::PLANT_MELONPULT || type == PlantType::PLANT_WINTERMELON;
+			}
+			search.plants.push_back(plant);
+		}
+		// 支撑层同样会阻挡、受击和产生返冰，不能在预测中凭空消失。
+		for (const auto& p : snapshot.supports) {
+			ColdStorageSearch::Plant plant;
+			plant.row = p.row; plant.column = p.column; plant.layer = 0;
+			plant.x = p.x; plant.health = p.health; plant.edible = p.canBeEaten;
+			if (const Plant* entity = mEntityRegistry.GetPlant(p.id))
+				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(entity->GetPlacementType()), s.difficulty));
+			search.plants.push_back(plant);
+		}
+		for (ZombieType type : mSpawnZombieList) {
+			if (!ColdStoragePolicy::AllUnits() && GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+			// 特殊能力的收益由真实对局训练的局势偏好补充，不排除支援或绕后兵种。
+			for (int row = 0; row < mRows; ++row) if (IsSpawnRowCompatible(type, row)) {
+				ColdStorageSearch::Option option;
+				option.type = static_cast<int>(type); option.row = row; option.cost = GetZombieIceCost(type);
+				option.unit.body = newSplashUnit(type, row, 0);
+				option.preference = ColdStoragePolicy::UnitPreference(type);
+				search.options.push_back(option);
+			}
+		}
+		for (int row = 0; row < mRows; ++row) {
+			auto& context = search.context[row]; context[0] = 1;
+			float maximum = 0, health = 0;
+			for (const auto& z : snapshot.zombies) if (!z.mindControlled && z.row == row) {
+				maximum += z.bodyMaxHealth + z.helmMaxHealth + z.shieldMaxHealth;
+				health += z.bodyHealth + z.helmHealth + z.shieldHealth;
+				context[2] += 1.0f / 3;
+				const Zombie* entity = mEntityRegistry.GetZombie(z.id);
+				if (entity && entity->mZombieType == ZombieType::ZOMBIE_ICE_WORKER) context[6] += 1;
+			}
+			context[1] = maximum > 0 ? 1 - health / maximum : 0;
+			context[3] = frontHealth[row] / 4000;
+			context[4] = std::clamp(slowDuty[row], 0.0f, 1.0f);
+			context[5] = directDps[row] / 60;
+			for (const auto& p : snapshot.plants) if (p.row == row && p.column <= 2 && p.pumpkinShell)
+				context[7] += p.health / 4000;
+		}
+		const auto result = ColdStorageSearch::Search(search, *weights,
+			0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed));
+		s.commanderStrategy = "learned_search"; s.commanderMode = result.actions.empty() ? "observe" : "search";
+		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
+		s.formationBlastLoss = result.blastLoss;
+		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
+		const int before = s.enemyIce;
+		for (const auto& action : result.actions) {
+			const auto& option = search.options[action.option];
+			if (QueueColdStorageZombie(static_cast<ZombieType>(option.type), option.row, action.delay)) {
+				s.commanderFocusRow = option.row;
+				if (option.unit.body.economic) ++s.economicFollowups;
+			}
+		}
+		s.commanderSpent = before - s.enemyIce; s.commanderReserve = s.enemyIce;
+		s.attackDeferred = true; // 每次付费承诺兑现后尽快观察；等待也是可被重新选择的动作。
+		if (!s.pending.empty()) { mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0; }
+		return;
+	}
 	// 对每条路线比较裸投与各个已解锁护卫，护卫是否值得买由净收益决定。
 	// 普通僵尸也可作早期护卫；不改其他关卡的兵种解锁波数，不强制先凑重甲血量。
 	std::array<ZombieType, 6> economyGuards;
@@ -1246,6 +1342,7 @@ void Board::UpdateColdStorage(float dt)
 		s.refundableCosts.emplace(z->mZombieID, it->cost);
 		z->mSpawnWave = s.decisions;
 		++s.deployments;
+		++s.deploymentTypes[it->type];
 		it = s.pending.erase(it);
 		UpdateZombieMetrics();
 	}

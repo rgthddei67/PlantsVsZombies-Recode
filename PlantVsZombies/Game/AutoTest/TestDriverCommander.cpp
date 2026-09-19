@@ -1,0 +1,176 @@
+#include "TestDriver.h"
+#include "DeltaTime.h"
+#include "Game/GameScene.h"
+#include "Game/SceneManager.h"
+#include <algorithm>
+#include <cmath>
+#include <filesystem>
+#include <map>
+#include <set>
+
+namespace {
+using Json = nlohmann::json;
+/** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
+std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
+	std::vector<Json> actions;
+	const auto& ice = state.at("coldStorage");
+	const bool eliteDefense = std::any_of(state.at("cards").begin(), state.at("cards").end(),
+		[](const auto& card) { return card.at("gameplayType") == "PLANT_ELITE_SCAREDYSHROOM"; });
+	int sun = state.at("sun"), stock = ice.at("playerIce");
+	std::map<std::pair<int,int>, Json> plants;
+	std::set<std::pair<int,int>> shells;
+	for (const auto& p : state.at("plants")) if (!p.value("squished", false) && p.value("health", 0) > 0) {
+		const std::pair<int,int> cell{p.at("row"), p.at("col")};
+		if (p.at("type") == "PLANT_PUMPKINSHELL") shells.insert(cell);
+		else plants[cell] = p;
+	}
+	std::vector<Json> zombies;
+	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0) zombies.push_back(z);
+	std::stable_sort(zombies.begin(), zombies.end(), [](const auto& a, const auto& b) { return a.at("xInt") < b.at("xInt"); });
+	for (const auto& coin : state.at("suns")) if (!coin.value("collected", false)) actions.push_back({{"op","collect_sun"},{"id",coin.at("id")}});
+	for (const auto& entry : plants) {
+		const auto& cell = entry.first; const auto& p = entry.second;
+		const bool farm = p.at("type") == "PLANT_MARIGOLD";
+		const bool deny = opponent == "deny" && p.value("health", 1000) < 130
+			&& p.at("type") != "PLANT_CHERRYBOMB" && p.at("type") != "PLANT_JALAPENO"
+			&& std::any_of(zombies.begin(), zombies.end(), [&](const auto& z) {
+				return z.at("row") == cell.first && std::abs(z.at("xInt").template get<int>() - state.at("cells").at(cell.first).at(cell.second).at("centerXInt").template get<int>()) < 120;
+			});
+		if (farm || deny) actions.push_back({{"op","player_shovel"},{"row",cell.first},{"col",cell.second}});
+	}
+	if (ice.at("orderIce") == 0 && stock < 100 && sun >= 225) {
+		actions.push_back({{"op","buy_ice"},{"large",true}}); sun -= 225;
+	} else if (ice.at("orderIce") == 0 && stock < 30 && sun >= 100) {
+		actions.push_back({{"op","buy_ice"},{"large",false}}); sun -= 100;
+	}
+	bool planted = false;
+	auto attempt = [&](const std::string& kind, const std::vector<std::pair<int,int>>& cells) {
+		if (planted) return;
+		for (const auto& card : state.at("cards")) {
+			if (card.at("gameplayType") != kind || !card.at("ready").get<bool>()
+				|| card.at("sunCost").get<int>() > sun || ice.at("plantCosts").at(kind).get<int>() > stock) continue;
+			for (const auto& [r,c] : cells) {
+				const Json cell = Json::array({r,c});
+				if (std::find(card.at("legalCells").begin(), card.at("legalCells").end(), cell) == card.at("legalCells").end()) continue;
+				actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",r},{"col",c}});
+				planted = true; return;
+			}
+		}
+	};
+	// 全兵种训练配备实际对空卡，避免把“陪练根本不能打气球”误学成通用最优策略。
+	if (std::any_of(zombies.begin(), zombies.end(), [](const auto& z) { return z.at("type") == "ZOMBIE_BALLOON"; })) {
+		std::vector<std::pair<int,int>> antiAir;
+		for (int r = 0; r < 5; ++r) for (int c = 7; c >= 2; --c) antiAir.emplace_back(r,c);
+		attempt("PLANT_BLOVER", antiAir);
+		attempt("PLANT_CACTUS", antiAir);
+	}
+	// 陪练之间改变炸弹使用门槛与补阵次序，防止只学会针对一个固定脚本。
+	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 550) {
+		std::vector<std::pair<int,int>> cells;
+		for (int c = 7; c >= 0; --c) cells.emplace_back(zombies.front().at("row"), c);
+		attempt("PLANT_JALAPENO", cells);
+	}
+	std::vector<std::pair<float,std::pair<int,int>>> blastCells;
+	for (int r = 0; r < state.at("rows").get<int>(); ++r) for (int c = 0; c < state.at("columns").get<int>(); ++c) {
+		const auto& cell = state.at("cells").at(r).at(c);
+		// 正式 Board 导出的格中心，避免从截图分辨率推算战斗坐标。
+		const float x = cell.at("centerXInt").get<float>();
+		float damage = 0;
+		for (const auto& z : zombies) if (std::abs(z.at("row").get<int>() - r) <= 1 && std::abs(z.at("xInt").get<float>() - x) <= 130)
+			damage += std::min(1800, z.value("countableExecutionHealth", z.value("bodyHealth", 0)));
+		if (damage >= (opponent == "bomb" ? 2500 : 4200)) blastCells.push_back({damage,{r,c}});
+	}
+	std::stable_sort(blastCells.begin(), blastCells.end(), [](auto a, auto b) { return a.first > b.first; });
+	std::vector<std::pair<int,int>> cells;
+	for (const auto& c : blastCells) cells.push_back(c.second);
+	attempt("PLANT_CHERRYBOMB", cells);
+	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
+	std::vector<int> rows{2,0,4,1,3};
+	if (!zombies.empty()) std::stable_sort(rows.begin(), rows.end(), [&](int a, int b) {
+		auto nearest = [&](int r) { for (const auto& z : zombies) if (z.at("row") == r) return z.at("xInt").get<int>(); return 2000; };
+		return nearest(a) < nearest(b);
+	});
+	// 后排保护是基础建设；使用正常冷却/资金，并按眼前威胁优先保护已有输出。
+	cells.clear();
+	for (int r : rows) for (int c = 0; c <= 2; ++c) {
+		const auto it = plants.find({r,c});
+		if (it == plants.end() || shells.count({r,c})) continue;
+		const auto kind = it->second.at("type").get<std::string>();
+		if (kind == "PLANT_MELONPULT" || kind == "PLANT_WINTERMELON" || kind == "PLANT_CACTUS"
+			|| kind == "PLANT_ELITE_SCAREDYSHROOM" || kind == "PLANT_REPEATER") cells.emplace_back(r,c);
+	}
+	attempt("PLANT_PUMPKINSHELL", cells);
+	cells.clear(); for (int r : rows) if (!plants.count({r,6})) cells.emplace_back(r,6);
+	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt("PLANT_WALLNUT", cells);
+	int producers = 0;
+	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER") ++producers;
+	if (producers < 7) {
+		cells.clear(); for (int r : rows) { cells.emplace_back(r,3); cells.emplace_back(r,5); }
+		attempt("PLANT_SUNFLOWER", cells);
+	}
+	// 陌生阵型沿用正式累计配额和冷却；不能在精英菇死亡后免费重建四株。
+	if (eliteDefense) {
+		cells.clear(); for (int r : rows) { cells.emplace_back(r,0); cells.emplace_back(r,1); }
+		attempt("PLANT_ELITE_SCAREDYSHROOM", cells);
+		cells.clear(); for (int r : rows) { cells.emplace_back(r,2); cells.emplace_back(r,1); }
+		attempt("PLANT_REPEATER", cells);
+	}
+	cells.clear(); for (int r : rows) cells.emplace_back(r,0);
+	attempt("PLANT_MELONPULT", cells);
+	if (opponent == "growth") { cells.clear(); for (int r : rows) cells.emplace_back(r,1); attempt("PLANT_MELONPULT", cells); }
+	attempt("PLANT_WINTERMELON", {{1,0},{3,0},{0,0},{4,0},{2,0}});
+	cells.clear(); for (int r : rows) { cells.emplace_back(r,1); cells.emplace_back(r,2); }
+	attempt("PLANT_MELONPULT", cells);
+	cells.clear(); for (int r : rows) cells.emplace_back(r,6);
+	attempt("PLANT_WALLNUT", cells);
+	return actions;
+}
+}
+
+bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
+	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
+	const auto opponent = command.value("opponent", std::string("bomb"));
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny")) {
+		Fail("commander_episode: invalid duration or opponent"); return false;
+	}
+	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
+	auto* board = scene ? scene->GetBoard() : nullptr;
+	if (!board || !board->IsColdStorage()) { Fail("commander_episode requires cold storage"); return false; }
+	const bool terminal = board->mBoardState == BoardState::LOSE_GAME || board->mTrophySpawned;
+	// 正式判负会暂停时钟；先接收胜负，再检查比赛中是否被改速或手动暂停。
+	if (!terminal && (DeltaTime::GetTimeScale() != 1 || DeltaTime::IsPaused())) {
+		Fail("commander_episode requires 1x fixed steps"); return false;
+	}
+	if (mEpisodeTicks < 0) {
+		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
+		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
+		Log("commander episode started: " + opponent);
+	}
+	// 普通观测每秒一次，正式胜负在每个逻辑步立即收尾。
+	Json full;
+	if (terminal || mEpisodeTicks % 60 == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
+	else { ++mEpisodeTicks; return false; }
+	if (!full.contains("coldStorage")) { Fail("commander_episode requires cold storage"); return false; }
+	const auto& ice = full.at("coldStorage");
+	const bool ended = full.at("boardState") != "GAME" || ice.value("trophySpawned", false);
+	if (mEpisodeTicks % 600 == 0 || ended || mEpisodeTicks >= ticks) {
+		mEpisodeTrace.push_back({{"seconds",mEpisodeTicks / 60.0},{"ice",ice},{"sun",full.at("sun")},
+			{"plants",full.at("plantCount")},{"zombies",full.at("zombieCount")}});
+	}
+	if (ended || mEpisodeTicks >= ticks) {
+		const auto name = command.value("name", std::string("episode"));
+		if (name.empty() || name.find_first_of("/\\:") != std::string::npos) { Fail("invalid episode filename"); return false; }
+		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},
+			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
+			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace}};
+		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
+		output << result.dump(2); output.flush();
+		if (!output) { Fail("cannot write episode result"); return false; }
+		Log("commander episode finished: " + result.at("outcome").get<std::string>());
+		mEpisodeTicks = -1; return true;
+	}
+	for (const auto& action : PlayerActions(full, opponent)) ExecuteInteractive(action);
+	mInteractiveResults.clear(); // 训练只保留周期状态，避免把整场收阳光回执积累在内存中。
+	++mEpisodeTicks;
+	return false;
+}

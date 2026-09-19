@@ -537,7 +537,7 @@ int GameAPP::Run()
 	while (mRunning && !sceneManager.IsEmpty())
 	{
 		// 固定步长：BeginFrame 折算本渲染帧应执行的逻辑步数（0..3，超出丢债=慢动作退化）
-		const int logicSteps = DeltaTime::BeginFrame();
+		const int logicSteps = std::max(DeltaTime::BeginFrame(), TestDriver::GetInstance().BatchStepsPerFrame());
 
 		// 处理事件（每渲染帧至少轮询一次，保证 0 步帧窗口消息也被泵送）
 		auto pollEvents = [&]() {

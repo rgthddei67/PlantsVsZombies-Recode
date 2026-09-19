@@ -159,7 +159,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 	if (mInteractiveFullState) return full;
 	auto compact = Pick(full, {"scene", "boardState", "level", "levelName", "rows", "columns", "sun",
 		"wave", "maxWave", "paused", "pauseMenuOpen", "cards", "suns", "weather", "trophy",
-		"coldStorage", "plantCount", "zombieCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells"});
+		"coldStorage", "plantCount", "zombieCount", "mowerCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells"});
 	for (const char* key : {"plants", "zombies"}) {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {

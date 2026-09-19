@@ -42,6 +42,7 @@ struct ColdStorageState {
 	int killIncome = 0;
 	int playerKillIncome = 0; // 玩家通过消灭付费敌人累计回收的冰块
 	int deployments = 0;
+	std::map<ZombieType, int> deploymentTypes; // 本次运行各兵种正式出生数量，仅诊断，不改变存档事务
 	int decisions = 0;
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;

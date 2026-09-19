@@ -1,6 +1,7 @@
 {
   "commands": [
     {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "commander_experiment", "weights": null},
     {"op": "choose_cards", "cards": ["PLANT_CHERRYBOMB"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},
@@ -48,6 +49,7 @@
     {"op": "wait_seconds", "value": 17, "timeout": 25},
     {"op": "dump_state", "name": "actual_no_side_target.json"},
     {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "commander_experiment", "weights": null},
     {"op": "choose_cards", "cards": ["PLANT_CHERRYBOMB"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},
@@ -78,6 +80,7 @@
     {"op": "plan_ice_attack"},
     {"op": "dump_state", "name": "no_allies.json"},
     {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "commander_experiment", "weights": null},
     {"op": "choose_cards", "cards": ["PLANT_CHERRYBOMB"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},
@@ -112,6 +115,7 @@
     {"op": "plan_ice_attack"},
     {"op": "dump_state", "name": "distant_allies.json"},
     {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "commander_experiment", "weights": null},
     {"op": "choose_cards", "cards": ["PLANT_CHERRYBOMB"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},

@@ -1,5 +1,6 @@
 {
   "commands": [
+    {"op": "commander_experiment", "weights": null},
     {
       "op": "goto_level",
       "level": 83

@@ -26,6 +26,8 @@ public:
 	bool ShouldUpdateScene() const { return !mInteractiveReady || mAdvanceSteps > 0; }
 	/** 在一次完整场景更新后扣除交互步数预算。 */
 	void OnSceneUpdated();
+	/** 显式批量评测可每个可见渲染帧推进多个原始固定步；普通/交互模式返回零。 */
+	int BatchStepsPerFrame() const { return mActive && !mInteractive ? mBatchSteps : 0; }
 
 	const std::string& OutDir() const { return mOutDir; }
 
@@ -70,6 +72,12 @@ private:
 	std::string mLiveDir;
 	nlohmann::json mInteractiveResults = nlohmann::json::array();
 	std::chrono::steady_clock::time_point mNextInboxPoll{};
+
+	/** 使用正式玩家接口驱动一次有限比赛，输出结果与采样轨迹。 */
+	bool ExecuteCommanderEpisode(const nlohmann::json& command);
+	int mBatchSteps = 0;
+	int mEpisodeTicks = -1;
+	nlohmann::json mEpisodeInitial, mEpisodeTrace;
 
 	bool mActive = false;
 	int  mExitCode = 0;

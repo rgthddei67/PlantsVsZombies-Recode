@@ -1,3 +1,10 @@
+#include <exception>
+#include <cstdlib>
+#if defined(_WIN32)
+#include <Windows.h>
+#endif
+#include "GameRandom.h"
+#include "Game/AI/ColdStoragePolicy.h"
 #include "TestDriver.h"
 #include "../../GameApp.h"
 #include "../../GameInfoSaver.h"
@@ -724,6 +731,8 @@ bool TestDriver::LoadScript(const std::string& path) {
 	}
 	for (const auto& c : j["commands"]) mCommands.push_back(c);
 	mInteractive = j.value("interactive", false);
+	mBatchSteps = j.value("batchStepsPerFrame", 0);
+	if (mBatchSteps < 0 || mBatchSteps > 32 || (mInteractive && mBatchSteps != 0)) return false;
 	mMineLayoutRevision = j.value("mineLayoutRevision",MineGrid::CurrentLayoutRevision);
 
 	mOutDir = (std::filesystem::path("./autotest/out") /
@@ -741,6 +750,25 @@ bool TestDriver::LoadScript(const std::string& path) {
 	}
 
 	mActive = true;
+	// 批量实战会触及普通短脚本未覆盖的路径；未捕获 C++ 异常需落盘，不能只留下系统 abort。
+	if (mBatchSteps > 0) std::set_terminate([] {
+		auto& driver = TestDriver::GetInstance();
+		try {
+			if (auto error = std::current_exception()) std::rethrow_exception(error);
+			driver.Log("unhandled termination without C++ exception");
+		} catch (const std::exception& error) { driver.Log(std::string("unhandled C++ exception: ") + error.what()); }
+		catch (...) { driver.Log("unhandled nonstandard C++ exception"); }
+#if defined(_WIN32)
+		void* frames[32]{};
+		const auto count = CaptureStackBackTrace(0, 32, frames, nullptr);
+		const auto base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
+		for (USHORT i = 0; i < count; ++i)
+			driver.mRunLog << "terminate frame RVA: 0x" << std::hex << (reinterpret_cast<std::uintptr_t>(frames[i]) - base) << std::dec << '\n';
+		driver.mRunLog.flush();
+#endif
+		driver.Fail("unhandled exception; see run.log and matching EXE/PDB");
+		std::_Exit(1);
+	});
 	WriteStatus("running");
 	Log("script loaded: " + path + " (" + std::to_string(mCommands.size()) + " commands)");
 	if (GameAPP::mAutoTestLoadSave)
@@ -793,6 +821,7 @@ void TestDriver::Finish() {
 }
 
 void TestDriver::ResetTestState() {
+	ColdStoragePolicy::ResetExperiment();
 	DeltaTime::SetTimeScale(1.0f);
 	GameAPP::GetInstance().Difficulty = 3;
 	GameAPP::mDevNoCooldown = false;
@@ -881,6 +910,34 @@ bool TestDriver::ExecuteCurrent() {
 		return false;
 	}
 
+	if (op == "commander_experiment") {
+		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
+			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr)) {
+			Fail("commander_experiment: invalid weights"); return false;
+		}
+		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
+		return true;
+	}
+	if (op == "commander_roster") {
+		auto* scene = CurrentGameScene(); auto* board = scene ? scene->GetBoard() : nullptr;
+		if (!board || !board->IsColdStorage()) { Fail("commander_roster requires cold storage"); return false; }
+		std::vector<ZombieType> pool;
+		const auto available = ColdStoragePolicy::AllUnits() ? GameDataManager::GetInstance().GetAllZombieTypes() : board->GetSpawnZombieList();
+		for (auto type : available) {
+			if (!cmd.value("workers", true) && type == ZombieType::ZOMBIE_ICE_WORKER) continue;
+			// 水路专用、召唤附属和未完成视觉样机不属于独立陆地训练动作。
+			if (type == ZombieType::ZOMBIE_POOL_NORMAL || type == ZombieType::ZOMBIE_POOL_CONE
+				|| type == ZombieType::ZOMBIE_POOL_BUCKET || type == ZombieType::ZOMBIE_DOLPHIN_RIDER
+				|| type == ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER || type == ZombieType::ZOMBIE_IMP
+				|| type == ZombieType::ZOMBIE_BACKUP_DANCER || type == ZombieType::ZOMBIE_ROOF_MARSHAL) continue;
+			pool.push_back(type);
+		}
+		std::sort(pool.begin(), pool.end());
+		board->SetZombieSpawnList(pool);
+		Log("training roster: " + std::to_string(pool.size()) + " registered land units");
+		return true;
+	}
+	if (op == "commander_episode") return ExecuteCommanderEpisode(cmd);
 	if (op == "wait_seconds") {
 		mWaitAccum += DeltaTime::GetDeltaTime();
 		return mWaitAccum >= cmd.value("value", 0.0f);
@@ -1068,6 +1125,13 @@ bool TestDriver::ExecuteCurrent() {
 				card = ui->FindCardByType(it->second);
 			}
 			if (!card) { Fail("选卡失败（AddCard 后仍找不到）: " + name); return false; }
+			// 批量评测选卡显式声明模仿目标，不依赖尚未绘制的恢复按钮命中区域。
+			if (it->second == PlantType::PLANT_IMITATER && cmd.contains("imitaterTarget")) {
+				const auto target = kPlantNames.find(cmd.at("imitaterTarget").get<std::string>());
+				if (target == kPlantNames.end() || !card->SetImitaterTarget(target->second)) {
+					Fail("choose_cards: invalid imitater target"); return false;
+				}
+			}
 			if (!ui->IsCardSelected(card) && !ui->ToggleCardSelection(card)) {
 				Fail("选卡失败（超出选卡上限？）: " + name);
 				return false;
@@ -4740,6 +4804,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		auto& ice = out["coldStorage"];
 		ice["pendingCount"] = board->mColdStorage.pending.size();
 		ice["hostileCount"] = board->GetColdStorageHostileCount();
+		ice["trainingAllUnits"] = ColdStoragePolicy::AllUnits();
+		ice["availableUnits"] = nlohmann::json::array();
+		for (auto type : board->GetSpawnZombieList()) ice["availableUnits"].push_back(GameDataManager::GetInstance().ZombieTypeToEnumName(type));
+		ice["deploymentTypes"] = nlohmann::json::object();
+		for (const auto& [type,count] : board->mColdStorage.deploymentTypes)
+			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));

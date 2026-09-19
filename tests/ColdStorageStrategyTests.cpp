@@ -1,3 +1,5 @@
+#include "Game/AI/ColdStorageSearch.h"
+#include <limits>
 #include "Game/AI/ColdStorageStrategy.h"
 #include <cstdlib>
 #include <iostream>
@@ -82,4 +84,46 @@ int main()
 	raid.blastDamage[2] = raid.blastDamage[3] = 0;
 	check(ForecastRaid(raid).cellsBroken == 0, "living followers cannot inherit a killed breacher's smash");
 	std::cout << "Blast and breaching formation counterfactuals passed\n";
+
+	ColdStorageSearch::Snapshot search;
+	search.budget = 40; search.capacity = 4;
+	ColdStorageSearch::Option producer;
+	producer.type = 1; producer.cost = 24;
+	producer.unit.body.x = 1100; producer.unit.body.row = 0; producer.unit.body.speed = 20;
+	producer.unit.body.health = 500; producer.unit.body.purchaseCost = 24; producer.unit.body.economic = true;
+	ColdStorageSearch::Option tank = producer;
+	tank.type = 2; tank.cost = 16; tank.unit.body.health = 3000;
+	tank.unit.body.purchaseCost = 16; tank.unit.body.economic = false; tank.unit.body.smashSeconds = 4;
+	search.options = {producer,tank};
+	ColdStorageSearch::Plant gun;
+	gun.x = 800; gun.row = 0; gun.health = 4000; gun.dps = 150; gun.reward = 20;
+	search.plants.push_back(gun);
+	const auto naked = ColdStorageSearch::Evaluate(search, {{0,0}});
+	const auto protectedIncome = ColdStorageSearch::Evaluate(search, {{1,0},{0,8}});
+	check(protectedIncome[4] > naked[4], "joint plan values actual forward protection of worker");
+	const auto chosen = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
+	const auto repeated = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
+	check(chosen.score == repeated.score && chosen.actions.size() == repeated.actions.size(), "local search reproducibility");
+	float paid = 0;
+	for (const auto& action : chosen.actions) paid += search.options[action.option].cost;
+	check(paid <= search.budget && chosen.actions.size() <= 4, "search cannot spend forecast income or exceed capacity");
+	search.capacity = 0;
+	check(ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123).actions.empty(), "full board can only wait");
+	auto invalid = ColdStorageSearch::InitialWeights; invalid[0] = std::numeric_limits<float>::infinity();
+	check(!ColdStorageSearch::ValidWeights(invalid), "nonfinite learned artifact rejected");
+	std::cout << "Free plan search contracts passed\n";
+
+	ColdStorageSearch::Snapshot contextual;
+	contextual.budget = 4; contextual.capacity = 1;
+	tank.cost = 4; tank.unit.body.purchaseCost = 4;
+	contextual.options = {tank,tank};
+	contextual.options[0].preference[1] = 20;
+	contextual.context[0][1] = 1;
+	ColdStorageSearch::Weights contextScore{}; contextScore[5] = 1;
+	const auto support = ColdStorageSearch::Search(contextual, contextScore, 77);
+	check(support.actions.size() == 1 && support.actions[0].option == 0,
+		"learned type value responds to wounds without a scripted healer rule");
+	contextual.context[0][1] = 0;
+	check(ColdStorageSearch::Search(contextual, contextScore, 77).score < support.score,
+		"healthy allies do not receive wounded-ally preference");
 }

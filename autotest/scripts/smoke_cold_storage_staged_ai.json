@@ -1,6 +1,7 @@
 {
   "commands": [
     {"op": "goto_level", "level": 82, "resetTestState": true},
+    {"op": "commander_experiment", "weights": null},
     {"op": "choose_cards", "cards": ["PLANT_CHERRYBOMB", "PLANT_MELONPULT", "PLANT_MARIGOLD"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},
