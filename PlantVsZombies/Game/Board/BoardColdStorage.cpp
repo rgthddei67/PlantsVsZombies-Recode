@@ -94,9 +94,10 @@ int Board::GetZombieIceCost(ZombieType type) const
 	case Z::ZOMBIE_NORMAL: return 4; // 保留低库存收尾时可派出的基础兵
 	case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_NEWSPAPER: return 6;
 	case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_DOOR: case Z::ZOMBIE_POLEVAULTER: return 8;
-	case Z::ZOMBIE_FOOTBALL: case Z::ZOMBIE_DANCER: return 12;
-	case Z::ZOMBIE_GARGANTUAR: case Z::ZOMBIE_HEALER: return 16;
-	case Z::ZOMBIE_PINK_FOOTBALL: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX:
+	case Z::ZOMBIE_DANCER: return 12;
+	case Z::ZOMBIE_FOOTBALL: case Z::ZOMBIE_GARGANTUAR: case Z::ZOMBIE_HEALER: return 16;
+	case Z::ZOMBIE_PINK_FOOTBALL: return 22;
+	case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX:
 	case Z::ZOMBIE_POLAR_CLOCKMAKER: return 18;
 	case Z::ZOMBIE_REDEYE_GARGANTUAR: return 24;
 	case Z::ZOMBIE_AURORA_PRIEST:

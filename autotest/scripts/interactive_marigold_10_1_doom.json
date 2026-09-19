@@ -1,0 +1,69 @@
+{
+  "interactive": true,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "set_last_selected_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_DOOMSHROOM",
+        "PLANT_CHERRYBOMB",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_JALAPENO",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER:PLANT_MARIGOLD",
+        "PLANT_INSTANT_COFFEE",
+        "PLANT_MELONPULT",
+        "PLANT_WINTERMELON"
+      ]
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8,
+      "timeout": 20
+    },
+    {
+      "op": "click",
+      "target": "restore_last_cards",
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "chooseCardSelectedCount",
+      "equals": 11
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "assert_state",
+      "path": "timeScaleOn1000",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "cards.7.imitaterTarget",
+      "equals": "PLANT_MARIGOLD"
+    }
+  ]
+}
