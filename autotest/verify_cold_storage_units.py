@@ -16,15 +16,15 @@ def verify(root):
         assert read(folder, 'status')['status'] == 'passed', folder
     # Production and AI share the interval; verify actual payouts against game time.
     spawned_at = read(units, 'worker_spawned')['coldStorage']['elapsed']
-    for batch in range(1, 6):
+    for batch in range(1, 7):
         elapsed = read(units, f'batch_{batch}')['coldStorage']['elapsed'] - spawned_at
-        assert abs(elapsed - batch * 5.0) < 0.2, (batch, elapsed)
+        assert abs(elapsed - batch * 2.2) < 0.2, (batch, elapsed)
     paused, restored = (read(units, n) for n in ('buttered', 'restored'))
     for key in ('iceRemainingMs', 'iceBatches', 'nextIceYieldOn1000'):
         assert paused['zombiesByType']['ZOMBIE_ICE_WORKER'][key] == restored['zombiesByType']['ZOMBIE_ICE_WORKER'][key], key
     before, after = (read(units, n) for n in ('charmed', 'friendly_production'))
     mint_batches = after['iceMintsByCell']['2_1']['productionBatches'] - before['iceMintsByCell']['2_1']['productionBatches']
-    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 15 + mint_batches * 3
+    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 20 + mint_batches * 3
     assert after['coldStorage']['workerIncome'] == before['coldStorage']['workerIncome']
     assert read(units, 'removed')['coldStorage']['playerProductionIncome'] == read(units, 'after_removed')['coldStorage']['playerProductionIncome']
     for name in ('units', 'units_loaded'):
