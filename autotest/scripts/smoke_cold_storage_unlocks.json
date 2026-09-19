@@ -93,7 +93,7 @@
     {
       "op": "assert_state",
       "path": "coldStorage.enemyIce",
-      "equals": 92
+      "equals": 76
     },
     {
       "op": "save_level_snapshot",

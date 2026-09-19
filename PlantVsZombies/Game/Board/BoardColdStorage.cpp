@@ -86,18 +86,22 @@ int Board::GetPlantIceCost(PlantType type) const
 	}
 }
 
+/** 按兵种威胁分档定价；重装和支援必须消耗足够库存，击杀回收沿用实际支付价。 */
 int Board::GetZombieIceCost(ZombieType type) const
 {
 	using Z = ZombieType;
 	switch (type) {
-	case Z::ZOMBIE_NORMAL: case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_NEWSPAPER: return 4;
-	case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_DOOR: case Z::ZOMBIE_POLEVAULTER: return 5;
-	case Z::ZOMBIE_GARGANTUAR: case Z::ZOMBIE_FOOTBALL: case Z::ZOMBIE_DANCER: return 6;
-	case Z::ZOMBIE_REDEYE_GARGANTUAR: case Z::ZOMBIE_PINK_FOOTBALL:
-	case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX: case Z::ZOMBIE_HEALER: return 8;
-	case Z::ZOMBIE_AURORA_PRIEST: case Z::ZOMBIE_POLAR_CLOCKMAKER:
-	case Z::ZOMBIE_ELITE_DANCER: return 10;
-	default: return 7;
+	case Z::ZOMBIE_NORMAL: return 4; // 保留低库存收尾时可派出的基础兵
+	case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_NEWSPAPER: return 6;
+	case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_DOOR: case Z::ZOMBIE_POLEVAULTER: return 8;
+	case Z::ZOMBIE_FOOTBALL: case Z::ZOMBIE_DANCER: return 12;
+	case Z::ZOMBIE_GARGANTUAR: case Z::ZOMBIE_HEALER: return 16;
+	case Z::ZOMBIE_PINK_FOOTBALL: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX:
+	case Z::ZOMBIE_POLAR_CLOCKMAKER: return 18;
+	case Z::ZOMBIE_REDEYE_GARGANTUAR: return 24;
+	case Z::ZOMBIE_AURORA_PRIEST:
+	case Z::ZOMBIE_ELITE_DANCER: return 24;
+	default: return 12;
 	}
 }
 
@@ -397,7 +401,8 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	if (j.contains("refundableCosts") && j["refundableCosts"].is_array())
 		for (const auto& record : j["refundableCosts"]) {
 			const int id = record.value("id", 0), cost = record.value("cost", 0);
-			if (id > 0 && cost > 0 && cost <= 10) s.refundableCosts.emplace(id, cost);
+			// 保存的是成交价，不用当前价表或旧最高价截断，保证调价前后读档的返冰一致。
+			if (id > 0 && cost > 0 && cost <= kMaxIce) s.refundableCosts.emplace(id, cost);
 		}
 	if (j.contains("habits") && j["habits"].is_array() && j["habits"].size() == 4)
 		for (int i=0; i<4; ++i) { const float v=j["habits"][i].get<float>(); s.habits[i]=std::isfinite(v)?std::clamp(v,0.0f,1.0f):0; }
@@ -407,6 +412,6 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 		const float remaining=p.value("remaining",0.0f);
 		if (type<0 || type>=static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES) || row<0 || row>=mRows
 			|| !std::isfinite(remaining) || s.pending.size()>=kMaxSimultaneous) continue;
-		s.pending.push_back({static_cast<ZombieType>(type), row, std::clamp(p.value("cost",0),0,10),std::clamp(remaining,0.0f,60.0f)});
+		s.pending.push_back({static_cast<ZombieType>(type), row, std::clamp(p.value("cost",0),0,kMaxIce),std::clamp(remaining,0.0f,60.0f)});
 	}
 }

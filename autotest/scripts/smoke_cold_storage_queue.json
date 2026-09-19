@@ -45,7 +45,7 @@
     {
       "op": "set_cold_storage",
       "state": {
-        "enemyIce": 8,
+        "enemyIce": 24,
         "decisionRemaining": 60,
         "supplyRemaining": 30,
         "decisions": 11
@@ -127,6 +127,11 @@
     {
       "op": "kill_zombie",
       "row": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerKillIncome",
+      "equals": 18
     },
     {
       "op": "wait_frames",
