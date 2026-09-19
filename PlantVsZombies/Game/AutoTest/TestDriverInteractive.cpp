@@ -5,6 +5,7 @@
 #include "../GameScene.h"
 #include "../CardSlotManager.h"
 #include "../Sun.h"
+#include "../Shovel.h"
 #include <filesystem>
 #include <stdexcept>
 
@@ -120,6 +121,17 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 				if (!command.at(key).is_number_integer()) throw std::runtime_error("plant_coordinates_must_be_integers");
 			reason = manager->TryPlantFromSlot(command.at("slot").get<int>(),
 				command.at("row").get<int>(), command.at("col").get<int>());
+		}
+		else if (op == "player_shovel") {
+			Board* board = scene->GetBoard();
+			const int row = command.at("row").get<int>(), col = command.at("col").get<int>();
+			if (!board->GetCell(row, col)) reason = "invalid_cell";
+			else {
+				manager->DeselectCard();
+				board->ActivateShovel();
+				auto shovel = board->mShovel.lock();
+				if (!shovel || !shovel->TryShovelAtPosition(board->GetCellCenterPosition(row, col))) reason = "no_shovel_target";
+			}
 		}
 		else if (op == "buy_ice") {
 			if (!scene->GetBoard()->BuyColdStorageIce(command.value("large",false))) reason = "order_unavailable";

@@ -94,14 +94,23 @@ void Shovel::Update()
 	}
 
 	if (input.IsMouseButtonPressed(SDL_BUTTON_LEFT)) {
-		if (mPlant && !mPlant->IsIceSealed()) {
-			mPlant->Die();
-			mPlant = nullptr;
-			AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_DELETEPLANT, 0.3f);
-		}
-		ReturnHome();
-		mBoard->mCursorObjectManager.ClearActive();
+		TryShovelAtPosition(mPosition);
 	}
+}
+
+bool Shovel::TryShovelAtPosition(const Vector& position)
+{
+	if (mState != ShovelState::ACTIVE || !mBoard) return false;
+	mPosition = position;
+	CheckPlant();
+	const bool removed = mPlant && !mPlant->IsIceSealed();
+	if (removed) {
+		mPlant->Die();
+		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_DELETEPLANT, 0.3f);
+	}
+	ReturnHome();
+	mBoard->mCursorObjectManager.ClearActive();
+	return removed;
 }
 
 void Shovel::CheckPlant()

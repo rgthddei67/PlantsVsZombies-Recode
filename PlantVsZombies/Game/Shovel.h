@@ -22,6 +22,8 @@ public:
 
 	/** 按鼠标在格内的可见区域选择待铲层，并持续高亮同一目标。 */
 	void CheckPlant();
+	/** 按正式鼠标命中规则铲除目标并归位；交互试玩复用，不绕过分层和冰封限制。 */
+	bool TryShovelAtPosition(const Vector& position);
 	void Activate();
 	ShovelState GetState() const { return mState; }
 	void SetHomePosition(const Vector& pos);

@@ -29,6 +29,7 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 ```
 
 - `slot/row/col` 全部从 **0** 开始。`player_plant` 使用实际卡槽，经过正式落种、费用、冷却、地形和暂停门禁；失败返回原因且不收费。搬搬藤的两阶段搬运暂不支持。交互指令不接受 `plant`、`set_sun` 等夹具作弊命令。
+- `player_shovel` 用 `row/col` 点击格子中心，复用正式铲子命中、分层、冰封限制与归位逻辑；同样服从 gameplay input 门禁，不是按实体 ID 强制删除。
 - `collect_sun` 用导出阳光的实体 `id` 触发正常收集，飞回阳光栏后才增加余额；重复收集返回 `sun_unavailable`。
 - `advance` 接收 `steps=0..3600`，每步沿用正常固定逻辑步及当前倍速。预算耗尽后跳过整个场景 Update 和游戏时钟推进，避免按帧技能在等待中漂移；绘制、SDL 事件与窗口关闭继续运行。玩家的暂停没有解除时返回 `player_paused`。
 - 每批结束自动返回精简状态、每项操作结果和 `simulationSteps`。无参数即 `observe`；`--full-state` 返回原完整诊断投影；`--file commands.json` 从文件读取命令数组。截图沿用原渲染器捕获屏障，不推进战斗；输出在脚本目录中。
