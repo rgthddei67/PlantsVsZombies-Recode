@@ -36,6 +36,8 @@ struct ColdStorageState {
 	std::array<float, 6> economyNetByRow{}; // 各路最优经营组合净收益，诊断不入档
 	std::array<float, 6> economyBlastLossByRow{}; // 各路最优组合的爆炸风险折损冰量
 	std::array<int, 6> economyGuardCostByRow{}; // 最优组合新购护卫冰价，零表示无需新增护卫
+	std::array<float, 6> economyEntryDelayByRow{}; // 最优组合的工人跟进延迟，游戏秒，诊断不入档
+	std::array<float, 6> economyCoverByRow{}; // 最优组合预计受前排保护时间，游戏秒，诊断不入档
 	int economyRow = -1; // 本次经济路线，诊断投影不入档
 	int killIncome = 0;
 	int playerKillIncome = 0; // 玩家通过消灭付费敌人累计回收的冰块

@@ -76,10 +76,10 @@
 - 可以不断购买、多只并存；取消讨论初期的“同时一只”提案。实际购买仍受正常库存、出兵节奏和全体同时容量约束，没有独立的一只上限。存活产出的收入不追加到击杀返冰成交价。
 - 指挥官在决策边沿预测未来一段时间内可兑现的收入，把敌方生产收入纳入支出预算；逐路比较直接投资和搭配各个已解锁护卫的净收益，普通僵尸也可担任早期护卫。需要新护卫时先提交护卫，随后延迟派入制冰工；有明确猛攻窗口时优先攻击。
 - 经济风险按实际阵型估算：邻路溅射需要附近存在可命中的目标，护卫间距影响群伤穿透。已种下的炸弹按覆盖范围与结算时间截断未来收入；尚未使用的爆炸牌按可支付、可落种的位置与聚堆程度折损收入，保留爆炸前已经生产的部分，不把卡片就绪视为必杀。
-- 同路后方护卫不能用于已有制冰工的前方承伤预测；经济单位自身不冒充肉盾。已成熟但缺少掩护的工人提高护卫投资价值。玩家薄荷也是进攻路线的经济目标。预测仅使用当前状态，不读取未来玩家输入。
+- 护卫保护按双方速度、控制剩余时间和啃食停留逐段预测；只有仍在工人前方且存活的单位才能承伤，经济单位自身不冒充肉盾。新组合比较正常与较晚跟进，等待期间护卫照常承伤、工人不生产，同收益优先较早入场。已成熟但缺少掩护的工人提高护卫投资价值。玩家薄荷也是进攻路线的经济目标。预测仅使用当前状态，不读取未来玩家输入。
 - 视觉：薄荷复用叶子保护伞叶片运动，生产动作仅保留原展开位移/缩放的 8%，避免跨格遮挡；冰晶使用花心命名 follower；制冰工复用普通僵尸时间线，机器使用身体命名 follower。没有新增动画帧事件。两类分别注册独立 reanim 名称。
 
-源码入口：`Game/Plant/IceMint.*`、`Game/Zombie/IceWorkerZombie.*`、`Game/Board/IceProduction.h`、`BoardColdStorage.cpp::PlanColdStorageAttack`。专项为 `smoke_cold_storage_units`、`smoke_cold_storage_economy_ai`、`smoke_cold_storage_reward`、`visual_cold_storage_units` 与 `verify_cold_storage_units.py`。
+源码入口：`Game/Plant/IceMint.*`、`Game/Zombie/IceWorkerZombie.*`、`Game/Board/IceProduction.h`、`BoardColdStorage.cpp::PlanColdStorageAttack`。专项为 `smoke_cold_storage_units`、`smoke_cold_storage_economy_ai`、`smoke_cold_storage_reward`、`visual_cold_storage_units` 与 `verify_cold_storage_units.py`；追越、控制恢复、啃食与跟进选择由 `smoke_cold_storage_escort_ai` 和 `verify_cold_storage_escort_ai.py` 验证。
 
 ## 本轮交付与验证入口
 

@@ -31,6 +31,9 @@ namespace {
 	constexpr float kEconomyHorizon = 60.0f; // 经济评估时域，游戏秒；覆盖新工人首次满产
 	constexpr float kInvestmentMargin = 8.0f; // 预计净收入超过此冰量才追加经济投资
 	constexpr float kWorkerEntryDelay = 6.0f; // 护卫先入场后制冰工跟进的最小间隔，游戏秒
+	constexpr float kWorkerLateEntryDelay = 12.0f; // 经营组合可选的较晚跟进间隔，游戏秒
+	constexpr float kEscortForecastStep = 0.5f; // 护卫位置与承伤预测步长，游戏秒
+	constexpr float kForecastContactDistance = 55.0f; // 接近可啃食植物时的预测停步距离，像素
 	constexpr float kWorkerForecastSpeed = 20.0f; // 新工人的保守水平移速估计，像素/游戏秒
 	constexpr float kEconomySplashReach = 100.0f; // 含碰撞箱的溅射接近窗口，像素；不把整路都当成命中
 	constexpr float kUnusedBlastRisk = 0.22f; // 未提交炸弹的基础投资折损权重，不等同于确定命中
@@ -100,6 +103,72 @@ namespace {
 	}
 
 	struct AssaultProfile { float health; float speed; bool bypass; bool support; bool splash; };
+	/** 只供经营预测的运动状态；出生前、定身和啃食期间不前进。 */
+	struct EconomyMover {
+		float x = 0.0f, speed = 0.0f, health = 0.0f;
+		float spawnAt = 0.0f, stopped = 0.0f, slow = 0.0f, eating = 0.0f;
+		float stopX = 0.0f, futureSlowFactor = 1.0f;
+		float slowFactor = 0.3f; // 未生成普通单位按动画 0.6 × 位移时间 0.5 估计；已有实体读取品种接口
+	};
+
+	/** 将现有控制按剩余时间积分；新护卫进场后才受到防线持续减速。 */
+	float EconomyPosition(const EconomyMover& mover, float time)
+	{
+		const float pause = mover.stopped + mover.eating;
+		const float active = std::max(0.0f, time - mover.spawnAt - pause);
+		const float slowed = std::clamp(mover.slow - pause, 0.0f, active);
+		const float distance = mover.speed * (active - slowed * (1.0f - mover.slowFactor));
+		const float outside = std::max(0.0f, mover.x - SCENE_WIDTH);
+		// 已有减速与后续持续减速取较慢者，不能重复叠乘同一种减速。
+		const float futureDistance = std::min(mover.speed * active, outside)
+			+ std::max(0.0f, mover.speed * active - outside) * mover.futureSlowFactor;
+		return std::max(mover.stopX, mover.x - std::min(distance, futureDistance));
+	}
+
+	struct EconomySurvival { float life = 0.0f; float cover = 0.0f; };
+
+	/** 在决策时域内逐段消耗实际位于工人前方的护卫；追过、死亡或尚未出生均不挡伤害。 */
+	EconomySurvival ForecastEconomySurvival(const EconomyMover& worker, std::vector<EconomyMover> guards,
+		float directFire, float adjacentFire, float splashFire)
+	{
+		float health = worker.health;
+		EconomySurvival result;
+		for (float time = 0.0f; time < kEconomyHorizon; time += kEscortForecastStep) {
+			const float dt = std::min(kEscortForecastStep, kEconomyHorizon - time);
+			const float sample = time + dt * 0.5f;
+			const float workerX = EconomyPosition(worker, sample);
+			const bool present = time + dt > worker.spawnAt;
+			EconomyMover* front = nullptr;
+			float frontPosition = present ? workerX : std::numeric_limits<float>::max();
+			for (auto& guard : guards) {
+				if (guard.health <= 0.0f || sample < guard.spawnAt) continue;
+				const float x = EconomyPosition(guard, sample);
+				if (x < frontPosition) { front = &guard; frontPosition = x; }
+			}
+			float protectedTime = 0.0f;
+			if (front && frontPosition <= SCENE_WIDTH) {
+				protectedTime = directFire > 0.0f ? std::min(dt, front->health / directFire) : dt;
+				front->health = std::max(0.0f, front->health - directFire * dt);
+			}
+			else if (front) protectedTime = dt;
+			if (!present) continue; // 等工人期间，前排仍会承伤；未出生工人不生产。
+			const float aliveStep = std::min(dt, time + dt - worker.spawnAt);
+			float damage = 0.0f;
+			if (workerX <= SCENE_WIDTH) {
+				const float leak = front ? splashFire / 3.0f
+					* std::clamp(1.0f - (workerX - frontPosition) / kEconomySplashReach, 0.0f, 1.0f) : 0.0f;
+				damage = adjacentFire * aliveStep + leak * protectedTime
+					+ directFire * std::max(0.0f, aliveStep - protectedTime);
+			}
+			const float fraction = damage > health && damage > 0.0f ? health / damage : 1.0f;
+			result.life += aliveStep * fraction;
+			result.cover += std::min(aliveStep, protectedTime) * fraction;
+			health -= damage;
+			if (health <= 0.0f) break;
+		}
+		return result;
+	}
+
 	/** 候选战术画像只服务排序；实体出生仍使用原品种生命、技能和动作。 */
 	AssaultProfile Assault(ZombieType type)
 	{
@@ -302,13 +371,16 @@ void Board::PlanColdStorageAttack()
 	s.economyNetByRow.fill(0.0f);
 	s.economyBlastLossByRow.fill(0.0f);
 	s.economyGuardCostByRow.fill(0);
+	s.economyEntryDelayByRow.fill(0.0f);
+	s.economyCoverByRow.fill(0.0f);
 	PlantDefenseMonteCarlo::Snapshot snapshot;
 	if (!BuildMonteCarloCombatSnapshot(snapshot, false, false)) return;
-	std::array<float, 6> directDps{}, directSplash{}, dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
+	std::array<float, 6> directDps{}, directSplash{}, slowDuty{}, dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
 	std::array<int, 6> committed{}, frontlineCount{}, waveRows{}, healers{}, specialists{};
 	for (int row = 0; row < mRows; ++row) frontX[row] = GetCellCenterPosition(row, 0).x;
 	for (const auto& p : snapshot.plants) {
 		directDps[p.row] += p.attackDps;
+		slowDuty[p.row] += p.slowApplicationsPerSecond * p.slowDuration;
 		if (p.attackRowRadius > 0) directSplash[p.row] += p.attackDps;
 		value[p.row] += 1.0f + p.strategicValue / 100.0f;
 		armor[p.row] += p.health / 1000.0f;
@@ -425,48 +497,75 @@ void Board::PlanColdStorageAttack()
 			value[p.row] += 2.0f; // 可被摧毁的生产设施也构成进攻路线价值
 		}
 	}
-	// 经济预测保留爆炸发生前已经产生的收入；卡片就绪只是风险，不直接判为必死。
-	auto expectedIncome = [&](int row, float x, float health, float guardHealth, float guardGap,
-		float remainingProduction, float amount, float stoppedSeconds, float spawnDelay, int addedGuards, int workerID,
-		float* blastLoss) {
+	// 用真实实体的稳态走路速度，避免啃食/定身动画的零位移被当成永久静止。
+	auto makeMover = [&](const PlantDefenseMonteCarlo::ZombieSnapshot& z, bool guard) {
+		EconomyMover mover;
+		mover.x = z.x;
+		mover.health = z.bodyHealth + z.helmHealth + z.shieldHealth;
+		const Zombie* entity = mEntityRegistry.GetZombie(z.id);
+		mover.speed = entity ? entity->GetMineSimulationMoveSpeed() : z.moveSpeed;
+		mover.slowFactor = entity ? entity->GetSimulationSlowMoveMultiplier() : 0.3f;
+		mover.slow = z.slowRemaining;
+		mover.stopped = std::max({z.frozenRemaining, z.butterRemaining, z.paralysisRemaining});
+		if (guard && z.canBeChilled && z.slowImmunityRemaining < kEconomyHorizon)
+			mover.futureSlowFactor = 1.0f - (1.0f - mover.slowFactor) * std::clamp(slowDuty[z.row], 0.0f, 1.0f);
+		for (const auto& plant : snapshot.plants) {
+			if (plant.row != z.row || !plant.canBeEaten) continue;
+			if (z.isEating && plant.id == z.eatingPlantId) {
+				// 正在吃的目标用剩余生命估算停留；控制到期后可继续，不永远锁在原地。
+				const float biteDps = std::max(1.0f, entity ? entity->GetMineSimulationAttackDps() : z.attackDamage);
+				mover.eating = plant.health / biteDps;
+				mover.eating += std::min(mover.eating, std::max(0.0f, mover.slow - mover.stopped)) * 0.5f;
+			}
+			else if (plant.x + kForecastContactDistance < z.x)
+				mover.stopX = std::max(mover.stopX, plant.x + kForecastContactDistance);
+		}
+		return mover;
+	};
+	std::array<std::vector<EconomyMover>, 6> rowGuards;
+	for (const auto& z : snapshot.zombies) {
+		const Zombie* entity = mEntityRegistry.GetZombie(z.id);
+		if (z.mindControlled || !entity || !entity->HasHead() || dynamic_cast<const IceWorkerZombie*>(entity)
+			|| z.x < frontX[z.row] - 100.0f) continue;
+		rowGuards[z.row].push_back(makeMover(z, true));
+	}
+	// 先预测双方位置与承伤，再对存活期间的收入计入可支付爆炸风险。
+	auto expectedIncome = [&](int row, const EconomyMover& worker, const std::vector<EconomyMover>& guards,
+		float remainingProduction, float amount, int addedGuards, int workerID, float* blastLoss, float* cover) {
 		float adjacentFire = 0.0f;
 		for (int otherRow = std::max(0, row - 1); otherRow <= std::min(mRows - 1, row + 1); ++otherRow) {
 			if (otherRow == row) continue;
-			// 邻路西瓜必须先有靠近工人的命中目标，才按次要伤害计入；不会凭空穿过空路溅射。
 			const bool nearbyTarget = std::any_of(snapshot.zombies.begin(), snapshot.zombies.end(), [&](const auto& z) {
-				return !z.mindControlled && z.row == otherRow && std::abs(z.x - x) < kEconomySplashReach;
+				return !z.mindControlled && z.row == otherRow && std::abs(z.x - worker.x) < kEconomySplashReach;
 			});
 			if (nearbyTarget) adjacentFire += directSplash[otherRow] / 3.0f;
 		}
-		const float fire = std::max(1.0f, directDps[row] + adjacentFire);
-		const float shieldSeconds = guardHealth / fire;
-		const float splashLeak = adjacentFire + directSplash[row] / 3.0f
-			* std::clamp(1.0f - guardGap / kEconomySplashReach, 0.0f, 1.0f);
-		const float sheltered = splashLeak > 0.0f ? std::min(shieldSeconds, health / splashLeak) : shieldSeconds;
-		const float remainingHealth = std::max(0.0f, health - sheltered * splashLeak);
-		const float offscreenSeconds = std::clamp((x - SCENE_WIDTH) / kWorkerForecastSpeed, 0.0f, 4.0f);
-		const float life = std::clamp(offscreenSeconds + sheltered + remainingHealth / fire - stoppedSeconds,
-			0.0f, kEconomyHorizon);
-		const float income = static_cast<float>(IceProduction::Forecast(remainingProduction, amount, life));
+		const auto survival = ForecastEconomySurvival(worker, guards, directDps[row], adjacentFire, directSplash[row]);
+		if (cover) *cover = survival.cover;
+		auto incomeUntil = [&](float time) {
+			return static_cast<float>(IceProduction::Forecast(remainingProduction, amount,
+				std::max(0.0f, time - worker.stopped)));
+		};
+		const float income = incomeUntil(survival.life);
 		float worstLoss = 0.0f;
 		for (const auto& blast : economyBlasts) {
 			const float reach = EconomyBlastReach(blast, row);
-			if (reach < 0.0f || (blast.committed && blast.ready < spawnDelay)) continue;
-			const float ready = std::max(0.0f, blast.ready - spawnDelay);
-			const float enter = std::max(0.0f, (x - blast.x - reach) / kWorkerForecastSpeed);
-			const float exit = (x - blast.x + reach) / kWorkerForecastSpeed;
-			const float impact = blast.committed ? ready : std::max(ready, enter) + 1.0f;
-			if (impact < enter || impact > exit || impact >= life) continue;
-			const float safeIncome = static_cast<float>(IceProduction::Forecast(remainingProduction, amount, impact));
+			if (reach < 0.0f || (blast.committed && blast.ready < worker.spawnAt)) continue;
+			float impact = std::max(0.0f, blast.ready - worker.spawnAt) + (blast.committed ? 0.0f : 1.0f);
+			// 跟进延迟、减速和啃食也会改变进入爆区的时间，不再按固定速度外推。
+			if (!blast.committed) while (impact < survival.life
+				&& std::abs(EconomyPosition(worker, worker.spawnAt + impact) - blast.x) > reach)
+				impact += kEscortForecastStep;
+			if (impact >= survival.life || std::abs(EconomyPosition(worker, worker.spawnAt + impact) - blast.x) > reach) continue;
+			const float safeIncome = incomeUntil(impact);
 			int collateral = addedGuards;
 			for (const auto& z : snapshot.zombies) {
 				if (z.id == workerID || z.mindControlled || EconomyBlastReach(blast, z.row) < 0.0f) continue;
-				const float projectedX = std::max(frontX[z.row], z.x - z.moveSpeed * (spawnDelay + impact));
+				const float projectedX = std::max(frontX[z.row], z.x - z.moveSpeed * (worker.spawnAt + impact));
 				if (std::abs(projectedX - blast.x) <= EconomyBlastReach(blast, z.row)) ++collateral;
 			}
 			const float risk = blast.committed ? 1.0f
 				: std::min(kMaximumBlastRisk, kUnusedBlastRisk + collateral * kCrowdedBlastRisk);
-			// 多个合法种植格是同一张卡的不同选择，不重复累计成必杀。
 			worstLoss = std::max(worstLoss, (income - safeIncome) * risk);
 		}
 		if (blastLoss) *blastLoss = worstLoss;
@@ -475,22 +574,14 @@ void Board::PlanColdStorageAttack()
 	for (const auto& z : snapshot.zombies) {
 		const auto* worker = dynamic_cast<const IceWorkerZombie*>(mEntityRegistry.GetZombie(z.id));
 		if (!worker || z.mindControlled) continue;
-		float guards = 0.0f, guardGap = kEconomySplashReach;
-		for (const auto& other : snapshot.zombies) {
-			if (other.id == z.id || other.row != z.row || other.mindControlled || other.x >= z.x
-				|| other.x < frontX[z.row] - 100.0f
-				|| dynamic_cast<const IceWorkerZombie*>(mEntityRegistry.GetZombie(other.id))) continue;
-			guardGap = std::min(guardGap, z.x - other.x);
-			guards += other.bodyHealth + other.helmHealth + other.shieldHealth;
-		}
-		const float income = expectedIncome(z.row, z.x, z.bodyHealth, guards, guardGap,
-			worker->GetIceRemaining(), worker->GetNextIceYield(),
-			std::max(z.frozenRemaining, std::max(z.butterRemaining, z.paralysisRemaining)), 0.0f, 0, z.id, nullptr);
+		float cover = 0.0f;
+		const float income = expectedIncome(z.row, makeMover(z, false), rowGuards[z.row],
+			worker->GetIceRemaining(), worker->GetNextIceYield(), 0, z.id, nullptr, &cover);
 		s.predictedProduction += income;
 		workerValue[z.row] += income;
 		++workers[z.row];
 		// 老工人的产能只有在前排撑得住时可兑现，不能一味追加新工人。
-		guardNeed[z.row] += std::max(0.0f, dps[z.row] * 25.0f - guards)
+		guardNeed[z.row] += std::max(0.0f, dps[z.row] * (25.0f - cover))
 			* worker->GetNextIceYield() / IceProduction::MaximumYield;
 	}
 	const bool workerUnlocked = std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(),
@@ -502,15 +593,28 @@ void Board::PlanColdStorageAttack()
 	economyGuards.fill(ZombieType::NUM_ZOMBIE_TYPES);
 	for (int row = 0; row < mRows; ++row) {
 		investment[row] = -1000.0f;
-		auto evaluateGuard = [&](ZombieType guard) {
+		auto evaluateGuard = [&](ZombieType guard, float entryDelay) {
 			const bool buyingGuard = guard != ZombieType::NUM_ZOMBIE_TYPES;
 			const int charge = buyingGuard ? GetZombieIceCost(guard) : 0;
 			if (!workerUnlocked || charge + IceProduction::WorkerCost > s.enemyIce) return;
-			float loss = 0.0f;
-			const float guardHealth = escort[row] + (buyingGuard ? Assault(guard).health : 0.0f);
-			const float income = expectedIncome(row, SCENE_WIDTH + 40.0f, IceProduction::WorkerHealth,
-				guardHealth, kWorkerEntryDelay * kWorkerForecastSpeed, IceProduction::Interval,
-				IceProduction::InitialYield, 0.0f, buyingGuard ? kWorkerEntryDelay : 0.0f, buyingGuard ? 1 : 0, -1, &loss);
+			auto guards = rowGuards[row];
+			EconomyMover worker;
+			worker.x = SCENE_WIDTH + 40.0f;
+			worker.speed = kWorkerForecastSpeed;
+			worker.health = IceProduction::WorkerHealth;
+			worker.spawnAt = 1.0f + (buyingGuard ? kDeploySpacing + entryDelay : 0.0f);
+			worker.stopX = frontX[row] + kForecastContactDistance;
+			if (buyingGuard) {
+				EconomyMover newGuard = worker;
+				newGuard.speed *= Assault(guard).speed;
+				newGuard.health = Assault(guard).health;
+				newGuard.spawnAt = 1.0f;
+				newGuard.futureSlowFactor = 1.0f - (1.0f - newGuard.slowFactor) * std::clamp(slowDuty[row], 0.0f, 1.0f);
+				guards.push_back(newGuard);
+			}
+			float loss = 0.0f, cover = 0.0f;
+			const float income = expectedIncome(row, worker, guards, IceProduction::Interval,
+				IceProduction::InitialYield, buyingGuard ? 1 : 0, -1, &loss, &cover);
 			const float net = income - IceProduction::WorkerCost - charge
 				- workers[row] * (6.0f + directSplash[row] * 0.05f);
 			if (net > investment[row]) {
@@ -518,16 +622,19 @@ void Board::PlanColdStorageAttack()
 				economyGuards[row] = guard;
 				s.economyBlastLossByRow[row] = loss;
 				s.economyGuardCostByRow[row] = charge;
+				s.economyEntryDelayByRow[row] = entryDelay;
+				s.economyCoverByRow[row] = cover;
 			}
 		};
-		evaluateGuard(ZombieType::NUM_ZOMBIE_TYPES);
+		evaluateGuard(ZombieType::NUM_ZOMBIE_TYPES, 0.0f);
 		for (ZombieType type : mSpawnZombieList) {
 			const auto profile = Assault(type);
 			if (type == ZombieType::ZOMBIE_ICE_WORKER || profile.support || profile.bypass
 				|| !IsSpawnRowCompatible(type, row)
 				|| (s.elapsed < 80 && GetZombieIceCost(type) >= 8)
 				|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
-			evaluateGuard(type);
+			evaluateGuard(type, kWorkerEntryDelay);
+			evaluateGuard(type, kWorkerLateEntryDelay);
 		}
 		s.economyNetByRow[row] = investment[row];
 		if (investment[row] > s.economyValue) { s.economyValue = investment[row]; s.economyRow = row; }
@@ -665,7 +772,7 @@ void Board::PlanColdStorageAttack()
 		if (selectedRow < 0) break;
 		const bool buyingWorker = selected == ZombieType::ZOMBIE_ICE_WORKER;
 		const float delay = 1.0f + slot * kDeploySpacing
-			+ (buyingWorker && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? kWorkerEntryDelay : 0.0f);
+			+ (buyingWorker && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? s.economyEntryDelayByRow[selectedRow] : 0.0f);
 		if (!QueueColdStorageZombie(selected, selectedRow, delay)) break;
 		if (investing && selected == economyGuard && selectedRow == s.economyRow) guardCommitted = true;
 		budget -= GetZombieIceCost(selected);

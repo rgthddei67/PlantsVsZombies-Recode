@@ -4750,7 +4750,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		for (int row = 0; row < board->mRows; ++row) ice["economyRows"].push_back({
 			{"netOn100", static_cast<int>(std::lround(board->mColdStorage.economyNetByRow[row] * 100.0f))},
 			{"blastLossOn100", static_cast<int>(std::lround(board->mColdStorage.economyBlastLossByRow[row] * 100.0f))},
-			{"guardCost", board->mColdStorage.economyGuardCostByRow[row]}});
+			{"guardCost", board->mColdStorage.economyGuardCostByRow[row]},
+			{"entryDelayMs", static_cast<int>(std::lround(board->mColdStorage.economyEntryDelayByRow[row] * 1000.0f))},
+			{"coverMs", static_cast<int>(std::lround(board->mColdStorage.economyCoverByRow[row] * 1000.0f))}});
 		ice["unitResourcesReady"] = ResourceManager::GetInstance().HasReanimation("IceMint")
 			&& ResourceManager::GetInstance().HasReanimation("IceWorkerZombie")
 			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICEMINT", false)
