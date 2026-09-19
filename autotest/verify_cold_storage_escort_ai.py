@@ -35,8 +35,13 @@ def verify(root):
     assert mixed['commanderMode'] == 'economy', mixed
     worker = next(z for z in mixed['pending'] if z['type'] == 56)
     guard = next(z for z in mixed['pending'] if z['row'] == worker['row'] and z['type'] == 8)
-    assert worker['remaining'] - guard['remaining'] >= 12, mixed
-    assert mixed['economyRows'][worker['row']]['entryDelayMs'] == 12000
+    chosen_delay = mixed['economyRows'][worker['row']]['entryDelayMs']
+    assert chosen_delay in (6000, 12000)
+    assert worker['remaining'] - guard['remaining'] >= chosen_delay / 1000, mixed
+    # Once the worker is hit it can also slow down, so a faster escort can keep protection with the shorter delay.
+    splashed = read('splash_followup_actual')
+    assert splashed['zombiesByType']['ZOMBIE_ICE_WORKER']['slowed']
+    assert splashed['coldStorage']['workerIncome'] >= 3
     print('Escort AI verified: temporary control recovery, reduced forecast before actual overtaking, eating risk, faster escort and delayed paid entry.')
 
 

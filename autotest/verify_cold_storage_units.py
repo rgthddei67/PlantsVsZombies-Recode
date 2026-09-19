@@ -63,9 +63,13 @@ def verify(root):
     assert early['pending'][1]['remaining'] - early['pending'][0]['remaining'] >= 6
     assert states['committed_near']['predictedProductionOn100'] == 0
     assert states['committed_far']['predictedProductionOn100'] > 0
-    for name in ('unprofitable_fire', 'assault_window'):
-        assert all(z['type'] != worker_id for z in states[name]['pending']), name
-    assert states['assault_window']['commanderMode'] == 'assault'
+    assert all(z['type'] != worker_id for z in states['unprofitable_fire']['pending'])
+    assault = states['assault_window']
+    assert assault['commanderMode'] == 'assault'
+    # A paid attack now permits one profitable worker after the combat allocation.
+    assert assault['pending'][0]['type'] != worker_id
+    assert sum(z['type'] == worker_id for z in assault['pending']) == assault['economicFollowups'] == 1
+    assert sum(z['cost'] for z in assault['pending'] if z['type'] != worker_id) >= 48
     assert states['guard_ahead']['predictedProductionOn100'] > states['guard_behind']['predictedProductionOn100']
     assert states['mature_guarded']['predictedProductionOn100'] > 0
     print('Verified: production ownership/save continuity; guards before investment; unused versus committed bombs; early light guard; fire risk; positional cover; mature income; assault priority.')

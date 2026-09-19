@@ -48,6 +48,12 @@ struct ColdStorageState {
 	float lastBestScore = 0.0f;
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
 	std::string commanderMode = "opening";
+	std::string commanderStrategy = "balanced"; // 根据当前发展与收益重算，不入档
+	float spendingHorizon = 120.0f; // 当前库存支出时域，游戏秒，诊断不入档
+	float playerGrowthDps = 0.0f; // 玩家一分钟内可补阵火力，诊断不入档
+	float predictedKillIncome = 0.0f; // 最优集中进攻的击杀返冰预测，不提前到账
+	int economicFollowups = 0; // 本次进攻/突破后跟进工人数，不是同时总上限
+	std::array<float, 6> raidNetByRow{}; // 各路整批进攻净收益，诊断不入档
 	int commanderBudget = 0;
 	int commanderSpent = 0;
 	int commanderReserve = 0;

@@ -4746,6 +4746,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["predictedProductionOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedProduction * 100.0f));
 		ice["economyValueOn100"] = static_cast<int>(std::lround(board->mColdStorage.economyValue * 100.0f));
 		ice["economyRow"] = board->mColdStorage.economyRow;
+		ice["commanderStrategy"] = board->mColdStorage.commanderStrategy;
+		ice["spendingHorizonMs"] = static_cast<int>(std::lround(board->mColdStorage.spendingHorizon * 1000.0f));
+		ice["playerGrowthDpsOn100"] = static_cast<int>(std::lround(board->mColdStorage.playerGrowthDps * 100.0f));
+		ice["predictedKillIncomeOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedKillIncome * 100.0f));
+		ice["economicFollowups"] = board->mColdStorage.economicFollowups;
+		ice["raidNetByRowOn100"] = nlohmann::json::array();
+		for (int row = 0; row < board->mRows; ++row)
+			ice["raidNetByRowOn100"].push_back(static_cast<int>(std::lround(board->mColdStorage.raidNetByRow[row] * 100.0f)));
 		ice["economyRows"] = nlohmann::json::array();
 		for (int row = 0; row < board->mRows; ++row) ice["economyRows"].push_back({
 			{"netOn100", static_cast<int>(std::lround(board->mColdStorage.economyNetByRow[row] * 100.0f))},
