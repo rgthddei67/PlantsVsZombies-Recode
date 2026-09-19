@@ -54,6 +54,7 @@ struct ColdStorageState {
 	float predictedKillIncome = 0.0f; // 最优集中进攻的击杀返冰预测，不提前到账
 	int economicFollowups = 0; // 本次进攻/突破后跟进工人数，不是同时总上限
 	std::array<float, 6> raidNetByRow{}; // 各路整批进攻净收益，诊断不入档
+	std::array<float, 6> splashRiskByRow{}; // 本轮各路候选引起的最大额外队友损失，等效冰量，诊断不入档
 	int commanderBudget = 0;
 	int commanderSpent = 0;
 	int commanderReserve = 0;

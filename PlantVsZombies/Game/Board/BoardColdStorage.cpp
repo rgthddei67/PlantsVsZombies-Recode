@@ -52,6 +52,8 @@ namespace {
 	constexpr int kNormalLateBudget = 96; // 后四关每波常规冰块预算上限
 	constexpr int kAssaultEarlyBudget = 192; // 前五关一次集中进攻冰块预算上限，不是额外收入
 	constexpr int kAssaultLateBudget = 256; // 后四关一次集中进攻冰块预算上限
+	constexpr float kCollateralScorePerIce = 0.4f; // 邻路额外损失每冰折算的出兵评分，可被突破价值抵消
+	constexpr float kEscortIncomeShare = 0.5f; // 工人预期收入分配给护卫的保护价值权重
 
 	/** 统一计划与预算采用的决策间隔，避免两处调整后预算速度失配。 */
 	float DecisionInterval(float elapsed, bool rapid = false)
@@ -398,6 +400,7 @@ void Board::PlanColdStorageAttack()
 	s.economicFollowups = 0;
 	s.predictedKillIncome = 0.0f;
 	s.raidNetByRow.fill(0.0f);
+	s.splashRiskByRow.fill(0.0f);
 	s.economyNetByRow.fill(0.0f);
 	s.economyBlastLossByRow.fill(0.0f);
 	s.economyGuardCostByRow.fill(0);
@@ -620,6 +623,53 @@ void Board::PlanColdStorageAttack()
 	const bool workerUnlocked = std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(),
 		ZombieType::ZOMBIE_ICE_WORKER) != mSpawnZombieList.end()
 		&& GameDataManager::GetInstance().GetZombieAppearWave(ZombieType::ZOMBIE_ICE_WORKER) <= s.decisions + 1;
+	ColdStorageStrategy::SplashField splashField;
+	splashField.directDps = directDps;
+	splashField.directSlowDuty = slowDuty;
+	splashField.slowDuration = slowDuration;
+	splashField.targetRight = SCENE_WIDTH;
+	// 只有同路索敌、跨路溅射的西瓜会产生这里的引火外部损失；不能把三线射手也当成西瓜。
+	for (const auto& p : snapshot.plants) {
+		const Plant* plant = mEntityRegistry.GetPlant(p.id);
+		if (!plant) continue;
+		const auto type = plant->GetPlacementType();
+		if (type != PlantType::PLANT_MELONPULT && type != PlantType::PLANT_WINTERMELON) continue;
+		splashField.melonDps[p.row] += p.attackDps;
+		splashField.melonSlowDuty[p.row] += p.slowApplicationsPerSecond * p.slowDuration;
+		if (splashField.plantX[p.row] == 0 || p.x < splashField.plantX[p.row]) splashField.plantX[p.row] = p.x;
+	}
+	std::vector<ColdStorageStrategy::SplashUnit> formation;
+	for (const auto& z : snapshot.zombies) {
+		const Zombie* entity = mEntityRegistry.GetZombie(z.id);
+		if (z.mindControlled || !entity || !entity->HasHead()) continue;
+		const auto mover = makeMover(z, false);
+		ColdStorageStrategy::SplashUnit u;
+		u.row = z.row; u.x = mover.x; u.speed = mover.speed; u.health = mover.health;
+		u.stopped = mover.stopped; u.eating = mover.eating; u.slow = mover.slow;
+		u.slowFactor = mover.slowFactor; u.stopX = mover.stopX;
+		u.boundsOffset = z.bounds.x - z.x; u.boundsWidth = z.bounds.width;
+		u.canBeChilled = z.canBeChilled; u.slowImmunity = z.slowImmunityRemaining;
+		u.value = static_cast<float>(GetZombieIceCost(entity->mZombieType));
+		if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity))
+			u.value += expectedIncome(z.row, mover, rowGuards[z.row], worker->GetIceRemaining(), worker->GetNextIceYield(), 0, z.id, nullptr, nullptr);
+		else if (z.x >= frontX[z.row] - 100.0f)
+			u.value += kEscortIncomeShare * workerValue[z.row] * u.health / std::max(1.0f, escort[z.row]);
+		formation.push_back(u);
+	}
+	// 待购单位沿用经营推演的速度/接触近似；每次付款后立即加入基线，后续选兵不会忽略队友。
+	auto newSplashUnit = [&](ZombieType type, int row, float delay) {
+		ColdStorageStrategy::SplashUnit u;
+		u.row = row; u.x = SCENE_WIDTH + 40.0f;
+		u.speed = kWorkerForecastSpeed * Assault(type).speed;
+		u.health = Assault(type).health; u.value = static_cast<float>(GetZombieIceCost(type));
+		u.spawnAt = delay; u.stopX = frontX[row] + kForecastContactDistance;
+		if (type == ZombieType::ZOMBIE_ICE_WORKER)
+			u.value += IceProduction::Forecast(IceProduction::Interval, IceProduction::InitialYield, kEconomyHorizon);
+		return u;
+	};
+	auto collateral = [&](const std::vector<ColdStorageStrategy::SplashUnit>& additions) {
+		return ColdStorageStrategy::ForecastSplashExternality(splashField, formation, additions);
+	};
 	// 对每条路线比较裸投与各个已解锁护卫，护卫是否值得买由净收益决定。
 	// 普通僵尸也可作早期护卫；不改其他关卡的兵种解锁波数，不强制先凑重甲血量。
 	std::array<ZombieType, 6> economyGuards;
@@ -648,8 +698,10 @@ void Board::PlanColdStorageAttack()
 			float loss = 0.0f, cover = 0.0f;
 			const float income = expectedIncome(row, worker, guards, IceProduction::Interval,
 				IceProduction::InitialYield, buyingGuard ? 1 : 0, -1, &loss, &cover);
+			std::vector<ColdStorageStrategy::SplashUnit> additions{newSplashUnit(ZombieType::ZOMBIE_ICE_WORKER, row, worker.spawnAt)};
+			if (buyingGuard) additions.push_back(newSplashUnit(guard, row, 1.0f));
 			const float net = income - IceProduction::WorkerCost - charge
-				- workers[row] * (6.0f + directSplash[row] * 0.05f);
+				- workers[row] * (6.0f + directSplash[row] * 0.05f) - std::max(0.0f, collateral(additions));
 			if (net > investment[row]) {
 				investment[row] = net;
 				economyGuards[row] = guard;
@@ -779,7 +831,10 @@ void Board::PlanColdStorageAttack()
 				std::min(s.enemyIce, assaultCap) / GetZombieIceCost(type)});
 			for (int count = 1; count <= maxCount; ++count) {
 				raid.count = count;
-				const auto forecast = ColdStorageStrategy::ForecastRaid(raid);
+				auto forecast = ColdStorageStrategy::ForecastRaid(raid);
+				std::vector<ColdStorageStrategy::SplashUnit> additions;
+				for (int i = 0; i < count; ++i) additions.push_back(newSplashUnit(type, row, 1.0f + i * kDeploySpacing));
+				forecast.net -= std::max(0.0f, collateral(additions));
 				const float score = forecast.net + (forecast.cellsBroken > 0 ? forecast.cellsBroken * 60.0f : -1000.0f)
 					+ std::min(24.0f, forecast.remainingHealth / 500.0f);
 				if (score > raids[row].score)
@@ -972,6 +1027,16 @@ void Board::PlanColdStorageAttack()
 					// 为成熟且缺掩护的工人补肉盾，也适用于暂停经济扩张的回合。
 					score += std::min(10.0f, workerValue[row] / 15.0f) * std::min(1.0f, guardNeed[row] / 1000.0f);
 				}
+				const float candidateDelay = 1.0f + slot * kDeploySpacing
+					+ (economicUnit && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? s.economyEntryDelayByRow[row] : 0.0f);
+				const float loss = collateral({newSplashUnit(type, row, candidateDelay)});
+				s.splashRiskByRow[row] = std::max(s.splashRiskByRow[row], loss);
+				// 总攻核心已按整批损益选定；零散增援则须靠自身战术收益覆盖引火损失。
+				const bool formingEconomy = investing && (!guardCommitted || (economicUnit && chosen[static_cast<int>(type)] == 0));
+				if (!formingAttack && !formingEconomy) {
+					score -= std::max(0.0f, loss) * kCollateralScorePerIce;
+					if (loss > 0.0f && score <= 0.0f) continue;
+				}
 				score += GameRandom::Range(0.0f, 0.65f);
 				if (score > best) { best = score; selected = type; selectedRow = row; }
 			}
@@ -981,6 +1046,7 @@ void Board::PlanColdStorageAttack()
 		const float delay = 1.0f + slot * kDeploySpacing
 			+ (buyingWorker && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? s.economyEntryDelayByRow[selectedRow] : 0.0f);
 		if (!QueueColdStorageZombie(selected, selectedRow, delay)) break;
+		formation.push_back(newSplashUnit(selected, selectedRow, delay));
 		if (investing && selected == economyGuard && selectedRow == s.economyRow) guardCommitted = true;
 		budget -= GetZombieIceCost(selected);
 		s.lastAttackRow = selectedRow;
@@ -1024,7 +1090,8 @@ void Board::PlanColdStorageAttack()
 				const float income = expectedIncome(row, worker, rowGuards[row], IceProduction::Interval,
 					IceProduction::InitialYield, freshGuards, -1, nullptr, nullptr);
 				// 前排已为进攻付款，跟进仅比较工人新增费用；仍扣同路堆积与溅射风险。
-				const float net = income - IceProduction::WorkerCost - workers[row] * (6.0f + directSplash[row] * 0.05f);
+				const float net = income - IceProduction::WorkerCost - workers[row] * (6.0f + directSplash[row] * 0.05f)
+					- std::max(0.0f, collateral({newSplashUnit(ZombieType::ZOMBIE_ICE_WORKER, row, worker.spawnAt)}));
 				if (net > bestNet) { bestNet = net; followRow = row; followDelay = worker.spawnAt; }
 			}
 		}

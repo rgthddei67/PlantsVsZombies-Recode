@@ -4752,6 +4752,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["predictedKillIncomeOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedKillIncome * 100.0f));
 		ice["economicFollowups"] = board->mColdStorage.economicFollowups;
 		ice["raidNetByRowOn100"] = nlohmann::json::array();
+		ice["splashRiskByRowOn100"] = nlohmann::json::array();
+		for (int row = 0; row < board->mRows; ++row)
+			ice["splashRiskByRowOn100"].push_back(static_cast<int>(std::lround(board->mColdStorage.splashRiskByRow[row] * 100.0f)));
 		for (int row = 0; row < board->mRows; ++row)
 			ice["raidNetByRowOn100"].push_back(static_cast<int>(std::lround(board->mColdStorage.raidNetByRow[row] * 100.0f)));
 		ice["economyRows"] = nlohmann::json::array();

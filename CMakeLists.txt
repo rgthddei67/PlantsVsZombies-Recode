@@ -338,6 +338,16 @@ if(BUILD_TESTING)
         pvz_assert_win7_imports(PlantDefenseMonteCarloTests)
     endif()
     add_test(NAME plant-defense-monte-carlo COMMAND PlantDefenseMonteCarloTests)
+
+    add_executable(ColdStorageStrategyTests tests/ColdStorageStrategyTests.cpp
+        PlantVsZombies/Game/AI/ColdStorageStrategy.cpp)
+    target_include_directories(ColdStorageStrategyTests PRIVATE ${SRC_DIR})
+    target_compile_options(ColdStorageStrategyTests PRIVATE /utf-8 /W3 /sdl /EHsc)
+    target_link_libraries(ColdStorageStrategyTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)
+    if(WIN32)
+        pvz_assert_win7_imports(ColdStorageStrategyTests)
+    endif()
+    add_test(NAME cold-storage-strategy COMMAND ColdStorageStrategyTests)
 endif()
 
 # ---- GLSL → SPIR-V（复刻 vcxproj 的 CompileShaders Target，增量编译）----
