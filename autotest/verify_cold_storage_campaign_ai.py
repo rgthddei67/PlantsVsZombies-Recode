@@ -28,26 +28,31 @@ def verify(root):
     assert blocked['commanderStrategy'] == 'long_game' and blocked['commanderMode'] == 'economy'
     assert race['spendingHorizonMs'] < blocked['spendingHorizonMs']
     assert race['commanderSpent'] > blocked['commanderSpent']
-    for name in ('fortified_attack', 'snowball_attack'):
-        state = states[name]
-        pending = state['pending']
-        types = Counter(z['type'] for z in pending)
-        assert state['commanderMode'] == 'assault' and types[34] >= 4, (name, types)
-        assert types[56] == state['economicFollowups'] == 1, (name, types)
-        worker = next(z for z in pending if z['type'] == 56)
-        assert any(z['type'] == 34 and z['row'] == worker['row']
-                   and z['remaining'] + 6 <= worker['remaining'] for z in pending), name
+    # A ready bomb can now defer the worker instead of forcing it into the paid assault's blast zone.
+    fortified_types = Counter(z['type'] for z in states['fortified_attack']['pending'])
+    assert fortified_types[34] >= 4 and fortified_types[56] == 0
+    assert states['fortified_attack']['attackDeferred']
+    assert 0 < states['fortified_attack']['formationBlastLossOn100'] <= 4000
+    # Without an available bomb, the thick front is opened by a first echelon and a profitable worker follows.
+    snowball = states['snowball_attack']
+    assert snowball['commanderMode'] == 'assault' and snowball['attackDeferred']
+    assert sum(z['type'] == 34 for z in snowball['pending']) >= 2
+    assert sum(z['type'] == 56 for z in snowball['pending']) == snowball['economicFollowups'] == 1
+    worker = next(z for z in snowball['pending'] if z['type'] == 56)
+    assert any(z['type'] == 34 and z['row'] == worker['row']
+               and z['remaining'] + 6 <= worker['remaining'] for z in snowball['pending'])
     assert states['fortified_attack']['commanderStrategy'] == 'siege'
     fortified = states['fortified_attack']
     assert sum(z['type'] == 34 and z['row'] == fortified['commanderFocusRow'] for z in fortified['pending']) >= 4
     exact = states['fortified_exact_budget']
-    assert exact['commanderMode'] == 'assault' and exact['commanderSpent'] == 80
+    # A small treasury must not be emptied just to complete a formation exposed to a ready bomb.
+    assert exact['commanderMode'] == 'assault' and 0 < exact['commanderSpent'] < 80
+    assert exact['attackDeferred'] and 0 < exact['formationBlastLossOn100'] <= 2400
     assert all(z['type'] == 34 and z['row'] == exact['commanderFocusRow'] for z in exact['pending'])
     assert exact['economicFollowups'] == 0, 'Do not displace the core formation with a worker'
     follow = states['breakthrough_followup']
     assert follow['commanderMode'] == 'harvest'
     assert [(z['type'], z['row']) for z in follow['pending']] == [(56, 2)]
-    snowball = states['snowball_attack']
     assert snowball['playerGrowthDpsOn100'] == 0 and snowball['commanderStrategy'] == 'short_game'
     assert snowball['predictedKillIncomeOn100'] > 0
     result = read('snowball_result')
@@ -55,7 +60,7 @@ def verify(root):
     assert ice['killIncome'] > 0 and ice['workerIncome'] > 0
     assert ice['enemyIce'] == snowball['enemyIce'] + ice['killIncome'] + ice['workerIncome'] + ice['supplied']
     assert result['plantCount'] < read('snowball_attack')['plantCount']
-    print('Campaign AI verified: development race versus investment; mass giants plus worker; breakthrough followup; real kill and production income; no overdraft.')
+    print('Campaign AI verified: development race versus investment; staged giants and conditional worker followup; breakthrough followup; real kill and production income; no overdraft.')
 
 
 if __name__ == '__main__':

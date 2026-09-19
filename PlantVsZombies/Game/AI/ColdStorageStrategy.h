@@ -5,13 +5,17 @@
 
 /** 冷藏站战略层只消费 Board 提供的可见数值，不读取实体、不改变资源或正式随机序列。 */
 namespace ColdStorageStrategy {
-/** 邻路引火推演的单位投影；位置为逻辑 X，碰撞箱用相对偏移，队列以出生时间进入。 */
+/** 编队推演的单位投影；位置为碰撞参考 X，命中原点使用相对偏移，队列以出生时间进入。 */
 struct SplashUnit {
 	int row = 0;
 	float x = 0, speed = 0, health = 0, value = 0;
+	float purchaseCost = 0; // 爆区内的兵力投资价值，冰块；与包含产能的经营价值分开
+	float smashSeconds = 0; // 破障前锋的砸击周期，零表示普通啃食单位
+	float blastAnchorOffset = 0; // 碰撞箱参考 X 到正式爆炸使用的对象 X 的偏移，像素
 	float spawnAt = 0, stopped = 0, eating = 0, slow = 0, slowFactor = 0.3f;
 	float slowImmunity = 0, stopX = 0, boundsOffset = -25, boundsWidth = 50;
 	bool canBeChilled = true;
+	bool economic = false;
 };
 
 struct SplashField {
@@ -23,6 +27,23 @@ struct SplashField {
 float ForecastSplashExternality(const SplashField& field, const std::vector<SplashUnit>& current,
 	const std::vector<SplashUnit>& additions);
 
+/** Board 提供当前合法爆点及可用时间；负半径代表不覆盖该行。 */
+struct BlastThreat {
+	float x = 0, ready = 0, damage = 0;
+	std::array<float, 6> reach{};
+	bool committed = false;
+	bool usesObjectX = true;
+};
+
+struct BlastRisk {
+	float loss = 0, addedLoss = 0, time = 0;
+	std::vector<float> damageByUnit;
+};
+
+/** 在有限时域内找出会覆盖新增队员的最昂贵爆区，逐只计损；已有队员也计入同一爆区。 */
+BlastRisk ForecastBlastRisk(const std::vector<SplashUnit>& units, size_t firstAdded,
+	const std::vector<BlastThreat>& threats, const std::array<float, 6>& slowDuty, float rightEdge);
+
 struct Target {
 	float x = 0.0f;
 	float health = 0.0f;
@@ -31,18 +52,18 @@ struct Target {
 };
 
 struct Raid {
+	struct Member { float health, speed, cost, smashSeconds; };
+	std::vector<Member> members; // 实际拟购编队，顺序也是前后梯队顺序
 	std::vector<Target> targets; // 已按前线到后排排列，同格普通层/保护层合并
 	float spawnX = 0.0f;
-	float speed = 0.0f;
-	float health = 0.0f;
-	float cost = 0.0f;
 	float guardHealth = 0.0f;
+	float guardSmashSeconds = 0.0f, guardSpeed = 0.0f;
 	float directDps = 0.0f;
 	float splashDps = 0.0f;
 	float slowFactor = 1.0f;
-	float responseWindow = 60.0f;
-	float smashSeconds = 0.0f; // 零表示常规啃食，正数表示破坏一格的等效砸击时间
-	int count = 1;
+	float blastTime = 60.0f;
+	float guardBlastDamage = 0.0f;
+	std::vector<float> blastDamage; // 对应 members，各自承受的爆炸伤害；不能当作共享血池
 };
 
 struct RaidResult {

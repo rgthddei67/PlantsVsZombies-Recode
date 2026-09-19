@@ -60,6 +60,8 @@ struct ColdStorageState {
 	int commanderReserve = 0;
 	int commanderFocusRow = -1;
 	float responseWindow = 0.0f;
+	bool attackDeferred = false; // 当前决策暂缓下一梯队；实际重评倒计时由 decisionRemaining 保存
+	float formationBlastLoss = 0.0f; // 本次已购队伍涉及的最大单爆区投资损失，冰块，诊断不入档
 	bool battleStarted = false;
 	std::array<float, 4> habits{}; // 经济、爆炸、控制、保护的近期落种偏好，非难度倍率
 	std::vector<ColdStorageDeployment> pending;

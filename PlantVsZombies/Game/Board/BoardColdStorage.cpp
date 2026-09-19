@@ -54,6 +54,13 @@ namespace {
 	constexpr int kAssaultLateBudget = 256; // 后四关一次集中进攻冰块预算上限
 	constexpr float kCollateralScorePerIce = 0.4f; // 邻路额外损失每冰折算的出兵评分，可被突破价值抵消
 	constexpr float kEscortIncomeShare = 0.5f; // 工人预期收入分配给护卫的保护价值权重
+	constexpr float kStagingRecheck = 3.0f; // 暂缓后续梯队后重新看战况的间隔，游戏秒
+	constexpr float kBlastStakeMinimum = 24.0f; // 爆炸牌可用时仍允许投入的小队风险额度，冰块
+	constexpr float kBlastStakeMaximum = 40.0f; // 库存充裕时单个爆区的常规最高投资损失，冰块
+	constexpr float kBlastStakeFraction = 0.06f; // 库存折算为可承受爆区风险的比例
+	constexpr float kBlastScorePerIce = 0.15f; // 候选新增爆炸损失折算的评分惩罚
+	constexpr float kAshForecastDamage = 1800.0f; // 樱桃/辣椒/毁灭菇正式灰烬伤害的预测值
+	constexpr float kBreachFrontHealth = 2000.0f; // 当前最前格达到此耐久时，快速跟进需等待破障前锋
 
 	/** 统一计划与预算采用的决策间隔，避免两处调整后预算速度失配。 */
 	float DecisionInterval(float elapsed, bool rapid = false)
@@ -96,6 +103,7 @@ namespace {
 		bool committed;
 		float radius = 0.0f;
 		int rowRadius = 0;
+		float damage = kAshForecastDamage;
 	};
 
 	/** 返回对应结算几何在目标行的水平半径；负值表示该行不会命中。 */
@@ -401,6 +409,8 @@ void Board::PlanColdStorageAttack()
 	s.predictedKillIncome = 0.0f;
 	s.raidNetByRow.fill(0.0f);
 	s.splashRiskByRow.fill(0.0f);
+	s.attackDeferred = false;
+	s.formationBlastLoss = 0.0f;
 	s.economyNetByRow.fill(0.0f);
 	s.economyBlastLossByRow.fill(0.0f);
 	s.economyGuardCostByRow.fill(0);
@@ -410,8 +420,16 @@ void Board::PlanColdStorageAttack()
 	if (!BuildMonteCarloCombatSnapshot(snapshot, false, false)) return;
 	std::array<float, 6> directDps{}, directSplash{}, slowDuty{}, splashSlowDuty{}, slowDuration{}, dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
 	std::array<int, 6> committed{}, frontlineCount{}, waveRows{}, healers{}, specialists{};
+	std::array<int, 6> frontColumn;
+	frontColumn.fill(-1);
+	std::array<float, 6> frontHealth{};
 	for (int row = 0; row < mRows; ++row) frontX[row] = GetCellCenterPosition(row, 0).x;
 	for (const auto& p : snapshot.plants) {
+		if (p.canBeEaten && p.column >= frontColumn[p.row]) {
+			if (p.column > frontColumn[p.row]) frontHealth[p.row] = 0;
+			frontColumn[p.row] = p.column;
+			frontHealth[p.row] += p.health;
+		}
 		directDps[p.row] += p.attackDps;
 		slowDuty[p.row] += p.slowApplicationsPerSecond * p.slowDuration;
 		slowDuration[p.row] = std::max(slowDuration[p.row], p.slowDuration);
@@ -514,11 +532,11 @@ void Board::PlanColdStorageAttack()
 		if (p.cobBlastDamage > 0.0f) {
 			responseWindow = std::min(responseWindow, p.abilityCooldownRemaining);
 			for (const auto& cell : snapshot.cells) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
-				cell.row, cell.x, p.abilityCooldownRemaining + 4.0f, false, p.cobBlastRadius, p.cobBlastRowRadius});
+				cell.row, cell.x, p.abilityCooldownRemaining + 4.0f, false, p.cobBlastRadius, p.cobBlastRowRadius, p.cobBlastDamage});
 		}
 	}
 	for (const auto& blast : snapshot.pendingCobBlasts) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
-		blast.targetRow, blast.x, blast.resolveSeconds, true, blast.radius, blast.rowRadius});
+		blast.targetRow, blast.x, blast.resolveSeconds, true, blast.radius, blast.rowRadius, blast.damage});
 	s.responseWindow = responseWindow;
 	const bool blastSoon = responseWindow <= kResponseLookaheadSeconds;
 
@@ -650,6 +668,10 @@ void Board::PlanColdStorageAttack()
 		u.boundsOffset = z.bounds.x - z.x; u.boundsWidth = z.bounds.width;
 		u.canBeChilled = z.canBeChilled; u.slowImmunity = z.slowImmunityRemaining;
 		u.value = static_cast<float>(GetZombieIceCost(entity->mZombieType));
+		u.purchaseCost = u.value;
+		u.smashSeconds = Assault(entity->mZombieType).smashSeconds;
+		u.blastAnchorOffset = entity->GetPosition().x - z.x;
+		u.economic = entity->mZombieType == ZombieType::ZOMBIE_ICE_WORKER;
 		if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity))
 			u.value += expectedIncome(z.row, mover, rowGuards[z.row], worker->GetIceRemaining(), worker->GetNextIceYield(), 0, z.id, nullptr, nullptr);
 		else if (z.x >= frontX[z.row] - 100.0f)
@@ -662,6 +684,9 @@ void Board::PlanColdStorageAttack()
 		u.row = row; u.x = SCENE_WIDTH + 40.0f;
 		u.speed = kWorkerForecastSpeed * Assault(type).speed;
 		u.health = Assault(type).health; u.value = static_cast<float>(GetZombieIceCost(type));
+		u.purchaseCost = u.value;
+		u.smashSeconds = Assault(type).smashSeconds;
+		u.economic = type == ZombieType::ZOMBIE_ICE_WORKER;
 		u.spawnAt = delay; u.stopX = frontX[row] + kForecastContactDistance;
 		if (type == ZombieType::ZOMBIE_ICE_WORKER)
 			u.value += IceProduction::Forecast(IceProduction::Interval, IceProduction::InitialYield, kEconomyHorizon);
@@ -669,6 +694,21 @@ void Board::PlanColdStorageAttack()
 	};
 	auto collateral = [&](const std::vector<ColdStorageStrategy::SplashUnit>& additions) {
 		return ColdStorageStrategy::ForecastSplashExternality(splashField, formation, additions);
+	};
+	std::vector<ColdStorageStrategy::BlastThreat> blastThreats;
+	for (const auto& blast : economyBlasts) {
+		ColdStorageStrategy::BlastThreat threat;
+		threat.x = blast.x; threat.ready = blast.ready; threat.damage = blast.damage;
+		threat.committed = blast.committed;
+		threat.usesObjectX = blast.type != PlantType::PLANT_DOOMSHROOM;
+		threat.reach.fill(-1.0f);
+		for (int row = 0; row < mRows; ++row) threat.reach[row] = EconomyBlastReach(blast, row);
+		blastThreats.push_back(threat);
+	}
+	auto blastRisk = [&](const std::vector<ColdStorageStrategy::SplashUnit>& additions) {
+		auto combined = formation;
+		combined.insert(combined.end(), additions.begin(), additions.end());
+		return ColdStorageStrategy::ForecastBlastRisk(combined, formation.size(), blastThreats, slowDuty, SCENE_WIDTH);
 	};
 	// 对每条路线比较裸投与各个已解锁护卫，护卫是否值得买由净收益决定。
 	// 普通僵尸也可作早期护卫；不改其他关卡的兵种解锁波数，不强制先凑重甲血量。
@@ -794,6 +834,7 @@ void Board::PlanColdStorageAttack()
 		ColdStorageStrategy::RaidResult forecast;
 		float score = -100000.0f;
 		int count = 0, cost = 0;
+		std::vector<ZombieType> troops;
 	};
 	std::array<RaidChoice, 6> raids;
 	int raidRow = -1;
@@ -814,31 +855,59 @@ void Board::PlanColdStorageAttack()
 		}
 		raid.spawnX = SCENE_WIDTH + 40.0f;
 		raid.guardHealth = escort[row];
+		for (const auto& unit : formation) if (unit.row == row && unit.smashSeconds > 0 && unit.x >= frontX[row] - 100.0f) {
+			raid.guardSmashSeconds = unit.smashSeconds;
+			raid.guardSpeed = unit.speed;
+		}
 		raid.directDps = directDps[row] + std::max(0.0f, dps[row] - directDps[row]) / 3.0f;
 		raid.splashDps = directSplash[row];
 		raid.slowFactor = 1.0f - 0.7f * std::clamp(slowDuty[row], 0.0f, 1.0f);
-		raid.responseWindow = responseWindow;
+		auto evaluateRaid = [&](const std::vector<ZombieType>& troops) {
+			raid.members.clear();
+			std::vector<ColdStorageStrategy::SplashUnit> additions;
+			int cost = 0;
+			for (size_t i = 0; i < troops.size(); ++i) {
+				const auto profile = Assault(troops[i]);
+				const int price = GetZombieIceCost(troops[i]);
+				cost += price;
+				raid.members.push_back({profile.health, kWorkerForecastSpeed * profile.speed, static_cast<float>(price), profile.smashSeconds});
+				additions.push_back(newSplashUnit(troops[i], row, 1.0f + i * kDeploySpacing));
+			}
+			if (cost > std::min(s.enemyIce, assaultCap)) return;
+			const auto risk = blastRisk(additions);
+			raid.blastTime = risk.time; raid.guardBlastDamage = 0;
+			raid.blastDamage.assign(troops.size(), 0);
+			if (!risk.damageByUnit.empty()) {
+				for (size_t i = 0; i < formation.size(); ++i)
+					if (formation[i].row == row && !formation[i].economic) raid.guardBlastDamage += std::min(formation[i].health, risk.damageByUnit[i]);
+				for (size_t i = 0; i < troops.size(); ++i) raid.blastDamage[i] = risk.damageByUnit[formation.size() + i];
+			}
+			auto forecast = ColdStorageStrategy::ForecastRaid(raid);
+			forecast.net -= std::max(0.0f, collateral(additions));
+			const float score = forecast.net + (forecast.cellsBroken > 0 ? forecast.cellsBroken * 60.0f : -1000.0f)
+				+ std::min(24.0f, forecast.remainingHealth / 500.0f);
+			if (score > raids[row].score)
+				raids[row] = {troops.front(), forecast, score, static_cast<int>(troops.size()), cost, troops};
+		};
 		for (ZombieType type : mSpawnZombieList) {
 			const auto profile = Assault(type);
 			if (profile.support || profile.bypass || !IsSpawnRowCompatible(type, row)
 				|| (s.elapsed < 80 && GetZombieIceCost(type) >= 8)
 				|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
-			raid.health = profile.health;
-			raid.speed = kWorkerForecastSpeed * profile.speed;
-			raid.cost = static_cast<float>(GetZombieIceCost(type));
-			raid.smashSeconds = profile.smashSeconds;
 			const int maxCount = std::min({stage <= 5 ? 12 : 16, availableSlots,
 				std::min(s.enemyIce, assaultCap) / GetZombieIceCost(type)});
 			for (int count = 1; count <= maxCount; ++count) {
-				raid.count = count;
-				auto forecast = ColdStorageStrategy::ForecastRaid(raid);
-				std::vector<ColdStorageStrategy::SplashUnit> additions;
-				for (int i = 0; i < count; ++i) additions.push_back(newSplashUnit(type, row, 1.0f + i * kDeploySpacing));
-				forecast.net -= std::max(0.0f, collateral(additions));
-				const float score = forecast.net + (forecast.cellsBroken > 0 ? forecast.cellsBroken * 60.0f : -1000.0f)
-					+ std::min(24.0f, forecast.remainingHealth / 500.0f);
-				if (score > raids[row].score)
-					raids[row] = {type, forecast, score, count, count * GetZombieIceCost(type)};
+				evaluateRaid(std::vector<ZombieType>(count, type));
+				// 同时比较破障在前、快兵在后的组合，避免只能在纯巨人与纯橄榄中二选一。
+				if (type == ZombieType::ZOMBIE_FOOTBALL && count >= 3) {
+					const auto heavy = ZombieType::ZOMBIE_GARGANTUAR;
+					if (std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), heavy) != mSpawnZombieList.end()
+						&& IsSpawnRowCompatible(heavy, row) && GameDataManager::GetInstance().GetZombieAppearWave(heavy) <= s.decisions + 1) {
+						auto mixed = std::vector<ZombieType>(count, type);
+						mixed[0] = mixed[1] = heavy;
+						evaluateRaid(mixed);
+					}
+				}
 			}
 		}
 		s.raidNetByRow[row] = raids[row].forecast.net;
@@ -938,7 +1007,7 @@ void Board::PlanColdStorageAttack()
 	if (s.commanderMode == "assault" && s.commanderFocusRow >= 0) {
 		const auto& core = raids[s.commanderFocusRow];
 		if (core.forecast.cellsBroken > 0) {
-			// 既已决定突破，就优先付齐核心编队；不能被常规储备或工人预留截成半批。
+			// 为预计核心预留足够预算；实际付款仍受下方爆区和梯队门禁约束。
 			reserve = std::min(reserve, std::max(0, s.enemyIce - core.cost));
 			budget = std::max(budget, core.cost);
 		}
@@ -967,11 +1036,15 @@ void Board::PlanColdStorageAttack()
 	bool guardCommitted = economyGuard == ZombieType::NUM_ZOMBIE_TYPES;
 	std::array<int, static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES)> chosen{};
 	const int initialIce = s.enemyIce;
+	const float blastStake = std::max(investing ? static_cast<float>(IceProduction::WorkerCost + s.economyGuardCostByRow[s.economyRow]) : 0.0f,
+		std::clamp(16.0f + initialIce * kBlastStakeFraction, kBlastStakeMinimum, kBlastStakeMaximum));
+	bool riskBlocked = false;
 	for (int slot = 0; slot < slots; ++slot) {
 		const bool formingAttack = requiredFront > 0 && waveRows[attackRow] < requiredFront;
 		float best = std::numeric_limits<float>::lowest();
 		ZombieType selected = ZombieType::NUM_ZOMBIE_TYPES;
 		int selectedRow = -1;
+		float selectedDelay = 0, selectedBlastLoss = 0;
 		for (ZombieType type : mSpawnZombieList) {
 			const int cost = GetZombieIceCost(type);
 			if (cost > budget || cost > s.enemyIce || GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
@@ -982,7 +1055,7 @@ void Board::PlanColdStorageAttack()
 			for (int row = 0; row < mRows; ++row) {
 				if (!IsSpawnRowCompatible(type, row)) continue;
 				// 战略收益来自完整编队，不能在实际提交时把核心拆散成各路少量送兵。
-				if (formingAttack && (row != attackRow || type != raids[attackRow].type)) continue;
+				if (formingAttack && (row != attackRow || type != raids[attackRow].troops[waveRows[attackRow]])) continue;
 				if (economicUnit && (row != s.economyRow || !guardCommitted
 					|| investment[row] <= kInvestmentMargin)) continue;
 				// 新经济组合先买护卫且保留工人成交价，避免预算被其他兵种抢走。
@@ -1027,9 +1100,35 @@ void Board::PlanColdStorageAttack()
 					// 为成熟且缺掩护的工人补肉盾，也适用于暂停经济扩张的回合。
 					score += std::min(10.0f, workerValue[row] / 15.0f) * std::min(1.0f, guardNeed[row] / 1000.0f);
 				}
-				const float candidateDelay = 1.0f + slot * kDeploySpacing
+				float candidateDelay = 1.0f + slot * kDeploySpacing
 					+ (economicUnit && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? s.economyEntryDelayByRow[row] : 0.0f);
-				const float loss = collateral({newSplashUnit(type, row, candidateDelay)});
+				if (economicUnit && economyGuard != ZombieType::NUM_ZOMBIE_TYPES)
+					candidateDelay = std::max(candidateDelay, lastGuardSpawn[row] + s.economyEntryDelayByRow[row]);
+				if (profile.speed > 1.5f && frontHealth[row] >= kBreachFrontHealth) {
+					float firstBreach = std::numeric_limits<float>::max();
+					const float slow = 1.0f - 0.7f * std::clamp(slowDuty[row], 0.0f, 1.0f);
+					for (const auto& front : formation) if (front.row == row && front.smashSeconds > 0 && front.health > 0) {
+						const float arrival = front.spawnAt + front.stopped + front.eating
+							+ std::max(0.0f, front.x - frontX[row] - kForecastContactDistance) / std::max(1.0f, front.speed * slow);
+						firstBreach = std::min(firstBreach, arrival + front.smashSeconds / std::max(0.5f, slow));
+					}
+					if (firstBreach < std::numeric_limits<float>::max()) {
+						const float travel = std::max(0.0f, SCENE_WIDTH + 40.0f - frontX[row] - kForecastContactDistance)
+							/ (kWorkerForecastSpeed * profile.speed * slow);
+						if (firstBreach - travel > candidateDelay + kStagingRecheck) { riskBlocked = true; continue; }
+						candidateDelay = std::max(candidateDelay, firstBreach - travel);
+					}
+				}
+				float safeDelay = candidateDelay;
+				auto exposure = blastRisk({newSplashUnit(type, row, safeDelay)});
+				// 短暂错开能真正拉开爆区时才预付；前队被堵住时，钱留在库存，下一轮再看战况。
+				while (exposure.loss > blastStake && safeDelay < candidateDelay + kStagingRecheck) {
+					safeDelay += 1.0f;
+					exposure = blastRisk({newSplashUnit(type, row, safeDelay)});
+				}
+				if (exposure.loss > blastStake) { riskBlocked = true; continue; }
+				score -= exposure.addedLoss * kBlastScorePerIce;
+				const float loss = collateral({newSplashUnit(type, row, safeDelay)});
 				s.splashRiskByRow[row] = std::max(s.splashRiskByRow[row], loss);
 				// 总攻核心已按整批损益选定；零散增援则须靠自身战术收益覆盖引火损失。
 				const bool formingEconomy = investing && (!guardCommitted || (economicUnit && chosen[static_cast<int>(type)] == 0));
@@ -1038,14 +1137,17 @@ void Board::PlanColdStorageAttack()
 					if (loss > 0.0f && score <= 0.0f) continue;
 				}
 				score += GameRandom::Range(0.0f, 0.65f);
-				if (score > best) { best = score; selected = type; selectedRow = row; }
+				if (score > best) {
+					best = score; selected = type; selectedRow = row;
+					selectedDelay = safeDelay; selectedBlastLoss = exposure.loss;
+				}
 			}
 		}
 		if (selectedRow < 0) break;
 		const bool buyingWorker = selected == ZombieType::ZOMBIE_ICE_WORKER;
-		const float delay = 1.0f + slot * kDeploySpacing
-			+ (buyingWorker && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? s.economyEntryDelayByRow[selectedRow] : 0.0f);
+		const float delay = selectedDelay;
 		if (!QueueColdStorageZombie(selected, selectedRow, delay)) break;
+		s.formationBlastLoss = std::max(s.formationBlastLoss, selectedBlastLoss);
 		formation.push_back(newSplashUnit(selected, selectedRow, delay));
 		if (investing && selected == economyGuard && selectedRow == s.economyRow) guardCommitted = true;
 		budget -= GetZombieIceCost(selected);
@@ -1085,6 +1187,10 @@ void Board::PlanColdStorageAttack()
 				worker.health = IceProduction::WorkerHealth;
 				worker.stopX = frontX[row] + kForecastContactDistance;
 				worker.spawnAt = lastGuardSpawn[row] > 0.0f ? lastGuardSpawn[row] + spacing : 1.0f;
+				if (blastRisk({newSplashUnit(ZombieType::ZOMBIE_ICE_WORKER, row, worker.spawnAt)}).loss > blastStake) {
+					riskBlocked = true;
+					continue;
+				}
 				const int freshGuards = static_cast<int>(std::count_if(rowGuards[row].begin(), rowGuards[row].end(),
 					[](const auto& guard) { return guard.spawnAt > 0.0f; }));
 				const float income = expectedIncome(row, worker, rowGuards[row], IceProduction::Interval,
@@ -1095,14 +1201,18 @@ void Board::PlanColdStorageAttack()
 				if (net > bestNet) { bestNet = net; followRow = row; followDelay = worker.spawnAt; }
 			}
 		}
-		if (followRow >= 0 && QueueColdStorageZombie(ZombieType::ZOMBIE_ICE_WORKER, followRow, followDelay))
+		if (followRow >= 0 && QueueColdStorageZombie(ZombieType::ZOMBIE_ICE_WORKER, followRow, followDelay)) {
+			s.formationBlastLoss = std::max(s.formationBlastLoss,
+				blastRisk({newSplashUnit(ZombieType::ZOMBIE_ICE_WORKER, followRow, followDelay)}).loss);
 			++s.economicFollowups;
+		}
 	}
 	s.commanderSpent = initialIce - s.enemyIce;
+	s.attackDeferred = s.enemyIce > 0 && ((riskBlocked && s.commanderSpent < s.commanderBudget) || s.commanderMode == "probe");
 	if (!s.pending.empty()) {
 		mCurrentWave = ++s.decisions;
 		s.dispatchQuietSeconds = 0.0f;
-		if (s.commanderMode == "assault") s.assaultCooldown = kAssaultCooldownSeconds;
+		if (s.commanderMode == "assault" && !s.attackDeferred) s.assaultCooldown = kAssaultCooldownSeconds;
 	}
 }
 
@@ -1144,7 +1254,7 @@ void Board::UpdateColdStorage(float dt)
 	// 不能空调用 Plan 再重置整段间隔，否则较晚跟进会拖慢抢攻，读档后还会依赖未保存的诊断策略。
 	if (s.decisionRemaining <= 0 && s.pending.empty()) {
 		PlanColdStorageAttack();
-		s.decisionRemaining = DecisionInterval(s.elapsed, s.commanderStrategy == "short_game");
+		s.decisionRemaining = s.attackDeferred ? kStagingRecheck : DecisionInterval(s.elapsed, s.commanderStrategy == "short_game");
 	}
 }
 
