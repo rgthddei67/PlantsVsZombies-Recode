@@ -19,6 +19,7 @@
     {"op": "assert_state", "path": "coldStorage.pendingCount", "equals": 1},
     {"op": "set_cold_storage", "state": {"pending": []}},
     {"op": "spawn_zombie", "type": "ZOMBIE_ICE_WORKER", "row": 0, "x": 1140, "stationary": true},
+    {"op": "dump_state", "name": "worker_spawned.json"},
     {"op": "apply_zombie_control", "row": 0, "effect": "SLOW", "duration": 60},
     {"op": "wait_value", "path": "zombiesByType.ZOMBIE_ICE_WORKER.iceBatches", "equals": 1, "timeout": 20},
     {"op": "assert_state", "path": "coldStorage.workerIncome", "equals": 3},

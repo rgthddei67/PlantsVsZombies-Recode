@@ -5,7 +5,7 @@
 
 /** 制冰工的正式生产与指挥官预测共用同一离散产量规则。 */
 namespace IceProduction {
-inline constexpr float Interval = 7.5f; // 每批生产间隔，游戏秒，成长不缩短间隔
+inline constexpr float Interval = 5.0f; // 每批生产间隔，游戏秒，成长不缩短间隔
 inline constexpr float InitialYield = 3.0f; // 初次每批产量，冰块
 inline constexpr float YieldGrowth = 1.5f; // 每次成功生产后下批产量倍率
 inline constexpr float MaximumYield = 15.0f; // 单只每批产量上限，冰块

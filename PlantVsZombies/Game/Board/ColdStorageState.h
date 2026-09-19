@@ -33,6 +33,9 @@ struct ColdStorageState {
 	int playerProductionIncome = 0; // 薄荷与魅惑制冰工累计生产的冰块
 	float predictedProduction = 0.0f; // 本次决策时域内可存活生产的预测收入
 	float economyValue = 0.0f; // 最佳经济投资的预计净收益
+	std::array<float, 6> economyNetByRow{}; // 各路最优经营组合净收益，诊断不入档
+	std::array<float, 6> economyBlastLossByRow{}; // 各路最优组合的爆炸风险折损冰量
+	std::array<int, 6> economyGuardCostByRow{}; // 最优组合新购护卫冰价，零表示无需新增护卫
 	int economyRow = -1; // 本次经济路线，诊断投影不入档
 	int killIncome = 0;
 	int playerKillIncome = 0; // 玩家通过消灭付费敌人累计回收的冰块

@@ -30,7 +30,12 @@ namespace {
 	constexpr float kForecastHorizon = 20.0f; // 防线火力与候选生存推演时域，游戏秒
 	constexpr float kEconomyHorizon = 60.0f; // 经济评估时域，游戏秒；覆盖新工人首次满产
 	constexpr float kInvestmentMargin = 8.0f; // 预计净收入超过此冰量才追加经济投资
-	constexpr float kWorkerEntryDelay = 4.0f; // 护卫先入场后制冰工跟进的最小间隔，游戏秒
+	constexpr float kWorkerEntryDelay = 6.0f; // 护卫先入场后制冰工跟进的最小间隔，游戏秒
+	constexpr float kWorkerForecastSpeed = 20.0f; // 新工人的保守水平移速估计，像素/游戏秒
+	constexpr float kEconomySplashReach = 100.0f; // 含碰撞箱的溅射接近窗口，像素；不把整路都当成命中
+	constexpr float kUnusedBlastRisk = 0.22f; // 未提交炸弹的基础投资折损权重，不等同于确定命中
+	constexpr float kCrowdedBlastRisk = 0.10f; // 爆区每多一个可同时命中的敌人，增加的风险权重
+	constexpr float kMaximumBlastRisk = 0.80f; // 仅卡槽可用时的最高折损，已提交爆炸另按实际范围截断
 	constexpr float kHabitDecay = 0.97f; // 每次正式落种衰减旧画像，防止长期偏好锁死
 	constexpr std::array<float, 9> kEconomyTargetSeconds{360,390,420,450,480,720,750,780,810}; // 库存分配参考时长，秒；不是强制结束时间
 	constexpr float kReserveFraction = 0.12f; // 常规储备占初始库存比例，总攻可动用一半
@@ -68,6 +73,30 @@ namespace {
 		return {p.sunPerSecond > 0 ? 1.0f : 0.0f, explosive ? 1.0f : 0.0f,
 			p.slowApplicationsPerSecond + p.frozenApplicationsPerSecond > 0 ? 1.0f : 0.0f,
 			p.baseHealth >= 2000 || type == PlantType::PLANT_PUMPKINSHELL ? 1.0f : 0.0f};
+	}
+
+	/** 已种下的爆炸只威胁其当前范围；卡槽威胁记录实际可用格位与最早就绪时间。 */
+	struct EconomyBlast {
+		PlantType type;
+		int row;
+		float x;
+		float ready;
+		bool committed;
+		float radius = 0.0f;
+		int rowRadius = 0;
+	};
+
+	/** 返回对应结算几何在目标行的水平半径；负值表示该行不会命中。 */
+	float EconomyBlastReach(const EconomyBlast& blast, int row)
+	{
+		const int rows = std::abs(blast.row - row);
+		if (blast.type == PlantType::PLANT_COBCANNON) return rows <= blast.rowRadius ? blast.radius : -1.0f;
+		if (blast.type == PlantType::PLANT_JALAPENO) return rows == 0 ? 10000.0f : -1.0f;
+		if (blast.type == PlantType::PLANT_CHERRYBOMB) return rows <= 1 ? 130.0f : -1.0f;
+		// 与 CreateDoomBoom 的圆/碰撞矩形纵向口径一致，用当前棋盘行距换算。
+		const float dy = std::max(0.0f, rows * static_cast<float>(CELL_COLLIDER_SIZE_Y)
+			- (row > blast.row ? 65.0f : 35.0f));
+		return dy <= 250.0f ? 25.0f + std::sqrt(250.0f * 250.0f - dy * dy) : -1.0f;
 	}
 
 	struct AssaultProfile { float health; float speed; bool bypass; bool support; bool splash; };
@@ -270,12 +299,17 @@ void Board::PlanColdStorageAttack()
 	s.predictedProduction = 0.0f;
 	s.economyValue = 0.0f;
 	s.economyRow = -1;
+	s.economyNetByRow.fill(0.0f);
+	s.economyBlastLossByRow.fill(0.0f);
+	s.economyGuardCostByRow.fill(0);
 	PlantDefenseMonteCarlo::Snapshot snapshot;
 	if (!BuildMonteCarloCombatSnapshot(snapshot, false, false)) return;
-	std::array<float, 6> dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
+	std::array<float, 6> directDps{}, directSplash{}, dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
 	std::array<int, 6> committed{}, frontlineCount{}, waveRows{}, healers{}, specialists{};
 	for (int row = 0; row < mRows; ++row) frontX[row] = GetCellCenterPosition(row, 0).x;
 	for (const auto& p : snapshot.plants) {
+		directDps[p.row] += p.attackDps;
+		if (p.attackRowRadius > 0) directSplash[p.row] += p.attackDps;
 		value[p.row] += 1.0f + p.strategicValue / 100.0f;
 		armor[p.row] += p.health / 1000.0f;
 		frontX[p.row] = std::max(frontX[p.row], p.x);
@@ -326,6 +360,7 @@ void Board::PlanColdStorageAttack()
 	}
 
 	// 读取真正可支付的反制。毁灭菇卡还需要咖啡，已种下的睡菇不受毁灭菇卡冷却限制。
+	std::vector<EconomyBlast> economyBlasts;
 	float responseWindow = 60.0f, coffeeWait = 60.0f;
 	int coffeeSun = 0;
 	bool hasCoffee = false;
@@ -347,20 +382,36 @@ void Board::PlanColdStorageAttack()
 		const int iceCost = GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0);
 		if (mSun < sunCost || futureIce < iceCost) continue;
 		bool legal = false;
-		for (int row = 0; row < mRows && !legal; ++row)
-			for (int col = 0; col < mColumns && !legal; ++col) legal = CanPlantAt(type, row, col);
+		const float ready = std::max(card->GetCooldownTimer(), doom ? coffeeWait : 0.0f);
+		for (int row = 0; row < mRows; ++row)
+			for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type, row, col)) {
+				legal = true;
+				economyBlasts.push_back({type, row, GetCellCenterPosition(row, col).x, ready, false});
+			}
 		if (legal) responseWindow = std::min(responseWindow, std::max(card->GetCooldownTimer(), doom ? coffeeWait : 0.0f));
 	}
 	for (const auto& p : snapshot.plants) {
 		const Plant* plant = mEntityRegistry.GetPlant(p.id);
 		if (!plant) continue;
 		if (IsInstantBlast(plant->GetPlacementType())) {
-			if (!plant->GetSleepState()) responseWindow = 0.0f;
+			if (!plant->GetSleepState()) {
+				responseWindow = 0.0f;
+				economyBlasts.push_back({plant->GetPlacementType(), p.row, p.x, 1.0f, true});
+			}
 			else if (hasCoffee && mSun >= coffeeSun && futureIce >= GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE))
+			{
 				responseWindow = std::min(responseWindow, coffeeWait);
+				economyBlasts.push_back({plant->GetPlacementType(), p.row, p.x, coffeeWait + 1.5f, false});
+			}
 		}
-		if (p.cobBlastDamage > 0.0f) responseWindow = std::min(responseWindow, p.abilityCooldownRemaining);
+		if (p.cobBlastDamage > 0.0f) {
+			responseWindow = std::min(responseWindow, p.abilityCooldownRemaining);
+			for (const auto& cell : snapshot.cells) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
+				cell.row, cell.x, p.abilityCooldownRemaining + 4.0f, false, p.cobBlastRadius, p.cobBlastRowRadius});
+		}
 	}
+	for (const auto& blast : snapshot.pendingCobBlasts) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
+		blast.targetRow, blast.x, blast.resolveSeconds, true, blast.radius, blast.rowRadius});
 	s.responseWindow = responseWindow;
 	const bool blastSoon = responseWindow <= kResponseLookaheadSeconds;
 
@@ -374,33 +425,67 @@ void Board::PlanColdStorageAttack()
 			value[p.row] += 2.0f; // 可被摧毁的生产设施也构成进攻路线价值
 		}
 	}
-	// 可见卡槽只影响风险折扣，不假定玩家一定会使用，也不读取未来输入。
-	const float blastSurvival = responseWindow < 15.0f ? 0.25f : responseWindow < 40.0f ? 0.55f : 1.0f;
-	auto expectedIncome = [&](int row, float x, float health, float guardHealth,
-		float remainingProduction, float amount, float stoppedSeconds) {
-		const float fire = std::max(1.0f, dps[row]);
-		// 群伤绕过部分肉盾；控制降低有效生产时长，普通减速不降低生产速率。
-		const float areaShare = std::clamp(splash[row] / fire, 0.0f, 1.0f);
-		const float shieldSeconds = guardHealth / fire * (1.0f - areaShare * 0.85f);
-		const float exposedSeconds = health / fire;
-		const float offscreenSeconds = std::clamp((x - SCENE_WIDTH) / 20.0f, 0.0f, 4.0f);
-		const float life = std::clamp(offscreenSeconds + shieldSeconds + exposedSeconds - stoppedSeconds,
+	// 经济预测保留爆炸发生前已经产生的收入；卡片就绪只是风险，不直接判为必死。
+	auto expectedIncome = [&](int row, float x, float health, float guardHealth, float guardGap,
+		float remainingProduction, float amount, float stoppedSeconds, float spawnDelay, int addedGuards, int workerID,
+		float* blastLoss) {
+		float adjacentFire = 0.0f;
+		for (int otherRow = std::max(0, row - 1); otherRow <= std::min(mRows - 1, row + 1); ++otherRow) {
+			if (otherRow == row) continue;
+			// 邻路西瓜必须先有靠近工人的命中目标，才按次要伤害计入；不会凭空穿过空路溅射。
+			const bool nearbyTarget = std::any_of(snapshot.zombies.begin(), snapshot.zombies.end(), [&](const auto& z) {
+				return !z.mindControlled && z.row == otherRow && std::abs(z.x - x) < kEconomySplashReach;
+			});
+			if (nearbyTarget) adjacentFire += directSplash[otherRow] / 3.0f;
+		}
+		const float fire = std::max(1.0f, directDps[row] + adjacentFire);
+		const float shieldSeconds = guardHealth / fire;
+		const float splashLeak = adjacentFire + directSplash[row] / 3.0f
+			* std::clamp(1.0f - guardGap / kEconomySplashReach, 0.0f, 1.0f);
+		const float sheltered = splashLeak > 0.0f ? std::min(shieldSeconds, health / splashLeak) : shieldSeconds;
+		const float remainingHealth = std::max(0.0f, health - sheltered * splashLeak);
+		const float offscreenSeconds = std::clamp((x - SCENE_WIDTH) / kWorkerForecastSpeed, 0.0f, 4.0f);
+		const float life = std::clamp(offscreenSeconds + sheltered + remainingHealth / fire - stoppedSeconds,
 			0.0f, kEconomyHorizon);
-		return static_cast<float>(IceProduction::Forecast(remainingProduction, amount, life)) * blastSurvival;
+		const float income = static_cast<float>(IceProduction::Forecast(remainingProduction, amount, life));
+		float worstLoss = 0.0f;
+		for (const auto& blast : economyBlasts) {
+			const float reach = EconomyBlastReach(blast, row);
+			if (reach < 0.0f || (blast.committed && blast.ready < spawnDelay)) continue;
+			const float ready = std::max(0.0f, blast.ready - spawnDelay);
+			const float enter = std::max(0.0f, (x - blast.x - reach) / kWorkerForecastSpeed);
+			const float exit = (x - blast.x + reach) / kWorkerForecastSpeed;
+			const float impact = blast.committed ? ready : std::max(ready, enter) + 1.0f;
+			if (impact < enter || impact > exit || impact >= life) continue;
+			const float safeIncome = static_cast<float>(IceProduction::Forecast(remainingProduction, amount, impact));
+			int collateral = addedGuards;
+			for (const auto& z : snapshot.zombies) {
+				if (z.id == workerID || z.mindControlled || EconomyBlastReach(blast, z.row) < 0.0f) continue;
+				const float projectedX = std::max(frontX[z.row], z.x - z.moveSpeed * (spawnDelay + impact));
+				if (std::abs(projectedX - blast.x) <= EconomyBlastReach(blast, z.row)) ++collateral;
+			}
+			const float risk = blast.committed ? 1.0f
+				: std::min(kMaximumBlastRisk, kUnusedBlastRisk + collateral * kCrowdedBlastRisk);
+			// 多个合法种植格是同一张卡的不同选择，不重复累计成必杀。
+			worstLoss = std::max(worstLoss, (income - safeIncome) * risk);
+		}
+		if (blastLoss) *blastLoss = worstLoss;
+		return income - worstLoss;
 	};
 	for (const auto& z : snapshot.zombies) {
 		const auto* worker = dynamic_cast<const IceWorkerZombie*>(mEntityRegistry.GetZombie(z.id));
 		if (!worker || z.mindControlled) continue;
-		float guards = 0.0f;
+		float guards = 0.0f, guardGap = kEconomySplashReach;
 		for (const auto& other : snapshot.zombies) {
 			if (other.id == z.id || other.row != z.row || other.mindControlled || other.x >= z.x
 				|| other.x < frontX[z.row] - 100.0f
 				|| dynamic_cast<const IceWorkerZombie*>(mEntityRegistry.GetZombie(other.id))) continue;
+			guardGap = std::min(guardGap, z.x - other.x);
 			guards += other.bodyHealth + other.helmHealth + other.shieldHealth;
 		}
-		const float income = expectedIncome(z.row, z.x, z.bodyHealth, guards,
+		const float income = expectedIncome(z.row, z.x, z.bodyHealth, guards, guardGap,
 			worker->GetIceRemaining(), worker->GetNextIceYield(),
-			std::max(z.frozenRemaining, std::max(z.butterRemaining, z.paralysisRemaining)));
+			std::max(z.frozenRemaining, std::max(z.butterRemaining, z.paralysisRemaining)), 0.0f, 0, z.id, nullptr);
 		s.predictedProduction += income;
 		workerValue[z.row] += income;
 		++workers[z.row];
@@ -411,30 +496,40 @@ void Board::PlanColdStorageAttack()
 	const bool workerUnlocked = std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(),
 		ZombieType::ZOMBIE_ICE_WORKER) != mSpawnZombieList.end()
 		&& GameDataManager::GetInstance().GetZombieAppearWave(ZombieType::ZOMBIE_ICE_WORKER) <= s.decisions + 1;
-	// 按本关已解锁池寻找护卫；不强塞池外兵种，不把经济单位自身当作护卫。
-	ZombieType economyGuard = ZombieType::NUM_ZOMBIE_TYPES;
-	float guardEfficiency = 0.0f;
-	for (ZombieType type : mSpawnZombieList) {
-		const auto profile = Assault(type);
-		const int cost = GetZombieIceCost(type);
-		if (type == ZombieType::ZOMBIE_ICE_WORKER || profile.support || profile.bypass
-			|| profile.health < 1000 || cost + IceProduction::WorkerCost > s.enemyIce
-			|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
-		const float efficiency = profile.health / cost;
-		if (efficiency > guardEfficiency) { guardEfficiency = efficiency; economyGuard = type; }
-	}
-	const bool hasGuardCandidate = economyGuard != ZombieType::NUM_ZOMBIE_TYPES;
+	// 对每条路线比较裸投与各个已解锁护卫，护卫是否值得买由净收益决定。
+	// 普通僵尸也可作早期护卫；不改其他关卡的兵种解锁波数，不强制先凑重甲血量。
+	std::array<ZombieType, 6> economyGuards;
+	economyGuards.fill(ZombieType::NUM_ZOMBIE_TYPES);
 	for (int row = 0; row < mRows; ++row) {
-		const float addedGuard = hasGuardCandidate ? Assault(economyGuard).health : 0.0f;
-		const float guardCharge = hasGuardCandidate && escort[row] < kSupportHealthRequired
-			? static_cast<float>(GetZombieIceCost(economyGuard)) : 0.0f;
-		const float protectedHealth = escort[row] + (guardCharge > 0 ? addedGuard : 0.0f);
-		const float income = expectedIncome(row, SCENE_WIDTH + 40.0f, IceProduction::WorkerHealth,
-			protectedHealth, IceProduction::Interval, IceProduction::InitialYield, 0.0f);
-		investment[row] = income - IceProduction::WorkerCost - guardCharge;
-		// 聚堆并不能让同一份肉盾无限保护新人；持续扩张要有足够的前排纵深。
-		investment[row] -= workers[row] * (6.0f + splash[row] * 0.15f + (blastSoon ? 12.0f : 0.0f));
-		if (protectedHealth < kSupportHealthRequired || !workerUnlocked) investment[row] = -1000.0f;
+		investment[row] = -1000.0f;
+		auto evaluateGuard = [&](ZombieType guard) {
+			const bool buyingGuard = guard != ZombieType::NUM_ZOMBIE_TYPES;
+			const int charge = buyingGuard ? GetZombieIceCost(guard) : 0;
+			if (!workerUnlocked || charge + IceProduction::WorkerCost > s.enemyIce) return;
+			float loss = 0.0f;
+			const float guardHealth = escort[row] + (buyingGuard ? Assault(guard).health : 0.0f);
+			const float income = expectedIncome(row, SCENE_WIDTH + 40.0f, IceProduction::WorkerHealth,
+				guardHealth, kWorkerEntryDelay * kWorkerForecastSpeed, IceProduction::Interval,
+				IceProduction::InitialYield, 0.0f, buyingGuard ? kWorkerEntryDelay : 0.0f, buyingGuard ? 1 : 0, -1, &loss);
+			const float net = income - IceProduction::WorkerCost - charge
+				- workers[row] * (6.0f + directSplash[row] * 0.05f);
+			if (net > investment[row]) {
+				investment[row] = net;
+				economyGuards[row] = guard;
+				s.economyBlastLossByRow[row] = loss;
+				s.economyGuardCostByRow[row] = charge;
+			}
+		};
+		evaluateGuard(ZombieType::NUM_ZOMBIE_TYPES);
+		for (ZombieType type : mSpawnZombieList) {
+			const auto profile = Assault(type);
+			if (type == ZombieType::ZOMBIE_ICE_WORKER || profile.support || profile.bypass
+				|| !IsSpawnRowCompatible(type, row)
+				|| (s.elapsed < 80 && GetZombieIceCost(type) >= 8)
+				|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+			evaluateGuard(type);
+		}
+		s.economyNetByRow[row] = investment[row];
 		if (investment[row] > s.economyValue) { s.economyValue = investment[row]; s.economyRow = row; }
 	}
 
@@ -484,12 +579,10 @@ void Board::PlanColdStorageAttack()
 	// 生产收入已经进入基础预算，不会因为赚到更多冰仍只按固定补给花钱。
 	if (workerUnlocked && s.commanderMode != "assault" && s.commanderMode != "observe"
 		&& s.economyRow >= 0 && s.economyValue > kInvestmentMargin
-		&& (!blastSoon || s.economyValue > IceProduction::WorkerCost)
 		&& !(playerProduction > s.predictedProduction + 30.0f && bestOpportunity >= 1.5f)) {
 		s.commanderMode = "economy";
 		s.commanderFocusRow = s.economyRow;
-		const int packageCost = IceProduction::WorkerCost + (escort[s.economyRow] < kSupportHealthRequired
-			&& hasGuardCandidate ? GetZombieIceCost(economyGuard) : 0);
+		const int packageCost = IceProduction::WorkerCost + s.economyGuardCostByRow[s.economyRow];
 		reserve = std::min(reserve, std::max(0, s.enemyIce - packageCost));
 		budget = std::min(normalCap, std::max(baseBudget, packageCost));
 		slots = std::max(slots, 2);
@@ -505,6 +598,9 @@ void Board::PlanColdStorageAttack()
 	s.commanderReserve = reserve;
 	if (budget <= 0) return;
 
+	const bool investing = s.commanderMode == "economy";
+	const ZombieType economyGuard = investing ? economyGuards[s.economyRow] : ZombieType::NUM_ZOMBIE_TYPES;
+	bool guardCommitted = economyGuard == ZombieType::NUM_ZOMBIE_TYPES;
 	std::array<int, static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES)> chosen{};
 	const int initialIce = s.enemyIce;
 	for (int slot = 0; slot < slots; ++slot) {
@@ -517,20 +613,22 @@ void Board::PlanColdStorageAttack()
 			const auto profile = Assault(type);
 			const bool economicUnit = type == ZombieType::ZOMBIE_ICE_WORKER;
 			if (economicUnit && s.commanderMode != "economy") continue;
-			if (s.elapsed < 80 && cost >= 8) continue;
+			if (s.elapsed < 80 && cost >= 8 && !economicUnit) continue;
 			for (int row = 0; row < mRows; ++row) {
 				if (!IsSpawnRowCompatible(type, row)) continue;
-				if (economicUnit && (row != s.economyRow || escort[row] < kSupportHealthRequired
-					|| investment[row] <= kInvestmentMargin || guardNeed[row] > 500.0f)) continue;
+				if (economicUnit && (row != s.economyRow || !guardCommitted
+					|| investment[row] <= kInvestmentMargin)) continue;
 				// 新经济组合先买护卫且保留工人成交价，避免预算被其他兵种抢走。
-				if (s.commanderMode == "economy" && slot == 0 && escort[s.economyRow] < kSupportHealthRequired
+				if (investing && !guardCommitted
 					&& (type != economyGuard || row != s.economyRow
 						|| budget < cost + IceProduction::WorkerCost)) continue;
 				const bool specialist = type == ZombieType::ZOMBIE_HEALER || type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER
 					|| type == ZombieType::ZOMBIE_AURORA_PRIEST;
 				if (specialist && escort[row] < kSupportHealthRequired) continue;
 				if (type == ZombieType::ZOMBIE_HEALER && healers[row] > 0) continue;
-				if (blastSoon && waveRows[row] >= (slots + mRows - 1) / mRows) continue;
+				// 炸弹风险已按经营组合整体估价；允许已选护卫后跟一名工人，其他兵力仍分路。
+				if (blastSoon && waveRows[row] >= (slots + mRows - 1) / mRows
+					&& !(economicUnit && chosen[static_cast<int>(type)] == 0)) continue;
 				++s.candidatesEvaluated;
 				float score = 0.0f;
 				for (int sample = 0; sample < kForecastSamples; ++sample) {
@@ -566,8 +664,10 @@ void Board::PlanColdStorageAttack()
 		}
 		if (selectedRow < 0) break;
 		const bool buyingWorker = selected == ZombieType::ZOMBIE_ICE_WORKER;
-		const float delay = 1.0f + slot * kDeploySpacing + (buyingWorker ? kWorkerEntryDelay : 0.0f);
+		const float delay = 1.0f + slot * kDeploySpacing
+			+ (buyingWorker && economyGuard != ZombieType::NUM_ZOMBIE_TYPES ? kWorkerEntryDelay : 0.0f);
 		if (!QueueColdStorageZombie(selected, selectedRow, delay)) break;
+		if (investing && selected == economyGuard && selectedRow == s.economyRow) guardCommitted = true;
 		budget -= GetZombieIceCost(selected);
 		s.lastAttackRow = selectedRow;
 		s.lastBestScore = best;

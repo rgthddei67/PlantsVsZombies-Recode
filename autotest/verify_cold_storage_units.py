@@ -14,6 +14,11 @@ def verify(root):
 
     for folder in (units, ai, root / 'smoke_cold_storage_reward'):
         assert read(folder, 'status')['status'] == 'passed', folder
+    # Production and AI share the interval; verify actual payouts against game time.
+    spawned_at = read(units, 'worker_spawned')['coldStorage']['elapsed']
+    for batch in range(1, 6):
+        elapsed = read(units, f'batch_{batch}')['coldStorage']['elapsed'] - spawned_at
+        assert abs(elapsed - batch * 5.0) < 0.2, (batch, elapsed)
     paused, restored = (read(units, n) for n in ('buttered', 'restored'))
     for key in ('iceRemainingMs', 'iceBatches', 'nextIceYieldOn1000'):
         assert paused['zombiesByType']['ZOMBIE_ICE_WORKER'][key] == restored['zombiesByType']['ZOMBIE_ICE_WORKER'][key], key
@@ -31,7 +36,8 @@ def verify(root):
 
     states = {name: read(ai, name)['coldStorage'] for name in (
         'protected_investment', 'bomb_ready', 'unprofitable_fire', 'guard_ahead',
-        'guard_behind', 'mature_guarded', 'assault_window')}
+        'guard_behind', 'mature_guarded', 'assault_window', 'early_light_guard',
+        'committed_near', 'committed_far')}
     # Stable appended enum; changing an existing ID is a save-compatibility violation.
     worker_id = 56
     for name, state in states.items():
@@ -45,14 +51,24 @@ def verify(root):
     for worker in workers:
         assert any(z['type'] != worker_id and z['row'] == worker['row']
                    and z['remaining'] + 3 <= worker['remaining'] for z in protected['pending'])
-    assert states['bomb_ready']['commanderMode'] == 'probe'
-    assert states['bomb_ready']['commanderBudget'] < protected['commanderBudget']
-    for name in ('bomb_ready', 'unprofitable_fire', 'assault_window'):
+    # Holding an unused bomb discounts profit but no longer globally forbids economic investment.
+    ready = states['bomb_ready']
+    assert ready['commanderMode'] == 'economy'
+    assert 0 < ready['economyValueOn100'] < protected['economyValueOn100']
+    assert any(z['type'] == worker_id for z in ready['pending'])
+    early = states['early_light_guard']
+    assert early['commanderMode'] == 'economy'
+    assert [z['type'] for z in early['pending']] == [0, worker_id], early
+    assert early['pending'][0]['row'] == early['pending'][1]['row']
+    assert early['pending'][1]['remaining'] - early['pending'][0]['remaining'] >= 6
+    assert states['committed_near']['predictedProductionOn100'] == 0
+    assert states['committed_far']['predictedProductionOn100'] > 0
+    for name in ('unprofitable_fire', 'assault_window'):
         assert all(z['type'] != worker_id for z in states[name]['pending']), name
     assert states['assault_window']['commanderMode'] == 'assault'
     assert states['guard_ahead']['predictedProductionOn100'] > states['guard_behind']['predictedProductionOn100']
     assert states['mature_guarded']['predictedProductionOn100'] > 0
-    print('Verified: production ownership/save continuity; guards before investment; bomb/fire risk; positional cover; mature income; assault priority.')
+    print('Verified: production ownership/save continuity; guards before investment; unused versus committed bombs; early light guard; fire risk; positional cover; mature income; assault priority.')
 
 
 if __name__ == '__main__':
