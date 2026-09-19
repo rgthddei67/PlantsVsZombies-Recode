@@ -69,6 +69,11 @@ def play(output, until, focused_fire=False, deny_income=False):
         attempt('INSTANT_COFFEE', sleeping_dooms)
         if nearest and nearest[0]['xInt'] < 555:
             row = nearest[0]['row']
+            # 优先在漏怪前方补临时肉盾，避免炸弹冷却时明明有南瓜却放它进家。
+            intercept = [(row,c) for c in range(8,-1,-1)
+                         if nearest[0]['xInt']-160 < 282+80*c <= nearest[0]['xInt']+25]
+            attempt('WALLNUT', intercept)
+            attempt('PUMPKINSHELL', intercept)
             attempt('JALAPENO', [(row, c) for c in range(7, -1, -1) if (row, c) not in farm])
         # Aim cherry bombs at dense threats in front of the wall, not only after the back line falls.
         blast_cells = []
@@ -82,6 +87,7 @@ def play(output, until, focused_fire=False, deny_income=False):
         attempt('CHERRYBOMB', [(r,c) for _,r,c in sorted(blast_cells, reverse=True)])
         # 白天毁灭菇需要下一次操作接咖啡：同时预留阳光和冰，落点避开贴脸啃食。
         coffee_ready = any(c['gameplayType']=='PLANT_INSTANT_COFFEE' and c['ready'] for c in cards)
+        saving_for_doom = False
         if coffee_ready and not sleeping_dooms and stock >= 35:
             doom_cells = []
             for row in range(1,4):
@@ -93,40 +99,43 @@ def play(output, until, focused_fire=False, deny_income=False):
                         continue
                     victims = [z for z in zombies if (z['xInt']-x)**2 + ((z['row']-row)*100)**2 < 230**2]
                     score = sum(min(1800,z.get('countableExecutionHealth',z['bodyHealth'])) for z in victims)
-                    if len(victims)>=5 and score>=5000:
+                    if len(victims)>=3 and score>=5000:
                         doom_cells.append((score,row,col))
             attempt('DOOMSHROOM', [(r,c) for _,r,c in sorted(doom_cells,reverse=True)], 75)
+            saving_for_doom = bool(doom_cells) and sun < 225 and any(c['gameplayType']=='PLANT_DOOMSHROOM' and c['ready'] for c in cards)
         attempt('MARIGOLD', [v for v in farm if v not in plants])
-        row_order = list(dict.fromkeys([z['row'] for z in nearest] + [2,0,4,1,3]))
-        attempt('WALLNUT', [(r,5) for r in row_order if (r,5) not in plants])
-        producers = sum(p['type'] == 'PLANT_SUNFLOWER' for p in plants.values())
-        if producers < 6:
-            attempt('SUNFLOWER', [(r,0) for r in [2,0,4,1,3]] + [(2,4)])
-        fire_rows = {r for (r,c),p in plants.items() if p['type'] in ('PLANT_MELONPULT','PLANT_WINTERMELON')}
-        weak = [r for r in [1,3,0,4,2] if r not in fire_rows]
-        weak.sort(key=lambda r: min([z['xInt'] for z in zombies if z['row']==r] or [2000]))
-        attempt('POTATOMINE', [(r,6) for r in weak if any(z['row']==r and z['xInt']>1020 for z in zombies)])
-        attempt('MELONPULT', [(r,1) for r in weak])
-        if len(fire_rows) == 5:
-            attempt('WINTERMELON', [(r,1) for r in ([1,3] if focused_fire else order)], 125)
-        if len(fire_rows) == 5:
-            iced_sides = all(plants.get((r,1),{}).get('type')=='PLANT_WINTERMELON' for r in [1,3])
-            if iced_sides and producers < 8:
-                attempt('SUNFLOWER', [(r,4) for r in [1,3]])
-            damaged = [(r,5) for r in row_order if plants.get((r,5),{}).get('type')=='PLANT_WALLNUT' and plants[(r,5)]['health']<1800 and (r,5) not in shells]
-            attempt('PUMPKINSHELL', damaged, 125)
-            # 两路冰瓜提供溅射减速后，先补普通西瓜，避免反复升级挤占输出预算。
-            if iced_sides and focused_fire:
-                attempt('MELONPULT', [(r,2) for r in order], 150)
-            if iced_sides:
-                attempt('STARFRUIT', [(r,3) for r in [2,1,3,0,4]], 150)
-            if iced_sides:
-                attempt('MELONPULT', [(r,2) for r in order], 150)
-            if not focused_fire:
-                attempt('WINTERMELON', [(r,2) for r in order], 150)
-            building_fire = focused_fire and any((r,2) not in plants for r in order)
-            if iced_sides and not building_fire:
-                attempt('PUMPKINSHELL', [(r,1) for r in row_order if (r,1) not in shells], 150)
+        # 有成群重装且炸弹就绪时先凑齐咖啡预算，避免被连续补种耗尽阳光。
+        if not saving_for_doom:
+            row_order = list(dict.fromkeys([z['row'] for z in nearest] + [2,0,4,1,3]))
+            attempt('WALLNUT', [(r,5) for r in row_order if (r,5) not in plants])
+            producers = sum(p['type'] == 'PLANT_SUNFLOWER' for p in plants.values())
+            if producers < 6:
+                attempt('SUNFLOWER', [(r,0) for r in [2,0,4,1,3]] + [(2,4)])
+            fire_rows = {r for (r,c),p in plants.items() if p['type'] in ('PLANT_MELONPULT','PLANT_WINTERMELON')}
+            weak = [r for r in [1,3,0,4,2] if r not in fire_rows]
+            weak.sort(key=lambda r: min([z['xInt'] for z in zombies if z['row']==r] or [2000]))
+            attempt('POTATOMINE', [(r,6) for r in weak if any(z['row']==r and z['xInt']>1020 for z in zombies)])
+            attempt('MELONPULT', [(r,1) for r in weak])
+            if len(fire_rows) == 5:
+                attempt('WINTERMELON', [(r,1) for r in ([1,3] if focused_fire else order)], 125)
+            if len(fire_rows) == 5:
+                iced_sides = all(plants.get((r,1),{}).get('type')=='PLANT_WINTERMELON' for r in [1,3])
+                if iced_sides and producers < 8:
+                    attempt('SUNFLOWER', [(r,4) for r in [1,3]])
+                damaged = [(r,5) for r in row_order if plants.get((r,5),{}).get('type')=='PLANT_WALLNUT' and plants[(r,5)]['health']<1800 and (r,5) not in shells]
+                attempt('PUMPKINSHELL', damaged, 125)
+                # 两路冰瓜提供溅射减速后，先补普通西瓜，避免反复升级挤占输出预算。
+                if iced_sides and focused_fire:
+                    attempt('MELONPULT', [(r,2) for r in order], 150)
+                if iced_sides:
+                    attempt('STARFRUIT', [(r,3) for r in [2,1,3,0,4]], 150)
+                if iced_sides:
+                    attempt('MELONPULT', [(r,2) for r in order], 150)
+                if not focused_fire:
+                    attempt('WINTERMELON', [(r,2) for r in order], 150)
+                building_fire = focused_fire and any((r,2) not in plants for r in order)
+                if iced_sides and not building_fire:
+                    attempt('PUMPKINSHELL', [(r,1) for r in row_order if (r,1) not in shells], 150)
         if chosen:
             commands.append(chosen)
             sun -= cards[chosen['slot']]['sunCost']
@@ -144,6 +153,7 @@ def play(output, until, focused_fire=False, deny_income=False):
         if state['coldStorage']['elapsed'] >= next_sample:
             sample = {k: state['coldStorage'][k] for k in ['elapsed','playerIce','enemyIce','spent','supplied','killIncome','playerKillIncome','deployments']}
             sample.update(sun=state['sun'],plants=state['plantCount'],zombies=state['zombieCount'],wave=state['wave'])
+            sample.update({k:state['coldStorage'].get(k) for k in ['commanderMode','commanderBudget','commanderSpent']})
             print(json.dumps(sample),flush=True)
             next_sample += 30
         (output/'marigold_checkpoint.json').write_text(json.dumps(state,ensure_ascii=False),encoding='utf-8')

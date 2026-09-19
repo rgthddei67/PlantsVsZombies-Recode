@@ -10,8 +10,9 @@ def verify(output):
     for name in ("bomb_ready", "bomb_unaffordable"):
         state = json.loads((output / f"{name}.json").read_text(encoding="utf-8"))
         pending = state["coldStorage"]["pending"]
-        assert len(pending) == 11, (name, pending)
+        assert 1 <= len(pending) <= 11, (name, pending)
         assert sum(z["cost"] for z in pending) + state["coldStorage"]["enemyIce"] == 600
+        assert sum(z['cost'] for z in pending) <= state['coldStorage']['commanderBudget']
         fronts, doctors = set(), set()
         for zombie in pending:
             # Stable ZombieType IDs of existing front-line units and healer in this fixture.
@@ -21,11 +22,13 @@ def verify(output):
                 assert zombie["row"] in fronts, "Healer committed without an earlier front line"
                 assert zombie["row"] not in doctors, "Repeated healer in one lane"
                 doctors.add(zombie["row"])
-        assert doctors, "Fixture must exercise healer coordination"
         formations.append(Counter(z["row"] for z in pending))
-    assert len(formations[0]) == 5 and max(formations[0].values()) <= 3
-    assert len(formations[1]) < 5 and max(formations[1].values()) > 3
-    print("Strategy verified: spread against affordable bomb; concentrate otherwise; protected healers; balanced payments.")
+    assert max(formations[0].values()) == 1
+    ready = json.loads((output / 'bomb_ready.json').read_text(encoding='utf-8'))['coldStorage']
+    unavailable = json.loads((output / 'bomb_unaffordable.json').read_text(encoding='utf-8'))['coldStorage']
+    assert ready['commanderMode'] == 'probe' and unavailable['commanderMode'] == 'pressure'
+    assert ready['commanderBudget'] < unavailable['commanderBudget']
+    print("Strategy verified: affordable bomb changes budget and spread; paid formations remain legal.")
 
 
 if __name__ == "__main__":

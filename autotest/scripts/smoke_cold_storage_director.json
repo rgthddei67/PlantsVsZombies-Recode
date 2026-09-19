@@ -45,7 +45,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -106,7 +107,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -167,7 +169,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -228,7 +231,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -289,7 +293,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -350,7 +355,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -411,7 +417,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -472,7 +479,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",
@@ -533,7 +541,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.pendingCount",
-      "atLeast": 8
+      "atLeast": 1,
+      "atMost": 8
     },
     {
       "op": "assert_state",

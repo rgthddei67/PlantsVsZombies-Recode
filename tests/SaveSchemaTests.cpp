@@ -606,6 +606,18 @@ namespace {
 
 int main() {
 	{
+		nlohmann::json previous={{"schemaVersion",17},{"coldStorage",{{"enemyIce",73},{"spent",500},
+			{"pending",nlohmann::json::array({{{"type",34},{"row",2},{"cost",16},{"remaining",2.5}}})}}}};
+		const auto pending = previous["coldStorage"]["pending"];
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"v17 可恢复指挥官节奏字段");
+		Expect(previous["coldStorage"]["enemyIce"]==73 && previous["coldStorage"]["spent"]==500,"指挥官升级不能增删冰块");
+		Expect(previous["coldStorage"]["pending"]==pending,"指挥官升级保留已付款队伍与倒计时");
+		Expect(previous["coldStorage"]["assaultCooldown"]==0 && previous["coldStorage"]["dispatchQuietSeconds"]==0,"旧档从中性决策状态接续");
+		const auto migrated = previous;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error) && previous==migrated,"指挥官迁移幂等");
+	}
+	{
 		nlohmann::json oldPlayer={{"schemaVersion",5},{"adventureLevel",82}};
 		std::string error;
 		Expect(SaveSchema::UpgradePlayerDocument(oldPlayer,error),"旧玩家档可迁移冷藏站习惯字段");

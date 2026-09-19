@@ -3,6 +3,7 @@
 #include "Game/Zombie/ZombieType.h"
 #include <array>
 #include <map>
+#include <string>
 #include <vector>
 
 /** 冷藏站出兵的已付款事务；出生之前仍占敌方兵力和同时名额。 */
@@ -24,6 +25,8 @@ struct ColdStorageState {
 	float supplyRemaining = 30.0f;
 	float decisionRemaining = 45.0f; // 首轮进攻前的布阵时间，游戏秒
 	float elapsed = 0.0f;
+	float assaultCooldown = 0.0f; // 总攻后的重新组织时间，游戏秒；读档不重置
+	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒，限制观望的最长时间
 	int spent = 0;
 	int supplied = 0;
 	int killIncome = 0;
@@ -33,6 +36,13 @@ struct ColdStorageState {
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
 	float lastBestScore = 0.0f;
+	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
+	std::string commanderMode = "opening";
+	int commanderBudget = 0;
+	int commanderSpent = 0;
+	int commanderReserve = 0;
+	int commanderFocusRow = -1;
+	float responseWindow = 0.0f;
 	bool battleStarted = false;
 	std::array<float, 4> habits{}; // 经济、爆炸、控制、保护的近期落种偏好，非难度倍率
 	std::vector<ColdStorageDeployment> pending;

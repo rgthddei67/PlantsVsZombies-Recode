@@ -370,6 +370,15 @@ namespace {
 				version = 17;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 17:
+				// v18 保存总攻冷却与观望时长；旧档允许正常决策，不改已付款队伍和资源。
+				if (upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					upgraded["coldStorage"]["assaultCooldown"] = 0.0f;
+					upgraded["coldStorage"]["dispatchQuietSeconds"] = 0.0f;
+				}
+				version = 18;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

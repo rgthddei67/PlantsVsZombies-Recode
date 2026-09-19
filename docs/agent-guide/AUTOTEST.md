@@ -37,6 +37,8 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 - 超时只代表结果未知，使用**原指令和原 `--id N`** 重试。旧序号不会再次执行；新进程创建新会话目录，不重放旧请求。参数或玩法拒绝记录到结果并继续本批后续命令，不自动重试；渲染器/状态导出失败仍按 AutoTest 故障退出。
 - 验证：可见启动 `interactive_contract.json`，随后运行 `python autotest/verify_interactive.py build/clang-release/autotest/out/interactive_contract`。检查其验证 JSON、退出码、`run.log` 和同步截图；普通卡槽/暂停路径回归用 `smoke_advanced_pause.json`。
 
+- 冷藏站指挥官：`smoke_cold_storage_commander.json` 与 `verify_cold_storage_commander.py` 验证实际付款队伍、反制牌可用性、支援前锋、总攻冷却读档及有限观望。`coldStorage` 下的 `commanderMode`、`commanderBudget`、`commanderSpent`、`commanderReserve`、`commanderFocusRow` 和 `responseWindowMs` 只解释最近一次计划，不是独立资源；每波名额是上限，不能再断言指挥官必须填满。完整平衡体验使用 `interactive_marigold_10_1_doom.json` 与 `play_cold_storage_marigold.py --focused-fire --deny-income`，`--until` 限定本段游戏时间，便于以 1 倍速观察和调整操作。
+
 `smoke_glyph_atlas_rebuild.json` 在同帧按血量串逐步扩充字形图集，并交错 Add 绘制；
 `glyph_atlas_rebuild_probe` 后必须立即截图，后续帧会掩盖旧纹理提前释放问题。
 运行 `python autotest/verify_glyph_atlas_rebuild.py <输出目录>`，比较重建帧与稳定帧的左右同串像素和绿色墨迹。

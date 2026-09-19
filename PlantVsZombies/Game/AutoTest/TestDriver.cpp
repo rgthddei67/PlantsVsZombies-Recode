@@ -4741,6 +4741,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
+		ice["commanderMode"] = board->mColdStorage.commanderMode;
+		ice["commanderBudget"] = board->mColdStorage.commanderBudget;
+		ice["commanderSpent"] = board->mColdStorage.commanderSpent;
+		ice["commanderReserve"] = board->mColdStorage.commanderReserve;
+		ice["commanderFocusRow"] = board->mColdStorage.commanderFocusRow;
+		ice["responseWindowMs"] = static_cast<int>(std::lround(board->mColdStorage.responseWindow * 1000));
 		ice["resourcesReady"] = ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_HOT_COLD_STORAGE", false)
 			&& ResourceManager::GetInstance().GetTexture("IMAGE_COLD_STORAGE_ICE_HEAD", false);
 		ice["cellCenters"] = nlohmann::json::array();
