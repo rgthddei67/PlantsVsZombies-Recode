@@ -3,9 +3,14 @@
   "humanObservation": true,
   "commands": [
     {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
       "op": "goto_level",
-      "level": 82,
-      "resetTestState": true
+      "level": 82
     },
     {
       "op": "wait_state",
