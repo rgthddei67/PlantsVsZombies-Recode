@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 
-def verify(root):
+def verify(root, production_only=False):
     """Compare actual ledgers, saved production state and decisions under changed threats."""
     units = root / 'smoke_cold_storage_units'
     ai = root / 'smoke_cold_storage_economy_ai'
@@ -12,19 +12,19 @@ def verify(root):
     def read(folder, name):
         return json.loads((folder / (name + '.json')).read_text(encoding='utf-8'))
 
-    for folder in (units, ai, root / 'smoke_cold_storage_reward'):
+    for folder in ((units,) if production_only else (units, ai, root / 'smoke_cold_storage_reward')):
         assert read(folder, 'status')['status'] == 'passed', folder
     # Production and AI share the interval; verify actual payouts against game time.
     spawned_at = read(units, 'worker_spawned')['coldStorage']['elapsed']
     for batch in range(1, 7):
         elapsed = read(units, f'batch_{batch}')['coldStorage']['elapsed'] - spawned_at
-        assert abs(elapsed - batch * 2.2) < 0.2, (batch, elapsed)
+        assert abs(elapsed - batch * 4.0) < 0.2, (batch, elapsed)
     paused, restored = (read(units, n) for n in ('buttered', 'restored'))
     for key in ('iceRemainingMs', 'iceBatches', 'nextIceYieldOn1000'):
         assert paused['zombiesByType']['ZOMBIE_ICE_WORKER'][key] == restored['zombiesByType']['ZOMBIE_ICE_WORKER'][key], key
     before, after = (read(units, n) for n in ('charmed', 'friendly_production'))
     mint_batches = after['iceMintsByCell']['2_1']['productionBatches'] - before['iceMintsByCell']['2_1']['productionBatches']
-    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 20 + mint_batches * 3
+    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 10 + mint_batches * 3
     assert after['coldStorage']['workerIncome'] == before['coldStorage']['workerIncome']
     assert read(units, 'removed')['coldStorage']['playerProductionIncome'] == read(units, 'after_removed')['coldStorage']['playerProductionIncome']
     for name in ('units', 'units_loaded'):
@@ -33,6 +33,10 @@ def verify(root):
     for key in ('iceRemainingMs', 'iceBatches', 'nextIceYieldOn1000'):
         assert read(units, 'frozen_start')['zombiesByType']['ZOMBIE_ICE_WORKER'][key] == read(units, 'frozen_wait')['zombiesByType']['ZOMBIE_ICE_WORKER'][key], key
     assert read(units, 'killed')['coldStorage']['workerIncome'] == read(units, 'after_killed')['coldStorage']['workerIncome']
+
+    if production_only:
+        print('Verified: four-second production, capped income, save continuity and production stopping on control/death.')
+        return
 
     states = {name: read(ai, name)['coldStorage'] for name in (
         'protected_investment', 'bomb_ready', 'unprofitable_fire', 'guard_ahead',
@@ -76,4 +80,5 @@ def verify(root):
 
 
 if __name__ == '__main__':
-    verify(Path(sys.argv[1] if len(sys.argv) > 1 else 'build/clang-release/autotest/out'))
+    verify(Path(next((a for a in sys.argv[1:] if a != '--units-only'), 'build/clang-release/autotest/out')),
+           production_only='--units-only' in sys.argv)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ColdStorageStrategy.h"
+#include "Game/Board/IceProduction.h"
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -16,7 +17,7 @@ inline constexpr Weights InitialWeights{3, 1, 120, 0.4f, 0.25f, -1, -2, 0.5f};
 
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
-	float productionRemaining = 2.2f, nextYield = 3, biteDps = 100;
+	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 100;
 };
 struct Plant {
 	int row = 0, column = 0, layer = 1;

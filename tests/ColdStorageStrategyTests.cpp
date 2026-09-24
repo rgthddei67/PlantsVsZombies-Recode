@@ -112,6 +112,13 @@ int main()
 	auto invalid = ColdStorageSearch::InitialWeights; invalid[0] = std::numeric_limits<float>::infinity();
 	check(!ColdStorageSearch::ValidWeights(invalid), "nonfinite learned artifact rejected");
 	std::cout << "Free plan search contracts passed\n";
+	// 新生工人的首次计时也必须走共享规则，防止调参只更新后续批次。
+	ColdStorageSearch::Snapshot production;
+	production.current.push_back(producer.unit);
+	production.current.back().body.speed = 0;
+	const auto predicted = ColdStorageSearch::Evaluate(production, {});
+	check(predicted[4] == IceProduction::Forecast(IceProduction::Interval, IceProduction::InitialYield, 60),
+		"search and live production share the complete first-minute schedule");
 
 	ColdStorageSearch::Snapshot contextual;
 	contextual.budget = 4; contextual.capacity = 1;
