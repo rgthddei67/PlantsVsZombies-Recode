@@ -28,6 +28,8 @@ public:
 	void OnSceneUpdated();
 	/** 显式批量评测可每个可见渲染帧推进多个原始固定步；普通/交互模式返回零。 */
 	int BatchStepsPerFrame() const { return mActive && !mInteractive ? mBatchSteps : 0; }
+	/** 训练脚本全静音；普通 AutoTest 默认只关闭背景音乐，不写玩家偏好。 */
+	bool MuteAudio() const { return mMuteAudio; }
 
 	const std::string& OutDir() const { return mOutDir; }
 
@@ -76,8 +78,9 @@ private:
 	/** 使用正式玩家接口驱动一次有限比赛，输出结果与采样轨迹。 */
 	bool ExecuteCommanderEpisode(const nlohmann::json& command);
 	int mBatchSteps = 0;
+	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
-	nlohmann::json mEpisodeInitial, mEpisodeTrace;
+	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings;
 
 	bool mActive = false;
 	int  mExitCode = 0;

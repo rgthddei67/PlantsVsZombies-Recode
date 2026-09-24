@@ -730,6 +730,8 @@ bool TestDriver::LoadScript(const std::string& path) {
 		return false;
 	}
 	for (const auto& c : j["commands"]) mCommands.push_back(c);
+	mMuteAudio = j.value("muteAudio",false) || std::any_of(mCommands.begin(),mCommands.end(),
+		[](const auto& command) { return command.value("op",std::string()) == "commander_episode"; });
 	mInteractive = j.value("interactive", false);
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
 	if (mBatchSteps < 0 || mBatchSteps > 32 || (mInteractive && mBatchSteps != 0)) return false;
@@ -3589,6 +3591,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["difficulty"] = gameApp.Difficulty;
 	out["encounteredEliteDancer"] = gameApp.HasEncounteredEliteDancer();
 	out["monteCarloAIEnabled"] = gameApp.mEnableMonteCarloAI;
+	out["testAudio"] = {{"muted",mMuteAudio},
+		{"masterPct",static_cast<int>(std::lround(AudioSystem::GetMasterVolume()*100))},
+		{"soundPct",static_cast<int>(std::lround(AudioSystem::GetSoundVolume()*100))},
+		{"musicPct",static_cast<int>(std::lround(AudioSystem::GetMusicVolume()*100))}};
 	out["advancedPauseEnabled"] = gameApp.mAdvancedPauseEnabled;
 	out["hxyModeEnabled"] = gameApp.mHxyModeEnabled;
 	out["cursorType"] = CursorTypeName(

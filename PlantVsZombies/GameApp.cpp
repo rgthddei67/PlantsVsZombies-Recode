@@ -433,8 +433,13 @@ int GameAPP::Run()
 	{
 		LOG_WARN("GameApp") << "无法加载玩家存档数据！可能是没有存档!";
 	}
-	// 自动测试默认静音音乐，覆盖本次进程的加载值；普通游玩偏好与音效音量不变。
-	if (mAutoTestMode) AudioSystem::SetMusicVolume(0.0f);
+	// 测试音量仅覆盖本进程：普通 AutoTest 有音效无背景音乐，训练在加载场景前全静音。
+	if (mAutoTestMode) {
+		const bool muted = TestDriver::GetInstance().MuteAudio();
+		AudioSystem::SetMusicVolume(0.0f);
+		AudioSystem::SetMasterVolume(muted ? 0.0f : 1.0f);
+		AudioSystem::SetSoundVolume(muted ? 0.0f : 0.5f);
+	}
 
 	// 初始化 GameAPP 自身
 	if (!Initialize()) {

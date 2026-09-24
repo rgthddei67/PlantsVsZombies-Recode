@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 from train_cold_storage import ROOT, mean, save, score
+from train_cold_storage_all import selection_key
 
 
 def recover(script, destination):
@@ -39,8 +40,8 @@ def recover(script, destination):
     if not policies or len({len(v) for v in scores.values()}) != 1:
         raise RuntimeError('Candidate case counts differ')
     ordered = sorted(policies)
-    winner = max(ordered, key=lambda i: mean(scores[i]))
     identity = json.loads((script.parent / 'identity.json').read_text())
+    winner = max(ordered, key=lambda i: selection_key(scores[i]) if identity.get('curriculum') == 'counter' else mean(scores[i]))
     save(destination, {'identity': identity, 'recoveredFrom': str(script.resolve()),
                        'history': [{'generation': 'recovered', 'population': [policies[i] for i in ordered],
                                     'scores': [scores[i] for i in ordered], 'champion': policies[winner],

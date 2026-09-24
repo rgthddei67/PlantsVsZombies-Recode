@@ -2,6 +2,8 @@
 
 指挥官的全兵种实战训练、经营压力陪练、断点续训与策略发布见 [冷藏站指挥官训练](../../autotest/COMMANDER_TRAINING.md)。旧战术专项显式使用 `commander_experiment` 的 `weights: null` 验证回退 AI；正式发布分支另做默认资源加载验收。
 
+普通 AutoTest 默认开启音效、关闭背景音乐。AI 训练脚本使用根字段 `muteAudio: true` 全静音；含 `commander_episode` 的旧训练脚本也自动全静音。覆盖只在测试进程生效，不写玩家音量偏好；状态 `testAudio` 可验证实际主音量、音效和音乐音量。
+
 [返回项目指南](PROJECT_GUIDE.md) · [全部文档](../README.md)
 
 本页维护可见运行、验证矩阵、测试输出和常用夹具。编译前先读 [构建与调试](BUILD_AND_DEBUG.md)。代码和资产的公共约束见 [架构与资源契约](ARCHITECTURE_AND_RESOURCES.md)。

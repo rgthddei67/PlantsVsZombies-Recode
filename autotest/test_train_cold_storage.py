@@ -2,10 +2,25 @@
 import copy
 import unittest
 from train_cold_storage import episode_commands, score
-from train_cold_storage_all import diverse_archive, outcome_gate
+from train_cold_storage_all import diverse_archive, outcome_gate, selection_key
 
 
 class TrainerTests(unittest.TestCase):
+    def test_winning_policy_is_not_discarded_for_stalling(self):
+        stalled = [{'outcome':'timeout','score':150} for _ in range(4)]
+        winning = [{'outcome':'commander_win','score':10000}] + [{'outcome':'player_win','score':-10000} for _ in range(3)]
+        self.assertGreater(selection_key(winning),selection_key(stalled))
+
+    def test_counter_and_ash_opponents_have_real_squash_cards(self):
+        for opponent in ('counter','ash'):
+            commands = episode_commands(None,9251,'opening',opponent,420,'case')
+            cards = next(c for c in commands if c['op']=='choose_cards')['cards']
+            self.assertTrue({'PLANT_SQUASH','PLANT_CHERRYBOMB','PLANT_JALAPENO','PLANT_WALLNUT'} <= set(cards))
+            self.assertEqual(commands[-1]['opponent'],opponent)
+            if opponent == 'ash':
+                self.assertFalse({'PLANT_MELONPULT','PLANT_WINTERMELON'} & set(cards))
+            self.assertFalse(any(c['op'] in ('plant','set_sun','set_cold_storage') for c in commands))
+
     def test_normal_curriculum_does_not_unlock_full_roster(self):
         commands = episode_commands([1] * 8, 601, 'normal:economy', 'bomb', 300, 'case', True)
         experiment = next(c for c in commands if c['op'] == 'commander_experiment')

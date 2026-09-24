@@ -35,6 +35,10 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         all_zombies = False
     policy = weights if isinstance(weights, dict) else {"weights": weights}
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
+    if opponent in ('counter', 'ash'):
+        cards += ['SQUASH']
+    if opponent == 'ash':
+        cards = [c for c in cards if c not in ('MELONPULT', 'WINTERMELON')]
     elite = arena.startswith('elite_')
     if elite:
         cards = [({'MELONPULT': 'REPEATER', 'WINTERMELON': 'ELITE_SCAREDYSHROOM'}).get(c, c) for c in cards]
@@ -49,10 +53,11 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     ]
     if all_zombies or policy.get('noWorkers'):
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
-    if arena.startswith(('fortress', 'economy', 'elite_')):
-        opening_ice = 96 if arena.startswith('economy') else 600
+    if arena.startswith(('fortress', 'economy', 'elite_', 'developing')):
+        developing = arena.startswith('developing')
+        opening_ice = 250 if developing else 96 if arena.startswith('economy') else 600
         commands += [
-            {'op': 'set_cold_storage', 'state': {'elapsed': 300, 'decisions': 20,
+            {'op': 'set_cold_storage', 'state': {'elapsed': 100 if developing else 300, 'decisions': 4 if developing else 20,
              'enemyIce': opening_ice, 'initialEnemyIce': opening_ice, 'playerIce': 3000,
              'decisionRemaining': 1, 'dispatchQuietSeconds': 25}},
             {'op': 'set_sun', 'value': 1000},
@@ -68,14 +73,16 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                 elite_columns = ([0, 1] if relative in (0, 2) else []) if 'cluster' in arena else ([0] if relative < 4 else [])
                 for column in elite_columns:
                     lineup += [('ELITE_SCAREDYSHROOM', column), ('PUMPKINSHELL', column)]
+            if developing:
+                lineup = [('MELONPULT', 0), ('SUNFLOWER', 3), ('SUNFLOWER', 5)]
             for kind, col in lineup:
                 commands.append({'op': 'plant', 'type': 'PLANT_' + kind, 'row': row, 'col': col})
             if arena.startswith('economy'):
                 commands += [{'op': 'plant', 'type': 'PLANT_MELONPULT', 'row': row, 'col': 2},
                              {'op': 'plant', 'type': 'PLANT_PUMPKINSHELL', 'row': row, 'col': 2}]
-            if arena.startswith('economy') or row != seed % 5:
+            if developing or arena.startswith('economy') or row != seed % 5:
                 commands.append({'op': 'plant', 'type': 'PLANT_WALLNUT', 'row': row, 'col': 6})
-        commands.append({'op': 'set_cold_storage', 'state': {'playerIce': 300}})
+        commands.append({'op': 'set_cold_storage', 'state': {'playerIce': 180 if developing else 300}})
     if policy.get('probe'):
         commands.append({'op': 'queue_ice_zombie', 'type': policy['probe'], 'row': seed % 5, 'delay': 0})
     # 升级株替换的旧实体在下一逻辑步清理，基线不能把同一格的新旧输出重复计数。
@@ -120,7 +127,7 @@ def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=F
             commands += episode_commands(weights, seed, arena, opponent, seconds, result_name, all_zombies)
             jobs.append((index, case_index, result_name))
     commands += [{'op': 'screenshot', 'name': 'final.png'}, {'op': 'quit'}]
-    payload = {'batchStepsPerFrame': steps, 'commands': commands}
+    payload = {'muteAudio': True, 'batchStepsPerFrame': steps, 'commands': commands}
     artifact_dir = game_dir / 'autotest' / 'out' / name
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     cache = output / (name + '_scores.json')

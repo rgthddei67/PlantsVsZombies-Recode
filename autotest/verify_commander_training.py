@@ -26,7 +26,11 @@ def verify(directory):
             checked.add(path)
             result = load(path)
             assert result['outcome'] in ('commander_win', 'player_win', 'timeout')
-            assert len(result['initial']['cards']) == (11 if result['initial']['coldStorage'].get('trainingAllUnits') else 9)
+            for state in (result['initial'],result['final']):
+                if 'testAudio' in state:
+                    assert state['testAudio'] == {'muted':True,'masterPct':0,'soundPct':0,'musicPct':0}, path
+            card_count = {'counter': 10, 'ash': 8}.get(result['opponent'], 9)
+            assert len(result['initial']['cards']) == card_count + (2 if result['initial']['coldStorage'].get('trainingAllUnits') else 0)
             assert sum(c['gameplayType'] == 'PLANT_MARIGOLD' for c in result['initial']['cards']) == 2
             for sample in [result['initial'], result['final']] + [{'coldStorage': t['ice']} for t in result['trace']]:
                 ice = sample['coldStorage']

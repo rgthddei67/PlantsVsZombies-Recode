@@ -17,12 +17,14 @@ inline constexpr Weights InitialWeights{3, 1, 120, 0.4f, 0.25f, -1, -2, 0.5f};
 
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
-	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 100;
+	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
+	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
 };
 struct Plant {
 	int row = 0, column = 0, layer = 1;
 	float x = 0, health = 0, dps = 0, reward = 0;
 	float slowRate = 0, slowDuration = 0, stopDuty = 0;
+	float sunPerSecond = 0;
 	int rowRadius = 0;
 	float range = 10000;
 	bool multiTarget = false, around = false;
@@ -30,14 +32,23 @@ struct Plant {
 };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
+/** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
+struct Counter {
+	ColdStorageStrategy::BlastThreat blast;
+	int source = 0, sunCost = 0, iceCost = 0;
+	float recharge = 10000, windup = 1;
+	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
+};
 struct Snapshot {
 	int budget = 0, capacity = 0;
+	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
+	int playerSun = 0, playerIce = 0, incomingIce = 0;
+	float incomingIceAt = 0;
 	float houseX = 160, rightEdge = 1100;
 	std::vector<Unit> current;
 	std::vector<Plant> plants;
 	std::vector<Option> options;
-	std::vector<ColdStorageStrategy::BlastThreat> blasts;
-	std::array<float, 6> slowDuty{};
+	std::vector<Counter> counters;
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {

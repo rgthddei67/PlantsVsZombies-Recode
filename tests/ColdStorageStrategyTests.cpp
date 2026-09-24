@@ -112,6 +112,33 @@ int main()
 	auto invalid = ColdStorageSearch::InitialWeights; invalid[0] = std::numeric_limits<float>::infinity();
 	check(!ColdStorageSearch::ValidWeights(invalid), "nonfinite learned artifact rejected");
 	std::cout << "Free plan search contracts passed\n";
+
+	// 两张不同的清场牌可以先后消耗同一支重甲队；同一卡的候选格位不能复制次数。
+	ColdStorageSearch::Snapshot countered;
+	countered.houseX = 0; countered.playerSun = 300; countered.playerIce = 200;
+	ColdStorageSearch::Unit heavy;
+	heavy.body.x = 800; heavy.body.health = 3000; heavy.body.purchaseCost = 16;
+	countered.current.assign(4,heavy);
+	ColdStorageSearch::Counter response;
+	response.blast.x = 800; response.blast.reach.fill(-1); response.blast.reach[0] = 130;
+	response.blast.damage = 1800; response.recharge = 100; response.sunCost = 125; response.iceCost = 90;
+	countered.counters = {response,response};
+	const auto singleCounter = ColdStorageSearch::Evaluate(countered,{});
+	countered.counters[1].source = 1;
+	const auto twoCounters = ColdStorageSearch::Evaluate(countered,{});
+	check(twoCounters[6] > singleCounter[6] && twoCounters[3] < singleCounter[3],
+		"independent response cards hit survivors; alternative cells cannot duplicate a card");
+	countered.playerSun = 125;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == singleCounter[6], "counter sequence shares player sun budget");
+	countered.playerSun = 300; countered.playerIce = 90;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == singleCounter[6], "counter sequence shares player ice budget");
+	countered.playerIce = 200; countered.counters[1].blast.ready = 70;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == singleCounter[6], "cooldown beyond horizon cannot clear reinforcements");
+	countered.current.assign(1,heavy); countered.current[0].body.health = 1700;
+	countered.counters.resize(1); countered.counters[0].targeted = true; countered.counters[0].blast.x = 710;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == 16, "squash can counter one valuable nearby target");
+	countered.counters[0].blast.x = 500;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == 0, "squash cannot target across half the lawn");
 	// 新生工人的首次计时也必须走共享规则，防止调参只更新后续批次。
 	ColdStorageSearch::Snapshot production;
 	production.current.push_back(producer.unit);
@@ -133,4 +160,11 @@ int main()
 	contextual.context[0][1] = 0;
 	check(ColdStorageSearch::Search(contextual, contextScore, 77).score < support.score,
 		"healthy allies do not receive wounded-ally preference");
+	contextual.options[0].preference = {}; contextScore[5] = -1;
+	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"waiting remains legal before the deadline");
+	contextual.allowWait = false;
+	const auto resume = ColdStorageSearch::Search(contextual,contextScore,77);
+	check(!resume.actions.empty() && resume.actions.front().delay == 0,"empty board must act when bounded observation expires");
+	contextual.budget = 0;
+	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"observation deadline cannot authorize unpaid troops");
 }

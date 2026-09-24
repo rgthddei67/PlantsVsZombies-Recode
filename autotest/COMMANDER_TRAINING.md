@@ -7,13 +7,13 @@ python autotest/train_cold_storage_all.py --output build/clang-release/autotest/
 python autotest/verify_commander_training.py build/clang-release/autotest/training/my_run
 ```
 
-游戏窗口在桌面可见。`batchStepsPerFrame` 只让非交互 AutoTest 在每次绘制间执行多个原始固定步，不改变技能或碰撞的单步时间；普通游戏和 `live.py` 不启用它。Codex 启动仍须从提升权限的 shell 执行。
+游戏窗口在桌面可见，训练默认全静音；普通 AutoTest 默认有音效、无背景音乐，不改玩家的游玩音量偏好。`batchStepsPerFrame` 只让非交互 AutoTest 在每次绘制间执行多个原始固定步，不改变技能或碰撞的单步时间；普通游戏和 `live.py` 不启用它。Codex 启动仍须从提升权限的 shell 执行。
 
 ## 学习与决策
 
 程序进化全局局势权重和每个兵种的局势偏好；特征顺序见 `train_cold_storage_all.py` 的 `CONTEXT` 和生成策略中的 `contextFeatures`。友军伤势、密度、墙体、控制、火力、工人及后排保护用于区分能力发挥的场景。游戏内用有限位置推演搜索兵种、路线、出生间隔、队伍长度，也可以等待，没有预置“橄榄先行”或“巨人先行”模板。
 
-候选推演包括前锋承伤、邻路西瓜溅射、减速、啃食、巨人砸击、制冰和一次爆炸反制。它不是完整游戏副本，不模拟所有特殊能力、未来补阵和多次炸弹。**训练成绩来自正式引擎比赛**，特殊能力在那里真实执行；按兵种学习的偏好用于弥补近似预测的不足，不能称作已准确理解所有技能。
+候选推演包括前锋承伤、邻路西瓜溅射、减速、啃食、巨人砸击、制冰及连续清场反制。每张反制牌的落点共享该卡冷却，多张牌共同消耗玩家当前阳光、冰块及已在途冰块，付费僵尸的死亡返冰也会影响后续可用反制；倭瓜先索敌再在目标附近预测砸击。它不是完整游戏副本，特殊能力、伤害层和未来补阵仍有近似。**训练成绩来自正式引擎比赛**，特殊能力在那里真实执行；按兵种学习的偏好用于弥补近似预测的不足，不能称作已准确理解所有技能。
 
 全兵种实验从实际注册表取得独立陆地单位，排除水路专用、仅召唤单位和视觉原型。每个陌生兵种先获得正常付费的出场探针，再由真实战果决定偏好。普通游戏不因此解锁兵种或跳过波次门槛。当前策略仅接入 10-1/10-2；其他地图的地形规则不受影响。
 
@@ -22,6 +22,10 @@ python autotest/verify_commander_training.py build/clang-release/autotest/traini
 ## 陪练与验收
 
 植物陪练通过正式种植、买冰、收阳光、铲除接口操作，使用金盏花和模仿者金盏花。后排输出植物会补南瓜；全兵种陪练还带对空植物。没有对局中免费种植或重置冷却。
+
+`train_cold_storage_all.py --curriculum counter` 继承已有兵种经验，在正式卡池续训“坚果拖延＋樱桃、辣椒、倭瓜连续反制”。`developing` 战术片段从橄榄刚解锁、坚果防线已存在的阶段开始，补足正常开局中不易稳定重复的决策窗口。逐场 `playerPlantings` 记录真正成功种下的植物，确认陪练确实使用了反制，而不是只带着卡。
+
+反制课程先按真实获胜场数选优，再比较落败场数及有界评分，避免大量超时掩盖缺乏进攻；源策略、已发布策略和训练候选都参加迁移对照。`--generations 0` 跳过变异，用现有候选做当前引擎复测。空场有可支付行动时，搜索也受 Board 已有的最长观望时间约束，不允许靠永远不出兵冻结解锁进度；超时后仍自由比较可行行动，不指定兵种或队形。
 
 场景包含正常开局、成型阵地 `fortress` 和低库存、完整防线的 `economy`。后两者是预先设置双方资源与阵型的战术片段，不能冒充完整开局胜率。经营压力用于检验持久战，并不保证只有制冰工这一条解法。另做允许/禁止制冰工的对照，记录实际部署和产冰，不能把低库存直接认定为经营失败，也不能把存冰高当成胜利。
 
@@ -33,6 +37,8 @@ python autotest/verify_commander_training.py build/clang-release/autotest/traini
 python autotest/evaluate_commander_formations.py --policy build/clang-release/autotest/training/my_run/candidate_policy.json --output build/clang-release/autotest/training/unseen_elite --seed 401000
 python autotest/verify_commander_training.py build/clang-release/autotest/training/unseen_elite
 ```
+
+加 `--opponent ash` 可测试纯灰烬＋坚果拖延：保留经济植物、坚果/南瓜和三种即时清场，不带持续输出植物；正常开局，无免费预建阵地。这套对手应留在训练结束后检验，不参与本轮参数选优。
 
 全兵种训练器的发布门槛是：至少十二个配对留出场景，比旧 AI 多取得至少两次真实胜利，且不丢掉旧 AI 已获胜的场景。获胜来自 Board 的真实输赢状态；限时未结束记为 timeout。评分塑形有界，不能靠无限存冰压过真实胜负。门槛是有限样本工程检查，不代表对所有玩家更强。
 

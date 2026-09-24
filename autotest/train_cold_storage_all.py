@@ -27,7 +27,7 @@ def catalog(game, output):
     script = output / (name + '.json')
     commands = episode_commands(INITIAL, 11, 'opening', 'bomb', 1, 'catalog_episode', True)
     commands += [{'op': 'dump_state', 'name': 'catalog.json'}, {'op': 'quit'}]
-    save(script, {'batchStepsPerFrame': 32, 'commands': commands})
+    save(script, {'muteAudio': True, 'batchStepsPerFrame': 32, 'commands': commands})
     subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                     str(ROOT / 'autotest/run_commander_batch.ps1'), '-GameDirectory', str(game),
                     '-Script', str(script)], check=True)
@@ -63,9 +63,15 @@ def restart_policy(policy, rng):
     return result
 
 
-def diverse_archive(population, scores):
+def selection_key(rows):
+    """Counter training seeks actual wins first; repeated timeouts must not beat a winning policy."""
+    return (sum(r['outcome'] == 'commander_win' for r in rows),
+            -sum(r['outcome'] == 'player_win' for r in rows), mean(rows))
+
+
+def diverse_archive(population, scores, prefer_wins=False):
     """Keep overall and per-scenario elites so economic survival experience isn't discarded."""
-    order = [max(range(len(population)), key=lambda i: mean(scores[i]))]
+    order = [max(range(len(population)), key=lambda i: selection_key(scores[i]) if prefer_wins else mean(scores[i]))]
     order += [max(range(len(population)), key=lambda i: scores[i][case]['score'])
               for case in range(len(scores[0]))]
     return [copy.deepcopy(population[i]) for i in dict.fromkeys(order)]
@@ -89,7 +95,8 @@ def train(args):
                 'coreSha256': hashlib.sha256((ROOT / 'autotest/train_cold_storage.py').read_bytes()).hexdigest(),
                 'gameDataSha256': hashlib.sha256((game / 'resources/gamedata.json').read_bytes()).hexdigest(),
                 'population': args.population, 'generations': args.generations, 'seconds': args.seconds,
-                'probeSeconds': args.probe_seconds, 'skipProbes': args.skip_probes, 'seed': args.seed, 'heldoutSeed': args.heldout_seed}
+                'probeSeconds': args.probe_seconds, 'skipProbes': args.skip_probes, 'seed': args.seed, 'heldoutSeed': args.heldout_seed,
+                'curriculum': args.curriculum}
     if args.from_checkpoint:
         identity['sourceSha256'] = hashlib.sha256(args.from_checkpoint.read_bytes()).hexdigest()
     identity_path = output / 'identity.json'
@@ -131,10 +138,17 @@ def train(args):
         for name, rows in probe_results.items():
             champion['preferences'][name][0] = round(max(-10, min(10, (mean(rows) - mean(baseline)) * .05)), 6)
     source_policy = copy.deepcopy(champion)
+    incumbent = read(game / 'resources/ai/cold_storage_policy.json') if args.curriculum == 'counter' else source_policy
+    incumbent = {key: copy.deepcopy(incumbent[key]) for key in ('weights','preferences')}
     rng = random.Random(args.seed)
     cases = [('normal:opening', 'growth', 601, args.seconds), ('normal:fortress', 'bomb', 602, args.seconds),
              ('fortress_10_2', 'deny', 603, args.seconds),
              ('normal:economy', 'bomb', 604, max(300, args.seconds))]
+    if args.curriculum == 'counter':
+        cases = [('normal:opening', 'counter', 2601, args.seconds),
+                 ('normal:developing', 'counter', 2602, args.seconds),
+                 ('normal:fortress_10_2', 'counter', 2603, max(300,args.seconds)),
+                 ('normal:economy', 'bomb', 2604, max(300,args.seconds))]
     history = []
     archive = [copy.deepcopy(champion)]
     if args.from_checkpoint:
@@ -144,7 +158,7 @@ def train(args):
                 # 旧实战只用于选择多样的起点；新版本/新陪练下仍须重新比赛，旧分不进本轮排名。
                 prior_scores = [[dict(row, score=score(read(row['result']))) if Path(row['result']).exists() else row
                                  for row in rows] for rows in generation_data['scores']]
-                for policy in diverse_archive(generation_data['population'], prior_scores):
+                for policy in diverse_archive(generation_data['population'], prior_scores, args.curriculum == 'counter'):
                     normalized = copy.deepcopy(champion)
                     normalized['weights'] = policy['weights'][:]
                     for name, values in policy.get('preferences', {}).items():
@@ -156,10 +170,15 @@ def train(args):
         population += [mutate(archive[(generation * (args.population-2) + i) % len(archive)], rng, .85 ** generation)
                        for i in range(args.population-2)]
         population.append(restart_policy(archive[-1], rng))
+        if args.curriculum == 'counter' and generation == 0 and len(population) >= 3:
+            population[1] = copy.deepcopy(incumbent)
+            population[2] = {'weights':INITIAL[:], 'preferences':{name:[0]*len(CONTEXT) for name in names}}
+            if len(population) >= 5:
+                population[4] = dict(copy.deepcopy(population[2]),weights=incumbent['weights'][:])
         scores = run_batch(game, output, output.name + f'_generation_{generation}', population, cases, all_zombies=True)
-        best = max(range(len(population)), key=lambda i: mean(scores[i]))
+        best = max(range(len(population)), key=lambda i: selection_key(scores[i]) if args.curriculum == 'counter' else mean(scores[i]))
         champion = population[best]
-        archive = diverse_archive(population, scores)
+        archive = diverse_archive(population, scores, args.curriculum == 'counter')
         history.append({'generation': generation, 'population': population, 'scores': scores,
                         'champion': champion, 'trainingScore': mean(scores[best])})
         save(output / 'checkpoint.json', {'identity': identity, 'history': history, 'archive': archive,
@@ -169,9 +188,14 @@ def train(args):
                       ('fortress', 'bomb', 1202, args.seconds),
                       ('fortress_10_2', 'deny', 1203, args.seconds),
                       ('economy', 'bomb', 1204, max(300, args.seconds))]
-    transfer = [source_policy, champion]
+    if args.curriculum == 'counter':
+        transfer_cases = [('opening_10_2','counter',3601,args.seconds),
+                          ('developing','counter',3602,args.seconds),
+                          ('fortress','counter',3603,max(300,args.seconds)),
+                          ('opening','growth',3604,args.seconds)]
+    transfer = [incumbent, source_policy, champion] if args.curriculum == 'counter' else [source_policy, champion]
     transfer_scores = run_batch(game, output, output.name + '_transfer', transfer, transfer_cases)
-    winner = max(range(len(transfer)), key=lambda i: mean(transfer_scores[i]))
+    winner = max(range(len(transfer)), key=lambda i: selection_key(transfer_scores[i]) if args.curriculum == 'counter' else mean(transfer_scores[i]))
     champion = transfer[winner]
     history.append({'generation': 'normal_transfer', 'population': transfer, 'scores': transfer_scores,
                     'champion': champion, 'trainingScore': mean(transfer_scores[winner])})
@@ -186,8 +210,14 @@ def train(args):
                     ('fortress', 'growth', seed + 37, args.seconds),
                     ('fortress_10_2', 'deny', seed + 41, args.seconds),
                     ('economy_10_2', 'bomb', seed + 53, max(300, args.seconds))]
+    if args.curriculum == 'counter':
+        heldout = [(arena,opponent,args.heldout_seed + n*7919 + offset,max(420,args.seconds))
+                   for n in range(3) for arena,opponent,offset in
+                   [('opening','counter',11),('opening_10_2','counter',23),
+                    ('developing','counter',37),('fortress_10_2','counter',41),('opening','growth',53)]]
     # 旧的训练冠军也一起比较，检查全兵种经验是否真能迁移，而非只会利用提前解锁。
-    scores = run_batch(game, output, output.name + '_normal_holdout', [None, weights, champion], heldout)
+    scores = run_batch(game, output, output.name + '_normal_holdout',
+                       [None, incumbent if args.curriculum == 'counter' else weights, champion], heldout)
     # 独立经营压力对照只作解释，不用它继续调整已冻结的参数。
     economy_control = run_batch(game, output, output.name + '_economy_control',
                                 [champion, dict(copy.deepcopy(champion), noWorkers=True)],
@@ -218,9 +248,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=20260920)
     parser.add_argument('--heldout-seed', type=int, default=51000)
     parser.add_argument('--skip-probes', action='store_true', help='Retain prior per-unit experience and train against a revised opponent')
+    parser.add_argument('--curriculum', choices=('mixed','counter'), default='mixed', help='Counter curriculum keeps normal unlocks and adds nuts plus three instant counters')
     parser.add_argument('--publish', action='store_true')
     args = parser.parse_args()
-    if not (2 <= args.population <= 32 and 1 <= args.generations <= 100
+    if not (2 <= args.population <= 32 and 0 <= args.generations <= 100
             and 60 <= args.seconds <= 1200 and 30 <= args.probe_seconds <= 300):
-        parser.error('population 2..32, generations 1..100, seconds 60..1200, probe-seconds 30..300')
+        parser.error('population 2..32, generations 0..100, seconds 60..1200, probe-seconds 30..300')
     train(args)

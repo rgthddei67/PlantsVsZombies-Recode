@@ -11,6 +11,7 @@
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Plant/IceMint.h"
+#include "Game/Plant/Squash.h"
 #include "GameApp.h"
 #include "DeltaTime.h"
 #include <nlohmann/json.hpp>
@@ -114,6 +115,7 @@ namespace {
 		if (blast.type == PlantType::PLANT_COBCANNON) return rows <= blast.rowRadius ? blast.radius : -1.0f;
 		if (blast.type == PlantType::PLANT_JALAPENO) return rows == 0 ? 10000.0f : -1.0f;
 		if (blast.type == PlantType::PLANT_CHERRYBOMB) return rows <= 1 ? 130.0f : -1.0f;
+		if (blast.type == PlantType::PLANT_SQUASH) return rows == 0 ? 50.0f : -1.0f;
 		// 与 CreateDoomBoom 的圆/碰撞矩形纵向口径一致，用当前棋盘行距换算。
 		const float dy = std::max(0.0f, rows * static_cast<float>(CELL_COLLIDER_SIZE_Y)
 			- (row > blast.row ? 65.0f : 35.0f));
@@ -717,9 +719,54 @@ void Board::PlanColdStorageAttack()
 		ColdStorageSearch::Snapshot search;
 		search.budget = s.enemyIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
+		search.allowWait = GetColdStorageHostileCount() > 0 || s.dispatchQuietSeconds < kMaxObserveSeconds;
 		search.rightEdge = SCENE_WIDTH;
 		search.houseX = GetCellCenterPosition(0, 0).x - 120;
-		search.blasts = blastThreats; search.slowDuty = slowDuty;
+		search.playerSun = mSun; search.playerIce = s.playerIce;
+		search.incomingIce = s.orderIce; search.incomingIceAt = s.orderRemaining;
+		// 一个卡槽只代表一张可用反制牌，合法格位是替代落点，不能凭空复制次数。
+		int source = 0;
+		auto addCounter = [&](const EconomyBlast& blast, int id, int sun, int ice, float recharge, bool targeted) {
+			ColdStorageSearch::Counter counter;
+			counter.source = id; counter.sunCost = sun; counter.iceCost = ice;
+			counter.recharge = recharge; counter.targeted = targeted;
+			counter.windup = blast.type == PlantType::PLANT_COBCANNON ? 4.0f : targeted ? 1.7f : 1.0f;
+			counter.blast.x = blast.x; counter.blast.ready = blast.ready; counter.blast.damage = blast.damage;
+			counter.blast.committed = blast.committed;
+			counter.blast.usesObjectX = blast.type != PlantType::PLANT_DOOMSHROOM;
+			counter.blast.reach.fill(-1);
+			for (int row = 0; row < mRows; ++row) counter.blast.reach[row] = EconomyBlastReach(blast,row);
+			search.counters.push_back(counter);
+		};
+		if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
+			if (!card) continue;
+			const auto type = card->GetGameplayPlantType();
+			if (!IsInstantBlast(type) && type != PlantType::PLANT_SQUASH) continue;
+			const bool doom = type == PlantType::PLANT_DOOMSHROOM;
+			if (doom && !hasCoffee) continue;
+			const int id = source++;
+			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col))
+				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max(card->GetCooldownTimer(),doom ? coffeeWait : 0.0f),false},
+					id,card->GetSunCost() + (doom ? coffeeSun : 0),GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0),
+					card->GetCooldownTime(),type == PlantType::PLANT_SQUASH);
+		}
+		for (const auto& p : snapshot.plants) {
+			const Plant* entity = mEntityRegistry.GetPlant(p.id);
+			if (!entity) continue;
+			if (const auto* squash = dynamic_cast<const Squash*>(entity)) {
+				if (squash->HasAppliedDamage()) continue;
+				const Zombie* target = mEntityRegistry.GetZombie(squash->GetTargetZombieID());
+				addCounter({PlantType::PLANT_SQUASH,p.row,target ? target->GetPosition().x : p.x,target ? 1.0f : 0.0f,target != nullptr},source++,0,0,10000,target == nullptr);
+			} else if (IsInstantBlast(entity->GetPlacementType())) {
+				if (!entity->GetSleepState()) addCounter({entity->GetPlacementType(),p.row,p.x,1,true},source++,0,0,10000,false);
+				else if (hasCoffee) addCounter({entity->GetPlacementType(),p.row,p.x,coffeeWait,false},source++,coffeeSun,GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE),10000,false);
+			} else if (p.cobBlastDamage > 0) {
+				const int id = source++;
+				for (const auto& cell : snapshot.cells) addCounter({PlantType::PLANT_COBCANNON,cell.row,cell.x,p.abilityCooldownRemaining,false,p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);
+			}
+		}
+		for (const auto& blast : snapshot.pendingCobBlasts)
+			addCounter({PlantType::PLANT_COBCANNON,blast.targetRow,blast.x,blast.resolveSeconds,true,blast.radius,blast.rowRadius,blast.damage},source++,0,0,10000,false);
 		for (const auto& body : formation) search.current.push_back({body});
 		// 生产进度使用同一实体，不以成熟工人的默认第一批代替实际收入。
 		size_t index = 0;
@@ -728,6 +775,8 @@ void Board::PlanColdStorageAttack()
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.biteDps = entity->GetMineSimulationAttackDps();
+			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
+				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
 			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
 				unit.productionRemaining = worker->GetIceRemaining(); unit.nextYield = worker->GetNextIceYield();
 			}
@@ -736,11 +785,13 @@ void Board::PlanColdStorageAttack()
 			ColdStorageSearch::Plant plant;
 			plant.row = p.row; plant.column = p.column; plant.layer = p.eatingLayerPriority;
 			plant.x = p.x; plant.health = p.health; plant.dps = p.attackDps;
+			plant.sunPerSecond = p.sunPerSecond;
 			plant.rowRadius = p.attackRowRadius; plant.edible = p.canBeEaten;
 			plant.slowRate = p.slowApplicationsPerSecond; plant.slowDuration = p.slowDuration;
 			plant.stopDuty = p.frozenApplicationsPerSecond * p.frozenDuration + p.butterApplicationsPerSecond * p.butterDuration;
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				const auto type = entity->GetPlacementType();
+				if (IsInstantBlast(type) || type == PlantType::PLANT_SQUASH) continue;
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
 				const auto& profile = GameDataManager::GetInstance().GetPlantSimulationProfile(type);
 				plant.multiTarget = profile.mineMultiTarget;
@@ -766,6 +817,7 @@ void Board::PlanColdStorageAttack()
 				ColdStorageSearch::Option option;
 				option.type = static_cast<int>(type); option.row = row; option.cost = GetZombieIceCost(type);
 				option.unit.body = newSplashUnit(type, row, 0);
+				option.unit.playerRefund = static_cast<float>(option.cost * 3 / 4);
 				option.preference = ColdStoragePolicy::UnitPreference(type);
 				search.options.push_back(option);
 			}

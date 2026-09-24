@@ -1,0 +1,24 @@
+{
+  "commands": [
+    {"op":"goto_level","level":82,"resetTestState":true},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0]},
+    {"op":"choose_cards","cards":["PLANT_WALLNUT","PLANT_CHERRYBOMB","PLANT_JALAPENO","PLANT_SQUASH"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":250,"initialEnemyIce":250,"decisions":4,"elapsed":100,"dispatchQuietSeconds":0,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":0},
+    {"op":"set_cold_storage","state":{"dispatchQuietSeconds":25}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":1},
+    {"op":"assert_state","path":"coldStorage.commanderSpent","equals":4},
+    {"op":"assert_state","path":"coldStorage.commanderMode","equals":"search"},
+    {"op":"assert_state","path":"testAudio.soundPct","equals":50},
+    {"op":"assert_state","path":"testAudio.musicPct","equals":0},
+    {"op":"dump_state","name":"bounded_wait.json"},
+    {"op":"set_cold_storage","state":{"pending":[],"enemyIce":0}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":0},
+    {"op":"quit"}
+  ]
+}
