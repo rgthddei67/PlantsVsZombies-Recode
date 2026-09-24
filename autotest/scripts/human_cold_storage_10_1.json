@@ -1,0 +1,16 @@
+{
+  "interactive": true,
+  "humanObservation": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 82,
+      "resetTestState": true
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 25
+    }
+  ]
+}

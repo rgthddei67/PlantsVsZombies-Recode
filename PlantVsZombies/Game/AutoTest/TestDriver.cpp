@@ -733,6 +733,8 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mMuteAudio = j.value("muteAudio",false) || std::any_of(mCommands.begin(),mCommands.end(),
 		[](const auto& command) { return command.value("op",std::string()) == "commander_episode"; });
 	mInteractive = j.value("interactive", false);
+	mHumanObservation = j.value("humanObservation",false);
+	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
 	if (mBatchSteps < 0 || mBatchSteps > 32 || (mInteractive && mBatchSteps != 0)) return false;
 	mMineLayoutRevision = j.value("mineLayoutRevision",MineGrid::CurrentLayoutRevision);
@@ -795,6 +797,8 @@ void TestDriver::WriteStatus(const char* status, const std::string& detail) {
 	};
 	if (!detail.empty()) value["detail"] = detail;
 	if (mInteractiveReady) {
+		value["humanObservation"] = mHumanObservation;
+		value["humanRecordingFailed"] = mHumanRecordingFailed;
 		value["session"] = mSession;
 		value["liveDir"] = mLiveDir;
 		value["lastRequestId"] = mRequestId;
@@ -4818,6 +4822,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
+		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
+			{"initialYield",IceProduction::InitialYield},{"maximumYield",IceProduction::MaximumYield},
+			{"growth",IceProduction::YieldGrowth},{"workerCost",IceProduction::WorkerCost}};
 		ice["searchSerial"] = board->mColdStorage.searchSerial;
 		ice["searchFeatures"] = board->mColdStorage.searchFeatures;
 		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;

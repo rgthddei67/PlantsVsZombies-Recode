@@ -22,9 +22,9 @@ public:
 
 	// 每帧调用（GameAPP::Run 中 sceneManager.Update() 之后）。未激活时立即返回。
 	void Update();
-	/** 交互模式只在明确的 advance 预算内更新场景；普通脚本始终照常运行。 */
-	bool ShouldUpdateScene() const { return !mInteractiveReady || mAdvanceSteps > 0; }
-	/** 在一次完整场景更新后扣除交互步数预算。 */
+	/** 交互步进按 advance 预算推进；真人观察与普通脚本照常更新场景。 */
+	bool ShouldUpdateScene() const { return !mInteractiveReady || mHumanObservation || mAdvanceSteps > 0; }
+	/** 在完整场景更新后扣除步进预算，或限频记录真人游玩的只读状态。 */
 	void OnSceneUpdated();
 	/** 显式批量评测可每个可见渲染帧推进多个原始固定步；普通/交互模式返回零。 */
 	int BatchStepsPerFrame() const { return mActive && !mInteractive ? mBatchSteps : 0; }
@@ -62,6 +62,11 @@ private:
 	nlohmann::json BuildInteractiveState();
 	/** 先写临时文件再发布唯一序号的响应，避免读取半份状态。 */
 	void PublishInteractiveReply();
+	bool mHumanObservation = false;
+	bool mHumanRecordingFailed = false;
+	int mHumanLastDecision = -1, mHumanLastBoardState = -1;
+	bool mHumanLastTrophy = false;
+	std::chrono::steady_clock::time_point mNextHumanObservation{};
 	bool mInteractive = false;
 	bool mInteractiveReady = false;
 	bool mInteractiveBusy = false;

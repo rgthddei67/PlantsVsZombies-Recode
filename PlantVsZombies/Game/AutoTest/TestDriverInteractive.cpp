@@ -12,6 +12,7 @@
 namespace {
 	constexpr int kInboxPollMilliseconds = 100; // 空闲信箱每 100 毫秒检查一次，避免逐帧磁盘访问
 	constexpr int kMaxRequestCommands = 64; // 每批操作上限，防止交互请求长时间占用主线程
+	constexpr int kHumanObservationMilliseconds = 1000; // 真人记录每秒采样一次，不改场景步长或玩家输入
 	constexpr int kMaxAdvanceSteps = 3600; // 一次最多推进 60 秒的固定步；游戏倍速仍按当前选择生效
 	constexpr std::uintmax_t kMaxRequestBytes = 65536; // 单个指令文件最大 64 KiB
 
@@ -24,6 +25,32 @@ namespace {
 }
 
 void TestDriver::OnSceneUpdated() {
+	if (mActive && mInteractiveReady && mHumanObservation) {
+		++mSimulationSteps;
+		const auto now = std::chrono::steady_clock::now();
+		auto* current = SceneManager::GetInstance().GetCurrentScene();
+		auto* scene = dynamic_cast<GameScene*>(current);
+		auto* board = scene ? scene->GetBoard() : nullptr;
+		const int serial = board ? board->mColdStorage.searchSerial : -1;
+		const int phase = board ? static_cast<int>(board->mBoardState) : -1;
+		const bool trophy = board && board->mTrophySpawned;
+		const bool changed = serial != mHumanLastDecision || phase != mHumanLastBoardState || trophy != mHumanLastTrophy;
+		if (mHumanRecordingFailed || (!changed && now < mNextHumanObservation)) return;
+		mHumanLastDecision = serial; mHumanLastBoardState = phase; mHumanLastTrophy = trophy;
+		mNextHumanObservation = now + std::chrono::milliseconds(kHumanObservationMilliseconds);
+		// 决策和胜负边沿立即留证；过渡页只记场景名，不让记录中断主人的游戏。
+		nlohmann::json state = {{"scene",current ? current->name : "none"}};
+		if (scene && scene->GetBoard()) state = BuildInteractiveState();
+		const nlohmann::json record = {{"session",mSession},{"simulationSteps",mSimulationSteps},
+			{"gameTimeSeconds",DeltaTime::GetTotalTime()},{"state",state}};
+		std::ofstream output(std::filesystem::path(mLiveDir)/"observations.jsonl",std::ios::app);
+		output << record.dump() << '\n'; output.flush();
+		if (!output) {
+			// 记录故障只停止采样，不中断真实对局；状态与日志明确显示证据缺失。
+			mHumanRecordingFailed = true; Log("human observation write failed"); WriteStatus("waiting");
+		}
+		return;
+	}
 	if (mInteractiveReady && mAdvanceSteps > 0) {
 		--mAdvanceSteps;
 		++mSimulationSteps;
@@ -101,7 +128,8 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 	try {
 		auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
 		auto* manager = scene ? scene->GetCardSlotManager() : nullptr;
-		if (op == "advance") {
+		if (mHumanObservation && op != "observe" && op != "quit") reason = "human_observation_read_only";
+		else if (op == "advance") {
 			if (mFramesLeft < 0) {
 				if (!command.at("steps").is_number_integer()) throw std::runtime_error("steps_must_be_integer");
 				const int steps = command.at("steps").get<int>();

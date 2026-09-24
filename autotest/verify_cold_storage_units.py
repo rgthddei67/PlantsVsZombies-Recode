@@ -24,7 +24,7 @@ def verify(root, production_only=False):
         assert paused['zombiesByType']['ZOMBIE_ICE_WORKER'][key] == restored['zombiesByType']['ZOMBIE_ICE_WORKER'][key], key
     before, after = (read(units, n) for n in ('charmed', 'friendly_production'))
     mint_batches = after['iceMintsByCell']['2_1']['productionBatches'] - before['iceMintsByCell']['2_1']['productionBatches']
-    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 10 + mint_batches * 3
+    assert after['coldStorage']['playerProductionIncome'] - before['coldStorage']['playerProductionIncome'] == 16 + mint_batches * 3
     assert after['coldStorage']['workerIncome'] == before['coldStorage']['workerIncome']
     assert read(units, 'removed')['coldStorage']['playerProductionIncome'] == read(units, 'after_removed')['coldStorage']['playerProductionIncome']
     for name in ('units', 'units_loaded'):

@@ -19,6 +19,10 @@
 
 ### 交互试玩信箱
 
+真人游玩可用 `human_cold_storage_10_1.json`：`interactive: true` 配合 `humanObservation: true` 让场景正常连续推进，停在选卡页交给主人操作。信箱只接受观察、截图和退出，拒绝 `advance` 与代玩操作；每秒及决策/胜负变化时，向该会话的 `observations.jsonl` 追加局面、收支、卡牌和预测记录。普通步进信箱行为不变。记录写盘失败会标记 `humanRecordingFailed` 并停止采样，不关闭主人的游戏。真人运行不指定启动种子，音效沿用普通 AutoTest 默认值；玩家存档仍不写入。
+
+`human_observation_contract.json` 配合 `python autotest/verify_human_observation.py` 验证无需 advance 即自然推进、信箱不能代玩以及记录留存。
+
 脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
 普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
 仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。

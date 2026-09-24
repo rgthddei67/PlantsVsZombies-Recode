@@ -539,5 +539,29 @@
     "fire",
     "workers",
     "back_protection"
-  ]
+  ],
+  "balanceRevalidation": {
+    "experiment": "ice16_adaptation_v1",
+    "exeSha256": "c650b3cf4f450126bc725b27a4a781457f86c3537597a10f86731086fb805fe8",
+    "productionRules": {
+      "intervalMs": 4000,
+      "initialYield": 4,
+      "maximumYield": 16,
+      "growth": 1.5,
+      "workerCost": 24
+    },
+    "heldoutSeed": 8509000,
+    "pairedCases": 18,
+    "baselineWins": 9,
+    "retainedPolicyOutcomes": {
+      "commander_win": 14,
+      "timeout": 3,
+      "player_win": 1
+    },
+    "repeatOutcomes": {
+      "commander_win": 14,
+      "timeout": 4
+    },
+    "note": "Existing weights retained after adaptation; repeated identical parameters showed one marginal outcome variation. Prior validation remains historical."
+  }
 }
