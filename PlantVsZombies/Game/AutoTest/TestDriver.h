@@ -80,7 +80,7 @@ private:
 	int mBatchSteps = 0;
 	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
-	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings;
+	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings, mEpisodeDecisions;
 
 	bool mActive = false;
 	int  mExitCode = 0;

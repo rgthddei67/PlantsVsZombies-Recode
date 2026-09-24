@@ -15,6 +15,8 @@ def verify(directory):
     jobs = [rows for generation in checkpoint['history'] for rows in generation['scores']]
     jobs += report['scores']
     jobs += report.get('economyControl', [])
+    if report.get('preflight'):
+        jobs.append(report['preflight'])
     if report.get('probes'):
         probes = load(report['probes'])
         jobs += [probes['baseline']] + list(probes['results'].values())
@@ -29,7 +31,7 @@ def verify(directory):
             for state in (result['initial'],result['final']):
                 if 'testAudio' in state:
                     assert state['testAudio'] == {'muted':True,'masterPct':0,'soundPct':0,'musicPct':0}, path
-            card_count = {'counter': 10, 'ash': 8}.get(result['opponent'], 9)
+            card_count = {'counter': 10, 'adaptive':10, 'ash': 8}.get(result['opponent'], 9)
             assert len(result['initial']['cards']) == card_count + (2 if result['initial']['coldStorage'].get('trainingAllUnits') else 0)
             assert sum(c['gameplayType'] == 'PLANT_MARIGOLD' for c in result['initial']['cards']) == 2
             for sample in [result['initial'], result['final']] + [{'coldStorage': t['ice']} for t in result['trace']]:
@@ -55,7 +57,7 @@ def verify(directory):
                 assert result['final']['coldStorage']['trophySpawned']
     training_seeds = set()
     for script in directory.glob('*.json'):
-        if not any(tag in script.stem for tag in ('generation_', '_transfer', '_confirmation', '_probe_')):
+        if not any(tag in script.stem for tag in ('generation_', '_transfer', '_confirmation', '_probe_', '_preflight')):
             continue
         for command in load(script).get('commands', []):
             if command['op'] == 'commander_experiment' and 'seed' in command:

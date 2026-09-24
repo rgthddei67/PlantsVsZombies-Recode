@@ -843,6 +843,8 @@ void Board::PlanColdStorageAttack()
 			0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed));
 		s.commanderStrategy = "learned_search"; s.commanderMode = result.actions.empty() ? "observe" : "search";
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
+		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.formationBlastLoss = result.blastLoss;
 		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
 		const int before = s.enemyIce;

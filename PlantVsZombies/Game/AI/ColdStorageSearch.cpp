@@ -220,7 +220,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 	Result best;
 	if (!ValidWeights(weights)) return best;
-	best.features = Evaluate(s, {}); best.score = Score(best.features, weights); best.evaluated = 1;
+	best.features = Evaluate(s, {}); best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
 	if (cheapest->cost > s.budget) return best;
@@ -258,6 +258,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		Repair(s, plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		Result candidate; candidate.actions = std::move(plan); candidate.features = Evaluate(s, candidate.actions);
+		candidate.baselineFeatures = best.baselineFeatures;
 		candidate.score = Score(candidate.features, weights);
 		// 特殊能力的模型残差由真实对局学习，不在这里按品种写固定的偏好名单。
 		for (const auto& action : candidate.actions) {
@@ -269,8 +270,10 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 				const auto& ally = s.options[other.option];
 				if (ally.row == option.row) { context[2] += 1.0f / 3; if (ally.unit.body.economic) context[6] += 1; }
 			}
-			for (int feature = 0; feature < ContextCount; ++feature)
-				candidate.score += option.preference[feature] * std::clamp(context[feature], 0.0f, 3.0f);
+			for (int feature = 0; feature < ContextCount; ++feature) {
+				const float value = option.preference[feature] * std::clamp(context[feature], 0.0f, 3.0f);
+				candidate.score += value; candidate.preferenceScore += value;
+			}
 		}
 		candidate.blastLoss = candidate.features[6];
 		if ((s.allowWait || !candidate.actions.empty()) && (!hasChoice || candidate.score > best.score + 0.001f)) {

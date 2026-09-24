@@ -4818,6 +4818,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
+		ice["searchSerial"] = board->mColdStorage.searchSerial;
+		ice["searchFeatures"] = board->mColdStorage.searchFeatures;
+		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;
+		ice["searchPreferenceScore"] = board->mColdStorage.searchPreferenceScore;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
 		ice["predictedProductionOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedProduction * 100.0f));
 		ice["economyValueOn100"] = static_cast<int>(std::lround(board->mColdStorage.economyValue * 100.0f));

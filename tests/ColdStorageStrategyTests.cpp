@@ -103,6 +103,10 @@ int main()
 	check(protectedIncome[4] > naked[4], "joint plan values actual forward protection of worker");
 	const auto chosen = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
 	const auto repeated = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
+	check(chosen.baselineFeatures == ColdStorageSearch::Evaluate(search, {}), "decision records the no-purchase counterfactual");
+	float explained = chosen.preferenceScore;
+	for (int i = 0; i < ColdStorageSearch::FeatureCount; ++i) explained += chosen.features[i] * ColdStorageSearch::InitialWeights[i];
+	check(std::abs(explained-chosen.score)<0.01f, "diagnostic contributions reconstruct the decision score");
 	check(chosen.score == repeated.score && chosen.actions.size() == repeated.actions.size(), "local search reproducibility");
 	float paid = 0;
 	for (const auto& action : chosen.actions) paid += search.options[action.option].cost;

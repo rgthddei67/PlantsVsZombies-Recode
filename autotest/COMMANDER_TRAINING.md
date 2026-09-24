@@ -7,7 +7,7 @@ python autotest/train_cold_storage_all.py --output build/clang-release/autotest/
 python autotest/verify_commander_training.py build/clang-release/autotest/training/my_run
 ```
 
-游戏窗口在桌面可见，训练默认全静音；普通 AutoTest 默认有音效、无背景音乐，不改玩家的游玩音量偏好。`batchStepsPerFrame` 只让非交互 AutoTest 在每次绘制间执行多个原始固定步，不改变技能或碰撞的单步时间；普通游戏和 `live.py` 不启用它。Codex 启动仍须从提升权限的 shell 执行。
+游戏窗口在桌面可见，训练默认全静音；启动器不传固定 `-Seed 42`，每局在开局前设置脚本记录的独立种子，同一配对案例的不同策略共用种子；普通 AutoTest 默认有音效、无背景音乐，不改玩家的游玩音量偏好。`batchStepsPerFrame` 只让非交互 AutoTest 在每次绘制间执行多个原始固定步，不改变技能或碰撞的单步时间；普通游戏和 `live.py` 不启用它。Codex 启动仍须从提升权限的 shell 执行。
 
 ## 学习与决策
 
@@ -65,3 +65,11 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 ```
 
 `--skip-probes` 用于已经完成兵种探针的检查点。旧记录保留，但旧 EXE/陪练的成绩不能冒充当前验证。完全相同设置可复用已完成批次；改引擎、训练程序或实验设置必须换输出目录。训练不写玩家存档、不改游戏单位数值。每批有墙钟超时，只关闭本程序启动的游戏进程；已完成引擎批次若在 Python 后处理时中断，可用 `recover_commander_checkpoint.py` 验证并恢复。
+
+## 决策校准与混合防守续训
+
+`audit_commander_forecast.py <output>` 对正常付费的一批队伍运行 60 秒，禁止后续增援，记录同一时域的预测产冰/击杀收入与实际回报。它隔离了追加购买的干扰，但植物陪练会真实补阵，因此差距也包含推演尚未表达的后续补阵。`searchFeatures`、`searchBaselineFeatures` 和 `searchPreferenceScore` 分别解释计划、无增援基线和兵种经验加分；逐场 `decisions` 记录搜索编号、付款和预测，包含观望。这些诊断不进玩家存档。
+
+`train_commander_robust.py --from-checkpoint <checkpoint> --output <output>` 使用自适应反制、原反制和发育陪练混合课程。自适应陪练优先救险、避免往已提交爆炸的范围重复交灰烬，并向已突破路线的后方补坚果；仍走正式费用、卡槽和冷却。每代共用一组新种子，兵种偏好的后续变异集中在课程的正式卡池；除逐兵种变异外，还按实际冰价在同一局势特征上做相关变异，让课程有机会学出随火力/墙体等变化的投入倾向。没有参与变异的兵种保留起点中的经验。先在迁移集选出方案，再冻结它跑独立留出集。
+
+本入口的主基线是**当前发布参数**：至少十二个配对留出场景，比现版多赢至少两场，且不丢掉现版已赢的案例；同时不能低于旧规则 AI 的胜负排序。程序只写候选和证据，不自动覆盖正式资源。成绩不合格时保留数据，不能把候选选优、模型诊断通过或单个阵容全胜说成整体升级。

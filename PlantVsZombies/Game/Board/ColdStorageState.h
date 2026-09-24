@@ -47,6 +47,9 @@ struct ColdStorageState {
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
 	float lastBestScore = 0.0f;
+	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一 60 秒时域的计划/不增援预测，诊断不入档
+	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档
+	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
 	std::string commanderMode = "opening";
 	std::string commanderStrategy = "balanced"; // 根据当前发展与收益重算，不入档

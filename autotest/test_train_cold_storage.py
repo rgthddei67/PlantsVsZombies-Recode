@@ -3,16 +3,41 @@ import copy
 import unittest
 from train_cold_storage import episode_commands, score
 from train_cold_storage_all import diverse_archive, outcome_gate, selection_key
+from train_commander_robust import release_gate, perturb, situational_seed
+import random
 
 
 class TrainerTests(unittest.TestCase):
+    def test_release_compares_shipped_and_legacy_on_real_wins(self):
+        def rows(wins):
+            return [{'outcome':'commander_win' if i < wins else 'player_win','score':0} for i in range(18)]
+        self.assertFalse(release_gate(rows(8),rows(10),rows(10)))
+        self.assertFalse(release_gate(rows(13),rows(10),rows(12)))
+        self.assertTrue(release_gate(rows(11),rows(10),rows(12)))
+        switched=rows(12)
+        switched[0],switched[17]=switched[17],switched[0]
+        self.assertFalse(release_gate(rows(11),rows(10),switched))
+
+    def test_mutation_preserves_unavailable_unit_experience(self):
+        policy={'weights':[1]*8,'preferences':{'active':[0]*8,'unavailable':[7]*8}}
+        changed=perturb(policy,['active'],random.Random(12),1)
+        self.assertEqual(changed['preferences']['unavailable'],[7]*8)
+        self.assertEqual(policy['weights'],[1]*8)
+
+    def test_situational_seed_changes_only_observed_unit_context(self):
+        policy={'weights':[1]*8,'preferences':{'active':[0]*8,'unavailable':[7]*8}}
+        changed=situational_seed(policy,['active'],{'active':16},5,-.5)
+        self.assertEqual(changed['preferences']['active'],[0,0,0,0,0,-8,0,0])
+        self.assertEqual(changed['preferences']['unavailable'],[7]*8)
+        self.assertEqual(changed['weights'],policy['weights'])
+
     def test_winning_policy_is_not_discarded_for_stalling(self):
         stalled = [{'outcome':'timeout','score':150} for _ in range(4)]
         winning = [{'outcome':'commander_win','score':10000}] + [{'outcome':'player_win','score':-10000} for _ in range(3)]
         self.assertGreater(selection_key(winning),selection_key(stalled))
 
     def test_counter_and_ash_opponents_have_real_squash_cards(self):
-        for opponent in ('counter','ash'):
+        for opponent in ('counter','ash','adaptive'):
             commands = episode_commands(None,9251,'opening',opponent,420,'case')
             cards = next(c for c in commands if c['op']=='choose_cards')['cards']
             self.assertTrue({'PLANT_SQUASH','PLANT_CHERRYBOMB','PLANT_JALAPENO','PLANT_WALLNUT'} <= set(cards))

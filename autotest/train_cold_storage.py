@@ -35,7 +35,7 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         all_zombies = False
     policy = weights if isinstance(weights, dict) else {"weights": weights}
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash'):
+    if opponent in ('counter', 'ash', 'adaptive'):
         cards += ['SQUASH']
     if opponent == 'ash':
         cards = [c for c in cards if c not in ('MELONPULT', 'WINTERMELON')]

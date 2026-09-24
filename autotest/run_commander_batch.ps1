@@ -4,9 +4,9 @@ param([Parameter(Mandatory=$true)][string]$GameDirectory,
 $ErrorActionPreference = 'Stop'
 $gameDir = (Resolve-Path -LiteralPath $GameDirectory).Path
 $scriptPath = (Resolve-Path -LiteralPath $Script).Path
-# 训练也在当前桌面可见；每步仍走正式战斗循环，批处理只减少绘制频率。
+# 训练也在当前桌面可见；启动不固定种子，每局由实验脚本记录独立种子以便配对复测。
 $process = Start-Process -FilePath (Join-Path $gameDir 'PlantsVsZombies.exe') `
-    -ArgumentList @('-AutoTest', ('"' + $scriptPath + '"'), '-Seed', '42') `
+    -ArgumentList @('-AutoTest', ('"' + $scriptPath + '"')) `
     -WorkingDirectory $gameDir -WindowStyle Normal -PassThru `
     -RedirectStandardError ($scriptPath + ".stderr.log") -RedirectStandardOutput ($scriptPath + ".stdout.log")
 $processHandle = $process.Handle # 保持进程句柄，确保快速退出时仍可取得退出码

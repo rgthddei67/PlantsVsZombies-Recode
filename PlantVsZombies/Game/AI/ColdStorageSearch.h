@@ -53,8 +53,8 @@ struct Snapshot {
 };
 struct Result {
 	std::vector<Action> actions;
-	Weights features{};
-	float score = 0, blastLoss = 0;
+	Weights features{}, baselineFeatures{};
+	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
 };
 
