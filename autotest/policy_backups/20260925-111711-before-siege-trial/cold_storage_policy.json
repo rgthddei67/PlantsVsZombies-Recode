@@ -1,13 +1,15 @@
 {
+  "schema": 1,
+  "validated": true,
   "weights": [
-    2.5441780638375633,
-    2.0735832420502622,
-    259.53249019728236,
-    0.7729091733836367,
-    0.2955309768207693,
-    -0.5709605771477029,
-    -1.2205401386103627,
-    1.627796696836491
+    1.6518740385840656,
+    2.344445410604879,
+    290.23268732146875,
+    0.29937932286453367,
+    0.29012733485225195,
+    0.6412621087732118,
+    -0.9953772560148378,
+    2.025167269557583
   ],
   "preferences": {
     "ZOMBIE_NORMAL": [
@@ -26,18 +28,18 @@
       0,
       0,
       0,
-      4.042054,
-      -6.384019,
-      5.063958
+      0,
+      0,
+      0
     ],
     "ZOMBIE_POLEVAULTER": [
-      -5.425131,
+      -5.8255,
       0.589123,
-      5.275355,
+      0,
       -1.8097461723061852,
       0,
-      -6.969872,
-      -2.386411,
+      -9.484259,
+      0,
       0.416267
     ],
     "ZOMBIE_BUCKET": [
@@ -45,9 +47,9 @@
       0,
       0,
       -1.8097461723061852,
-      -1.512087,
-      -5.018298,
-      6.251873,
+      0,
+      -4.0,
+      0,
       0
     ],
     "ZOMBIE_FASTBUCKET": [
@@ -72,11 +74,11 @@
     ],
     "ZOMBIE_FASTPAPER": [
       -2.918,
-      -0.160652,
+      0,
       0,
       -2.714619258459278,
       0,
-      -1.65757,
+      -6.0,
       0,
       0
     ],
@@ -151,12 +153,12 @@
       -1.078053
     ],
     "ZOMBIE_ZAMBONI": [
-      0.368168,
-      4.548881,
-      3.634595,
+      10,
       0,
       0,
-      -9.074316,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -193,12 +195,12 @@
     "ZOMBIE_ELITE_JACK_IN_THE_BOX": [
       -6.3065,
       0,
-      3.743561,
-      0,
-      6.122502,
       0,
       0,
-      5.877271
+      0,
+      0,
+      0,
+      0
     ],
     "ZOMBIE_DIGGER": [
       10,
@@ -221,12 +223,12 @@
       0
     ],
     "ZOMBIE_POGO": [
-      10.189214,
-      0.481528,
+      10,
       0,
-      -1.379008,
       0,
-      -6.098288,
+      0,
+      0,
+      0,
       0,
       0
     ],
@@ -346,9 +348,9 @@
       0,
       0,
       0,
-      3.333324,
-      3.561697,
-      4.659386
+      0,
+      0,
+      0
     ],
     "ZOMBIE_BOBSLED_TEAM": [
       -5.659,
@@ -361,13 +363,13 @@
       0
     ],
     "ZOMBIE_ICE_WALL_ENGINEER": [
-      -2.290966,
-      3.717239,
-      5.177923,
+      -7.6255,
       0,
-      -7.107915,
-      6.361673,
-      2.881281,
+      0,
+      0,
+      0,
+      0,
+      0,
       0
     ],
     "ZOMBIE_ICE_CRACK_DRILL": [
@@ -415,10 +417,10 @@
       0,
       0,
       0,
-      0.192856,
       0,
       0,
-      -3.307256
+      0,
+      0
     ],
     "ZOMBIE_THERMAL_SNIPER": [
       1.1815,
@@ -441,24 +443,24 @@
       0
     ],
     "ZOMBIE_POLAR_CLOCKMAKER": [
-      -3.64782,
+      -3.189236,
       6.170839,
       0,
-      -1.353096,
+      0,
       1.531093,
-      3.6161,
+      3.37427,
       0,
       0
     ],
     "ZOMBIE_EXCAVATOR": [
-      0.917828,
+      -5.2415,
       0,
       0,
       0,
-      -2.965562,
       0,
-      8.662096,
-      5.282318
+      0,
+      0,
+      0
     ],
     "ZOMBIE_CRYSTAL_HORN_MINER": [
       -1.167989,
@@ -483,12 +485,12 @@
     "ZOMBIE_CRYSTAL_DRUMMER": [
       -8.8055,
       0,
-      2.87754,
       0,
       0,
       0,
       0,
-      -5.794844
+      0,
+      0
     ],
     "ZOMBIE_ICE_WORKER": [
       -2.270574,
@@ -501,27 +503,65 @@
       10.555457
     ]
   },
-  "schema": 1,
-  "validated": false,
-  "leagueGatePassed": false,
   "identity": {
-    "schema": 1,
-    "seed": 930719051,
-    "seconds": 300,
-    "generations": 3,
-    "curriculum": "siege",
-    "hashes": {
-      "train_commander_league.py": "dcadfea7cb8762cc66208ed1b825ab720d25a8eab15d3882c8034eec54f4756a",
-      "train_cold_storage.py": "eb41a7c9c228bb537e041a897b516089d7dcce6b5040252c67b3aab01b889b39",
-      "train_cold_storage_all.py": "cafa16175dee4dab37c2c5c361597b77bfb24881fe040723b27de77bc22e9691",
-      "commander_calibration.py": "be0e6ce0dbabf531f43c4b24bf9aab4ed01df22533a5eb12b169457a6bba4d27",
-      "PlantsVsZombies.exe": "d65b04573ee270753f43320cfd443332eaef825c4f2524fafff544e96150b5fe",
-      "gamedata.json": "0c4f6aa62917b8839c45233ac93357d745229996d02406bc83dfe0040affa706",
-      "cold_storage_policy.json": "b99c614fd54dea72a690c928ceb185d781a2185649f27bb3be7f0e20d0936faf"
-    }
+    "exeSha256": "b56a3da6110cb90ce1b4d71cf12375d5d0afdd28394269d8d5df6dd3279b01fa",
+    "trainerSha256": "46eecb75abbb8cd7f7fb78fdbec7ac633838309cd777285077625359ed38be12",
+    "coreSha256": "4c76eed7dd138dbdf209626d625161b1c76f919a86dbed29cc85654f0b9d1675",
+    "gameDataSha256": "0c4f6aa62917b8839c45233ac93357d745229996d02406bc83dfe0040affa706",
+    "seed": 4509000,
+    "heldoutSeed": 5509000,
+    "generations": 4,
+    "seconds": 480,
+    "population": 8,
+    "curriculum": "mixed_defense",
+    "gate": "At least 12 paired cases; 2 more wins than shipped and no lost shipped win; legacy outcome floor.",
+    "incumbentSha256": "a3f4c2923b38ac948c7375e17702219f3f8a8254b56269ecfde24732d1567b44",
+    "sourceSha256": "b0ae0dfb7bd8d86a8ac8e531e2a8eba8b18058d10b93f103c9aa180766fd3bc2"
   },
-  "note": "Explicitly requested for human playtest despite failed league gate; validation results are unchanged. Restore trialBackup to revert.",
-  "userRequestedTrial": true,
-  "trialBackup": "autotest/policy_backups/20260925-111711-before-siege-trial/cold_storage_policy.json",
-  "trialSource": "build/clang-release/autotest/training/league_siege_v1/candidate_policy.json"
+  "validationRoster": "normal",
+  "wins": [
+    12,
+    12,
+    14
+  ],
+  "means": [
+    4893.25,
+    4467.044444444445,
+    8622.172222222222
+  ],
+  "pairedCases": 18,
+  "contextFeatures": [
+    "bias",
+    "allied_wounds",
+    "allied_density",
+    "front_wall",
+    "slow",
+    "fire",
+    "workers",
+    "back_protection"
+  ],
+  "balanceRevalidation": {
+    "experiment": "ice16_adaptation_v1",
+    "exeSha256": "c650b3cf4f450126bc725b27a4a781457f86c3537597a10f86731086fb805fe8",
+    "productionRules": {
+      "intervalMs": 4000,
+      "initialYield": 4,
+      "maximumYield": 16,
+      "growth": 1.5,
+      "workerCost": 24
+    },
+    "heldoutSeed": 8509000,
+    "pairedCases": 18,
+    "baselineWins": 9,
+    "retainedPolicyOutcomes": {
+      "commander_win": 14,
+      "timeout": 3,
+      "player_win": 1
+    },
+    "repeatOutcomes": {
+      "commander_win": 14,
+      "timeout": 4
+    },
+    "note": "Existing weights retained after adaptation; repeated identical parameters showed one marginal outcome variation. Prior validation remains historical."
+  }
 }

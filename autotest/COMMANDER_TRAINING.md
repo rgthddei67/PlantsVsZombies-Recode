@@ -70,6 +70,8 @@ python autotest/verify_commander_training.py build/clang-release/autotest/traini
 
 `--publish` 只在通过门槛后写入 `build/clang-release/resources/ai/cold_storage_policy.json`。普通游戏读取有效且标记通过的资源，缺失或非法时回退旧 AI；资源每次进程首次使用时加载，替换后需重启游戏。正式发布资源应纳入 Git 和资源清单。
 
+主人明确要求试玩未过门槛的候选时，先将当前资源原样备份到 `autotest/policy_backups/` 的独立时间戳目录并校验哈希，再替换运行资源，显式设置 `userRequestedTrial: true`。保留候选的 `validated: false` 与真实门槛结果；此开关只允许试用，不跳过参数结构、有限值或兵种名称校验，也不改变训练器的自动发布门槛。恢复时将备份的 `cold_storage_policy.json` 复制回原路径并重启游戏，原训练输出不覆盖。
+
 旧的 `train_cold_storage.py` 保留为只训练全局权重的基础对照，使用独立的较严格评分门槛；正式全兵种流程使用上面的 `_all.py`。
 
 ## 数据与继续训练

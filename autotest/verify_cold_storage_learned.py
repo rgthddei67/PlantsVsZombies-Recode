@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 folder = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('build/clang-release/autotest/out/smoke_cold_storage_learned')
+policy = json.loads((folder.parents[2] / 'resources/ai/cold_storage_policy.json').read_text(encoding='utf-8'))
 enum = (Path(__file__).resolve().parents[1] / 'PlantVsZombies/Game/Zombie/ZombieType.h').read_text(encoding='utf-8')
 enum = re.sub(r'//[^\n]*', '', enum)
 names = re.findall(r'^\s*(ZOMBIE_\w+)\s*,', enum.split('enum class ZombieType')[1].split('NUM_ZOMBIE_TYPES')[0], re.M)
@@ -25,6 +26,9 @@ for name, state in states.items():
         assert comparison['tested'] == 31 and ice['candidatesEvaluated'] == 101
         # 日志分数按百分之一取整；集中对照不能降低自由搜索的结果。
         score = ice['lastBestScoreOn100'] / 100
+        # 核对实际决策使用当前运行资源的权重，而不只是看到 learned_search 标签。
+        expected = ice['searchPreferenceScore'] + sum(a*b for a,b in zip(ice['searchFeatures'],policy['weights']))
+        assert abs(score-expected) < max(.03,abs(expected)*.000002)
         assert score + .02 >= comparison['baseScore']
         for row, value in enumerate(comparison['scores']):
             if comparison['tested'] & (1 << row) and not comparison['rejected'] & (1 << row):

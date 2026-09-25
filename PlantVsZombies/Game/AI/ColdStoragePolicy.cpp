@@ -72,7 +72,8 @@ const ColdStorageSearch::Weights* Get(int level) {
 		if (!FileManager::FileExists("./resources/ai/cold_storage_policy.json")
 			|| !FileManager::LoadJsonFile("./resources/ai/cold_storage_policy.json", data)) return false;
 		try {
-			return data.value("schema", 0) == 1 && data.value("validated", false)
+			// 主人可显式试玩未通过胜率门槛的候选；保留 validated=false，且仍严格校验全部参数。
+			return data.value("schema", 0) == 1 && (data.value("validated", false) || data.value("userRequestedTrial", false))
 				&& Parse(data.at("weights"), published)
 				&& (!data.contains("preferences") || ParsePreferences(data.at("preferences"), publishedPreferences))
 				&& (!data.contains("productionCalibration") || ParseCalibration(data.at("productionCalibration"), publishedModel));

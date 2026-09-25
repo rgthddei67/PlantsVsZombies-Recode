@@ -1,0 +1,7 @@
+{
+  "original": "build/clang-release/resources/ai/cold_storage_policy.json",
+  "sha256": "b99c614fd54dea72a690c928ceb185d781a2185649f27bb3be7f0e20d0936faf",
+  "replacementSource": "build/clang-release/autotest/training/league_siege_v1/candidate_policy.json",
+  "replacementSourceSha256": "3adaa866c453a14ef47e19ef27c1bcb6ffec5ad518260582486983b0916a80bb",
+  "purpose": "User-requested backup before trying the siege candidate; original training outputs remain unchanged."
+}
