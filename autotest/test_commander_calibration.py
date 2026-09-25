@@ -4,10 +4,28 @@ import unittest
 
 from commander_calibration import fit, metrics, predict, samples
 from train_cold_storage import episode_commands
-from train_commander_league import gate
+from train_commander_league import gate, curriculum_templates, family
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_siege_curriculum_keeps_mixed_pools_and_campaign_holdouts(self):
+        collection, selection, holdout = curriculum_templates('siege')
+        self.assertEqual(len(collection),12)
+        for cases in (collection[:9],collection[9:],selection,holdout):
+            self.assertEqual({family(a) for a,_ in cases},{'full','masked','normal'})
+        for arena in ('opening','developing','fortress'):
+            self.assertIn(('normal:'+arena,'lotus'),selection)
+        for n in range(1,10):
+            self.assertTrue(any(a==f'normal:opening_10_{n}' for a,_ in holdout))
+        policy = {'weights':[1]*8,'trainingUnits':[f'ZOMBIE_{n}' for n in range(12)]}
+        for a,o in collection+selection+holdout:
+            commands=episode_commands(policy,71,a,o,300,'fixture',True)
+            cards=next(c['cards'] for c in commands if c['op']=='choose_cards')
+            self.assertLessEqual(len(cards),11)
+            if a.startswith('normal:'):
+                self.assertFalse(any(c['op']=='commander_roster' for c in commands))
+        self.assertEqual([len(c) for c in curriculum_templates('balanced')],[12,6,15])
+
     def test_lotus_opponent_uses_real_card_slots(self):
         for all_units in (False,True):
             commands = episode_commands([1]*8,17,'opening','lotus',120,'lotus',all_units)

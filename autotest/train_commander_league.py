@@ -48,6 +48,36 @@ def gate(before, after, cases):
     return report
 
 
+def curriculum_templates(name):
+    """Select scenario families; draw fresh paired seeds later and never select on holdout scores."""
+    collection = [('opening','builder'),('fortress','adaptive'),('masked:opening','counter'),
+                  ('masked:developing','hunter'),('normal:opening','lotus'),('normal:opening_10_2','builder'),
+                  ('economy','hunter'),('masked:elite_spread','adaptive'),('normal:opening_10_5','counter'),
+                  ('opening','builder'),('masked:fortress','hunter'),('normal:opening_10_2','lotus')]
+    selection = [('opening','builder'),('elite_cluster','adaptive'),('masked:developing','builder'),
+                 ('masked:economy','hunter'),('normal:opening_10_2','lotus'),('normal:opening_10_6','ash')]
+    holdout = [(f'normal:opening_10_{n}',('builder','lotus','ash')[n%3]) for n in range(1,10)]
+    holdout += [('opening','ash'),('fortress','hunter'),('elite_spread','adaptive'),
+                ('masked:opening','builder'),('masked:developing','adaptive'),('masked:elite_cluster','counter')]
+    if name == 'siege':
+        # 训练更常遇到真人暴露的守线反制，仍保留三类卡池及其他阵型，不能只练一张截图。
+        # 最后三场仅验证生产校准误差；同一局的两个行为策略必须始终属于同一划分。
+        collection = [('normal:opening','lotus'),('normal:developing','lotus'),('normal:fortress','lotus'),
+                      ('normal:opening_10_2','lotus'),('normal:developing','ash'),('masked:opening','builder'),
+                      ('masked:economy','hunter'),('opening','builder'),('elite_cluster','adaptive'),
+                      ('normal:opening','lotus'),('masked:fortress','lotus'),('opening','ash')]
+        selection = [('normal:opening','lotus'),('normal:developing','lotus'),('normal:fortress','lotus'),
+                     ('normal:opening_10_2','counter'),('normal:opening_10_6','ash'),
+                     ('opening','builder'),('elite_spread','adaptive'),
+                     ('masked:developing','hunter'),('masked:economy','lotus')]
+        # 加测同类防守的新种子；预建战术片段与正常开局分别记录，不能合称完整对局胜率。
+        holdout += [('normal:opening','lotus'),('normal:developing','lotus'),
+                    ('normal:fortress','lotus'),('normal:opening','ash')]
+    elif name != 'balanced':
+        raise ValueError('Unknown curriculum: '+name)
+    return collection, selection, holdout
+
+
 def train(args):
     """Collect, fit, select, then freeze before unseen paired games; keep every phase resumable."""
     game = ROOT / 'build/clang-release'
@@ -61,7 +91,7 @@ def train(args):
                game/'resources/gamedata.json',game/'resources/ai/cold_storage_policy.json']
     if args.from_candidate:
         tracked.append(args.from_candidate.resolve())
-    identity = {'schema':1,'seed':seed,'seconds':args.seconds,'generations':args.generations,
+    identity = {'schema':1,'seed':seed,'seconds':args.seconds,'generations':args.generations,'curriculum':args.curriculum,
                 'hashes':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
     if previous and previous != identity:
         raise RuntimeError('Engine, policy or trainer changed; use a new output directory')
@@ -88,10 +118,7 @@ def train(args):
         probes[name] = row
     save(output/'new_unit_probes.json',{'units':probes,'inheritedUnits':len(names)-len(unfamiliar)})
     # 完整对局为单位划分，不把相邻决策分散到拟合/验证两边。
-    collection = [('opening','builder'),('fortress','adaptive'),('masked:opening','counter'),
-                  ('masked:developing','hunter'),('normal:opening','lotus'),('normal:opening_10_2','builder'),
-                  ('economy','hunter'),('masked:elite_spread','adaptive'),('normal:opening_10_5','counter'),
-                  ('opening','builder'),('masked:fortress','hunter'),('normal:opening_10_2','lotus')]
+    collection, selection, holdout_templates = curriculum_templates(args.curriculum)
     collection = [(a,o,rng.randrange(2**30),duration) for a,o in collection]
     # 额外行为策略主动探索经营；只收集经验，不直接替换主策略，也不免费送工人。
     economic_explorer = copy.deepcopy(source)
@@ -123,9 +150,7 @@ def train(args):
         champion['productionCalibration'] = model
     history = []
     for generation in range(args.generations):
-        cases = [('opening','builder'),('elite_cluster','adaptive'),('masked:developing','builder'),
-                 ('masked:economy','hunter'),('normal:opening_10_2','lotus'),('normal:opening_10_6','ash')]
-        cases = [(a,o,rng.randrange(2**30),duration) for a,o in cases]
+        cases = [(a,o,rng.randrange(2**30),duration) for a,o in selection]
         population = [source,champion,mutate(champion,rng,.6)]
         scores = run_batch(game,output,output.name+f'_generation_{generation}',population,cases,all_zombies=True)
         winner = max(range(len(population)),key=lambda i:grouped_key(scores[i],cases))
@@ -134,10 +159,7 @@ def train(args):
         save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     # 在读取留出成绩前冻结候选。覆盖九个正式关卡，不能拿 10-1 代表整个第十章。
     save(output/'frozen_policy.json',champion)
-    holdout = [(f'normal:opening_10_{n}',('builder','lotus','ash')[n%3]) for n in range(1,10)]
-    holdout += [('opening','ash'),('fortress','hunter'),('elite_spread','adaptive'),
-                ('masked:opening','builder'),('masked:developing','adaptive'),('masked:elite_cluster','counter')]
-    holdout = [(a,o,rng.randrange(2**30),duration) for a,o in holdout]
+    holdout = [(a,o,rng.randrange(2**30),duration) for a,o in holdout_templates]
     scores = run_batch(game,output,output.name+'_holdout',[source,champion],holdout,all_zombies=True)
     report = gate(scores[0],scores[1],holdout)
     save(output/'evaluation.json',{'identity':identity,'cases':holdout,'scores':scores,'gate':report})
@@ -153,6 +175,8 @@ if __name__ == '__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--seconds',type=int,default=300)
     parser.add_argument('--generations',type=int,default=1)
+    parser.add_argument('--curriculum',choices=('balanced','siege'),default='balanced',
+                        help='Siege emphasizes campaign Lotus/ash defenses while retaining mixed-roster coverage')
     parser.add_argument('--from-candidate',type=Path,help='Reuse previous weights only; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
