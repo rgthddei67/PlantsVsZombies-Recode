@@ -24,6 +24,33 @@ def new_state_model():
             'coefficients':[[0.0]*len(INITIAL) for _ in STATE_CONTEXT]}
 
 
+def state_population(parent, rng, size, generation=0):
+    """Only vary the state layer; paired signs explore both directions without prescribing tactics."""
+    champion = copy.deepcopy(parent)
+    champion.setdefault('stateModel', new_state_model())
+    neutral = copy.deepcopy(champion)
+    neutral['stateModel'] = new_state_model()
+    population = [champion, neutral]
+    while len(population) < size:
+        # 一次改变少量连接，避免基础评分、兵种偏好和局势层同时变化而掩盖因果。
+        direction = [[0.0]*len(INITIAL) for _ in STATE_CONTEXT]
+        # 轮换输入维度保证覆盖，避免整轮随机重复一项；连接、幅度和正负仍由探索决定。
+        pair = (len(population)-2)//2
+        row = (generation*((size-1)//2) + pair) % len(STATE_CONTEXT)
+        for column in rng.sample(range(len(INITIAL)), rng.randint(1, 3)):
+            direction[row][column] = rng.gauss(0, SCALES[column] * rng.choice((.5, 1.5, 3)))
+        for sign in (1, -1):
+            candidate = copy.deepcopy(champion)
+            coefficients = candidate['stateModel']['coefficients']
+            for i in range(len(direction)):
+                for j in range(len(direction[i])):
+                    coefficients[i][j] = max(-500, min(500, coefficients[i][j] + sign*direction[i][j]))
+            population.append(candidate)
+            if len(population) == size:
+                break
+    return population
+
+
 def read(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
 

@@ -36,6 +36,8 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         arena = arena[len('normal:'):]
         all_zombies = False
     policy = weights if isinstance(weights, dict) else {"weights": weights}
+    varied = arena.startswith(('banked_varied', 'masked:banked_varied'))
+    fixture_rng = random.Random(seed ^ 0xB41CE)
     roster = None
     if arena.startswith('masked:'):
         arena = arena[len('masked:'):]
@@ -78,6 +80,8 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         developing = arena.startswith('developing')
         banked = arena.startswith('banked')
         opening_ice = 1800 if banked else 250 if developing else 96 if arena.startswith('economy') else 600
+        if varied:
+            opening_ice = fixture_rng.choice((96, 300, 800, 1800))
         if banked:
             commands.append({'op':'set_spawn_paused','value':True})
         commands += [
@@ -106,6 +110,12 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                     kind = 'DAWNLOTUS' if opponent == 'lotus' and row == seed % 5 and column == 2 else 'MELONPULT'
                     lineup.append((kind,column))
                 lineup += [('PUMPKINSHELL',c) for c in range(4)]
+                if varied:
+                    # 每路独立抽取火力厚度，后排仍有南瓜；不把某一路写成固定正确答案。
+                    columns = fixture_rng.randint(1, 4)
+                    lineup = [(kind,col) for kind,col in lineup if col >= 4 or col < columns]
+            if opponent == 'ash':
+                lineup = [(kind,col) for kind,col in lineup if kind not in ('MELONPULT','WINTERMELON')]
             for kind, col in lineup:
                 commands.append({'op': 'plant', 'type': 'PLANT_' + kind, 'row': row, 'col': col})
             if arena.startswith('economy'):
@@ -116,8 +126,14 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         commands.append({'op': 'set_cold_storage', 'state': {'playerIce': 2600 if banked else 180 if developing else 300}})
         if banked:
             # 正式计时充能，保留完整冷却与费用规则；该过程发生在片段初始快照之前。
-            commands += [{'op':'wait_seconds','value':21,'timeout':30},
-                         {'op':'set_spawn_paused','value':False}]
+            commands.append({'op':'wait_seconds','value':21,'timeout':30})
+            if varied and 'cooling' in arena:
+                # 在片段开始前真实付费使用反制，使卡槽进入正式冷却；不直接改冷却或战斗中补钱。
+                for kind,col in (('CHERRYBOMB',8),('JALAPENO',8),('SQUASH',8)):
+                    if kind in cards:
+                        commands.append({'op':'player_plant','slot':cards.index(kind),'row':seed%5,'col':col})
+                        commands.append({'op':'wait_seconds','value':3,'timeout':10})
+            commands.append({'op':'set_spawn_paused','value':False})
     if policy.get('probe'):
         commands.append({'op': 'queue_ice_zombie', 'type': policy['probe'], 'row': seed % 5, 'delay': 0})
     # 升级株替换的旧实体在下一逻辑步清理，基线不能把同一格的新旧输出重复计数。

@@ -6,10 +6,69 @@ import random
 from commander_calibration import fit, metrics, predict, samples
 from train_cold_storage import episode_commands, battle_progress
 from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases
-from train_cold_storage_all import new_state_model, mutate
+from train_cold_storage_all import new_state_model, mutate, state_population
+from audit_commander_forecasts import windows
+from evaluate_commander_roster_ablation import roster_commands
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_roster_ablation_changes_only_legal_purchase_pool(self):
+        policy={'weights':[1]*8}
+        units=['ZOMBIE_NORMAL','ZOMBIE_ICE_WORKER','ZOMBIE_ELITE_DANCER']
+        a=roster_commands(policy,912,'opening','builder',300,'paired',units)
+        b=roster_commands(policy,912,'opening','builder',300,'paired',units[:-1])
+        self.assertEqual([c for c in a if c['op']!='commander_roster'],[c for c in b if c['op']!='commander_roster'])
+        self.assertEqual(next(c['units'] for c in b if c['op']=='commander_roster'),units[:-1])
+
+    def test_state_only_preserves_every_other_policy_field_and_explores_both_signs(self):
+        policy={'weights':[1]*8,'preferences':{'normal':[7]*8},'productionCalibration':{'nodes':[1]}}
+        before=copy.deepcopy(policy)
+        population=state_population(policy,random.Random(21),6)
+        self.assertEqual(policy,before)
+        for candidate in population:
+            self.assertEqual({k:v for k,v in candidate.items() if k!='stateModel'},before)
+        for a,b in ((2,3),(4,5)):
+            ca,cb=(population[n]['stateModel']['coefficients'] for n in (a,b))
+            self.assertTrue(any(x!=0 for row in ca for x in row))
+            self.assertEqual(ca,[[-v for v in row] for row in cb])
+        for seed in range(10):
+            rng=random.Random(seed)
+            rows=[next(i for i,row in enumerate(p['stateModel']['coefficients']) if any(row))
+                  for generation in range(2) for p in state_population(policy,rng,8,generation)[2::2]]
+            self.assertEqual(sorted(rows),list(range(6)))
+
+    def test_reserve_fixtures_vary_and_cooldowns_use_paid_actions(self):
+        budgets=set(); layouts=set()
+        for seed in range(12):
+            commands=episode_commands([1]*8,seed,'normal:banked_varied_cooling','ash',300,'x',True)
+            cards=next(c['cards'] for c in commands if c['op']=='choose_cards')
+            plants=[c for c in commands if c['op']=='plant']
+            self.assertTrue(all(c['type'] in cards for c in plants))
+            budgets.update(c['state']['enemyIce'] for c in commands if c['op']=='set_cold_storage' and 'enemyIce' in c['state'])
+            self.assertEqual(sum(c['op']=='player_plant' for c in commands),3)
+            self.assertFalse(any(c['op'] in ('set_no_cooldown','spawn_zombie') for c in commands))
+            commands=episode_commands([1]*8,seed,'normal:banked_varied','lotus',300,'x',True)
+            layouts.add(tuple(sum(c['op']=='plant' and c.get('row')==r and c.get('type')=='PLANT_MELONPULT' for c in commands) for r in range(5)))
+        self.assertGreater(len(budgets),2);self.assertGreater(len(layouts),2)
+        _,selection,holdout=curriculum_templates('reserves')
+        self.assertEqual({family(a) for a,o in selection},{'full','masked','normal'})
+        self.assertTrue(all(any(a==f'normal:opening_10_{n}' for a,o in holdout) for n in range(1,10)))
+
+    def test_forecast_audit_excludes_censoring_and_marks_later_purchase(self):
+        episode=self.episode(end=80)
+        episode['final']['coldStorage']['killIncome']=12
+        episode['decisions'][0].update(features=[20,0,0,0,80,24,0,0],killIncome=0)
+        rows=windows(episode)
+        self.assertEqual(rows[0]['actualKills'],12)
+        self.assertEqual(rows[0]['actualProduction'],20)
+        self.assertFalse(rows[0]['laterPurchases'])
+        episode['decisions'][0].update(features=[0,0,0,0,64,600,30,0],effectiveWeights=[0,0,0,0,1,.7,0,0])
+        self.assertTrue(windows(episode)[0]['rewardedPredictedLoss'])
+        episode['decisions'].append(dict(episode['decisions'][0],elapsed=30,wave=3))
+        self.assertTrue(windows(episode)[0]['laterPurchases'])
+        episode['final']['coldStorage']['elapsed']=50
+        self.assertEqual(windows(episode),[])
+
     def test_state_layer_is_forwarded_and_mutated_without_changing_baselines(self):
         policy={'weights':[1]*8,'preferences':{'ZOMBIE_NORMAL':[0]*8},'stateModel':new_state_model()}
         before=copy.deepcopy(policy)
