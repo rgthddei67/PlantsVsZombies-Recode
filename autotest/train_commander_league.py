@@ -13,7 +13,7 @@ import secrets
 
 from commander_calibration import fit, metrics, samples
 from train_cold_storage import ROOT, run_batch, save
-from train_cold_storage_all import CONTEXT, catalog, mutate, selection_key
+from train_cold_storage_all import CONTEXT, catalog, mutate
 
 
 def read(path):
@@ -21,12 +21,13 @@ def read(path):
 
 
 def grouped_key(rows, cases):
-    """Protect the weakest roster family before using bounded score to break ties."""
+    """Wins first; equal-win policies compete on actual progress, without rewarding timeout survival."""
     groups = [[row for row, case in zip(rows,cases) if family(case[0]) == mode]
               for mode in ('full','masked','normal')]
     present = [g for g in groups if g]
     return (min(sum(r['outcome'] == 'commander_win' for r in g)/len(g) for g in present),
-            *selection_key(rows))
+            sum(r['outcome'] == 'commander_win' for r in rows),
+            sum(r['progress'] for r in rows)/max(1,len(rows)))
 
 
 def family(arena):
@@ -59,7 +60,7 @@ def curriculum_templates(name):
     holdout = [(f'normal:opening_10_{n}',('builder','lotus','ash')[n%3]) for n in range(1,10)]
     holdout += [('opening','ash'),('fortress','hunter'),('elite_spread','adaptive'),
                 ('masked:opening','builder'),('masked:developing','adaptive'),('masked:elite_cluster','counter')]
-    if name == 'siege':
+    if name in ('siege','endurance'):
         # 训练更常遇到真人暴露的守线反制，仍保留三类卡池及其他阵型，不能只练一张截图。
         # 最后三场仅验证生产校准误差；同一局的两个行为策略必须始终属于同一划分。
         collection = [('normal:opening','lotus'),('normal:developing','lotus'),('normal:fortress','lotus'),
@@ -73,9 +74,20 @@ def curriculum_templates(name):
         # 加测同类防守的新种子；预建战术片段与正常开局分别记录，不能合称完整对局胜率。
         holdout += [('normal:opening','lotus'),('normal:developing','lotus'),
                     ('normal:fortress','lotus'),('normal:opening','ash')]
+        if name == 'endurance':
+            collection[2] = ('normal:banked','lotus')
+            selection[2] = ('normal:banked','lotus')
+            holdout += [('normal:banked','lotus'),('banked','lotus')]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout
+
+
+def draw_cases(templates, rng, seconds, long_seconds, curriculum):
+    """Long matches expose delayed attacks; neither idle time nor wave count is a training reward."""
+    return [(a,o,rng.randrange(2**30),
+             long_seconds if curriculum == 'endurance' and (a.startswith('normal:') or 'banked' in a) else seconds)
+            for a,o in templates]
 
 
 def train(args):
@@ -91,8 +103,11 @@ def train(args):
                game/'resources/gamedata.json',game/'resources/ai/cold_storage_policy.json']
     if args.from_candidate:
         tracked.append(args.from_candidate.resolve())
+    if args.reference_policy:
+        tracked.append(args.reference_policy.resolve())
     identity = {'schema':1,'seed':seed,'seconds':args.seconds,'generations':args.generations,'curriculum':args.curriculum,
-                'hashes':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
+                'longSeconds':args.long_seconds,'population':args.population,
+                'hashes':{p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
     if previous and previous != identity:
         raise RuntimeError('Engine, policy or trainer changed; use a new output directory')
     save(identity_path,identity)
@@ -104,6 +119,14 @@ def train(args):
     for name in names:
         value = source['preferences'].get(name, [0]*len(CONTEXT))
         source['preferences'][name] = ([value]+[0]*7) if isinstance(value,(int,float)) else value
+    reference = None
+    if args.reference_policy:
+        old = read(args.reference_policy)
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration') if k in old}
+        reference['trainingUnits'] = names
+        for name in names:
+            value = reference['preferences'].get(name,[0]*len(CONTEXT))
+            reference['preferences'][name] = ([value]+[0]*7) if isinstance(value,(int,float)) else value
     rng = random.Random(seed)
     duration = args.seconds
     # 新注册单位先获得付费出场证据；探针只揭示能力，不伪装成对单位价值的因果证明。
@@ -119,7 +142,7 @@ def train(args):
     save(output/'new_unit_probes.json',{'units':probes,'inheritedUnits':len(names)-len(unfamiliar)})
     # 完整对局为单位划分，不把相邻决策分散到拟合/验证两边。
     collection, selection, holdout_templates = curriculum_templates(args.curriculum)
-    collection = [(a,o,rng.randrange(2**30),duration) for a,o in collection]
+    collection = draw_cases(collection,rng,duration,args.long_seconds,args.curriculum)
     # 额外行为策略主动探索经营；只收集经验，不直接替换主策略，也不免费送工人。
     economic_explorer = copy.deepcopy(source)
     economic_explorer['weights'][4] = max(2.0,economic_explorer['weights'][4])
@@ -150,8 +173,10 @@ def train(args):
         champion['productionCalibration'] = model
     history = []
     for generation in range(args.generations):
-        cases = [(a,o,rng.randrange(2**30),duration) for a,o in selection]
-        population = [source,champion,mutate(champion,rng,.6)]
+        cases = draw_cases(selection,rng,duration,args.long_seconds,args.curriculum)
+        population = [source,champion] + ([reference] if reference else [])
+        while len(population) < args.population:
+            population.append(mutate(champion,rng,.6 if len(population)%2 else 1.2))
         scores = run_batch(game,output,output.name+f'_generation_{generation}',population,cases,all_zombies=True)
         winner = max(range(len(population)),key=lambda i:grouped_key(scores[i],cases))
         champion = copy.deepcopy(population[winner])
@@ -159,9 +184,12 @@ def train(args):
         save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     # 在读取留出成绩前冻结候选。覆盖九个正式关卡，不能拿 10-1 代表整个第十章。
     save(output/'frozen_policy.json',champion)
-    holdout = [(a,o,rng.randrange(2**30),duration) for a,o in holdout_templates]
-    scores = run_batch(game,output,output.name+'_holdout',[source,champion],holdout,all_zombies=True)
+    holdout = draw_cases(holdout_templates,rng,duration,args.long_seconds,args.curriculum)
+    scores = run_batch(game,output,output.name+'_holdout',[source,champion]+([reference] if reference else []),holdout,all_zombies=True)
     report = gate(scores[0],scores[1],holdout)
+    if reference:
+        report['reference'] = gate(scores[2],scores[1],holdout)
+        report['passed'] = report['passed'] and report['reference']['passed']
     save(output/'evaluation.json',{'identity':identity,'cases':holdout,'scores':scores,'gate':report})
     artifact = {k:v for k,v in champion.items() if k != 'trainingUnits'}
     artifact.update(schema=1,validated=False,leagueGatePassed=report['passed'],identity=identity,
@@ -175,11 +203,16 @@ if __name__ == '__main__':
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--seconds',type=int,default=300)
     parser.add_argument('--generations',type=int,default=1)
-    parser.add_argument('--curriculum',choices=('balanced','siege'),default='balanced',
+    parser.add_argument('--population',type=int,default=3)
+    parser.add_argument('--long-seconds',type=int,default=900)
+    parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
+    parser.add_argument('--curriculum',choices=('balanced','siege','endurance'),default='balanced',
                         help='Siege emphasizes campaign Lotus/ash defenses while retaining mixed-roster coverage')
     parser.add_argument('--from-candidate',type=Path,help='Reuse previous weights only; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
-    if not 120 <= args.seconds <= 1200 or args.generations < 0:
-        parser.error('seconds must be 120..1200 and generations nonnegative')
+    if (not 120 <= args.seconds <= 1200 or args.generations < 0 or not 120 <= args.long_seconds <= 1800
+            or (args.curriculum == 'endurance' and args.long_seconds < args.seconds)
+            or args.population < (4 if args.reference_policy else 3)):
+        parser.error('Require seconds 120..1200, long-seconds 120..1800 (>=seconds for endurance), nonnegative generations, and population >=3 (>=4 with reference).')
     train(args)

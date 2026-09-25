@@ -74,9 +74,12 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
         if roster is not None:
             commands[-1]['units'] = [n for n in roster if not (policy.get('noWorkers') and n == 'ZOMBIE_ICE_WORKER')]
-    if arena.startswith(('fortress', 'economy', 'elite_', 'developing')):
+    if arena.startswith(('fortress', 'economy', 'elite_', 'developing', 'banked')):
         developing = arena.startswith('developing')
-        opening_ice = 250 if developing else 96 if arena.startswith('economy') else 600
+        banked = arena.startswith('banked')
+        opening_ice = 1800 if banked else 250 if developing else 96 if arena.startswith('economy') else 600
+        if banked:
+            commands.append({'op':'set_spawn_paused','value':True})
         commands += [
             {'op': 'set_cold_storage', 'state': {'elapsed': 100 if developing else 300, 'decisions': 4 if developing else 20,
              'enemyIce': opening_ice, 'initialEnemyIce': opening_ice, 'playerIce': 3000,
@@ -96,14 +99,25 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                     lineup += [('ELITE_SCAREDYSHROOM', column), ('PUMPKINSHELL', column)]
             if developing:
                 lineup = [('MELONPULT', 0), ('SUNFLOWER', 3), ('SUNFLOWER', 5)]
+            if banked:
+                # 高库存成型阵地是战术夹具，不冒充真人存档重放；钱仅在开局布置一次。
+                lineup = [('MELONPULT',0),('WINTERMELON',0),('SUNFLOWER',4),('SUNFLOWER',5),('SUNFLOWER',7)]
+                for column in (1,2,3):
+                    kind = 'DAWNLOTUS' if opponent == 'lotus' and row == seed % 5 and column == 2 else 'MELONPULT'
+                    lineup.append((kind,column))
+                lineup += [('PUMPKINSHELL',c) for c in range(4)]
             for kind, col in lineup:
                 commands.append({'op': 'plant', 'type': 'PLANT_' + kind, 'row': row, 'col': col})
             if arena.startswith('economy'):
                 commands += [{'op': 'plant', 'type': 'PLANT_MELONPULT', 'row': row, 'col': 2},
                              {'op': 'plant', 'type': 'PLANT_PUMPKINSHELL', 'row': row, 'col': 2}]
-            if developing or arena.startswith('economy') or row != seed % 5:
+            if banked or developing or arena.startswith('economy') or row != seed % 5:
                 commands.append({'op': 'plant', 'type': 'PLANT_WALLNUT', 'row': row, 'col': 6})
-        commands.append({'op': 'set_cold_storage', 'state': {'playerIce': 180 if developing else 300}})
+        commands.append({'op': 'set_cold_storage', 'state': {'playerIce': 2600 if banked else 180 if developing else 300}})
+        if banked:
+            # 正式计时充能，保留完整冷却与费用规则；该过程发生在片段初始快照之前。
+            commands += [{'op':'wait_seconds','value':21,'timeout':30},
+                         {'op':'set_spawn_paused','value':False}]
     if policy.get('probe'):
         commands.append({'op': 'queue_ice_zombie', 'type': policy['probe'], 'row': seed % 5, 'delay': 0})
     # 升级株替换的旧实体在下一逻辑步清理，基线不能把同一格的新旧输出重复计数。
@@ -136,6 +150,14 @@ def score(result):
                + 100 * (initial.get('mowerCount', 5) - final.get('mowerCount', 5))
                - 25 * (fire(final) - fire(initial)))
     return terminal + max(-2000, min(2000, shaping))
+
+
+def battle_progress(result):
+    """Tie-break equal win counts by real cleared plants/mowers, not stockpiling or timeout survival."""
+    initial, final = result['initial'], result['final']
+    kills = max(0,final['coldStorage']['killIncome']-initial['coldStorage']['killIncome'])
+    mowers = max(0,initial.get('mowerCount',5)-final.get('mowerCount',5))
+    return 2*kills + 100*mowers
 
 
 def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=False):
@@ -178,6 +200,7 @@ def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=F
                 t['ice']['commanderStrategy'] == 'learned_search' for t in result['trace']):
             raise RuntimeError('Candidate never used search policy')
         scores[index].append({'score': score(result), 'outcome': result['outcome'],
+                              'progress': battle_progress(result),
                               'seconds': result['seconds'], 'result': str(artifact_dir / (result_name + '.json'))})
     save(cache, {'fingerprint': fingerprint, 'scores': scores, 'wallSeconds': time.monotonic() - started})
     print(name, [[round(r['score'], 2) for r in rows] for rows in scores], flush=True)

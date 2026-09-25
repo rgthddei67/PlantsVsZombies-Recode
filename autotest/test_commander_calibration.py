@@ -1,13 +1,44 @@
 """Attribution, censoring, leakage boundaries and roster contracts for league training."""
 import copy
 import unittest
+import random
 
 from commander_calibration import fit, metrics, predict, samples
-from train_cold_storage import episode_commands
-from train_commander_league import gate, curriculum_templates, family
+from train_cold_storage import episode_commands, battle_progress
+from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_delayed_victory_is_not_penalized_and_idle_wealth_is_not_progress(self):
+        cases=[('normal:opening','lotus',1,900)]
+        idle=[{'outcome':'timeout','progress':0,'score':2000,'seconds':900}]
+        failed_attack=[{'outcome':'player_win','progress':80,'score':-10000,'seconds':600}]
+        late_win=[{'outcome':'commander_win','progress':20,'score':10000,'seconds':890}]
+        self.assertGreater(grouped_key(failed_attack,cases),grouped_key(idle,cases))
+        self.assertGreater(grouped_key(late_win,cases),grouped_key(failed_attack,cases))
+        early_win=copy.deepcopy(late_win);early_win[0]['seconds']=100
+        self.assertEqual(grouped_key(early_win,cases),grouped_key(late_win,cases))
+        result={'initial':{'coldStorage':{'killIncome':0},'mowerCount':5},
+                'final':{'coldStorage':{'killIncome':0,'enemyIce':2000},'mowerCount':5}}
+        self.assertEqual(battle_progress(result),0)
+        result['final']['coldStorage']['killIncome']=40
+        self.assertEqual(battle_progress(result),80)
+
+    def test_endurance_has_long_banked_cases_and_legal_fixture(self):
+        collection,selection,holdout=curriculum_templates('endurance')
+        self.assertIn(('normal:banked','lotus'),selection)
+        cases=draw_cases(holdout,random.Random(7),300,900,'endurance')
+        self.assertTrue(all(s==900 for a,o,r,s in cases if a.startswith('normal:') or 'banked' in a))
+        self.assertTrue(any(s==300 for a,o,r,s in cases))
+        commands=episode_commands([1]*8,7,'normal:banked','lotus',900,'banked',True)
+        cards=next(c['cards'] for c in commands if c['op']=='choose_cards')
+        plants=[c for c in commands if c['op']=='plant']
+        self.assertTrue(all(c['type'] in cards for c in plants))
+        self.assertEqual(sum(c['type']=='PLANT_DAWNLOTUS' for c in plants),1)
+        self.assertEqual(sum(c['type']=='PLANT_PUMPKINSHELL' for c in plants),20)
+        self.assertEqual(sum(c['state'].get('enemyIce')==1800 for c in commands if c['op']=='set_cold_storage'),1)
+        self.assertEqual(commands[-1]['op'],'commander_episode')
+
     def test_siege_curriculum_keeps_mixed_pools_and_campaign_holdouts(self):
         collection, selection, holdout = curriculum_templates('siege')
         self.assertEqual(len(collection),12)
