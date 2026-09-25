@@ -246,7 +246,7 @@ void GameSelectScene::BuildDrawCommands()
 			DrawFittedCenteredText(gameApp, u8"开局 60 秒布阵；全程没有阳光补给，记得留钱救场。",
 				650.0f, 342.0f, 670.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 21, 16);
-			DrawFittedCenteredText(gameApp, u8"大混战：冷藏站地图，3000 阳光，对手带 850 冰与全兵种来战。",
+			DrawFittedCenteredText(gameApp, u8"大混战：冷藏站地图，3000 阳光，对手带 850 冰，兵种逐波解锁。",
 				650.0f, 402.0f, 710.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 23, 16);
 		}

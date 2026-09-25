@@ -292,7 +292,7 @@ void Board::InitializeColdStorage()
 {
 	if (!IsColdStorage()) return;
 	mColdStorage = {};
-	mMaxWave = 0; // 冷藏站没有最终波；冒险用波号解锁兵种，大混战开局全解锁；胜利由冰块破产与清场判定。
+	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
 	mColdStorage.initialEnemyIce = MiniGame::IsBrawl(mLevel) ? MiniGame::BRAWL_ENEMY_ICE
@@ -413,7 +413,7 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| row < 0 || row >= mRows || !IsSpawnRowCompatible(type, row)
-		|| (!(MiniGame::IsBrawl(mLevel) || (GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits()))
+		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
 			&& GameDataManager::GetInstance().GetZombieAppearWave(type) > mColdStorage.decisions + 1)
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
 		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= kMaxSimultaneous) return false;
@@ -432,7 +432,7 @@ void Board::PlanColdStorageAttack()
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || !mColdStorage.pending.empty()) return;
 	auto& s = mColdStorage;
-	const bool allUnitsUnlocked = MiniGame::IsBrawl(mLevel) || ColdStoragePolicy::AllUnits();
+	const bool allUnitsUnlocked = ColdStoragePolicy::AllUnits();
 	const auto isUnlocked = [&](ZombieType type) {
 		return allUnitsUnlocked || GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1;
 	};
