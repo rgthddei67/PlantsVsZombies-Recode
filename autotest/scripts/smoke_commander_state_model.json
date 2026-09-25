@@ -1,0 +1,327 @@
+{
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -1,
+        0,
+        0
+      ],
+      "stateModel": {
+        "schema": 1,
+        "featureCount": 6,
+        "coefficients": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 4,
+        "initialEnemyIce": 4,
+        "decisions": 30,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 0
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAdaptive",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "saving.json"
+    },
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -1,
+        0,
+        0
+      ],
+      "stateModel": {
+        "schema": 1,
+        "featureCount": 6,
+        "coefficients": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      }
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1800,
+        "initialEnemyIce": 1800,
+        "decisions": 30,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 0
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAdaptive",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "atLeast": 9,
+      "atMost": 32
+    },
+    {
+      "op": "dump_state",
+      "name": "investing.json"
+    },
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -1,
+        0,
+        0
+      ],
+      "stateModel": null
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1800,
+        "initialEnemyIce": 1800,
+        "decisions": 30,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 0
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAdaptive",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "legacy.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

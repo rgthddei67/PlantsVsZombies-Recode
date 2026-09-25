@@ -27,7 +27,12 @@ for name, state in states.items():
         # 日志分数按百分之一取整；集中对照不能降低自由搜索的结果。
         score = ice['lastBestScoreOn100'] / 100
         # 核对实际决策使用当前运行资源的权重，而不只是看到 learned_search 标签。
-        expected = ice['searchPreferenceScore'] + sum(a*b for a,b in zip(ice['searchFeatures'],policy['weights']))
+        effective = policy['weights'][:]
+        if policy.get('stateModel'):
+            effective = [max(-500,min(500,b+sum(x*row[j] for x,row in zip(ice['searchStateInputs'],policy['stateModel']['coefficients']))))
+                         for j,b in enumerate(effective)]
+        assert all(abs(a-b)<max(.001,abs(b)*.000002) for a,b in zip(ice['searchEffectiveWeights'],effective))
+        expected = ice['searchPreferenceScore'] + sum(a*b for a,b in zip(ice['searchFeatures'],effective))
         assert abs(score-expected) < max(.03,abs(expected)*.000002)
         assert score + .02 >= comparison['baseScore']
         for row, value in enumerate(comparison['scores']):

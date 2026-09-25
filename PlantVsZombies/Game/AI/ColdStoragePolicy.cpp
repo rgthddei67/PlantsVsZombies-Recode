@@ -11,6 +11,8 @@ bool experiment = false, enabled = false, allTypes = false;
 std::map<ZombieType, ColdStorageSearch::ContextWeights> unitPreferences, publishedPreferences;
 ColdStorageSearch::Weights parameters{};
 ColdStorageSearch::ProductionCalibration experimentalModel, publishedModel;
+ColdStorageSearch::StateModel experimentalState, publishedState;
+bool hasExperimentalState = false, hasPublishedState = false;
 
 /** 校准资源限制树大小及拓扑；非法模型使整份候选失败，不悄悄略过。 */
 bool ParseCalibration(const nlohmann::json& value, ColdStorageSearch::ProductionCalibration& out) {
@@ -37,6 +39,17 @@ bool Parse(const nlohmann::json& value, ColdStorageSearch::Weights& out) {
 		out[i] = value[i].get<float>();
 	}
 	return ColdStorageSearch::ValidWeights(out);
+}
+/** 严格固定局势层维度；试玩标志不能绕过结构和有限值校验。 */
+bool ParseStateModel(const nlohmann::json& value, ColdStorageSearch::StateModel& out) {
+	if (!value.is_object() || value.value("schema",0) != 1
+		|| value.value("featureCount",0) != ColdStorageSearch::StateFeatureCount
+		|| !value.contains("coefficients") || !value.at("coefficients").is_array()
+		|| value.at("coefficients").size() != out.coefficients.size()) return false;
+	ColdStorageSearch::StateModel parsed;
+	for (size_t i = 0; i < parsed.coefficients.size(); ++i)
+		if (!Parse(value.at("coefficients")[i],parsed.coefficients[i])) return false;
+	out = parsed; return true;
 }
 /** 兵种按稳定枚举名登记；每种权重对应公开的局势特征，未知名称拒绝加载。 */
 bool ParsePreferences(const nlohmann::json& value, std::map<ZombieType, ColdStorageSearch::ContextWeights>& out) {
@@ -75,24 +88,34 @@ const ColdStorageSearch::Weights* Get(int level) {
 			// 主人可显式试玩未通过胜率门槛的候选；保留 validated=false，且仍严格校验全部参数。
 			return data.value("schema", 0) == 1 && (data.value("validated", false) || data.value("userRequestedTrial", false))
 				&& Parse(data.at("weights"), published)
+				&& (!data.contains("stateModel") || (hasPublishedState = ParseStateModel(data.at("stateModel"), publishedState)))
 				&& (!data.contains("preferences") || ParsePreferences(data.at("preferences"), publishedPreferences))
 				&& (!data.contains("productionCalibration") || ParseCalibration(data.at("productionCalibration"), publishedModel));
 		} catch (const nlohmann::json::exception&) { return false; }
 	}();
 	return valid ? &published : nullptr;
 }
-bool SetExperiment(const nlohmann::json& weights, bool allUnits, const nlohmann::json* preferences, const nlohmann::json* calibration) {
+bool SetExperiment(const nlohmann::json& weights, bool allUnits, const nlohmann::json* preferences, const nlohmann::json* calibration,
+	const nlohmann::json* stateModel) {
 	ColdStorageSearch::Weights candidate{};
 	std::map<ZombieType, ColdStorageSearch::ContextWeights> parsed;
 	ColdStorageSearch::ProductionCalibration model;
+	ColdStorageSearch::StateModel adaptive;
+	const bool hasState = stateModel && !stateModel->is_null();
 	try {
 		if (!weights.is_null() && !Parse(weights, candidate)) return false;
 		if (preferences && !ParsePreferences(*preferences, parsed)) return false;
 		if (calibration && !calibration->is_null() && !ParseCalibration(*calibration,model)) return false;
+		if (hasState && !ParseStateModel(*stateModel,adaptive)) return false;
 	} catch (const nlohmann::json::exception&) { return false; }
 	experiment = true; enabled = !weights.is_null(); parameters = candidate;
 	allTypes = allUnits; unitPreferences = std::move(parsed); experimentalModel = std::move(model);
+	experimentalState = adaptive; hasExperimentalState = hasState;
 	return true;
+}
+const ColdStorageSearch::StateModel* AdaptiveModel() {
+	if (experiment) return enabled && hasExperimentalState ? &experimentalState : nullptr;
+	return hasPublishedState ? &publishedState : nullptr;
 }
 const ColdStorageSearch::ProductionCalibration* ProductionModel() {
 	const auto& model = experiment ? experimentalModel : publishedModel;
@@ -104,5 +127,8 @@ ColdStorageSearch::ContextWeights UnitPreference(ZombieType type) {
 	const auto it = values.find(type);
 	return (!experiment || enabled) && it != values.end() ? it->second : ColdStorageSearch::ContextWeights{};
 }
-void ResetExperiment() { experiment = enabled = allTypes = false; unitPreferences.clear(); experimentalModel.nodes.clear(); }
+void ResetExperiment() {
+	experiment = enabled = allTypes = hasExperimentalState = false;
+	unitPreferences.clear(); experimentalModel.nodes.clear(); experimentalState = {};
+}
 }

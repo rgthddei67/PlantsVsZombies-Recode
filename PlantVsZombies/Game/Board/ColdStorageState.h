@@ -63,8 +63,11 @@ struct ColdStorageState {
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
 	float lastBestScore = 0.0f;
-	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一 60 秒时域的计划/不增援预测，诊断不入档
+	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一推演时域的计划/不增援预测（产冰固定60秒），诊断不入档
 	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档
+	std::array<float, 6> searchStateInputs{}; // 与 StateFeatureCount 同步，只读局势诊断不入档
+	std::array<float, 8> searchEffectiveWeights{}; // 局势层调整后的本次评分，诊断不入档
+	bool searchAdaptive = false; // 是否加载可训练局势层，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断

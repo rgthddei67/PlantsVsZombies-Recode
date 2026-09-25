@@ -13,7 +13,7 @@ import secrets
 
 from commander_calibration import fit, metrics, samples
 from train_cold_storage import ROOT, run_batch, save
-from train_cold_storage_all import CONTEXT, catalog, mutate
+from train_cold_storage_all import CONTEXT, catalog, mutate, new_state_model
 
 
 def read(path):
@@ -107,13 +107,14 @@ def train(args):
         tracked.append(args.reference_policy.resolve())
     identity = {'schema':1,'seed':seed,'seconds':args.seconds,'generations':args.generations,'curriculum':args.curriculum,
                 'longSeconds':args.long_seconds,'population':args.population,
+                'stateModel':args.state_model,
                 'hashes':{p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
     if previous and previous != identity:
         raise RuntimeError('Engine, policy or trainer changed; use a new output directory')
     save(identity_path,identity)
     names = read(output/'catalog.json')['units'] if (output/'catalog.json').exists() else catalog(game,output)
     incumbent = read(game/'resources/ai/cold_storage_policy.json')
-    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration') if k in incumbent}
+    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel') if k in incumbent}
     source['trainingUnits'] = names
     unfamiliar = [name for name in names if name not in source['preferences']]
     for name in names:
@@ -122,7 +123,7 @@ def train(args):
     reference = None
     if args.reference_policy:
         old = read(args.reference_policy)
-        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration') if k in old}
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel') if k in old}
         reference['trainingUnits'] = names
         for name in names:
             value = reference['preferences'].get(name,[0]*len(CONTEXT))
@@ -147,6 +148,8 @@ def train(args):
     economic_explorer = copy.deepcopy(source)
     economic_explorer['weights'][4] = max(2.0,economic_explorer['weights'][4])
     economic_explorer['preferences']['ZOMBIE_ICE_WORKER'] = [8,0,0,0,0,0,0,0]
+    if args.state_model:
+        economic_explorer.setdefault('stateModel',new_state_model())
     collected = run_batch(game,output,output.name+'_collect',[source,economic_explorer],collection,all_zombies=True)
     fit_rows, validation_rows = [], []
     groups = []
@@ -166,17 +169,24 @@ def train(args):
     if args.from_candidate:
         prior = read(args.from_candidate)
         champion['weights'] = prior['weights']
+        if 'stateModel' in prior:
+            champion['stateModel'] = copy.deepcopy(prior['stateModel'])
         for name,value in prior.get('preferences',{}).items():
             if name in champion['preferences']:
                 champion['preferences'][name] = value
     if usable:
         champion['productionCalibration'] = model
+    if args.state_model:
+        champion.setdefault('stateModel',new_state_model())
     history = []
     for generation in range(args.generations):
         cases = draw_cases(selection,rng,duration,args.long_seconds,args.curriculum)
         population = [source,champion] + ([reference] if reference else [])
         while len(population) < args.population:
-            population.append(mutate(champion,rng,.6 if len(population)%2 else 1.2))
+            parent = copy.deepcopy(champion)
+            if args.state_model:
+                parent.setdefault('stateModel',new_state_model())
+            population.append(mutate(parent,rng,.6 if len(population)%2 else 1.2))
         scores = run_batch(game,output,output.name+f'_generation_{generation}',population,cases,all_zombies=True)
         winner = max(range(len(population)),key=lambda i:grouped_key(scores[i],cases))
         champion = copy.deepcopy(population[winner])
@@ -204,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('--seconds',type=int,default=300)
     parser.add_argument('--generations',type=int,default=1)
     parser.add_argument('--population',type=int,default=3)
+    parser.add_argument('--state-model',action='store_true',help='Explore conditional scoring and expanded voluntary formations; baselines stay unchanged')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
     parser.add_argument('--curriculum',choices=('balanced','siege','endurance'),default='balanced',

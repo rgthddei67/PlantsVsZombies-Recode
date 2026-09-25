@@ -15,6 +15,13 @@ import subprocess
 from train_cold_storage import ROOT, INITIAL, SCALES, episode_commands, mean, run_batch, save, score
 
 CONTEXT = ['bias', 'allied_wounds', 'allied_density', 'front_wall', 'slow', 'fire', 'workers', 'back_protection']
+STATE_CONTEXT = ['stockpile','production','plant_fire','plant_economy','counter_readiness','no_progress']
+
+
+def new_state_model():
+    """Neutral trainable state layer; no manually supplied stockpile/attack threshold."""
+    return {'schema':1,'featureCount':len(STATE_CONTEXT),'features':STATE_CONTEXT[:],
+            'coefficients':[[0.0]*len(INITIAL) for _ in STATE_CONTEXT]}
 
 
 def read(path):
@@ -46,6 +53,11 @@ def mutate(policy, rng, scale):
     """Mutate context coefficients sparsely so rare-unit experience is not erased."""
     result = copy.deepcopy(policy)
     result['weights'] = [max(-500, min(500, rng.gauss(w, s * scale))) for w, s in zip(policy['weights'], SCALES)]
+    if result.get('stateModel'):
+        for row in result['stateModel']['coefficients']:
+            for j in range(len(row)):
+                if rng.random() < .35:
+                    row[j] = max(-500,min(500,rng.gauss(row[j],SCALES[j]*scale*.5)))
     for name, values in result['preferences'].items():
         if rng.random() < .25:
             for i in range(len(values)):

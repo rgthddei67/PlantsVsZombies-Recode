@@ -6,9 +6,24 @@ import random
 from commander_calibration import fit, metrics, predict, samples
 from train_cold_storage import episode_commands, battle_progress
 from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases
+from train_cold_storage_all import new_state_model, mutate
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_state_layer_is_forwarded_and_mutated_without_changing_baselines(self):
+        policy={'weights':[1]*8,'preferences':{'ZOMBIE_NORMAL':[0]*8},'stateModel':new_state_model()}
+        before=copy.deepcopy(policy)
+        changed=mutate(policy,random.Random(17),1)
+        self.assertEqual(policy,before)
+        self.assertNotEqual(changed['stateModel']['coefficients'],policy['stateModel']['coefficients'])
+        self.assertEqual(len(changed['stateModel']['coefficients']),6)
+        self.assertTrue(all(len(row)==8 and all(-500<=x<=500 for x in row) for row in changed['stateModel']['coefficients']))
+        command=next(c for c in episode_commands(changed,17,'normal:opening','lotus',900,'x',True) if c['op']=='commander_experiment')
+        self.assertEqual(command['stateModel'],changed['stateModel'])
+        self.assertFalse(command['allZombies'])
+        legacy=copy.deepcopy(policy);del legacy['stateModel']
+        self.assertNotIn('stateModel',mutate(legacy,random.Random(17),1))
+
     def test_delayed_victory_is_not_penalized_and_idle_wealth_is_not_progress(self):
         cases=[('normal:opening','lotus',1,900)]
         idle=[{'outcome':'timeout','progress':0,'score':2000,'seconds':900}]

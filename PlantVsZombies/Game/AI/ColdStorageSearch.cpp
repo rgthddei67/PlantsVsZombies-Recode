@@ -12,6 +12,9 @@ constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛�
 constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
 constexpr int kMaxActions = 8; // 一次搜索最多承诺的新增单位数，下次观察后可以继续部署
 constexpr float kMaxDelay = 12; // 新队员最迟出生时间，游戏秒
+constexpr int kAdaptiveActions = 32; // 新模型可比较的最大编队，能力上限而非最低出兵数
+constexpr float kAdaptiveDelay = 30; // 新模型可搜索的分批出生时域，游戏秒
+constexpr float kAdaptiveHorizon = 90; // 新模型多观察一个后续交战窗口，游戏秒；产冰统计仍固定 60 秒
 constexpr float kContact = 55; // 接触植物的预测距离，像素
 constexpr float kAreaCounterStake = 24; // 玩家倾向对至少此冰价的集中兵力使用大范围清场；危及房屋时不等待
 constexpr float kTargetCounterStake = 8; // 窄范围反制允许用于较小目标，冰价
@@ -29,11 +32,11 @@ void Repair(const Snapshot& s, std::vector<Action>& actions) {
 		const int cost = s.options[a.option].cost;
 		if (cost <= 0 || spent + cost > s.budget) return true;
 		spent += cost;
-		a.delay = std::clamp(a.delay, 0.0f, kMaxDelay);
+		a.delay = std::clamp(a.delay, 0.0f, s.stateModel ? kAdaptiveDelay : kMaxDelay);
 		return false;
 	}), actions.end());
-	if (actions.size() > static_cast<size_t>(std::max(0, std::min(kMaxActions, s.capacity))))
-		actions.resize(std::max(0, std::min(kMaxActions, s.capacity)));
+	const int limit = std::max(0, std::min(s.stateModel ? kAdaptiveActions : kMaxActions, s.capacity));
+	if (actions.size() > static_cast<size_t>(limit)) actions.resize(limit);
 	std::stable_sort(actions.begin(), actions.end(), [](auto a, auto b) { return a.delay < b.delay; });
 }
 float Score(const Weights& f, const Weights& w) {
@@ -252,6 +255,37 @@ bool ValidWeights(const Weights& weights) {
 	return std::all_of(weights.begin(), weights.end(), [](float w) { return std::isfinite(w) && std::abs(w) <= 500; });
 }
 
+bool StateModel::IsValid() const {
+	return std::all_of(coefficients.begin(),coefficients.end(),[](const auto& row) { return ValidWeights(row); });
+}
+
+StateFeatures DescribeState(const Snapshot& s, const Weights& baseline) {
+	StateFeatures f{};
+	// 这些仅是输入单位归一化，不对应强制进攻阈值；系数正负和组合由实战训练选择。
+	f[0] = std::log1p(std::max(0,s.budget)) / std::log(101.0f);
+	f[1] = baseline[4] / 100;
+	for (const auto& p : s.plants) if (p.health > 0) { f[2] += p.dps / 300; f[3] += p.sunPerSecond / 10; }
+	std::vector<int> sources;
+	for (const auto& c : s.counters) {
+		if (c.blast.committed || c.blast.ready > kMaxDelay || c.sunCost > s.playerSun || c.iceCost > s.playerIce) continue;
+		if (std::find(sources.begin(),sources.end(),c.source) == sources.end()) sources.push_back(c.source);
+	}
+	f[4] = static_cast<float>(sources.size()) / 3;
+	for (const auto& strike : s.rowStrikes) if (strike.ready <= kMaxDelay) f[4] += 1.0f / 3;
+	f[5] = s.noProgressSeconds / 90;
+	for (auto& value : f) value = std::clamp(value,0.0f,3.0f);
+	return f;
+}
+
+Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model) {
+	auto result = base;
+	if (model) for (int j = 0; j < FeatureCount; ++j) {
+		for (int i = 0; i < StateFeatureCount; ++i) result[j] += inputs[i] * model->coefficients[i][j];
+		result[j] = std::clamp(result[j],-500.0f,500.0f);
+	}
+	return result;
+}
+
 bool ProductionCalibration::IsValid() const {
 	if (nodes.empty() || nodes.size() > 63) return false;
 	for (size_t i = 0; i < nodes.size(); ++i) {
@@ -311,7 +345,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 	std::vector<bool> refunded(units.size()), breached(units.size());
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	bool orderArrived = false;
-	for (float t = 0; t < kHorizon; t += kStep) {
+	for (float t = 0; t < (s.stateModel ? kAdaptiveHorizon : kHorizon); t += kStep) {
 		if (!orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
@@ -354,7 +388,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 			if (u.economic && u.health > worker.productionStopHealth) {
 				worker.productionRemaining -= active;
 				while (worker.productionRemaining <= 0) {
-					f[4] += static_cast<int>(worker.nextYield);
+					if (t < kHorizon) f[4] += static_cast<int>(worker.nextYield);
 					worker.productionRemaining += IceProduction::Interval;
 					worker.nextYield = std::min(IceProduction::MaximumYield, worker.nextYield * IceProduction::YieldGrowth);
 				}
@@ -394,10 +428,13 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 	return f;
 }
 
-Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
+Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
 	Result best;
-	if (!ValidWeights(weights)) return best;
+	if (!ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())) return best;
 	best.features = Evaluate(s, {}); Calibrate(s,best);
+	const auto inputs = DescribeState(s,best.features);
+	const auto weights = ConditionWeights(baseWeights,inputs,s.stateModel);
+	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
@@ -412,18 +449,30 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		if (trial % 3 == 0) {
 			plan.clear();
 			const int focus = s.options[rng() % s.options.size()].row;
-			for (int count = 1 + rng() % kMaxActions; count > 0; --count) {
+			const int repeated = s.stateModel ? static_cast<int>(rng() % s.options.size()) : -1;
+			const bool mixed = !s.stateModel || rng() % 2 == 0;
+			const bool concentrate = !s.stateModel || rng() % 2 == 0;
+			for (int count = 1 + rng() % (s.stateModel ? kAdaptiveActions : kMaxActions); count > 0; --count) {
 				int option = rng() % s.options.size();
-				if (rng() % 4 != 0) {
+				if (s.stateModel) {
+					// 同类/混编、集中/分散均给探索机会；类型取自合法选项，不预设战术名单。
+					if (!mixed || rng() % 2 == 0) option = repeated;
+					const int row = concentrate && rng() % 4 != 0 ? focus : s.options[rng() % s.options.size()].row;
+					const auto& original = s.options[option];
+					const auto match = std::find_if(s.options.begin(),s.options.end(),[&](const auto& choice) {
+						return choice.type == original.type && choice.cost == original.cost && choice.row == row;
+					});
+					if (match != s.options.end()) option = static_cast<int>(match-s.options.begin());
+				} else if (rng() % 4 != 0) {
 					for (int attempt = 0; attempt < 12 && s.options[option].row != focus; ++attempt) option = rng() % s.options.size();
 				}
-				plan.push_back({option, static_cast<float>(rng() % 25) * 0.5f});
+				plan.push_back({option, static_cast<float>(rng() % (s.stateModel ? 61 : 25)) * 0.5f});
 			}
 		}
 		const int mutations = 1 + rng() % 3;
 		for (int n = 0; n < mutations; ++n) {
 			const int mutation = rng() % 5;
-			if (plan.empty() || mutation == 0) plan.push_back({static_cast<int>(rng() % s.options.size()), static_cast<float>(rng() % 25) * 0.5f});
+			if (plan.empty() || mutation == 0) plan.push_back({static_cast<int>(rng() % s.options.size()), static_cast<float>(rng() % (s.stateModel ? 61 : 25)) * 0.5f});
 			else {
 				const size_t at = rng() % plan.size();
 				if (mutation == 1) plan.erase(plan.begin() + at);
@@ -466,6 +515,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
 	best.evaluated = evaluated;
+	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.regrouping = best.actions.empty() && deferredInvestment;
 	return best;
 }

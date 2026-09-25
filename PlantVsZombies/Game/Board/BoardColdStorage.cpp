@@ -745,6 +745,8 @@ void Board::PlanColdStorageAttack()
 	if (const auto* weights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr) {
 		ColdStorageSearch::Snapshot search;
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
+		search.stateModel = ColdStoragePolicy::AdaptiveModel();
+		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
@@ -897,6 +899,8 @@ void Board::PlanColdStorageAttack()
 		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
+		s.searchAdaptive = search.stateModel != nullptr;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());

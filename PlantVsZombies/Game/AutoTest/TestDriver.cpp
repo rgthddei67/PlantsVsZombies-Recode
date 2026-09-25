@@ -919,7 +919,8 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "commander_experiment") {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
 			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,
-			cmd.contains("productionCalibration") ? &cmd.at("productionCalibration") : nullptr)) {
+			cmd.contains("productionCalibration") ? &cmd.at("productionCalibration") : nullptr,
+			cmd.contains("stateModel") ? &cmd.at("stateModel") : nullptr)) {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
@@ -4858,6 +4859,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["productionEvents"].push_back({{"at",event.at},{"wave",event.wave},{"amount",event.amount}});
 		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;
 		ice["searchPreferenceScore"] = board->mColdStorage.searchPreferenceScore;
+		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;
+		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
+		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
 		ice["predictedProductionOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedProduction * 100.0f));
 		ice["economyValueOn100"] = static_cast<int>(std::lround(board->mColdStorage.economyValue * 100.0f));

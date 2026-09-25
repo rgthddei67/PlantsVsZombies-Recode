@@ -12,6 +12,14 @@ inline constexpr int FeatureCount = 8;
 using Weights = std::array<float, FeatureCount>;
 inline constexpr int ContextCount = 8; // 偏置、友军伤势、友军密度、前墙、减速、火力、工人数、后排保护
 using ContextWeights = std::array<float, ContextCount>;
+inline constexpr int StateFeatureCount = 6; // 库存、预计生产、植物火力、植物经济、可用反制、无击杀时长
+using StateFeatures = std::array<float, StateFeatureCount>;
+/** 随局势调整收益评分的可训练线性层；零系数不指定任何攒钱门槛或兵种编队。 */
+struct StateModel {
+	std::array<Weights, StateFeatureCount> coefficients{};
+	/** 每项系数须有限且在与基础评分相同的数值域内。 */
+	bool IsValid() const;
+};
 inline constexpr int ProductionFeatureCount = 10; // 产冰预测、现有/新工人、生命、护卫、护卫投入、火力、减速、墙、库存
 using ProductionFeatures = std::array<float, ProductionFeatureCount>;
 /** 小型实战校准树，只折减简化推演的产冰预期；不生成资源或改变单位。 */
@@ -60,6 +68,8 @@ struct Counter {
 };
 struct Snapshot {
 	const ProductionCalibration* productionCalibration = nullptr;
+	const StateModel* stateModel = nullptr;
+	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
 	int budget = 0, capacity = 0;
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
 	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
@@ -76,6 +86,8 @@ struct Snapshot {
 struct Result {
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
+	Weights effectiveWeights{};
+	StateFeatures stateInputs{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
@@ -88,6 +100,10 @@ struct Result {
 
 /** 验证参数尺寸以外的数值域，非法参数必须回退旧 AI。 */
 bool ValidWeights(const Weights& weights);
+/** 提取只读局势；baseline 的生产仍使用统一的未来 60 秒窗口。 */
+StateFeatures DescribeState(const Snapshot& state, const Weights& baseline);
+/** 在固定数值域内计算当前局势的评分权重；无模型时原样返回基础权重。 */
+Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */

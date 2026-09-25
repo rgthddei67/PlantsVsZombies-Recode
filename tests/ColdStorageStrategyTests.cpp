@@ -315,4 +315,41 @@ int main()
 		"worker followup uses the surviving existing guard without relocating it or buying a new one");
 	check(funded.features[5] == 24 && funded.formationTested == 31,"followup respects wallet and compares every legal lane");
 	std::cout << "Concentration, ash dispersal and guarded economy comparisons passed\n";
+
+	// 同一个基础评分通过局势输入改变偏好，而不是在运行逻辑中写固定进攻库存线。
+	ColdStorageSearch::StateModel adaptive;
+	adaptive.coefficients[0][5] = 1;
+	ColdStorageSearch::Snapshot adaptiveState;
+	adaptiveState.capacity = 32; adaptiveState.allowWait = true;
+	adaptiveState.stateModel = &adaptive; adaptiveState.budget = 4;
+	auto cheap = producer; cheap.unit.body.economic = false; cheap.unit.body.speed = 0;
+	cheap.type = 0; cheap.cost = 4; cheap.unit.body.purchaseCost = 4;
+	adaptiveState.options = {cheap};
+	ColdStorageSearch::Weights adaptiveBase{}; adaptiveBase[5] = -1;
+	const auto saving = ColdStorageSearch::Search(adaptiveState,adaptiveBase,11);
+	check(saving.actions.empty(),"learned state layer can prefer waiting at low funds without a forced purchase");
+	adaptiveState.budget = 1800;
+	const auto investing = ColdStorageSearch::Search(adaptiveState,adaptiveBase,11);
+	check(investing.actions.size() > 8 && investing.actions.size() <= 32,
+		"same model can choose a larger affordable formation at higher funds");
+	check(investing.effectiveWeights[5] > saving.effectiveWeights[5],"logged weights reflect actual budget conditioning");
+	check(investing.features[5] <= adaptiveState.budget,"expanded search cannot borrow predicted income");
+	adaptiveState.capacity = 3;
+	check(ColdStorageSearch::Search(adaptiveState,adaptiveBase,11).actions.size() <= 3,"adaptive formation respects remaining real slots");
+	adaptiveState.capacity = 32; adaptive.coefficients[0][5] = 0;
+	check(ColdStorageSearch::Search(adaptiveState,adaptiveBase,11).actions.empty(),"high funds alone never force attack");
+	adaptiveState.stateModel = nullptr;
+	check(ColdStorageSearch::Search(adaptiveState,adaptiveBase,11).effectiveWeights == adaptiveBase,"legacy model preserves fixed weights");
+	adaptive.coefficients[1][0] = std::numeric_limits<float>::infinity();
+	check(!adaptive.IsValid(),"adaptive layer rejects nonfinite coefficients");
+	adaptive = {};
+	production.stateModel = &adaptive;
+	check(ColdStorageSearch::Evaluate(production,{})[4] == predicted[4],"longer battle projection preserves the calibrated 60-second income window");
+	ColdStorageSearch::Snapshot readiness;
+	ColdStorageSearch::Counter readyCounter; readyCounter.source = 0; readyCounter.sunCost = 100;
+	readiness.counters = {readyCounter,readyCounter}; readiness.playerSun = 100;
+	check(std::abs(ColdStorageSearch::DescribeState(readiness,{})[4]-1.0f/3)<.001f,"alternative counter cells share one state feature source");
+	readiness.playerSun = 0;
+	check(ColdStorageSearch::DescribeState(readiness,{})[4] == 0,"unaffordable cards are not treated as ready pressure");
+	std::cout << "Adaptive state scoring and voluntary large formations passed\n";
 }
