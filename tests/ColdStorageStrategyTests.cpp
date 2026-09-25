@@ -190,6 +190,36 @@ int main()
 	const auto predicted = ColdStorageSearch::Evaluate(production, {});
 	check(predicted[4] == IceProduction::Forecast(IceProduction::Interval, IceProduction::InitialYield, 60),
 		"search and live production share the complete first-minute schedule");
+	auto headlessProduction = production;
+	headlessProduction.current[0].body.health = IceProduction::WorkerHealth/3;
+	check(ColdStorageSearch::Evaluate(headlessProduction,{})[4] == 0,"head-loss health threshold stops predicted income before body death");
+	headlessProduction.current[0].body.health += 1;
+	check(ColdStorageSearch::Evaluate(headlessProduction,{})[4] == predicted[4],"worker above head-loss threshold still produces");
+	// 单行高威胁直击可以越过普通前排，站在工人前面不等于能挡住主伤害。
+	ColdStorageSearch::Snapshot dawn = production;
+	ColdStorageSearch::Plant sourcePlant; sourcePlant.id = 1; sourcePlant.health = 500; sourcePlant.edible = false;
+	dawn.plants.push_back(sourcePlant);
+	dawn.rowStrikes.push_back({1,0,100,1400,300,120});
+	auto weakEscort = dawn.current[0]; weakEscort.body.economic = false;
+	weakEscort.body.health = 270; weakEscort.body.purchaseCost = 4; weakEscort.body.x -= 200;
+	dawn.current.push_back(weakEscort);
+	check(ColdStorageSearch::Evaluate(dawn,{})[4] == 0,"normal in front does not shield higher-health worker from charged row strike");
+	dawn.current[1].body.health = 3000;
+	const auto separatedEscort = ColdStorageSearch::Evaluate(dawn,{});
+	check(separatedEscort[4] == predicted[4],"strong separated escort can absorb main strike for worker");
+	dawn.current[1].body.x = dawn.current[0].body.x - 30;
+	check(ColdStorageSearch::Evaluate(dawn,{})[3] < separatedEscort[3],"nearby protected worker still takes splash");
+	dawn.current[1].body.x = dawn.current[0].body.x - 200; dawn.rowStrikes[0].recharge = 20;
+	check(ColdStorageSearch::Evaluate(dawn,{})[4] < predicted[4],"recharging strike eventually stops worker income after the escort weakens");
+	dawn.rowStrikes[0].recharge = 100;
+	dawn.current.resize(1); dawn.rowStrikes[0].ready = 20;
+	const auto delayedStrike = ColdStorageSearch::Evaluate(dawn,{});
+	check(delayedStrike[4] > 0 && delayedStrike[4] < predicted[4],"spent active ability leaves a finite production window");
+	dawn.plants[0].health = 0;
+	check(ColdStorageSearch::Evaluate(dawn,{})[4] == predicted[4],"destroyed ability source cannot cast later");
+	dawn.plants[0].health = 500; dawn.rowStrikes[0].ready = 0; dawn.rowStrikes[0].recharge = 100;
+	dawn.current.push_back(dawn.current[0]); dawn.current[1].body.row = 1; dawn.current[1].body.spawnAt = 1;
+	check(ColdStorageSearch::Evaluate(dawn,{})[4] > 0,"all rows share one cooldown; a later spawn does not receive another free cast");
 	ColdStorageSearch::ProductionCalibration calibration;
 	calibration.nodes = {{2,1,2,0.5f,1},{-1,-1,-1,0,0.25f},{-1,-1,-1,0,0.75f}};
 	check(calibration.IsValid(), "finite forward-only calibration tree accepted");

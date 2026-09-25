@@ -12,6 +12,7 @@
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Plant/IceMint.h"
 #include "Game/Plant/Squash.h"
+#include "Game/Plant/DawnLotus.h"
 #include "GameApp.h"
 #include "DeltaTime.h"
 #include <nlohmann/json.hpp>
@@ -748,6 +749,20 @@ void Board::PlanColdStorageAttack()
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
 		search.allowWait = GetColdStorageHostileCount() > 0 || s.dispatchQuietSeconds < kMaxObserveSeconds;
+		// 波次由付费派兵推进。只评当前卡池会在弱兵被克制时永久观望，错失下一档能力。
+		// 只提前一次本就合法的小额出兵：空场、能保留重组储备、且下一波确有可支付的新兵种。
+		s.unlockProbe = false;
+		if (!ColdStoragePolicy::AllUnits() && GetColdStorageHostileCount() == 0) {
+			int probeCost = kMaxIce;
+			for (auto type : mSpawnZombieList)
+				if (GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1)
+					probeCost = std::min(probeCost,GetZombieIceCost(type));
+			if (probeCost > 0 && s.enemyIce >= ColdStorageState::RecoveryReserveIce + probeCost)
+				for (auto type : mSpawnZombieList)
+					if (GameDataManager::GetInstance().GetZombieAppearWave(type) == s.decisions + 2
+						&& GetZombieIceCost(type) <= s.enemyIce - probeCost) s.unlockProbe = true;
+			if (s.unlockProbe) search.allowWait = false;
+		}
 		search.rightEdge = SCENE_WIDTH;
 		search.houseX = GetCellCenterPosition(0, 0).x - 120;
 		search.playerSun = mSun; search.playerIce = s.playerIce;
@@ -781,6 +796,12 @@ void Board::PlanColdStorageAttack()
 		for (const auto& p : snapshot.plants) {
 			const Plant* entity = mEntityRegistry.GetPlant(p.id);
 			if (!entity) continue;
+			if (const auto* lotus = dynamic_cast<const DawnLotus*>(entity)) {
+				if (!lotus->IsShutdown() && !lotus->IsActionPaused() && !lotus->IsBungeeTargeted())
+					search.rowStrikes.push_back({p.id,lotus->GetChargeSecondsRemaining(),
+						DawnLotusRules::MaxEnergy/lotus->GetEnergyRate(),static_cast<float>(DawnLotusRules::Damage),
+						static_cast<float>(DawnLotusRules::SplashDamage),CELL_COLLIDER_SIZE_X*DawnLotusRules::SplashRadiusCells});
+			}
 			if (const auto* squash = dynamic_cast<const Squash*>(entity)) {
 				if (squash->HasAppliedDamage()) continue;
 				const Zombie* target = mEntityRegistry.GetZombie(squash->GetTargetZombieID());
@@ -802,16 +823,19 @@ void Board::PlanColdStorageAttack()
 			const Zombie* entity = mEntityRegistry.GetZombie(z.id);
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
+			unit.id = z.id;
 			unit.biteDps = entity->GetMineSimulationAttackDps();
 			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
 				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
 			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
 				unit.productionRemaining = worker->GetIceRemaining(); unit.nextYield = worker->GetNextIceYield();
+				unit.productionStopHealth = entity->mBodyMaxHealth / 3;
 			}
 		}
 		for (const auto& p : snapshot.plants) {
 			ColdStorageSearch::Plant plant;
 			plant.row = p.row; plant.column = p.column; plant.layer = p.eatingLayerPriority;
+			plant.id = p.id;
 			plant.x = p.x; plant.health = p.health; plant.dps = p.attackDps;
 			plant.sunPerSecond = p.sunPerSecond;
 			plant.rowRadius = p.attackRowRadius; plant.edible = p.canBeEaten;
@@ -870,11 +894,12 @@ void Board::PlanColdStorageAttack()
 		const auto result = ColdStorageSearch::Search(search, *weights,
 			0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed));
 		s.commanderStrategy = "learned_search";
-		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : "search";
+		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
+		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
 		s.searchProductionInputs = result.productionInputs;
 		s.formationBlastLoss = result.blastLoss;
 		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];

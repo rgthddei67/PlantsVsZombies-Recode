@@ -67,6 +67,8 @@ struct ColdStorageState {
 	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
+	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
+	bool unlockProbe = false; // 空场小额出兵可立即推进新兵种解锁，仅诊断
 	std::array<float, 10> searchProductionInputs{}; // 与 ProductionFeatureCount 同步，诊断不入档
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
 	std::string commanderMode = "opening";

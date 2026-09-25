@@ -11,10 +11,6 @@
 
 namespace {
 constexpr int kHealth = 500; // 曙光莲本体生命
-constexpr float kMaxEnergy = 60.0f; // 一次组合黎明所需能量
-constexpr float kBaseEnergyPerSecond = 2.5f; // 极夜雪原每游戏秒固定恢复的能量
-constexpr float kNonPolarEnergyPerSecond = 3.0f; // 非极夜雪原每游戏秒固定恢复的能量，不叠加极夜仪表
-constexpr float kDangerEnergyPerSecond = 1.0f; // 每项红色危险仪表每游戏秒额外提供的能量
 constexpr float kReadyBadgeWidth = 78.0f; // 就绪牌宽度，逻辑 px
 constexpr float kReadyBadgeHeight = 24.0f; // 就绪牌高度，逻辑 px
 constexpr float kReadyBadgeOffsetY = -78.0f; // 就绪牌顶边相对植物视觉锚点的竖直偏移，逻辑 px
@@ -33,21 +29,24 @@ void DawnLotus::SetupPlant()
 	RefreshPresentation();
 }
 
-void DawnLotus::PlantUpdate()
+float DawnLotus::GetEnergyRate() const
 {
-	if (mIsPreview || !mBoard || IsShutdown() || mEnergy >= kMaxEnergy) return;
-	const bool polarNight = mBoard->SupportsPolarNightEnvironment();
+	const bool polarNight = mBoard && mBoard->SupportsPolarNightEnvironment();
 	int dangerousGauges = 0;
 	if (polarNight) {
 		if (mBoard->IsPolarTemperatureDangerous()) ++dangerousGauges;
 		if (mBoard->IsPolarHumidityDangerous()) ++dangerousGauges;
 		if (mBoard->IsPolarWindDangerous()) ++dangerousGauges;
 	}
-	const float baseEnergy = polarNight ? kBaseEnergyPerSecond : kNonPolarEnergyPerSecond;
-	mEnergy = std::min(kMaxEnergy,
-		mEnergy + DeltaTime::GetDeltaTime()
-			* (baseEnergy + kDangerEnergyPerSecond * dangerousGauges));
-	if (mEnergy >= kMaxEnergy && g_particleSystem) {
+	return (polarNight ? DawnLotusRules::PolarEnergyRate : DawnLotusRules::NormalEnergyRate)
+		+ DawnLotusRules::DangerEnergyRate * dangerousGauges;
+}
+
+void DawnLotus::PlantUpdate()
+{
+	if (mIsPreview || !mBoard || IsShutdown() || IsFullyCharged()) return;
+	mEnergy = std::min(DawnLotusRules::MaxEnergy,mEnergy + DeltaTime::GetDeltaTime() * GetEnergyRate());
+	if (IsFullyCharged() && g_particleSystem) {
 		g_particleSystem->EmitEffect("DawnLotusReady", GetVisualPosition());
 	}
 	RefreshPresentation();
@@ -109,7 +108,7 @@ void DawnLotus::SaveExtraData(nlohmann::json& j) const
 
 void DawnLotus::LoadExtraData(const nlohmann::json& j)
 {
-	mEnergy = std::clamp(j.value("energy", 0.0f), 0.0f, kMaxEnergy);
+	mEnergy = std::clamp(j.value("energy", 0.0f), 0.0f, DawnLotusRules::MaxEnergy);
 	ConfigureRig();
 	RefreshPresentation();
 }

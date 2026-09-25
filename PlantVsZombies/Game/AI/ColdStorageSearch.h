@@ -30,6 +30,8 @@ struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
+	int id = 0; // 已有实体稳定 ID；新增候选以出生序列打破威胁并列
+	float productionStopHealth = IceProduction::WorkerHealth / 3; // 对齐 Zombie::TakeBodyDamage 掉头阈值；掉头后不再生产
 };
 struct Plant {
 	int row = 0, column = 0, layer = 1;
@@ -40,6 +42,12 @@ struct Plant {
 	float range = 10000;
 	bool multiTarget = false, around = false;
 	bool melon = false, edible = true;
+	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
+};
+/** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */
+struct RowStrike {
+	int plantID = 0;
+	float ready = 0, recharge = 20, damage = 0, splashDamage = 0, radius = 0;
 };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
@@ -62,6 +70,7 @@ struct Snapshot {
 	std::vector<Plant> plants;
 	std::vector<Option> options;
 	std::vector<Counter> counters;
+	std::vector<RowStrike> rowStrikes;
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {

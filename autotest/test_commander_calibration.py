@@ -8,6 +8,17 @@ from train_commander_league import gate
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_lotus_opponent_uses_real_card_slots(self):
+        for all_units in (False,True):
+            commands = episode_commands([1]*8,17,'opening','lotus',120,'lotus',all_units)
+            cards = next(c['cards'] for c in commands if c['op']=='choose_cards')
+            self.assertLessEqual(len(cards),11)
+            self.assertIn('PLANT_DAWNLOTUS',cards)
+            if all_units:
+                self.assertIn('PLANT_BLOVER',cards)
+            else:
+                self.assertIn('PLANT_SQUASH',cards)
+
     def episode(self, outcome='timeout', end=80):
         ice = {'elapsed':end,'productionEvents':[
             {'at':10,'wave':1,'amount':100},  # Before decision.

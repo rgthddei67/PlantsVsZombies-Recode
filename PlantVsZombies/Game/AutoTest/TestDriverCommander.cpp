@@ -14,7 +14,8 @@ using Json = nlohmann::json;
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool builder = opponent == "builder";
+	const bool lotusPlayer = opponent == "lotus";
+	const bool builder = opponent == "builder" || lotusPlayer;
 	const bool hunter = opponent == "hunter" || builder;
 	const bool adaptive = opponent == "adaptive" || hunter;
 	const bool counterplay = adaptive || opponent == "counter" || opponent == "ash";
@@ -31,6 +32,13 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	std::vector<Json> zombies;
 	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0) zombies.push_back(z);
 	std::stable_sort(zombies.begin(), zombies.end(), [](const auto& a, const auto& b) { return a.at("xInt") < b.at("xInt"); });
+	bool releasedLotus = false;
+	// 使用已经充满的实际植物，通过玩家输入门禁释放；不直接改能量或调用伤害结算。
+	if (lotusPlayer && !zombies.empty()) for (const auto& p : state.at("plants"))
+		if (p.value("dawnCanActivate",false)) {
+			actions.push_back({{"op","player_activate_dawn_lotus"},{"row",p.at("row")},{"col",p.at("col")}});
+			releasedLotus = true;
+		}
 	for (const auto& coin : state.at("suns")) if (!coin.value("collected", false)) actions.push_back({{"op","collect_sun"},{"id",coin.at("id")}});
 	for (const auto& entry : plants) {
 		const auto& cell = entry.first; const auto& p = entry.second;
@@ -47,6 +55,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	} else if (ice.at("orderIce") == 0 && stock < 30 && sun >= 100) {
 		actions.push_back({{"op","buy_ice"},{"large",false}}); sun -= 100;
 	}
+	// 打击即时结算，下一次观察后再选灰烬，避免按释放前快照重复炸已经死亡的目标。
+	if (releasedLotus) return actions;
 	bool planted = false;
 	auto attempt = [&](const std::string& kind, const std::vector<std::pair<int,int>>& cells) {
 		if (planted) return;
@@ -146,6 +156,9 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		attempt("PLANT_WALLNUT",cells);
 	}
 	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
+	if (lotusPlayer && std::none_of(plants.begin(),plants.end(),[](const auto& entry) {
+		return entry.second.at("type") == "PLANT_DAWNLOTUS";
+	})) attempt("PLANT_DAWNLOTUS",{{2,2},{1,2},{3,2}});
 	std::vector<int> rows{2,0,4,1,3};
 	if (!zombies.empty()) std::stable_sort(rows.begin(), rows.end(), [&](int a, int b) {
 		auto nearest = [&](int r) { for (const auto& z : zombies) if (z.at("row") == r) return z.at("xInt").get<int>(); return 2000; };
@@ -200,7 +213,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const auto opponent = command.value("opponent", std::string("bomb"));
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -229,6 +242,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		mEpisodeDecisions.push_back({{"seconds",mEpisodeTicks/60.0},{"serial",ice.at("searchSerial")},
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
+			{"rowStrikes",ice.at("searchRowStrikeCount")},
 			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},
 			{"spent",ice.at("spent")},{"workerIncome",ice.at("workerIncome")},{"killIncome",ice.at("killIncome")},

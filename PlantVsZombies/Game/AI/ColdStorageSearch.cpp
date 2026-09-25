@@ -1,5 +1,6 @@
 #include "ColdStorageSearch.h"
 #include "Game/Board/IceProduction.h"
+#include "Game/Plant/DawnLotusRules.h"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -84,6 +85,46 @@ struct PendingCounter {
 	float lastTargetX = 0;
 	bool targetLocked = false;
 };
+
+/** 模拟已经种下的逐行主动打击：按生命和推进择敌，前排位置本身不能替工人挡主伤害。 */
+void AdvanceRowStrikes(const Snapshot& state, float time, const std::vector<Plant>& plants,
+	std::vector<Unit>& units, const std::vector<float>& initialHealth, std::vector<float>& ready, Weights& features) {
+	for (size_t ability = 0; ability < state.rowStrikes.size(); ++ability) {
+		const auto& strike = state.rowStrikes[ability];
+		if (time < ready[ability] || std::none_of(plants.begin(),plants.end(),[&](const auto& plant) {
+			return plant.id == strike.plantID && plant.health > 0;
+		})) continue;
+		bool used = false;
+		for (int row = 0; row < static_cast<int>(state.context.size()); ++row) {
+			int target = -1;
+			long long best = -1, bestID = 0;
+			for (size_t i = 0; i < units.size(); ++i) {
+				const auto& u = units[i];
+				if (u.body.health <= 0 || u.body.spawnAt > time || u.body.row != row) continue;
+				const auto score = DawnLotusRules::ThreatScore(static_cast<long long>(u.body.health),
+					u.body.x+u.body.blastAnchorOffset,state.rightEdge);
+				const long long id = u.id > 0 ? u.id : 0x100000000LL+static_cast<long long>(i);
+				if (target < 0 || score > best || (score == best && id < bestID)) {
+					target = static_cast<int>(i); best = score; bestID = id;
+				}
+			}
+			if (target < 0) continue;
+			used = true;
+			const float center = units[target].body.x + units[target].body.blastAnchorOffset;
+			for (size_t i = 0; i < units.size(); ++i) {
+				auto& u = units[i].body;
+				if (u.health <= 0 || u.spawnAt > time || u.row != row) continue;
+				const bool primary = static_cast<int>(i) == target;
+				if (!primary && std::abs(u.x+u.blastAnchorOffset-center) > strike.radius) continue;
+				const float damage = std::min(u.health,primary ? strike.damage : strike.splashDamage);
+				features[6] += u.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
+				u.health -= damage;
+			}
+		}
+		// 无目标时保留充能；释放一次覆盖所有行，而不是让每行各自获得独立冷却。
+		if (used) ready[ability] = time + strike.recharge;
+	}
+}
 
 /** 在当前推演位置判断覆盖，不沿用战斗开始时的静态轨迹。 */
 bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit, float time, float rightEdge) {
@@ -217,6 +258,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 	std::vector<float> initialHealth, initialX, smash(units.size());
 	for (const auto& u : units) { initialHealth.push_back(u.body.health); initialX.push_back(u.body.x); }
 	std::vector<float> counterReady;
+	std::vector<float> rowStrikeReady;
+	for (const auto& strike : s.rowStrikes) rowStrikeReady.push_back(strike.ready);
 	std::vector<PendingCounter> pending;
 	for (const auto& counter : s.counters) {
 		if (counter.blast.committed) pending.push_back({counter.blast,counter.blast.ready});
@@ -233,6 +276,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
 		for (const auto& p : plants) if (p.health > 0) playerSun += p.sunPerSecond * kStep;
+		AdvanceRowStrikes(s,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (const auto& p : plants) if (p.health > 0 && p.dps > 0) {
@@ -267,7 +311,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 			u.stopped = std::max(0.0f, u.stopped - kStep);
 			const float speedFactor = u.slow > 0 ? u.slowFactor : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
-			if (u.economic) {
+			if (u.economic && u.health > worker.productionStopHealth) {
 				worker.productionRemaining -= active;
 				while (worker.productionRemaining <= 0) {
 					f[4] += static_cast<int>(worker.nextYield);

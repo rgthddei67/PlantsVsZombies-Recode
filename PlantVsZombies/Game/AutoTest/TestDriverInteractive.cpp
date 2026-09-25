@@ -146,6 +146,11 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 		else if (op == "quit") mInteractiveQuit = true;
 		else if (!manager || !manager->CanAcceptGameplayInput()
 			|| scene->GetUIManager().GetActiveMessageBoxCount() != 0) reason = "gameplay_input_blocked";
+		else if (op == "player_activate_dawn_lotus") {
+			if (!scene->GetBoard()->ActivateDawnLotusAt(command.at("row").get<int>(),command.at("col").get<int>()))
+				reason = "dawn_lotus_unavailable";
+			else Log("player activated dawn lotus");
+		}
 		else if (op == "player_plant") {
 			for (const char* key : {"slot", "row", "col"})
 				if (!command.at(key).is_number_integer()) throw std::runtime_error("plant_coordinates_must_be_integers");
@@ -192,7 +197,8 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
-				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished"}));
+				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
+				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate"}));
 		}
 	}
 	// 冷却与资金由卡本身导出；legalCells 只说明当前地形/占位资格，不能代替交易时复核。

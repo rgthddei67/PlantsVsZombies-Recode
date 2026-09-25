@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Plant.h"
+#include "DawnLotusRules.h"
 
 /** 曙光莲：持续充能并受极夜红色仪表加速，满能后由玩家点击提交一次组合黎明。 */
 class DawnLotus final : public Plant {
@@ -17,7 +18,10 @@ public:
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	float GetEnergy() const { return mEnergy; }
-	bool IsFullyCharged() const { return mEnergy >= 60.0f; }
+	bool IsFullyCharged() const { return mEnergy >= DawnLotusRules::MaxEnergy; }
+	/** 当前环境下的每秒充能速度，供正式更新和只读能力推演共用。 */
+	float GetEnergyRate() const;
+	float GetChargeSecondsRemaining() const { return (DawnLotusRules::MaxEnergy-mEnergy)/GetEnergyRate(); }
 
 protected:
 	void SetupPlant() override;

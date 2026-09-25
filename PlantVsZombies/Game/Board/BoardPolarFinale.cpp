@@ -22,9 +22,6 @@ constexpr int kAuroraRiftCount = 3; // 常态单次裂隙数量
 constexpr int kWhiteoutAuroraRiftCount = 4; // 白毛风提交时的裂隙数量
 constexpr int kTemporalTargetLimit = 12; // 单个时间锚最多记录的僵尸数
 constexpr float kDawnNavigationSeconds = 8.0f; // 强风模块全场导航持续游戏秒
-constexpr int kDawnDamage = 1400; // 每次释放对每行最高威胁目标的普通数值伤害
-constexpr int kDawnSplashDamage = 300; // 每次释放对主目标附近其他敌人的普通溅射伤害
-constexpr float kDawnSplashRadiusCells = 1.5f; // 同行溅射半径，按当前棋盘格宽换算
 constexpr std::array<ZombieType, 5> kAuroraSummonTypes{
 	ZombieType::ZOMBIE_BUCKET,
 	ZombieType::ZOMBIE_DOOR,
@@ -47,9 +44,7 @@ long long ThreatScore(const Zombie* zombie)
 	if (!zombie) return std::numeric_limits<long long>::min();
 	const long long health = static_cast<long long>(zombie->mBodyHealth)
 		+ zombie->mHelmHealth + zombie->mShieldHealth;
-	const long long proximity = static_cast<long long>(
-		std::max(0.0f, static_cast<float>(SCENE_WIDTH) - zombie->GetPosition().x));
-	return health * 16LL + proximity;
+	return DawnLotusRules::ThreatScore(health,zombie->GetPosition().x,static_cast<float>(SCENE_WIDTH));
 }
 }
 
@@ -365,7 +360,7 @@ bool Board::ActivateDawnLotus(int sourcePlantID, int dangerMask)
 		// 命中前固定中心与目标 ID；主目标只吃主伤害，溅射不会连锁或跨行。
 		const int targetID = target->mZombieID;
 		const float targetX = target->GetPosition().x;
-		const float splashRadius = CELL_COLLIDER_SIZE_X * kDawnSplashRadiusCells;
+		const float splashRadius = CELL_COLLIDER_SIZE_X * DawnLotusRules::SplashRadiusCells;
 		const auto origin = PlantDamageOrigin::FromPlant(source->mPlantType);
 		if (g_particleSystem) {
 			// 死亡或破甲前取当前受击区域中心，离体短爆发不依赖随后变化的动画轨。
@@ -377,12 +372,12 @@ bool Board::ActivateDawnLotus(int sourcePlantID, int dangerMask)
 			}
 			g_particleSystem->EmitEffect("DawnLotusStrike", strikeCenter);
 		}
-		target->TakeDamage(kDawnDamage, DamageSource::PLANT, false, false, false, origin);
+		target->TakeDamage(DawnLotusRules::Damage, DamageSource::PLANT, false, false, false, origin);
 		mEntityRegistry.ForEachZombieInRow(row, [&](Zombie* candidate) {
 			if (!candidate || candidate->mZombieID == targetID
 				|| candidate->IsMindControlled() || candidate->IsDying()
 				|| std::abs(candidate->GetPosition().x - targetX) > splashRadius) return;
-			candidate->TakeDamage(kDawnSplashDamage, DamageSource::PLANT,
+			candidate->TakeDamage(DawnLotusRules::SplashDamage, DamageSource::PLANT,
 				false, false, false, origin);
 		});
 	}

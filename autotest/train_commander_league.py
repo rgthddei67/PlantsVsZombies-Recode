@@ -89,9 +89,9 @@ def train(args):
     save(output/'new_unit_probes.json',{'units':probes,'inheritedUnits':len(names)-len(unfamiliar)})
     # 完整对局为单位划分，不把相邻决策分散到拟合/验证两边。
     collection = [('opening','builder'),('fortress','adaptive'),('masked:opening','counter'),
-                  ('masked:developing','hunter'),('normal:opening','builder'),('normal:opening_10_2','builder'),
+                  ('masked:developing','hunter'),('normal:opening','lotus'),('normal:opening_10_2','builder'),
                   ('economy','hunter'),('masked:elite_spread','adaptive'),('normal:opening_10_5','counter'),
-                  ('opening','builder'),('masked:fortress','hunter'),('normal:opening_10_2','builder')]
+                  ('opening','builder'),('masked:fortress','hunter'),('normal:opening_10_2','lotus')]
     collection = [(a,o,rng.randrange(2**30),duration) for a,o in collection]
     # 额外行为策略主动探索经营；只收集经验，不直接替换主策略，也不免费送工人。
     economic_explorer = copy.deepcopy(source)
@@ -124,7 +124,7 @@ def train(args):
     history = []
     for generation in range(args.generations):
         cases = [('opening','builder'),('elite_cluster','adaptive'),('masked:developing','builder'),
-                 ('masked:economy','hunter'),('normal:opening_10_2','builder'),('normal:opening_10_6','ash')]
+                 ('masked:economy','hunter'),('normal:opening_10_2','lotus'),('normal:opening_10_6','ash')]
         cases = [(a,o,rng.randrange(2**30),duration) for a,o in cases]
         population = [source,champion,mutate(champion,rng,.6)]
         scores = run_batch(game,output,output.name+f'_generation_{generation}',population,cases,all_zombies=True)
@@ -134,7 +134,7 @@ def train(args):
         save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     # 在读取留出成绩前冻结候选。覆盖九个正式关卡，不能拿 10-1 代表整个第十章。
     save(output/'frozen_policy.json',champion)
-    holdout = [(f'normal:opening_10_{n}',('builder','builder','ash')[n%3]) for n in range(1,10)]
+    holdout = [(f'normal:opening_10_{n}',('builder','lotus','ash')[n%3]) for n in range(1,10)]
     holdout += [('opening','ash'),('fortress','hunter'),('elite_spread','adaptive'),
                 ('masked:opening','builder'),('masked:developing','adaptive'),('masked:elite_cluster','counter')]
     holdout = [(a,o,rng.randrange(2**30),duration) for a,o in holdout]

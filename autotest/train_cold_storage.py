@@ -46,11 +46,15 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     match = re.search(r'_10_([1-9])$', arena)
     level = 81 + int(match.group(1)) if match else 82
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder'):
+    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus'):
         cards += ['SQUASH']
         # 正式卡槽最多 11 张；已有三叶草对空时，将重复对空位置留给倭瓜。
         if all_zombies:
             cards.remove('CACTUS')
+    if opponent == 'lotus':
+        cards += ['DAWNLOTUS']
+        if all_zombies:
+            cards.remove('SQUASH')  # 全兵种保留对空；曙光莲占用这张即时反制卡的正式卡槽。
     if opponent == 'ash':
         cards = [c for c in cards if c not in ('MELONPULT', 'WINTERMELON')]
     elite = arena.startswith('elite_')
