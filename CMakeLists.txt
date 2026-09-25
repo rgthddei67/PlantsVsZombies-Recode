@@ -349,6 +349,16 @@ if(BUILD_TESTING)
         pvz_assert_win7_imports(ColdStorageStrategyTests)
     endif()
     add_test(NAME cold-storage-strategy COMMAND ColdStorageStrategyTests)
+
+    add_executable(ThreadPoolTests tests/ThreadPoolTests.cpp)
+    target_include_directories(ThreadPoolTests PRIVATE ${SRC_DIR})
+    target_compile_options(ThreadPoolTests PRIVATE /utf-8 /W3 /sdl /EHsc)
+    target_link_libraries(ThreadPoolTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)
+    if(WIN32)
+        pvz_assert_win7_imports(ThreadPoolTests)
+    endif()
+    add_test(NAME thread-pool-generations COMMAND ThreadPoolTests)
+    set_tests_properties(thread-pool-generations PROPERTIES TIMEOUT 45)
 endif()
 
 # ---- GLSL → SPIR-V（复刻 vcxproj 的 CompileShaders Target，增量编译）----
