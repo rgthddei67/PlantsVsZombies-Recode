@@ -1,13 +1,13 @@
 {
   "weights": [
-    1.6518740385840656,
-    2.344445410604879,
-    290.23268732146875,
-    0.29937932286453367,
-    0.29012733485225195,
-    0.6412621087732118,
-    -0.9953772560148378,
-    2.025167269557583
+    2.5441780638375633,
+    2.0735832420502622,
+    259.53249019728236,
+    0.7729091733836367,
+    0.2955309768207693,
+    -0.5709605771477029,
+    -1.2205401386103627,
+    1.627796696836491
   ],
   "preferences": {
     "ZOMBIE_NORMAL": [
@@ -26,18 +26,18 @@
       0,
       0,
       0,
-      0,
-      0,
-      0
+      4.042054,
+      -6.384019,
+      5.063958
     ],
     "ZOMBIE_POLEVAULTER": [
-      -5.8255,
+      -5.425131,
       0.589123,
-      0,
+      5.275355,
       -1.8097461723061852,
       0,
-      -9.484259,
-      0,
+      -6.969872,
+      -2.386411,
       0.416267
     ],
     "ZOMBIE_BUCKET": [
@@ -45,9 +45,9 @@
       0,
       0,
       -1.8097461723061852,
-      0,
-      -4.0,
-      0,
+      -1.512087,
+      -5.018298,
+      6.251873,
       0
     ],
     "ZOMBIE_FASTBUCKET": [
@@ -72,11 +72,11 @@
     ],
     "ZOMBIE_FASTPAPER": [
       -2.918,
-      0,
+      -0.160652,
       0,
       -2.714619258459278,
       0,
-      -6.0,
+      -1.65757,
       0,
       0
     ],
@@ -151,12 +151,12 @@
       -1.078053
     ],
     "ZOMBIE_ZAMBONI": [
-      10,
+      0.368168,
+      4.548881,
+      3.634595,
       0,
       0,
-      0,
-      0,
-      0,
+      -9.074316,
       0,
       0
     ],
@@ -193,12 +193,12 @@
     "ZOMBIE_ELITE_JACK_IN_THE_BOX": [
       -6.3065,
       0,
+      3.743561,
+      0,
+      6.122502,
       0,
       0,
-      0,
-      0,
-      0,
-      0
+      5.877271
     ],
     "ZOMBIE_DIGGER": [
       10,
@@ -221,12 +221,12 @@
       0
     ],
     "ZOMBIE_POGO": [
-      10,
+      10.189214,
+      0.481528,
       0,
+      -1.379008,
       0,
-      0,
-      0,
-      0,
+      -6.098288,
       0,
       0
     ],
@@ -346,9 +346,9 @@
       0,
       0,
       0,
-      0,
-      0,
-      0
+      3.333324,
+      3.561697,
+      4.659386
     ],
     "ZOMBIE_BOBSLED_TEAM": [
       -5.659,
@@ -361,13 +361,13 @@
       0
     ],
     "ZOMBIE_ICE_WALL_ENGINEER": [
-      -7.6255,
+      -2.290966,
+      3.717239,
+      5.177923,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      -7.107915,
+      6.361673,
+      2.881281,
       0
     ],
     "ZOMBIE_ICE_CRACK_DRILL": [
@@ -415,10 +415,10 @@
       0,
       0,
       0,
+      0.192856,
       0,
       0,
-      0,
-      0
+      -3.307256
     ],
     "ZOMBIE_THERMAL_SNIPER": [
       1.1815,
@@ -441,24 +441,24 @@
       0
     ],
     "ZOMBIE_POLAR_CLOCKMAKER": [
-      -3.189236,
+      -3.64782,
       6.170839,
       0,
-      0,
+      -1.353096,
       1.531093,
-      3.37427,
+      3.6161,
       0,
       0
     ],
     "ZOMBIE_EXCAVATOR": [
-      -5.2415,
+      0.917828,
       0,
       0,
       0,
+      -2.965562,
       0,
-      0,
-      0,
-      0
+      8.662096,
+      5.282318
     ],
     "ZOMBIE_CRYSTAL_HORN_MINER": [
       -1.167989,
@@ -483,12 +483,12 @@
     "ZOMBIE_CRYSTAL_DRUMMER": [
       -8.8055,
       0,
+      2.87754,
       0,
       0,
       0,
       0,
-      0,
-      0
+      -5.794844
     ],
     "ZOMBIE_ICE_WORKER": [
       -2.270574,
@@ -501,12 +501,27 @@
       10.555457
     ]
   },
-  "anticipateBuilding": true,
   "schema": 1,
   "validated": false,
-  "leagueGatePassed": true,
+  "leagueGatePassed": false,
+  "identity": {
+    "schema": 1,
+    "seed": 930719051,
+    "seconds": 300,
+    "generations": 3,
+    "curriculum": "siege",
+    "hashes": {
+      "train_commander_league.py": "dcadfea7cb8762cc66208ed1b825ab720d25a8eab15d3882c8034eec54f4756a",
+      "train_cold_storage.py": "eb41a7c9c228bb537e041a897b516089d7dcce6b5040252c67b3aab01b889b39",
+      "train_cold_storage_all.py": "cafa16175dee4dab37c2c5c361597b77bfb24881fe040723b27de77bc22e9691",
+      "commander_calibration.py": "be0e6ce0dbabf531f43c4b24bf9aab4ed01df22533a5eb12b169457a6bba4d27",
+      "PlantsVsZombies.exe": "d65b04573ee270753f43320cfd443332eaef825c4f2524fafff544e96150b5fe",
+      "gamedata.json": "0c4f6aa62917b8839c45233ac93357d745229996d02406bc83dfe0040affa706",
+      "cold_storage_policy.json": "b99c614fd54dea72a690c928ceb185d781a2185649f27bb3be7f0e20d0936faf"
+    }
+  },
+  "note": "Explicitly requested for human playtest despite failed league gate; validation results are unchanged. Restore trialBackup to revert.",
   "userRequestedTrial": true,
-  "trialBackup": "autotest/policy_backups/20260925-171039-before-construction-trial/cold_storage_policy.json",
-  "trialSource": "build/clang-release/autotest/training/construction_release_verification/frozen_policy.json",
-  "note": "User-authorized trial. Paired evaluation won 20/25 versus current 15/25 and backup 18/25. Not accepted for release: high-reserve stress case overspent on ice workers without plant-kill income. Search version 2 source changes are not included in this tested executable."
+  "trialBackup": "autotest/policy_backups/20260925-111711-before-siege-trial/cold_storage_policy.json",
+  "trialSource": "build/clang-release/autotest/training/league_siege_v1/candidate_policy.json"
 }
