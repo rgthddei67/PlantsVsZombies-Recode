@@ -78,7 +78,7 @@ PreviewSource GetPreviewSource(int level)
 
 std::string GetLevelLabel(GameSelectScene::SelectMode mode, int level)
 {
-	if (mode == GameSelectScene::SelectMode::MINIGAMES) return MiniGame::NAME;
+	if (mode == GameSelectScene::SelectMode::MINIGAMES) return MiniGame::GetName(level);
 	if (mode == GameSelectScene::SelectMode::ADVENTURE) {
 		return std::to_string(AdventureProgression::GetAreaNumber(level)) + "-"
 			+ std::to_string(AdventureProgression::GetLevelNumberInArea(level));
@@ -241,11 +241,14 @@ void GameSelectScene::BuildDrawCommands()
 
 		if (mSelectMode == SelectMode::MINIGAMES) {
 			DrawFittedCenteredText(gameApp, u8"最后的家底：3000 阳光，七种植物，守住十波！",
-				650.0f, 280.0f, 650.0f, glm::vec4(46, 46, 84, 255),
+				650.0f, 300.0f, 650.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 25, 18);
 			DrawFittedCenteredText(gameApp, u8"开局 60 秒布阵；全程没有阳光补给，记得留钱救场。",
-				650.0f, 325.0f, 670.0f, glm::vec4(46, 46, 84, 255),
+				650.0f, 342.0f, 670.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 21, 16);
+			DrawFittedCenteredText(gameApp, u8"大混战：冷藏站地图，3000 阳光，对手带 850 冰与全兵种来战。",
+				650.0f, 402.0f, 710.0f, glm::vec4(46, 46, 84, 255),
+				ResourceKeys::Fonts::FONT_FZJZ, 23, 16);
 		}
 		if (GetPageCount() > 1) {
 			const std::string pageText = std::to_string(mCurrentPage + 1) + " / "
@@ -263,6 +266,7 @@ void GameSelectScene::BuildAvailableLevels()
 	mAvailableLevels.clear();
 	if (mSelectMode == SelectMode::MINIGAMES) {
 		mAvailableLevels.push_back(MiniGame::LAST_SAVINGS_LEVEL);
+		mAvailableLevels.push_back(MiniGame::BRAWL_LEVEL);
 		return;
 	}
 	if (mSelectMode == SelectMode::ADVENTURE) {

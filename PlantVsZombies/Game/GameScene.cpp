@@ -1975,7 +1975,7 @@ void GameScene::BuildDrawCommands()
 	}
 
 	RegisterDrawCommand("MiniGameRules", [this](Graphics*) {
-		if (!mBoard || !MiniGame::IsMiniGame(mBoard->mLevel)
+		if (!mBoard || !MiniGame::IsLastSavings(mBoard->mLevel)
 			|| mBoard->mBoardState != BoardState::GAME) return;
 		const std::string text = mBoard->mCurrentWave == 0
 			? u8"布阵剩余 " + std::to_string(static_cast<int>(std::ceil(mBoard->mZombieCountDown))) + u8" 秒 · 本局不再获得阳光"

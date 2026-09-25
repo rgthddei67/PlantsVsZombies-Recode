@@ -836,7 +836,7 @@ public:
 	/** 按模式结算阳光收益；最后的家底不接受任何补给。 */
 	inline void AddSun(int amount)
 	{
-		if (MiniGame::IsMiniGame(mLevel)) return;
+		if (MiniGame::IsLastSavings(mLevel)) return;
 		// 只缩放正常收益入口；开局阳光、AutoTest set_sun 与花费均不走这里。
 		const int scaledAmount = mPerkManager.ScaleSunIncome(amount);
 		if (scaledAmount > MAX_SUN - mSun)

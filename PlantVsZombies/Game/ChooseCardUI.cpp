@@ -249,7 +249,7 @@ void ChooseCardUI::Draw(Graphics* g) {
 			newpos.x, newpos.y,
 			static_cast<float>(w), static_cast<float>(h));
 	}
-	if (mGameScene && MiniGame::IsMiniGame(mGameScene->GetBoard()->mLevel)) {
+	if (mGameScene && MiniGame::IsLastSavings(mGameScene->GetBoard()->mLevel)) {
 		// 文字与面板背景同属 UI：先转世界坐标，抵消选卡阶段的镜头平移。
 		const Vector logical = GetPosition();
 		const Vector pos = g->LogicalToWorld(logical.x, logical.y);
@@ -365,11 +365,19 @@ void ChooseCardUI::RemoveCard(Card* card)
 
 void ChooseCardUI::AddAllCard() {
 	// 试玩卡池独立于冒险拥有记录，并预选全部七张，玩家可直接开始。
-	if (mGameScene && MiniGame::IsMiniGame(mGameScene->GetBoard()->mLevel)) {
+	if (mGameScene && MiniGame::IsLastSavings(mGameScene->GetBoard()->mLevel)) {
 		for (PlantType type : MiniGame::CARDS) {
 			AddCard(type);
 			ToggleCardSelection(FindCardByType(type));
 		}
+		RefreshRestoreButtonState();
+		RefreshPageButtonState();
+		SyncCardPageVisibility();
+		return;
+	}
+	if (mGameScene && MiniGame::IsBrawl(mGameScene->GetBoard()->mLevel)) {
+		// 全兵种挑战从小游戏入口即可试玩；只临时提供已注册的植物卡，不改玩家解锁记录。
+		for (PlantType type : GameDataManager::GetInstance().GetAllPlantTypes()) AddCard(type);
 		RefreshRestoreButtonState();
 		RefreshPageButtonState();
 		SyncCardPageVisibility();
@@ -621,7 +629,7 @@ void ChooseCardUI::SyncPageButtonPosition() {
 
 void ChooseCardUI::RefreshRestoreButtonState() {
 	if (auto button = mRestoreButton.lock()) {
-		const bool miniGame = mGameScene && MiniGame::IsMiniGame(mGameScene->GetBoard()->mLevel);
+		const bool miniGame = mGameScene && MiniGame::IsLastSavings(mGameScene->GetBoard()->mLevel);
 		button->SetSkipDraw(miniGame);
 		button->SetEnabled(!miniGame && !ResolveRestorableCards(false).empty());
 	}

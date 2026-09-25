@@ -1,6 +1,7 @@
 #include "ColdStoragePolicy.h"
 #include "FileManager.h"
 #include "Game/Plant/GameDataManager.h"
+#include "Game/MiniGameDefinition.h"
 #include <map>
 #include <cmath>
 #include <nlohmann/json.hpp>
@@ -77,8 +78,8 @@ bool ParsePreferences(const nlohmann::json& value, std::map<ZombieType, ColdStor
 }
 }
 const ColdStorageSearch::Weights* Get(int level) {
-	// 训练可覆盖整个第十章；正式发布范围保持既有 10-1/10-2，扩展须另经各关验证。
-	if (level < 82 || level > 90 || (!experiment && level > 83)) return nullptr;
+	// 大混战使用同一份正式策略；冒险发布范围仍保持既有 10-1/10-2。
+	if (!MiniGame::IsBrawl(level) && (level < 82 || level > 90 || (!experiment && level > 83))) return nullptr;
 	if (experiment) return enabled ? &parameters : nullptr;
 	// 发布的参数是只读版本化资源；实验进程的覆盖不会污染下次普通启动。
 	static ColdStorageSearch::Weights published{};

@@ -30,6 +30,7 @@
 
 #include "Game/Board/Board.h"
 #include "./Game/AdventureProgression.h"
+#include "./Game/MiniGameDefinition.h"
 
 #include "./Profiler.h"
 
@@ -829,6 +830,7 @@ Background GameAPP::GetBackgroundID(int level) const
 	if (const auto* definition = FindSurvivalEndlessDefinition(level)) {
 		return definition->background;
 	}
+	if (MiniGame::IsBrawl(level)) return Background::HOT_COLD_STORAGE;
 
 	const int area = AdventureProgression::GetAreaNumber(level);
 	switch (area) {

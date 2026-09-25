@@ -4,7 +4,7 @@
 #include "Game/Zombie/ZombieType.h"
 
 namespace ColdStoragePolicy {
-/** 仅 10-1/10-2 使用获准或明确试玩的有效资源；缺失、未授权或非法时回退旧指挥官。 */
+/** 正式策略仅供 10-1/10-2 与大混战；训练可覆盖第十章，资源无效时回退旧指挥官。 */
 const ColdStorageSearch::Weights* Get(int level);
 /** AutoTest 独立试验覆盖，不写玩家存档/资源；null 强制旧 AI，Reset 清除覆盖。 */
 bool SetExperiment(const nlohmann::json& weights, bool allUnits = false,

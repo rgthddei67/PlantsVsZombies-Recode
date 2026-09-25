@@ -292,10 +292,11 @@ void Board::InitializeColdStorage()
 {
 	if (!IsColdStorage()) return;
 	mColdStorage = {};
-	mMaxWave = 0; // 此地图没有最终波；波号只用于兵种解锁，胜利由冰块破产与清场判定。
+	mMaxWave = 0; // 冷藏站没有最终波；冒险用波号解锁兵种，大混战开局全解锁；胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
-	mColdStorage.initialEnemyIce = kOpeningIce[stage] * (4 + mColdStorage.difficulty - 1) / 4;
+	mColdStorage.initialEnemyIce = MiniGame::IsBrawl(mLevel) ? MiniGame::BRAWL_ENEMY_ICE
+		: kOpeningIce[stage] * (4 + mColdStorage.difficulty - 1) / 4;
 	mColdStorage.enemyIce = mColdStorage.initialEnemyIce;
 	mColdStorage.habits = GameAPP::GetInstance().mColdStorageHabits;
 }
@@ -339,8 +340,9 @@ void Board::CommitColdStoragePlant(PlantType type)
 	const auto use = PlantStrategy(type);
 	for (std::size_t i = 0; i < use.size(); ++i)
 		mColdStorage.habits[i] = mColdStorage.habits[i] * kHabitDecay + use[i] * (1.0f - kHabitDecay);
-	// 玩家存档仍由正常保存点写盘；AutoTest 只更新进程内值，不污染玩家档。
-	GameAPP::GetInstance().mColdStorageHabits = mColdStorage.habits;
+	// 小游戏内仍逐步适应本局布阵，但不把试玩画像写回冒险模式。
+	if (!MiniGame::IsBrawl(mLevel))
+		GameAPP::GetInstance().mColdStorageHabits = mColdStorage.habits;
 }
 
 void Board::RewardColdStoragePlantKill(PlantType type)
@@ -411,7 +413,7 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| row < 0 || row >= mRows || !IsSpawnRowCompatible(type, row)
-		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
+		|| (!(MiniGame::IsBrawl(mLevel) || (GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits()))
 			&& GameDataManager::GetInstance().GetZombieAppearWave(type) > mColdStorage.decisions + 1)
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
 		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= kMaxSimultaneous) return false;
@@ -430,6 +432,10 @@ void Board::PlanColdStorageAttack()
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || !mColdStorage.pending.empty()) return;
 	auto& s = mColdStorage;
+	const bool allUnitsUnlocked = MiniGame::IsBrawl(mLevel) || ColdStoragePolicy::AllUnits();
+	const auto isUnlocked = [&](ZombieType type) {
+		return allUnitsUnlocked || GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1;
+	};
 	s.commanderMode = "pressure";
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
@@ -672,7 +678,7 @@ void Board::PlanColdStorageAttack()
 	}
 	const bool workerUnlocked = std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(),
 		ZombieType::ZOMBIE_ICE_WORKER) != mSpawnZombieList.end()
-		&& GameDataManager::GetInstance().GetZombieAppearWave(ZombieType::ZOMBIE_ICE_WORKER) <= s.decisions + 1;
+		&& isUnlocked(ZombieType::ZOMBIE_ICE_WORKER);
 	ColdStorageStrategy::SplashField splashField;
 	splashField.directDps = directDps;
 	splashField.directSlowDuty = slowDuty;
@@ -756,7 +762,7 @@ void Board::PlanColdStorageAttack()
 		// 波次由付费派兵推进。只评当前卡池会在弱兵被克制时永久观望，错失下一档能力。
 		// 只提前一次本就合法的小额出兵：空场、能保留重组储备、且下一波确有可支付的新兵种。
 		s.unlockProbe = false;
-		if (!ColdStoragePolicy::AllUnits() && GetColdStorageHostileCount() == 0) {
+		if (!allUnitsUnlocked && GetColdStorageHostileCount() == 0) {
 			int probeCost = kMaxIce;
 			for (auto type : mSpawnZombieList)
 				if (GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1)
@@ -911,7 +917,7 @@ void Board::PlanColdStorageAttack()
 			search.plants.push_back(plant);
 		}
 		for (ZombieType type : mSpawnZombieList) {
-			if (!ColdStoragePolicy::AllUnits() && GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+			if (!isUnlocked(type)) continue;
 			// 特殊能力的收益由真实对局训练的局势偏好补充，不排除支援或绕后兵种。
 			for (int row = 0; row < mRows; ++row) if (IsSpawnRowCompatible(type, row)) {
 				ColdStorageSearch::Option option;
@@ -1020,7 +1026,7 @@ void Board::PlanColdStorageAttack()
 			if (type == ZombieType::ZOMBIE_ICE_WORKER || profile.support || profile.bypass
 				|| !IsSpawnRowCompatible(type, row)
 				|| (s.elapsed < 80 && GetZombieIceCost(type) >= 8)
-				|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+				|| !isUnlocked(type)) continue;
 			evaluateGuard(type, kWorkerEntryDelay);
 			evaluateGuard(type, kWorkerLateEntryDelay);
 		}
@@ -1089,7 +1095,8 @@ void Board::PlanColdStorageAttack()
 		}
 	}
 
-	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel), 1, 9);
+	const int stage = MiniGame::IsBrawl(mLevel) ? 9
+		: std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel), 1, 9);
 	const int assaultCap = stage <= 5 ? kAssaultEarlyBudget : kAssaultLateBudget;
 	const int availableSlots = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
 	struct RaidChoice {
@@ -1156,7 +1163,7 @@ void Board::PlanColdStorageAttack()
 			const auto profile = Assault(type);
 			if (profile.support || profile.bypass || !IsSpawnRowCompatible(type, row)
 				|| (s.elapsed < 80 && GetZombieIceCost(type) >= 8)
-				|| GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+				|| !isUnlocked(type)) continue;
 			const int maxCount = std::min({stage <= 5 ? 12 : 16, availableSlots,
 				std::min(s.enemyIce, assaultCap) / GetZombieIceCost(type)});
 			for (int count = 1; count <= maxCount; ++count) {
@@ -1165,7 +1172,7 @@ void Board::PlanColdStorageAttack()
 				if (type == ZombieType::ZOMBIE_FOOTBALL && count >= 3) {
 					const auto heavy = ZombieType::ZOMBIE_GARGANTUAR;
 					if (std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), heavy) != mSpawnZombieList.end()
-						&& IsSpawnRowCompatible(heavy, row) && GameDataManager::GetInstance().GetZombieAppearWave(heavy) <= s.decisions + 1) {
+						&& IsSpawnRowCompatible(heavy, row) && isUnlocked(heavy)) {
 						auto mixed = std::vector<ZombieType>(count, type);
 						mixed[0] = mixed[1] = heavy;
 						evaluateRaid(mixed);
@@ -1282,7 +1289,7 @@ void Board::PlanColdStorageAttack()
 
 	bool heavyUnlocked = false;
 	for (ZombieType type : mSpawnZombieList)
-		if (Assault(type).smashSeconds > 0.0f && GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1)
+		if (Assault(type).smashSeconds > 0.0f && isUnlocked(type))
 			heavyUnlocked = true;
 	const int attackRow = s.commanderMode == "assault" ? s.commanderFocusRow : -1;
 	const int requiredFront = attackRow >= 0 && raids[attackRow].forecast.cellsBroken > 0 ? raids[attackRow].count : 0;
@@ -1310,7 +1317,7 @@ void Board::PlanColdStorageAttack()
 		float selectedDelay = 0, selectedBlastLoss = 0;
 		for (ZombieType type : mSpawnZombieList) {
 			const int cost = GetZombieIceCost(type);
-			if (cost > budget || cost > s.enemyIce || GameDataManager::GetInstance().GetZombieAppearWave(type) > s.decisions + 1) continue;
+			if (cost > budget || cost > s.enemyIce || !isUnlocked(type)) continue;
 			const auto profile = Assault(type);
 			const bool economicUnit = type == ZombieType::ZOMBIE_ICE_WORKER;
 			if (economicUnit && s.commanderMode != "economy") continue;

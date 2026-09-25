@@ -238,7 +238,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 		BuildSurvivalSpawnList(mSurvivalRound);
 		UpdateSurvivalLevelName();
 	}
-	else if (MiniGame::IsMiniGame(mLevel)) {
+	else if (MiniGame::IsLastSavings(mLevel)) {
 		mLevelName = std::string(u8"小游戏：") + MiniGame::NAME;
 		mSun = MiniGame::INITIAL_SUN;
 		mMaxWave = MiniGame::WAVES;
@@ -247,12 +247,29 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 			ZombieType::ZOMBIE_POLEVAULTER, ZombieType::ZOMBIE_BUCKET,
 			ZombieType::ZOMBIE_NEWSPAPER, ZombieType::ZOMBIE_DOOR, ZombieType::ZOMBIE_FOOTBALL };
 	}
+	else if (MiniGame::IsBrawl(mLevel)) {
+		mLevelName = std::string(u8"小游戏：") + MiniGame::BRAWL_NAME;
+		mSun = MiniGame::BRAWL_INITIAL_SUN;
+		// 冷藏站使用无限付费波次；建好棋盘后按实际地形筛选独立出怪品种。
+	}
 	else if (mLevel > 0)
 	{
 		LoadSpawnListFromJson();
 	}
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
+	if (MiniGame::IsBrawl(mLevel)) {
+		mSpawnZombieList.clear();
+		const auto& data = GameDataManager::GetInstance();
+		for (ZombieType type : data.GetAllZombieTypes()) {
+			// 零权重品种由召唤或地形变换生成；纯陆地上不放入海豚等无合法行的品种。
+			if (data.GetZombieWeight(type) <= 0) continue;
+			for (int row = 0; row < mRows; ++row) if (IsSpawnRowCompatible(type, row)) {
+				mSpawnZombieList.push_back(type);
+				break;
+			}
+		}
+	}
 	InitializeColdStorage();
 	if (IsMineBackground()) {
 		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,MineGrid::CurrentLayoutRevision);
@@ -2472,7 +2489,7 @@ inline void Board::CleanPlantFromCells(int plantID)
 
 inline void Board::UpdateSunFalling(float deltaTime)
 {
-	if (MiniGame::IsMiniGame(mLevel)) return;
+	if (MiniGame::IsLastSavings(mLevel)) return;
 	mSunCountDown -= deltaTime;
 	if (mSunCountDown <= 0.0f)
 	{
@@ -2612,7 +2629,7 @@ void Board::SummonNextWave()
 	// 在本波任何候选解析前承接冷却，保证整个波次（含稍后的显式正式候选）都保持封锁。
 	AdvanceHijackerSpawnCooldownForNewWave();
 	mZombieCountDown = IsStormyNightActive()
-		? kStormyNightNextWaveSeconds : (MiniGame::IsMiniGame(mLevel)
+		? kStormyNightNextWaveSeconds : (MiniGame::IsLastSavings(mLevel)
 			? MiniGame::WAVE_SECONDS : NEXTWAVE_COUNT_MAX);
 	if (IsStormyNightActive() && !mStormyNightInitialized) {
 		ActivateStormyNight();
@@ -3005,7 +3022,7 @@ inline void Board::TrySummonZombie()
 	if (mCurrentWave > mMaxWave) return;
 
 	float x = static_cast<float>(SCENE_WIDTH) + 40;
-	if (MiniGame::IsMiniGame(mLevel)) {
+	if (MiniGame::IsLastSavings(mLevel)) {
 		// 每路保底进攻，后半程加入纵深；编排只影响本小游戏，复用正式出生入口。
 		const int ranks = mCurrentWave == MiniGame::WAVES ? 4
 			: (mCurrentWave >= 8 ? 3 : (mCurrentWave >= 3 ? 2 : 1));
