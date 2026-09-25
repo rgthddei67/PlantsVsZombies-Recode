@@ -235,6 +235,7 @@ public:
 	void PlanColdStorageAttack();
 	/** 付费与队列登记在同一主线程提交；测试与正式指挥官共用。 */
 	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
+	/** 无活动/在途敌军时检查破产或长期无破阵且经营不盈利的低库存败局；存档恢复计时。 */
 	bool IsColdStorageCleared() const;
 	int GetColdStorageHostileCount() const;
 	/** 保存/恢复完整经济事务，旧地形保持无效果。 */

@@ -16,6 +16,9 @@ constexpr float kAreaCounterStake = 24; // 玩家倾向对至少此冰价的集�
 constexpr float kTargetCounterStake = 8; // 窄范围反制允许用于较小目标，冰价
 constexpr float kSquashTriggerRange = 125; // 倭瓜候选种植点可触发近邻目标的预测距离，像素
 constexpr float kSquashImpactRange = 50; // 倭瓜落点的窄范围碰撞近似，像素
+constexpr float kSquashFlightSeconds = 0.6f; // Squash 起跳后上升/下落时长的近似，游戏秒；此阶段不再追踪
+constexpr float kSquashLeadSeconds = 0.3f; // 对齐 Squash::StartRising 起跳时的目标运动预判，游戏秒
+constexpr float kRecoveryReturnFraction = 0.5f; // 低库存增援至少应换回半数冰价的预测收入或有效削血价值
 
 /** 修复变异后的越界和超预算动作，稳定排序保留同一时刻的提交次序。 */
 void Repair(const Snapshot& s, std::vector<Action>& actions) {
@@ -38,7 +41,13 @@ float Score(const Weights& f, const Weights& w) {
 	return value;
 }
 
-struct PendingCounter { ColdStorageStrategy::BlastThreat blast; float at; };
+struct PendingCounter {
+	ColdStorageStrategy::BlastThreat blast;
+	float at;
+	int target = -1;
+	float lastTargetX = 0;
+	bool targetLocked = false;
+};
 
 /** 在当前推演位置判断覆盖，不沿用战斗开始时的静态轨迹。 */
 bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit, float time, float rightEdge) {
@@ -52,6 +61,18 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 	const std::vector<float>& initialHealth, std::vector<float>& ready,
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features) {
 	for (auto it = pending.begin(); it != pending.end();) {
+		// 假想新种倭瓜在起跳前继续追踪；不能把移动目标仍判在最初的观察落点。
+		// 正式已提交反制没有 target 索引，保持其快照落点，避免替玩家撤销或重新瞄准。
+		if (it->target >= 0 && !it->targetLocked) {
+			const auto& target = units[it->target].body;
+			if (target.health > 0) {
+				const float velocity = (target.x - it->lastTargetX) / kStep;
+				it->blast.x = target.x + (it->blast.usesObjectX ? target.blastAnchorOffset : 0);
+				if (time >= it->at - kSquashFlightSeconds) it->blast.x += velocity * kSquashLeadSeconds;
+				it->lastTargetX = target.x;
+			}
+			if (time >= it->at - kSquashFlightSeconds) it->targetLocked = true;
+		}
 		if (it->at > time) { ++it; continue; }
 		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time, state.rightEdge)) {
 			auto& body = units[i].body;
@@ -62,6 +83,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 		it = pending.erase(it);
 	}
 	int selected = -1;
+	int selectedTarget = -1;
 	float best = 0;
 	ColdStorageStrategy::BlastThreat impact;
 	for (size_t c = 0; c < state.counters.size(); ++c) {
@@ -69,6 +91,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 		if (counter.blast.committed || time < ready[counter.source]
 			|| counter.sunCost > sun || counter.iceCost > ice) continue;
 		auto candidate = counter.blast;
+		int candidateTarget = -1;
 		if (counter.targeted) {
 			float nearest = kSquashTriggerRange;
 			int target = -1;
@@ -79,6 +102,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 					&& candidate.reach[u.row] >= 0 && distance < nearest) { nearest = distance; target = static_cast<int>(i); }
 			}
 			if (target < 0) continue;
+			candidateTarget = target;
 			candidate.x = units[target].body.x + units[target].body.blastAnchorOffset;
 			for (float& reach : candidate.reach) if (reach >= 0) reach = kSquashImpactRange;
 		}
@@ -95,19 +119,30 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 		}
 		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
 		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + counter.iceCost * 0.2f);
-		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; }
+		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; selectedTarget = candidateTarget; }
 	}
 	if (selected >= 0) {
 		const auto& counter = state.counters[selected];
 		sun -= counter.sunCost; ice -= counter.iceCost;
 		ready[counter.source] = time + counter.recharge;
-		pending.push_back({impact,time + counter.windup});
+		pending.push_back({impact,time + counter.windup,selectedTarget,
+			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
 	}
 }
 }
 
 bool ValidWeights(const Weights& weights) {
 	return std::all_of(weights.begin(), weights.end(), [](float w) { return std::isfinite(w) && std::abs(w) <= 500; });
+}
+
+bool ShouldRegroup(const Result& result, int budget, int reserve) {
+	if (budget >= reserve || result.actions.empty()) return false;
+	const auto& plan = result.features;
+	const auto& baseline = result.baselineFeatures;
+	if (plan[2] > baseline[2]) return false;
+	// 只比较买与不买的差异；支出偏好、单纯走过的距离和已存在工人的收入都不是回报。
+	const float gain = (plan[0] - baseline[0]) + (plan[1] - baseline[1]) + (plan[4] - baseline[4]);
+	return gain < plan[5] * kRecoveryReturnFraction;
 }
 
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
@@ -227,6 +262,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 	std::mt19937 rng(seed); // 局部共同随机数使同一快照/参数可重复，搜索次数不改变正式战斗随机流。
 	std::vector<Result> elite{best};
 	bool hasChoice = s.allowWait; // 正式构建启用 fast-math，不能用无穷大充当尚无候选的哨兵。
+	bool deferredInvestment = false;
 	for (int trial = 1; trial < kTrials; ++trial) {
 		auto plan = elite[rng() % elite.size()].actions;
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
@@ -276,6 +312,11 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 			}
 		}
 		candidate.blastLoss = candidate.features[6];
+		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
+		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) {
+			deferredInvestment = true;
+			continue;
+		}
 		if ((s.allowWait || !candidate.actions.empty()) && (!hasChoice || candidate.score > best.score + 0.001f)) {
 			best = candidate; hasChoice = true;
 		}
@@ -284,6 +325,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		if (elite.size() > 8) elite.resize(8);
 	}
 	best.evaluated = kTrials;
+	best.regrouping = best.actions.empty() && deferredInvestment;
 	return best;
 }
 }

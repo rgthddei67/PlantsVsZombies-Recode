@@ -47,6 +47,9 @@ namespace {
 	constexpr float kRapidDecisionSeconds = 9.0f; // 抢攻时的重评间隔，游戏秒，仍遵循付费队列与按波解锁
 	constexpr float kAssaultCooldownSeconds = 48.0f; // 两次总攻之间的最短重组时间，秒
 	constexpr float kMaxObserveSeconds = 24.0f; // 场上兵力充足时最多连续观望的游戏秒
+	constexpr float kExhaustionGraceSeconds = 180.0f; // 开战后最早允许失去作战能力判负的游戏秒
+	constexpr float kExhaustionIdleSeconds = 90.0f; // 无击杀且经营不盈利的滚动窗口，游戏秒
+	constexpr size_t kMaxIncomeWindowRecords = 4096; // 读档收支记录上限，高于满场工人在窗口内的合法事务数量
 	constexpr float kResponseLookaheadSeconds = 18.0f; // 判断炸弹即将恢复的观察窗，秒
 	constexpr float kAssaultOpportunityThreshold = 2.4f; // 已有前锋可利用的突破评分下限
 	constexpr float kSupportHealthRequired = 1200.0f; // 派治疗或钟匠前，同路有效前锋的最低生命
@@ -315,6 +318,10 @@ void Board::CreditProducedIce(bool player, int amount)
 	const int accepted = std::min(amount, kMaxIce - balance);
 	balance += accepted;
 	income = std::min(kMaxIce, income + accepted);
+	if (!player && accepted > 0) {
+		mColdStorage.incomeIdleSeconds = 0;
+		mColdStorage.incomeWindow.push_back({mColdStorage.elapsed,accepted,0});
+	}
 }
 
 void Board::CommitColdStoragePlant(PlantType type)
@@ -337,6 +344,9 @@ void Board::RewardColdStoragePlantKill(PlantType type)
 	const int accepted = std::min(reward, kMaxIce - mColdStorage.enemyIce);
 	mColdStorage.enemyIce += accepted;
 	mColdStorage.killIncome = std::min(kMaxIce, mColdStorage.killIncome + accepted);
+	if (accepted > 0) mColdStorage.incomeIdleSeconds = 0;
+	// 实际破阵本身就有进展，零冰价植物被消灭也重置；与生产账本分开。
+	mColdStorage.plantKillIdleSeconds = 0;
 }
 
 void Board::SettleColdStorageZombieDeath(const Zombie& zombie)
@@ -365,7 +375,7 @@ int Board::GetColdStorageHostileCount() const
 	return count;
 }
 
-/** 余额、场上敌人及两类已提交援军同时清空才算破产，不把瞬时出兵冷却当胜利。 */
+/** 清场且无在途援军时判定破产或长期无破阵且经营不盈利的低库存败局，不中断仍在作战的部队。 */
 bool Board::IsColdStorageCleared() const
 {
 	if (!IsColdStorage() || !mColdStorage.battleStarted || mTrophySpawned
@@ -375,6 +385,16 @@ bool Board::IsColdStorageCleared() const
 	for (const auto& anchor : mTemporalAnchors)
 		for (const auto& target : anchor.targets)
 			if (!target.irreversible) return false;
+	if (mColdStorage.elapsed >= kExhaustionGraceSeconds
+		&& mColdStorage.plantKillIdleSeconds >= kExhaustionIdleSeconds
+		&& mColdStorage.enemyIce < ColdStorageState::RecoveryReserveIce) {
+		// 只看完整的最近窗口，少量亏本产冰不能为每轮送兵重新续命。
+		long long net = 0;
+		for (const auto& flow : mColdStorage.incomeWindow)
+			if (flow.at >= mColdStorage.elapsed - kExhaustionIdleSeconds)
+				net += static_cast<long long>(flow.production) - flow.spent;
+		if (net <= 0) return true;
+	}
 	for (ZombieType type : mSpawnZombieList)
 		if (mColdStorage.enemyIce >= GetZombieIceCost(type)) return false;
 	return true;
@@ -394,6 +414,7 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 	mColdStorage.pending.push_back({type, row, cost, std::clamp(delay, 0.0f, 60.0f)});
 	mColdStorage.enemyIce -= cost;
 	mColdStorage.spent = std::min(kMaxIce, mColdStorage.spent + cost);
+	mColdStorage.incomeWindow.push_back({mColdStorage.elapsed,0,cost});
 	return true;
 }
 
@@ -718,6 +739,7 @@ void Board::PlanColdStorageAttack()
 	if (const auto* weights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr) {
 		ColdStorageSearch::Snapshot search;
 		search.budget = s.enemyIce;
+		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
 		search.allowWait = GetColdStorageHostileCount() > 0 || s.dispatchQuietSeconds < kMaxObserveSeconds;
 		search.rightEdge = SCENE_WIDTH;
@@ -841,7 +863,8 @@ void Board::PlanColdStorageAttack()
 		}
 		const auto result = ColdStorageSearch::Search(search, *weights,
 			0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed));
-		s.commanderStrategy = "learned_search"; s.commanderMode = result.actions.empty() ? "observe" : "search";
+		s.commanderStrategy = "learned_search";
+		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : "search";
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
@@ -1372,6 +1395,10 @@ void Board::UpdateColdStorage(float dt)
 	auto& s = mColdStorage;
 	s.battleStarted = true;
 	s.elapsed += dt;
+	s.incomeIdleSeconds = std::min(kExhaustionIdleSeconds, s.incomeIdleSeconds + dt);
+	s.plantKillIdleSeconds = std::min(kExhaustionIdleSeconds, s.plantKillIdleSeconds + dt);
+	while (!s.incomeWindow.empty() && s.incomeWindow.front().at < s.elapsed - kExhaustionIdleSeconds)
+		s.incomeWindow.pop_front();
 	s.assaultCooldown = std::max(0.0f, s.assaultCooldown - dt);
 	s.dispatchQuietSeconds = std::min(kMaxObserveSeconds + 1.0f, s.dispatchQuietSeconds + dt);
 	if (s.orderIce > 0) {
@@ -1415,6 +1442,8 @@ nlohmann::json Board::SaveColdStorage() const
 	nlohmann::json j{{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
+		{"incomeIdleSeconds",s.incomeIdleSeconds},
+		{"plantKillIdleSeconds",s.plantKillIdleSeconds},
 		{"workerIncome",s.workerIncome},{"playerProductionIncome",s.playerProductionIncome},
 		{"spent",s.spent},{"supplied",s.supplied},{"killIncome",s.killIncome},{"playerKillIncome",s.playerKillIncome},{"deployments",s.deployments},
 		{"decisions",s.decisions},{"lastAttackRow",s.lastAttackRow},{"battleStarted",s.battleStarted},
@@ -1425,6 +1454,13 @@ nlohmann::json Board::SaveColdStorage() const
 	j["refundableCosts"] = nlohmann::json::array();
 	for (const auto& [id, cost] : s.refundableCosts)
 		j["refundableCosts"].push_back({{"id",id},{"cost",cost}});
+	j["incomeWindow"] = nlohmann::json::array();
+	long long production = 0, spent = 0;
+	for (const auto& flow : s.incomeWindow) if (flow.at >= s.elapsed - kExhaustionIdleSeconds) {
+		j["incomeWindow"].push_back({{"at",flow.at},{"production",flow.production},{"spent",flow.spent}});
+		production += flow.production; spent += flow.spent;
+	}
+	j["incomeWindowProduction"] = production; j["incomeWindowSpent"] = spent;
 	return j;
 }
 
@@ -1448,6 +1484,25 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.supplyRemaining = seconds("supplyRemaining", 30, 30);
 	s.decisionRemaining = seconds("decisionRemaining", 12, 60);
 	s.elapsed = seconds("elapsed", 0, 10000000);
+	// 旧档没有可核实的收入时间，给予完整恢复窗口，不能用总对局时间追溯判负。
+	s.incomeIdleSeconds = seconds("incomeIdleSeconds", 0, kExhaustionIdleSeconds);
+	s.plantKillIdleSeconds = seconds("plantKillIdleSeconds", 0, kExhaustionIdleSeconds);
+	s.incomeWindow.clear();
+	// 只有完整保存了滚动账本的新档才能沿用判负计时；旧档给予一个完整窗口。
+	if (j.contains("incomeWindow") && j["incomeWindow"].is_array()
+		&& j["incomeWindow"].size() <= kMaxIncomeWindowRecords) {
+		float previousAt = 0;
+		for (const auto& entry : j["incomeWindow"]) {
+			const float at = entry.value("at", -1.0f);
+			const int production = entry.value("production", -1), spent = entry.value("spent", -1);
+			if (!std::isfinite(at) || at < previousAt || at > s.elapsed
+				|| production < 0 || production > kMaxIce || spent < 0 || spent > kMaxIce) {
+				s.incomeWindow.clear(); s.plantKillIdleSeconds = 0; break;
+			}
+			previousAt = at;
+			if (at >= s.elapsed - kExhaustionIdleSeconds) s.incomeWindow.push_back({at,production,spent});
+		}
+	} else s.plantKillIdleSeconds = 0;
 	s.assaultCooldown = seconds("assaultCooldown", 0, kAssaultCooldownSeconds);
 	s.dispatchQuietSeconds = seconds("dispatchQuietSeconds", 0, kMaxObserveSeconds + 1.0f);
 	s.spent = integer("spent", 0, 0, kMaxIce);

@@ -2,6 +2,7 @@
 
 #include "Game/Zombie/ZombieType.h"
 #include <array>
+#include <deque>
 #include <map>
 #include <string>
 #include <vector>
@@ -14,8 +15,16 @@ struct ColdStorageDeployment {
 	float remaining = 0.0f;
 };
 
+/** 最近经营窗口中的实际收支；正数金额，补给与预测收益不在此登记。 */
+struct ColdStorageCashFlow {
+	float at = 0.0f;
+	int production = 0;
+	int spent = 0;
+};
+
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
+	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
 	int playerIce = 200; // 开局冷库可支撑完整五路基础阵型，后续依赖采购
 	int enemyIce = 0;
 	int initialEnemyIce = 0;
@@ -25,6 +34,9 @@ struct ColdStorageState {
 	float supplyRemaining = 30.0f;
 	float decisionRemaining = 45.0f; // 首轮进攻前的布阵时间，游戏秒
 	float elapsed = 0.0f;
+	float incomeIdleSeconds = 0.0f; // 连续没有实际制冰/击杀收入的游戏秒；定时补给和派兵不重置，入档
+	float plantKillIdleSeconds = 0.0f; // 连续没有消灭植物的游戏秒；新局/无历史旧档从零计时，入档
+	std::deque<ColdStorageCashFlow> incomeWindow; // 最近经营窗口的实际制冰及购买事务，入档；Update 移除过期记录
 	float assaultCooldown = 0.0f; // 总攻后的重新组织时间，游戏秒；读档不重置
 	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒，限制观望的最长时间
 	int spent = 0;

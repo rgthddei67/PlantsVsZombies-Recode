@@ -23,6 +23,8 @@
 
 `human_observation_contract.json` 配合 `python autotest/verify_human_observation.py` 验证无需 advance 即自然推进、信箱不能代玩以及记录留存。
 
+`smoke_cold_storage_exhaustion.json` 验证低库存经营失败收尾、盈利/活动及在途兵力保护、收支窗口与计时读档、低库存重组。`coldStorage.plantKillIdleSeconds` 只由消灭植物重置；滚动窗口 `incomeWindowProduction` / `incomeWindowSpent` 只统计实际制冰和付费出兵，补给不计入。`incomeIdleSeconds` 仍供诊断，但少量产冰不再单独延长败局。`commanderMode: regroup` 表示低库存候选收益不足而继续积累恢复资本，实际购买以 `commanderSpent` 和 `pending` 为准。
+
 脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
 普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
 仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。

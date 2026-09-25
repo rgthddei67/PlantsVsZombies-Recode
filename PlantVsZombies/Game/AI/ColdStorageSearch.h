@@ -41,6 +41,7 @@ struct Counter {
 };
 struct Snapshot {
 	int budget = 0, capacity = 0;
+	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
 	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	float incomingIceAt = 0;
@@ -56,10 +57,13 @@ struct Result {
 	Weights features{}, baselineFeatures{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
+	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 };
 
 /** 验证参数尺寸以外的数值域，非法参数必须回退旧 AI。 */
 bool ValidWeights(const Weights& weights);
+/** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
+bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan);
 /** 从空计划和随机动作序列变异搜索，可自由改变兵种、行、出生延迟及队伍长度。 */

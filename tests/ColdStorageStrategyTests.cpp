@@ -101,6 +101,33 @@ int main()
 	const auto naked = ColdStorageSearch::Evaluate(search, {{0,0}});
 	const auto protectedIncome = ColdStorageSearch::Evaluate(search, {{1,0},{0,8}});
 	check(protectedIncome[4] > naked[4], "joint plan values actual forward protection of worker");
+	ColdStorageSearch::Result recovery;
+	recovery.actions = {{1,0},{0,8}};
+	recovery.baselineFeatures = ColdStorageSearch::Evaluate(search, {});
+	recovery.features = protectedIncome;
+	check(!ColdStorageSearch::ShouldRegroup(recovery,40,48), "low inventory still funds productive escort and worker combinations");
+	// 现有工人在另一行赚钱，不能掩盖新巨人冲入火力后的纯亏损。
+	auto doomed = search;
+	doomed.plants[0].dps = 10000;
+	auto safeWorker = producer.unit;
+	safeWorker.body.row = 1; safeWorker.body.speed = 0;
+	doomed.current.push_back(safeWorker);
+	recovery.actions = {{1,0}};
+	recovery.baselineFeatures = ColdStorageSearch::Evaluate(doomed, {});
+	recovery.features = ColdStorageSearch::Evaluate(doomed,recovery.actions);
+	check(ColdStorageSearch::ShouldRegroup(recovery,47,48), "existing income cannot justify a doomed low-inventory reinforcement");
+	check(!ColdStorageSearch::ShouldRegroup(recovery,48,48), "sufficient reserves leave investment choice to the search");
+	doomed.plants.clear();
+	recovery.baselineFeatures = ColdStorageSearch::Evaluate(doomed, {});
+	recovery.features = ColdStorageSearch::Evaluate(doomed,recovery.actions);
+	check(!ColdStorageSearch::ShouldRegroup(recovery,16,48), "affordable house breach is not delayed for economy");
+	doomed.plants = {gun}; doomed.plants[0].dps = 10000;
+	doomed.budget = 40; doomed.capacity = 1; doomed.recoveryReserve = 48; doomed.allowWait = false;
+	doomed.options = {tank,producer}; doomed.options[0].preference[0] = 500;
+	doomed.options[1].row = 1; doomed.options[1].unit.body.row = 1;
+	const auto rebuilt = ColdStorageSearch::Search(doomed,ColdStorageSearch::InitialWeights,123);
+	check(rebuilt.actions.size() == 1 && rebuilt.actions[0].option == 1,
+		"regroup filter retains profitable alternatives instead of rejecting only the winning wasteful plan");
 	const auto chosen = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
 	const auto repeated = ColdStorageSearch::Search(search, ColdStorageSearch::InitialWeights, 123);
 	check(chosen.baselineFeatures == ColdStorageSearch::Evaluate(search, {}), "decision records the no-purchase counterfactual");
@@ -143,6 +170,19 @@ int main()
 	check(ColdStorageSearch::Evaluate(countered,{})[6] == 16, "squash can counter one valuable nearby target");
 	countered.counters[0].blast.x = 500;
 	check(ColdStorageSearch::Evaluate(countered,{})[6] == 0, "squash cannot target across half the lawn");
+	countered.counters[0].blast.x = 710;
+	countered.counters[0].windup = 1.7f;
+	heavy.body.health = 1700; heavy.body.speed = 43;
+	countered.current.assign(6,heavy);
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == 96,
+		"squash refreshes its target before jumping and catches a moving football cluster");
+	countered.counters[0].targeted = false;
+	countered.counters[0].blast.x = 800;
+	countered.counters[0].blast.reach[0] = 50;
+	countered.counters[0].blast.ready = 1.7f;
+	countered.counters[0].blast.committed = true;
+	check(ColdStorageSearch::Evaluate(countered,{})[6] == 0,
+		"an already committed fixed blast cannot chase targets that move out of its area");
 	// 新生工人的首次计时也必须走共享规则，防止调参只更新后续批次。
 	ColdStorageSearch::Snapshot production;
 	production.current.push_back(producer.unit);
