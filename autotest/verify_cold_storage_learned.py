@@ -31,6 +31,12 @@ for name, state in states.items():
         if policy.get('stateModel'):
             effective = [max(-500,min(500,b+sum(x*row[j] for x,row in zip(ice['searchStateInputs'],policy['stateModel']['coefficients']))))
                          for j,b in enumerate(effective)]
+        if policy.get('netEconomy'):
+            value=max(.01,min(500,abs(effective[4])))
+            effective[0]=max(-500,min(500,effective[0]+value))
+            effective[3]=value*max(0,min(1,effective[3]))
+            effective[4],effective[5]=value,-value
+            effective[6]=-abs(effective[6])
         assert all(abs(a-b)<max(.001,abs(b)*.000002) for a,b in zip(ice['searchEffectiveWeights'],effective))
         expected = ice['searchPreferenceScore'] + sum(a*b for a,b in zip(ice['searchFeatures'],effective))
         assert abs(score-expected) < max(.03,abs(expected)*.000002)

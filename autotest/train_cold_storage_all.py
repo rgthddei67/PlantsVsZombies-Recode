@@ -24,6 +24,17 @@ def new_state_model():
             'coefficients':[[0.0]*len(INITIAL) for _ in STATE_CONTEXT]}
 
 
+def net_economy_policy(policy):
+    """Enable native net accounting and remove the now-unused independent spending parameters."""
+    result=copy.deepcopy(policy)
+    result['netEconomy']=True
+    result['weights'][5]=0
+    if result.get('stateModel'):
+        for row in result['stateModel']['coefficients']:
+            row[5]=0
+    return result
+
+
 def state_population(parent, rng, size, generation=0):
     """Only vary the state layer; paired signs explore both directions without prescribing tactics."""
     champion = copy.deepcopy(parent)
@@ -37,7 +48,8 @@ def state_population(parent, rng, size, generation=0):
         # 轮换输入维度保证覆盖，避免整轮随机重复一项；连接、幅度和正负仍由探索决定。
         pair = (len(population)-2)//2
         row = (generation*((size-1)//2) + pair) % len(STATE_CONTEXT)
-        for column in rng.sample(range(len(INITIAL)), rng.randint(1, 3)):
+        columns=[j for j in range(len(INITIAL)) if j!=5 or not parent.get('netEconomy')]
+        for column in rng.sample(columns, rng.randint(1, 3)):
             direction[row][column] = rng.gauss(0, SCALES[column] * rng.choice((.5, 1.5, 3)))
         for sign in (1, -1):
             candidate = copy.deepcopy(champion)
@@ -79,10 +91,14 @@ def catalog(game, output):
 def mutate(policy, rng, scale):
     """Mutate context coefficients sparsely so rare-unit experience is not erased."""
     result = copy.deepcopy(policy)
-    result['weights'] = [max(-500, min(500, rng.gauss(w, s * scale))) for w, s in zip(policy['weights'], SCALES)]
+    result['weights'] = [0 if j==5 and policy.get('netEconomy') else max(-500, min(500, rng.gauss(w, s * scale)))
+                         for j,(w,s) in enumerate(zip(policy['weights'], SCALES))]
     if result.get('stateModel'):
         for row in result['stateModel']['coefficients']:
             for j in range(len(row)):
+                if j==5 and policy.get('netEconomy'):
+                    row[j]=0
+                    continue
                 if rng.random() < .35:
                     row[j] = max(-500,min(500,rng.gauss(row[j],SCALES[j]*scale*.5)))
     for name, values in result['preferences'].items():

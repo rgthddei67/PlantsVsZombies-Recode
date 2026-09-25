@@ -23,6 +23,11 @@ struct SplashField {
 	float targetRight = 1100;
 };
 
+/** 正式西瓜的相邻行/碰撞箱命中窗口；调用方另过滤死亡、阵营和出生时刻。 */
+bool MelonSplashContains(const SplashUnit& primary, const SplashUnit& secondary);
+/** 连续 DPS 推演的次要伤害，沿用正式结算的七倍总预算；不模拟逐发取整。 */
+float MelonSecondaryDps(float directDps, int secondaryCount);
+
 /** 比较增援前后已有队伍的承伤和推进价值；允许负值表示增援替队友减轻火力。 */
 float ForecastSplashExternality(const SplashField& field, const std::vector<SplashUnit>& current,
 	const std::vector<SplashUnit>& additions);

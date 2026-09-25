@@ -352,4 +352,47 @@ int main()
 	readiness.playerSun = 0;
 	check(ColdStorageSearch::DescribeState(readiness,{})[4] == 0,"unaffordable cards are not treated as ready pressure");
 	std::cout << "Adaptive state scoring and voluntary large formations passed\n";
+
+	// 不指定打法，只锁定账目：同一块冰的收入与支出必须同价，不能把亏损采购本身计成收益。
+	ColdStorageSearch::Weights malformedEconomy{};
+	malformedEconomy[3] = 500; malformedEconomy[4] = 2; malformedEconomy[5] = 500; malformedEconomy[6] = 500;
+	const auto accounting = ColdStorageSearch::AccountForIce(malformedEconomy);
+	check(accounting[4] == 2 && accounting[5] == -2 && accounting[3] == 2,
+		"income and expenses share one currency value; remaining investment cannot exceed purchase price");
+	check(64*accounting[4]+600*accounting[5] < 0,"600 ice for 64 income and no combat benefit is a loss");
+	check(accounting[6] < 0 && 600*accounting[5]+600*accounting[6] < 0,
+		"forecast blast casualties cannot act as an indirect spending reward");
+	check(600*accounting[4]+64*accounting[5] > 0,"profitable production remains a legitimate investment");
+	adaptiveState.netEconomy = true; adaptiveState.stateModel = &adaptive;
+	adaptive.coefficients[0][5] = 500; adaptiveBase[4] = 1;
+	check(ColdStorageSearch::Search(adaptiveState,adaptiveBase,11).actions.empty(),
+		"large budget and positive spend coefficients cannot buy immobile troops for score alone");
+	auto economicFollowup = followup; economicFollowup.netEconomy = true;
+	const auto guardedProfit = ColdStorageSearch::Search(economicFollowup,incomeWeights,13);
+	check(!guardedProfit.actions.empty() && economicFollowup.options[guardedProfit.actions[0].option].row == 3,
+		"net accounting still invests behind an existing guard when production justifies its cost");
+	economicFollowup.current.clear();
+	for (auto& fire : economicFollowup.plants) fire.dps = 10000;
+	check(ColdStorageSearch::Search(economicFollowup,incomeWeights,13).actions.empty(),
+		"unprotected workers destroyed before earning income are not rewarded for their expense");
+	std::cout << "Net ice accounting and protected investment passed\n";
+
+	ColdStorageSearch::Snapshot crowded;
+	ColdStorageSearch::Plant melon;
+	melon.melon = true; melon.rowRadius = 1; melon.dps = 1; melon.health = 100; melon.edible = false;
+	crowded.plants.push_back(melon);
+	ColdStorageSearch::Unit stationary;
+	stationary.body.health = stationary.body.purchaseCost = 10000;
+	stationary.body.x = 900;
+	crowded.current.assign(29,stationary);
+	const auto melonBudget = ColdStorageSearch::Evaluate(crowded,{});
+	check(std::abs(melonBudget[3]-(290000-60*8)) < 1,
+		"crowded melon secondary damage is capped at seven times direct DPS, excluding the primary target");
+	crowded.current.resize(2); crowded.current[1].body.row = 1; crowded.current[1].body.x = 960;
+	check(std::abs(ColdStorageSearch::Evaluate(crowded,{})[3]-(20000-60)) < 1,
+		"adjacent unit outside the real 60-pixel splash window is not hit by a phantom wider blast");
+	crowded.current[0].body.boundsOffset = 0;
+	check(std::abs(ColdStorageSearch::Evaluate(crowded,{})[3]-(20000-80)) < 1,
+		"splash uses the primary collision center and the secondary bounding box");
+	std::cout << "Melon splash geometry and crowd budget passed\n";
 }

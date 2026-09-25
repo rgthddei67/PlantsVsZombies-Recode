@@ -22,6 +22,17 @@ namespace {
 	constexpr float kProgressWeight = 0.5f; // 推进损失相对单位价值的权重，避免只统计扣血而忽略群体减速
 }
 
+bool MelonSplashContains(const SplashUnit& primary, const SplashUnit& secondary) {
+	const float impact = primary.x + primary.boundsOffset + primary.boundsWidth * 0.5f;
+	return std::abs(primary.row-secondary.row) <= 1
+		&& secondary.x+secondary.boundsOffset <= impact+kSplashHalfWidth
+		&& secondary.x+secondary.boundsOffset+secondary.boundsWidth >= impact-kSplashHalfWidth;
+}
+
+float MelonSecondaryDps(float directDps, int secondaryCount) {
+	return directDps * std::min(1.0f/3.0f,kSplashDamageBudget/std::max(1,secondaryCount));
+}
+
 float ForecastSplashExternality(const SplashField& field, const std::vector<SplashUnit>& current,
 	const std::vector<SplashUnit>& additions)
 {
@@ -66,16 +77,13 @@ float ForecastSplashExternality(const SplashField& field, const std::vector<Spla
 				chillDuration[primary] = std::max(chillDuration[primary], field.slowDuration[row]);
 				if (field.melonDps[row] <= 0) continue;
 				const auto& target = units[primary];
-				const float impact = target.x + target.boundsOffset + target.boundsWidth * 0.5f;
 				auto hit = [&](size_t i) {
 					const auto& u = units[i];
-					return static_cast<int>(i) != primary && u.health > 0 && time > u.spawnAt && std::abs(row - u.row) <= 1
-						&& u.x + u.boundsOffset <= impact + kSplashHalfWidth
-						&& u.x + u.boundsOffset + u.boundsWidth >= impact - kSplashHalfWidth;
+					return static_cast<int>(i) != primary && u.health > 0 && time > u.spawnAt && MelonSplashContains(target,u);
 				};
 				int count = 0;
 				for (size_t i = 0; i < units.size(); ++i) if (hit(i)) ++count;
-				const float secondary = field.melonDps[row] * std::min(1.0f / 3.0f, kSplashDamageBudget / std::max(1, count));
+				const float secondary = MelonSecondaryDps(field.melonDps[row],count);
 				for (size_t i = 0; i < units.size(); ++i) if (hit(i)) {
 					damage[i] += secondary * kSplashStep;
 					chilling[i] = std::max(chilling[i], field.melonSlowDuty[row]);

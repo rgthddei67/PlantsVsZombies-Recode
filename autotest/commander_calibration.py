@@ -37,34 +37,39 @@ def samples(episode):
 
 
 def fit(rows, min_leaf=12, depth=3):
-    """Small CART regression tree; group splitting belongs to the caller, before fitting."""
+    """Fit currency-unit squared error (not equally weighted ratios); split whole games in the caller."""
     if not rows:
         raise ValueError('No complete production observations')
     nodes = []
 
     def grow(group, remaining):
         at = len(nodes)
-        mean = sum(r['target'] for r in group) / len(group)
+        # 预测 600 冰错一半和预测 6 冰错一半，经济影响不同；按真实冰单位拟合误差。
+        mass = lambda r: max(1.0,r.get('raw',1.0))**2
+        total_weight = sum(mass(r) for r in group)
+        mean = sum(mass(r)*r['target'] for r in group) / total_weight
         nodes.append({'feature': -1, 'left': -1, 'right': -1, 'threshold': 0, 'value': mean})
-        baseline = sum((r['target'] - mean) ** 2 for r in group)
+        baseline = sum(mass(r)*(r['target'] - mean) ** 2 for r in group)
         best = None
         if remaining and len(group) >= 2 * min_leaf:
             for feature in range(FEATURES):
                 ordered = sorted(group, key=lambda r: r['x'][feature])
-                total = sum(r['target'] for r in ordered)
-                squared = sum(r['target'] ** 2 for r in ordered)
-                left_sum = left_squared = 0
+                total = sum(mass(r)*r['target'] for r in ordered)
+                squared = sum(mass(r)*r['target'] ** 2 for r in ordered)
+                left_sum = left_squared = left_weight = 0
                 for cut in range(1, len(ordered)):
                     target = ordered[cut - 1]['target']
-                    left_sum += target
-                    left_squared += target ** 2
+                    weight = mass(ordered[cut-1])
+                    left_weight += weight
+                    left_sum += weight*target
+                    left_squared += weight*target ** 2
                     if cut < min_leaf or len(ordered) - cut < min_leaf:
                         continue
                     a, b = ordered[cut - 1]['x'][feature], ordered[cut]['x'][feature]
                     if a == b:
                         continue
-                    loss = (left_squared - left_sum ** 2 / cut + squared - left_squared
-                            - (total - left_sum) ** 2 / (len(ordered) - cut))
+                    loss = (left_squared - left_sum ** 2 / left_weight + squared - left_squared
+                            - (total - left_sum) ** 2 / (total_weight - left_weight))
                     if loss < baseline - 1e-6 and (best is None or loss < best[0]):
                         best = (loss, feature, (a + b) / 2, ordered[:cut], ordered[cut:])
         if best:

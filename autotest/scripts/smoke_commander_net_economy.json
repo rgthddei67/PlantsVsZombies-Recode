@@ -1,0 +1,33 @@
+{
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","allZombies":true,"netEconomy":true,"weights":[0,0,0,0,1,500,500,0],"stateModel":{"schema":1,"featureCount":6,"coefficients":[[0,0,0,0,0,500,500,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]]}},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"commander_roster","units":["ZOMBIE_NORMAL"]},
+    {"op":"set_cold_storage","state":{"enemyIce":1800,"initialEnemyIce":1800,"decisions":30,"decisionRemaining":60,"dispatchQuietSeconds":0}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchNetEconomy","equals":true},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":0},
+    {"op":"dump_state","name":"expense.json"},
+    {"op":"commander_roster","units":["ZOMBIE_ICE_WORKER"]},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","atLeast":1,"atMost":32},
+    {"op":"dump_state","name":"investment.json"},
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","allZombies":true,"weights":[0,0,0,0,1,500,0,0]},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"commander_roster","units":["ZOMBIE_NORMAL"]},
+    {"op":"set_cold_storage","state":{"enemyIce":1800,"initialEnemyIce":1800,"decisions":30,"decisionRemaining":60,"dispatchQuietSeconds":0}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchNetEconomy","equals":false},
+    {"op":"assert_state","path":"coldStorage.pendingCount","atLeast":1,"atMost":8},
+    {"op":"dump_state","name":"legacy.json"},
+    {"op":"quit"}
+  ]
+}

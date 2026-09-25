@@ -746,6 +746,7 @@ void Board::PlanColdStorageAttack()
 		ColdStorageSearch::Snapshot search;
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.stateModel = ColdStoragePolicy::AdaptiveModel();
+		search.netEconomy = ColdStoragePolicy::NetEconomy();
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
@@ -901,6 +902,7 @@ void Board::PlanColdStorageAttack()
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 		s.searchAdaptive = search.stateModel != nullptr;
+		s.searchNetEconomy = search.netEconomy;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());

@@ -6,12 +6,31 @@ import random
 from commander_calibration import fit, metrics, predict, samples
 from train_cold_storage import episode_commands, battle_progress
 from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases
-from train_cold_storage_all import new_state_model, mutate, state_population
+from train_cold_storage_all import new_state_model, mutate, state_population, net_economy_policy
 from audit_commander_forecasts import windows
 from evaluate_commander_roster_ablation import roster_commands
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_calibration_prioritizes_ice_error_instead_of_tiny_forecast_ratios(self):
+        rows=[{'x':[0]*10,'raw':10,'target':1,'actual':10} for _ in range(24)]
+        rows += [{'x':[0]*10,'raw':1000,'target':0,'actual':0} for _ in range(12)]
+        tree=fit(rows,depth=0)
+        self.assertLess(predict(tree,[0]*10),.001)
+        self.assertLess(metrics(rows,tree)['mae'],metrics(rows)['mae'])
+    def test_net_accounting_is_explicit_and_cannot_mutate_a_spending_reward(self):
+        original={'weights':[1]*8,'preferences':{'worker':[0]*8},'stateModel':new_state_model()}
+        original['stateModel']['coefficients'][0][5]=10
+        candidate=net_economy_policy(original)
+        self.assertNotIn('netEconomy',original)
+        self.assertEqual(original['stateModel']['coefficients'][0][5],10)
+        for seed in range(10):
+            changed=mutate(candidate,random.Random(seed),2)
+            self.assertTrue(changed['netEconomy'])
+            self.assertEqual(changed['weights'][5],0)
+            self.assertTrue(all(row[5]==0 for row in changed['stateModel']['coefficients']))
+        command=next(c for c in episode_commands(candidate,17,'normal:opening','lotus',120,'x') if c['op']=='commander_experiment')
+        self.assertTrue(command['netEconomy'])
     def test_roster_ablation_changes_only_legal_purchase_pool(self):
         policy={'weights':[1]*8}
         units=['ZOMBIE_NORMAL','ZOMBIE_ICE_WORKER','ZOMBIE_ELITE_DANCER']

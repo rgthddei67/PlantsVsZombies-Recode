@@ -67,6 +67,7 @@ struct Counter {
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
 };
 struct Snapshot {
+	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
 	const ProductionCalibration* productionCalibration = nullptr;
 	const StateModel* stateModel = nullptr;
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
@@ -104,6 +105,8 @@ bool ValidWeights(const Weights& weights);
 StateFeatures DescribeState(const Snapshot& state, const Weights& baseline);
 /** 在固定数值域内计算当前局势的评分权重；无模型时原样返回基础权重。 */
 Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model);
+/** 将经济项换成同一冰价的净收益；支出系数不可独立变异为奖励，残存投资至多按原价计。 */
+Weights AccountForIce(const Weights& conditioned);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */

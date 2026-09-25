@@ -13,7 +13,7 @@ import secrets
 
 from commander_calibration import fit, metrics, samples
 from train_cold_storage import ROOT, run_batch, save
-from train_cold_storage_all import CONTEXT, catalog, mutate, new_state_model, state_population
+from train_cold_storage_all import CONTEXT, catalog, mutate, new_state_model, state_population, net_economy_policy
 
 
 def read(path):
@@ -117,13 +117,14 @@ def train(args):
                 'longSeconds':args.long_seconds,'population':args.population,
                 'stateModel':args.state_model,
                 'stateOnly':args.state_only,
+                'netEconomy':args.net_economy,
                 'hashes':{p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
     if previous and previous != identity:
         raise RuntimeError('Engine, policy or trainer changed; use a new output directory')
     save(identity_path,identity)
     names = read(output/'catalog.json')['units'] if (output/'catalog.json').exists() else catalog(game,output)
     incumbent = read(game/'resources/ai/cold_storage_policy.json')
-    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel') if k in incumbent}
+    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy') if k in incumbent}
     source['trainingUnits'] = names
     unfamiliar = [name for name in names if name not in source['preferences']]
     for name in names:
@@ -132,7 +133,7 @@ def train(args):
     reference = None
     if args.reference_policy:
         old = read(args.reference_policy)
-        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel') if k in old}
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy') if k in old}
         reference['trainingUnits'] = names
         for name in names:
             value = reference['preferences'].get(name,[0]*len(CONTEXT))
@@ -159,6 +160,8 @@ def train(args):
     economic_explorer['preferences']['ZOMBIE_ICE_WORKER'] = [8,0,0,0,0,0,0,0]
     if args.state_model:
         economic_explorer.setdefault('stateModel',new_state_model())
+    if args.net_economy:
+        economic_explorer = net_economy_policy(economic_explorer)
     collected = run_batch(game,output,output.name+'_collect',[source,economic_explorer],collection,all_zombies=True)
     fit_rows, validation_rows = [], []
     groups = []
@@ -182,6 +185,7 @@ def train(args):
             champion['stateModel'] = copy.deepcopy(prior['stateModel'])
         if 'productionCalibration' in prior:
             champion['productionCalibration'] = copy.deepcopy(prior['productionCalibration'])
+        champion['netEconomy'] = prior.get('netEconomy',False)
         for name,value in prior.get('preferences',{}).items():
             if name in champion['preferences']:
                 champion['preferences'][name] = value
@@ -189,12 +193,22 @@ def train(args):
         champion['productionCalibration'] = model
     if args.state_model:
         champion.setdefault('stateModel',new_state_model())
+    if args.net_economy:
+        champion = net_economy_policy(champion)
     neutral = copy.deepcopy(champion)
     neutral['stateModel'] = new_state_model()
+    accounting_reference = net_economy_policy(reference or source) if args.net_economy else None
+    if accounting_reference is not None:
+        if args.state_model:
+            accounting_reference.setdefault('stateModel',new_state_model())
+        if 'productionCalibration' in champion:
+            accounting_reference['productionCalibration'] = copy.deepcopy(champion['productionCalibration'])
     history = []
+    # 仅换引擎复测也保存冻结前的检查点；空历史明确表示未重新搜索权重。
+    save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     for generation in range(args.generations):
         cases = draw_cases(selection,rng,duration,args.long_seconds,args.curriculum)
-        population = state_population(champion,rng,args.population,generation) if args.state_only else [source,champion] + ([reference] if reference else [])
+        population = state_population(champion,rng,args.population,generation) if args.state_only else ([champion,accounting_reference] if args.net_economy else [source,champion] + ([reference] if reference else []))
         while len(population) < args.population:
             parent = copy.deepcopy(champion)
             if args.state_model:
@@ -233,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--population',type=int,default=3)
     parser.add_argument('--state-model',action='store_true',help='Explore conditional scoring and expanded voluntary formations; baselines stay unchanged')
     parser.add_argument('--state-only',action='store_true',help='Freeze base weights, preferences and calibration; vary only conditional coefficients and include a neutral-layer holdout')
+    parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
     parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves'),default='balanced',

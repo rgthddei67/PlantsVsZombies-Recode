@@ -286,6 +286,18 @@ Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const
 	return result;
 }
 
+Weights AccountForIce(const Weights& conditioned) {
+	auto result = conditioned;
+	// 同一种货币不能收入按高价、支出按低价；保留可训练的经济重要性和战术收益。
+	const float value = std::clamp(std::abs(conditioned[4]),0.01f,500.0f);
+	result[0] = std::clamp(conditioned[0] + value,-500.0f,500.0f); // 击杀既有破阵价值，也兑现冰收入
+	result[3] = value * std::clamp(conditioned[3],0.0f,1.0f);
+	result[4] = value;
+	result[5] = -value;
+	result[6] = -std::abs(conditioned[6]); // 爆区损失是风险成本，不能成为替代的采购奖励
+	return result;
+}
+
 bool ProductionCalibration::IsValid() const {
 	if (nodes.empty() || nodes.size() > 63) return false;
 	for (size_t i = 0; i < nodes.size(); ++i) {
@@ -343,6 +355,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 		}
 	}
 	std::vector<bool> refunded(units.size()), breached(units.size());
+	std::vector<unsigned char> melonHits(units.size());
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	bool orderArrived = false;
 	for (float t = 0; t < (s.stateModel ? kAdaptiveHorizon : kHorizon); t += kStep) {
@@ -364,15 +377,25 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 			}
 			if (target < 0) continue;
 			const auto impact = units[target].body;
+			int secondaryCount = 0;
+			if (p.melon) {
+				// 与正式弹丸一样，先冻结命中集合再伤害；大编队的次要伤害不能无限线性叠加。
+				for (size_t i = 0; i < units.size(); ++i) {
+					const auto& u = units[i].body;
+					melonHits[i] = static_cast<int>(i) != target && u.health > 0 && u.spawnAt <= t
+						&& ColdStorageStrategy::MelonSplashContains(impact,u);
+					secondaryCount += melonHits[i];
+				}
+			}
+			const float secondaryDps = ColdStorageStrategy::MelonSecondaryDps(p.dps,secondaryCount);
 			for (size_t i = 0; i < units.size(); ++i) {
 				auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t) continue;
-				const bool splash = p.melon && std::abs(u.row - impact.row) <= p.rowRadius
-					&& std::abs(u.x - impact.x) < 60 + u.boundsWidth * 0.5f;
+				const bool splash = p.melon && melonHits[i];
 				const bool area = !p.melon && p.multiTarget && std::abs(u.row - p.row) <= p.rowRadius
 					&& (p.around ? std::abs(u.x - p.x) <= p.range : u.x >= p.x - 30 && u.x <= p.x + p.range);
 				if (static_cast<int>(i) != target && !splash && !area) continue;
-				u.health -= p.dps * kStep * (splash && static_cast<int>(i) != target ? 1.0f / 3 : 1);
+				u.health -= (splash ? secondaryDps : p.dps) * kStep;
 				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2));
 				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep));
@@ -433,7 +456,8 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	if (!ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())) return best;
 	best.features = Evaluate(s, {}); Calibrate(s,best);
 	const auto inputs = DescribeState(s,best.features);
-	const auto weights = ConditionWeights(baseWeights,inputs,s.stateModel);
+	const auto conditioned = ConditionWeights(baseWeights,inputs,s.stateModel);
+	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;
