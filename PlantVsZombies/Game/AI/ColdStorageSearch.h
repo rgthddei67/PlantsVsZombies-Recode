@@ -51,12 +51,21 @@ struct Plant {
 	bool multiTarget = false, around = false;
 	bool melon = false, edible = true;
 	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
+	float initialHealth = 0, productionAt = 0; // 削血分母与新生产株首次产出的时刻，游戏秒
 };
 /** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */
 struct RowStrike {
 	int plantID = 0;
 	float ready = 0, recharge = 20, damage = 0, splashDamage = 0, radius = 0;
 };
+/** 当前卡槽的合法建设落点；同 source 共用冷却，不能把每个格位当成独立牌。 */
+struct Construction {
+	Plant plant;
+	RowStrike strike;
+	int source = 0, sunCost = 0, iceCost = 0;
+	float ready = 0, recharge = 1, firstSunDelay = 0;
+};
+struct ConstructionStats { int planted = 0; float sunSpent = 0, iceSpent = 0; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
 /** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
@@ -65,6 +74,7 @@ struct Counter {
 	int source = 0, sunCost = 0, iceCost = 0;
 	float recharge = 10000, windup = 1;
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
+	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
 };
 struct Snapshot {
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
@@ -82,6 +92,7 @@ struct Snapshot {
 	std::vector<Option> options;
 	std::vector<Counter> counters;
 	std::vector<RowStrike> rowStrikes;
+	std::vector<Construction> construction;
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
@@ -92,6 +103,7 @@ struct Result {
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
+	ConstructionStats construction;
 	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
 	ProductionFeatures productionInputs{};
 	float formationBaseScore = 0; // 逐行对比前的最优自由编队评分
@@ -110,7 +122,7 @@ Weights AccountForIce(const Weights& conditioned);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */
-Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan);
+Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr);
 /** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 }

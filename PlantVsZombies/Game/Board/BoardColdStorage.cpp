@@ -13,6 +13,7 @@
 #include "Game/Plant/IceMint.h"
 #include "Game/Plant/Squash.h"
 #include "Game/Plant/DawnLotus.h"
+#include "Game/Plant/PlantUpgradeRules.h"
 #include "GameApp.h"
 #include "DeltaTime.h"
 #include <nlohmann/json.hpp>
@@ -791,10 +792,54 @@ void Board::PlanColdStorageAttack()
 			const bool doom = type == PlantType::PLANT_DOOMSHROOM;
 			if (doom && !hasCoffee) continue;
 			const int id = source++;
-			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col))
+			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
 				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max(card->GetCooldownTimer(),doom ? coffeeWait : 0.0f),false},
 					id,card->GetSunCost() + (doom ? coffeeSun : 0),GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0),
 					card->GetCooldownTime(),type == PlantType::PLANT_SQUASH);
+				if (ColdStoragePolicy::AnticipateBuilding()) {
+					search.counters.back().cellRow = row; search.counters.back().cellColumn = col;
+				}
+			}
+		}
+		// 从当前实战卡槽采集可能的建设，不读取陪练脚本或未来随机结果。
+		// 初版只表示单格普通株/外壳及曙光莲；不假造紫卡前置株、地面陷阱、累计配额或循环铲种。
+		if (ColdStoragePolicy::AnticipateBuilding() && mCardSlotManager) {
+			int source = 0;
+			for (const Card* card : mCardSlotManager->GetCards()) {
+				if (!card) continue;
+				const auto type = card->GetGameplayPlantType();
+				const auto& profile = GameDataManager::GetInstance().GetPlantSimulationProfile(type);
+				if (!profile.persistent || !profile.futurePlantable || profile.supportOnly || IsUpgradePlantType(type)
+					|| type == PlantType::PLANT_ELITE_SCAREDYSHROOM || type == PlantType::PLANT_SPIKEWEED
+					|| card->GetSunCost() < 0 || (profile.daytimeDormant && !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround))) continue;
+				const bool lotus = type == PlantType::PLANT_DAWNLOTUS;
+				if (!lotus && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
+				const int id = source++;
+				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
+					ColdStorageSearch::Construction future;
+					future.source = id; future.sunCost = card->GetSunCost(); future.iceCost = GetPlantIceCost(type);
+					future.ready = card->GetCooldownTimer(); future.recharge = card->GetCooldownTime();
+					future.firstSunDelay = profile.firstSunDelay;
+					auto& p = future.plant;
+					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
+					p.layer = type == PlantType::PLANT_PUMPKINSHELL ? 2 : 1;
+					p.health = static_cast<float>(profile.baseHealth); p.dps = profile.attackDps; p.sunPerSecond = profile.sunPerSecond;
+					// 假想补阵用于估计阻挡和火力；不把玩家尚未作出的投资提前记成可兑现返冰。
+					p.reward = 0;
+					p.rowRadius = profile.attackRowRadius; p.multiTarget = profile.mineMultiTarget;
+					p.around = profile.mineAttackShape == 2;
+					p.range = CELL_COLLIDER_SIZE_X*(p.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
+					p.melon = type == PlantType::PLANT_MELONPULT;
+					p.slowRate = profile.slowApplicationsPerSecond; p.slowDuration = profile.slowDuration;
+					p.stopDuty = profile.frozenApplicationsPerSecond*profile.frozenDuration + profile.butterApplicationsPerSecond*profile.butterDuration;
+					if (lotus) {
+						future.strike.ready = future.strike.recharge = DawnLotusRules::MaxEnergy/DawnLotusRules::NormalEnergyRate;
+						future.strike.damage = DawnLotusRules::Damage; future.strike.splashDamage = DawnLotusRules::SplashDamage;
+						future.strike.radius = CELL_COLLIDER_SIZE_X*DawnLotusRules::SplashRadiusCells;
+					}
+					search.construction.push_back(future);
+				}
+			}
 		}
 		for (const auto& p : snapshot.plants) {
 			const Plant* entity = mEntityRegistry.GetPlant(p.id);
@@ -903,6 +948,9 @@ void Board::PlanColdStorageAttack()
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 		s.searchAdaptive = search.stateModel != nullptr;
 		s.searchNetEconomy = search.netEconomy;
+		s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();
+		s.searchConstructionOptions = static_cast<int>(search.construction.size());
+		s.searchPredictedPlantings = result.construction.planted;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());

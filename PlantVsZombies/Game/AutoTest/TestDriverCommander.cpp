@@ -247,6 +247,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"stateInputs",ice.at("searchStateInputs")},{"effectiveWeights",ice.at("searchEffectiveWeights")},
 			{"adaptive",ice.at("searchAdaptive")},
 			{"netEconomy",ice.at("searchNetEconomy")},
+			{"anticipateBuilding",ice.at("searchAnticipateBuilding")},
+			{"predictedPlantings",ice.at("searchPredictedPlantings")},
 			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},
 			{"spent",ice.at("spent")},{"workerIncome",ice.at("workerIncome")},{"killIncome",ice.at("killIncome")},
@@ -262,6 +264,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		if (name.empty() || name.find_first_of("/\\:") != std::string::npos) { Fail("invalid episode filename"); return false; }
 		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
+			{"playerActions",command.value("playerActions",true)},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
 		output << result.dump(2); output.flush();
@@ -269,7 +272,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		Log("commander episode finished: " + result.at("outcome").get<std::string>());
 		mEpisodeTicks = -1; return true;
 	}
-	for (const auto& action : PlayerActions(full, opponent)) {
+	// 静态诊断保留正式战斗，只关闭陪练输入，不能把结果混入实战胜率。
+	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent)) {
 		ExecuteInteractive(action);
 		if (action.at("op") == "player_plant" && !mInteractiveResults.empty() && mInteractiveResults.back().value("ok",false))
 			for (const auto& card : full.at("cards")) if (card.at("slot") == action.at("slot")) {

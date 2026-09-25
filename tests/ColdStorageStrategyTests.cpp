@@ -395,4 +395,39 @@ int main()
 	check(std::abs(ColdStorageSearch::Evaluate(crowded,{})[3]-(20000-80)) < 1,
 		"splash uses the primary collision center and the secondary bounding box");
 	std::cout << "Melon splash geometry and crowd budget passed\n";
+
+	ColdStorageSearch::Snapshot rebuilding;
+	stationary.body.health = 1000; stationary.body.purchaseCost = 100;
+	rebuilding.current = {stationary};
+	ColdStorageSearch::Construction build;
+	build.plant.x = 300; build.plant.health = 300; build.plant.dps = 100;
+	build.sunCost = 100; build.iceCost = 10; build.recharge = 1000;
+	rebuilding.construction = {build};
+	build.plant.column = 1; build.plant.x = 400;
+	rebuilding.construction.push_back(build); // 同卡两个格位，不能得到两次独立冷却
+	rebuilding.playerSun = 1000; rebuilding.playerIce = 100;
+	ColdStorageSearch::ConstructionStats built;
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 0 && built.planted == 1
+		&& built.sunSpent == 100 && built.iceSpent == 10,"future fire uses one paid card and its shared cooldown");
+	rebuilding.playerIce = 9;
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100 && built.planted == 0,
+		"future construction cannot spend unavailable ice");
+	rebuilding.playerIce = 100; rebuilding.playerSun = 99;
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100 && built.planted == 0,
+		"future construction cannot spend unavailable sun");
+	rebuilding.playerSun = 1000;
+	for (auto& c : rebuilding.construction) c.ready = 90;
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100 && built.planted == 0,
+		"future construction respects actual card cooldown");
+	build.ready = 0; build.plant.dps = 0; build.plant.health = 500;
+	build.strike = {0,20,20,1400,300,150}; build.recharge = 2;
+	rebuilding.construction = {build};
+	build.plant.column = 2; build.plant.x = 500;
+	rebuilding.construction.push_back(build);
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 0 && built.planted == 1,
+		"newly built row-strike plant charges before its ability starts");
+	build.strike.ready = 90; rebuilding.construction = {build};
+	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100,
+		"an ability beyond the horizon cannot damage units immediately after planting");
+	std::cout << "Paid future construction, shared cooldown and charge delay passed\n";
 }

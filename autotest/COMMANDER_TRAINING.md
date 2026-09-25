@@ -24,6 +24,10 @@ python autotest/train_commander_league.py --output build/clang-release/autotest/
 
 `python autotest/evaluate_commander_roster_ablation.py <联赛输出目录> --output <新目录> --exclude ZOMBIE_ELITE_DANCER` 对已冻结的全部对照策略，配对测试完整陆地池与仅移除该购买选项的池；场景、种子、玩家和其他参数一致。报告同时记录胜局是否实际购买该单位，不以“带了某单位”直接推断胜因。它衡量当前策略对卡池变化的依赖，不等于针对删减卡池重新训练后的能力，也不修改正式兵种数值或发布资源。
 
+`--anticipate-building` 为候选启用可选的 `anticipateBuilding`：推演期间继续考虑玩家后续补阵。建设读取当前卡槽的真实价格、冷却、植物画像和合法格位，与灰烬共用阳光/冰预算；同卡多格共享冷却，新增曙光莲按正式充能周期及同时一株限制推演。假想新增植物只提供预计阻挡和火力，不把玩家尚未作出的投资提前算作可兑现的击杀返冰。仅从已入场的兵力判断补阵位置，不偷看尚未出生的队列。具体兵种、路线和攒兵决策仍由搜索与实战选优决定。
+
+此版本的玩家模型是有界近似：覆盖普通单格输出/阻挡/生产株、南瓜与曙光莲；尚不模拟紫卡前置建设、地面陷阱和累计配额株的后续种植、金盏花循环铲种或所有特殊技能。合法落点来自当前快照，不把当前非法格自动视作未来合法。`searchConstructionOptions` 和 `searchPredictedPlantings` 可核对预测是否接入；静态防线诊断可加 `audit_commander_forecast.py --static-defense`，只关闭后续陪练输入，结果标明 `playerActions=false`，禁止当成实战胜率。
+
 这仍是有限推演与局势相关评分，尚非对未来玩家建造和未来再投资的完整多阶段模拟。`searchStateInputs`、`searchEffectiveWeights` 和 `searchAdaptive` 记录实际生效状态，训练逐次决策也保存它们。`smoke_commander_state_model.json` 使用明确的合成参数核对接口能表达等待与扩编，不将该测试当作训练成功或胜率证明；发布仍须通过独立真实对照。
 
 搜索与旧战略层共用 `ColdStorageStrategy::MelonSplashContains/MelonSecondaryDps`：按碰撞箱与正式 60 像素命中窗口相交，先确定次要命中集合，再使用与正式弹丸一致的七倍直击总预算。群体减速不随伤害分摊而减少。这里只使用连续 DPS 近似，不宣称复刻逐发取整或弹丸飞行；没有修改玩家西瓜/冰瓜的真实伤害。

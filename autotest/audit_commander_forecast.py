@@ -8,7 +8,7 @@ import secrets
 from train_cold_storage import ROOT, INITIAL, episode_commands, save
 
 
-def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None):
+def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None, static_defense=False):
     """Keep subsequent reinforcement out of forecast/actual income comparisons."""
     game = ROOT / 'build/clang-release'
     output = output.resolve()
@@ -22,7 +22,7 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None)
     identity = {'exeSha256':hashlib.sha256((game/'PlantsVsZombies.exe').read_bytes()).hexdigest(),
                 'coreSha256':hashlib.sha256((ROOT/'autotest/train_cold_storage.py').read_bytes()).hexdigest(),
                 'auditSha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                'candidates':candidates,'arenas':list(arenas),'opponent':opponent,'seed':seed}
+                'staticDefense':static_defense,'candidates':candidates,'arenas':list(arenas),'opponent':opponent,'seed':seed}
     if (output/'identity.json').exists() and json.loads((output/'identity.json').read_text()) != identity:
         raise RuntimeError('Use a new directory for a changed audit')
     save(output/'identity.json',identity)
@@ -38,10 +38,10 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None)
                          {'op':'set_cold_storage','state':{'decisionRemaining':60}},
                          {'op':'set_spawn_paused','value':False},
                          # 队列最迟 30 秒出生；31 秒时核对已兑现，再暂停购买/出兵，场上战斗和经济时钟继续。
-                         {'op':'commander_episode','opponent':opponent,'seconds':31,'name':name+'_dispatch','timeout':61},
+                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':31,'name':name+'_dispatch','timeout':61},
                          {'op':'dump_state','name':name+'_freeze.json'},
                          {'op':'set_spawn_paused','value':True},
-                         {'op':'commander_episode','opponent':opponent,'seconds':horizon-31,'name':name,'timeout':horizon}]
+                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':horizon-31,'name':name,'timeout':horizon}]
             cases.append((name,arena))
     commands.append({'op':'quit'})
     script=output/(output.name+'.json')
@@ -61,6 +61,8 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None)
         assert freeze['spent']==before['spent'], 'Dispatch phase must not buy an extra plan'
         assert after['spent']==before['spent'], 'Audit must not mix in later purchases'
         assert result['final']['testAudio']['muted']
+        assert result['playerActions']==(not static_defense) and dispatch['playerActions']==(not static_defense)
+        if static_defense: assert not result['playerPlantings'] and not dispatch['playerPlantings']
         # 新模型交战预测延长到 90 秒，但产冰特征仍只统计前 60 秒。
         actual_production = sum(e['amount'] for e in after['productionEvents']
                                 if before['elapsed'] < e['at'] <= before['elapsed']+60)
@@ -76,7 +78,8 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None)
                      'playerPlantings':plantings,'result':str(evidence/(name+'.json')),
                      'dispatchResult':str(evidence/(name+'_dispatch.json'))})
     save(output/'report.json',{'identity':identity,'cases':rows,
-         'limitation':'Single-plan calibration: later player actions are real; predicted policy is approximate, not an identical replay.'})
+         'limitation':('Static-defense diagnostic with later player inputs disabled; not a strength evaluation.' if static_defense else
+                       'Single-plan calibration: later player actions are real; predicted policy is approximate, not an identical replay.')})
     for row in rows:
         print(row['case'],row['arena'],'spent',row['spent'],'income predicted/actual',round(row['predicted'][4]),row['actualIncome'],
               'kills predicted/actual',round(row['predicted'][0]),row['actualKills'],'preference',round(row['preferenceScore']))
@@ -87,6 +90,7 @@ if __name__=='__main__':
     parser.add_argument('--policy',type=Path,help='Inspect this frozen policy only')
     parser.add_argument('--arenas',nargs='+')
     parser.add_argument('--opponent',default='adaptive')
+    parser.add_argument('--static-defense',action='store_true',help='Disable later player inputs for diagnostic isolation, never a strength evaluation')
     parser.add_argument('--seed',type=int,default=None)
     args=parser.parse_args()
-    audit(args.output,args.policy,args.arenas,args.opponent,args.seed)
+    audit(args.output,args.policy,args.arenas,args.opponent,args.seed,args.static_defense)

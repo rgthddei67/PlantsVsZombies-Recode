@@ -31,6 +31,13 @@ class CalibrationTests(unittest.TestCase):
             self.assertTrue(all(row[5]==0 for row in changed['stateModel']['coefficients']))
         command=next(c for c in episode_commands(candidate,17,'normal:opening','lotus',120,'x') if c['op']=='commander_experiment')
         self.assertTrue(command['netEconomy'])
+    def test_future_building_flag_survives_episode_generation_and_mutation(self):
+        policy={'weights':[1]*8,'preferences':{},'anticipateBuilding':True}
+        changed=mutate(policy,random.Random(29),.5)
+        command=next(c for c in episode_commands(changed,17,'normal:developing','lotus',120,'x') if c['op']=='commander_experiment')
+        self.assertTrue(command['anticipateBuilding'])
+        self.assertNotIn('stateModel',policy)
+
     def test_roster_ablation_changes_only_legal_purchase_pool(self):
         policy={'weights':[1]*8}
         units=['ZOMBIE_NORMAL','ZOMBIE_ICE_WORKER','ZOMBIE_ELITE_DANCER']

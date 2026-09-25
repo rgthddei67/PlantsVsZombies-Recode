@@ -65,6 +65,7 @@ def verify(directory):
                 if row['outcome']=='commander_win': assert result['final']['boardState']=='LOSE_GAME'
                 if row['outcome']=='player_win': assert result['final']['coldStorage']['trophySpawned']
                 assert result['initial']['testAudio']['muted'] and result['final']['testAudio']['muted']
+                assert result.get('playerActions',True), 'Static-defense diagnostics are not league games'
                 for ice in [result['initial']['coldStorage'],result['final']['coldStorage']]+[t['ice'] for t in result['trace']]:
                     assert ice['enemyIce']==ice['initialEnemyIce']+ice['supplied']+ice['workerIncome']+ice['killIncome']-ice['spent'],path
                     assert ice['pendingCount']==len(ice['pending'])
@@ -74,6 +75,7 @@ def verify(directory):
                 for d in result['decisions']:
                     weights=effective_weights(policy,d['stateInputs'])
                     assert bool(policy.get('netEconomy'))==d.get('netEconomy',False)
+                    assert bool(policy.get('anticipateBuilding'))==d.get('anticipateBuilding',False)
                     assert all(abs(a-b)<max(.002,abs(b)*.000003) for a,b in zip(d['effectiveWeights'],weights)),path
                     expected=sum(a*b for a,b in zip(d['features'],weights))+d['preferenceScore']
                     assert abs(expected-d['scoreOn100']/100)<max(.05,abs(expected)*.000005),path

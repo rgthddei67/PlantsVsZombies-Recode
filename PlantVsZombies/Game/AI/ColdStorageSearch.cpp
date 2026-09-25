@@ -23,6 +23,8 @@ constexpr float kSquashImpactRange = 50; // 倭瓜落点的窄范围碰撞近似
 constexpr float kSquashFlightSeconds = 0.6f; // Squash 起跳后上升/下落时长的近似，游戏秒；此阶段不再追踪
 constexpr float kSquashLeadSeconds = 0.3f; // 对齐 Squash::StartRising 起跳时的目标运动预判，游戏秒
 constexpr float kRecoveryReturnFraction = 0.5f; // 低库存增援至少应换回半数冰价的预测收入或有效削血价值
+constexpr float kConstructionInterval = 2.0f; // 玩家模型两次建设决策间隔，游戏秒
+constexpr int kConstructionPlantLimit = 128; // 单次推演的植物容量，含已毁植物，约束新增对象开销
 
 /** 修复变异后的越界和超预算动作，稳定排序保留同一时刻的提交次序。 */
 void Repair(const Snapshot& s, std::vector<Action>& actions) {
@@ -85,7 +87,7 @@ void Calibrate(const Snapshot& s, Result& result) {
 Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Action> plan, const Weights& baseline) {
 	Result candidate;
 	candidate.actions = std::move(plan);
-	candidate.features = Evaluate(s, candidate.actions);
+	candidate.features = Evaluate(s, candidate.actions, &candidate.construction);
 	Calibrate(s, candidate);
 	candidate.baselineFeatures = baseline;
 	candidate.score = Score(candidate.features, weights);
@@ -130,10 +132,10 @@ struct PendingCounter {
 };
 
 /** 模拟已经种下的逐行主动打击：按生命和推进择敌，前排位置本身不能替工人挡主伤害。 */
-void AdvanceRowStrikes(const Snapshot& state, float time, const std::vector<Plant>& plants,
+void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& strikes, float time, const std::vector<Plant>& plants,
 	std::vector<Unit>& units, const std::vector<float>& initialHealth, std::vector<float>& ready, Weights& features) {
-	for (size_t ability = 0; ability < state.rowStrikes.size(); ++ability) {
-		const auto& strike = state.rowStrikes[ability];
+	for (size_t ability = 0; ability < strikes.size(); ++ability) {
+		const auto& strike = strikes[ability];
 		if (time < ready[ability] || std::none_of(plants.begin(),plants.end(),[&](const auto& plant) {
 			return plant.id == strike.plantID && plant.health > 0;
 		})) continue;
@@ -177,7 +179,7 @@ bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit
 }
 
 /** 多张牌共享真实资源、同卡落点共享冷却；先兑现已提交反制，再选择一次可支付的新动作。 */
-void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units,
+void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>& plants, std::vector<Unit>& units,
 	const std::vector<float>& initialHealth, std::vector<float>& ready,
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features) {
 	for (auto it = pending.begin(); it != pending.end();) {
@@ -210,6 +212,9 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 		const auto& counter = state.counters[c];
 		if (counter.blast.committed || time < ready[counter.source]
 			|| counter.sunCost > sun || counter.iceCost > ice) continue;
+		if (counter.cellRow >= 0 && std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
+			return p.health > 0 && p.layer == 1 && p.row == counter.cellRow && p.column == counter.cellColumn;
+		})) continue;
 		auto candidate = counter.blast;
 		int candidateTarget = -1;
 		if (counter.targeted) {
@@ -249,6 +254,63 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
 	}
 }
+}
+
+/** 按眼前威胁选择可能的补阵，建设与灰烬共用实际资源，不替僵尸指定打法。 */
+static void AdvanceConstruction(const Snapshot& state, float time, float horizon, const std::vector<Unit>& units,
+	std::vector<Plant>& plants, std::vector<float>& ready, std::vector<RowStrike>& strikes,
+	std::vector<float>& strikeReady, float& sun, float& ice, ConstructionStats& stats) {
+	if (plants.size() >= kConstructionPlantLimit) return;
+	std::array<float,6> threat{}, nearest{}, fire{};
+	nearest.fill(state.rightEdge+100);
+	for (const auto& u : units) if (u.body.health > 0 && u.body.spawnAt <= time && u.body.x <= state.rightEdge) {
+		threat[u.body.row] += u.body.health;
+		nearest[u.body.row] = std::min(nearest[u.body.row],u.body.x);
+	}
+	for (const auto& p : plants) if (p.health > 0) fire[p.row] += p.dps;
+	int selected = -1;
+	float best = 0;
+	for (size_t i = 0; i < state.construction.size(); ++i) {
+		const auto& card = state.construction[i]; const auto& p = card.plant;
+		if (time < ready[card.source] || card.sunCost > sun || card.iceCost > ice) continue;
+		// 曙光莲正式限制是同时一株；死亡后才可再次建设，不能按卡槽数量复制名额。
+		if (card.strike.damage > 0 && std::any_of(strikes.begin(),strikes.end(),[&](const auto& strike) {
+			return std::any_of(plants.begin(),plants.end(),[&](const auto& p) { return p.health > 0 && p.id == strike.plantID; });
+		})) continue;
+		// 当前合法格也可能被上次假想建设占用；南瓜壳与宿主分别占层。
+		if (std::any_of(plants.begin(),plants.end(),[&](const auto& existing) {
+			return existing.health > 0 && existing.row == p.row && existing.column == p.column && existing.layer == p.layer;
+		})) continue;
+		if (p.x+kContact >= nearest[p.row]) continue;
+		const float remaining = horizon-time;
+		float value = p.dps*remaining*(0.2f+threat[p.row]/(1000+threat[p.row]));
+		value += p.sunPerSecond*std::max(0.0f,remaining-card.firstSunDelay);
+		if (card.strike.damage > 0) {
+			float targets = 0;
+			for (float hp : threat) targets += std::min(hp,card.strike.damage);
+			value += targets*std::max(0.0f,remaining-card.strike.ready)/std::max(1.0f,card.strike.recharge);
+		}
+		if (p.dps <= 0 && p.sunPerSecond <= 0 && card.strike.damage <= 0)
+			value += std::min(p.health,threat[p.row])*(0.25f+fire[p.row]/50)
+				/ (1+std::max(0.0f,nearest[p.row]-p.x)/200);
+		else value /= 1+0.15f*p.column; // 输出和生产在后方合法位置有更长的存活机会
+		value /= std::max(25,card.sunCost)+card.iceCost;
+		if (value > best) { best = value; selected = static_cast<int>(i); }
+	}
+	if (selected < 0) return;
+	const auto& card = state.construction[selected];
+	auto plant = card.plant;
+	plant.id = -100000-static_cast<int>(plants.size());
+	plant.initialHealth = plant.health;
+	plant.productionAt = time+card.firstSunDelay;
+	plants.push_back(plant);
+	ready[card.source] = time+std::max(kConstructionInterval,card.recharge);
+	sun -= card.sunCost; ice -= card.iceCost;
+	++stats.planted; stats.sunSpent += card.sunCost; stats.iceSpent += card.iceCost;
+	if (card.strike.damage > 0) {
+		auto strike = card.strike; strike.plantID = plant.id;
+		strikes.push_back(strike); strikeReady.push_back(time+strike.ready);
+	}
 }
 
 bool ValidWeights(const Weights& weights) {
@@ -330,7 +392,7 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	return gain < plan[5] * kRecoveryReturnFraction;
 }
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction) {
 	Weights f{};
 	auto units = s.current;
 	for (const auto& a : plan) {
@@ -341,6 +403,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 		f[5] += s.options[a.option].cost;
 	}
 	auto plants = s.plants;
+	for (auto& plant : plants) plant.initialHealth = plant.health;
+	auto strikes = s.rowStrikes;
+	ConstructionStats constructionStats;
+	std::vector<float> constructionReady;
+	for (const auto& card : s.construction) {
+		if (constructionReady.size() <= static_cast<size_t>(card.source)) constructionReady.resize(card.source+1);
+		constructionReady[card.source] = card.ready;
+	}
+	float constructionAt = 0;
 	std::vector<float> initialHealth, initialX, smash(units.size());
 	for (const auto& u : units) { initialHealth.push_back(u.body.health); initialX.push_back(u.body.x); }
 	std::vector<float> counterReady;
@@ -362,9 +433,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 		if (!orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
-		for (const auto& p : plants) if (p.health > 0) playerSun += p.sunPerSecond * kStep;
-		AdvanceRowStrikes(s,t,plants,units,initialHealth,rowStrikeReady,f);
-		AdvanceCounters(s,t,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
+		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
+		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
+		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
+		if (!s.construction.empty() && t >= constructionAt) {
+			AdvanceConstruction(s,t,s.stateModel ? kAdaptiveHorizon : kHorizon,units,plants,constructionReady,
+				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
+			constructionAt = t+kConstructionInterval;
+		}
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (const auto& p : plants) if (p.health > 0 && p.dps > 0) {
 			int target = -1;
@@ -431,7 +507,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 					damage = smash[i] >= u.smashSeconds ? p.health : 0;
 					if (damage > 0) smash[i] = 0;
 				}
-				f[1] += p.reward * std::min(p.health, damage) / std::max(1.0f, s.plants[contact].health);
+				f[1] += p.reward * std::min(p.health, damage) / std::max(1.0f, p.initialHealth);
 				p.health -= damage;
 				if (p.health <= 0) f[0] += p.reward;
 			} else {
@@ -448,13 +524,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 		f[3] += u.purchaseCost * std::clamp(u.health / std::max(1.0f, initialHealth[i]), 0.0f, 1.0f);
 		f[7] += u.purchaseCost * std::clamp((initialX[i] - u.x) / 800, 0.0f, 1.0f);
 	}
+	if (construction) *construction = constructionStats;
 	return f;
 }
 
 Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
 	Result best;
 	if (!ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())) return best;
-	best.features = Evaluate(s, {}); Calibrate(s,best);
+	best.features = Evaluate(s, {}, &best.construction); Calibrate(s,best);
 	const auto inputs = DescribeState(s,best.features);
 	const auto conditioned = ConditionWeights(baseWeights,inputs,s.stateModel);
 	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
