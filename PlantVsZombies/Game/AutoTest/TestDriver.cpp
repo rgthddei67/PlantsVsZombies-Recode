@@ -4847,6 +4847,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchElapsed"] = board->mColdStorage.searchElapsed;
 		ice["searchRawProduction"] = board->mColdStorage.searchRawProduction;
 		ice["searchRowStrikeCount"] = board->mColdStorage.searchRowStrikeCount;
+		ice["searchFormation"] = {{"baseScore",board->mColdStorage.searchFormationBaseScore},
+			{"scores",board->mColdStorage.searchFormationScores},{"tested",board->mColdStorage.searchFormationTested},
+			{"rejected",board->mColdStorage.searchFormationRejected},{"chosenRow",board->mColdStorage.searchFormationChosenRow}};
 		ice["unlockProbe"] = board->mColdStorage.unlockProbe;
 		ice["searchProductionInputs"] = board->mColdStorage.searchProductionInputs;
 		ice["productionCalibrated"] = ColdStoragePolicy::ProductionModel() != nullptr;

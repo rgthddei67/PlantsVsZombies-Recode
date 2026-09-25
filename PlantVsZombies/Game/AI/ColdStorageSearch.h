@@ -81,6 +81,9 @@ struct Result {
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
 	ProductionFeatures productionInputs{};
+	float formationBaseScore = 0; // 逐行对比前的最优自由编队评分
+	std::array<float, 6> formationScores{}; // 同兵种/费用/时序整体投向各行的评分，按 tested 位掩码读取
+	int formationTested = 0, formationRejected = 0, formationChosenRow = -1; // 拒绝位表示低库存收益不足；-1 保留自由编队
 };
 
 /** 验证参数尺寸以外的数值域，非法参数必须回退旧 AI。 */
@@ -89,6 +92,6 @@ bool ValidWeights(const Weights& weights);
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan);
-/** 从空计划和随机动作序列变异搜索，可自由改变兵种、行、出生延迟及队伍长度。 */
+/** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 }

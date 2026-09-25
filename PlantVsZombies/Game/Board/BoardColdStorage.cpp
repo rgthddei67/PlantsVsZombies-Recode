@@ -900,6 +900,9 @@ void Board::PlanColdStorageAttack()
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
+		s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
+		s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
+		s.searchFormationChosenRow = result.formationChosenRow;
 		s.searchProductionInputs = result.productionInputs;
 		s.formationBlastLoss = result.blastLoss;
 		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];

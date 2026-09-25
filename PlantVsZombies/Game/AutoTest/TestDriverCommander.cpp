@@ -243,6 +243,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
 			{"rowStrikes",ice.at("searchRowStrikeCount")},
+			{"formation",ice.at("searchFormation")},
 			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},
 			{"spent",ice.at("spent")},{"workerIncome",ice.at("workerIncome")},{"killIncome",ice.at("killIncome")},

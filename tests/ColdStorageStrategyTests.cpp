@@ -254,4 +254,65 @@ int main()
 	check(!resume.actions.empty() && resume.actions.front().delay == 0,"empty board must act when bounded observation expires");
 	contextual.budget = 0;
 	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"observation deadline cannot authorize unpaid troops");
+
+	// 逐行打击有利于集中，而一张整行灰烬有利于分散；不能把主攻一路变成固定命令。
+	ColdStorageSearch::Snapshot formation;
+	formation.budget = 96; formation.capacity = 2; formation.houseX = 0;
+	formation.plants.push_back(sourcePlant);
+	formation.rowStrikes.push_back({1,0,20,1400,300,120});
+	for (int row = 0; row < 5; ++row) {
+		auto giant = tank;
+		giant.type = 10; giant.row = giant.unit.body.row = row; giant.cost = 48;
+		giant.unit.body.purchaseCost = 48; giant.unit.body.health = 3000;
+		giant.unit.body.x = 900; giant.unit.body.speed = 0; giant.preference = {};
+		formation.options.push_back(giant);
+	}
+	ColdStorageSearch::Weights formationWeights{};
+	formationWeights[3] = 1; formationWeights[5] = 2; formationWeights[6] = -1;
+	for (unsigned seed = 0; seed < 16; ++seed) {
+		const auto focused = ColdStorageSearch::Search(formation,formationWeights,seed);
+		check(focused.actions.size() == 2 && focused.actions[0].option == focused.actions[1].option,
+			"repeated row strikes favor concentrating heavy troops instead of exposing every lane");
+		check(focused.formationTested == 31 && focused.evaluated == 101,
+			"every legal lane is compared within a bounded extra search budget");
+		check(focused.score + 0.002f >= focused.formationBaseScore,
+			"formation refinement never replaces the free plan with a worse scored plan");
+		for (int row = 0; row < 5; ++row)
+			check(focused.score + 0.002f >= focused.formationScores[row],"no better legal concentration is missed");
+	}
+	formation.rowStrikes.clear(); formation.playerSun = 150; formation.playerIce = 100;
+	for (int row = 0; row < 5; ++row) {
+		ColdStorageSearch::Counter ash;
+		ash.blast.x = 900; ash.blast.reach.fill(-1); ash.blast.reach[row] = 10000;
+		ash.blast.damage = 10000; ash.blast.ready = 20; ash.recharge = 100; ash.sunCost = 150; ash.iceCost = 100;
+		formation.counters.push_back(ash);
+	}
+	const auto spread = ColdStorageSearch::Search(formation,formationWeights,19);
+	check(spread.actions.size() == 2 && spread.actions[0].option != spread.actions[1].option,
+		"shared ready lane-clear keeps a split plan when concentrating would lose both investments");
+	check(spread.formationChosenRow == -1 && spread.formationTested == 31,
+		"diagnostics distinguish rejecting concentration from failing to compare it");
+	formation.options.resize(1);
+	const auto restricted = ColdStorageSearch::Search(formation,formationWeights,19);
+	check(restricted.formationTested == 1,"no fabricated row option when the spawn pool restricts a unit");
+
+	ColdStorageSearch::Snapshot followup;
+	followup.budget = 24; followup.capacity = 1; followup.houseX = 0;
+	auto liveGuard = tank.unit;
+	liveGuard.body.row = 3; liveGuard.body.x = 600; liveGuard.body.speed = 0; liveGuard.body.health = 10000;
+	followup.current.push_back(liveGuard);
+	for (int row = 0; row < 5; ++row) {
+		auto workerOption = producer;
+		workerOption.row = workerOption.unit.body.row = row;
+		workerOption.unit.body.x = 900; workerOption.unit.body.speed = 0;
+		followup.options.push_back(workerOption);
+		auto fire = gun; fire.row = row; fire.x = 400; fire.edible = false;
+		followup.plants.push_back(fire);
+	}
+	ColdStorageSearch::Weights incomeWeights{}; incomeWeights[4] = 1;
+	const auto funded = ColdStorageSearch::Search(followup,incomeWeights,13);
+	check(funded.actions.size() == 1 && followup.options[funded.actions[0].option].row == 3,
+		"worker followup uses the surviving existing guard without relocating it or buying a new one");
+	check(funded.features[5] == 24 && funded.formationTested == 31,"followup respects wallet and compares every legal lane");
+	std::cout << "Concentration, ash dispersal and guarded economy comparisons passed\n";
 }

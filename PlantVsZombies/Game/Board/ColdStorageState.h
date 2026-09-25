@@ -68,6 +68,9 @@ struct ColdStorageState {
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
+	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档
+	std::array<float, 6> searchFormationScores{}; // 同一队伍投向各行的评分，按 tested 位掩码读取
+	int searchFormationTested = 0, searchFormationRejected = 0, searchFormationChosenRow = -1; // 合法/亏损行掩码及改选行
 	bool unlockProbe = false; // 空场小额出兵可立即推进新兵种解锁，仅诊断
 	std::array<float, 10> searchProductionInputs{}; // 与 ProductionFeatureCount 同步，诊断不入档
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。

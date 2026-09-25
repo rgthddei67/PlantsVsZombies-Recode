@@ -9,7 +9,7 @@ namespace ColdStorageSearch {
 namespace {
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
-constexpr int kTrials = 96; // 每次决策最多评估的自由计划数量，限制游戏内开销
+constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
 constexpr int kMaxActions = 8; // 一次搜索最多承诺的新增单位数，下次观察后可以继续部署
 constexpr float kMaxDelay = 12; // 新队员最迟出生时间，游戏秒
 constexpr float kContact = 55; // 接触植物的预测距离，像素
@@ -76,6 +76,46 @@ void Calibrate(const Snapshot& s, Result& result) {
 	result.productionInputs = ProductionInputs(s,result.actions,result.rawProduction);
 	if (s.productionCalibration && result.rawProduction > 0)
 		result.features[4] *= s.productionCalibration->Predict(result.productionInputs);
+}
+
+/** 对自由搜索与逐行对照使用同一收益、校准和兵种经验，避免比较时遗漏评分项。 */
+Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Action> plan, const Weights& baseline) {
+	Result candidate;
+	candidate.actions = std::move(plan);
+	candidate.features = Evaluate(s, candidate.actions);
+	Calibrate(s, candidate);
+	candidate.baselineFeatures = baseline;
+	candidate.score = Score(candidate.features, weights);
+	for (const auto& action : candidate.actions) {
+		const auto& option = s.options[action.option];
+		auto context = s.context[option.row];
+		context[0] = 1;
+		// 计划中的同行队友也算协作背景，允许发现尚未出生的支援组合。
+		for (const auto& other : candidate.actions) if (&action != &other) {
+			const auto& ally = s.options[other.option];
+			if (ally.row == option.row) { context[2] += 1.0f / 3; if (ally.unit.body.economic) context[6] += 1; }
+		}
+		for (int feature = 0; feature < ContextCount; ++feature) {
+			const float value = option.preference[feature] * std::clamp(context[feature], 0.0f, 3.0f);
+			candidate.score += value; candidate.preferenceScore += value;
+		}
+	}
+	candidate.blastLoss = candidate.features[6];
+	return candidate;
+}
+
+/** 只更换计划中尚未购买单位的行；缺少同兵种同费用选项时整案无效，不偷偷删兵或换兵。 */
+bool Concentrate(const Snapshot& s, std::vector<Action>& plan, int row) {
+	for (auto& action : plan) {
+		const auto& original = s.options[action.option];
+		if (original.row == row) continue;
+		const auto match = std::find_if(s.options.begin(), s.options.end(), [&](const auto& option) {
+			return option.row == row && option.type == original.type && option.cost == original.cost;
+		});
+		if (match == s.options.end()) return false;
+		action.option = static_cast<int>(match - s.options.begin());
+	}
+	return true;
 }
 
 struct PendingCounter {
@@ -396,26 +436,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		if (!s.allowWait && trial == 1) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
 		Repair(s, plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
-		Result candidate; candidate.actions = std::move(plan); candidate.features = Evaluate(s, candidate.actions);
-		Calibrate(s,candidate);
-		candidate.baselineFeatures = best.baselineFeatures;
-		candidate.score = Score(candidate.features, weights);
-		// 特殊能力的模型残差由真实对局学习，不在这里按品种写固定的偏好名单。
-		for (const auto& action : candidate.actions) {
-			const auto& option = s.options[action.option];
-			auto context = s.context[option.row];
-			context[0] = 1;
-			// 计划中的同行队友也算协作背景，允许搜索发现尚未出生的支援组合。
-			for (const auto& other : candidate.actions) if (&action != &other) {
-				const auto& ally = s.options[other.option];
-				if (ally.row == option.row) { context[2] += 1.0f / 3; if (ally.unit.body.economic) context[6] += 1; }
-			}
-			for (int feature = 0; feature < ContextCount; ++feature) {
-				const float value = option.preference[feature] * std::clamp(context[feature], 0.0f, 3.0f);
-				candidate.score += value; candidate.preferenceScore += value;
-			}
-		}
-		candidate.blastLoss = candidate.features[6];
+		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures);
 		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
 		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) {
 			deferredInvestment = true;
@@ -428,7 +449,23 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		std::stable_sort(elite.begin(), elite.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 		if (elite.size() > 8) elite.resize(8);
 	}
-	best.evaluated = kTrials;
+	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
+	// 因此可以发现继续支援巨人的收益，也能因灰烬、溅射或减速而保留分路方案。
+	const auto original = best.actions;
+	const float baseScore = best.score;
+	std::array<float, 6> rowScores{};
+	int tested = 0, rejected = 0, chosenRow = -1, evaluated = kTrials;
+	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()); ++row) {
+		auto plan = original;
+		if (!Concentrate(s, plan, row)) continue;
+		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures);
+		++evaluated; tested |= 1 << row; rowScores[row] = candidate.score;
+		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) { rejected |= 1 << row; continue; }
+		if (candidate.score > best.score + 0.001f) { best = std::move(candidate); chosenRow = row; }
+	}
+	best.formationBaseScore = baseScore; best.formationScores = rowScores;
+	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
+	best.evaluated = evaluated;
 	best.regrouping = best.actions.empty() && deferredInvestment;
 	return best;
 }

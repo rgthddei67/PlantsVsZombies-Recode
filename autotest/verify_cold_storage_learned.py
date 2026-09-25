@@ -21,6 +21,14 @@ for name, state in states.items():
     if name in ('opening', 'late'):
         assert ice['commanderStrategy'] == 'learned_search' and ice['pendingCount'] > 0
         assert ice['commanderSpent'] <= ice['commanderBudget']
+        comparison = ice['searchFormation']
+        assert comparison['tested'] == 31 and ice['candidatesEvaluated'] == 101
+        # 日志分数按百分之一取整；集中对照不能降低自由搜索的结果。
+        score = ice['lastBestScoreOn100'] / 100
+        assert score + .02 >= comparison['baseScore']
+        for row, value in enumerate(comparison['scores']):
+            if comparison['tested'] & (1 << row) and not comparison['rejected'] & (1 << row):
+                assert score + .02 >= value
 opening, restored = (states[n]['coldStorage'] for n in ('opening', 'restored'))
 assert opening['enemyIce'] == restored['enemyIce'] and opening['spent'] == restored['spent']
 assert opening['pending'] == restored['pending']
