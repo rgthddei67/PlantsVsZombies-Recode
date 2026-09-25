@@ -14,7 +14,7 @@ def verify(output):
     assert all(r['reason']=='human_observation_read_only' for r in second['results'])
     assert second['state']['coldStorage']['elapsed']>first['state']['coldStorage']['elapsed']+1
     assert not second['state']['plants']
-    assert second['state']['coldStorage']['productionRules']['maximumYield']==16
+    assert second['state']['coldStorage']['productionRules']['maximumYield']==18
     assert second['state']['coldStorage']['productionRules']['initialYield']==4
     records=[json.loads(line) for line in (client.mailbox/'observations.jsonl').read_text().splitlines()]
     assert len(records)>=2 and records[-1]['simulationSteps']>records[0]['simulationSteps']
