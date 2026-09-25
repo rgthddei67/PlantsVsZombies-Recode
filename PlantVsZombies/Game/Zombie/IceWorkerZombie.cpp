@@ -40,7 +40,7 @@ void IceWorkerZombie::Update()
 	mIceRemaining -= DeltaTime::GetDeltaTime();
 	while (mIceRemaining <= 0.0f) {
 		mIceRemaining += IceProduction::Interval;
-		mBoard->CreditProducedIce(IsMindControlled(), static_cast<int>(mNextIceYield));
+		mBoard->CreditProducedIce(IsMindControlled(), static_cast<int>(mNextIceYield), mSpawnWave);
 		mNextIceYield = std::min(IceProduction::MaximumYield,
 			mNextIceYield * IceProduction::YieldGrowth);
 		mIceBatches = std::min(1000000, mIceBatches + 1);

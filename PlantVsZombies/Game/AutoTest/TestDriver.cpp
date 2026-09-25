@@ -918,7 +918,8 @@ bool TestDriver::ExecuteCurrent() {
 
 	if (op == "commander_experiment") {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
-			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr)) {
+			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,
+			cmd.contains("productionCalibration") ? &cmd.at("productionCalibration") : nullptr)) {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
@@ -939,6 +940,22 @@ bool TestDriver::ExecuteCurrent() {
 			pool.push_back(type);
 		}
 		std::sort(pool.begin(), pool.end());
+		// 受限卡池在注册表过滤之后取交集，不能借训练白名单引入水路或附属单位。
+		if (cmd.contains("units")) {
+			const auto& names = cmd.at("units");
+			if (!names.is_array() || names.empty()) { Fail("commander_roster: empty or invalid units"); return false; }
+			std::vector<ZombieType> selected;
+			for (const auto& name : names) {
+				if (!name.is_string()) { Fail("commander_roster: invalid unit name"); return false; }
+				const auto it = std::find_if(pool.begin(),pool.end(),[&](auto type) {
+					return GameDataManager::GetInstance().ZombieTypeToEnumName(type) == name.get<std::string>();
+				});
+				if (it == pool.end()) { Fail("commander_roster: unsupported unit"); return false; }
+				selected.push_back(*it);
+			}
+			std::sort(selected.begin(),selected.end()); selected.erase(std::unique(selected.begin(),selected.end()),selected.end());
+			pool = std::move(selected);
+		}
 		board->SetZombieSpawnList(pool);
 		Log("training roster: " + std::to_string(pool.size()) + " registered land units");
 		return true;
@@ -4827,6 +4844,13 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"growth",IceProduction::YieldGrowth},{"workerCost",IceProduction::WorkerCost}};
 		ice["searchSerial"] = board->mColdStorage.searchSerial;
 		ice["searchFeatures"] = board->mColdStorage.searchFeatures;
+		ice["searchElapsed"] = board->mColdStorage.searchElapsed;
+		ice["searchRawProduction"] = board->mColdStorage.searchRawProduction;
+		ice["searchProductionInputs"] = board->mColdStorage.searchProductionInputs;
+		ice["productionCalibrated"] = ColdStoragePolicy::ProductionModel() != nullptr;
+		ice["productionEvents"] = nlohmann::json::array();
+		for (const auto& event : board->mColdStorage.productionEvents)
+			ice["productionEvents"].push_back({{"at",event.at},{"wave",event.wave},{"amount",event.amount}});
 		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;
 		ice["searchPreferenceScore"] = board->mColdStorage.searchPreferenceScore;
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));

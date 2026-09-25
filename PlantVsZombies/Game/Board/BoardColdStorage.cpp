@@ -310,7 +310,7 @@ bool Board::BuyColdStorageIce(bool large)
 	return true;
 }
 
-void Board::CreditProducedIce(bool player, int amount)
+void Board::CreditProducedIce(bool player, int amount, int sourceWave)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || amount <= 0) return;
 	int& balance = player ? mColdStorage.playerIce : mColdStorage.enemyIce;
@@ -321,6 +321,11 @@ void Board::CreditProducedIce(bool player, int amount)
 	if (!player && accepted > 0) {
 		mColdStorage.incomeIdleSeconds = 0;
 		mColdStorage.incomeWindow.push_back({mColdStorage.elapsed,accepted,0});
+		if (GameAPP::mAutoTestMode) {
+			auto& events = mColdStorage.productionEvents;
+			events.push_back({mColdStorage.elapsed,sourceWave,accepted});
+			while (events.size() > 4096 || (!events.empty() && events.front().at < mColdStorage.elapsed - 120)) events.pop_front();
+		}
 	}
 }
 
@@ -738,6 +743,7 @@ void Board::PlanColdStorageAttack()
 	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
 	if (const auto* weights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr) {
 		ColdStorageSearch::Snapshot search;
+		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.budget = s.enemyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
@@ -868,6 +874,8 @@ void Board::PlanColdStorageAttack()
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
+		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
+		s.searchProductionInputs = result.productionInputs;
 		s.formationBlastLoss = result.blastLoss;
 		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
 		const int before = s.enemyIce;

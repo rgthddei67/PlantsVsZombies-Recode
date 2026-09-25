@@ -41,6 +41,42 @@ float Score(const Weights& f, const Weights& w) {
 	return value;
 }
 
+/** 汇总工人存活条件，只读当前快照和候选，不读取未来玩家动作。 */
+ProductionFeatures ProductionInputs(const Snapshot& s, const std::vector<Action>& plan, float income) {
+	ProductionFeatures f{}; f[0] = std::log1p(std::max(0.0f,income)); f[9] = s.budget / 100.0f;
+	float count = 0;
+	auto worker = [&](const Unit& unit) {
+		++count; f[3] += unit.body.health / IceProduction::WorkerHealth;
+		const auto& context = s.context[unit.body.row];
+		f[6] += context[5]; f[7] += context[4]; f[8] += context[3];
+		for (const auto& guard : s.current)
+			if (!guard.body.economic && guard.body.health > 0 && guard.body.row == unit.body.row && guard.body.x < unit.body.x)
+				f[4] += guard.body.health / 3000.0f;
+	};
+	for (const auto& unit : s.current) if (unit.body.economic && unit.body.health > 0) { ++f[1]; worker(unit); }
+	for (const auto& action : plan) {
+		const auto& option = s.options[action.option];
+		if (option.unit.body.economic) {
+			++f[2]; worker(option.unit);
+			for (const auto& escort : plan) {
+				const auto& guard = s.options[escort.option];
+				if (!guard.unit.body.economic && guard.row == option.row && escort.delay < action.delay)
+					f[5] += guard.cost / 48.0f;
+			}
+		}
+	}
+	if (count > 0) for (int i = 3; i <= 8; ++i) f[i] /= count;
+	return f;
+}
+
+/** 保留未经校准的训练输入，再用已验证的小模型折减经济预期。 */
+void Calibrate(const Snapshot& s, Result& result) {
+	result.rawProduction = result.features[4];
+	result.productionInputs = ProductionInputs(s,result.actions,result.rawProduction);
+	if (s.productionCalibration && result.rawProduction > 0)
+		result.features[4] *= s.productionCalibration->Predict(result.productionInputs);
+}
+
 struct PendingCounter {
 	ColdStorageStrategy::BlastThreat blast;
 	float at;
@@ -133,6 +169,28 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Unit>& units
 
 bool ValidWeights(const Weights& weights) {
 	return std::all_of(weights.begin(), weights.end(), [](float w) { return std::isfinite(w) && std::abs(w) <= 500; });
+}
+
+bool ProductionCalibration::IsValid() const {
+	if (nodes.empty() || nodes.size() > 63) return false;
+	for (size_t i = 0; i < nodes.size(); ++i) {
+		const auto& n = nodes[i];
+		if (!std::isfinite(n.value) || n.value < 0 || n.value > 1 || !std::isfinite(n.threshold)) return false;
+		if (n.feature == -1) { if (n.left != -1 || n.right != -1) return false; }
+		else if (n.feature < 0 || n.feature >= ProductionFeatureCount || n.left <= static_cast<int>(i)
+			|| n.right <= static_cast<int>(i) || n.left >= static_cast<int>(nodes.size()) || n.right >= static_cast<int>(nodes.size())) return false;
+	}
+	return true;
+}
+
+float ProductionCalibration::Predict(const ProductionFeatures& features) const {
+	int at = 0;
+	for (size_t step = 0; step < nodes.size(); ++step) {
+		const auto& node = nodes[at];
+		if (node.feature == -1) return node.value;
+		at = features[node.feature] <= node.threshold ? node.left : node.right;
+	}
+	return 1;
 }
 
 bool ShouldRegroup(const Result& result, int budget, int reserve) {
@@ -255,7 +313,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan) {
 Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 	Result best;
 	if (!ValidWeights(weights)) return best;
-	best.features = Evaluate(s, {}); best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
+	best.features = Evaluate(s, {}); Calibrate(s,best);
+	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
 	if (cheapest->cost > s.budget) return best;
@@ -294,6 +353,7 @@ Result Search(const Snapshot& s, const Weights& weights, std::uint32_t seed) {
 		Repair(s, plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		Result candidate; candidate.actions = std::move(plan); candidate.features = Evaluate(s, candidate.actions);
+		Calibrate(s,candidate);
 		candidate.baselineFeatures = best.baselineFeatures;
 		candidate.score = Score(candidate.features, weights);
 		// 特殊能力的模型残差由真实对局学习，不在这里按品种写固定的偏好名单。

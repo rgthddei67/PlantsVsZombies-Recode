@@ -220,8 +220,8 @@ public:
 	bool CanAffordPlantIce(PlantType type) const;
 	/** 接受单笔订单，立即扣阳光，按游戏时间完成后整批到账。 */
 	bool BuyColdStorageIce(bool large);
-	/** 正式生产的主线程入账，player 指定当前受益阵营；不改变击杀返冰成本。 */
-	void CreditProducedIce(bool player, int amount);
+	/** 正式生产的主线程入账；sourceWave 仅用于 AutoTest 收益归因，不改变余额或击杀返冰。 */
+	void CreditProducedIce(bool player, int amount, int sourceWave = 0);
 	/** 正式玩家落种后结算冰块并更新近期战术画像。 */
 	void CommitColdStoragePlant(PlantType type);
 	/** 仅植物实际被僵尸消灭时调用；幂等由植物生命周期门禁保证。 */

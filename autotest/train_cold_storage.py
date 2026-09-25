@@ -10,6 +10,7 @@ import json
 import math
 from pathlib import Path
 import random
+import re
 import statistics
 import subprocess
 import time
@@ -30,13 +31,26 @@ def save(path, value):
 
 
 def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=False):
+    # 正式各关保留实际卡池及解锁；mask 仅影响显式全兵种实验。
     if arena.startswith('normal:'):
         arena = arena[len('normal:'):]
         all_zombies = False
     policy = weights if isinstance(weights, dict) else {"weights": weights}
+    roster = None
+    if arena.startswith('masked:'):
+        arena = arena[len('masked:'):]
+        if not all_zombies or not policy.get('trainingUnits'):
+            raise ValueError('masked arena requires an explicit training registry')
+        pool = sorted(policy['trainingUnits'])
+        roster = sorted(random.Random(seed ^ 0xC01D).sample(pool, max(1, len(pool) // 2)))
+    match = re.search(r'_10_([1-9])$', arena)
+    level = 81 + int(match.group(1)) if match else 82
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash', 'adaptive'):
+    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder'):
         cards += ['SQUASH']
+        # 正式卡槽最多 11 张；已有三叶草对空时，将重复对空位置留给倭瓜。
+        if all_zombies:
+            cards.remove('CACTUS')
     if opponent == 'ash':
         cards = [c for c in cards if c not in ('MELONPULT', 'WINTERMELON')]
     elite = arena.startswith('elite_')
@@ -45,14 +59,17 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
-         'allZombies': all_zombies, 'preferences': policy.get('preferences', {})},
-        {'op': 'goto_level', 'level': 83 if arena.endswith('_10_2') else 82},
+         'allZombies': all_zombies, 'preferences': policy.get('preferences', {}),
+         'productionCalibration': policy.get('productionCalibration')},
+        {'op': 'goto_level', 'level': level},
         {'op': 'choose_cards', 'cards': ['PLANT_' + c for c in cards],
          'imitaterTarget': 'PLANT_MARIGOLD'},
         {'op': 'wait_state', 'state': 'GAME', 'timeout': 25},
     ]
     if all_zombies or policy.get('noWorkers'):
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
+        if roster is not None:
+            commands[-1]['units'] = [n for n in roster if not (policy.get('noWorkers') and n == 'ZOMBIE_ICE_WORKER')]
     if arena.startswith(('fortress', 'economy', 'elite_', 'developing')):
         developing = arena.startswith('developing')
         opening_ice = 250 if developing else 96 if arena.startswith('economy') else 600

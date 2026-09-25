@@ -12,6 +12,17 @@ inline constexpr int FeatureCount = 8;
 using Weights = std::array<float, FeatureCount>;
 inline constexpr int ContextCount = 8; // 偏置、友军伤势、友军密度、前墙、减速、火力、工人数、后排保护
 using ContextWeights = std::array<float, ContextCount>;
+inline constexpr int ProductionFeatureCount = 10; // 产冰预测、现有/新工人、生命、护卫、护卫投入、火力、减速、墙、库存
+using ProductionFeatures = std::array<float, ProductionFeatureCount>;
+/** 小型实战校准树，只折减简化推演的产冰预期；不生成资源或改变单位。 */
+struct ProductionCalibration {
+	struct Node { int feature = -1, left = -1, right = -1; float threshold = 0, value = 1; };
+	std::vector<Node> nodes;
+	/** 加载时检查有界、有限值和无环拓扑。 */
+	bool IsValid() const;
+	/** 对已通过 IsValid 的只读树推断倍率；不得传入尚未验证的资源。 */
+	float Predict(const ProductionFeatures& features) const;
+};
 // 击杀返冰、削血、突破、存活投资、生产收入、支出、爆区损失、推进；只作训练起点。
 inline constexpr Weights InitialWeights{3, 1, 120, 0.4f, 0.25f, -1, -2, 0.5f};
 
@@ -40,6 +51,7 @@ struct Counter {
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
 };
 struct Snapshot {
+	const ProductionCalibration* productionCalibration = nullptr;
 	int budget = 0, capacity = 0;
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
 	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
@@ -58,6 +70,8 @@ struct Result {
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
+	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
+	ProductionFeatures productionInputs{};
 };
 
 /** 验证参数尺寸以外的数值域，非法参数必须回退旧 AI。 */

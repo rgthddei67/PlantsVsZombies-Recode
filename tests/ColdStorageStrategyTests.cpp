@@ -190,6 +190,19 @@ int main()
 	const auto predicted = ColdStorageSearch::Evaluate(production, {});
 	check(predicted[4] == IceProduction::Forecast(IceProduction::Interval, IceProduction::InitialYield, 60),
 		"search and live production share the complete first-minute schedule");
+	ColdStorageSearch::ProductionCalibration calibration;
+	calibration.nodes = {{2,1,2,0.5f,1},{-1,-1,-1,0,0.25f},{-1,-1,-1,0,0.75f}};
+	check(calibration.IsValid(), "finite forward-only calibration tree accepted");
+	production.productionCalibration = &calibration;
+	const auto calibrated = ColdStorageSearch::Search(production,ColdStorageSearch::InitialWeights,17);
+	check(calibrated.rawProduction == predicted[4] && calibrated.features[4] == predicted[4]*0.25f
+		&& calibrated.baselineFeatures[4] == calibrated.features[4], "calibration discounts forecast and baseline, preserves raw evidence");
+	ColdStorageSearch::ProductionFeatures inputs{}; inputs[2] = 1;
+	check(calibration.Predict(inputs) == 0.75f, "production feature selects independent leaf");
+	calibration.nodes[0].right = 0;
+	check(!calibration.IsValid(), "cyclic calibration rejected");
+	calibration.nodes[0].right = 2; calibration.nodes[2].value = 1.1f;
+	check(!calibration.IsValid(), "calibration cannot invent additional production");
 
 	ColdStorageSearch::Snapshot contextual;
 	contextual.budget = 4; contextual.capacity = 1;

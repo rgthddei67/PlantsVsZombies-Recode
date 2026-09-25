@@ -22,6 +22,9 @@ struct ColdStorageCashFlow {
 	int spent = 0;
 };
 
+/** 训练用实际产冰事件；批次排除后来工人的收入，不参与钱包或存档。 */
+struct ColdStorageProductionEvent { float at = 0; int wave = 0, amount = 0; };
+
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
 	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
@@ -42,6 +45,7 @@ struct ColdStorageState {
 	int spent = 0;
 	int supplied = 0;
 	int workerIncome = 0; // 制冰工累计为敌方生产的冰块
+	std::deque<ColdStorageProductionEvent> productionEvents; // 最近 120 秒，上限 4096 条，仅 AutoTest 采集
 	int playerProductionIncome = 0; // 薄荷与魅惑制冰工累计生产的冰块
 	float predictedProduction = 0.0f; // 本次决策时域内可存活生产的预测收入
 	float economyValue = 0.0f; // 最佳经济投资的预计净收益
@@ -62,6 +66,8 @@ struct ColdStorageState {
 	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一 60 秒时域的计划/不增援预测，诊断不入档
 	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
+	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
+	std::array<float, 10> searchProductionInputs{}; // 与 ProductionFeatureCount 同步，诊断不入档
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
 	std::string commanderMode = "opening";
 	std::string commanderStrategy = "balanced"; // 根据当前发展与收益重算，不入档

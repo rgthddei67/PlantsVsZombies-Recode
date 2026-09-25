@@ -14,7 +14,9 @@ using Json = nlohmann::json;
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool adaptive = opponent == "adaptive";
+	const bool builder = opponent == "builder";
+	const bool hunter = opponent == "hunter" || builder;
+	const bool adaptive = opponent == "adaptive" || hunter;
 	const bool counterplay = adaptive || opponent == "counter" || opponent == "ash";
 	const bool eliteDefense = std::any_of(state.at("cards").begin(), state.at("cards").end(),
 		[](const auto& card) { return card.at("gameplayType") == "PLANT_ELITE_SCAREDYSHROOM"; });
@@ -91,6 +93,11 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		}
 		return std::max(0,health);
 	};
+	// 猎工陪练把可见且尚未被已提交灰烬覆盖的经济单位视为高价值目标。
+	auto blastValue = [&](const Json& z) {
+		const int health = remainingHealth(z);
+		return std::min(1800,health) + (hunter && health > 0 && z.at("type") == "ZOMBIE_ICE_WORKER" ? 1500 : 0);
+	};
 	std::vector<std::pair<float,std::pair<int,int>>> blastCells;
 	for (int r = 0; r < state.at("rows").get<int>(); ++r) for (int c = 0; c < state.at("columns").get<int>(); ++c) {
 		const auto& cell = state.at("cells").at(r).at(c);
@@ -98,7 +105,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		const float x = cell.at("centerXInt").get<float>();
 		float damage = 0;
 		for (const auto& z : zombies) if (std::abs(z.at("row").get<int>() - r) <= 1 && std::abs(z.at("xInt").get<float>() - x) <= 130)
-			damage += std::min(1800, remainingHealth(z));
+			damage += blastValue(z);
 		if (damage >= (opponent == "bomb" || counterplay ? 2500 : 4200)) blastCells.push_back({damage,{r,c}});
 	}
 	std::stable_sort(blastCells.begin(), blastCells.end(), [](auto a, auto b) { return a.first > b.first; });
@@ -110,7 +117,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		for (int r = 0; r < state.at("rows").get<int>(); ++r) {
 			float damage = 0;
 			for (const auto& z : zombies) if (z.at("row") == r && z.at("xInt").get<int>() < 1100)
-				damage += std::min(1800, remainingHealth(z));
+				damage += blastValue(z);
 			if (damage >= 2500) lanes.push_back({damage,r});
 		}
 		std::stable_sort(lanes.begin(), lanes.end(), [](auto a, auto b) { return a.first > b.first; });
@@ -120,7 +127,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		// 倭瓜只在实际触发距离附近落种，不能隔着半场凭空砸中目标。
 		cells.clear();
 		for (const auto& z : zombies) if (z.at("xInt").get<int>() < 1050
-			&& remainingHealth(z) > 0 && (remainingHealth(z) >= 900 || z.at("xInt").get<int>() < 550)) {
+			&& remainingHealth(z) > 0 && (remainingHealth(z) >= 900 || z.at("xInt").get<int>() < 550
+				|| (hunter && z.at("type") == "ZOMBIE_ICE_WORKER"))) {
 			const int r = z.at("row");
 			for (int c = 8; c >= 0; --c)
 				if (std::abs(state.at("cells").at(r).at(c).at("centerXInt").get<int>() - z.at("xInt").get<int>()) <= 100)
@@ -158,8 +166,15 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt("PLANT_WALLNUT", cells);
 	int producers = 0;
 	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER") ++producers;
-	if (producers < 7) {
-		cells.clear(); for (int r : rows) { cells.emplace_back(r,3); cells.emplace_back(r,5); }
+	// 扩建陪练保留两格金盏花周转，其余中排逐步发展；只维持七株会低估真人的后期反制资源。
+	if (producers < (builder ? 18 : 7)) {
+		cells.clear(); for (int r : rows) {
+			cells.emplace_back(r,3); cells.emplace_back(r,5);
+			if (builder) {
+				if (r != 0 && r != 4) cells.emplace_back(r,4);
+				cells.emplace_back(r,2);
+			}
+		}
 		attempt("PLANT_SUNFLOWER", cells);
 	}
 	// 陌生阵型沿用正式累计配额和冷却；不能在精英菇死亡后免费重建四株。
@@ -185,7 +200,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const auto opponent = command.value("opponent", std::string("bomb"));
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -213,6 +228,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		|| mEpisodeDecisions.back().at("serial") != ice.at("searchSerial"))) {
 		mEpisodeDecisions.push_back({{"seconds",mEpisodeTicks/60.0},{"serial",ice.at("searchSerial")},
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
+			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
+			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},
 			{"spent",ice.at("spent")},{"workerIncome",ice.at("workerIncome")},{"killIncome",ice.at("killIncome")},
 			{"enemyIce",ice.at("enemyIce")},{"pending",ice.at("pending")}});

@@ -25,6 +25,7 @@
     {"op": "apply_zombie_control", "row": 0, "effect": "SLOW", "duration": 60},
     {"op": "wait_value", "path": "zombiesByType.ZOMBIE_ICE_WORKER.iceBatches", "equals": 1, "timeout": 20},
     {"op": "assert_state", "path": "coldStorage.workerIncome", "equals": 4},
+    {"op": "assert_state", "path": "coldStorage.productionEvents.0.amount", "equals": 4},
     {"op": "dump_state", "name": "batch_1.json"},
     {"op": "wait_value", "path": "zombiesByType.ZOMBIE_ICE_WORKER.iceBatches", "equals": 2, "timeout": 20},
     {"op": "assert_state", "path": "coldStorage.workerIncome", "equals": 10},
