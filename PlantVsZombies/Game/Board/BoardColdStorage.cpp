@@ -789,7 +789,8 @@ void Board::PlanColdStorageAttack()
 			if (s.unlockProbe) search.allowWait = false;
 		}
 		search.rightEdge = SCENE_WIDTH;
-		if (search.searchVersion == 2) for (int id : mEntityRegistry.GetAllMowerIDs()) {
+		// 清洁车是共同战斗规则，不能因候选搜索版本不同而从局面中消失。
+		for (int id : mEntityRegistry.GetAllMowerIDs()) {
 			const Mower* mower = mEntityRegistry.GetMower(id);
 			if (!mower || !mower->IsActive()) continue;
 			const auto bounds = mower->GetColliderComponent()->GetBoundingBox();

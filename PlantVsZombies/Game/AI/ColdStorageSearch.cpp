@@ -691,23 +691,21 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (p.health <= 0) f[0] += p.reward;
 			} else {
 				u.x -= u.speed * active * speedFactor;
-				if (s.searchVersion == 1 && u.x < s.houseX) { f[2] += 1; u.health = 0; breached[i] = true; }
 			}
 		}
-		if (s.searchVersion == 2) {
-			AdvanceMowers(mowers,units,t,s.rightEdge);
-			for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0 && units[i].body.spawnAt <= t
-				&& units[i].body.x < s.houseX) {
-					// 进屋只触发一次胜利；重复穿过同一已失守防线不能按人数制造额外胜利收益。
-					f[2] = 1; units[i].body.health = 0; breached[i] = true;
-				}
-		}
+		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。
+		AdvanceMowers(mowers,units,t,s.rightEdge);
+		for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0 && units[i].body.spawnAt <= t
+			&& units[i].body.x < s.houseX) {
+				// 进屋只触发一次胜利；重复穿过同一已失守防线不能按人数制造额外胜利收益。
+				f[2] = 1; units[i].body.health = 0; breached[i] = true;
+			}
 		for (size_t i = 0; i < units.size(); ++i) if (!refunded[i] && !breached[i] && units[i].body.health <= 0) {
 			playerIce += units[i].playerRefund; refunded[i] = true;
 		}
 		capPlayerResources();
 		// 正式胜负已经发生，后续制冰/建造/伤害均不再兑现，不能继续虚构胜利后的收入。
-		if (s.searchVersion == 2 && f[2] > 0) break;
+		if (f[2] > 0) break;
 	}
 	for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0) {
 		const auto& u = units[i].body;

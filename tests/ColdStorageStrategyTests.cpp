@@ -518,43 +518,58 @@ int main()
 	layeredSmash.searchVersion = 2;
 	check(ColdStorageSearch::Evaluate(layeredSmash,{})[0] == 20,"one completed smash affects shell and host in the same cell");
 	std::cout << "Thrown child commitment, free summons and same-cell smash layers passed\n";
-	ColdStorageSearch::Snapshot mowerTest;
-	mowerTest.searchVersion = 2; mowerTest.houseX = 100;
-	portfolioUnit.unit.body.x = 300; portfolioUnit.unit.body.speed = 20;
-	mowerTest.options = {portfolioUnit};
-	mowerTest.mowers.push_back({0,200,60,230});
-	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,0}})[2] == 0,
-		"a ready mower clears the first cohort instead of awarding two false breakthroughs");
-	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,20}})[2] == 1,
-		"a spent mower cannot clear reinforcements which have not spawned during its sweep");
-	mowerTest.options[0].unit.mowerImmune = true;
-	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0}})[2] == 1,"mower immunity comes from the unit capability");
-	mowerTest.options[0].unit.mowerImmune = false;
-	mowerTest.options[0].unit.consumesOtherMowers = true;
-	portfolioUnit.row = portfolioUnit.unit.body.row = 1;
-	mowerTest.options.push_back(portfolioUnit); mowerTest.mowers.push_back({1,200,60,230});
-	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{1,20}})[2] == 1,
-		"a mower-consuming unit removes other lanes' mowers without granting itself immunity");
+	for (int version : {1,2}) {
+		ColdStorageSearch::Snapshot mowerTest;
+		mowerTest.searchVersion = version; mowerTest.houseX = 100;
+		portfolioUnit.row = portfolioUnit.unit.body.row = 0;
+		portfolioUnit.unit.body.x = 300; portfolioUnit.unit.body.speed = 20;
+		mowerTest.options = {portfolioUnit};
+		mowerTest.mowers.push_back({0,200,60,230});
+		check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,0}})[2] == 0,
+			"a ready mower clears the first cohort instead of awarding two false breakthroughs");
+		check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,20}})[2] == 1,
+			"a spent mower cannot clear reinforcements which have not spawned during its sweep");
+		// 真人局回归：前排免费小鬼已经足以触发车，立即跟入的高血量增援同样会被清掉。
+		auto followup = mowerTest;
+		ColdStorageSearch::Unit trigger;
+		trigger.body.x = 250; trigger.body.health = 110; trigger.body.speed = 20;
+		followup.current = {trigger};
+		followup.options[0].unit.body.x = 1000;
+		followup.options[0].unit.body.speed = 0;
+		followup.options[0].unit.body.health = 3000;
+		check(ColdStorageSearch::Evaluate(followup,{{0,0},{0,2}})[3] == 0,
+			"an existing trigger makes immediate high-health reinforcements lose their terminal assets");
+		check(ColdStorageSearch::Evaluate(followup,{{0,6}})[3] > 0,
+			"waiting until the mower passes preserves a reinforcement without forcing another lane");
+		mowerTest.options[0].unit.mowerImmune = true;
+		check(ColdStorageSearch::Evaluate(mowerTest,{{0,0}})[2] == 1,"mower immunity comes from the unit capability");
+		mowerTest.options[0].unit.mowerImmune = false;
+		mowerTest.options[0].unit.consumesOtherMowers = true;
+		portfolioUnit.row = portfolioUnit.unit.body.row = 1;
+		mowerTest.options.push_back(portfolioUnit); mowerTest.mowers.push_back({1,200,60,230});
+		check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{1,20}})[2] == 1,
+			"a mower-consuming unit removes other lanes' mowers without granting itself immunity");
+	}
 	std::cout << "Mower clearing, delayed reinforcements and mower abilities passed\n";
 	ColdStorageSearch::Snapshot wonLane;
-	wonLane.searchVersion = 2; wonLane.houseX = 100;
-	portfolioUnit.row = portfolioUnit.unit.body.row = 0;
-	wonLane.options = {portfolioUnit};
-	const auto oneVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
-	const auto repeatedVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0},{0,0},{0,10}});
-	check(oneVictory[2] == 1 && repeatedVictory[2] == 1,
-		"additional intruders cannot multiply the value of one already won game");
-	check(repeatedVictory[5] == 3*oneVictory[5],"redundant invasion still pays every purchase");
-	wonLane.searchVersion = 1;
-	check(ColdStorageSearch::Evaluate(wonLane,{{0,0},{0,0}})[2] == 2,
-		"legacy policy retains its original breach feature until explicitly migrated");
-	wonLane.searchVersion = 2;
-	wonLane.options[0].unit.body.x = 101;
-	ColdStorageSearch::Unit lateIncome;
-	lateIncome.body.health = 500; lateIncome.body.x = 900; lateIncome.body.economic = true;
-	wonLane.current = {lateIncome};
-	const auto endedGame = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
-	check(endedGame[2] == 1 && endedGame[4] == 0,"the game cannot keep producing ice after an actual projected victory");
+	for (int version : {1,2}) {
+		wonLane.searchVersion = version; wonLane.houseX = 100;
+		wonLane.current.clear();
+		portfolioUnit.unit.body.x = 300;
+		portfolioUnit.row = portfolioUnit.unit.body.row = 0;
+		wonLane.options = {portfolioUnit};
+		const auto oneVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
+		const auto repeatedVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0},{0,0},{0,10}});
+		check(oneVictory[2] == 1 && repeatedVictory[2] == 1,
+			"additional intruders cannot multiply the value of one already won game");
+		check(repeatedVictory[5] == 3*oneVictory[5],"redundant invasion still pays every purchase");
+		wonLane.options[0].unit.body.x = 101;
+		ColdStorageSearch::Unit lateIncome;
+		lateIncome.body.health = 500; lateIncome.body.x = 900; lateIncome.body.economic = true;
+		wonLane.current = {lateIncome};
+		const auto endedGame = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
+		check(endedGame[2] == 1 && endedGame[4] == 0,"the game cannot keep producing ice after an actual projected victory");
+	}
 	ColdStorageSearch::Snapshot resourcePressure;
 	resourcePressure.searchVersion = 2; resourcePressure.budget = 24; resourcePressure.capacity = 6;
 	resourcePressure.recoveryReserve = 48; resourcePressure.playerSun = 100; resourcePressure.playerIce = 40;
