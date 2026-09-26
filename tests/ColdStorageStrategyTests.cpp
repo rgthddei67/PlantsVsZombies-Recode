@@ -745,4 +745,53 @@ int main()
 	check(ColdStorageSearch::Evaluate(queued,{})[3] == 24,
 		"ordinary v1 snapshots retain their original forecast horizon");
 	std::cout << "Paid queue replanning, legal routes, deadlines and unchanged live entities passed\n";
+	ColdStorageSearch::Snapshot outsideBlast;
+	ColdStorageSearch::Unit outsideWorker;
+	outsideWorker.body.row = 0; outsideWorker.body.x = 1140; outsideWorker.body.health = 500;
+	outsideWorker.body.economic = true; outsideWorker.body.purchaseCost = 24;
+	outsideBlast.current = {outsideWorker};
+	ColdStorageSearch::Counter rowFire;
+	rowFire.blast.x = 400; rowFire.blast.reach.fill(-1); rowFire.blast.reach[0] = 10000;
+	rowFire.blast.ready = 1; rowFire.blast.damage = 1800; rowFire.blast.committed = true;
+	outsideBlast.counters = {rowFire};
+	const auto burnedOutside = ColdStorageSearch::Evaluate(outsideBlast,{});
+	check(burnedOutside[4] == 0 && burnedOutside[6] == 24 && burnedOutside[3] == 0,
+		"row fire destroys an already born offscreen worker instead of granting imaginary production");
+	outsideBlast.current[0].body.spawnAt = 3;
+	check(ColdStorageSearch::Evaluate(outsideBlast,{})[4] > 0,
+		"row fire cannot destroy a paid worker whose birth is after the explosion");
+	outsideBlast.current[0].body.spawnAt = 0;
+	outsideBlast.counters[0].blast.x = 1050; outsideBlast.counters[0].blast.reach[0] = 130;
+	check(ColdStorageSearch::Evaluate(outsideBlast,{})[4] == 0,
+		"a finite blast reaches an offscreen worker inside its actual radius");
+	outsideBlast.counters[0].blast.x = 900;
+	check(ColdStorageSearch::Evaluate(outsideBlast,{})[4] > 0,
+		"removing the screen edge cutoff does not extend the blast radius");
+	std::cout << "Offscreen ash geometry and future birth boundaries passed\n";
+	ColdStorageSearch::Snapshot counterTiming;
+	outsideWorker.body.x = 900; outsideWorker.body.spawnAt = 0;
+	counterTiming.current = {outsideWorker,outsideWorker};
+	counterTiming.current[1].body.spawnAt = 4;
+	rowFire.blast.committed = false; rowFire.blast.ready = 0;
+	rowFire.recharge = 1000; rowFire.windup = 1;
+	counterTiming.counters = {rowFire};
+	const auto immediate = ColdStorageSearch::Evaluate(counterTiming,{});
+	const auto patient = ColdStorageSearch::Evaluate(counterTiming,{},nullptr,8);
+	check(patient[4] < immediate[4] && patient[6] > immediate[6],
+		"a patient counter can catch a following worker that survives an immediate early cast");
+	const auto robustTiming = ColdStorageSearch::Search(counterTiming,earn,31);
+	check(robustTiming.counterHoldSeconds == 8 && robustTiming.features == patient && robustTiming.baselineFeatures == patient,
+		"search and waiting baseline use one complete conservative counter outcome, without mixing hypothetical worlds");
+	counterTiming.counters[0].blast.committed = true;
+	check(ColdStorageSearch::Evaluate(counterTiming,{}) == ColdStorageSearch::Evaluate(counterTiming,{},nullptr,8),
+		"the patient model cannot postpone an explosion already committed by the real player");
+	counterTiming.counters[0].blast.committed = false;
+	counterTiming.current[0].body.x = counterTiming.houseX+100;
+	counterTiming.current[1].body.x = counterTiming.houseX+100;
+	check(ColdStorageSearch::Evaluate(counterTiming,{}) == ColdStorageSearch::Evaluate(counterTiming,{},nullptr,8),
+		"a patient player still uses an urgent counter instead of waiting for a larger crowd near the house");
+	counterTiming.counters[0].sunCost = 150; counterTiming.playerSun = 149;
+	check(ColdStorageSearch::Evaluate(counterTiming,{},nullptr,8)[6] == 0,
+		"counter patience never waives the player's real resource requirement");
+	std::cout << "Immediate and patient counter models, common baseline and committed casts passed\n";
 }

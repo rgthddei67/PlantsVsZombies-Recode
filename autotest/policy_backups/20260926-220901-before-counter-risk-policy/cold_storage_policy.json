@@ -1,13 +1,13 @@
 {
   "weights": [
-    4.038195409553465,
-    1.5774634177318625,
-    148.10468027431097,
-    0.3184682968490281,
-    1.1348848137060248,
-    0,
-    -0.27128161922788274,
-    1.769029414642204
+    1.6518740385840656,
+    2.344445410604879,
+    290.23268732146875,
+    0.29937932286453367,
+    0.29012733485225195,
+    0.6412621087732118,
+    -0.9953772560148378,
+    2.025167269557583
   ],
   "preferences": {
     "ZOMBIE_NORMAL": [
@@ -503,21 +503,10 @@
   },
   "anticipateBuilding": true,
   "schema": 1,
-  "netEconomy": true,
-  "opponentWeight": 1,
-  "anticipateEconomy": true,
-  "validated": true,
+  "validated": false,
   "leagueGatePassed": true,
-  "validation": {
-    "pairedGames": 48,
-    "previousWins": 46,
-    "candidateWins": 48,
-    "lostPreviousWins": 0,
-    "diagnosticGames": 5,
-    "diagnosticTimeouts": 0,
-    "testedExecutableSha256": "30392ab62b4ec3dc3535a705fc3c49982142e0081d47d577acde47759083cd40"
-  },
-  "trainingSource": "autotest/training/commander_blast_boundary/attrition_selection_result.json",
-  "previousPolicyBackup": "autotest/policy_backups/20260926-220901-before-counter-risk-policy",
-  "note": "Finite paired validation, not a claim of superiority against every human. Net ice accounting includes actual spending and opponent resource costs; player economy and both immediate and patient ash responses are forecast."
+  "userRequestedTrial": true,
+  "trialBackup": "autotest/policy_backups/20260925-171039-before-construction-trial/cold_storage_policy.json",
+  "trialSource": "build/clang-release/autotest/training/construction_release_verification/frozen_policy.json",
+  "note": "User-authorized trial. Paired evaluation won 20/25 versus current 15/25 and backup 18/25. Not accepted for release: high-reserve stress case overspent on ice workers without plant-kill income. Search version 2 source changes are not included in this tested executable."
 }

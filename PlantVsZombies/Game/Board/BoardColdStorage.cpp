@@ -1054,6 +1054,7 @@ void Board::PlanColdStorageAttack()
 		s.searchPredictedPlantings = result.construction.planted;
 		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
+		s.searchCounterHoldSeconds = result.counterHoldSeconds;
 		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
 		s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 		s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;

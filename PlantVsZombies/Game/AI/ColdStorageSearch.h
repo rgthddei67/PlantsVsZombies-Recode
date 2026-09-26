@@ -135,6 +135,7 @@ struct Result {
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
 	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
+	float counterHoldSeconds = 0; // 本次保守评估采用的玩家灰烬等待习惯，游戏秒；不是僵尸出兵间隔
 	ProductionFeatures productionInputs{};
 	float formationBaseScore = 0; // 逐行对比前的最优自由编队评分
 	std::array<float, 6> formationScores{}; // 同兵种/费用/时序整体投向各行的评分，按 tested 位掩码读取
@@ -151,8 +152,8 @@ Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const
 Weights AccountForIce(const Weights& conditioned);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
-/** 有限步位置推演；直接承伤、邻行溅射、减速、破障和产冰联合评分。 */
-Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr);
+/** 有限步位置推演；counterHoldSeconds 只延迟未提交且非救险的玩家反制，不能延迟已种下的爆炸。 */
+Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0);
 /** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */

@@ -37,6 +37,7 @@ constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
+constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
@@ -174,6 +175,21 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	candidate.baselineOpponentAssets = baselineOpponentAssets;
 	candidate.opponentScore = s.opponentWeight*(baselineOpponentAssets-candidate.opponentAssets);
 	candidate.score += candidate.opponentScore;
+	// 不把玩家一定会尽早交牌当成进攻收益。比较完整且各自合法的一次推演，
+	// 不能逐项拼接两个世界的最坏损失，也不能让玩家凭空多出冷却或资源。
+	if (std::any_of(s.counters.begin(),s.counters.end(),[](const auto& counter) { return !counter.blast.committed; })) {
+		Result patient;
+		patient.actions = candidate.actions;
+		patient.features = Evaluate(s,patient.actions,&patient.construction,kPatientCounterSeconds);
+		Calibrate(s,patient);
+		patient.baselineFeatures = baseline;
+		patient.opponentAssets = patient.construction.opponentAssets;
+		patient.baselineOpponentAssets = baselineOpponentAssets;
+		patient.opponentScore = s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
+		patient.score = Score(patient.features,weights)+patient.opponentScore;
+		patient.counterHoldSeconds = kPatientCounterSeconds;
+		if (patient.score < candidate.score) candidate = std::move(patient);
+	}
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
@@ -262,17 +278,18 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 	}
 }
 
-/** 在当前推演位置判断覆盖，不沿用战斗开始时的静态轨迹。 */
-bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit, float time, float rightEdge) {
+/** 按真实爆区覆盖已经出生的单位；场外不是灰烬免疫区，尚未出生的队列仍不承伤。 */
+bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit, float time) {
 	const auto& body = unit.body;
-	return body.health > 0 && body.spawnAt <= time && body.x <= rightEdge && blast.reach[body.row] >= 0
+	return body.health > 0 && body.spawnAt <= time && blast.reach[body.row] >= 0
 		&& std::abs(body.x + (blast.usesObjectX ? body.blastAnchorOffset : 0) - blast.x) <= blast.reach[body.row];
 }
 
 /** 多张牌共享真实资源、同卡落点共享冷却；先兑现已提交反制，再选择一次可支付的新动作。 */
 void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>& plants, std::vector<Unit>& units,
 	const std::vector<float>& initialHealth, std::vector<float>& ready,
-	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features) {
+	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
+	float holdSeconds, std::vector<float>& holdUntil) {
 	for (auto it = pending.begin(); it != pending.end();) {
 		// 假想新种倭瓜在起跳前继续追踪；不能把移动目标仍判在最初的观察落点。
 		// 正式已提交反制没有 target 索引，保持其快照落点，避免替玩家撤销或重新瞄准。
@@ -287,7 +304,7 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 			if (time >= it->at - kSquashFlightSeconds) it->targetLocked = true;
 		}
 		if (it->at > time) { ++it; continue; }
-		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time, state.rightEdge)) {
+		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
 			const float damage = std::min(body.health, it->blast.damage);
 			features[6] += body.purchaseCost * damage / std::max(1.0f, initialHealth[i]);
@@ -324,10 +341,10 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		}
 		float loss = 0;
 		bool urgent = false;
-		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(candidate, units[i], time, state.rightEdge)) {
+		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(candidate, units[i], time)) {
 			float health = units[i].body.health;
 			// 不连续把三张清场牌浪费在已被另一张锁定的濒死目标上。
-			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time, state.rightEdge))
+			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time))
 				health -= scheduled.blast.damage;
 			if (health <= 0) continue;
 			const float stake = FullForecast(state) ? std::max(kUnpricedCounterStake,units[i].body.purchaseCost) : units[i].body.purchaseCost;
@@ -335,6 +352,12 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 			urgent = urgent || units[i].body.x < state.houseX + 240;
 		}
 		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
+		// 等待从首次存在值得反制的目标开始；同一张牌所有落点共用一次等待。
+		// 已提交的爆炸走上方独立结算；接近房屋的救险也不为了聚团继续等。
+		if (!urgent && holdSeconds > 0) {
+			if (holdUntil[counter.source] < 0) holdUntil[counter.source] = time+holdSeconds;
+			if (time < holdUntil[counter.source]) continue;
+		}
 		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + counter.iceCost * 0.2f);
 		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; selectedTarget = candidateTarget; }
 	}
@@ -342,6 +365,7 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		const auto& counter = state.counters[selected];
 		sun -= counter.sunCost; ice -= counter.iceCost;
 		ready[counter.source] = time + counter.recharge;
+		holdUntil[counter.source] = -1;
 		pending.push_back({impact,time + counter.windup,selectedTarget,
 			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
 	}
@@ -527,7 +551,7 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	return gain < plan[5] * kRecoveryReturnFraction;
 }
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds) {
 	Weights f{};
 	auto units = s.current;
 	for (const auto& a : plan) {
@@ -575,6 +599,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 	}
 	std::vector<bool> refunded(units.size()), breached(units.size());
+	std::vector<float> counterHoldUntil(counterReady.size(),-1);
 	std::vector<unsigned char> melonHits(units.size());
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	float pendingIce = static_cast<float>(s.incomingIce), arrival = s.incomingIceAt;
@@ -598,7 +623,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
-		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
+		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {
@@ -795,11 +820,13 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	if ((s.searchVersion != 1 && s.searchVersion != 2) || !ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())
 		|| !std::isfinite(s.opponentWeight) || s.opponentWeight < 0 || s.opponentWeight > 100) return best;
 	best.features = Evaluate(s, {}, &best.construction); Calibrate(s,best);
-	const float baselineOpponentAssets = best.construction.opponentAssets;
-	best.opponentAssets = best.baselineOpponentAssets = baselineOpponentAssets;
 	const auto inputs = DescribeState(s,best.features);
 	const auto conditioned = ConditionWeights(baseWeights,inputs,s.stateModel);
 	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
+	// 不增援也要承受相同的对手模型，不能拿乐观等待基线去比较保守进攻结果。
+	best = EvaluatePlan(s,weights,{}, {},0);
+	const float baselineOpponentAssets = best.opponentAssets;
+	best.baselineOpponentAssets = baselineOpponentAssets; best.opponentScore = 0;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;

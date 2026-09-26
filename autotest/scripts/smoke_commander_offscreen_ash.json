@@ -1,0 +1,30 @@
+{
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0]},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":100,"initialEnemyIce":100,"playerIce":1000,"decisions":20,"decisionRemaining":60}},
+    {"op":"set_sun","value":1000},
+    {"op":"spawn_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"x":1180},
+    {"op":"spawn_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"x":1260},
+    {"op":"plant","type":"PLANT_JALAPENO","row":0,"col":0},
+    {"op":"plan_ice_attack"},
+    {"op":"dump_state","name":"forecast.json"},
+    {"op":"assert_state","path":"coldStorage.searchBaselineFeatures.4","equals":0},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"delay":5},
+    {"op":"set_spawn_paused","value":false},
+    {"op":"wait_seconds","value":4,"timeout":15},
+    {"op":"assert_state","path":"coldStorage.workerIncome","equals":0},
+    {"op":"assert_state","path":"zombieCount","equals":0},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":1},
+    {"op":"dump_state","name":"burned.json"},
+    {"op":"wait_seconds","value":6,"timeout":15},
+    {"op":"assert_state","path":"coldStorage.workerIncome","atLeast":4},
+    {"op":"assert_state","path":"zombieCount","equals":1},
+    {"op":"dump_state","name":"delayed.json"},
+    {"op":"quit"}
+  ]
+}

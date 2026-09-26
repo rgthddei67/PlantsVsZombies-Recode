@@ -285,6 +285,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"stateInputs",ice.at("searchStateInputs")},{"effectiveWeights",ice.at("searchEffectiveWeights")},
 			{"adaptive",ice.at("searchAdaptive")},
 			{"expandedForecast",ice.at("searchExpandedForecast")},
+			{"counterHoldSeconds",ice.at("searchCounterHoldSeconds")},
 			{"queueRevision",ice.at("searchQueue")},
 			{"searchVersion",ice.at("searchVersion")},{"largestPlan",ice.at("searchLargestPlan")},
 			{"netEconomy",ice.at("searchNetEconomy")},

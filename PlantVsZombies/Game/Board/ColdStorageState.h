@@ -82,6 +82,7 @@ struct ColdStorageState {
 	int searchConstructionOptions = 0, searchPredictedPlantings = 0; // 合法建设落点与预测建设数，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
+	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家灰烬等待习惯，游戏秒，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
 	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档
 	std::array<float, 6> searchFormationScores{}; // 同一队伍投向各行的评分，按 tested 位掩码读取
