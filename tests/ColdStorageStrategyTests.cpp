@@ -430,6 +430,23 @@ int main()
 	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100,
 		"an ability beyond the horizon cannot damage units immediately after planting");
 	std::cout << "Paid future construction, shared cooldown and charge delay passed\n";
+	ColdStorageSearch::Snapshot constructionReturn;
+	constructionReturn.searchVersion = 2; constructionReturn.playerSun = 100; constructionReturn.playerIce = 10;
+	ColdStorageSearch::Unit buyerThreat;
+	buyerThreat.body.x = 500; buyerThreat.body.health = 10000; buyerThreat.body.speed = 20;
+	constructionReturn.current = {buyerThreat};
+	ColdStorageSearch::Construction rebuiltWall;
+	rebuiltWall.plant.x = 400; rebuiltWall.plant.health = 100; rebuiltWall.plant.reward = 12;
+	rebuiltWall.sunCost = 100; rebuiltWall.iceCost = 10; rebuiltWall.recharge = 1000;
+	constructionReturn.construction = {rebuiltWall};
+	check(ColdStorageSearch::Evaluate(constructionReturn,{},&built)[0] == 12 && built.planted == 1,
+		"forecast counts income only after a paid future plant is actually destroyed in the rollout");
+	constructionReturn.playerIce = 9;
+	check(ColdStorageSearch::Evaluate(constructionReturn,{},&built)[0] == 0 && built.planted == 0,
+		"unaffordable future construction cannot invent kill income");
+	constructionReturn.playerIce = 10; constructionReturn.current[0].biteDps = 0;
+	check(ColdStorageSearch::Evaluate(constructionReturn,{},&built)[0] == 0 && built.planted == 1,
+		"merely building a future plant grants no kill income");
 
 	// 单只/小队都过不了的连续火力，必须独立比较可负担的完整队伍；不借助正支出奖励。
 	ColdStorageSearch::Snapshot portfolio;
@@ -519,6 +536,78 @@ int main()
 	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{1,20}})[2] == 1,
 		"a mower-consuming unit removes other lanes' mowers without granting itself immunity");
 	std::cout << "Mower clearing, delayed reinforcements and mower abilities passed\n";
+	ColdStorageSearch::Snapshot wonLane;
+	wonLane.searchVersion = 2; wonLane.houseX = 100;
+	portfolioUnit.row = portfolioUnit.unit.body.row = 0;
+	wonLane.options = {portfolioUnit};
+	const auto oneVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
+	const auto repeatedVictory = ColdStorageSearch::Evaluate(wonLane,{{0,0},{0,0},{0,10}});
+	check(oneVictory[2] == 1 && repeatedVictory[2] == 1,
+		"additional intruders cannot multiply the value of one already won game");
+	check(repeatedVictory[5] == 3*oneVictory[5],"redundant invasion still pays every purchase");
+	wonLane.searchVersion = 1;
+	check(ColdStorageSearch::Evaluate(wonLane,{{0,0},{0,0}})[2] == 2,
+		"legacy policy retains its original breach feature until explicitly migrated");
+	wonLane.searchVersion = 2;
+	wonLane.options[0].unit.body.x = 101;
+	ColdStorageSearch::Unit lateIncome;
+	lateIncome.body.health = 500; lateIncome.body.x = 900; lateIncome.body.economic = true;
+	wonLane.current = {lateIncome};
+	const auto endedGame = ColdStorageSearch::Evaluate(wonLane,{{0,0}});
+	check(endedGame[2] == 1 && endedGame[4] == 0,"the game cannot keep producing ice after an actual projected victory");
+	ColdStorageSearch::Snapshot resourcePressure;
+	resourcePressure.searchVersion = 2; resourcePressure.budget = 24; resourcePressure.capacity = 6;
+	resourcePressure.recoveryReserve = 48; resourcePressure.playerSun = 100; resourcePressure.playerIce = 40;
+	resourcePressure.sunIceValue = 100.0f/225;
+	ColdStorageSearch::Option probe;
+	probe.cost = 4; probe.unit.body.purchaseCost = 4; probe.unit.playerRefund = 3;
+	probe.unit.body.health = 270; probe.unit.body.x = 500; probe.unit.body.speed = 0;
+	resourcePressure.options = {probe};
+	ColdStorageSearch::Counter paidCounter;
+	paidCounter.blast.x = 500; paidCounter.blast.damage = 1800;
+	paidCounter.blast.reach.fill(-1); paidCounter.blast.reach[0] = 200;
+	paidCounter.sunCost = 100; paidCounter.iceCost = 40;
+	resourcePressure.counters = {paidCounter};
+	ColdStorageSearch::Weights costOnly{}; costOnly[5] = -1;
+	check(ColdStorageSearch::Search(resourcePressure,costOnly,17).actions.empty(),
+		"legacy scoring sees no immediate zombie income in a counter-consuming trade");
+	resourcePressure.opponentWeight = 1;
+	const auto pressured = ColdStorageSearch::Search(resourcePressure,costOnly,17);
+	check(pressured.actions.size() == 6 && pressured.features[0] == 0 && pressured.opponentScore > 60,
+		"optional terminal value recognizes paid counter depletion without forcing a formation");
+	check(std::abs(pressured.opponentAssets-18) < .001f,
+		"all dead paid zombies refund the player; attrition cannot ignore that returned currency");
+	resourcePressure.playerSun = 99;
+	check(ColdStorageSearch::Search(resourcePressure,costOnly,17).actions.empty(),
+		"an unaffordable counter cannot generate imaginary resource depletion");
+	resourcePressure.playerSun = 100;
+	resourcePressure.counters[0].sunCost = resourcePressure.counters[0].iceCost = 0;
+	check(ColdStorageSearch::Search(resourcePressure,costOnly,17).actions.empty(),
+		"free counters plus death refunds do not become a profitable resource trade");
+	resourcePressure.counters[0].sunCost = 100; resourcePressure.counters[0].iceCost = 40;
+	resourcePressure.playerSunLimit = 100; resourcePressure.playerIceLimit = 40;
+	ColdStorageSearch::Plant fullBankProducer;
+	fullBankProducer.row = 1; fullBankProducer.health = 300; fullBankProducer.sunPerSecond = 100;
+	resourcePressure.plants = {fullBankProducer};
+	check(ColdStorageSearch::Search(resourcePressure,costOnly,17).actions.empty(),
+		"a capped economy that recovers its sun cannot be credited with fictitious permanent sun depletion");
+	resourcePressure.counters[0].sunCost = resourcePressure.counters[0].iceCost = 0;
+	ColdStorageSearch::ConstructionStats cappedRefund;
+	ColdStorageSearch::Evaluate(resourcePressure,{{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}},&cappedRefund);
+	check(std::abs(cappedRefund.opponentAssets-(40+100*resourcePressure.sunIceValue)) < .001f,
+		"refunds and passive income respect the actual player resource capacities");
+	ColdStorageSearch::Snapshot assetTransfer;
+	assetTransfer.playerSun = 100; assetTransfer.playerIce = 40; assetTransfer.sunIceValue = 100.0f/225;
+	ColdStorageSearch::Construction capital;
+	capital.sunCost = 100; capital.iceCost = 40; capital.recharge = 1000;
+	capital.plant.x = 400; capital.plant.health = 300; capital.plant.dps = 1;
+	capital.plant.assetValue = 40+100*assetTransfer.sunIceValue;
+	assetTransfer.construction = {capital};
+	ColdStorageSearch::ConstructionStats capitalStats;
+	ColdStorageSearch::Evaluate(assetTransfer,{},&capitalStats);
+	check(capitalStats.planted == 1 && std::abs(capitalStats.opponentAssets-capital.plant.assetValue) < .001f,
+		"buying a surviving plant transfers cash to assets instead of rewarding fake attrition");
+	std::cout << "Opponent capital, counter costs, refunds and optional attrition scoring passed\n";
 	ColdStorageSearch::Snapshot affordableTeam;
 	affordableTeam.searchVersion = 2; affordableTeam.budget = 40; affordableTeam.capacity = 64;
 	tank.type = 10; tank.cost = 16; tank.unit.body.purchaseCost = 16;

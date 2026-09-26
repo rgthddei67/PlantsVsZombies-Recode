@@ -27,6 +27,8 @@ namespace {
 	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 1500, 1650, 1800, 2000}; // 各关难度1初始敌方冰块；前段削减囤兵，后段保留长流程
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
 	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
+	constexpr int kLargeOrderSun = 225; // 大额购冰的阳光价格，同时供双方资产预测折算
+	constexpr int kLargeOrderIce = 100; // 大额购冰的实际到货量
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
@@ -307,10 +309,10 @@ bool Board::BuyColdStorageIce(bool large)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| DeltaTime::IsPaused() || mColdStorage.orderIce > 0) return false;
-	const int price = large ? 225 : 100;
+	const int price = large ? kLargeOrderSun : 100;
 	if (mSun < price) return false;
 	SubSun(price);
-	mColdStorage.orderIce = large ? 100 : 40;
+	mColdStorage.orderIce = large ? kLargeOrderIce : 40;
 	mColdStorage.orderRemaining = large ? 10.0f : 5.0f;
 	return true;
 }
@@ -757,6 +759,13 @@ void Board::PlanColdStorageAttack()
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.stateModel = ColdStoragePolicy::AdaptiveModel();
 		search.netEconomy = ColdStoragePolicy::NetEconomy();
+		search.opponentWeight = ColdStoragePolicy::OpponentWeight();
+		search.sunIceValue = static_cast<float>(kLargeOrderIce)/kLargeOrderSun;
+		auto plantCapital = [&](const Plant* entity) {
+			const auto type = entity->GetPlacementType();
+			const float price = GetPlantIceCost(type)+std::max(0,GameDataManager::GetInstance().GetPlantSunCost(type))*search.sunIceValue;
+			return price*std::clamp(static_cast<float>(entity->mPlantHealth)/std::max(1,entity->mPlantMaxHealth),0.0f,1.0f);
+		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
@@ -785,6 +794,7 @@ void Board::PlanColdStorageAttack()
 		}
 		search.houseX = GetCellCenterPosition(0, 0).x - 120;
 		search.playerSun = mSun; search.playerIce = s.playerIce;
+		search.playerSunLimit = MAX_SUN; search.playerIceLimit = kMaxIce;
 		search.incomingIce = s.orderIce; search.incomingIceAt = s.orderRemaining;
 		// 一个卡槽只代表一张可用反制牌，合法格位是替代落点，不能凭空复制次数。
 		int source = 0;
@@ -839,8 +849,10 @@ void Board::PlanColdStorageAttack()
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
 					p.layer = type == PlantType::PLANT_PUMPKINSHELL ? 2 : 1;
 					p.health = static_cast<float>(profile.baseHealth); p.dps = profile.attackDps; p.sunPerSecond = profile.sunPerSecond;
-					// 假想补阵用于估计阻挡和火力；不把玩家尚未作出的投资提前记成可兑现返冰。
-					p.reward = 0;
+					p.assetValue = future.iceCost+future.sunCost*search.sunIceValue;
+					// 新版完整预测这笔交易：玩家付费造出且随后被消灭，才在推演中结算预期返冰。
+					// 这不会提前增加实际余额或允许预支购买；旧配置保留原来的零收益近似。
+					p.reward = search.searchVersion == 2 ? static_cast<float>(PlantKillIce(GetPlantIceCost(type),s.difficulty)) : 0;
 					p.rowRadius = profile.attackRowRadius; p.multiTarget = profile.mineMultiTarget;
 					p.around = profile.mineAttackShape == 2;
 					p.range = CELL_COLLIDER_SIZE_X*(p.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
@@ -913,6 +925,7 @@ void Board::PlanColdStorageAttack()
 				const auto type = entity->GetPlacementType();
 				if (IsInstantBlast(type) || type == PlantType::PLANT_SQUASH) continue;
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
+				plant.assetValue = plantCapital(entity);
 				const auto& profile = GameDataManager::GetInstance().GetPlantSimulationProfile(type);
 				plant.multiTarget = profile.mineMultiTarget;
 				plant.around = profile.mineAttackShape == 2;
@@ -926,8 +939,10 @@ void Board::PlanColdStorageAttack()
 			ColdStorageSearch::Plant plant;
 			plant.row = p.row; plant.column = p.column; plant.layer = 0;
 			plant.x = p.x; plant.health = p.health; plant.edible = p.canBeEaten;
-			if (const Plant* entity = mEntityRegistry.GetPlant(p.id))
+			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(entity->GetPlacementType()), s.difficulty));
+				plant.assetValue = plantCapital(entity);
+			}
 			search.plants.push_back(plant);
 		}
 		for (ZombieType type : mSpawnZombieList) {
@@ -971,6 +986,8 @@ void Board::PlanColdStorageAttack()
 		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+		s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
+		s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 		s.searchVersion = search.searchVersion; s.searchLargestPlan = result.largestPlan;
 		s.searchAdaptive = search.stateModel != nullptr;

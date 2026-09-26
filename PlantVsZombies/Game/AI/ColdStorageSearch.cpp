@@ -156,13 +156,17 @@ void Calibrate(const Snapshot& s, Result& result) {
 }
 
 /** 对自由搜索与逐行对照使用同一收益、校准和兵种经验，避免比较时遗漏评分项。 */
-Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Action> plan, const Weights& baseline) {
+Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Action> plan, const Weights& baseline, float baselineOpponentAssets) {
 	Result candidate;
 	candidate.actions = std::move(plan);
 	candidate.features = Evaluate(s, candidate.actions, &candidate.construction);
 	Calibrate(s, candidate);
 	candidate.baselineFeatures = baseline;
 	candidate.score = Score(candidate.features, weights);
+	candidate.opponentAssets = candidate.construction.opponentAssets;
+	candidate.baselineOpponentAssets = baselineOpponentAssets;
+	candidate.opponentScore = s.opponentWeight*(baselineOpponentAssets-candidate.opponentAssets);
+	candidate.score += candidate.opponentScore;
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
@@ -460,8 +464,9 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	const auto& plan = result.features;
 	const auto& baseline = result.baselineFeatures;
 	if (plan[2] > baseline[2]) return false;
-	// 只比较买与不买的差异；支出偏好、单纯走过的距离和已存在工人的收入都不是回报。
-	const float gain = (plan[0] - baseline[0]) + (plan[1] - baseline[1]) + (plan[4] - baseline[4]);
+	// 只比较买与不买的差异；新策略可计对方资源消耗，但支出偏好、单纯位移都不是回报。
+	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
+	const float gain = (plan[0] - baseline[0]) + (plan[1] - baseline[1]) + (plan[4] - baseline[4]) + pressure;
 	return gain < plan[5] * kRecoveryReturnFraction;
 }
 
@@ -515,12 +520,20 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<bool> refunded(units.size()), breached(units.size());
 	std::vector<unsigned char> melonHits(units.size());
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
+	const auto capPlayerResources = [&] {
+		if (s.searchVersion == 2) {
+			playerSun = std::min(playerSun,static_cast<float>(s.playerSunLimit));
+			playerIce = std::min(playerIce,static_cast<float>(s.playerIceLimit));
+		}
+	};
+	capPlayerResources();
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (!orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
 		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
+		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
 		if (!s.construction.empty() && t >= constructionAt) {
@@ -632,25 +645,38 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		if (s.searchVersion == 2) {
 			AdvanceMowers(mowers,units,t,s.rightEdge);
 			for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0 && units[i].body.spawnAt <= t
-				&& units[i].body.x < s.houseX) { f[2] += 1; units[i].body.health = 0; breached[i] = true; }
+				&& units[i].body.x < s.houseX) {
+					// 进屋只触发一次胜利；重复穿过同一已失守防线不能按人数制造额外胜利收益。
+					f[2] = 1; units[i].body.health = 0; breached[i] = true;
+				}
 		}
 		for (size_t i = 0; i < units.size(); ++i) if (!refunded[i] && !breached[i] && units[i].body.health <= 0) {
 			playerIce += units[i].playerRefund; refunded[i] = true;
 		}
+		capPlayerResources();
+		// 正式胜负已经发生，后续制冰/建造/伤害均不再兑现，不能继续虚构胜利后的收入。
+		if (s.searchVersion == 2 && f[2] > 0) break;
 	}
 	for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0) {
 		const auto& u = units[i].body;
 		f[3] += u.purchaseCost * std::clamp(u.health / std::max(1.0f, initialHealth[i]), 0.0f, 1.0f);
 		f[7] += u.purchaseCost * std::clamp((initialX[i] - u.x) / 800, 0.0f, 1.0f);
 	}
+	// 建设只是现金换成植株资产；不能把玩家花钱补阵本身误当成被消耗。
+	constructionStats.opponentAssets = playerIce+playerSun*s.sunIceValue;
+	for (const auto& plant : plants) if (plant.health > 0)
+		constructionStats.opponentAssets += plant.assetValue*std::clamp(plant.health/std::max(1.0f,plant.initialHealth),0.0f,1.0f);
 	if (construction) *construction = constructionStats;
 	return f;
 }
 
 Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
 	Result best;
-	if ((s.searchVersion != 1 && s.searchVersion != 2) || !ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())) return best;
+	if ((s.searchVersion != 1 && s.searchVersion != 2) || !ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())
+		|| !std::isfinite(s.opponentWeight) || s.opponentWeight < 0 || s.opponentWeight > 100) return best;
 	best.features = Evaluate(s, {}, &best.construction); Calibrate(s,best);
+	const float baselineOpponentAssets = best.construction.opponentAssets;
+	best.opponentAssets = best.baselineOpponentAssets = baselineOpponentAssets;
 	const auto inputs = DescribeState(s,best.features);
 	const auto conditioned = ConditionWeights(baseWeights,inputs,s.stateModel);
 	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
@@ -709,7 +735,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		Repair(s, plan);
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
-		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures);
+		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
 		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
 		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) {
 			deferredInvestment = true;
@@ -731,7 +757,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()); ++row) {
 		auto plan = original;
 		if (!Concentrate(s, plan, row)) continue;
-		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures);
+		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
 		++evaluated; tested |= 1 << row; rowScores[row] = candidate.score;
 		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) { rejected |= 1 << row; continue; }
 		if (candidate.score > best.score + 0.001f) { best = std::move(candidate); chosenRow = row; }

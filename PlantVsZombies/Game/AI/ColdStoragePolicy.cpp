@@ -17,6 +17,7 @@ bool hasExperimentalState = false, hasPublishedState = false;
 bool experimentalNetEconomy = false, publishedNetEconomy = false;
 bool experimentalBuilding = false, publishedBuilding = false;
 int experimentalSearchVersion = 1, publishedSearchVersion = 1;
+float experimentalOpponentWeight = 0, publishedOpponentWeight = 0;
 
 /** 校准资源限制树大小及拓扑；非法模型使整份候选失败，不悄悄略过。 */
 bool ParseCalibration(const nlohmann::json& value, ColdStorageSearch::ProductionCalibration& out) {
@@ -92,6 +93,8 @@ const ColdStorageSearch::Weights* Get(int level) {
 			publishedNetEconomy = data.value("netEconomy",false);
 			publishedBuilding = data.value("anticipateBuilding",false);
 			publishedSearchVersion = data.value("searchVersion",1);
+			publishedOpponentWeight = data.value("opponentWeight",0.0f);
+			if (!std::isfinite(publishedOpponentWeight) || publishedOpponentWeight < 0 || publishedOpponentWeight > 100) return false;
 			if (publishedSearchVersion != 1 && publishedSearchVersion != 2) return false;
 			// 主人可显式试玩未通过胜率门槛的候选；保留 validated=false，且仍严格校验全部参数。
 			return data.value("schema", 0) == 1 && (data.value("validated", false) || data.value("userRequestedTrial", false))
@@ -104,8 +107,9 @@ const ColdStorageSearch::Weights* Get(int level) {
 	return valid ? &published : nullptr;
 }
 bool SetExperiment(const nlohmann::json& weights, bool allUnits, const nlohmann::json* preferences, const nlohmann::json* calibration,
-	const nlohmann::json* stateModel, bool netEconomy, bool anticipateBuilding, int searchVersion) {
+	const nlohmann::json* stateModel, bool netEconomy, bool anticipateBuilding, int searchVersion, float opponentWeight) {
 	if (searchVersion != 1 && searchVersion != 2) return false;
+	if (!std::isfinite(opponentWeight) || opponentWeight < 0 || opponentWeight > 100) return false;
 	ColdStorageSearch::Weights candidate{};
 	std::map<ZombieType, ColdStorageSearch::ContextWeights> parsed;
 	ColdStorageSearch::ProductionCalibration model;
@@ -123,9 +127,11 @@ bool SetExperiment(const nlohmann::json& weights, bool allUnits, const nlohmann:
 	experimentalNetEconomy = netEconomy;
 	experimentalBuilding = anticipateBuilding;
 	experimentalSearchVersion = searchVersion;
+	experimentalOpponentWeight = opponentWeight;
 	return true;
 }
 bool AnticipateBuilding() { return experiment ? enabled && experimentalBuilding : publishedBuilding; }
+float OpponentWeight() { return experiment ? experimentalOpponentWeight : publishedOpponentWeight; }
 int SearchVersion() { return experiment ? experimentalSearchVersion : publishedSearchVersion; }
 bool NetEconomy() { return experiment ? enabled && experimentalNetEconomy : publishedNetEconomy; }
 const ColdStorageSearch::StateModel* AdaptiveModel() {
@@ -146,6 +152,7 @@ void ResetExperiment() {
 	experiment = enabled = allTypes = hasExperimentalState = false;
 	experimentalNetEconomy = experimentalBuilding = false;
 	experimentalSearchVersion = 1;
+	experimentalOpponentWeight = 0;
 	unitPreferences.clear(); experimentalModel.nodes.clear(); experimentalState = {};
 }
 }

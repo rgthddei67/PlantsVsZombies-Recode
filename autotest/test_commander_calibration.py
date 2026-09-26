@@ -5,13 +5,47 @@ import random
 
 from commander_calibration import fit, metrics, predict, samples
 from train_cold_storage import episode_commands, battle_progress
-from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases
+from train_commander_league import gate, curriculum_templates, family, grouped_key, draw_cases, exploratory_restart
 from train_cold_storage_all import new_state_model, mutate, state_population, net_economy_policy
 from audit_commander_forecasts import windows
 from evaluate_commander_roster_ablation import roster_commands
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_opponent_resource_weight_is_explicit_bounded_and_forwarded(self):
+        parent={'weights':[1]*8,'preferences':{},'netEconomy':True,'opponentWeight':.5}
+        for seed in range(10):
+            changed=exploratory_restart(parent,random.Random(seed))
+            self.assertGreaterEqual(changed['opponentWeight'],0)
+            self.assertLessEqual(changed['opponentWeight'],100)
+            command=next(c for c in episode_commands(changed,17,'normal:opening','lotus',120,'x') if c['op']=='commander_experiment')
+            self.assertEqual(command['opponentWeight'],changed['opponentWeight'])
+        self.assertEqual(parent['opponentWeight'],.5)
+    def test_exploratory_restart_preserves_contracts_and_does_not_mutate_parent(self):
+        parent={'weights':[1]*8,'preferences':{'worker':[10]*8},'netEconomy':True,
+                'stateModel':new_state_model(),'searchVersion':2,'anticipateBuilding':True,
+                'trainingUnits':['worker']}
+        original=copy.deepcopy(parent)
+        for neutral in (False,True):
+            child=exploratory_restart(parent,random.Random(712),neutral)
+            self.assertEqual(parent,original)
+            self.assertEqual(child['weights'][5],0)
+            self.assertTrue(all(row[5]==0 for row in child['stateModel']['coefficients']))
+            self.assertEqual(child['searchVersion'],2)
+            self.assertTrue(child['anticipateBuilding'])
+            self.assertEqual(child['trainingUnits'],parent['trainingUnits'])
+            self.assertNotEqual(child['weights'],parent['weights'])
+
+    def test_portfolio_audit_uses_its_actual_forecast_horizon(self):
+        episode=self.episode(end=140)
+        episode['decisions'][0].update(searchVersion=2,adaptive=True,features=[0]*8,killIncome=0)
+        episode['trace']=[{'ice':{'elapsed':100,'killIncome':10}},
+                          {'ice':{'elapsed':130,'killIncome':40,'productionEvents':[]}}]
+        episode['final']['coldStorage']['killIncome']=40
+        result=windows(episode)[0]
+        self.assertEqual(result['actualKills'],40)
+        self.assertEqual(result['traceOvershoot'],0)
+
     def test_calibration_prioritizes_ice_error_instead_of_tiny_forecast_ratios(self):
         rows=[{'x':[0]*10,'raw':10,'target':1,'actual':10} for _ in range(24)]
         rows += [{'x':[0]*10,'raw':1000,'target':0,'actual':0} for _ in range(12)]

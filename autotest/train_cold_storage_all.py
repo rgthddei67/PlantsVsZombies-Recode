@@ -91,6 +91,8 @@ def catalog(game, output):
 def mutate(policy, rng, scale):
     """Mutate context coefficients sparsely so rare-unit experience is not erased."""
     result = copy.deepcopy(policy)
+    if 'opponentWeight' in result:
+        result['opponentWeight']=max(0,min(100,rng.gauss(result['opponentWeight'],.5*scale)))
     result['weights'] = [0 if j==5 and policy.get('netEconomy') else max(-500, min(500, rng.gauss(w, s * scale)))
                          for j,(w,s) in enumerate(zip(policy['weights'], SCALES))]
     if result.get('stateModel'):
@@ -112,6 +114,8 @@ def mutate(policy, rng, scale):
 def restart_policy(policy, rng):
     """Wide restarts explore different objectives instead of only perturbing a rush incumbent."""
     result = copy.deepcopy(policy)
+    if 'opponentWeight' in result:
+        result['opponentWeight']=10**rng.uniform(-2,.7)
     result['weights'] = [rng.uniform(.5, 5), rng.uniform(.1, 2), rng.uniform(60, 240),
                          rng.uniform(.1, 1), 10 ** rng.uniform(-1, .65), rng.uniform(-2, 1),
                          -10 ** rng.uniform(-.6, .6), rng.uniform(.1, 2)]

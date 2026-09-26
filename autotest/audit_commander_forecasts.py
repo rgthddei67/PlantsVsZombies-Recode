@@ -15,7 +15,7 @@ def windows(episode):
     rows = []
     for d in decisions:
         start = d['elapsed']
-        horizon = 90 if d.get('adaptive') else 60
+        horizon = 120 if d.get('searchVersion',1) == 2 else 90 if d.get('adaptive') else 60
         end = start + horizon
         observed = next((t for t in traces if t['elapsed'] >= end), None)
         if observed is None:

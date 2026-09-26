@@ -12,12 +12,24 @@ import random
 import secrets
 
 from commander_calibration import fit, metrics, samples
+from commander_opening_review import review
 from train_cold_storage import ROOT, run_batch, save
-from train_cold_storage_all import CONTEXT, catalog, mutate, new_state_model, state_population, net_economy_policy
+from train_cold_storage_all import CONTEXT, catalog, mutate, new_state_model, state_population, net_economy_policy, restart_policy
 
 
 def read(path):
     return json.loads(Path(path).read_text(encoding='utf-8'))
+
+
+def exploratory_restart(parent, rng, neutral=False):
+    """Explore a fresh objective without prescribing units, lanes or a spending threshold."""
+    candidate = restart_policy(parent,rng)
+    if neutral:
+        candidate['preferences'] = {name:[0]*len(values) for name,values in candidate['preferences'].items()}
+        if candidate.get('stateModel'):
+            candidate['stateModel'] = new_state_model()
+    candidate = mutate(candidate,rng,1)
+    return net_economy_policy(candidate) if candidate.get('netEconomy') else candidate
 
 
 def grouped_key(rows, cases):
@@ -91,6 +103,18 @@ def curriculum_templates(name):
                          ('masked:banked_varied_cooling','hunter')]
             holdout += [('normal:banked_varied','lotus'),('normal:banked_varied_cooling','ash'),
                         ('banked_varied_cooling','builder'),('masked:banked_varied','hunter')]
+    elif name == 'openings':
+        # 先评估正常开局如何走向胜负，不要求候选主要靠翻盘预摆的劣势残局获胜。
+        selection = [('normal:opening','fortifier'),('normal:opening_10_2','lotus'),
+                     ('normal:opening_10_6','ash'),('opening','fortifier'),('opening','lotus'),
+                     ('opening','ash'),('masked:opening','fortifier'),
+                     ('masked:opening','builder'),('masked:opening','hunter')]
+        collection = selection + [('normal:opening_10_5','builder'),
+                                  ('opening','hunter'),('masked:opening','lotus')]
+        holdout = [(f'normal:opening_10_{n}',opponent) for n in range(1,10)
+                   for opponent in ('fortifier',('lotus','builder','ash')[n%3])]
+        holdout += [(prefix+'opening',opponent) for prefix in ('','masked:')
+                    for opponent in ('fortifier','lotus','ash')]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout
@@ -99,7 +123,8 @@ def curriculum_templates(name):
 def draw_cases(templates, rng, seconds, long_seconds, curriculum):
     """Long matches expose delayed attacks; neither idle time nor wave count is a training reward."""
     return [(a,o,rng.randrange(2**30),
-             long_seconds if curriculum in ('endurance','reserves') and (a.startswith('normal:') or 'banked' in a) else seconds)
+             long_seconds if curriculum == 'openings' or (curriculum in ('endurance','reserves')
+                             and (a.startswith('normal:') or 'banked' in a)) else seconds)
             for a,o in templates]
 
 
@@ -112,14 +137,15 @@ def train(args):
     previous = read(identity_path) if identity_path.exists() else {}
     seed = args.seed if args.seed is not None else previous.get('seed',secrets.randbelow(2**30))
     tracked = [Path(__file__), ROOT/'autotest/train_cold_storage.py', ROOT/'autotest/train_cold_storage_all.py',
-               ROOT/'autotest/commander_calibration.py', game/'PlantsVsZombies.exe',
+               ROOT/'autotest/commander_calibration.py', ROOT/'autotest/commander_opening_review.py', game/'PlantsVsZombies.exe',
                game/'resources/gamedata.json',game/'resources/ai/cold_storage_policy.json']
     if args.from_candidate:
         tracked.append(args.from_candidate.resolve())
     if args.reference_policy:
         tracked.append(args.reference_policy.resolve())
     identity = {'schema':1,'seed':seed,'seconds':args.seconds,'generations':args.generations,'curriculum':args.curriculum,
-                'longSeconds':args.long_seconds,'population':args.population,
+                'longSeconds':args.long_seconds,'population':args.population,'restarts':args.restarts,
+                'calibrationMode':args.calibration,'opponentWeightStart':args.opponent_weight,
                 'stateModel':args.state_model,
                 'stateOnly':args.state_only,
                 'netEconomy':args.net_economy,
@@ -130,7 +156,7 @@ def train(args):
     save(identity_path,identity)
     names = read(output/'catalog.json')['units'] if (output/'catalog.json').exists() else catalog(game,output)
     incumbent = read(game/'resources/ai/cold_storage_policy.json')
-    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion') if k in incumbent}
+    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight') if k in incumbent}
     source['trainingUnits'] = names
     unfamiliar = [name for name in names if name not in source['preferences']]
     for name in names:
@@ -139,7 +165,7 @@ def train(args):
     reference = None
     if args.reference_policy:
         old = read(args.reference_policy)
-        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion') if k in old}
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight') if k in old}
         reference['trainingUnits'] = names
         for name in names:
             value = reference['preferences'].get(name,[0]*len(CONTEXT))
@@ -172,7 +198,7 @@ def train(args):
         economic_explorer['searchVersion'] = args.search_version
     if args.anticipate_building:
         economic_explorer['anticipateBuilding'] = True
-    collected = run_batch(game,output,output.name+'_collect',[source,economic_explorer],collection,all_zombies=True)
+    collected = run_batch(game,output,output.name+'_collect',[source,economic_explorer],collection,all_zombies=True) if args.calibration=='fit' else []
     fit_rows, validation_rows = [], []
     groups = []
     for policy_rows in collected:
@@ -198,6 +224,8 @@ def train(args):
         champion['netEconomy'] = prior.get('netEconomy',False)
         champion['anticipateBuilding'] = prior.get('anticipateBuilding',False)
         champion['searchVersion'] = prior.get('searchVersion',1)
+        if 'opponentWeight' in prior:
+            champion['opponentWeight']=prior['opponentWeight']
         for name,value in prior.get('preferences',{}).items():
             if name in champion['preferences']:
                 champion['preferences'][name] = value
@@ -211,9 +239,13 @@ def train(args):
         champion['searchVersion'] = args.search_version
     if args.anticipate_building:
         champion['anticipateBuilding'] = True
+    if args.calibration=='off':
+        champion.pop('productionCalibration',None)
+    if args.opponent_weight is not None:
+        champion['opponentWeight']=args.opponent_weight
     neutral = copy.deepcopy(champion)
     neutral['stateModel'] = new_state_model()
-    accounting_reference = copy.deepcopy(reference or source) if args.net_economy or args.anticipate_building or args.search_version else None
+    accounting_reference = copy.deepcopy(reference or source) if args.net_economy or args.anticipate_building or args.search_version or args.opponent_weight is not None else None
     if accounting_reference is not None and args.net_economy:
         accounting_reference = net_economy_policy(accounting_reference)
     if accounting_reference is not None and args.anticipate_building:
@@ -225,14 +257,22 @@ def train(args):
             accounting_reference.setdefault('stateModel',new_state_model())
         if 'productionCalibration' in champion:
             accounting_reference['productionCalibration'] = copy.deepcopy(champion['productionCalibration'])
+        if args.calibration=='off':
+            accounting_reference.pop('productionCalibration',None)
+        if args.opponent_weight is not None:
+            accounting_reference['opponentWeight']=args.opponent_weight
     history = []
     # 仅换引擎复测也保存冻结前的检查点；空历史明确表示未重新搜索权重。
     save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     for generation in range(args.generations):
         cases = draw_cases(selection,rng,duration,args.long_seconds,args.curriculum)
         population = state_population(champion,rng,args.population,generation) if args.state_only else ([champion,accounting_reference] if accounting_reference is not None else [source,champion] + ([reference] if reference else []))
+        restart_end = len(population) + args.restarts
         while len(population) < args.population:
             parent = copy.deepcopy(champion)
+            if len(population) < restart_end:
+                population.append(exploratory_restart(parent,rng,neutral=len(population)%2==0))
+                continue
             if args.state_model:
                 parent.setdefault('stateModel',new_state_model())
             population.append(mutate(parent,rng,.6 if len(population)%2 else 1.2))
@@ -253,12 +293,23 @@ def train(args):
     if args.state_only:
         report['stateAblation'] = gate(scores[-1],scores[1],holdout)
         report['passed'] = report['passed'] and report['stateAblation']['passed']
-    save(output/'evaluation.json',{'identity':identity,'cases':holdout,'policies':policies,'scores':scores,'gate':report})
+    evaluation = {'identity':identity,'cases':holdout,'policies':policies,'scores':scores,'gate':report}
+    save(output/'evaluation.json',evaluation)
+    save(output/'opening_review.json',review(evaluation))
     artifact = {k:v for k,v in champion.items() if k != 'trainingUnits'}
     artifact.update(schema=1,validated=False,leagueGatePassed=report['passed'],identity=identity,
                     note='Review per-stage evidence before publishing; shipped policy is unchanged.')
     save(output/'candidate_policy.json',artifact)
     print(json.dumps(report),flush=True)
+    if args.curriculum == 'openings':
+        # 冻结后另跑压力诊断，既不参加本轮选优，也不把片段胜率混进正常开局发布门槛。
+        fixtures = draw_cases([('normal:fortress','fortifier'),('normal:economy','lotus'),
+                               ('normal:banked','lotus'),('fortress','hunter'),
+                               ('masked:economy','fortifier')],rng,duration,args.long_seconds,'endurance')
+        diagnostic_scores = run_batch(game,output,output.name+'_fixtures',policies,fixtures,all_zombies=True)
+        diagnostics = {'cases':fixtures,'policies':policies,'scores':diagnostic_scores,'informationalOnly':True}
+        save(output/'diagnostics.json',diagnostics)
+        save(output/'fixture_review.json',review(diagnostics))
 
 
 if __name__ == '__main__':
@@ -267,6 +318,9 @@ if __name__ == '__main__':
     parser.add_argument('--seconds',type=int,default=300)
     parser.add_argument('--generations',type=int,default=1)
     parser.add_argument('--population',type=int,default=3)
+    parser.add_argument('--restarts',type=int,default=0,help='Explore this many fresh objectives per generation, alternating inherited and reset context biases')
+    parser.add_argument('--calibration',choices=('fit','off'),default='fit',help='Fit production calibration, or omit collection and all candidate calibration models')
+    parser.add_argument('--opponent-weight',type=float,help='Candidate-only initial value of reducing opponent terminal assets; subsequently evolved')
     parser.add_argument('--state-model',action='store_true',help='Explore conditional scoring and expanded voluntary formations; baselines stay unchanged')
     parser.add_argument('--state-only',action='store_true',help='Freeze base weights, preferences and calibration; vary only conditional coefficients and include a neutral-layer holdout')
     parser.add_argument('--search-version',type=int,choices=(1,2),help='Candidate-only search space version; incumbent/reference comparisons keep their original versions')
@@ -274,14 +328,16 @@ if __name__ == '__main__':
     parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
-    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves'),default='balanced',
-                        help='Siege emphasizes campaign Lotus/ash defenses while retaining mixed-roster coverage')
+    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings'),default='balanced',
+                        help='Openings selects and gates full games; prebuilt positions are separate frozen diagnostics')
     parser.add_argument('--from-candidate',type=Path,help='Inherit prior policy parameters; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
     if (not 120 <= args.seconds <= 1200 or args.generations < 0 or not 120 <= args.long_seconds <= 1800
-            or (args.curriculum in ('endurance','reserves') and args.long_seconds < args.seconds)
-            or (args.state_only and not args.state_model)
+            or (args.curriculum in ('endurance','reserves','openings') and args.long_seconds < args.seconds)
+            or (args.state_only and (not args.state_model or args.restarts))
+            or not 0 <= args.restarts <= args.population-2
+            or (args.opponent_weight is not None and not 0 <= args.opponent_weight <= 100)
             or args.population < (4 if args.reference_policy else 3)):
         parser.error('Require seconds 120..1200, long-seconds 120..1800 (>=seconds for endurance), nonnegative generations, and population >=3 (>=4 with reference).')
     train(args)

@@ -14,7 +14,8 @@ using Json = nlohmann::json;
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool lotusPlayer = opponent == "lotus";
+	const bool fortifier = opponent == "fortifier";
+	const bool lotusPlayer = opponent == "lotus" || fortifier;
 	const bool builder = opponent == "builder" || lotusPlayer;
 	const bool hunter = opponent == "hunter" || builder;
 	const bool adaptive = opponent == "adaptive" || hunter;
@@ -179,6 +180,14 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt("PLANT_WALLNUT", cells);
 	int producers = 0;
 	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER") ++producers;
+	// 防守型陪练有基本经济后先补各路输出与后排保护，避免必须铺完经济才开始防守。
+	// 只改变这个对手的合法动作顺序，旧陪练继续保留，不能把训练变成针对单一固定阵型。
+	if (fortifier && producers >= 4) {
+		cells.clear(); for (int r : rows) cells.emplace_back(r,0);
+		attempt(eliteDefense ? "PLANT_ELITE_SCAREDYSHROOM" : "PLANT_MELONPULT",cells);
+		attempt("PLANT_PUMPKINSHELL",protectionCells);
+		attempt("PLANT_WINTERMELON",{{1,0},{3,0},{0,0},{4,0},{2,0}});
+	}
 	// 扩建陪练保留两格金盏花周转，其余中排逐步发展；只维持七株会低估真人的后期反制资源。
 	if (producers < (builder ? 18 : 7)) {
 		cells.clear(); for (int r : rows) {
@@ -213,7 +222,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const auto opponent = command.value("opponent", std::string("bomb"));
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -252,13 +261,20 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"predictedPlantings",ice.at("searchPredictedPlantings")},
 			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},
+			{"opponent",ice.at("searchOpponent")},
 			{"spent",ice.at("spent")},{"workerIncome",ice.at("workerIncome")},{"killIncome",ice.at("killIncome")},
 			{"enemyIce",ice.at("enemyIce")},{"pending",ice.at("pending")}});
 	}
 	const bool ended = full.at("boardState") != "GAME" || ice.value("trophySpawned", false);
 	if (mEpisodeTicks % 600 == 0 || ended || mEpisodeTicks >= ticks) {
+		Json plantTypes = Json::object();
+		for (const auto& plant : full.at("plants")) if (plant.value("health",0) > 0 && !plant.value("squished",false)) {
+			const auto type = plant.at("type").get<std::string>();
+			plantTypes[type] = plantTypes.value(type,0) + 1;
+		}
 		mEpisodeTrace.push_back({{"seconds",mEpisodeTicks / 60.0},{"ice",ice},{"sun",full.at("sun")},
-			{"plants",full.at("plantCount")},{"zombies",full.at("zombieCount")}});
+			{"plants",full.at("plantCount")},{"zombies",full.at("zombieCount")},
+			{"plantTypes",plantTypes},{"mowers",full.at("mowerCount")}});
 	}
 	if (ended || mEpisodeTicks >= ticks) {
 		const auto name = command.value("name", std::string("episode"));

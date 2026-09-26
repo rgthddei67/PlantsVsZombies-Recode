@@ -1,0 +1,33 @@
+{
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0],"searchVersion":2},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_CHERRYBOMB"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_sun","value":150},
+    {"op":"set_cold_storage","state":{"enemyIce":24,"initialEnemyIce":24,"playerIce":20,"decisions":20,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":0},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0],"searchVersion":2,"opponentWeight":1},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchOpponent.weight","equals":1},
+    {"op":"assert_state","path":"coldStorage.searchOpponent.score","atLeast":1},
+    {"op":"assert_state","path":"coldStorage.pendingCount","atLeast":1},
+    {"op":"dump_state","name":"pressure.json"},
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0],"searchVersion":2,"opponentWeight":1},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER","PLANT_CHERRYBOMB"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"plant","type":"PLANT_SUNFLOWER","row":1,"col":0},
+    {"op":"set_sun","value":9990},
+    {"op":"set_cold_storage","state":{"enemyIce":24,"initialEnemyIce":24,"playerIce":20,"decisions":20,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchOpponent.baselineAssets","atLeast":4491,"atMost":4493},
+    {"op":"dump_state","name":"capped.json"},
+    {"op":"quit"}
+  ]
+}

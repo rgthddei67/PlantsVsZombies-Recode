@@ -41,7 +41,10 @@ for name, state in states.items():
             effective[4],effective[5]=value,-value
             effective[6]=-abs(effective[6])
         assert all(abs(a-b)<max(.001,abs(b)*.000002) for a,b in zip(ice['searchEffectiveWeights'],effective))
-        expected = ice['searchPreferenceScore'] + sum(a*b for a,b in zip(ice['searchFeatures'],effective))
+        opponent=ice.get('searchOpponent',{'weight':0,'score':0,'assets':0,'baselineAssets':0})
+        assert abs(opponent['weight']-policy.get('opponentWeight',0))<.0001
+        assert abs(opponent['score']-opponent['weight']*(opponent['baselineAssets']-opponent['assets']))<max(.03,abs(opponent['score'])*.00001)
+        expected = ice['searchPreferenceScore'] + opponent['score'] + sum(a*b for a,b in zip(ice['searchFeatures'],effective))
         assert abs(score-expected) < max(.03,abs(expected)*.000002)
         assert score + .02 >= comparison['baseScore']
         for row, value in enumerate(comparison['scores']):

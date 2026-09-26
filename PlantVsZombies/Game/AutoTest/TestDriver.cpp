@@ -920,7 +920,7 @@ bool TestDriver::ExecuteCurrent() {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
 			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,
 			cmd.contains("productionCalibration") ? &cmd.at("productionCalibration") : nullptr,
-			cmd.contains("stateModel") ? &cmd.at("stateModel") : nullptr,cmd.value("netEconomy",false),cmd.value("anticipateBuilding",false),cmd.value("searchVersion",1))) {
+			cmd.contains("stateModel") ? &cmd.at("stateModel") : nullptr,cmd.value("netEconomy",false),cmd.value("anticipateBuilding",false),cmd.value("searchVersion",1),cmd.value("opponentWeight",0.0f))) {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
@@ -4859,6 +4859,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["productionEvents"].push_back({{"at",event.at},{"wave",event.wave},{"amount",event.amount}});
 		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;
 		ice["searchPreferenceScore"] = board->mColdStorage.searchPreferenceScore;
+		ice["searchOpponent"] = {{"assets",board->mColdStorage.searchOpponentAssets},{"baselineAssets",board->mColdStorage.searchBaselineOpponentAssets},
+			{"weight",board->mColdStorage.searchOpponentWeight},{"score",board->mColdStorage.searchOpponentScore}};
 		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;
 		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;

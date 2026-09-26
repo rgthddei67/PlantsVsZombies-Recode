@@ -4,6 +4,7 @@
 #include "Game/Board/IceProduction.h"
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 /** 可训练的编队搜索。仅消费数值快照；预测既不扣款也不使用正式游戏随机数。 */
@@ -54,6 +55,7 @@ struct Plant {
 	bool melon = false, edible = true;
 	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
 	float initialHealth = 0, productionAt = 0; // 削血分母与新生产株首次产出的时刻，游戏秒
+	float assetValue = 0; // 当前生命对应的卡价折冰估值；终点再按后续剩余生命折价，不直接返给僵尸
 };
 /** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */
 struct RowStrike {
@@ -67,7 +69,7 @@ struct Construction {
 	int source = 0, sunCost = 0, iceCost = 0;
 	float ready = 0, recharge = 1, firstSunDelay = 0;
 };
-struct ConstructionStats { int planted = 0; float sunSpent = 0, iceSpent = 0; };
+struct ConstructionStats { int planted = 0; float sunSpent = 0, iceSpent = 0, opponentAssets = 0; };
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
@@ -82,6 +84,7 @@ struct Counter {
 struct Snapshot {
 	int searchVersion = 1; // 1 保留旧搜索；2 独立比较覆盖正式容量的分批编队，不要求加载局势层
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
+	float opponentWeight = 0, sunIceValue = 0; // 对方终点资产差的可训练价值、商店阳光折冰率；权重零保持旧评分
 	const ProductionCalibration* productionCalibration = nullptr;
 	const StateModel* stateModel = nullptr;
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
@@ -89,6 +92,7 @@ struct Snapshot {
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
 	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
+	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
 	float houseX = 160, rightEdge = 1100;
 	std::vector<Unit> current;
@@ -106,6 +110,7 @@ struct Result {
 	Weights effectiveWeights{};
 	StateFeatures stateInputs{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;
+	float opponentAssets = 0, baselineOpponentAssets = 0, opponentScore = 0; // 与不增援基线比较，避免奖励本来就会发生的消耗
 	int evaluated = 0;
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
