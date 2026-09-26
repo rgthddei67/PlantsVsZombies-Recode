@@ -36,13 +36,16 @@ constexpr float kForecastImpWalkSpeed = 20; // 小鬼落地后的保守移动近
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
+constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
 	return std::max(0,std::min(s.capacity,s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
 }
 float DelayLimit(const Snapshot& s) { return s.searchVersion == 2 ? kPortfolioDelay : s.stateModel ? kAdaptiveDelay : kMaxDelay; }
-float Horizon(const Snapshot& s) { return s.searchVersion == 2 ? kPortfolioHorizon : s.stateModel ? kAdaptiveHorizon : kHorizon; }
+/** 已付长队列需要完整战斗预测，但不因此跳过新购物车的小队搜索阶段。 */
+bool FullForecast(const Snapshot& s) { return s.searchVersion == 2 || !s.committed.empty(); }
+float Horizon(const Snapshot& s) { return FullForecast(s) ? kPortfolioHorizon : s.stateModel ? kAdaptiveHorizon : kHorizon; }
 
 /** 先提交清洁车触发和扫过区间，再判断进屋；未出生部队不能被提前清掉，也不能重复使用同一辆车。 */
 void AdvanceMowers(std::vector<Mower>& mowers, std::vector<Unit>& units, float time, float rightEdge) {
@@ -125,19 +128,21 @@ float Score(const Weights& f, const Weights& w) {
 ProductionFeatures ProductionInputs(const Snapshot& s, const std::vector<Action>& plan, float income) {
 	ProductionFeatures f{}; f[0] = std::log1p(std::max(0.0f,income)); f[9] = s.budget / 100.0f;
 	float count = 0;
-	auto worker = [&](const Unit& unit) {
+	auto worker = [&](const Unit& unit, float entry) {
 		++count; f[3] += unit.body.health / IceProduction::WorkerHealth;
 		const auto& context = s.context[unit.body.row];
 		f[6] += context[5]; f[7] += context[4]; f[8] += context[3];
 		for (const auto& guard : s.current)
-			if (!guard.body.economic && guard.body.health > 0 && guard.body.row == unit.body.row && guard.body.x < unit.body.x)
+			if (!guard.body.economic && guard.body.health > 0 && guard.body.row == unit.body.row
+				&& guard.body.spawnAt <= entry && (guard.body.x < unit.body.x
+					|| (guard.body.spawnAt < entry && guard.body.speed > 0 && guard.body.x <= unit.body.x)))
 				f[4] += guard.body.health / 3000.0f;
 	};
-	for (const auto& unit : s.current) if (unit.body.economic && unit.body.health > 0) { ++f[1]; worker(unit); }
+	for (const auto& unit : s.current) if (unit.body.economic && unit.body.health > 0) { ++f[1]; worker(unit,unit.body.spawnAt); }
 	for (const auto& action : plan) {
 		const auto& option = s.options[action.option];
 		if (option.unit.body.economic) {
-			++f[2]; worker(option.unit);
+			++f[2]; worker(option.unit,action.delay);
 			for (const auto& escort : plan) {
 				const auto& guard = s.options[escort.option];
 				if (!guard.unit.body.economic && guard.row == option.row && escort.delay < action.delay)
@@ -173,6 +178,14 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
 		context[0] = 1;
+		// 先前已付款且会先到场的队友也是协作背景，不能因其还在队列中而漏掉护卫。
+		for (const auto& paid : s.committed) {
+			const auto& ally = s.current[paid.unit].body;
+			if (ally.row == option.row && ally.spawnAt <= action.delay) {
+				context[2] += 1.0f / 3;
+				if (ally.economic) context[6] += 1;
+			}
+		}
 		// 计划中的同行队友也算协作背景，允许发现尚未出生的支援组合。
 		for (const auto& other : candidate.actions) if (&action != &other) {
 			const auto& ally = s.options[other.option];
@@ -317,7 +330,7 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time, state.rightEdge))
 				health -= scheduled.blast.damage;
 			if (health <= 0) continue;
-			const float stake = state.searchVersion == 2 ? std::max(kUnpricedCounterStake,units[i].body.purchaseCost) : units[i].body.purchaseCost;
+			const float stake = FullForecast(state) ? std::max(kUnpricedCounterStake,units[i].body.purchaseCost) : units[i].body.purchaseCost;
 			loss += stake * std::min(health,candidate.damage) / std::max(1.0f, initialHealth[i]);
 			urgent = urgent || units[i].body.x < state.houseX + 240;
 		}
@@ -528,7 +541,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	const size_t originalUnits = units.size();
 	std::vector<int> thrownChild(originalUnits,-1);
 	std::vector<float> throwRemaining(originalUnits,-1);
-	if (s.searchVersion == 2) for (size_t i = 0; i < originalUnits && units.size() < originalUnits+kForecastSummonLimit; ++i) {
+	if (FullForecast(s)) for (size_t i = 0; i < originalUnits && units.size() < originalUnits+kForecastSummonLimit; ++i) {
 		if (units[i].throwHealth <= 0) continue;
 		Unit child;
 		child.body.row = units[i].body.row;
@@ -569,7 +582,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (const auto& card : s.exchanges) exchangeReady.push_back(card.ready);
 	std::vector<std::pair<std::array<int,2>,float>> exchangeOccupied;
 	const auto capPlayerResources = [&] {
-		if (s.searchVersion == 2 || s.anticipateEconomy) {
+		if (FullForecast(s) || s.anticipateEconomy) {
 			playerSun = std::min(playerSun,static_cast<float>(s.playerSunLimit));
 			playerIce = std::min(playerIce,static_cast<float>(s.playerIceLimit));
 		}
@@ -676,7 +689,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					damage = smash[i] >= u.smashSeconds ? p.health : 0;
 					if (damage > 0) {
 						smash[i] = 0;
-						if (s.searchVersion == 2) {
+						if (FullForecast(s)) {
 							// 正式巨人一次砸击遍历同格各层，不能把壳与宿主误算成两次前摇。
 							for (auto& layer : plants) if (layer.health > 0 && layer.row == p.row && layer.column == p.column) {
 								f[1] += layer.reward*layer.health/std::max(1.0f,layer.initialHealth);
@@ -722,6 +735,59 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		constructionStats.opponentAssets += plant.assetValue*std::clamp(plant.health/std::max(1.0f,plant.initialHealth),0.0f,1.0f);
 	if (construction) *construction = constructionStats;
 	return f;
+}
+
+QueueRevision ReplanCommitted(Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
+	QueueRevision revision;
+	if (s.committed.empty() || (s.searchVersion != 1 && s.searchVersion != 2) || !ValidWeights(baseWeights)
+		|| (s.stateModel && !s.stateModel->IsValid()) || !std::isfinite(s.opponentWeight)
+		|| s.opponentWeight < 0 || s.opponentWeight > 100) return revision;
+	// 重排只消费已验证的队列元数据；不能把误标的在场实体当成可移动的后备兵。
+	std::vector<bool> marked(s.current.size());
+	for (const auto& paid : s.committed) {
+		if (paid.unit < 0 || static_cast<size_t>(paid.unit) >= s.current.size() || marked[paid.unit]) return revision;
+		if (s.current[paid.unit].id != 0) return revision;
+		const auto& body = s.current[paid.unit].body;
+		if (body.row < 0 || body.row >= 6 || !paid.legalRows[body.row]
+			|| !std::isfinite(body.spawnAt) || body.spawnAt < 0) return revision;
+		marked[paid.unit] = true;
+	}
+	const auto original = s.current;
+	const auto baseline = EvaluatePlan(s,baseWeights,{}, {},0);
+	const auto conditioned = ConditionWeights(baseWeights,DescribeState(s,baseline.features),s.stateModel);
+	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
+	revision.beforeScore = revision.afterScore = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets).score;
+	revision.evaluated = 1;
+	auto best = original;
+	std::mt19937 random(seed);
+	for (int trial = 0; trial < kQueueTrials; ++trial) {
+		s.current = trial < 13 ? original : best;
+		if (trial < 13) {
+			// 同一已购编队既比较原时序改路，也比较提前；集中只是一组候选，不是强制策略。
+			const int row = trial % 6;
+			for (const auto& paid : s.committed) {
+				auto& body = s.current[paid.unit].body;
+				if (trial < 12 && paid.legalRows[row]) body.row = row;
+				if (trial >= 6) body.spawnAt = 0;
+			}
+		} else {
+			const auto& paid = s.committed[random()%s.committed.size()];
+			auto& body = s.current[paid.unit].body;
+			const int row = static_cast<int>(random()%6);
+			if (paid.legalRows[row]) body.row = row;
+			body.spawnAt = original[paid.unit].body.spawnAt * (random()%101)/100.0f;
+		}
+		const float score = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets).score;
+		++revision.evaluated;
+		if (score > revision.afterScore + .001f) { best = s.current; revision.afterScore = score; }
+	}
+	s.current = std::move(best);
+	for (const auto& paid : s.committed) {
+		const auto& before = original[paid.unit].body;
+		const auto& after = s.current[paid.unit].body;
+		if (before.row != after.row || before.spawnAt != after.spawnAt) ++revision.changed;
+	}
+	return revision;
 }
 
 Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {

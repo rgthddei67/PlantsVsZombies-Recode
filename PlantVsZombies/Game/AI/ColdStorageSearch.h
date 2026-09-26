@@ -84,6 +84,9 @@ struct ConstructionStats {
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
+/** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
+struct CommittedUnit { int unit = 0; std::array<bool, 6> legalRows{}; };
+struct QueueRevision { int evaluated = 0, changed = 0; float beforeScore = 0, afterScore = 0; };
 /** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
 struct Counter {
 	ColdStorageStrategy::BlastThreat blast;
@@ -108,6 +111,7 @@ struct Snapshot {
 	float incomingIceAt = 0;
 	float houseX = 160, rightEdge = 1100;
 	std::vector<Unit> current;
+	std::vector<CommittedUnit> committed;
 	std::vector<Plant> plants;
 	std::vector<Option> options;
 	std::vector<Counter> counters;
@@ -151,4 +155,6 @@ bool ShouldRegroup(const Result& result, int budget, int reserve);
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr);
 /** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
+/** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */
+QueueRevision ReplanCommitted(Snapshot& state, const Weights& weights, std::uint32_t seed);
 }

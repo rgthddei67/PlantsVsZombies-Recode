@@ -695,4 +695,54 @@ int main()
 		check(team.actions.size() == 2 && team.features[5] == 40 && team.features[4] > 40,
 			"affordable large-space samples retain profitable cooperation instead of buying only the first cohort");
 	}
+	// 已付款队列不属于新购物车：只能提前/改合法路线，不能再次扣费或修改在场实体。
+	ColdStorageSearch::Snapshot queued;
+	queued.searchVersion = 2;
+	ColdStorageSearch::Unit live, queuedUnit;
+	live.id = 42; live.body.row = 2; live.body.x = 900; live.body.health = 100; live.body.speed = 0;
+	queuedUnit.body.row = 0; queuedUnit.body.x = 900; queuedUnit.body.health = 500; queuedUnit.body.speed = 0;
+	queuedUnit.body.purchaseCost = 24; queuedUnit.body.spawnAt = 2; queuedUnit.playerRefund = 18;
+	queued.current = {live,queuedUnit};
+	queued.committed = {{1,{{true,true,false,false,false,false}}}};
+	ColdStorageSearch::Counter committedBlast;
+	committedBlast.blast.x = 900; committedBlast.blast.reach.fill(-1);
+	committedBlast.blast.reach[0] = 200; committedBlast.blast.ready = 5;
+	committedBlast.blast.damage = 1800; committedBlast.blast.committed = true;
+	queued.counters = {committedBlast};
+	ColdStorageSearch::Weights preservePaid{}; preservePaid[3] = 1; preservePaid[6] = -1;
+	const auto routed = ColdStorageSearch::ReplanCommitted(queued,preservePaid,31);
+	check(routed.changed == 1 && routed.afterScore > routed.beforeScore && queued.current[1].body.row == 1,
+		"paid reinforcements can avoid a newly committed blast by choosing a legal different row");
+	check(queued.current[0].id == 42 && queued.current[0].body.row == 2 && queued.current[0].body.x == 900
+		&& queued.current[1].body.purchaseCost == 24 && queued.current[1].playerRefund == 18 && queued.current.size() == 2
+		&& queued.current[1].body.spawnAt <= 2 && ColdStorageSearch::Evaluate(queued,{})[5] == 0,
+		"queue revision preserves live entities, paid cost, count, refund and original deadline without new spending");
+	queued.current[1] = queuedUnit; queued.committed[0].legalRows[1] = false;
+	const auto locked = ColdStorageSearch::ReplanCommitted(queued,preservePaid,31);
+	check(locked.changed == 0 && queued.current[1].body.row == 0 && queued.current[1].body.spawnAt == 2,
+		"a losing queue cannot escape via an illegal row or by extending its deadline");
+	queued.current[1].body.spawnAt = 10;
+	check(ColdStorageSearch::Evaluate(queued,{})[3] == 24,
+		"a future paid unit is not present for a blast that resolves before its birth");
+	queued.counters.clear(); queued.current[1].body.economic = true;
+	queued.current[1].body.spawnAt = 30;
+	ColdStorageSearch::Weights earn{}; earn[4] = 1;
+	const auto earlier = ColdStorageSearch::ReplanCommitted(queued,earn,31);
+	check(earlier.changed == 1 && earlier.afterScore > earlier.beforeScore && queued.current[1].body.spawnAt == 0,
+		"an already paid worker can start earlier when the current battlefield makes that more productive");
+	const auto noFunds = ColdStorageSearch::Search(queued,earn,31);
+	check(noFunds.actions.empty() && noFunds.features[4] > 0 && noFunds.features[5] == 0,
+		"zero new budget still forecasts owned queued production without charging it again");
+	queued.committed = {{0,{{true,true,true,false,false,false}}}};
+	check(ColdStorageSearch::ReplanCommitted(queued,earn,31).evaluated == 0 && queued.current[0].body.row == 2,
+		"a real entity ID accidentally marked as pending cannot be repositioned");
+	queued.searchVersion = 1; queued.committed = {{1,{{true,false,false,false,false,false}}}};
+	queued.current[1] = queuedUnit; queued.current[1].body.spawnAt = 50;
+	committedBlast.blast.ready = 80; queued.counters = {committedBlast};
+	check(ColdStorageSearch::Evaluate(queued,{})[3] == 0,
+		"small purchase searches still evaluate a late paid queue's full combat window");
+	queued.committed.clear();
+	check(ColdStorageSearch::Evaluate(queued,{})[3] == 24,
+		"ordinary v1 snapshots retain their original forecast horizon");
+	std::cout << "Paid queue replanning, legal routes, deadlines and unchanged live entities passed\n";
 }

@@ -13,6 +13,7 @@ struct ColdStorageDeployment {
 	int row = 0;
 	int cost = 0;
 	float remaining = 0.0f;
+	int wave = 0; // 原付款批次；滚动增援不能把旧队列的产冰归入新波
 };
 
 /** 最近经营窗口中的实际收支；正数金额，补给与预测收益不在此登记。 */
@@ -41,7 +42,7 @@ struct ColdStorageState {
 	float plantKillIdleSeconds = 0.0f; // 连续没有消灭植物的游戏秒；新局/无历史旧档从零计时，入档
 	std::deque<ColdStorageCashFlow> incomeWindow; // 最近经营窗口的实际制冰及购买事务，入档；Update 移除过期记录
 	float assaultCooldown = 0.0f; // 总攻后的重新组织时间，游戏秒；读档不重置
-	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒，限制观望的最长时间
+	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒；旧 AI 使用，学习分支不据此强迫出兵
 	int spent = 0;
 	int supplied = 0;
 	int workerIncome = 0; // 制冰工累计为敌方生产的冰块
@@ -69,7 +70,9 @@ struct ColdStorageState {
 	std::array<float, 6> searchStateInputs{}; // 与 StateFeatureCount 同步，只读局势诊断不入档
 	std::array<float, 8> searchEffectiveWeights{}; // 局势层调整后的本次评分，诊断不入档
 	bool searchAdaptive = false; // 是否加载可训练局势层，诊断不入档
-	bool searchExpandedForecast = false; // 是否因小队无增量收益升级到 v2 搜索/预测，诊断不入档
+	bool searchExpandedForecast = false; // 因小队无收益或带已付队列而采用完整 v2 预测，诊断不入档
+	int searchCommittedCount = 0, searchQueueEvaluated = 0, searchQueueChanged = 0; // 本次已有队列、重排试验及改动数，仅诊断
+	float searchQueueBeforeScore = 0, searchQueueAfterScore = 0; // 相同权重/时域下重排前后评分，仅诊断
 	int searchVersion = 1, searchLargestPlan = 0; // 实际搜索版本和最大已评估编队，诊断不入档
 	bool searchNetEconomy = false; // 是否按净冰收益评分，诊断不入档
 	bool searchAnticipateBuilding = false; // 实际启用的未来建设预测版本，诊断不入档
@@ -83,7 +86,7 @@ struct ColdStorageState {
 	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档
 	std::array<float, 6> searchFormationScores{}; // 同一队伍投向各行的评分，按 tested 位掩码读取
 	int searchFormationTested = 0, searchFormationRejected = 0, searchFormationChosenRow = -1; // 合法/亏损行掩码及改选行
-	bool unlockProbe = false; // 空场小额出兵可立即推进新兵种解锁，仅诊断
+	bool unlockProbe = false; // 空场小额出兵可支付后续兵种的完整解锁路径，仅诊断
 	std::array<float, 10> searchProductionInputs{}; // 与 ProductionFeatureCount 同步，诊断不入档
 	// 本轮派兵解释，仅供观测；由下一次决策重算，不作为存档中的权威玩法状态。
 	std::string commanderMode = "opening";
