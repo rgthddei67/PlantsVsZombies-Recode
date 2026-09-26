@@ -35,7 +35,7 @@ def family(arena):
 
 
 def gate(before, after, cases):
-    """Require actual gains and no lost incumbent wins in each roster family."""
+    """Require win gains and actual progress in banked stress cases, not merely spending reserves."""
     report = {}
     for mode in ('full','masked','normal'):
         pairs = [(a,b) for a,b,c in zip(before,after,cases) if family(c[0]) == mode]
@@ -46,6 +46,11 @@ def gate(before, after, cases):
                         'passed': len(pairs) >= 3 and new >= old and lost == 0}
     report['passed'] = all(report[m]['passed'] for m in ('full','masked','normal')) and sum(
         report[m]['newWins'] - report[m]['oldWins'] for m in ('full','masked','normal')) >= 2
+    # 高库存片段专门复现长期空转；烧完钱提前败北同样不能冒充修复。不约束兵种、路线或进攻时间。
+    banked = [(i,row) for i,(row,case) in enumerate(zip(after,cases)) if 'banked' in case[0]]
+    failures = [i for i,row in banked if row['outcome'] != 'commander_win' and row.get('progress',0) <= 0]
+    report['bankedProgress'] = {'games':len(banked),'failedCases':failures,'passed':not failures}
+    report['passed'] = report['passed'] and not failures
     return report
 
 
@@ -118,14 +123,14 @@ def train(args):
                 'stateModel':args.state_model,
                 'stateOnly':args.state_only,
                 'netEconomy':args.net_economy,
-                'anticipateBuilding':args.anticipate_building,
+                'anticipateBuilding':args.anticipate_building,'searchVersion':args.search_version,
                 'hashes':{p.as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}}
     if previous and previous != identity:
         raise RuntimeError('Engine, policy or trainer changed; use a new output directory')
     save(identity_path,identity)
     names = read(output/'catalog.json')['units'] if (output/'catalog.json').exists() else catalog(game,output)
     incumbent = read(game/'resources/ai/cold_storage_policy.json')
-    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding') if k in incumbent}
+    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion') if k in incumbent}
     source['trainingUnits'] = names
     unfamiliar = [name for name in names if name not in source['preferences']]
     for name in names:
@@ -134,7 +139,7 @@ def train(args):
     reference = None
     if args.reference_policy:
         old = read(args.reference_policy)
-        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding') if k in old}
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion') if k in old}
         reference['trainingUnits'] = names
         for name in names:
             value = reference['preferences'].get(name,[0]*len(CONTEXT))
@@ -163,6 +168,8 @@ def train(args):
         economic_explorer.setdefault('stateModel',new_state_model())
     if args.net_economy:
         economic_explorer = net_economy_policy(economic_explorer)
+    if args.search_version:
+        economic_explorer['searchVersion'] = args.search_version
     if args.anticipate_building:
         economic_explorer['anticipateBuilding'] = True
     collected = run_batch(game,output,output.name+'_collect',[source,economic_explorer],collection,all_zombies=True)
@@ -190,6 +197,7 @@ def train(args):
             champion['productionCalibration'] = copy.deepcopy(prior['productionCalibration'])
         champion['netEconomy'] = prior.get('netEconomy',False)
         champion['anticipateBuilding'] = prior.get('anticipateBuilding',False)
+        champion['searchVersion'] = prior.get('searchVersion',1)
         for name,value in prior.get('preferences',{}).items():
             if name in champion['preferences']:
                 champion['preferences'][name] = value
@@ -199,16 +207,20 @@ def train(args):
         champion.setdefault('stateModel',new_state_model())
     if args.net_economy:
         champion = net_economy_policy(champion)
+    if args.search_version:
+        champion['searchVersion'] = args.search_version
     if args.anticipate_building:
         champion['anticipateBuilding'] = True
     neutral = copy.deepcopy(champion)
     neutral['stateModel'] = new_state_model()
-    accounting_reference = copy.deepcopy(reference or source) if args.net_economy or args.anticipate_building else None
+    accounting_reference = copy.deepcopy(reference or source) if args.net_economy or args.anticipate_building or args.search_version else None
     if accounting_reference is not None and args.net_economy:
         accounting_reference = net_economy_policy(accounting_reference)
     if accounting_reference is not None and args.anticipate_building:
         accounting_reference['anticipateBuilding'] = True
     if accounting_reference is not None:
+        if args.search_version:
+            accounting_reference['searchVersion'] = args.search_version
         if args.state_model:
             accounting_reference.setdefault('stateModel',new_state_model())
         if 'productionCalibration' in champion:
@@ -257,6 +269,7 @@ if __name__ == '__main__':
     parser.add_argument('--population',type=int,default=3)
     parser.add_argument('--state-model',action='store_true',help='Explore conditional scoring and expanded voluntary formations; baselines stay unchanged')
     parser.add_argument('--state-only',action='store_true',help='Freeze base weights, preferences and calibration; vary only conditional coefficients and include a neutral-layer holdout')
+    parser.add_argument('--search-version',type=int,choices=(1,2),help='Candidate-only search space version; incumbent/reference comparisons keep their original versions')
     parser.add_argument('--anticipate-building',action='store_true',help='Evaluate paid future player construction; keep baseline policy semantics unchanged')
     parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)

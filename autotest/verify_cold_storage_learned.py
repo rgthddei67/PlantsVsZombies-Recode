@@ -23,7 +23,9 @@ for name, state in states.items():
         assert ice['commanderStrategy'] == 'learned_search' and ice['pendingCount'] > 0
         assert ice['commanderSpent'] <= ice['commanderBudget']
         comparison = ice['searchFormation']
-        assert comparison['tested'] == 31 and ice['candidatesEvaluated'] == 101
+        version=policy.get('searchVersion',1)
+        assert ice['searchVersion']==version
+        assert comparison['tested'] == 31 and ice['candidatesEvaluated'] == (197 if version==2 else 101)
         # 日志分数按百分之一取整；集中对照不能降低自由搜索的结果。
         score = ice['lastBestScoreOn100'] / 100
         # 核对实际决策使用当前运行资源的权重，而不只是看到 learned_search 标签。

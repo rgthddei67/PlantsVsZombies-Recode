@@ -31,17 +31,21 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None,
     for i, candidate in enumerate(candidates):
         for j, arena in enumerate(arenas):
             name=f'candidate_{i}_case_{j}'
-            horizon = 90 if candidate.get('stateModel') else 60
+            portfolio = candidate.get('searchVersion',1) == 2
+            horizon = 120 if portfolio else 90 if candidate.get('stateModel') else 60
             commands += episode_commands(candidate,seed+j,arena,opponent,horizon,name)[:-1]
             commands += [{'op':'set_spawn_paused','value':True},
                          {'op':'plan_ice_attack'}, {'op':'dump_state','name':name+'_prediction.json'},
                          {'op':'set_cold_storage','state':{'decisionRemaining':60}},
                          {'op':'set_spawn_paused','value':False},
-                         # 队列最迟 30 秒出生；31 秒时核对已兑现，再暂停购买/出兵，场上战斗和经济时钟继续。
-                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':31,'name':name+'_dispatch','timeout':61},
-                         {'op':'dump_state','name':name+'_freeze.json'},
+                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':31,'name':name+'_dispatch','timeout':61}]
+            # 新版最晚 60 秒出生。中途只延后下次 AI 购买，不改资源/已付队列，避免第 60 秒混入另一案。
+            if portfolio:
+                commands += [{'op':'set_cold_storage','state':{'decisionRemaining':60}},
+                             {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':30,'name':name+'_late_dispatch','timeout':60}]
+            commands += [{'op':'dump_state','name':name+'_freeze.json'},
                          {'op':'set_spawn_paused','value':True},
-                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':horizon-31,'name':name,'timeout':horizon}]
+                         {'op':'commander_episode','playerActions':not static_defense,'opponent':opponent,'seconds':horizon-(61 if portfolio else 31),'name':name,'timeout':horizon}]
             cases.append((name,arena))
     commands.append({'op':'quit'})
     script=output/(output.name+'.json')
@@ -55,18 +59,25 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None,
         before=json.loads((evidence/(name+'_prediction.json')).read_text())['coldStorage']
         freeze=json.loads((evidence/(name+'_freeze.json')).read_text())['coldStorage']
         dispatch=json.loads((evidence/(name+'_dispatch.json')).read_text())
+        late_path=evidence/(name+'_late_dispatch.json')
+        late=json.loads(late_path.read_text()) if before.get('searchVersion',1)==2 else None
         result=json.loads((evidence/(name+'.json')).read_text())
         after=result['final']['coldStorage']
-        assert freeze['pendingCount']==0 or dispatch['outcome']!='timeout', 'Live matches must dispatch every paid unit before freezing'
+        assert freeze['pendingCount']==0 or (late or dispatch)['outcome']!='timeout', 'Live matches must dispatch every paid unit before freezing'
         assert freeze['spent']==before['spent'], 'Dispatch phase must not buy an extra plan'
         assert after['spent']==before['spent'], 'Audit must not mix in later purchases'
         assert result['final']['testAudio']['muted']
         assert result['playerActions']==(not static_defense) and dispatch['playerActions']==(not static_defense)
+        if late:
+            assert late['playerActions']==(not static_defense) and late['final']['coldStorage']['spent']==before['spent']
+            if static_defense: assert not late['playerPlantings']
         if static_defense: assert not result['playerPlantings'] and not dispatch['playerPlantings']
-        # 新模型交战预测延长到 90 秒，但产冰特征仍只统计前 60 秒。
+        # 交战可延长到 90/120 秒，但产冰特征仍只统计前 60 秒。
         actual_production = sum(e['amount'] for e in after['productionEvents']
                                 if before['elapsed'] < e['at'] <= before['elapsed']+60)
         plantings=dispatch['playerPlantings'].copy()
+        if late:
+            for kind,count in late['playerPlantings'].items(): plantings[kind]=plantings.get(kind,0)+count
         for kind,count in result['playerPlantings'].items():
             plantings[kind]=plantings.get(kind,0)+count
         rows.append({'case':name,'arena':arena,'predicted':before['searchFeatures'],

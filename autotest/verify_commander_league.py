@@ -76,6 +76,7 @@ def verify(directory):
                     weights=effective_weights(policy,d['stateInputs'])
                     assert bool(policy.get('netEconomy'))==d.get('netEconomy',False)
                     assert bool(policy.get('anticipateBuilding'))==d.get('anticipateBuilding',False)
+                    assert policy.get('searchVersion',1)==d.get('searchVersion',1)
                     assert all(abs(a-b)<max(.002,abs(b)*.000003) for a,b in zip(d['effectiveWeights'],weights)),path
                     expected=sum(a*b for a,b in zip(d['features'],weights))+d['preferenceScore']
                     assert abs(expected-d['scoreOn100']/100)<max(.05,abs(expected)*.000005),path

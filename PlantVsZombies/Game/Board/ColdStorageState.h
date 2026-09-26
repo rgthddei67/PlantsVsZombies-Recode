@@ -68,6 +68,7 @@ struct ColdStorageState {
 	std::array<float, 6> searchStateInputs{}; // 与 StateFeatureCount 同步，只读局势诊断不入档
 	std::array<float, 8> searchEffectiveWeights{}; // 局势层调整后的本次评分，诊断不入档
 	bool searchAdaptive = false; // 是否加载可训练局势层，诊断不入档
+	int searchVersion = 1, searchLargestPlan = 0; // 实际搜索版本和最大已评估编队，诊断不入档
 	bool searchNetEconomy = false; // 是否按净冰收益评分，诊断不入档
 	bool searchAnticipateBuilding = false; // 实际启用的未来建设预测版本，诊断不入档
 	int searchConstructionOptions = 0, searchPredictedPlantings = 0; // 合法建设落点与预测建设数，诊断不入档

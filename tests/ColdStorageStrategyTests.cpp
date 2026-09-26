@@ -430,4 +430,108 @@ int main()
 	check(ColdStorageSearch::Evaluate(rebuilding,{},&built)[3] == 100,
 		"an ability beyond the horizon cannot damage units immediately after planting");
 	std::cout << "Paid future construction, shared cooldown and charge delay passed\n";
+
+	// 单只/小队都过不了的连续火力，必须独立比较可负担的完整队伍；不借助正支出奖励。
+	ColdStorageSearch::Snapshot portfolio;
+	portfolio.budget = portfolio.capacity = 64; portfolio.houseX = 100;
+	ColdStorageSearch::Option portfolioUnit;
+	portfolioUnit.cost = 1; portfolioUnit.unit.body.purchaseCost = 1;
+	portfolioUnit.unit.body.health = 100; portfolioUnit.unit.body.x = 900; portfolioUnit.unit.body.speed = 40;
+	portfolio.options = {portfolioUnit};
+	ColdStorageSearch::Plant battery;
+	battery.health = 1000; battery.x = 50; battery.dps = 200; battery.edible = false;
+	portfolio.plants = {battery};
+	ColdStorageSearch::Weights breakthrough{}; breakthrough[2] = 100; breakthrough[5] = -1;
+	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"small formations cannot cross this fire lane");
+	portfolio.searchVersion = 2;
+	const auto large = ColdStorageSearch::Search(portfolio,breakthrough,731);
+	check(large.largestPlan == 64 && large.actions.size() > 8 && large.features[2] > 0,
+		"portfolio search finds a paid large-team breakthrough without a state layer or spending reward");
+	check(large.features[5] <= portfolio.budget && large.evaluated <= 198,"larger search obeys money and bounded evaluation limits");
+	portfolio.capacity = 8;
+	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"search cannot exceed remaining board capacity");
+	portfolio.capacity = 64; portfolio.plants[0].dps = 100000; portfolio.plants[0].multiTarget = true;
+	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"large budget does not force a hopeless attack");
+	portfolio.budget = 0;
+	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"new search cannot purchase unpaid troops");
+	std::cout << "Portfolio breakthrough, optional waiting and capacity constraints passed\n";
+
+	ColdStorageSearch::Snapshot throwTest;
+	throwTest.searchVersion = 2;
+	ColdStorageSearch::Unit thrower;
+	thrower.body.x = 1000; thrower.body.health = 1000;
+	thrower.throwHealth = 1000; thrower.throwAnchorX = 682;
+	throwTest.current = {thrower};
+	ColdStorageSearch::Plant frontWall, rearTarget;
+	frontWall.x = 800; frontWall.column = 6; frontWall.health = 4000;
+	rearTarget.x = 400; rearTarget.column = 1; rearTarget.health = 100; rearTarget.reward = 10;
+	throwTest.plants = {frontWall,rearTarget};
+	const auto thrown = ColdStorageSearch::Evaluate(throwTest,{});
+	check(thrown[0] == 10 && thrown[2] == 1 && thrown[3] == 0 && thrown[5] == 0,
+		"one free child bypasses the wall without inventing purchase assets or repeated throws");
+	throwTest.current[0].throwHealth = 500;
+	check(ColdStorageSearch::Evaluate(throwTest,{})[0] == 0,"unhurt thrower cannot release its child early");
+	throwTest.current[0].throwHealth = 1000;
+	ColdStorageSearch::Counter killParent;
+	killParent.blast.committed = true; killParent.blast.x = 1000; killParent.blast.damage = 2000;
+	killParent.blast.reach.fill(-1); killParent.blast.reach[0] = 30;
+	throwTest.counters = {killParent};
+	check(ColdStorageSearch::Evaluate(throwTest,{})[0] == 0,"death before release cancels the uncommitted child");
+	throwTest.counters[0].blast.ready = 3;
+	check(ColdStorageSearch::Evaluate(throwTest,{})[0] == 10,"death after release cannot cancel an airborne child");
+	ColdStorageSearch::Snapshot freeThreat;
+	freeThreat.searchVersion = 2; freeThreat.houseX = 160;
+	thrower.throwHealth = 0; thrower.body.x = 300; thrower.body.health = 270; thrower.body.speed = 20;
+	freeThreat.current = {thrower};
+	killParent.blast.committed = false; killParent.blast.ready = 0; killParent.blast.x = 300;
+	killParent.blast.reach[0] = 1000; killParent.recharge = 1000;
+	freeThreat.counters = {killParent};
+	const auto counteredFree = ColdStorageSearch::Evaluate(freeThreat,{});
+	check(counteredFree[2] == 0 && counteredFree[3] == 0 && counteredFree[6] == 0,
+		"free summons trigger urgent counters without creating paid assets or paid blast losses");
+
+	ColdStorageSearch::Snapshot layeredSmash;
+	thrower.throwHealth = 0; thrower.body.health = 1000; thrower.body.speed = 0; thrower.body.x = 450; thrower.body.smashSeconds = 3;
+	layeredSmash.current = {thrower};
+	rearTarget.health = 4000; layeredSmash.plants = {rearTarget,rearTarget};
+	layeredSmash.plants[1].layer = 2;
+	killParent.blast.committed = true; killParent.blast.reach[0] = 30; killParent.blast.x = 450; killParent.blast.ready = 3.5f;
+	layeredSmash.counters = {killParent};
+	check(ColdStorageSearch::Evaluate(layeredSmash,{})[0] == 10,"legacy prediction remains a single-layer smash");
+	layeredSmash.searchVersion = 2;
+	check(ColdStorageSearch::Evaluate(layeredSmash,{})[0] == 20,"one completed smash affects shell and host in the same cell");
+	std::cout << "Thrown child commitment, free summons and same-cell smash layers passed\n";
+	ColdStorageSearch::Snapshot mowerTest;
+	mowerTest.searchVersion = 2; mowerTest.houseX = 100;
+	portfolioUnit.unit.body.x = 300; portfolioUnit.unit.body.speed = 20;
+	mowerTest.options = {portfolioUnit};
+	mowerTest.mowers.push_back({0,200,60,230});
+	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,0}})[2] == 0,
+		"a ready mower clears the first cohort instead of awarding two false breakthroughs");
+	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{0,20}})[2] == 1,
+		"a spent mower cannot clear reinforcements which have not spawned during its sweep");
+	mowerTest.options[0].unit.mowerImmune = true;
+	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0}})[2] == 1,"mower immunity comes from the unit capability");
+	mowerTest.options[0].unit.mowerImmune = false;
+	mowerTest.options[0].unit.consumesOtherMowers = true;
+	portfolioUnit.row = portfolioUnit.unit.body.row = 1;
+	mowerTest.options.push_back(portfolioUnit); mowerTest.mowers.push_back({1,200,60,230});
+	check(ColdStorageSearch::Evaluate(mowerTest,{{0,0},{1,20}})[2] == 1,
+		"a mower-consuming unit removes other lanes' mowers without granting itself immunity");
+	std::cout << "Mower clearing, delayed reinforcements and mower abilities passed\n";
+	ColdStorageSearch::Snapshot affordableTeam;
+	affordableTeam.searchVersion = 2; affordableTeam.budget = 40; affordableTeam.capacity = 64;
+	tank.type = 10; tank.cost = 16; tank.unit.body.purchaseCost = 16;
+	tank.unit.body.x = 850; tank.unit.body.health = 10000; tank.unit.body.speed = 0; tank.preference = {};
+	producer.type = 20; producer.cost = 24; producer.unit.body.purchaseCost = 24;
+	producer.unit.body.x = 900; producer.unit.body.health = 500; producer.unit.body.speed = 0;
+	affordableTeam.options = {tank,producer};
+	gun.row = 0; gun.x = 200; gun.health = 10000; gun.dps = 80; gun.edible = false;
+	affordableTeam.plants = {gun};
+	ColdStorageSearch::Weights returnOnTeam{}; returnOnTeam[4] = 1; returnOnTeam[5] = -1;
+	for (unsigned seed = 0; seed < 12; ++seed) {
+		const auto team = ColdStorageSearch::Search(affordableTeam,returnOnTeam,seed);
+		check(team.actions.size() == 2 && team.features[5] == 40 && team.features[4] > 40,
+			"affordable large-space samples retain profitable cooperation instead of buying only the first cohort");
+	}
 }

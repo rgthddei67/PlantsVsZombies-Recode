@@ -6,10 +6,12 @@
 #include "Game/AI/ColdStoragePolicy.h"
 #include "Game/CardSlotManager.h"
 #include "Game/Card.h"
+#include "Game/LawnMower.h"
 #include "Game/Plant/GameDataManager.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
+#include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Plant/IceMint.h"
 #include "Game/Plant/Squash.h"
 #include "Game/Plant/DawnLotus.h"
@@ -751,6 +753,7 @@ void Board::PlanColdStorageAttack()
 	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
 	if (const auto* weights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr) {
 		ColdStorageSearch::Snapshot search;
+		search.searchVersion = ColdStoragePolicy::SearchVersion();
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.stateModel = ColdStoragePolicy::AdaptiveModel();
 		search.netEconomy = ColdStoragePolicy::NetEconomy();
@@ -774,6 +777,12 @@ void Board::PlanColdStorageAttack()
 			if (s.unlockProbe) search.allowWait = false;
 		}
 		search.rightEdge = SCENE_WIDTH;
+		if (search.searchVersion == 2) for (int id : mEntityRegistry.GetAllMowerIDs()) {
+			const Mower* mower = mEntityRegistry.GetMower(id);
+			if (!mower || !mower->IsActive()) continue;
+			const auto bounds = mower->GetColliderComponent()->GetBoundingBox();
+			search.mowers.push_back({mower->mRow,bounds.x,bounds.w,mower->mSpeed,mower->mState == MowerState::MOVING});
+		}
 		search.houseX = GetCellCenterPosition(0, 0).x - 120;
 		search.playerSun = mSun; search.playerIce = s.playerIce;
 		search.incomingIce = s.orderIce; search.incomingIceAt = s.orderRemaining;
@@ -879,6 +888,11 @@ void Board::PlanColdStorageAttack()
 			auto& unit = search.current[index++];
 			unit.id = z.id;
 			unit.biteDps = entity->GetMineSimulationAttackDps();
+			unit.mowerImmune = !entity->CanBeKilledByMower(); unit.consumesOtherMowers = entity->ConsumesOtherMowersOnContact();
+			if (const auto* giant = dynamic_cast<const GargantuarZombie*>(entity); giant && giant->HasImp() && !giant->HasReleasedImp()) {
+				unit.throwHealth = entity->mBodyMaxHealth*.5f;
+				unit.throwAnchorX = GetCellCenterPosition(z.row,std::min(5,mColumns-1)).x;
+			}
 			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
 				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
 			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
@@ -924,6 +938,12 @@ void Board::PlanColdStorageAttack()
 				option.type = static_cast<int>(type); option.row = row; option.cost = GetZombieIceCost(type);
 				option.unit.body = newSplashUnit(type, row, 0);
 				option.unit.playerRefund = static_cast<float>(option.cost * 3 / 4);
+				option.unit.mowerImmune = type == ZombieType::ZOMBIE_ROOF_MARSHAL;
+				option.unit.consumesOtherMowers = type == ZombieType::ZOMBIE_ELITE_DANCER;
+				if (type == ZombieType::ZOMBIE_GARGANTUAR || type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) {
+					option.unit.throwHealth = option.unit.body.health*.5f;
+					option.unit.throwAnchorX = GetCellCenterPosition(row,std::min(5,mColumns-1)).x;
+				}
 				option.preference = ColdStoragePolicy::UnitPreference(type);
 				search.options.push_back(option);
 			}
@@ -952,6 +972,7 @@ void Board::PlanColdStorageAttack()
 		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
+		s.searchVersion = search.searchVersion; s.searchLargestPlan = result.largestPlan;
 		s.searchAdaptive = search.stateModel != nullptr;
 		s.searchNetEconomy = search.netEconomy;
 		s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();

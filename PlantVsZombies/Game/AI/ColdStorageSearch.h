@@ -40,6 +40,8 @@ struct Unit {
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
 	int id = 0; // 已有实体稳定 ID；新增候选以出生序列打破威胁并列
 	float productionStopHealth = IceProduction::WorkerHealth / 3; // 对齐 Zombie::TakeBodyDamage 掉头阈值；掉头后不再生产
+	float throwHealth = 0, throwAnchorX = 0, throwWindup = 1; // 尚持小鬼的投手：触发生命、半场锚点与预计前摇；零生命阈值禁用
+	bool mowerImmune = false, consumesOtherMowers = false; // 单位自身的清洁车交互能力，不从购买价格猜测
 };
 struct Plant {
 	int row = 0, column = 0, layer = 1;
@@ -66,6 +68,7 @@ struct Construction {
 	float ready = 0, recharge = 1, firstSunDelay = 0;
 };
 struct ConstructionStats { int planted = 0; float sunSpent = 0, iceSpent = 0; };
+struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
 /** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
@@ -77,6 +80,7 @@ struct Counter {
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
 };
 struct Snapshot {
+	int searchVersion = 1; // 1 保留旧搜索；2 独立比较覆盖正式容量的分批编队，不要求加载局势层
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
 	const ProductionCalibration* productionCalibration = nullptr;
 	const StateModel* stateModel = nullptr;
@@ -93,6 +97,7 @@ struct Snapshot {
 	std::vector<Counter> counters;
 	std::vector<RowStrike> rowStrikes;
 	std::vector<Construction> construction;
+	std::vector<Mower> mowers;
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
@@ -102,6 +107,7 @@ struct Result {
 	StateFeatures stateInputs{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	int evaluated = 0;
+	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
 	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合

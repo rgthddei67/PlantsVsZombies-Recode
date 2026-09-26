@@ -32,10 +32,11 @@ class CalibrationTests(unittest.TestCase):
         command=next(c for c in episode_commands(candidate,17,'normal:opening','lotus',120,'x') if c['op']=='commander_experiment')
         self.assertTrue(command['netEconomy'])
     def test_future_building_flag_survives_episode_generation_and_mutation(self):
-        policy={'weights':[1]*8,'preferences':{},'anticipateBuilding':True}
+        policy={'weights':[1]*8,'preferences':{},'anticipateBuilding':True,'searchVersion':2}
         changed=mutate(policy,random.Random(29),.5)
         command=next(c for c in episode_commands(changed,17,'normal:developing','lotus',120,'x') if c['op']=='commander_experiment')
         self.assertTrue(command['anticipateBuilding'])
+        self.assertEqual(command['searchVersion'],2)
         self.assertNotIn('stateModel',policy)
 
     def test_roster_ablation_changes_only_legal_purchase_pool(self):
@@ -123,6 +124,20 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(battle_progress(result),0)
         result['final']['coldStorage']['killIncome']=40
         self.assertEqual(battle_progress(result),80)
+
+    def test_gate_rejects_banked_stall_and_spending_without_progress(self):
+        cases=[(prefix+'opening','lotus',i,900) for prefix in ('','masked:','normal:') for i in range(3)]
+        cases.append(('normal:banked','lotus',99,900))
+        old=[{'outcome':'player_win','progress':0} for _ in cases]
+        new=[{'outcome':'commander_win','progress':10} for _ in cases]
+        for outcome in ('timeout','player_win'):
+            new[-1]={'outcome':outcome,'progress':0,'score':1000}
+            self.assertFalse(gate(old,new,cases)['passed'])
+            self.assertEqual(gate(old,new,cases)['bankedProgress']['failedCases'],[9])
+        new[-1]={'outcome':'player_win','progress':10}
+        self.assertTrue(gate(old,new,cases)['passed'])
+        new[-1]={'outcome':'commander_win','progress':0}
+        self.assertTrue(gate(old,new,cases)['passed'])
 
     def test_endurance_has_long_banked_cases_and_legal_fixture(self):
         collection,selection,holdout=curriculum_templates('endurance')

@@ -1,0 +1,165 @@
+{
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        0,
+        0,
+        100,
+        1,
+        0,
+        -0.1,
+        0,
+        0
+      ],
+      "searchVersion": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MARIGOLD"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1800,
+        "initialEnemyIce": 1800,
+        "decisions": 20,
+        "decisionRemaining": 60
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchVersion",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchLargestPlan",
+      "atLeast": 1,
+      "atMost": 8
+    },
+    {
+      "op": "dump_state",
+      "name": "version_1.json"
+    },
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        0,
+        0,
+        100,
+        1,
+        0,
+        -0.1,
+        0,
+        0
+      ],
+      "searchVersion": 2
+    },
+    {
+      "op": "goto_level",
+      "level": 82
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MARIGOLD"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1800,
+        "initialEnemyIce": 1800,
+        "decisions": 20,
+        "decisionRemaining": 60
+      }
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchVersion",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchLargestPlan",
+      "atLeast": 33,
+      "atMost": 64
+    },
+    {
+      "op": "dump_state",
+      "name": "version_2.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "atLeast": 9
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "portfolio_queue"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "portfolio_queue"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "dump_state",
+      "name": "restored.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

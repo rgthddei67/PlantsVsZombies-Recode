@@ -1,4 +1,5 @@
 #include "ImpZombie.h"
+#include "ImpThrowRules.h"
 #include "Game/Board/Board.h"
 
 #include "ImpCharred.h"
@@ -14,16 +15,15 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 270;                         // 原版经典小鬼本体生命
+	constexpr int kBodyHealth = ImpThrowRules::Health;        // 原版经典小鬼本体生命
 	constexpr int kEatFrameOne = 44;                         // 主人指定的第一处啃食结算全局帧
 	constexpr int kEatFrameTwo = 55;                         // 主人指定的第二处啃食结算全局帧
 	constexpr int kDeathFrame = 81;                          // 主人指定的普通死亡回收全局帧
 	constexpr float kThrownClipSpeed = 18.0f / 12.0f;        // 原版一次性抛出动作 18fps 相对资源 12fps
 	constexpr float kLandClipSpeed = 24.0f / 12.0f;          // 原版落地 24fps 相对资源 12fps
 	constexpr float kEatClipSpeed = 24.0f / 12.0f;           // 小鬼啃食轨采用原版常用 24fps
-	constexpr float kHorizontalThrowSpeed = 300.0f;          // 原版每厘秒 3px，折算 px/s
-	constexpr float kThrowGravity = 500.0f;                  // 原版每厘秒 0.05px，折算 px/s^2
-	constexpr float kOriginalInitialAltitude = 88.0f;        // 计算旧落地时刻使用的原版脱手高度，单位 px
+	constexpr float kHorizontalThrowSpeed = ImpThrowRules::HorizontalSpeed; // 共享逻辑飞行速度，px/s
+	constexpr float kThrowGravity = ImpThrowRules::Gravity; // 共享逻辑重力，px/s^2
 	constexpr float kInitialAltitude = 112.0f;               // 小鬼脱手高度；按主人目验在原版 88px 基础上上抬 24px
 	constexpr float kLimbVolume = 0.25f;                     // 小鬼断肢断头音量
 	constexpr float kColliderWidth = 40.0f;                  // 小鬼碰撞框宽度，单位 px
@@ -77,11 +77,7 @@ void ImpZombie::ConfigureThrown(float throwDistance, bool movingRight,
 	mAltitude = kInitialAltitude;
 	mHorizontalVelocity = kHorizontalThrowSpeed;
 	mThrowMovingRight = movingRight;
-	const float flightSeedSeconds = std::max(0.0f, throwDistance) / kHorizontalThrowSpeed;
-	const float originalVerticalVelocity = 0.5f * flightSeedSeconds * kThrowGravity;
-	const float originalFlightSeconds = (originalVerticalVelocity
-		+ std::sqrt(originalVerticalVelocity * originalVerticalVelocity
-			+ 2.0f * kThrowGravity * kOriginalInitialAltitude)) / kThrowGravity;
+	const float originalFlightSeconds = ImpThrowRules::FlightSeconds(throwDistance);
 	// 只抬高视觉起点，不延长既有飞行时长；否则非屋顶会越过预定落区直达房屋侧首格。
 	mVerticalVelocity = (0.5f * kThrowGravity * originalFlightSeconds * originalFlightSeconds
 		- kInitialAltitude) / originalFlightSeconds;
