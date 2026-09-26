@@ -12,6 +12,12 @@ from evaluate_commander_roster_ablation import roster_commands
 
 
 class CalibrationTests(unittest.TestCase):
+    def test_player_economy_prediction_is_explicit_and_forwarded(self):
+        for enabled in (False,True):
+            policy={'weights':[1]*8,'anticipateEconomy':enabled}
+            command=next(c for c in episode_commands(policy,17,'normal:opening','planner',120,'x') if c['op']=='commander_experiment')
+            self.assertEqual(command['anticipateEconomy'],enabled)
+
     def test_opponent_resource_weight_is_explicit_bounded_and_forwarded(self):
         parent={'weights':[1]*8,'preferences':{},'netEconomy':True,'opponentWeight':.5}
         for seed in range(10):

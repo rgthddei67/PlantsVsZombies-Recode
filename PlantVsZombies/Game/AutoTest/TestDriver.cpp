@@ -920,7 +920,7 @@ bool TestDriver::ExecuteCurrent() {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
 			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,
 			cmd.contains("productionCalibration") ? &cmd.at("productionCalibration") : nullptr,
-			cmd.contains("stateModel") ? &cmd.at("stateModel") : nullptr,cmd.value("netEconomy",false),cmd.value("anticipateBuilding",false),cmd.value("searchVersion",1),cmd.value("opponentWeight",0.0f))) {
+			cmd.contains("stateModel") ? &cmd.at("stateModel") : nullptr,cmd.value("netEconomy",false),cmd.value("anticipateBuilding",false),cmd.value("searchVersion",1),cmd.value("opponentWeight",0.0f),cmd.value("anticipateEconomy",false))) {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
@@ -4870,6 +4870,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchAnticipateBuilding"] = board->mColdStorage.searchAnticipateBuilding;
 		ice["searchConstructionOptions"] = board->mColdStorage.searchConstructionOptions;
 		ice["searchPredictedPlantings"] = board->mColdStorage.searchPredictedPlantings;
+		const auto& economy = board->mColdStorage;
+		ice["searchPlayerEconomy"] = {{"enabled",economy.searchAnticipateEconomy},{"cards",economy.searchExchangeCards},
+			{"exchanges",economy.searchExchanges},{"orders",economy.searchOrders},{"sunGained",economy.searchExchangeSun},
+			{"iceSpent",economy.searchExchangeIce},{"sunSpent",economy.searchOrderSun},
+			{"iceOrdered",economy.searchOrderIce},{"pendingIce",economy.searchPendingIce}};
 		ice["lastBestScoreOn100"] = static_cast<int>(std::lround(board->mColdStorage.lastBestScore * 100));
 		ice["predictedProductionOn100"] = static_cast<int>(std::lround(board->mColdStorage.predictedProduction * 100.0f));
 		ice["economyValueOn100"] = static_cast<int>(std::lround(board->mColdStorage.economyValue * 100.0f));

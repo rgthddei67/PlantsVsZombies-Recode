@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0],"anticipateEconomy":true},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_MARIGOLD","PLANT_IMITATER","PLANT_CHERRYBOMB"],"imitaterTarget":"PLANT_MARIGOLD"},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_sun","value":225},
+    {"op":"set_cold_storage","state":{"enemyIce":0,"initialEnemyIce":0,"playerIce":20,"decisions":20,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.enabled","equals":true},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.cards","equals":2},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.exchanges","atLeast":2},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.orders","atLeast":1},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.sunGained","atLeast":200},
+    {"op":"assert_state","path":"coldStorage.playerIce","equals":20},
+    {"op":"assert_state","path":"coldStorage.orderIce","equals":0},
+    {"op":"assert_state","path":"sun","equals":225},
+    {"op":"dump_state","name":"forecast.json"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0]},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.enabled","equals":false},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.cards","equals":0},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.exchanges","equals":0},
+    {"op":"assert_state","path":"coldStorage.searchPlayerEconomy.orders","equals":0},
+    {"op":"quit"}
+  ]
+}

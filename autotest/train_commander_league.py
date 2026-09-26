@@ -103,7 +103,7 @@ def curriculum_templates(name):
                          ('masked:banked_varied_cooling','hunter')]
             holdout += [('normal:banked_varied','lotus'),('normal:banked_varied_cooling','ash'),
                         ('banked_varied_cooling','builder'),('masked:banked_varied','hunter')]
-    elif name == 'openings':
+    elif name in ('openings','coached'):
         # 先评估正常开局如何走向胜负，不要求候选主要靠翻盘预摆的劣势残局获胜。
         selection = [('normal:opening','fortifier'),('normal:opening_10_2','lotus'),
                      ('normal:opening_10_6','ash'),('opening','fortifier'),('opening','lotus'),
@@ -115,6 +115,15 @@ def curriculum_templates(name):
                    for opponent in ('fortifier',('lotus','builder','ash')[n%3])]
         holdout += [(prefix+'opening',opponent) for prefix in ('','masked:')
                     for opponent in ('fortifier','lotus','ash')]
+        if name == 'coached':
+            # 增加预算型对手与前两关的完整开局，仍保留旧对手；这不是保证更强的单一陪练替换。
+            selection[0] = ('normal:opening','planner')
+            selection[2] = ('normal:opening','fortifier')
+            selection[3] = ('opening','planner')
+            selection[6] = ('masked:opening','planner')
+            collection = selection + [('normal:opening_10_5','builder'),
+                                      ('opening','hunter'),('masked:opening','lotus')]
+            holdout = [(a,'planner' if o=='fortifier' else o) for a,o in holdout]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout
@@ -123,7 +132,7 @@ def curriculum_templates(name):
 def draw_cases(templates, rng, seconds, long_seconds, curriculum):
     """Long matches expose delayed attacks; neither idle time nor wave count is a training reward."""
     return [(a,o,rng.randrange(2**30),
-             long_seconds if curriculum == 'openings' or (curriculum in ('endurance','reserves')
+             long_seconds if curriculum in ('openings','coached') or (curriculum in ('endurance','reserves')
                              and (a.startswith('normal:') or 'banked' in a)) else seconds)
             for a,o in templates]
 
@@ -156,7 +165,7 @@ def train(args):
     save(identity_path,identity)
     names = read(output/'catalog.json')['units'] if (output/'catalog.json').exists() else catalog(game,output)
     incumbent = read(game/'resources/ai/cold_storage_policy.json')
-    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight') if k in incumbent}
+    source = {k:copy.deepcopy(incumbent[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight','anticipateEconomy') if k in incumbent}
     source['trainingUnits'] = names
     unfamiliar = [name for name in names if name not in source['preferences']]
     for name in names:
@@ -165,7 +174,7 @@ def train(args):
     reference = None
     if args.reference_policy:
         old = read(args.reference_policy)
-        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight') if k in old}
+        reference = {k:copy.deepcopy(old[k]) for k in ('weights','preferences','productionCalibration','stateModel','netEconomy','anticipateBuilding','searchVersion','opponentWeight','anticipateEconomy') if k in old}
         reference['trainingUnits'] = names
         for name in names:
             value = reference['preferences'].get(name,[0]*len(CONTEXT))
@@ -223,6 +232,7 @@ def train(args):
             champion['productionCalibration'] = copy.deepcopy(prior['productionCalibration'])
         champion['netEconomy'] = prior.get('netEconomy',False)
         champion['anticipateBuilding'] = prior.get('anticipateBuilding',False)
+        champion['anticipateEconomy'] = prior.get('anticipateEconomy',False)
         champion['searchVersion'] = prior.get('searchVersion',1)
         if 'opponentWeight' in prior:
             champion['opponentWeight']=prior['opponentWeight']
@@ -283,6 +293,19 @@ def train(args):
         save(output/'checkpoint.json',{'identity':identity,'history':history,'champion':champion})
     # 在读取留出成绩前冻结候选。覆盖九个正式关卡，不能拿 10-1 代表整个第十章。
     save(output/'frozen_policy.json',champion)
+    if champion == source:
+        # 没有新策略就不重复跑两份相同参数，也不能将完全相同的胜率称为通过升级门槛。
+        report = {'passed':False,'reason':'unchanged_policy'}
+        evaluation = {'identity':identity,'cases':[],'policies':[source,champion],
+                      'scores':[[],[]],'gate':report}
+        save(output/'evaluation.json',evaluation)
+        save(output/'opening_review.json',review(evaluation))
+        artifact = {k:v for k,v in champion.items() if k != 'trainingUnits'}
+        artifact.update(schema=1,validated=False,leagueGatePassed=False,identity=identity,
+                        note='Unchanged incumbent; duplicate holdout and fixtures skipped. Shipped policy is unchanged.')
+        save(output/'candidate_policy.json',artifact)
+        print(json.dumps(report),flush=True)
+        return
     holdout = draw_cases(holdout_templates,rng,duration,args.long_seconds,args.curriculum)
     policies = [source,champion]+([reference] if reference else [])+([neutral] if args.state_only else [])
     scores = run_batch(game,output,output.name+'_holdout',policies,holdout,all_zombies=True)
@@ -301,7 +324,7 @@ def train(args):
                     note='Review per-stage evidence before publishing; shipped policy is unchanged.')
     save(output/'candidate_policy.json',artifact)
     print(json.dumps(report),flush=True)
-    if args.curriculum == 'openings':
+    if args.curriculum in ('openings','coached'):
         # 冻结后另跑压力诊断，既不参加本轮选优，也不把片段胜率混进正常开局发布门槛。
         fixtures = draw_cases([('normal:fortress','fortifier'),('normal:economy','lotus'),
                                ('normal:banked','lotus'),('fortress','hunter'),
@@ -328,13 +351,13 @@ if __name__ == '__main__':
     parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
-    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings'),default='balanced',
+    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings','coached'),default='balanced',
                         help='Openings selects and gates full games; prebuilt positions are separate frozen diagnostics')
     parser.add_argument('--from-candidate',type=Path,help='Inherit prior policy parameters; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
     if (not 120 <= args.seconds <= 1200 or args.generations < 0 or not 120 <= args.long_seconds <= 1800
-            or (args.curriculum in ('endurance','reserves','openings') and args.long_seconds < args.seconds)
+            or (args.curriculum in ('endurance','reserves','openings','coached') and args.long_seconds < args.seconds)
             or (args.state_only and (not args.state_model or args.restarts))
             or not 0 <= args.restarts <= args.population-2
             or (args.opponent_weight is not None and not 0 <= args.opponent_weight <= 100)

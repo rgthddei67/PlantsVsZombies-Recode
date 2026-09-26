@@ -29,6 +29,8 @@ namespace {
 	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
 	constexpr int kLargeOrderSun = 225; // 大额购冰的阳光价格，同时供双方资产预测折算
 	constexpr int kLargeOrderIce = 100; // 大额购冰的实际到货量
+	constexpr int kSmallOrderSun = 100, kSmallOrderIce = 40; // 小额购冰的阳光价格和实际到货量
+	constexpr float kLargeOrderDelay = 10, kSmallOrderDelay = 5; // 商店订单从付款到到货的游戏秒
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
@@ -309,11 +311,11 @@ bool Board::BuyColdStorageIce(bool large)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| DeltaTime::IsPaused() || mColdStorage.orderIce > 0) return false;
-	const int price = large ? kLargeOrderSun : 100;
+	const int price = large ? kLargeOrderSun : kSmallOrderSun;
 	if (mSun < price) return false;
 	SubSun(price);
-	mColdStorage.orderIce = large ? kLargeOrderIce : 40;
-	mColdStorage.orderRemaining = large ? 10.0f : 5.0f;
+	mColdStorage.orderIce = large ? kLargeOrderIce : kSmallOrderIce;
+	mColdStorage.orderRemaining = large ? kLargeOrderDelay : kSmallOrderDelay;
 	return true;
 }
 
@@ -759,6 +761,7 @@ void Board::PlanColdStorageAttack()
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.stateModel = ColdStoragePolicy::AdaptiveModel();
 		search.netEconomy = ColdStoragePolicy::NetEconomy();
+		search.anticipateEconomy = ColdStoragePolicy::AnticipateEconomy();
 		search.opponentWeight = ColdStoragePolicy::OpponentWeight();
 		search.sunIceValue = static_cast<float>(kLargeOrderIce)/kLargeOrderSun;
 		auto plantCapital = [&](const Plant* entity) {
@@ -796,6 +799,19 @@ void Board::PlanColdStorageAttack()
 		search.playerSun = mSun; search.playerIce = s.playerIce;
 		search.playerSunLimit = MAX_SUN; search.playerIceLimit = kMaxIce;
 		search.incomingIce = s.orderIce; search.incomingIceAt = s.orderRemaining;
+		// 只从真实卡槽和当前合法格读取周转能力；不偷看陪练策略，也不给正式玩家免费资源。
+		if (search.anticipateEconomy) {
+			search.shop = {{kSmallOrderSun,kSmallOrderIce,kSmallOrderDelay},{kLargeOrderSun,kLargeOrderIce,kLargeOrderDelay}};
+			if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
+				if (!card || card->GetGameplayPlantType() != PlantType::PLANT_MARIGOLD || card->GetSunCost() >= 0) continue;
+				ColdStorageSearch::SunExchange exchange;
+				exchange.sunGain = -card->GetSunCost(); exchange.iceCost = GetPlantIceCost(card->GetGameplayPlantType());
+				exchange.ready = card->GetCooldownTimer(); exchange.recharge = card->GetCooldownTime();
+				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
+					if (CanPlantAt(card->GetGameplayPlantType(),row,col)) exchange.cells.push_back({row,col});
+				if (!exchange.cells.empty()) search.exchanges.push_back(std::move(exchange));
+			}
+		}
 		// 一个卡槽只代表一张可用反制牌，合法格位是替代落点，不能凭空复制次数。
 		int source = 0;
 		auto addCounter = [&](const EconomyBlast& blast, int id, int sun, int ice, float recharge, bool targeted) {
@@ -988,6 +1004,12 @@ void Board::PlanColdStorageAttack()
 		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 		s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
 		s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
+		s.searchAnticipateEconomy = search.anticipateEconomy;
+		s.searchExchangeCards = static_cast<int>(search.exchanges.size());
+		s.searchExchanges = result.construction.exchanges; s.searchOrders = result.construction.orders;
+		s.searchExchangeSun = result.construction.exchangeSun; s.searchExchangeIce = result.construction.exchangeIce;
+		s.searchOrderSun = result.construction.orderSun; s.searchOrderIce = result.construction.orderIce;
+		s.searchPendingIce = result.construction.pendingIce;
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 		s.searchVersion = search.searchVersion; s.searchLargestPlan = result.largestPlan;
 		s.searchAdaptive = search.stateModel != nullptr;

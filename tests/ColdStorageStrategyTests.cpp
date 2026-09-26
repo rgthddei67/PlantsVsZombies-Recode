@@ -608,6 +608,56 @@ int main()
 	check(capitalStats.planted == 1 && std::abs(capitalStats.opponentAssets-capital.plant.assetValue) < .001f,
 		"buying a surviving plant transfers cash to assets instead of rewarding fake attrition");
 	std::cout << "Opponent capital, counter costs, refunds and optional attrition scoring passed\n";
+	ColdStorageSearch::Snapshot trading;
+	trading.playerIce = 20; trading.sunIceValue = 100.0f/225;
+	ColdStorageSearch::SunExchange exchange;
+	exchange.sunGain = 100; exchange.iceCost = 10; exchange.recharge = 120; exchange.cells = {{{0,0}}};
+	trading.exchanges = {exchange,exchange};
+	ColdStorageSearch::ConstructionStats traded;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.exchanges == 0,"player trading stays disabled for legacy policy snapshots");
+	trading.anticipateEconomy = true;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.exchanges == 2 && traded.exchangeSun == 200 && traded.exchangeIce == 20,
+		"normal and imitater economy cards have independent cooldowns but share actual ice and a reusable cell");
+	trading.playerIce = 9;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.exchanges == 0,"negative sun prices cannot waive a card's ice cost");
+	trading.playerIce = 20;
+	trading.exchanges[0].ready = trading.exchanges[1].ready = 61;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.exchanges == 0,"economy cards beyond the horizon cannot produce early");
+	trading.exchanges[0].ready = trading.exchanges[1].ready = 0;
+	ColdStorageSearch::Plant occupiedCell;
+	occupiedCell.row = occupiedCell.column = 0; occupiedCell.health = 300;
+	trading.plants = {occupiedCell}; trading.playerSun = 400;
+	trading.shop = {{100,40,5},{225,100,10}};
+	trading.playerIce = 0;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.exchanges == 0 && traded.orders == 0,"occupied economy cells do not cause imaginary farming or orders");
+	trading.plants.clear(); trading.exchanges.clear();
+	ColdStorageSearch::Unit target;
+	target.body.health = 100; target.body.x = 500; target.body.speed = 0; target.body.purchaseCost = 50;
+	trading.current = {target};
+	ColdStorageSearch::Counter futureCounter;
+	futureCounter.blast.x = 500; futureCounter.blast.damage = 1800; futureCounter.blast.reach.fill(-1);
+	futureCounter.blast.reach[0] = 200; futureCounter.sunCost = 150; futureCounter.iceCost = 20;
+	trading.counters = {futureCounter};
+	trading.anticipateEconomy = false;
+	check(ColdStorageSearch::Evaluate(trading,{})[3] == 50,"without a future order the ice-starved counter is unavailable");
+	trading.anticipateEconomy = true;
+	check(ColdStorageSearch::Evaluate(trading,{},&traded)[3] == 0 && traded.orders == 1
+		&& traded.orderSun == 225 && traded.orderIce == 100,"a paid delivered order can fund a later real-price counter");
+	trading.playerSun = 99;
+	check(ColdStorageSearch::Evaluate(trading,{},&traded)[3] == 50 && traded.orders == 0,
+		"an unaffordable delivery cannot provide counter ice");
+	trading.playerSun = 400; trading.incomingIce = 40; trading.incomingIceAt = 3;
+	check(ColdStorageSearch::Evaluate(trading,{},&traded)[3] == 0 && traded.orders == 0,
+		"an already pending delivery arrives once and blocks a duplicate order");
+	trading.playerSun = 0; trading.incomingIceAt = 70;
+	ColdStorageSearch::Evaluate(trading,{},&traded);
+	check(traded.pendingIce == 40 && traded.opponentAssets == 40,"paid goods beyond the horizon remain assets without arriving early");
+	std::cout << "Player economy cards, shared ice and delayed paid orders passed\n";
 	ColdStorageSearch::Snapshot affordableTeam;
 	affordableTeam.searchVersion = 2; affordableTeam.budget = 40; affordableTeam.capacity = 64;
 	tank.type = 10; tank.cost = 16; tank.unit.body.purchaseCost = 16;

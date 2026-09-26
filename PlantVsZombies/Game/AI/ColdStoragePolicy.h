@@ -9,7 +9,9 @@ const ColdStorageSearch::Weights* Get(int level);
 /** AutoTest 独立试验覆盖，不写玩家存档/资源；null 强制旧 AI，Reset 清除覆盖。 */
 bool SetExperiment(const nlohmann::json& weights, bool allUnits = false,
 	const nlohmann::json* preferences = nullptr, const nlohmann::json* calibration = nullptr,
-	const nlohmann::json* stateModel = nullptr, bool netEconomy = false, bool anticipateBuilding = false, int searchVersion = 1, float opponentWeight = 0);
+	const nlohmann::json* stateModel = nullptr, bool netEconomy = false, bool anticipateBuilding = false, int searchVersion = 1, float opponentWeight = 0, bool anticipateEconomy = false);
+/** 是否显式预测玩家的循环返阳光卡和后续商店订货，缺省关闭。 */
+bool AnticipateEconomy();
 /** 对方资源与植株资产终点差的学习权重，缺省零，不改变旧策略。 */
 float OpponentWeight();
 /** 已加载策略指定的搜索空间版本；评分权重和局势层不隐式决定第二版是否启用。 */

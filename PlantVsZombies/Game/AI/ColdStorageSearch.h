@@ -69,7 +69,18 @@ struct Construction {
 	int source = 0, sunCost = 0, iceCost = 0;
 	float ready = 0, recharge = 1, firstSunDelay = 0;
 };
-struct ConstructionStats { int planted = 0; float sunSpent = 0, iceSpent = 0, opponentAssets = 0; };
+/** 一张可循环铲种的返阳光卡；候选格共享卡槽冷却，收益来自真实负阳光价格。 */
+struct SunExchange {
+	int sunGain = 0, iceCost = 0;
+	float ready = 0, recharge = 1;
+	std::vector<std::array<int,2>> cells;
+};
+struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
+struct ConstructionStats {
+	int planted = 0, exchanges = 0, orders = 0;
+	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
+	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
+};
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
 struct Action { int option = 0; float delay = 0; };
@@ -84,6 +95,7 @@ struct Counter {
 struct Snapshot {
 	int searchVersion = 1; // 1 保留旧搜索；2 独立比较覆盖正式容量的分批编队，不要求加载局势层
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
+	bool anticipateEconomy = false; // 显式考虑玩家循环经济卡与后续付费订冰，旧策略缺省关闭
 	float opponentWeight = 0, sunIceValue = 0; // 对方终点资产差的可训练价值、商店阳光折冰率；权重零保持旧评分
 	const ProductionCalibration* productionCalibration = nullptr;
 	const StateModel* stateModel = nullptr;
@@ -101,6 +113,8 @@ struct Snapshot {
 	std::vector<Counter> counters;
 	std::vector<RowStrike> rowStrikes;
 	std::vector<Construction> construction;
+	std::vector<SunExchange> exchanges;
+	std::vector<ShopOrder> shop;
 	std::vector<Mower> mowers;
 	std::array<ContextWeights, 6> context{};
 };

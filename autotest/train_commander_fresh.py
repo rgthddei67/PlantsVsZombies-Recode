@@ -16,11 +16,12 @@ from train_commander_league import read, curriculum_templates, draw_cases, group
 from commander_opening_review import review
 
 
-def initial_policy(names, anticipate_building=True, opponent=False):
+def initial_policy(names, anticipate_building=True, opponent=False, anticipate_economy=False):
     """Use code defaults and zero learned terms; no checkpoint participates in initialization."""
     policy=net_economy_policy({'weights':INITIAL[:], 'preferences':{name:[0]*len(CONTEXT) for name in names},
                               'stateModel':new_state_model(), 'trainingUnits':list(names),
-                              'searchVersion':2, 'anticipateBuilding':anticipate_building})
+                              'searchVersion':2, 'anticipateBuilding':anticipate_building,
+                              'anticipateEconomy':anticipate_economy})
     if opponent:
         policy['opponentWeight']=0
     return policy
@@ -68,7 +69,8 @@ def train(args):
     save(output/'identity.json',identity)
     names=read(warm/'catalog.json')['units']
     architecture=read(warm/'frozen_policy.json')
-    champion=initial_policy(names,architecture.get('anticipateBuilding',False),'opponentWeight' in architecture)
+    champion=initial_policy(names,architecture.get('anticipateBuilding',False),'opponentWeight' in architecture,
+                            architecture.get('anticipateEconomy',False))
     save(output/'initial_policy.json',champion)
     rng=random.Random(seed)
     fresh_history=[]

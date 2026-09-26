@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <utility>
 
 namespace ColdStorageSearch {
 namespace {
@@ -34,6 +35,7 @@ constexpr int kForecastSummonLimit = 64; // 一次推演新增小鬼数量上限
 constexpr float kForecastImpWalkSpeed = 20; // 小鬼落地后的保守移动近似，像素/游戏秒
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
+constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 
 /** 搜索能力与评分层解耦；旧配置的候选范围及随机序列保持不变。 */
 int ActionLimit(const Snapshot& s) {
@@ -394,6 +396,48 @@ bool ValidWeights(const Weights& weights) {
 	return std::all_of(weights.begin(), weights.end(), [](float w) { return std::isfinite(w) && std::abs(w) <= 500; });
 }
 
+/** 按真实卡价、独立冷却与空格周转预测玩家续航；订单付款、运输、到货分别结算。 */
+static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::vector<Plant>& plants,
+	std::vector<float>& exchangeReady, std::vector<std::pair<std::array<int,2>,float>>& occupied,
+	const std::vector<float>& counterReady, const std::vector<float>& constructionReady,
+	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats) {
+	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
+	float neededIce = 0;
+	float delivery = 0;
+	for (const auto& order : state.shop) delivery = std::max(delivery,order.delivery);
+	for (size_t i = 0; i < state.exchanges.size(); ++i) {
+		const auto& card = state.exchanges[i];
+		if (card.sunGain <= 0 || card.iceCost < 0 || card.cells.empty()) continue;
+		for (const auto& cell : card.cells) {
+			if (std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
+				return p.health > 0 && p.layer == 1 && p.row == cell[0] && p.column == cell[1];
+			}) || std::any_of(occupied.begin(),occupied.end(),[&](const auto& p) { return p.first == cell; })) continue;
+			if (exchangeReady[i] <= time+delivery) neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+			if (exchangeReady[i] > time || ice < card.iceCost || sun >= state.playerSunLimit) break;
+			const float gain = std::min(static_cast<float>(card.sunGain),std::max(0.0f,state.playerSunLimit-sun));
+			sun += gain; ice -= card.iceCost;
+			exchangeReady[i] = time+std::max(kEconomyClearSeconds,card.recharge);
+			occupied.push_back({cell,time+kEconomyClearSeconds});
+			++stats.exchanges; stats.exchangeSun += gain; stats.exchangeIce += card.iceCost;
+			break;
+		}
+	}
+	for (const auto& card : state.counters) if (!card.blast.committed && counterReady[card.source] <= time+delivery)
+		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+	for (const auto& card : state.construction) if (constructionReady[card.source] <= time+delivery)
+		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+	if (pendingIce > 0 || ice >= neededIce || ice >= state.playerIceLimit) return;
+	const ShopOrder* selected = nullptr;
+	for (const auto& order : state.shop) {
+		if (order.sunCost <= 0 || order.iceGain <= 0 || order.delivery < 0 || sun < order.sunCost
+			|| time+order.delivery >= Horizon(state)) continue;
+		if (!selected || order.sunCost/static_cast<float>(order.iceGain) < selected->sunCost/static_cast<float>(selected->iceGain)) selected = &order;
+	}
+	if (!selected) return;
+	sun -= selected->sunCost; pendingIce = static_cast<float>(selected->iceGain); arrival = time+selected->delivery;
+	++stats.orders; stats.orderSun += selected->sunCost; stats.orderIce += selected->iceGain;
+}
+
 bool StateModel::IsValid() const {
 	return std::all_of(coefficients.begin(),coefficients.end(),[](const auto& row) { return ValidWeights(row); });
 }
@@ -520,8 +564,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<bool> refunded(units.size()), breached(units.size());
 	std::vector<unsigned char> melonHits(units.size());
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
+	float pendingIce = static_cast<float>(s.incomingIce), arrival = s.incomingIceAt;
+	std::vector<float> exchangeReady;
+	for (const auto& card : s.exchanges) exchangeReady.push_back(card.ready);
+	std::vector<std::pair<std::array<int,2>,float>> exchangeOccupied;
 	const auto capPlayerResources = [&] {
-		if (s.searchVersion == 2) {
+		if (s.searchVersion == 2 || s.anticipateEconomy) {
 			playerSun = std::min(playerSun,static_cast<float>(s.playerSunLimit));
 			playerIce = std::min(playerIce,static_cast<float>(s.playerIceLimit));
 		}
@@ -529,13 +577,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	capPlayerResources();
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
-		if (!orderArrived && t >= s.incomingIceAt) {
+		if (s.anticipateEconomy && pendingIce > 0 && t >= arrival) {
+			playerIce += pendingIce; pendingIce = 0;
+		} else if (!s.anticipateEconomy && !orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
 		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f);
+		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
+			constructionReady,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
@@ -664,6 +716,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	}
 	// 建设只是现金换成植株资产；不能把玩家花钱补阵本身误当成被消耗。
 	constructionStats.opponentAssets = playerIce+playerSun*s.sunIceValue;
+	if (s.anticipateEconomy) {
+		constructionStats.pendingIce = pendingIce;
+		constructionStats.opponentAssets += pendingIce; // 已付款在途货物仍是玩家资产，不能伪造资源损失
+	}
 	for (const auto& plant : plants) if (plant.health > 0)
 		constructionStats.opponentAssets += plant.assetValue*std::clamp(plant.health/std::max(1.0f,plant.initialHealth),0.0f,1.0f);
 	if (construction) *construction = constructionStats;

@@ -33,10 +33,14 @@ def verify(directory):
     checkpoint=read(directory/'checkpoint.json')
     history=checkpoint['history']
     assert evaluation['policies'][1]==read(directory/'frozen_policy.json')==checkpoint['champion']
-    if identity.get('curriculum')=='openings':
+    skipped=evaluation['gate'].get('reason')=='unchanged_policy'
+    if skipped:
+        assert evaluation['policies'][0]==evaluation['policies'][1]
+        assert not evaluation['cases'] and evaluation['scores']==[[],[]] and not evaluation['gate']['passed']
+    if identity.get('curriculum') in ('openings','coached'):
         assert all(is_opening(c[0]) for c in evaluation['cases'])
         assert all(is_opening(c[0]) for h in history for c in h['cases'])
-        if identity.get('origin')!='fresh':
+        if identity.get('origin')!='fresh' and not skipped:
             diagnostics=read(directory/'diagnostics.json')
             assert diagnostics['informationalOnly'] and diagnostics['policies']==evaluation['policies']
             assert all(not is_opening(c[0]) for c in diagnostics['cases'])
@@ -101,6 +105,7 @@ def verify(directory):
                     weights=effective_weights(policy,d['stateInputs'])
                     assert bool(policy.get('netEconomy'))==d.get('netEconomy',False)
                     assert bool(policy.get('anticipateBuilding'))==d.get('anticipateBuilding',False)
+                    assert bool(policy.get('anticipateEconomy'))==d.get('playerEconomy',{}).get('enabled',False)
                     assert policy.get('searchVersion',1)==d.get('searchVersion',1)
                     assert all(abs(a-b)<max(.002,abs(b)*.000003) for a,b in zip(d['effectiveWeights'],weights)),path
                     expected=sum(a*b for a,b in zip(d['features'],weights))+d['preferenceScore']
@@ -119,7 +124,8 @@ def verify(directory):
     assert not seeds['training'].intersection(seeds['holdout'])
     assert not seeds['diagnostic'].intersection(seeds['holdout'] | seeds['training'])
     report={'games':games,'decisions':decisions,'netEconomyDecisions':net_decisions,'wallSeconds':wall,
-            'allMuted':True,'ledgersAndScoresVerified':True,'holdoutSeparated':True,'gate':evaluation['gate']}
+            'allMuted':True,'ledgersAndScoresVerified':True,'holdoutSeparated':True,
+            'evaluationSkipped':skipped,'gate':evaluation['gate']}
     save(directory/'verification.json',report)
     print(json.dumps(report),flush=True)
 

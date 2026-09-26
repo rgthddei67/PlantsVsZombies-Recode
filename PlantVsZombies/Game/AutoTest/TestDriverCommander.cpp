@@ -14,7 +14,8 @@ using Json = nlohmann::json;
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool fortifier = opponent == "fortifier";
+	const bool planner = opponent == "planner";
+	const bool fortifier = opponent == "fortifier" || planner;
 	const bool lotusPlayer = opponent == "lotus" || fortifier;
 	const bool builder = opponent == "builder" || lotusPlayer;
 	const bool hunter = opponent == "hunter" || builder;
@@ -33,6 +34,17 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	std::vector<Json> zombies;
 	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0) zombies.push_back(z);
 	std::stable_sort(zombies.begin(), zombies.end(), [](const auto& a, const auto& b) { return a.at("xInt") < b.at("xInt"); });
+	int defenseReserve = 0, defenseIceReserve = 0;
+	// 威胁已经接近时，为十秒内转好的灰烬预留真实阳光；空场及长期冷却时释放这笔预算发展经济。
+	if (planner && !zombies.empty() && zombies.front().at("xInt").get<int>() < 950)
+		for (const auto& card : state.at("cards")) {
+			const auto kind = card.at("gameplayType").get<std::string>();
+			if ((kind == "PLANT_CHERRYBOMB" || kind == "PLANT_JALAPENO" || kind == "PLANT_SQUASH")
+				&& card.value("cooldownRemainingMs",0) <= 10000) {
+				defenseReserve = std::max(defenseReserve,card.at("sunCost").get<int>());
+				defenseIceReserve = std::max(defenseIceReserve,ice.at("plantCosts").at(kind).get<int>());
+			}
+		}
 	bool releasedLotus = false;
 	// 使用已经充满的实际植物，通过玩家输入门禁释放；不直接改能量或调用伤害结算。
 	if (lotusPlayer && !zombies.empty()) for (const auto& p : state.at("plants"))
@@ -51,9 +63,12 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			});
 		if (farm || deny) actions.push_back({{"op","player_shovel"},{"row",cell.first},{"col",cell.second}});
 	}
-	if (ice.at("orderIce") == 0 && stock < 100 && sun >= 225) {
+	// 建设型陪练只在种植储备不足时补冰，避免尚有可用冰时反复花掉筹建输出的阳光。
+	// 缺少反制所需冰时仍须先订货，否则预留阳光也无法救险。
+	const int purchaseReserve = stock >= defenseIceReserve ? defenseReserve : 0;
+	if (ice.at("orderIce") == 0 && stock < (planner ? 40 : 100) && sun >= 225+purchaseReserve) {
 		actions.push_back({{"op","buy_ice"},{"large",true}}); sun -= 225;
-	} else if (ice.at("orderIce") == 0 && stock < 30 && sun >= 100) {
+	} else if (ice.at("orderIce") == 0 && stock < 30 && sun >= 100+purchaseReserve) {
 		actions.push_back({{"op","buy_ice"},{"large",false}}); sun -= 100;
 	}
 	// 打击即时结算，下一次观察后再选灰烬，避免按释放前快照重复炸已经死亡的目标。
@@ -157,6 +172,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		attempt("PLANT_WALLNUT",cells);
 	}
 	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
+	// 上面的救险正常使用全部现金；仅后续可延后的建设受预留预算约束，不改玩家真实余额。
+	sun = std::max(0,sun-defenseReserve);
 	if (lotusPlayer && std::none_of(plants.begin(),plants.end(),[](const auto& entry) {
 		return entry.second.at("type") == "PLANT_DAWNLOTUS";
 	})) attempt("PLANT_DAWNLOTUS",{{2,2},{1,2},{3,2}});
@@ -185,6 +202,18 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	if (fortifier && producers >= 4) {
 		cells.clear(); for (int r : rows) cells.emplace_back(r,0);
 		attempt(eliteDefense ? "PLANT_ELITE_SCAREDYSHROOM" : "PLANT_MELONPULT",cells);
+		// 高优先级的合法输出已转好但暂时缺阳光时，允许攒钱；不能每秒花掉零钱后永远买不起。
+		// 前面的救险与金盏花周转仍可执行；这是陪练的建设计划，不干预僵尸购买或免费补资源。
+		// 先有八株基本经济再冻结其他建设，避免过早攒大件反而长期缺少收入。
+		if (planner && producers >= 8 && !planted) for (const auto& card : state.at("cards")) {
+			if (card.at("gameplayType") != (eliteDefense ? "PLANT_ELITE_SCAREDYSHROOM" : "PLANT_MELONPULT")
+				|| !card.at("ready").get<bool>() || card.at("sunCost").get<int>() <= sun) continue;
+			for (const auto& [r,c] : cells) {
+				const Json cell = Json::array({r,c});
+				if (std::find(card.at("legalCells").begin(),card.at("legalCells").end(),cell) != card.at("legalCells").end())
+					return actions;
+			}
+		}
 		attempt("PLANT_PUMPKINSHELL",protectionCells);
 		attempt("PLANT_WINTERMELON",{{1,0},{3,0},{0,0},{4,0},{2,0}});
 	}
@@ -222,7 +251,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const auto opponent = command.value("opponent", std::string("bomb"));
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -258,6 +287,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"searchVersion",ice.at("searchVersion")},{"largestPlan",ice.at("searchLargestPlan")},
 			{"netEconomy",ice.at("searchNetEconomy")},
 			{"anticipateBuilding",ice.at("searchAnticipateBuilding")},
+			{"playerEconomy",ice.at("searchPlayerEconomy")},
 			{"predictedPlantings",ice.at("searchPredictedPlantings")},
 			{"rawProduction",ice.at("searchRawProduction")},{"productionInputs",ice.at("searchProductionInputs")},
 			{"preferenceScore",ice.at("searchPreferenceScore")},{"scoreOn100",ice.at("lastBestScoreOn100")},

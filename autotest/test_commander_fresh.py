@@ -7,8 +7,9 @@ from train_commander_fresh import initial_policy, population
 
 class FreshTests(unittest.TestCase):
     def test_new_architecture_starts_its_new_weight_at_zero(self):
-        policy=initial_policy(['normal'],anticipate_building=False,opponent=True)
+        policy=initial_policy(['normal'],anticipate_building=False,opponent=True,anticipate_economy=True)
         self.assertFalse(policy['anticipateBuilding'])
+        self.assertTrue(policy['anticipateEconomy'])
         self.assertEqual(policy['opponentWeight'],0)
         self.assertNotIn('productionCalibration',policy)
         variants=population(policy,random.Random(918),8,0,4)

@@ -48,12 +48,12 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     match = re.search(r'_10_([1-9])$', arena)
     level = 81 + int(match.group(1)) if match else 82
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier'):
+    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier', 'planner'):
         cards += ['SQUASH']
         # 正式卡槽最多 11 张；已有三叶草对空时，将重复对空位置留给倭瓜。
         if all_zombies:
             cards.remove('CACTUS')
-    if opponent in ('lotus', 'fortifier'):
+    if opponent in ('lotus', 'fortifier', 'planner'):
         cards += ['DAWNLOTUS']
         if all_zombies:
             cards.remove('SQUASH')  # 全兵种保留对空；曙光莲占用这张即时反制卡的正式卡槽。
@@ -68,7 +68,8 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
          'allZombies': all_zombies, 'preferences': policy.get('preferences', {}),
          'productionCalibration': policy.get('productionCalibration'), 'stateModel': policy.get('stateModel'),
          'netEconomy': policy.get('netEconomy',False), 'anticipateBuilding': policy.get('anticipateBuilding',False),
-         'searchVersion': policy.get('searchVersion',1),'opponentWeight':policy.get('opponentWeight',0)},
+         'searchVersion': policy.get('searchVersion',1),'opponentWeight':policy.get('opponentWeight',0),
+         'anticipateEconomy':policy.get('anticipateEconomy',False)},
         {'op': 'goto_level', 'level': level},
         {'op': 'choose_cards', 'cards': ['PLANT_' + c for c in cards],
          'imitaterTarget': 'PLANT_MARIGOLD'},
@@ -109,7 +110,7 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                 # 高库存成型阵地是战术夹具，不冒充真人存档重放；钱仅在开局布置一次。
                 lineup = [('MELONPULT',0),('WINTERMELON',0),('SUNFLOWER',4),('SUNFLOWER',5),('SUNFLOWER',7)]
                 for column in (1,2,3):
-                    kind = 'DAWNLOTUS' if opponent in ('lotus', 'fortifier') and row == seed % 5 and column == 2 else 'MELONPULT'
+                    kind = 'DAWNLOTUS' if opponent in ('lotus', 'fortifier', 'planner') and row == seed % 5 and column == 2 else 'MELONPULT'
                     lineup.append((kind,column))
                 lineup += [('PUMPKINSHELL',c) for c in range(4)]
                 if varied:

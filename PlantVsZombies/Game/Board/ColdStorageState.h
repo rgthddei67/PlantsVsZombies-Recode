@@ -72,6 +72,9 @@ struct ColdStorageState {
 	int searchVersion = 1, searchLargestPlan = 0; // 实际搜索版本和最大已评估编队，诊断不入档
 	bool searchNetEconomy = false; // 是否按净冰收益评分，诊断不入档
 	bool searchAnticipateBuilding = false; // 实际启用的未来建设预测版本，诊断不入档
+	bool searchAnticipateEconomy = false; // 玩家循环经济及后续订货预测是否启用，诊断不入档
+	int searchExchangeCards = 0, searchExchanges = 0, searchOrders = 0; // 实际纳入的经济卡槽、预测周转和订单数量，诊断不入档
+	float searchExchangeSun = 0, searchExchangeIce = 0, searchOrderSun = 0, searchOrderIce = 0, searchPendingIce = 0; // 玩家预测交易流水，诊断不入档
 	int searchConstructionOptions = 0, searchPredictedPlantings = 0; // 合法建设落点与预测建设数，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断

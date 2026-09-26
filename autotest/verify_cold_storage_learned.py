@@ -30,6 +30,7 @@ for name, state in states.items():
         score = ice['lastBestScoreOn100'] / 100
         # 核对实际决策使用当前运行资源的权重，而不只是看到 learned_search 标签。
         assert ice['searchAnticipateBuilding']==policy.get('anticipateBuilding',False)
+        assert ice['searchPlayerEconomy']['enabled']==policy.get('anticipateEconomy',False)
         effective = policy['weights'][:]
         if policy.get('stateModel'):
             effective = [max(-500,min(500,b+sum(x*row[j] for x,row in zip(ice['searchStateInputs'],policy['stateModel']['coefficients']))))
