@@ -1,0 +1,33 @@
+{
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,0,-1,0,0],"searchVersion":1},
+    {"op":"goto_level","level":82},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":700,"initialEnemyIce":700,"decisions":80,"elapsed":1800,"dispatchQuietSeconds":25,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":0},
+    {"op":"assert_state","path":"coldStorage.enemyIce","equals":700},
+    {"op":"assert_state","path":"coldStorage.unlockProbe","equals":false},
+    {"op":"assert_state","path":"coldStorage.searchLargestPlan","atLeast":9,"atMost":64},
+    {"op":"assert_state","path":"coldStorage.searchExpandedForecast","equals":true},
+    {"op":"dump_state","name":"wait.json"},
+    {"op":"set_cold_storage","state":{"enemyIce":700,"initialEnemyIce":700,"decisions":1,"elapsed":50,"dispatchQuietSeconds":25,"decisionRemaining":60}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.unlockProbe","equals":true},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":1},
+    {"op":"assert_state","path":"coldStorage.spent","equals":4},
+    {"op":"dump_state","name":"unlock.json"},
+    {"op":"goto_level","level":82,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":700,"initialEnemyIce":700,"decisions":0,"dispatchQuietSeconds":0}},
+    {"op":"plan_ice_attack"},
+    {"op":"assert_state","path":"coldStorage.unlockProbe","equals":true},
+    {"op":"assert_state","path":"coldStorage.pendingCount","atLeast":1},
+    {"op":"quit"}
+  ]
+}

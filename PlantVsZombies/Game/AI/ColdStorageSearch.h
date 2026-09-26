@@ -93,7 +93,7 @@ struct Counter {
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
 };
 struct Snapshot {
-	int searchVersion = 1; // 1 保留旧搜索；2 独立比较覆盖正式容量的分批编队，不要求加载局势层
+	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
 	bool anticipateEconomy = false; // 显式考虑玩家循环经济卡与后续付费订冰，旧策略缺省关闭
 	float opponentWeight = 0, sunIceValue = 0; // 对方终点资产差的可训练价值、商店阳光折冰率；权重零保持旧评分
@@ -102,7 +102,7 @@ struct Snapshot {
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
 	int budget = 0, capacity = 0;
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
-	bool allowWait = true; // Board 的已存档观望时限到期且空场时，必须选择可支付行动
+	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
@@ -119,6 +119,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
 	Weights effectiveWeights{};

@@ -248,12 +248,12 @@ int main()
 	check(ColdStorageSearch::Search(contextual, contextScore, 77).score < support.score,
 		"healthy allies do not receive wounded-ally preference");
 	contextual.options[0].preference = {}; contextScore[5] = -1;
-	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"waiting remains legal before the deadline");
+	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"waiting remains a legal scored choice");
 	contextual.allowWait = false;
 	const auto resume = ColdStorageSearch::Search(contextual,contextScore,77);
-	check(!resume.actions.empty() && resume.actions.front().delay == 0,"empty board must act when bounded observation expires");
+	check(!resume.actions.empty() && resume.actions.front().delay == 0,"explicit unlock exploration can require a paid first action");
 	contextual.budget = 0;
-	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"observation deadline cannot authorize unpaid troops");
+	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"unlock exploration cannot authorize unpaid troops");
 
 	// 逐行打击有利于集中，而一张整行灰烬有利于分散；不能把主攻一路变成固定命令。
 	ColdStorageSearch::Snapshot formation;
@@ -459,7 +459,14 @@ int main()
 	battery.health = 1000; battery.x = 50; battery.dps = 200; battery.edible = false;
 	portfolio.plants = {battery};
 	ColdStorageSearch::Weights breakthrough{}; breakthrough[2] = 100; breakthrough[5] = -1;
+	portfolio.capacity = 8;
 	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"small formations cannot cross this fire lane");
+	portfolio.capacity = 64;
+	const auto broad = ColdStorageSearch::Search(portfolio,breakthrough,731);
+	check(broad.largestPlan == 64 && broad.actions.size() > 8 && broad.features[2] == 1,
+		"an unproductive small search can escalate to a complete team without a spending reward");
+	check(broad.expandedForecast && broad.features[5] <= portfolio.budget && broad.evaluated <= 300,
+		"expanded search is explicit in diagnostics and remains bounded and paid");
 	portfolio.searchVersion = 2;
 	const auto large = ColdStorageSearch::Search(portfolio,breakthrough,731);
 	check(large.largestPlan == 64 && large.actions.size() > 8 && large.features[2] > 0,

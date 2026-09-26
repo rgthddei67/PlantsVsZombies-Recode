@@ -773,19 +773,22 @@ void Board::PlanColdStorageAttack()
 		search.budget = s.enemyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
-		search.allowWait = GetColdStorageHostileCount() > 0 || s.dispatchQuietSeconds < kMaxObserveSeconds;
+		// 观望时长不能把负收益方案变成必选项，否则成型防线会诱发周期性单兵送死。
+		// 唯一例外是下方确有后续兵种可解锁、且能支付整条解锁路径的合法小额探路。
+		search.allowWait = true;
 		// 波次由付费派兵推进。只评当前卡池会在弱兵被克制时永久观望，错失下一档能力。
-		// 只提前一次本就合法的小额出兵：空场、能保留重组储备、且下一波确有可支付的新兵种。
+		// 解锁可能相隔不止一波；把到下一档的最低出兵成本算全，避免开局停在空白解锁波。
 		s.unlockProbe = false;
 		if (!allUnitsUnlocked && GetColdStorageHostileCount() == 0) {
 			int probeCost = kMaxIce;
 			for (auto type : mSpawnZombieList)
 				if (GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1)
 					probeCost = std::min(probeCost,GetZombieIceCost(type));
-			if (probeCost > 0 && s.enemyIce >= ColdStorageState::RecoveryReserveIce + probeCost)
-				for (auto type : mSpawnZombieList)
-					if (GameDataManager::GetInstance().GetZombieAppearWave(type) == s.decisions + 2
-						&& GetZombieIceCost(type) <= s.enemyIce - probeCost) s.unlockProbe = true;
+			if (probeCost > 0) for (auto type : mSpawnZombieList) {
+				const int wavesNeeded = GameDataManager::GetInstance().GetZombieAppearWave(type) - (s.decisions + 1);
+				if (wavesNeeded > 0 && static_cast<long long>(wavesNeeded)*probeCost + GetZombieIceCost(type)
+					+ ColdStorageState::RecoveryReserveIce <= s.enemyIce) s.unlockProbe = true;
+			}
 			if (s.unlockProbe) search.allowWait = false;
 		}
 		search.rightEdge = SCENE_WIDTH;
@@ -1014,6 +1017,7 @@ void Board::PlanColdStorageAttack()
 		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 		s.searchVersion = search.searchVersion; s.searchLargestPlan = result.largestPlan;
 		s.searchAdaptive = search.stateModel != nullptr;
+		s.searchExpandedForecast = result.expandedForecast;
 		s.searchNetEconomy = search.netEconomy;
 		s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();
 		s.searchConstructionOptions = static_cast<int>(search.construction.size());

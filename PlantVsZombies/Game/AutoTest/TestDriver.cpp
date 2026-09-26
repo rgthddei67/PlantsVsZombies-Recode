@@ -4864,6 +4864,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;
 		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
+		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchVersion"] = board->mColdStorage.searchVersion;
 		ice["searchLargestPlan"] = board->mColdStorage.searchLargestPlan;
 		ice["searchNetEconomy"] = board->mColdStorage.searchNetEconomy;

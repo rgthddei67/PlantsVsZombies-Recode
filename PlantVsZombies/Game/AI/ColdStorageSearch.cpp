@@ -12,7 +12,7 @@ namespace {
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
 constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
-constexpr int kMaxActions = 8; // 一次搜索最多承诺的新增单位数，下次观察后可以继续部署
+constexpr int kMaxActions = 8; // 小队搜索阶段的单位上限；升级后的完整编队搜索使用正式容量
 constexpr float kMaxDelay = 12; // 新队员最迟出生时间，游戏秒
 constexpr int kAdaptiveActions = 32; // 新模型可比较的最大编队，能力上限而非最低出兵数
 constexpr float kAdaptiveDelay = 30; // 新模型可搜索的分批出生时域，游戏秒
@@ -27,7 +27,7 @@ constexpr float kSquashLeadSeconds = 0.3f; // 对齐 Squash::StartRising 起跳�
 constexpr float kRecoveryReturnFraction = 0.5f; // 低库存增援至少应换回半数冰价的预测收入或有效削血价值
 constexpr float kConstructionInterval = 2.0f; // 玩家模型两次建设决策间隔，游戏秒
 constexpr int kConstructionPlantLimit = 128; // 单次推演的植物容量，含已毁植物，约束新增对象开销
-constexpr int kPortfolioActions = 64; // 第二版覆盖正式可用容量，仍受当前预算和剩余名额限制
+constexpr int kPortfolioActions = 64; // 完整编队覆盖正式可用容量，仍受当前预算和剩余名额限制
 constexpr int kPortfolioTrials = 192; // 第二版固定评估预算，含不同规模、同类/混编和错峰方案
 constexpr float kPortfolioDelay = 60; // 第二版允许跨过一轮反制冷却的出生时域，游戏秒
 constexpr float kPortfolioHorizon = 120; // 最晚队员也有完整交战窗口，游戏秒；产冰仍只计前 60 秒
@@ -37,7 +37,7 @@ constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 
-/** 搜索能力与评分层解耦；旧配置的候选范围及随机序列保持不变。 */
+/** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
 	return std::max(0,std::min(s.capacity,s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
 }
@@ -73,7 +73,7 @@ std::vector<Action> SamplePortfolio(const Snapshot& s, std::mt19937& rng, int tr
 	const int groups = 1 + rng() % 3;
 	const bool sameType = rng() % 2 == 0, sameRow = rng() % 2 == 0;
 	const int base = rng() % s.options.size();
-	const float duration = static_cast<float>(rng() % 121) * .5f;
+	const float duration = static_cast<float>(rng() % (static_cast<int>(DelayLimit(s)*2)+1)) * .5f;
 	const bool gradual = rng() % 2 == 0;
 	for (int group = 0; group < groups; ++group) {
 		const int choice = group == 0 ? base : static_cast<int>(rng() % s.options.size());
@@ -822,6 +822,20 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	best.largestPlan = largestPlan;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.regrouping = best.actions.empty() && deferredInvestment;
+	// 小队没有预测到增量击杀、削血或生产时，才升级搜索范围与预测时域。
+	// 两次评估不能混加不同时间窗的分数：升级后整案及等待基线一起重算。
+	if (s.searchVersion == 1 && s.allowWait && cheapest->cost > 0
+		&& std::min(s.capacity,s.budget/cheapest->cost) > ActionLimit(s)
+		&& best.features[2] == 0 && best.features[0] <= best.baselineFeatures[0]
+		&& best.features[1] <= best.baselineFeatures[1] && best.features[4] <= best.baselineFeatures[4]) {
+		auto expanded = s;
+		expanded.searchVersion = 2;
+		auto result = Search(expanded,baseWeights,seed);
+		result.expandedForecast = true;
+		result.evaluated += best.evaluated;
+		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
+		return result;
+	}
 	return best;
 }
 }

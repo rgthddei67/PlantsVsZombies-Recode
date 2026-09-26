@@ -11,7 +11,7 @@
     {"op": "plan_ice_attack"},
     {"op": "assert_state", "path": "coldStorage.commanderStrategy", "equals": "learned_search"},
     {"op": "assert_state", "path": "coldStorage.trainingAllUnits", "equals": false},
-    {"op": "assert_state", "path": "coldStorage.candidatesEvaluated", "atLeast": 101, "atMost": 197},
+    {"op": "assert_state", "path": "coldStorage.candidatesEvaluated", "atLeast": 101, "atMost": 298},
     {"op": "assert_state", "path": "coldStorage.searchFormation.tested", "equals": 31},
     {"op": "dump_state", "name": "opening.json"},
     {"op": "save_level_snapshot", "name": "learned_queue"},

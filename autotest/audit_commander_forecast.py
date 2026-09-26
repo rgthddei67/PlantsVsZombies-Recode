@@ -57,6 +57,9 @@ def audit(output, policy_path=None, arenas=None, opponent='adaptive', seed=None,
     rows=[]
     for name,arena in cases:
         before=json.loads((evidence/(name+'_prediction.json')).read_text())['coldStorage']
+        if before.get('searchExpandedForecast'):
+            # 固定脚本按配置预排了 60/90 秒；临时升级有更晚的队员，不能输出错窗校准数据。
+            raise RuntimeError('Forecast expanded to v2 at runtime; use an explicit searchVersion=2 policy for this fixed-horizon audit. Raw evidence was preserved.')
         freeze=json.loads((evidence/(name+'_freeze.json')).read_text())['coldStorage']
         dispatch=json.loads((evidence/(name+'_dispatch.json')).read_text())
         late_path=evidence/(name+'_late_dispatch.json')
