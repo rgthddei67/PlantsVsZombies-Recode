@@ -16,6 +16,8 @@
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/GargantuarZombie.h"
+#include "Game/Zombie/ReinforcedDoorZombie.h"
+#include "Game/Bullet/Bullet.h"
 #include "Game/Plant/IceMint.h"
 #include "Game/Plant/Squash.h"
 #include "Game/Plant/DawnLotus.h"
@@ -234,6 +236,34 @@ namespace {
 		return result;
 	}
 
+	/** 目标自有的加固门特性只在此投影，纯数值推演不辨认僵尸枚举。 */
+	void ProjectShieldRules(ColdStorageSearch::Unit& unit, ZombieType type)
+	{
+		if (type != ZombieType::ZOMBIE_REINFORCED_DOOR) return;
+		unit.shieldedHitCap = ReinforcedDoorZombie::ShieldedHitCap;
+		unit.shieldedAshCap = ReinforcedDoorZombie::ShieldedAshCap;
+		unit.fumeMultiplier = ReinforcedDoorZombie::FumeMultiplier;
+		unit.blocksShieldBypass = unit.blocksFumePiercing = true;
+	}
+
+	/** 当前和未来植物共用正式弹丸伤害；防具上限按每击结算，不能直接截断持续 DPS。 */
+	void ProjectPlantAttack(ColdStorageSearch::Plant& plant, PlantType type)
+	{
+		using P = PlantType;
+		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
+		if (plant.melon)
+			plant.hitDamage = static_cast<float>(Bullet::GetBaseDamage(type == P::PLANT_MELONPULT ? BulletType::BULLET_MELON : BulletType::BULLET_WINTERMELON));
+		else if (type == P::PLANT_CABBAGEPULT) {
+			plant.bypassShield = true;
+			plant.hitDamage = static_cast<float>(Bullet::GetBaseDamage(BulletType::BULLET_CABBAGE));
+		} else if (type == P::PLANT_KERNELPULT) {
+			plant.bypassShield = true;
+			plant.hitDamage = 25; // 玉米/黄油混合的等效单击；保持现有连续 DPS 近似
+		}
+		plant.fume = type == P::PLANT_FUMESHROOM || type == P::PLANT_GLOOMSHROOM || type == P::PLANT_ICEFUMESHROOM;
+		if (type == P::PLANT_ICEFUMESHROOM) plant.hitDamage = 10; // 寒冰大喷每次喷射的实际基础伤害
+	}
+
 	/** 候选战术画像只服务排序；实体出生仍使用原品种生命、技能和动作。 */
 	AssaultProfile Assault(ZombieType type)
 	{
@@ -254,7 +284,9 @@ namespace {
 		case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI: return {1500, 1.2f, false, false, true};
 		case Z::ZOMBIE_CATAPULT: return {1200, 1, true, false, false};
 		case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_FASTBUCKET: case Z::ZOMBIE_ADAPTIVE_HELMET:
-		case Z::ZOMBIE_REINFORCED_DOOR: return {1500, 1, false, false, false};
+			return {1500, 1, false, false, false};
+		case Z::ZOMBIE_DOOR: return {DoorZombie::InitialBodyHealth + DoorZombie::InitialShieldHealth, 1, false, false, false};
+		case Z::ZOMBIE_REINFORCED_DOOR: return {DoorZombie::InitialBodyHealth + ReinforcedDoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_ICE_WORKER: return {IceProduction::WorkerHealth, 1, false, true, false};
 		case Z::ZOMBIE_NORMAL: return {270, 1, false, false, false};
 		default: return {700, 1.2f, false, false, false};
@@ -903,7 +935,7 @@ void Board::PlanColdStorageAttack(bool background)
 					p.rowRadius = profile.attackRowRadius; p.multiTarget = profile.mineMultiTarget;
 					p.around = profile.mineAttackShape == 2;
 					p.range = CELL_COLLIDER_SIZE_X*(p.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
-					p.melon = type == PlantType::PLANT_MELONPULT;
+					ProjectPlantAttack(p, type);
 					p.slowRate = profile.slowApplicationsPerSecond; p.slowDuration = profile.slowDuration;
 					p.stopDuty = profile.frozenApplicationsPerSecond*profile.frozenDuration + profile.butterApplicationsPerSecond*profile.butterDuration;
 					if (lotus) {
@@ -946,6 +978,8 @@ void Board::PlanColdStorageAttack(bool background)
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
+			unit.shieldHealth = z.shieldHealth;
+			ProjectShieldRules(unit, entity->mZombieType);
 			unit.biteDps = entity->GetMineSimulationAttackDps();
 			unit.mowerImmune = !entity->CanBeKilledByMower(); unit.consumesOtherMowers = entity->ConsumesOtherMowersOnContact();
 			if (const auto* giant = dynamic_cast<const GargantuarZombie*>(entity); giant && giant->HasImp() && !giant->HasReleasedImp()) {
@@ -977,7 +1011,7 @@ void Board::PlanColdStorageAttack(bool background)
 				plant.multiTarget = profile.mineMultiTarget;
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
-				plant.melon = type == PlantType::PLANT_MELONPULT || type == PlantType::PLANT_WINTERMELON;
+				ProjectPlantAttack(plant, type);
 			}
 			search.plants.push_back(plant);
 		}
@@ -997,6 +1031,9 @@ void Board::PlanColdStorageAttack(bool background)
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
 			unit.body.purchaseCost = static_cast<float>(cost);
+			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
+			else if (type == ZombieType::ZOMBIE_REINFORCED_DOOR) unit.shieldHealth = ReinforcedDoorZombie::InitialShieldHealth;
+			ProjectShieldRules(unit, type);
 			unit.playerRefund = static_cast<float>(cost * 3 / 4);
 			unit.mowerImmune = type == ZombieType::ZOMBIE_ROOF_MARSHAL;
 			unit.consumesOtherMowers = type == ZombieType::ZOMBIE_ELITE_DANCER;
@@ -1021,6 +1058,15 @@ void Board::PlanColdStorageAttack(bool background)
 				option.type = static_cast<int>(type); option.row = row; option.cost = GetZombieIceCost(type);
 				option.unit = purchaseUnit(type,row,option.cost,0);
 				option.preference = ColdStoragePolicy::UnitPreference(type);
+				if (option.unit.shieldHealth > 0) {
+					float totalFire = 0, protectedFire = 0;
+					for (const auto& plant : search.plants) {
+						if (plant.health <= 0 || plant.dps <= 0 || (plant.melon ? plant.row != row : std::abs(plant.row-row) > plant.rowRadius)) continue;
+						totalFire += plant.dps;
+						protectedFire += plant.dps*ColdStorageSearch::ShieldProtectionFraction(option.unit,plant);
+					}
+					if (totalFire > 0) option.firePreferenceScale = protectedFire/totalFire;
+				}
 				search.options.push_back(option);
 			}
 		}

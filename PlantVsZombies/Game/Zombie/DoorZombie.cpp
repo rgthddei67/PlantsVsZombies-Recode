@@ -18,8 +18,9 @@ void DoorZombie::SetupZombie()
 	mAnimator->AddFrameEvent(152, [this]() { this->EatTarget(); }, true);
 	mAnimator->AddFrameEvent(171, [this]() { this->EatTarget(); }, true);
 
-	this->mShieldHealth = 1100;
-	this->mShieldMaxHealth = 1100;
+	mBodyHealth = mBodyMaxHealth = InitialBodyHealth;
+	this->mShieldHealth = InitialShieldHealth;
+	this->mShieldMaxHealth = InitialShieldHealth;
 	this->mShieldType = ShieldType::SHIELDTYPE_DOOR;
 	ApplyDoorImage();
 

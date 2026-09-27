@@ -263,6 +263,8 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	ConfigureCollisionTarget();
 }
 
+int Bullet::GetBaseDamage(BulletType type) { return DefaultDamageForBullet(type); }
+
 Bullet::~Bullet() = default;
 
 int Bullet::GetPiercedZombieCount() const

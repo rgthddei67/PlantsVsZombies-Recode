@@ -40,6 +40,10 @@ struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
+	float shieldHealth = 0; // body.health 中的二类防具份额；本体/头盔归零时，剩余护盾不能维持存活
+	float shieldedHitCap = 0, shieldedAshCap = 0; // 持盾时的单次伤害上限；零表示不封顶
+	float fumeMultiplier = 1; // 目标自有的大喷家族倍率，破盾后仍适用
+	bool blocksShieldBypass = false, blocksFumePiercing = false; // 只在护盾尚存时生效
 	int id = 0; // 已有实体稳定 ID；新增候选以出生序列打破威胁并列
 	float productionStopHealth = IceProduction::WorkerHealth / 3; // 对齐 Zombie::TakeBodyDamage 掉头阈值；掉头后不再生产
 	float throwHealth = 0, throwAnchorX = 0, throwWindup = 1; // 尚持小鬼的投手：触发生命、半场锚点与预计前摇；零生命阈值禁用
@@ -54,6 +58,8 @@ struct Plant {
 	float range = 10000;
 	bool multiTarget = false, around = false;
 	bool melon = false, edible = true;
+	float hitDamage = 20; // 等效单发伤害，用于将每击上限换算为 DPS；常规小弹丸默认 20
+	bool bypassShield = false, fume = false; // 抛物绕盾/大喷穿盾由 Board 解析；西瓜使用 melon 的双层受伤语义
 	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
 	float initialHealth = 0, productionAt = 0; // 削血分母与新生产株首次产出的时刻，游戏秒
 	float assetValue = 0; // 当前生命对应的卡价折冰估值；终点再按后续剩余生命折价，不直接返给僵尸
@@ -83,7 +89,7 @@ struct ConstructionStats {
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
-struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; };
+struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; };
 struct Action { int option = 0; float delay = 0; };
 /** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
 struct CommittedUnit { int unit = 0; std::array<bool, 6> legalRows{}; };
@@ -152,6 +158,8 @@ StateFeatures DescribeState(const Snapshot& state, const Weights& baseline);
 Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model);
 /** 将经济项换成同一冰价的净收益；支出系数不可独立变异为奖励，残存投资至多按原价计。 */
 Weights AccountForIce(const Weights& conditioned);
+/** 护盾能减少的本体火力比例；Board 用它修正持盾单位的火力偏好上下文，保留无盾单位原语义。 */
+float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 有限步位置推演；counterHoldSeconds 只延迟未提交且非救险的玩家反制，不能延迟已种下的爆炸。 */

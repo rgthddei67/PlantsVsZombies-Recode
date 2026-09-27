@@ -879,4 +879,84 @@ int main()
 	check(!planner.Busy() && !planner.TakeReady(), "cancellation releases worker ownership and publishes no partial result");
 	std::cout << "Owned background snapshots, deterministic search and cancellation passed\n";
 
+	{
+	// Same total health has different meaning for a shield and a helmet against lobbed splash.
+	ColdStorageSearch::Snapshot armorCase;
+	ColdStorageSearch::Unit door;
+	door.body.x = 900; door.body.health = 1370; door.shieldHealth = 1100; door.body.purchaseCost = 8;
+	ColdStorageSearch::Plant melon;
+	melon.x = 300; melon.health = 300; melon.dps = 40; melon.melon = true; melon.hitDamage = 120;
+	armorCase.plants = {melon}; armorCase.current = {door};
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] == 0, "melon kills a door's body despite intact shield health");
+	auto reinforced = door;
+	reinforced.body.health = 1300; reinforced.shieldHealth = 1030;
+	reinforced.shieldedHitCap = 10; reinforced.shieldedAshCap = 320;
+	reinforced.blocksShieldBypass = reinforced.blocksFumePiercing = true; reinforced.fumeMultiplier = 2;
+	armorCase.current = {reinforced};
+	const float reinforcedAssets = ColdStorageSearch::Evaluate(armorCase,{})[3];
+	check(std::abs(reinforcedAssets-8.0f*900/1300) < .001f,
+		"reinforced door melon hit is capped at ten on BOTH shield and body");
+	armorCase.current[0].body.health = 1130; // 100 body + 1030 shield, dies during the forecast.
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] == 0, "reinforced door's surviving shield cannot keep its dead body alive");
+	armorCase.current = {reinforced}; armorCase.current[0].shieldHealth = 0; armorCase.current[0].body.health = 270;
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] == 0, "broken reinforced door loses its per-hit cap");
+	armorCase.current = {door}; armorCase.plants[0].melon = false; armorCase.plants[0].dps = 10;
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] > 0, "ordinary door still absorbs frontal non-piercing fire");
+	armorCase.plants[0].bypassShield = true;
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] == 0, "lobbed shield bypass reaches the ordinary door body");
+	armorCase.current = {reinforced};
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] > 0, "reinforced shield rejects a lobbed bypass request");
+	armorCase.plants.clear(); armorCase.current = {reinforced};
+	ColdStorageSearch::Counter ash;
+	ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[0]=100; ash.blast.damage=1800; ash.blast.committed=true;
+	armorCase.counters = {ash};
+	check(std::abs(ColdStorageSearch::Evaluate(armorCase,{})[3]-8.0f*980/1300) < .001f,
+		"reinforced shield caps one ash hit at 320 without erasing its body");
+	armorCase.current = {door};
+	check(ColdStorageSearch::Evaluate(armorCase,{})[3] == 0, "ordinary shield has no reinforced ash resistance");
+	armorCase.counters.clear(); armorCase.plants = {melon};
+	armorCase.current = {reinforced,reinforced}; armorCase.current[1].body.row=1;
+	check(std::abs(ColdStorageSearch::Evaluate(armorCase,{})[3]-16.0f*900/1300) < .002f,
+		"reinforced cap applies separately to direct melon and adjacent splash hits");
+	check(ColdStorageSearch::ShieldProtectionFraction(door,melon)==0
+		&& ColdStorageSearch::ShieldProtectionFraction(reinforced,melon)>.9f,
+		"ordinary door has no anti-melon protection preference but reinforced damage cap remains valuable");
+	armorCase.current = {reinforced}; armorCase.plants[0].melon=false; armorCase.plants[0].fume=true;
+	armorCase.plants[0].multiTarget=true; armorCase.plants[0].dps=20; armorCase.plants[0].hitDamage=20;
+	ColdStorageSearch::Unit rearWorker;
+	rearWorker.body.x=1000; rearWorker.body.health=500; rearWorker.body.economic=true;
+	armorCase.current.push_back(rearWorker);
+	check(ColdStorageSearch::Evaluate(armorCase,{})[4] > 100,
+		"reinforced shield interrupts linear fume before it reaches a rear worker");
+	armorCase.plants[0].around=true;
+	check(ColdStorageSearch::Evaluate(armorCase,{})[4] < 100,
+		"gloom's surrounding cloud is not stopped by a reinforced shield in another direction");
+	std::cout << "Shield layers, melon parallel damage and reinforced door resistance passed\n";
+
+	}
+	{
+	ColdStorageSearch::Snapshot broad;
+	broad.capacity = 1; broad.budget = 24; broad.netEconomy = true;
+	ColdStorageSearch::Unit harmless;
+	harmless.body.x = 1150; harmless.body.health = 500;
+	harmless.body.purchaseCost = 24;
+	// No preferred type ids, every type has the same row count. Only the last type can earn anything.
+	for (int type=0; type<48; ++type) for (int row=0; row<5; ++row) {
+		auto unit = harmless; unit.body.row = row; unit.body.economic = type==47;
+		broad.options.push_back({type,row,24,unit,{}});
+	}
+	const ColdStorageSearch::Weights returns{0,0,0,0,1,-1,0,0};
+	for (unsigned seed=1; seed<=64; ++seed) {
+		const auto chosen = ColdStorageSearch::Search(broad,returns,seed);
+		check(chosen.actions.size()==1 && broad.options[chosen.actions[0].option].unit.body.economic,
+			"wide roster evaluates every affordable type instead of randomly missing its sole profitable investment");
+	}
+	broad.plants.push_back({}); broad.plants[0].x=300; broad.plants[0].health=300; broad.plants[0].dps=10000;
+	broad.plants[0].rowRadius=5; broad.plants[0].multiTarget=true;
+	for (auto& option : broad.options) { option.unit.body.x=900; option.unit.productionRemaining=10; }
+	check(ColdStorageSearch::Search(broad,returns,8).actions.empty(),
+		"coverage does not force an economic unit when every investment dies before production");
+	std::cout << "Wide roster opportunity coverage and optional economy passed\n";
+	}
+
 }

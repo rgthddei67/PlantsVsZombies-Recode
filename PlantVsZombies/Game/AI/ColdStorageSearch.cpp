@@ -40,6 +40,36 @@ constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格�
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 
+/** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
+float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false) {
+	auto& health = unit.body.health;
+	const float before = health;
+	const float shield = std::clamp(unit.shieldHealth,0.0f,std::max(0.0f,health));
+	const float shieldLoss = bypass ? 0 : std::min(shield,damage);
+	const float vitalLoss = bypass || penetrate ? damage : discardOverflow && shield > 0 ? 0 : damage-shieldLoss;
+	const float vital = health-shield-vitalLoss;
+	unit.shieldHealth = shield-shieldLoss;
+	health = vital > 0 ? vital+unit.shieldHealth : 0;
+	return before-health;
+}
+struct PlantHit { float rate; bool penetrate, bypass, discardOverflow; };
+/** 把单击修正换算回持续火力；西瓜溅射先分配伤害预算，再应用目标自身每击上限。 */
+PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction = 1) {
+	const bool shielded = unit.shieldHealth > 0;
+	const bool blocksFume = shielded && unit.blocksFumePiercing && plant.fume;
+	const bool bypass = plant.bypassShield && !(shielded && unit.blocksShieldBypass);
+	const float multiplier = plant.fume ? unit.fumeMultiplier : 1;
+	const float hit = plant.hitDamage*fraction*multiplier;
+	const float cap = shielded && !bypass ? unit.shieldedHitCap : 0;
+	const float reduction = cap > 0 && hit > 0 ? std::min(1.0f,cap/hit) : 1;
+	return {plant.dps*fraction*multiplier*reduction,plant.melon || (plant.fume && !blocksFume),bypass,blocksFume};
+}
+/** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
+float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
+	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
+	return ApplyDamage(unit,cap > 0 ? std::min(damage,cap) : damage);
+}
+
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
 	return std::max(0,std::min(s.capacity,s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
@@ -102,6 +132,44 @@ std::vector<Action> SamplePortfolio(const Snapshot& s, std::mt19937& rng, int tr
 		for (int i = 0; i < count; ++i) affordable.push_back(plan[i*plan.size()/count]);
 		plan = std::move(affordable);
 	}
+	return plan;
+}
+
+/** 分层抽样先给各可支付兵种一个合法落点，避免大兵池把低频经济/协同能力淹没；不按角色加权。 */
+std::vector<int> SampleTypeCoverage(const Snapshot& s, std::mt19937& rng, int limit) {
+	std::vector<std::vector<int>> types;
+	for (int i=0; i<static_cast<int>(s.options.size()); ++i) {
+		const auto& option = s.options[i];
+		if (option.cost <= 0 || option.cost > s.budget) continue;
+		const auto group = std::find_if(types.begin(),types.end(),[&](const auto& entries) {
+			return s.options[entries.front()].type == option.type;
+		});
+		if (group == types.end()) types.push_back({i});
+		else group->push_back(i);
+	}
+	// 小兵池沿用已验证的随机流和搜索过程；只修复宽于小队容量的兵池覆盖稀释。
+	if (types.size() <= kMaxActions) return {};
+	std::shuffle(types.begin(),types.end(),rng);
+	std::vector<int> result;
+	for (const auto& type : types) {
+		if (static_cast<int>(result.size()) >= limit) break;
+		result.push_back(type[rng()%type.size()]);
+	}
+	return result;
+}
+
+/** 将一个新兵种试入已有优案；先腾出预算和容量，不能让合法候选在 Repair 中总被队尾截掉。 */
+std::vector<Action> IntroduceOption(const Snapshot& s, std::vector<Action> plan, int option, std::mt19937& rng) {
+	int cost = s.options[option].cost;
+	for (const auto& action : plan) cost += s.options[action.option].cost;
+	while (!plan.empty() && (static_cast<int>(plan.size()) >= ActionLimit(s) || cost > s.budget)) {
+		const auto at = rng()%plan.size();
+		cost -= s.options[plan[at].option].cost;
+		plan.erase(plan.begin()+at);
+	}
+	// 无队友时从立即行动起评；已有编队仍自由比较分批时机，生产单位没有固定保护模板。
+	const float delay = plan.empty() ? 0 : (rng()%(static_cast<int>(DelayLimit(s)*2)+1))*.5f;
+	plan.push_back({option,delay});
 	return plan;
 }
 
@@ -194,6 +262,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
+		context[5] *= option.firePreferenceScale; // 盾牌偏好只受它实际能削弱的火力激励，不能把穿盾火力也算成优势。
 		context[0] = 1;
 		// 先前已付款且会先到场的队友也是协作背景，不能因其还在队列中而漏掉护卫。
 		for (const auto& paid : s.committed) {
@@ -269,9 +338,8 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 				if (u.health <= 0 || u.spawnAt > time || u.row != row) continue;
 				const bool primary = static_cast<int>(i) == target;
 				if (!primary && std::abs(u.x+u.blastAnchorOffset-center) > strike.radius) continue;
-				const float damage = std::min(u.health,primary ? strike.damage : strike.splashDamage);
+				const float damage = ApplyDiscreteHit(units[i],primary ? strike.damage : strike.splashDamage,false);
 				features[6] += u.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
-				u.health -= damage;
 			}
 		}
 		// 无目标时保留充能；释放一次覆盖所有行，而不是让每行各自获得独立冷却。
@@ -307,9 +375,8 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		if (it->at > time) { ++it; continue; }
 		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
-			const float damage = std::min(body.health, it->blast.damage);
+			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
 			features[6] += body.purchaseCost * damage / std::max(1.0f, initialHealth[i]);
-			body.health -= damage;
 		}
 		it = pending.erase(it);
 	}
@@ -343,13 +410,13 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		float loss = 0;
 		bool urgent = false;
 		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(candidate, units[i], time)) {
-			float health = units[i].body.health;
+			auto projected = units[i];
 			// 不连续把三张清场牌浪费在已被另一张锁定的濒死目标上。
 			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time))
-				health -= scheduled.blast.damage;
-			if (health <= 0) continue;
+				ApplyDiscreteHit(projected,scheduled.blast.damage,true);
+			if (projected.body.health <= 0) continue;
 			const float stake = FullForecast(state) ? std::max(kUnpricedCounterStake,units[i].body.purchaseCost) : units[i].body.purchaseCost;
-			loss += stake * std::min(health,candidate.damage) / std::max(1.0f, initialHealth[i]);
+			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true) / std::max(1.0f, initialHealth[i]);
 			urgent = urgent || units[i].body.x < state.houseX + 240;
 		}
 		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
@@ -541,6 +608,12 @@ float ProductionCalibration::Predict(const ProductionFeatures& features) const {
 	return 1;
 }
 
+float ShieldProtectionFraction(const Unit& unit, const Plant& plant) {
+	if (unit.shieldHealth <= 0 || plant.dps <= 0) return 1;
+	const auto hit = DescribePlantHit(unit,plant);
+	return hit.penetrate || hit.bypass ? std::clamp(1-hit.rate/plant.dps,0.0f,1.0f) : 1;
+}
+
 bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	if (budget >= reserve || result.actions.empty()) return false;
 	const auto& plan = result.features;
@@ -679,6 +752,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				}
 			}
 			const float secondaryDps = ColdStorageStrategy::MelonSecondaryDps(p.dps,secondaryCount);
+			float fumeEnd = p.x+p.range;
+			if (p.fume && !p.around) for (const auto& unit : units) {
+				if (unit.body.health > 0 && unit.body.spawnAt <= t && unit.body.row == p.row
+					&& unit.body.x >= p.x-30 && unit.shieldHealth > 0 && unit.blocksFumePiercing)
+					fumeEnd = std::min(fumeEnd,unit.body.x);
+			}
 			for (size_t i = 0; i < units.size(); ++i) {
 				auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t) continue;
@@ -686,8 +765,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				const bool area = !p.melon && p.multiTarget && std::abs(u.row - p.row) <= p.rowRadius
 					&& (p.around ? std::abs(u.x - p.x) <= p.range : u.x >= p.x - 30 && u.x <= p.x + p.range);
 				if (static_cast<int>(i) != target && !splash && !area) continue;
-				u.health -= (splash ? secondaryDps : p.dps) * kStep;
-				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0)
+				if (p.fume && !p.around && u.x > fumeEnd) continue;
+				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);
+				const bool slowReachesBody = units[i].shieldHealth <= 0 || p.melon || hit.bypass;
+				ApplyDamage(units[i],hit.rate*kStep,hit.penetrate,hit.bypass,hit.discardOverflow);
+				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2));
 				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep));
 			}
@@ -856,6 +938,8 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	bool hasChoice = s.allowWait; // 正式构建启用 fast-math，不能用无穷大充当尚无候选的哨兵。
 	bool deferredInvestment = false;
 	const int trials = s.searchVersion == 2 ? kPortfolioTrials : kTrials;
+	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
+	const auto coverage = SampleTypeCoverage(s,rng,trials/2);
 	int largestPlan = 0;
 	for (int trial = 1; trial < trials; ++trial) {
 		auto plan = elite[rng() % elite.size()].actions;
@@ -896,8 +980,10 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 				else plan.push_back({plan[at].option, plan[at].delay + 2});
 			}
 		}
+		if (trial <= static_cast<int>(coverage.size()))
+			plan = IntroduceOption(s,best.actions,coverage[trial-1],rng);
 		// 给有钱的空场提供一个必定可行的起点；其余候选仍自由比较兵种、路线和队形。
-		if (!s.allowWait && trial == 1) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
+		if (!s.allowWait && trial == 1 && coverage.empty()) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
 		Repair(s, plan);
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;

@@ -167,6 +167,8 @@ public:
 	/** 返回当前弹型对目标冰制层请求的独立腐蚀值；普通弹丸为 0。 */
 	int GetWinterCorrosionDamage() const;
 
+	/** 返回出生/对象池复用共用的基础单发伤害，供只读战斗画像使用。 */
+	static int GetBaseDamage(BulletType type);
 	int GetBulletDamage() const { return mDamage; }
 	void SetBulletDamage(int damage) { this->mDamage = damage; }
 	void SetPlantDamageOrigin(PlantDamageOrigin origin) { mPlantDamageOrigin = origin; }
