@@ -502,6 +502,7 @@ void Board::PlanColdStorageAttack(bool background)
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
 	s.candidatesEvaluated = 0;
+	s.searchInvestmentEvaluated = 0; s.searchInvestmentBaseScore = s.searchInvestmentBestScore = 0;
 	s.predictedProduction = 0.0f;
 	s.economyValue = 0.0f;
 	s.economyRow = -1;
@@ -1660,6 +1661,8 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
 	s.searchFormationChosenRow = result.formationChosenRow;
+	s.searchInvestmentEvaluated = result.investmentEvaluated;
+	s.searchInvestmentBaseScore = result.investmentBaseScore; s.searchInvestmentBestScore = result.investmentBestScore;
 	s.searchProductionInputs = result.productionInputs;
 	s.formationBlastLoss = result.blastLoss;
 	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];

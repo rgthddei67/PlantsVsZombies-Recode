@@ -251,6 +251,11 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const auto opponent = command.value("opponent", std::string("bomb"));
+	const int refillBelow = command.value("sunRefillBelow",-1);
+	const int refillTo = command.value("sunRefillTo",MAX_SUN);
+	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
+		Fail("commander_episode: invalid external sun refill"); return false;
+	}
 	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
@@ -264,7 +269,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	}
 	if (mEpisodeTicks < 0) {
 		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
-		mEpisodePlantings = Json::object(); mEpisodeDecisions = Json::array();
+		mEpisodePlantings = Json::object(); mEpisodeDecisions = Json::array(); mEpisodeSunRefills = Json::array();
 		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
 		Log("commander episode started: " + opponent);
 	}
@@ -281,7 +286,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
 			{"rowStrikes",ice.at("searchRowStrikeCount")},
-			{"formation",ice.at("searchFormation")},
+			{"formation",ice.at("searchFormation")},{"investment",ice.at("searchInvestment")},
 			{"stateInputs",ice.at("searchStateInputs")},{"effectiveWeights",ice.at("searchEffectiveWeights")},
 			{"adaptive",ice.at("searchAdaptive")},
 			{"expandedForecast",ice.at("searchExpandedForecast")},
@@ -315,12 +320,19 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
 			{"playerActions",command.value("playerActions",true)},
+			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
 		output << result.dump(2); output.flush();
 		if (!output) { Fail("cannot write episode result"); return false; }
 		Log("commander episode finished: " + result.at("outcome").get<std::string>());
 		mEpisodeTicks = -1; return true;
+	}
+	// 模拟主人用 CE 在低阳光时再次补满；仅测试命令显式启用，不把未来补款泄露给 AI。
+	// 记录每一笔注入，普通训练/真人观察缺省不会进入此分支，灰烬冷却和冰块仍走正式规则。
+	if (refillBelow >= 0 && board->mSun <= refillBelow) {
+		mEpisodeSunRefills.push_back({{"seconds",mEpisodeTicks/60.0},{"before",board->mSun},{"after",refillTo},{"added",refillTo-board->mSun}});
+		board->mSun = refillTo; full["sun"] = refillTo;
 	}
 	// 静态诊断保留正式战斗，只关闭陪练输入，不能把结果混入实战胜率。
 	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent)) {

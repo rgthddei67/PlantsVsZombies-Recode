@@ -89,6 +89,7 @@ private:
 	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
 	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings, mEpisodeDecisions;
+	nlohmann::json mEpisodeSunRefills; // 仅显式压力夹具的外部阳光注入记录，不能混入普通训练胜率
 
 	bool mActive = false;
 	int  mExitCode = 0;

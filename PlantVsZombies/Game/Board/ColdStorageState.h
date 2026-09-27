@@ -69,6 +69,8 @@ struct ColdStorageState {
 	int decisions = 0;
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
+	int searchInvestmentEvaluated = 0; // 大兵池额外经营对照次数，仅诊断不入档
+	float searchInvestmentBaseScore = 0, searchInvestmentBestScore = 0; // 是否因经营对照改善评分，不代表必定购买工人
 	float lastBestScore = 0.0f;
 	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一推演时域的计划/不增援预测（产冰固定60秒），诊断不入档
 	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档

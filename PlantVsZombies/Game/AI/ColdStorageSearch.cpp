@@ -37,6 +37,7 @@ constexpr float kForecastImpWalkSpeed = 20; // 小鬼落地后的保守移动近
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
+constexpr int kInvestmentTrials = 32; // 大兵池额外经营对照的单阶段上限；不增加原攻击搜索预算或强制采购
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 
@@ -1000,12 +1001,37 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		std::stable_sort(elite.begin(), elite.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
 		if (elite.size() > 8) elite.resize(8);
 	}
+	int investmentEvaluated = 0;
+	const float investmentBaseScore = best.score;
+	// 大兵池的一次兵种抽样不等于已充分试过经营：错误落点被淘汰后，末尾整体改路无法再救回该兵种。
+	// 固定原进攻优案作保底，额外比较“同行跟进”和“只给已有部队增援”；不改收益、不固定买几只。
+	if (!coverage.empty()) {
+		const auto parent = best.actions;
+		for (int phase=0; phase<3 && investmentEvaluated<kInvestmentTrials; ++phase)
+			for (int separate=0; separate<2 && investmentEvaluated<kInvestmentTrials; ++separate) {
+				if (separate && parent.empty()) continue;
+				for (int option=0; option<static_cast<int>(s.options.size()) && investmentEvaluated<kInvestmentTrials; ++option) {
+					const auto& choice = s.options[option];
+					if (!choice.unit.body.economic || choice.cost <= 0 || choice.cost > s.budget) continue;
+					auto plan = IntroduceOption(s,separate ? std::vector<Action>{} : parent,option,rng);
+					plan.back().delay = DelayLimit(s)*phase/2;
+					Repair(s,plan);
+					if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
+					largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
+					auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
+					++investmentEvaluated;
+					if (ShouldRegroup(candidate,s.budget,s.recoveryReserve)) { deferredInvestment = true; continue; }
+					if (candidate.score > best.score+.001f) best = std::move(candidate);
+				}
+			}
+	}
+	const float investmentBestScore = best.score;
 	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
 	// 因此可以发现继续支援巨人的收益，也能因灰烬、溅射或减速而保留分路方案。
 	const auto original = best.actions;
 	const float baseScore = best.score;
 	std::array<float, 6> rowScores{};
-	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials;
+	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials+investmentEvaluated;
 	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()); ++row) {
 		auto plan = original;
 		if (!Concentrate(s, plan, row)) continue;
@@ -1016,6 +1042,8 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	}
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
+	best.investmentEvaluated = investmentEvaluated;
+	best.investmentBaseScore = investmentBaseScore; best.investmentBestScore = investmentBestScore;
 	best.evaluated = evaluated;
 	best.largestPlan = largestPlan;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
@@ -1031,6 +1059,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		auto result = Search(expanded,baseWeights,seed);
 		result.expandedForecast = true;
 		result.evaluated += best.evaluated;
+		result.investmentEvaluated += best.investmentEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}

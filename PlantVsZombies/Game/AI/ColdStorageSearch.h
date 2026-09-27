@@ -139,6 +139,8 @@ struct Result {
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	float opponentAssets = 0, baselineOpponentAssets = 0, opponentScore = 0; // 与不增援基线比较，避免奖励本来就会发生的消耗
 	int evaluated = 0;
+	int investmentEvaluated = 0; // 经营对照次数，升级搜索时合计两阶段；下方分数仅对应最终阶段
+	float investmentBaseScore = 0, investmentBestScore = 0; // 相同评分下，保底进攻案与经营对照后的优案
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;

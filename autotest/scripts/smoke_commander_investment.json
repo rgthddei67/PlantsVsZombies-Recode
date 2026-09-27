@@ -1,0 +1,32 @@
+{
+  "muteAudio": true,
+  "commands": [
+    {"op":"goto_level","level":2001,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_MARIGOLD","PLANT_MELONPULT","PLANT_CHERRYBOMB"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":1000,"initialEnemyIce":1000,"decisions":20,"elapsed":300,"decisionRemaining":60,"dispatchQuietSeconds":25}},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":30},
+    {"op":"assert_state","path":"coldStorage.commanderStrategy","equals":"learned_search"},
+    {"op":"assert_state","path":"coldStorage.searchInvestment.evaluated","atLeast":1,"atMost":64},
+    {"op":"dump_state","name":"wide.json"},
+    {"op":"goto_level","level":82,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_MARIGOLD","PLANT_MELONPULT","PLANT_CHERRYBOMB"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":1000,"initialEnemyIce":1000,"decisions":20,"elapsed":300,"decisionRemaining":60,"dispatchQuietSeconds":25}},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":30},
+    {"op":"assert_state","path":"coldStorage.commanderStrategy","equals":"learned_search"},
+    {"op":"assert_state","path":"coldStorage.searchInvestment.evaluated","equals":0},
+    {"op":"dump_state","name":"narrow.json"},
+    {"op":"set_sun","value":1000},
+    {"op":"commander_episode","opponent":"counter","seconds":1,"playerActions":false,"name":"refill-1","sunRefillBelow":1000,"sunRefillTo":9990},
+    {"op":"set_sun","value":1000},
+    {"op":"commander_episode","opponent":"counter","seconds":1,"playerActions":false,"name":"refill-2","sunRefillBelow":1000,"sunRefillTo":9990},
+    {"op":"set_sun","value":1000},
+    {"op":"commander_episode","opponent":"counter","seconds":1,"playerActions":false,"name":"no-refill"},
+    {"op":"quit"}
+  ]
+}

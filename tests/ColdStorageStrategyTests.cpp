@@ -959,4 +959,45 @@ int main()
 	std::cout << "Wide roster opportunity coverage and optional economy passed\n";
 	}
 
+	{
+	auto crowded = followup;
+	crowded.plants.clear(); crowded.options.clear();
+	for (int row=0; row<5; ++row) {
+		ColdStorageSearch::Plant fire;
+		fire.row=row; fire.x=300; fire.health=300; fire.dps=200; fire.edible=false;
+		crowded.plants.push_back(fire);
+	}
+	crowded.current[0].body.health=20000;
+	for (int type=0; type<48; ++type) for (int row=0; row<5; ++row) {
+		auto option=producer;
+		option.type=type; option.row=option.unit.body.row=row; option.preference={};
+		option.unit.body.x=900; option.unit.body.speed=0; option.unit.body.economic=type==47;
+		crowded.options.push_back(option);
+	}
+	ColdStorageSearch::Weights returnWeights{}; returnWeights[4]=1; returnWeights[5]=-1;
+	int missed=0;
+	for (unsigned seed=1; seed<=64; ++seed) {
+		const auto result=ColdStorageSearch::Search(crowded,returnWeights,seed);
+		if (result.actions.empty()) ++missed;
+		check(result.investmentEvaluated>0 && result.investmentEvaluated<=32,"additional investment search has a bounded budget");
+		check(result.investmentBestScore>=result.investmentBaseScore,"economic refinement never replaces a higher scoring attack");
+	}
+	check(missed==0,"wide-roster search must compare protected economic routes even if a random unsafe sample was discarded");
+	std::cout << "Protected investment in 48-type roster missed " << missed << "/64; known safe production="
+		<< ColdStorageSearch::Evaluate(crowded,{{47*5+3,0}})[4] << "\n";
+	ColdStorageSearch::Counter wipe;
+	wipe.blast.committed=true; wipe.blast.damage=100000; wipe.blast.x=800;
+	wipe.blast.reach.fill(-1); wipe.blast.reach[3]=10000;
+	crowded.counters={wipe};
+	check(ColdStorageSearch::Search(crowded,returnWeights,13).actions.empty(),"a committed wipe removes the escort before new production can be justified");
+	crowded.counters.clear(); crowded.current.clear();
+	check(ColdStorageSearch::Search(crowded,returnWeights,13).actions.empty(),"unprotected production still loses to waiting");
+	crowded.plants.clear();
+	for (int row=0; row<5; ++row) { crowded.options[row].unit.body.x=1; crowded.options[row].unit.body.speed=20; }
+	returnWeights[2]=500;
+	const auto immediateWin=ColdStorageSearch::Search(crowded,returnWeights,13);
+	check(immediateWin.features[2]>0 && !crowded.options[immediateWin.actions[0].option].unit.body.economic,
+		"a winning attack is retained instead of forcing an available economic investment");
+	}
+
 }

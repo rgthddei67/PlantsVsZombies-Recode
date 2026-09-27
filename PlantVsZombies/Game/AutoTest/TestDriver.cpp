@@ -4842,6 +4842,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
+		ice["searchInvestment"] = {{"evaluated",board->mColdStorage.searchInvestmentEvaluated},
+			{"baseScore",board->mColdStorage.searchInvestmentBaseScore},{"bestScore",board->mColdStorage.searchInvestmentBestScore}};
 		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
 			{"initialYield",IceProduction::InitialYield},{"maximumYield",IceProduction::MaximumYield},
 			{"growth",IceProduction::YieldGrowth},{"workerCost",IceProduction::WorkerCost}};
