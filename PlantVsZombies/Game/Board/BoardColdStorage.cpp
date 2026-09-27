@@ -52,7 +52,7 @@ namespace {
 	constexpr float kLargeOrderDelay = 10, kSmallOrderDelay = 5; // 商店订单从付款到到货的游戏秒
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
-	constexpr int kHugeWaveIceThreshold = 120; // 单波实际付费达到此冰量时显示原版大波提示
+	constexpr int kHugeWaveIceThreshold = 90; // 单波实际付费达到此冰量时显示原版大波提示
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
 	constexpr float kDecisionSeconds = 12.0f; // 常规指挥决策间隔，游戏秒
 	constexpr float kOpeningDecisionSeconds = 18.0f; // 前两分钟两波之间留出经济恢复时间，游戏秒
