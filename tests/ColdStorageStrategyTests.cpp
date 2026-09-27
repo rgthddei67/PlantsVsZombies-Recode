@@ -528,6 +528,48 @@ int main()
 	layeredSmash.searchVersion = 2;
 	check(ColdStorageSearch::Evaluate(layeredSmash,{})[0] == 20,"one completed smash affects shell and host in the same cell");
 	std::cout << "Thrown child commitment, free summons and same-cell smash layers passed\n";
+	// 队友先吃掉砸击目标后，动作仍应结束；残留进度不能永久封住后续投小鬼。
+	ColdStorageSearch::Snapshot lostSmashTarget;
+	lostSmashTarget.searchVersion = 2;
+	ColdStorageSearch::Unit smashingGiant, bitingAlly;
+	smashingGiant.body.x = 1000; smashingGiant.body.health = 600; smashingGiant.body.speed = 5;
+	smashingGiant.body.smashSeconds = 3; smashingGiant.throwHealth = 500; smashingGiant.throwAnchorX = 682;
+	bitingAlly.body.x = 990; bitingAlly.body.health = 10000; bitingAlly.biteDps = 80;
+	lostSmashTarget.current = {smashingGiant,bitingAlly};
+	ColdStorageSearch::Plant weakWall, coveringFire;
+	weakWall.x = 950; weakWall.column = 7; weakWall.health = 40; weakWall.reward = 10;
+	coveringFire.x = 200; coveringFire.health = 100000; coveringFire.dps = 10;
+	coveringFire.multiTarget = true; coveringFire.edible = false;
+	lostSmashTarget.plants = {weakWall,coveringFire};
+	check(ColdStorageSearch::Evaluate(lostSmashTarget,{})[2] == 1,
+		"a teammate removing the smash target cannot permanently suppress the giant's later imp throw");
+	lostSmashTarget.plants[1].dps = 0;
+	ColdStorageSearch::Counter injureDuringSmash = killParent;
+	injureDuringSmash.blast.x = 1000; injureDuringSmash.blast.reach[0] = 30;
+	injureDuringSmash.blast.ready = .5f; injureDuringSmash.blast.damage = 100;
+	killParent.blast.x = 1000; killParent.blast.ready = 2;
+	lostSmashTarget.counters = {injureDuringSmash,killParent};
+	check(ColdStorageSearch::Evaluate(lostSmashTarget,{})[2] == 0,
+		"losing a target cannot cancel the remaining smash windup and release an imp before lethal damage");
+	lostSmashTarget.counters[1].blast.ready = 4;
+	check(ColdStorageSearch::Evaluate(lostSmashTarget,{})[2] == 1,
+		"the completed empty smash unlocks a subsequent throw before the later lethal hit");
+	lostSmashTarget.current[0].body.stopped = 2;
+	check(ColdStorageSearch::Evaluate(lostSmashTarget,{})[2] == 0,
+		"immobilization still delays an empty smash instead of advancing its recovery on wall time");
+	for (int version : {1,2}) {
+		auto differentCell = lostSmashTarget;
+		differentCell.searchVersion = version;
+		differentCell.current[0].body.stopped = 0; differentCell.current[0].throwHealth = 0;
+		differentCell.current[0].body.speed = 0; differentCell.current[1].body.x = 1005;
+		auto nextWall = weakWall;
+		nextWall.x = 945; nextWall.column = 6; nextWall.health = 4000; nextWall.reward = 50;
+		differentCell.plants = {weakWall,nextWall};
+		differentCell.counters = {killParent}; differentCell.counters[0].blast.ready = 4;
+		check(ColdStorageSearch::Evaluate(differentCell,{})[0] == 10,
+			"an unfinished smash cannot transfer its charge to another cell after the original target dies");
+	}
+	std::cout << "Lost smash target recovery, windup and immobilization passed\n";
 	for (int version : {1,2}) {
 		ColdStorageSearch::Snapshot mowerTest;
 		mowerTest.searchVersion = version; mowerTest.houseX = 100;

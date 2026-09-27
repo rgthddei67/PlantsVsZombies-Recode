@@ -587,6 +587,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	}
 	float constructionAt = 0;
 	std::vector<float> initialHealth, initialX, smash(units.size());
+	std::vector<int> smashTarget(units.size(),-1);
 	for (const auto& u : units) { initialHealth.push_back(u.body.health); initialX.push_back(u.body.x); }
 	std::vector<float> counterReady;
 	std::vector<float> rowStrikeReady;
@@ -614,6 +615,28 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 	};
 	capPlayerResources();
+	// 砸击一旦开始，目标被队友先消灭也要走完原有前摇。锁住原格，
+	// 避免残留进度永久挡住投掷，或把半次砸击转移给后面另一格植物。
+	const auto advanceSmash = [&](size_t i, float active, float speedFactor) {
+		smash[i] += active * (speedFactor < 1 ? 0.6f : 1);
+		if (smash[i] < units[i].body.smashSeconds) return;
+		const int target = smashTarget[i];
+		smash[i] = 0; smashTarget[i] = -1;
+		const int row = plants[target].row, column = plants[target].column;
+		if (FullForecast(s)) {
+			// 正式巨人一次砸击结算原格各层；原宿主消失不改变已经锁定的格位。
+			for (auto& p : plants) if (p.health > 0 && p.row == row && p.column == column) {
+				f[1] += p.reward*p.health/std::max(1.0f,p.initialHealth);
+				f[0] += p.reward; p.health = 0;
+			}
+		} else {
+			auto& p = plants[target];
+			if (p.health > 0) {
+				f[1] += p.reward*p.health/std::max(1.0f,p.initialHealth);
+				f[0] += p.reward; p.health = 0;
+			}
+		}
+	};
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
@@ -676,7 +699,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			u.stopped = std::max(0.0f, u.stopped - kStep);
 			const float speedFactor = u.slow > 0 ? u.slowFactor : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
-			if (i < originalUnits && thrownChild[i] >= 0 && smash[i] == 0 && u.health <= worker.throwHealth
+			if (smashTarget[i] >= 0) {
+				advanceSmash(i,active,speedFactor);
+				continue; // 动作完成后下一步才恢复投掷/移动，与既有正常砸击的步进顺序一致。
+			}
+			if (i < originalUnits && thrownChild[i] >= 0 && u.health <= worker.throwHealth
 				&& u.x > worker.throwAnchorX+ImpThrowRules::MinimumDistance) {
 				if (throwRemaining[i] < 0) throwRemaining[i] = worker.throwWindup;
 				throwRemaining[i] -= active*(speedFactor < 1 ? .5f : 1);
@@ -712,19 +739,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				auto& p = plants[contact];
 				float damage = worker.biteDps * active * (speedFactor < 1 ? 0.5f : 1);
 				if (u.smashSeconds > 0) {
-					smash[i] += active * (speedFactor < 1 ? 0.6f : 1);
-					damage = smash[i] >= u.smashSeconds ? p.health : 0;
-					if (damage > 0) {
-						smash[i] = 0;
-						if (FullForecast(s)) {
-							// 正式巨人一次砸击遍历同格各层，不能把壳与宿主误算成两次前摇。
-							for (auto& layer : plants) if (layer.health > 0 && layer.row == p.row && layer.column == p.column) {
-								f[1] += layer.reward*layer.health/std::max(1.0f,layer.initialHealth);
-								f[0] += layer.reward; layer.health = 0;
-							}
-							continue;
-						}
-					}
+					smashTarget[i] = contact;
+					advanceSmash(i,active,speedFactor);
+					continue;
 				}
 				f[1] += p.reward * std::min(p.health, damage) / std::max(1.0f, p.initialHealth);
 				p.health -= damage;
