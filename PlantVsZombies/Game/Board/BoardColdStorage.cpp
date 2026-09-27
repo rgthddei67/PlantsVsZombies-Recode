@@ -26,6 +26,7 @@
 #include "Game/Plant/PlantUpgradeRules.h"
 #include "GameApp.h"
 #include "DeltaTime.h"
+#include "ResourceKeys.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cmath>
@@ -51,6 +52,7 @@ namespace {
 	constexpr float kLargeOrderDelay = 10, kSmallOrderDelay = 5; // 商店订单从付款到到货的游戏秒
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
+	constexpr int kHugeWaveIceThreshold = 120; // 单波实际付费达到此冰量时显示原版大波提示
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
 	constexpr float kDecisionSeconds = 12.0f; // 常规指挥决策间隔，游戏秒
 	constexpr float kOpeningDecisionSeconds = 18.0f; // 前两分钟两波之间留出经济恢复时间，游戏秒
@@ -92,6 +94,16 @@ namespace {
 	constexpr float kBlastScorePerIce = 0.15f; // 候选新增爆炸损失折算的评分惩罚
 	constexpr float kAshForecastDamage = 1800.0f; // 樱桃/辣椒/毁灭菇正式灰烬伤害的预测值
 	constexpr float kBreachFrontHealth = 2000.0f; // 当前最前格达到此耐久时，快速跟进需等待破障前锋
+
+	/** 新波付款后提示一次；只计本批实际支出，旧在途队伍重排不重复提示。 */
+	void ShowPaidWavePrompt(BoardPresentation* presentation, int spent)
+	{
+		if (presentation && spent >= kHugeWaveIceThreshold) {
+			// 沿用原版提示时长；场景保留每条提示的独立生命周期，连续大波不覆盖旧提示。
+			presentation->ShowPrompt(ResourceKeys::Textures::IMAGE_HUGE_WAVE_APPROACHING,
+				0.4f, 4.0f, 0.3f);
+		}
+	}
 
 	/** 统一计划与预算采用的决策间隔，避免两处调整后预算速度失配。 */
 	float DecisionInterval(float elapsed, bool rapid = false)
@@ -1655,6 +1667,7 @@ void Board::PlanColdStorageAttack(bool background)
 	if (!s.pending.empty()) {
 		mCurrentWave = ++s.decisions;
 		for (auto& paid : s.pending) paid.wave = s.decisions;
+		ShowPaidWavePrompt(mPresentation, s.commanderSpent);
 		s.dispatchQuietSeconds = 0.0f;
 		if (s.commanderMode == "assault" && !s.attackDeferred) s.assaultCooldown = kAssaultCooldownSeconds;
 	}
@@ -1727,6 +1740,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	if (s.pending.size() > paidCount) {
 		mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0;
 		for (size_t i = paidCount; i < s.pending.size(); ++i) s.pending[i].wave = s.decisions;
+		ShowPaidWavePrompt(mPresentation, s.commanderSpent);
 	}
 }
 
