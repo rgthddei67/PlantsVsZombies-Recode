@@ -1000,4 +1000,105 @@ int main()
 		"a winning attack is retained instead of forcing an available economic investment");
 	}
 
+
+	// Paid abilities share the actual forecast wallet; candidate purchase and activation are separate edges.
+	{
+	using namespace ColdStorageSearch;
+	Snapshot battle; battle.houseX = -1000; battle.budget = 20; battle.capacity = 1;
+	Plant wall; wall.id=1; wall.row=0; wall.column=4; wall.x=800; wall.health=100000; wall.reward=100;
+	battle.plants={wall};
+	Unit boiler; boiler.body.row=0; boiler.body.x=850; boiler.body.speed=20; boiler.body.health=1000;
+	boiler.body.purchaseCost=15; boiler.biteDps=50;
+	auto& b=boiler.burst;
+	b.range=400; b.cost=5; b.stopHealth=333; b.windup=2; b.duration=8; b.recovery=5; b.retry=1;
+	b.moveMultiplier=5; b.biteMultiplier=10; b.recoveryMoveMultiplier=.5f;
+	Option option; option.cost=15; option.unit=boiler; battle.options={option};
+	ConstructionStats paid, broke;
+	const auto full=Evaluate(battle,{{0,0}},&paid);
+	battle.budget=15;
+	const auto empty=Evaluate(battle,{{0,0}},&broke);
+	check(paid.burstActivations==1 && paid.abilityIceSpent==5 && full[5]==20,"purchase leaves exactly one skill fee; commit only once");
+	check(broke.burstActivations==0 && empty[5]==15 && full[1]>empty[1],"cannot borrow hypothetical skill money after purchase");
+	check(battle.options[0].unit.burst.stage==PaidBurst::Stage::READY && battle.budget==15,"forecast never mutates authoritative snapshot");
+	battle.supplyRemaining=10; battle.supplyInterval=30; battle.supplyIce=5;
+	Evaluate(battle,{{0,0}},&paid);
+	check(paid.burstActivations==1 && paid.abilityIceSpent==5,"later real supply funds a retry rather than free initial burst");
+	battle.supplyInterval=0; battle.budget=5; battle.options.clear(); battle.current={boiler,boiler};
+	Evaluate(battle,{},&paid);
+	check(paid.burstActivations==1,"two boilers must compete for the same remaining five ice");
+	battle.current={boiler}; battle.budget=0;
+	Unit maker; maker.body.row=1; maker.body.x=900; maker.body.health=500; maker.body.economic=true;
+	maker.productionRemaining=4; maker.nextYield=5;
+	battle.current.push_back(maker); Evaluate(battle,{},&paid);
+	check(paid.burstActivations==1,"surviving economic ally can fund a future paid burst");
+	battle.current={boiler}; battle.budget=5; battle.current[0].body.health=333;
+	Evaluate(battle,{},&paid);
+	check(paid.burstActivations==0,"headless boiler cannot pay or activate");
+	battle.current[0]=boiler; battle.current[0].body.stopped=60;
+	Evaluate(battle,{},&paid);
+	check(paid.burstActivations==0,"hard control prevents starting windup and premature payment");
+	battle.current[0].burst.stage=PaidBurst::Stage::WINDUP; battle.current[0].burst.remaining=1;
+	Evaluate(battle,{},&paid); check(paid.burstActivations==0,"hard control also pauses an already started windup");
+	battle.current[0]=boiler; battle.plants[0].dps=10000;
+	Evaluate(battle,{},&paid); check(paid.burstActivations==0,"death before commit never pays the fee");
+	battle.plants[0].dps=0;
+	battle.budget=0; battle.current[0]=boiler;
+	battle.current[0].burst.stage=PaidBurst::Stage::ACTIVE; battle.current[0].burst.remaining=8;
+	const auto committed=Evaluate(battle,{},&paid);
+	check(paid.burstActivations==0 && paid.abilityIceSpent==0 && committed[1]>empty[1],"live active snapshot keeps paid power without charging twice");
+	battle.current[0].body.stopped=8;
+	const auto expired=Evaluate(battle,{},&paid);
+	battle.current[0].burst.stage=PaidBurst::Stage::SPENT;
+	const auto ordinaryAfterFreeze=Evaluate(battle,{});
+	check(expired[1]<ordinaryAfterFreeze[1],"paid burst expires while frozen, followed by no-bite recovery");
+	battle.current[0]=boiler; battle.current[0].burst.stage=PaidBurst::Stage::RECOVERY; battle.current[0].burst.remaining=60;
+	const auto venting=Evaluate(battle,{});
+	check(venting[0]==0 && venting[1]==0 && venting[2]==0,"recovery cannot eat or cross a blocking plant");
+	battle.current[0]=boiler; battle.current[0].body.x=1400; battle.current[0].body.speed=0; battle.budget=5;
+	Evaluate(battle,{},&paid);
+	check(paid.burstActivations==0,"out of trigger range cannot spend skill fee");
+	battle.current[0].body.x=1220; battle.current[0].body.blastAnchorOffset=-30;
+	Evaluate(battle,{},&paid);
+	check(paid.burstActivations==1,"trigger range follows object origin rather than offset collision center");
+	Result incremental; incremental.actions={{0,0}}; incremental.features[5]=5; incremental.baselineFeatures[5]=5;
+	check(!ShouldRegroup(incremental,0,48),"baseline skill expense is not charged again to an incremental plan");
+	std::cout << "Paid burst wallet, control, stage and retry contracts passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot arena; arena.houseX=-1000;
+	Plant shooter; shooter.id=1; shooter.x=300; shooter.row=1; shooter.column=1; shooter.dps=10; shooter.health=300;
+	Plant source; source.id=2; source.x=400; source.row=1; source.column=2; source.health=300;
+	Unit victim; victim.body.row=1; victim.body.x=1000; victim.body.speed=0; victim.body.health=10000; victim.body.purchaseCost=10000;
+	arena.plants={shooter,source}; arena.current={victim};
+	const auto normal=Evaluate(arena,{});
+	AttackAura aura; aura.plantID=2; aura.duration=12; aura.recharge=9; aura.bonus=1; aura.iceCost=30; aura.active=12;
+	arena.attackAuras={aura}; ConstructionStats stats;
+	const auto boosted=Evaluate(arena,{},&stats);
+	check(std::abs(normal[3]-boosted[3]-120)<.1f && stats.auraActivations==0,"existing aura expires after twelve seconds and is not charged again");
+	arena.playerIce=30; arena.attackAuras[0].active=0;
+	const auto renewed=Evaluate(arena,{},&stats);
+	check(stats.auraActivations==1 && stats.iceSpent==30 && std::abs(renewed[3]-boosted[3])<.1f,"manual aura uses shared wallet only when a covered shooter has a target");
+	arena.attackAuras.push_back(arena.attackAuras[0]); arena.attackAuras[1].plantID=3;
+	source.id=3; arena.plants.push_back(source); arena.playerIce=30;
+	Evaluate(arena,{},&stats);
+	check(stats.auraActivations==1,"two auras cannot double spend the same resource");
+	arena.playerIce=0; for(auto& a:arena.attackAuras) a.active=12;
+	const auto stacked=Evaluate(arena,{});
+	check(std::abs(normal[3]-stacked[3]-240)<.1f,"two active sources add attack bonuses instead of multiplying them");
+	arena.attackAuras.resize(1); arena.plants.resize(2); arena.plants[1].health=0;
+	check(Evaluate(arena,{})==normal,"destroyed aura source cannot keep buffing the field");
+	arena.plants[1].health=300; arena.attackAuras[0].active=0; arena.attackAuras[0].blockedUntil=60; arena.playerIce=90;
+	Evaluate(arena,{},&stats); check(stats.auraActivations==0,"shutdown source cannot activate before recovery");
+	arena.attackAuras[0].blockedUntil=0; arena.current.clear();
+	Evaluate(arena,{},&stats); check(stats.auraActivations==0,"manual mode does not waste ice with no target");
+	arena.attackAuras[0].automatic=true;
+	Evaluate(arena,{},&stats); check(stats.auraActivations==3 && stats.iceSpent==90,"automatic mode follows real unconditional activation and recharge");
+	arena.playerIce=0; arena.playerSun=100; arena.anticipateEconomy=true;
+	arena.shop={{100,30,2}};
+	Evaluate(arena,{},&stats);
+	check(stats.orders==1 && stats.auraActivations==1 && stats.iceSpent==30,"active ability demand can purchase ice without inventing free skill activations");
+	std::cout << "Temporary attack aura duration, wallet, stacking and source lifetime passed\n";
+	}
+
 }

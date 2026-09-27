@@ -81,7 +81,7 @@ void MagnetShroom::PlantUpdate()
 
 	// 原版在吸取开始当帧就设置 1500cs，因此射击动画时间也属于总充能时间。
 	mRechargeTime = std::max(0.0f, mRechargeTime
-		- DeltaTime::GetDeltaTime() * GetAttackSpeedMultiplier());
+		- DeltaTime::GetDeltaTime() * GetSkillSpeedMultiplier());
 	if (mPhase == Phase::SUCKING
 		&& GetCurrentTrackName() == GetChargingTrackName()) {
 		mPhase = Phase::CHARGING;
@@ -162,7 +162,7 @@ void MagnetShroom::BeginMagnetizing(MagneticItem item)
 	mRechargeTime = GetRechargeSeconds();
 	mHasCapturedItem = true;
 	mCapturedItem = std::move(item);
-	const float attackSpeed = GetAttackSpeedMultiplier();
+	const float attackSpeed = GetSkillSpeedMultiplier();
 	PlayTrackOnce(GetShootingTrackName(), GetChargingTrackName(),
 		kShootingFps / kReanimationFps * attackSpeed, 0.0f,
 		kChargingFps / kReanimationFps * attackSpeed, 0.0f);

@@ -81,8 +81,8 @@ bool ParsePreferences(const nlohmann::json& value, std::map<ZombieType, ColdStor
 }
 }
 const ColdStorageSearch::Weights* Get(int level) {
-	// 大混战使用同一份正式策略；冒险发布范围仍保持既有 10-1/10-2。
-	if (!MiniGame::IsBrawl(level) && (level < 82 || level > 90 || (!experiment && level > 83))) return nullptr;
+	// 大混战使用同一份正式策略；冒险发布范围覆盖已完成能力适配的 10-1～10-4。
+	if (!MiniGame::IsBrawl(level) && (level < 82 || level > 90 || (!experiment && level > 85))) return nullptr;
 	if (experiment) return enabled ? &parameters : nullptr;
 	// 发布的参数是只读版本化资源；实验进程的覆盖不会污染下次普通启动。
 	static ColdStorageSearch::Weights published{};

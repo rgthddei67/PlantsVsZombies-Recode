@@ -1,6 +1,6 @@
 # 第十大关：灼热冷藏站与冰块经济
 
-状态：地图与冰块经济已接入；10-1～10-2 经济单位与指挥官经营策略已接入
+状态：地图与冰块经济已接入；10-1～10-2 经济单位与指挥官经营策略已接入；10-3～10-4 新角色接入见文末，决策适配另行进行
 
 核实日期：2026-09-19
 
@@ -87,6 +87,25 @@
 
 长短局选择和整批进攻收益位于 `Game/AI/ColdStorageStrategy.*`；`smoke_cold_storage_campaign_ai` 与 `verify_cold_storage_campaign_ai.py` 覆盖同一时刻不同发展能力、成型西瓜防线、巨人混编工人、突破后跟进、实际击杀返冰与库存守恒。
 `smoke_cold_storage_dispatch_ai` 与 `verify_cold_storage_dispatch_ai.py` 比较正常推进和读档后，延迟队列兑现到下一次重评的时刻与出生计数。
+
+## 10-3～10-4：锅炉僵尸与蓄冷菠萝
+
+2026-09-27 确认并实现。10-3 首次引入锅炉、通关奖励菠萝，10-4 使用双方经济单位和新角色混编。当前数值以源码和 `gamedata.json` 为准。
+
+- 锅炉沿普通僵尸身体时间轴与既有啃食/死亡事件运动，用命名 follower 背负锅炉。前方四格预热，一生一次付费超频；预热可取消且失败不消费资格，已提交费用不返还。缺冰回到普通作战并稍后重试；冻结等控制暂停前摇，但不延长超频/泄压。泄压不能借停止啃食穿过防线。非冷藏站免技能冰费。
+- 菠萝是持续范围领域，多来源加成相加；移动或失去来源会立即改变受益范围。只作用于攻击计时，生产与技能冷却不加速。每株模式独立且入档，默认手动；自动挡就绪且付得起便发动，不额外检查敌人，暂停期间不扣款。电脑悬停/手机长按打开同一操作条，长按释放不触发短按。
+- 主人要求本轮只接入角色，不修改 AI 决策或训练，不 commit/push。后续窗口应读取工作区未提交改动；不要把新枚举注册与购买价接入误认为策略已经理解新技能。
+
+### 决策适配交接入口
+
+- `Game/Zombie/BoilerZombie.*`：`GetBoilerPhase/GetPhaseRemaining/HasSpentOverdrive` 是状态读取入口；预热提交、硬控计时、倍率及存档由实体拥有。`BoardColdStorage.cpp::GetZombieIceCost` 只增加购买价，技能付款在 `BoardColdStorageAbilities.cpp::TrySpendZombieAbilityIce`，不会增加击杀返冰所用的原成交价。
+- `Game/Plant/ColdPineapple.*`：`GetActiveRemaining/GetCooldownRemaining/IsAutomatic/TryActivate` 暴露已确认能力；`Board::GetAreaPlantAttackSpeedBonus` 返回当前位置的相加加成。`Plant::GetAttackSpeedMultiplier` 消费领域，`GetSkillSpeedMultiplier` 保持非攻击技能原有速度语义。
+- 本轮没有改 `Game/AI/` 的搜索、策略权重、发布范围或训练资源。后续应在相应快照/推演中表达锅炉阶段和未来付费爆发，以及菠萝模式、费用、领域存续与冷却，不能只增加固定静态 DPS；10-3/10-4 是否启用已发布策略也由后续任务负责。
+- 新资源位于 `build/clang-release/resources`；新的 PNG/reanim 仍在忽略目录中，交接/提交时须按 `scripts/generate_cold_storage_second_assets.sha256.json` 的输出清单定向纳入。测试入口：`smoke_cold_storage_second_units`、`visual_cold_storage_second_units`、`smoke_cold_storage_second_combat` 与 `autotest/verify_cold_storage_second_combat.py`。
+
+### AI 适配已完成（2026-09-27 后续）
+
+上述“未改 AI”是单位实现轮的交接边界。后续已在 `ColdStorageSearch::PaidBurst/AttackAura` 接入锅炉一次性阶段、共享敌方钱包和菠萝临时领域；`BoilerRules.h` / `ColdPineappleRules.h` 由实体与投影共用。正式策略扩至 10-3/10-4，保留各关卡池、解锁和原训练权重。当前菠萝预测只覆盖已部署来源，不虚构未来新种的技能株；手动释放按当前可受益攻击目标预测，自动模式遵循就绪即付费规则。验证入口为 `smoke_commander_paid_abilities`、对应 verifier 与 `ColdStorageStrategyTests`。
 
 ## 本轮交付与验证入口
 

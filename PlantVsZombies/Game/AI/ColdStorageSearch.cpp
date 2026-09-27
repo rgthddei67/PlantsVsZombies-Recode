@@ -502,10 +502,23 @@ bool ValidWeights(const Weights& weights) {
 	return std::all_of(weights.begin(), weights.end(), [](float w) { return std::isfinite(w) && std::abs(w) <= 500; });
 }
 
+/** 当前存活领域附近是否有能向已入场敌人开火的植物，不读取未来玩家操作。 */
+static bool AuraHasTarget(const Snapshot& state, float time, const Plant& source,
+	const std::vector<Plant>& plants, const std::vector<Unit>& units) {
+	for (const auto& p : plants) {
+		if (p.health <= 0 || p.dps <= 0 || std::abs(p.row-source.row)>1 || std::abs(p.column-source.column)>1) continue;
+		for (const auto& u : units) if (u.body.health > 0 && u.body.spawnAt <= time && u.body.x <= state.rightEdge
+			&& std::abs(u.body.row-p.row) <= p.rowRadius
+			&& (p.around ? std::abs(u.body.x-p.x) <= p.range : u.body.x >= p.x-30 && u.body.x <= p.x+p.range)) return true;
+	}
+	return false;
+}
+
 /** 按真实卡价、独立冷却与空格周转预测玩家续航；订单付款、运输、到货分别结算。 */
 static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::vector<Plant>& plants,
 	std::vector<float>& exchangeReady, std::vector<std::pair<std::array<int,2>,float>>& occupied,
 	const std::vector<float>& counterReady, const std::vector<float>& constructionReady,
+	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
 	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
 	float neededIce = 0;
@@ -532,6 +545,12 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
 	for (const auto& card : state.construction) if (constructionReady[card.source] <= time+delivery)
 		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+	// 已部署的付费能力也能形成订冰需求；来源消失或手动模式没有受益目标时不凭空补货。
+	for (const auto& aura : auras) if (aura.active+aura.cooldown <= delivery && aura.blockedUntil <= time+delivery) {
+		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
+		if (source != plants.end() && (aura.automatic || AuraHasTarget(state,time,*source,plants,units)))
+			neededIce = std::max(neededIce,static_cast<float>(aura.iceCost));
+	}
 	if (pendingIce > 0 || ice >= neededIce || ice >= state.playerIceLimit) return;
 	const ShopOrder* selected = nullptr;
 	for (const auto& order : state.shop) {
@@ -623,7 +642,77 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	// 只比较买与不买的差异；新策略可计对方资源消耗，但支出偏好、单纯位移都不是回报。
 	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
 	const float gain = (plan[0] - baseline[0]) + (plan[1] - baseline[1]) + (plan[4] - baseline[4]) + pressure;
-	return gain < plan[5] * kRecoveryReturnFraction;
+	return gain < std::max(0.0f,plan[5]-baseline[5]) * kRecoveryReturnFraction;
+}
+
+/** 推进一次性付费阶段；硬控只暂停预热，已经付款的爆发/恢复仍消耗游戏时间。 */
+static std::array<float,2> AdvanceBurst(Unit& unit, bool inRange, float active, float& ice,
+	Weights& features, ConstructionStats& stats) {
+	auto& b = unit.burst;
+	using Stage = PaidBurst::Stage;
+	if (b.range <= 0) return {active,active};
+	if (unit.body.health <= b.stopHealth) b.stage = Stage::SPENT;
+	float wall = kStep, stopped = kStep-active;
+	std::array<float,2> seconds{};
+	// 至多经过预热、爆发、恢复；失败支付产生正重试间隔，不会在零时间反复扣款。
+	while (wall > 0.0001f) {
+		if (b.stage == Stage::READY && b.retryRemaining <= 0 && inRange && wall > stopped) {
+			b.stage = Stage::WINDUP; b.remaining = b.windup;
+		}
+		float span = wall;
+		if (b.stage == Stage::WINDUP) span = std::min(span,stopped+std::max(0.0f,b.remaining));
+		else if (b.stage == Stage::ACTIVE || b.stage == Stage::RECOVERY) span = std::min(span,std::max(0.0f,b.remaining));
+		else if (b.stage == Stage::READY && b.retryRemaining > 0) span = std::min(span,b.retryRemaining);
+		const float free = std::max(0.0f,span-stopped);
+		stopped = std::max(0.0f,stopped-span);
+		if (b.stage == Stage::WINDUP) b.remaining -= free;
+		else {
+			seconds[0] += free*(b.stage == Stage::ACTIVE ? b.moveMultiplier : b.stage == Stage::RECOVERY ? b.recoveryMoveMultiplier : 1);
+			if (b.stage != Stage::RECOVERY) seconds[1] += free*(b.stage == Stage::ACTIVE ? b.biteMultiplier : 1);
+			if (b.stage == Stage::ACTIVE || b.stage == Stage::RECOVERY) b.remaining -= span;
+		}
+		b.retryRemaining = std::max(0.0f,b.retryRemaining-span);
+		wall -= span;
+		if (b.remaining <= 0) {
+			if (b.stage == Stage::WINDUP) {
+				if (ice >= b.cost) {
+					ice -= b.cost; features[5] += b.cost;
+					stats.abilityIceSpent += b.cost; ++stats.burstActivations;
+					b.stage = Stage::ACTIVE; b.remaining = b.duration;
+				} else {
+					b.stage = Stage::READY; b.retryRemaining = std::max(kStep,b.retry);
+				}
+			} else if (b.stage == Stage::ACTIVE) { b.stage = Stage::RECOVERY; b.remaining = b.recovery; }
+			else if (b.stage == Stage::RECOVERY) b.stage = Stage::SPENT;
+		}
+	}
+	return seconds;
+}
+
+/** 临时领域按来源存活、真实钱包与持续时间结算；手动模式只预测当前确有受益目标的释放。 */
+static void AdvanceAttackAuras(const Snapshot& state, float time, std::vector<AttackAura>& auras,
+	const std::vector<Plant>& plants, const std::vector<Unit>& units, float& ice,
+	std::vector<float>& rates, ConstructionStats& stats) {
+	rates.assign(plants.size(),1);
+	for (auto& aura : auras) {
+		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
+		if (source == plants.end()) continue;
+		const bool threatened = !aura.automatic && AuraHasTarget(state,time,*source,plants,units);
+		if (aura.active <= 0 && aura.cooldown <= 0 && time >= aura.blockedUntil
+			&& (aura.automatic || threatened) && ice >= aura.iceCost) {
+			ice -= aura.iceCost; stats.iceSpent += aura.iceCost; ++stats.auraActivations;
+			aura.active = aura.duration;
+		}
+		const float boosted = std::min(kStep,aura.active);
+		if (boosted > 0) {
+			for (size_t i=0; i<plants.size(); ++i)
+				if (std::abs(plants[i].row-source->row)<=1 && std::abs(plants[i].column-source->column)<=1)
+					rates[i] += aura.bonus*boosted/kStep;
+			aura.active -= boosted;
+			if (aura.active <= 0) aura.cooldown = aura.recharge;
+		}
+		aura.cooldown = std::max(0.0f,aura.cooldown-(kStep-boosted));
+	}
 }
 
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds) {
@@ -649,6 +738,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		thrownChild[i] = static_cast<int>(units.size());
 		units.push_back(child); // 免费召唤既不增加付款资产，也不向玩家凭空返冰
 	}
+	float enemyIce = std::max(0.0f,s.budget-f[5]), supplyAt = s.supplyRemaining;
+	auto auras = s.attackAuras;
+	std::vector<float> attackRates;
 	auto plants = s.plants;
 	auto mowers = s.mowers;
 	for (auto& plant : plants) plant.initialHealth = plant.health;
@@ -714,6 +806,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
+		const float previousKills = f[0];
+		if (s.supplyInterval > 0) while (t >= supplyAt) { enemyIce += s.supplyIce; supplyAt += s.supplyInterval; }
 		if (s.anticipateEconomy && pendingIce > 0 && t >= arrival) {
 			playerIce += pendingIce; pendingIce = 0;
 		} else if (!s.anticipateEconomy && !orderArrived && t >= s.incomingIceAt) {
@@ -724,14 +818,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,playerSun,playerIce,pendingIce,arrival,constructionStats);
+			constructionReady,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
 			constructionAt = t+kConstructionInterval;
 		}
+		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
-		for (const auto& p : plants) if (p.health > 0 && p.dps > 0) {
+		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0) {
+			const auto& p = plants[pi];
+			const float attackRate = auras.empty() ? 1 : attackRates[pi];
 			int target = -1;
 			for (size_t i = 0; i < units.size(); ++i) {
 				const auto& u = units[i].body;
@@ -769,10 +866,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (p.fume && !p.around && u.x > fumeEnd) continue;
 				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);
 				const bool slowReachesBody = units[i].shieldHealth <= 0 || p.melon || hit.bypass;
-				ApplyDamage(units[i],hit.rate*kStep,hit.penetrate,hit.bypass,hit.discardOverflow);
+				ApplyDamage(units[i],hit.rate*kStep*attackRate,hit.penetrate,hit.bypass,hit.discardOverflow);
 				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
-					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2));
-				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep));
+					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2 * attackRate));
+				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
 			}
 		}
 		for (size_t i = 0; i < units.size(); ++i) {
@@ -806,7 +903,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			if (u.economic && u.health > worker.productionStopHealth) {
 				worker.productionRemaining -= active;
 				while (worker.productionRemaining <= 0) {
-					if (t < kHorizon) f[4] += static_cast<int>(worker.nextYield);
+					const int income = static_cast<int>(worker.nextYield);
+					enemyIce += income;
+					if (t < kHorizon) f[4] += income;
 					worker.productionRemaining += IceProduction::Interval;
 					worker.nextYield = std::min(IceProduction::MaximumYield, worker.nextYield * IceProduction::YieldGrowth);
 				}
@@ -818,9 +917,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (contact < 0 || p.x > plants[contact].x
 					|| (p.x == plants[contact].x && p.layer > plants[contact].layer)) contact = static_cast<int>(j);
 			}
+			// 触发距离按实体原点，与用碰撞中心判断接敌的坐标分开。
+			const float triggerX = u.x+u.blastAnchorOffset;
+			const bool inRange = worker.burst.range > 0 && std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
+				return p.health > 0 && p.edible && p.row == u.row && triggerX >= p.x && triggerX-p.x <= worker.burst.range;
+			});
+			const auto activity = AdvanceBurst(worker,inRange,active,enemyIce,f,constructionStats);
 			if (contact >= 0 && u.x <= plants[contact].x + kContact) {
 				auto& p = plants[contact];
-				float damage = worker.biteDps * active * (speedFactor < 1 ? 0.5f : 1);
+				float damage = worker.biteDps * activity[1] * (speedFactor < 1 ? 0.5f : 1);
 				if (u.smashSeconds > 0) {
 					smashTarget[i] = contact;
 					advanceSmash(i,active,speedFactor);
@@ -830,9 +935,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				p.health -= damage;
 				if (p.health <= 0) f[0] += p.reward;
 			} else {
-				u.x -= u.speed * active * speedFactor;
+				u.x -= u.speed * activity[0] * speedFactor;
+				// 高速爆发也不能跨步穿墙；保持其他兵种原有预测不变。
+				if (worker.burst.range > 0 && contact >= 0) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
 		}
+		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
 		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。
 		AdvanceMowers(mowers,units,t,s.rightEdge);
 		for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0 && units[i].body.spawnAt <= t

@@ -30,6 +30,16 @@ private:
 	bool mPlanternGearMenuOpen = false; // 纯 UI 瞬态；不进入关卡存档
 	bool mPauseGameplayInputBlocked = false; // 普通空格暂停的附加门禁；非 GAME 状态始终禁止玩法输入
 	bool mSuppressCobTargetRelease = false; // 进入瞄准态的同一次左键释放不得立刻提交炮击
+	int mPineappleMenuID = NULL_PLANT_ID; // 菠萝菜单只持稳定ID，不保存已删除对象指针
+	int mPineapplePressID = NULL_PLANT_ID;
+	Vector mPineapplePressPosition;
+	float mPineappleHoldSeconds = 0.0f;
+	bool mPineappleLongPress = false;
+	bool mPineapplePressCancelled = false;
+	bool mPineappleButtonPressed = false;
+	bool mPineappleConsumed = false;
+	bool mPineappleHintShown = false;
+	float mPineappleHintRemaining = 0.0f;
 	int mLastSun = 0; // 上次同步卡牌灰态的阳光值，按场景实例隔离
 	bool mPreviewRenderProbeReady = false; // AutoTest：最近一帧是否真正提交了手持预览
 	int mPreviewRenderMouseOffsetX = 0; // AutoTest：实际提交锚点相对鼠标 X，单位：逻辑 px
@@ -76,6 +86,9 @@ public:
 	bool IsPlanternGearMenuOpen() const { return mPlanternGearMenuOpen; }
 	/** 在场景顶层 UI 阶段绘制挡位菜单，确保它覆盖天气预报板。 */
 	void DrawPlanternGearMenu(Graphics* g);
+	/** 电脑悬停/移动端长按的同一操作条；坐标与点击判定共用视觉锚点。 */
+	void DrawPineappleMenu(Graphics* g);
+	int GetPineappleMenuID() const { return mPineappleMenuID; }
 
 	bool CanAfford(int cost) const;   // 开发者作弊（无视阳光）守卫在 .cpp，避免头文件引 GameApp.h
 	/** 同时检查阳光与该植物的本关累计种植次数。 */
@@ -129,6 +142,8 @@ private:
 	/** 右键命中三叶草卡槽时切换方向；返回是否消费了本次右键。 */
 	bool UpdateBloverDirectionInput();
 	void ApplySelectedBloverDirection(Plant* plant) const;
+	/** 在Cell释放回调之前仲裁短按、长按和模式按钮，防止重复施法。 */
+	void UpdatePineappleInput();
 };
 
 #endif

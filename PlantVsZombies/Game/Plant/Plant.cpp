@@ -552,6 +552,11 @@ float Plant::GetSunProductionDeltaTime() const
 
 float Plant::GetAttackSpeedMultiplier() const
 {
+	return GetSkillSpeedMultiplier() * (1.0f + (mBoard ? mBoard->GetAreaPlantAttackSpeedBonus(this) : 0.0f));
+}
+
+float Plant::GetSkillSpeedMultiplier() const
+{
 	const float perkMultiplier = mBoard
 		? static_cast<float>(mBoard->GetPerkManager().GetPlantAttackSpeedMultiplier())
 		: 1.0f;
@@ -630,6 +635,16 @@ void Plant::Draw(Graphics* g)
 	AnimatedObject::Draw(g);	// 先画本体动画
 	DrawSleepIndicator(g);
 	DrawIceSeal(g);
+	if (g && !mIsPreview && mBoard && mBoard->GetAreaPlantAttackSpeedBonus(this) > 0) {
+		// 受益标志从当前领域派生，搬出范围或来源消失的同帧即撤销。
+		const Vector anchor = GetVisualAnchorPosition();
+		const float shift = 3.0f * std::sin(static_cast<float>(DeltaTime::GetTotalTime()) * 5.0f);
+		const glm::vec4 cyan(130, 240, 255, 220);
+		for (float dx : {-25.0f, 25.0f}) {
+			g->DrawLine(anchor.x + dx - 3, anchor.y - 32 + shift, anchor.x + dx, anchor.y - 38 + shift, cyan);
+			g->DrawLine(anchor.x + dx, anchor.y - 38 + shift, anchor.x + dx + 3, anchor.y - 32 + shift, cyan);
+		}
+	}
 	// 劫持者目标提示只做当前格的常数次槽位查询；不为描边另起任何全场逐帧遍历。
 	if (g && !mIsPreview && mBoard
 		&& mBoard->IsPlantThreatenedByNightRoofHijacker(this) && mCollider) {

@@ -1,0 +1,301 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 85,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_COLDPINEAPPLE",
+        "PLANT_PEASHOOTER",
+        "PLANT_TALLNUT",
+        "PLANT_ICEMINT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000,
+        "playerIce": 300
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICEMINT",
+      "row": 3,
+      "col": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 442,
+      "y": 338
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "ready_menu.png"
+    },
+    {
+      "op": "click",
+      "x": 442,
+      "y": 338,
+      "hold_frames": 35
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleActiveMs",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 270
+    },
+    {
+      "op": "click",
+      "x": 442,
+      "y": 402
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleAutomatic",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleActiveMs",
+      "atLeast": 11000
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 240
+    },
+    {
+      "op": "screenshot",
+      "name": "auto_menu.png"
+    },
+    {
+      "op": "click",
+      "x": 442,
+      "y": 402
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleAutomatic",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 240
+    },
+    {
+      "op": "move_mouse",
+      "x": 1050,
+      "y": 400
+    },
+    {
+      "op": "set_timescale",
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 10,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "iceMintsByCell.3_2.productionBatches",
+      "equals": 0
+    },
+    {
+      "op": "wait_value",
+      "path": "coldPineapplesByCell.2_2.pineappleReady",
+      "equals": true,
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 29
+      }
+    },
+    {
+      "op": "click",
+      "x": 442,
+      "y": 338
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 29
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleActiveMs",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "insufficient_ice.png"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 30
+      }
+    },
+    {
+      "op": "click",
+      "x": 442,
+      "y": 338
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldPineapplesByCell.2_2.pineappleActiveMs",
+      "atLeast": 11000
+    },
+    {
+      "op": "screenshot",
+      "name": "manual_active.png"
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 84
+    },
+    {
+      "op": "goto_level",
+      "level": 84,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7,
+      "timeout": 30
+    },
+    {
+      "op": "click",
+      "target": "trophy",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_COLDPINEAPPLE"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "pineapple_reward.png"
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 85
+    },
+    {
+      "op": "wait_value",
+      "path": "chooseCardReady",
+      "equals": true,
+      "timeout": 25
+    },
+    {
+      "op": "screenshot",
+      "name": "level_10_4_selection.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

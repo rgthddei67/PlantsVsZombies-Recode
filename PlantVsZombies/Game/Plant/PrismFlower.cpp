@@ -26,7 +26,7 @@ void PrismFlower::PlantUpdate()
 {
 	const float delta = DeltaTime::GetDeltaTime();
 	mBloomRemaining = std::max(0.0f, mBloomRemaining - delta);
-	mMarkCooldown = std::max(0.0f, mMarkCooldown - delta * GetAttackSpeedMultiplier());
+	mMarkCooldown = std::max(0.0f, mMarkCooldown - delta * GetSkillSpeedMultiplier());
 	if (mMarkCooldown > 0.0f) { RefreshBloom(); return; }
 	std::vector<Zombie*> candidates;
 	const Vector origin = mBoard->GetCellCenterPosition(mRow, mColumn);

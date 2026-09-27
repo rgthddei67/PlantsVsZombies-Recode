@@ -36,8 +36,18 @@ struct ProductionCalibration {
 // 击杀返冰、削血、突破、存活投资、生产收入、支出、爆区损失、推进；只作训练起点。
 inline constexpr Weights InitialWeights{3, 1, 120, 0.4f, 0.25f, -1, -2, 0.5f};
 
+/** 数值化的一次性付费爆发；零范围禁用，阶段不含具体僵尸类型或实体引用。 */
+struct PaidBurst {
+	enum class Stage { READY, WINDUP, ACTIVE, RECOVERY, SPENT };
+	Stage stage = Stage::READY;
+	float range = 0, cost = 0, stopHealth = 0;
+	float windup = 0, duration = 0, recovery = 0, retry = 0;
+	float remaining = 0, retryRemaining = 0;
+	float moveMultiplier = 1, biteMultiplier = 1, recoveryMoveMultiplier = 1;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
+	PaidBurst burst;
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
 	float shieldHealth = 0; // body.health 中的二类防具份额；本体/头盔归零时，剩余护盾不能维持存活
@@ -82,9 +92,19 @@ struct SunExchange {
 	float ready = 0, recharge = 1;
 	std::vector<std::array<int,2>> cells;
 };
+/** 已在场的临时攻击领域；只有攻击/控制频率受益，生产、技能冷却不加速。 */
+struct AttackAura {
+	int plantID = 0, row = 0, column = 0;
+	float active = 0, cooldown = 0, duration = 0, recharge = 0, bonus = 0;
+	int iceCost = 0;
+	float blockedUntil = 0; // 当前停机结束前不能新激活，既有领域仍计时
+	bool automatic = false;
+};
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
 	int planted = 0, exchanges = 0, orders = 0;
+	float abilityIceSpent = 0; // 僵尸未来实际可付的技能费，计入支出，不提高成交返冰价
+	int burstActivations = 0, auraActivations = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
@@ -117,6 +137,7 @@ struct Snapshot {
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
+	float supplyRemaining = 0, supplyInterval = 0, supplyIce = 0; // 技能钱包的真实补给时序；不作为经营得分
 	float houseX = 160, rightEdge = 1100;
 	std::vector<Unit> current;
 	std::vector<CommittedUnit> committed;
@@ -124,6 +145,7 @@ struct Snapshot {
 	std::vector<Option> options;
 	std::vector<Counter> counters;
 	std::vector<RowStrike> rowStrikes;
+	std::vector<AttackAura> attackAuras;
 	std::vector<Construction> construction;
 	std::vector<SunExchange> exchanges;
 	std::vector<ShopOrder> shop;

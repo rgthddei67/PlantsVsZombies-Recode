@@ -1,0 +1,350 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_COLDPINEAPPLE",
+        "PLANT_PEASHOOTER",
+        "PLANT_TALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 1000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 2,
+      "x": 800,
+      "stationary": true
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "fire_rate"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6,
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "normal_fire.json"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "fire_rate"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "activate_cold_pineapple",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6,
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "boosted_fire.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 84,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_COLDPINEAPPLE",
+        "PLANT_PEASHOOTER",
+        "PLANT_TALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 4,
+        "playerIce": 200
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 2,
+      "x": 650
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerSpent",
+      "equals": false
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 1,
+      "timeout": 15
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "PARALYSIS",
+      "duration": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerRemainingMs",
+      "atLeast": 1500
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "type": "ZOMBIE_BOILER",
+      "expectedChanged": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000
+      }
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 2,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "bite_start.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2,
+      "timeout": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "bite_end.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_4.health",
+      "atMost": 8500
+    },
+    {
+      "op": "interrupt_zombie_special_action",
+      "type": "ZOMBIE_BOILER",
+      "expectedChanged": false
+    },
+    {
+      "op": "screenshot",
+      "name": "boiler_biting.png"
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 950,
+      "source": "PLANT"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "boiler_headless.png"
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 1000,
+      "source": "PLANT"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 2,
+      "x": 700
+    },
+    {
+      "op": "wait_value",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 1,
+      "timeout": 10
+    },
+    {
+      "op": "charm_zombie",
+      "row": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerPhase",
+      "equals": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BOILER.boilerSpent",
+      "equals": false
+    },
+    {
+      "op": "goto_level",
+      "level": 84,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_COLDPINEAPPLE",
+        "PLANT_PEASHOOTER",
+        "PLANT_TALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000,
+        "playerIce": 0,
+        "decisions": 2,
+        "decisionRemaining": 60
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 1,
+      "delay": 0.1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 985
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3,
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "kill_zombie",
+      "row": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 11
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

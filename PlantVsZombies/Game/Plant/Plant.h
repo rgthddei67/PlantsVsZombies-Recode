@@ -58,6 +58,8 @@ public:
 	int mEaterCount = 0;			// 正在啃食此植物的僵尸数量
 
 protected:
+	/** 技能冷却使用原有词条与天气倍率，不消费临时攻击领域加成。 */
+	float GetSkillSpeedMultiplier() const;
 	bool mIsSleeping = false;	// 白天蘑菇睡眠权威状态
 	std::shared_ptr<Animator> mSleepIndicatorAnimator; // 原版 Z.reanim 睡眠标识；由睡眠状态派生，不单独入档
 	float mWakeUpTimer = 0.0f;	// 咖啡豆唤醒倒计时，单位：秒；大于 0 时仍保持睡眠
@@ -305,6 +307,8 @@ public:
 	virtual float GetSimulationAbilityCooldownRemaining() const { return 0.0f; }
 	/** 将静态画像换成当前成长阶段的等效火力；调用方另外应用睡眠/停机和攻速。 */
 	virtual float GetSimulationAttackDps(float profileDps) const { return profileDps; }
+	/** 自身为中心九格提供的额外攻击倍率；无领域的植物返回零。 */
+	virtual float GetAreaAttackSpeedBonus() const { return 0.0f; }
 	/** 返回冰像处刑者完成本植物处决所需的已提交锤击数；普通植物默认三锤。 */
 	virtual int GetIceExecutionRequiredStrikeCount() const { return 3; }
 	/** 完成一次冻结快照保护后的品种反噬入口；onWetSlope 取接地植物自身所在瓦面。 */
@@ -353,7 +357,7 @@ protected:
 	float GetWeatherActionDeltaTime() const;
 	/** 产光专用计时增量 = 雨势行动倍率 × 路灯花局部照明倍率。 */
 	float GetSunProductionDeltaTime() const;
-	/** 攻击专用组合倍率 = 生存攻速词条 × 雨势行动倍率。 */
+	/** 攻击专用组合倍率 = 生存攻速词条 × 雨势行动倍率 × (1 + 九格领域加成)。 */
 	float GetAttackSpeedMultiplier() const;
 	/** 返回血量文字相对公共视觉锚点的偏移；叠层品种可覆写以避免文字重叠。 */
 	virtual Vector GetHealthTextOffset() const { return Vector(-21.0f, -11.0f); }

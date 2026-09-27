@@ -224,6 +224,12 @@ public:
 	int GetPlantIceCost(PlantType type) const;
 	int GetZombieIceCost(ZombieType type) const;
 	bool CanAffordPlantIce(PlantType type) const;
+	/** 植物主动技能的原子付款；冷藏站用冰块，其他地图用阳光。 */
+	bool TrySpendPlantAbilityResource(int ice, int sun);
+	/** 僵尸主动技能的原子付款；非冷藏站无需冰块，不改购买返冰身份。 */
+	bool TrySpendZombieAbilityIce(int ice);
+	/** 查询目标当前九格来源的额外攻速加成；独立来源相加。 */
+	float GetAreaPlantAttackSpeedBonus(const Plant* target) const;
 	/** 接受单笔订单，立即扣阳光，按游戏时间完成后整批到账。 */
 	bool BuyColdStorageIce(bool large);
 	/** 正式生产的主线程入账；sourceWave 仅用于 AutoTest 收益归因，不改变余额或击杀返冰。 */

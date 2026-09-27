@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/ColdPineapple.png</Image>
     <Image>./resources/image/PlantImage/IceMint.png</Image>
     <Image>./resources/image/reanim/Ice_mint_crystal.png</Image>
     <Image>./resources/image/reanim/Ice_worker_machine.png</Image>
@@ -632,6 +633,8 @@
 
   <!-- 动画资源 此处的name要与ResourceKey里面的一样-->
   <Reanimations>
+    <Reanimation name="ColdPineapple">./resources/reanim/ColdPineapple.reanim</Reanimation>
+    <Reanimation name="BoilerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="AmberLichen">./resources/reanim/AmberLichen.reanim</Reanimation>
     <Reanimation name="CrystalDrummerZombie">./resources/reanim/CrystalDrummerZombie.reanim</Reanimation>
     <Reanimation name="Sun">./resources/reanim/Sun.reanim</Reanimation>

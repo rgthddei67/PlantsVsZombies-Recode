@@ -1,0 +1,410 @@
+{
+  "muteAudio": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 84,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MARIGOLD",
+        "PLANT_PEASHOOTER",
+        "PLANT_COLDPINEAPPLE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 200,
+        "initialEnemyIce": 200,
+        "playerIce": 200,
+        "decisions": 20,
+        "elapsed": 300,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 25
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "set_pineapple_auto",
+      "row": 0,
+      "col": 1,
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 2,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 3,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 4,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 0,
+      "x": 950
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2,
+      "timeout": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "before-84.json"
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.commanderStrategy",
+      "equals": "learned_search"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchBurstOptions",
+      "equals": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAttackAuraCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAuraActivations",
+      "atLeast": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "planned-84.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 85,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MARIGOLD",
+        "PLANT_PEASHOOTER",
+        "PLANT_COLDPINEAPPLE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 200,
+        "initialEnemyIce": 200,
+        "playerIce": 200,
+        "decisions": 20,
+        "elapsed": 300,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 25
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "set_pineapple_auto",
+      "row": 0,
+      "col": 1,
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 2,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 3,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 4,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 0,
+      "x": 950
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2,
+      "timeout": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "before-85.json"
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.commanderStrategy",
+      "equals": "learned_search"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchBurstOptions",
+      "equals": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAttackAuraCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAuraActivations",
+      "atLeast": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "planned-85.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 2001,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MARIGOLD",
+        "PLANT_PEASHOOTER",
+        "PLANT_COLDPINEAPPLE"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 200,
+        "initialEnemyIce": 200,
+        "playerIce": 200,
+        "decisions": 20,
+        "elapsed": 300,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 25
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "set_pineapple_auto",
+      "row": 0,
+      "col": 1,
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 2,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 3,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 4,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 0,
+      "x": 950
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2,
+      "timeout": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "before-2001.json"
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.commanderStrategy",
+      "equals": "learned_search"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchBurstOptions",
+      "equals": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAttackAuraCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchAuraActivations",
+      "atLeast": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "planned-2001.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

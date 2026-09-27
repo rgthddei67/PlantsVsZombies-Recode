@@ -15,6 +15,8 @@
 #include "Game/Plant/Plant.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
+#include "Game/Zombie/BoilerZombie.h"
+#include "Game/Plant/ColdPineapple.h"
 #include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
 #include "Game/Bullet/Bullet.h"
@@ -264,6 +266,32 @@ namespace {
 		if (type == P::PLANT_ICEFUMESHROOM) plant.hitDamage = 10; // 寒冰大喷每次喷射的实际基础伤害
 	}
 
+	/** 将实体阶段投影为纯数值能力；未出生候选从待机开始，不提前扣技能费。 */
+	void ProjectBoiler(ColdStorageSearch::Unit& unit, const BoilerZombie* live = nullptr)
+	{
+		auto& b = unit.burst;
+		b.range = BoilerRules::kTriggerCells*CELL_COLLIDER_SIZE_X;
+		b.cost = BoilerRules::kOverdriveCost; b.stopHealth = BoilerRules::kHealth/3;
+		b.windup = BoilerRules::kPreheat; b.duration = BoilerRules::kOverdrive;
+		b.recovery = BoilerRules::kVenting; b.retry = BoilerRules::kRetry;
+		b.moveMultiplier = BoilerRules::kOverdriveSpeed;
+		b.biteMultiplier = BoilerRules::kOverdriveSpeed*BoilerRules::kOverdriveDamage;
+		b.recoveryMoveMultiplier = BoilerRules::kVentingSpeed;
+		if (!live) return;
+		using Stage = ColdStorageSearch::PaidBurst::Stage;
+		switch (live->GetBoilerPhase()) {
+		case BoilerZombie::Phase::READY: b.stage = Stage::READY; break;
+		case BoilerZombie::Phase::PREHEATING: b.stage = Stage::WINDUP; break;
+		case BoilerZombie::Phase::OVERDRIVE: b.stage = Stage::ACTIVE; break;
+		case BoilerZombie::Phase::VENTING: b.stage = Stage::RECOVERY; break;
+		case BoilerZombie::Phase::SPENT: b.stage = Stage::SPENT; break;
+		}
+		b.remaining = live->GetPhaseRemaining(); b.retryRemaining = live->GetRetryRemaining();
+		b.stopHealth = live->mBodyMaxHealth/3;
+		unit.body.speed = live->GetForecastBaseMoveSpeed();
+		unit.biteDps = live->GetForecastBaseBiteDps();
+	}
+
 	/** 候选战术画像只服务排序；实体出生仍使用原品种生命、技能和动作。 */
 	AssaultProfile Assault(ZombieType type)
 	{
@@ -288,6 +316,7 @@ namespace {
 		case Z::ZOMBIE_DOOR: return {DoorZombie::InitialBodyHealth + DoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_REINFORCED_DOOR: return {DoorZombie::InitialBodyHealth + ReinforcedDoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_ICE_WORKER: return {IceProduction::WorkerHealth, 1, false, true, false};
+		case Z::ZOMBIE_BOILER: return {BoilerRules::kHealth, 1, false, false, false};
 		case Z::ZOMBIE_NORMAL: return {270, 1, false, false, false};
 		default: return {700, 1.2f, false, false, false};
 		}
@@ -318,6 +347,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 {
 	using Z = ZombieType;
 	switch (type) {
+	case Z::ZOMBIE_BOILER: return 15; // 另有成功超频时的5冰技能费
 	case Z::ZOMBIE_ICE_WORKER: return IceProduction::WorkerCost;
 	case Z::ZOMBIE_NORMAL: return 4; // 保留低库存收尾时可派出的基础兵
 	case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_NEWSPAPER: return 6;
@@ -831,6 +861,7 @@ void Board::PlanColdStorageAttack(bool background)
 		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
+		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
 		// 观望时长不能把负收益方案变成必选项，否则成型防线会诱发周期性单兵送死。
@@ -951,6 +982,17 @@ void Board::PlanColdStorageAttack(bool background)
 		for (const auto& p : snapshot.plants) {
 			const Plant* entity = mEntityRegistry.GetPlant(p.id);
 			if (!entity) continue;
+			if (const auto* pineapple = dynamic_cast<const ColdPineapple*>(entity); pineapple && !pineapple->IsSquished() && !pineapple->IsBungeeTargeted()) {
+				ColdStorageSearch::AttackAura aura;
+				aura.plantID = p.id; aura.row = p.row; aura.column = p.column;
+				aura.active = pineapple->GetActiveRemaining(); aura.cooldown = pineapple->GetCooldownRemaining();
+				aura.duration = ColdPineappleRules::kDuration; aura.recharge = ColdPineappleRules::kCooldown;
+				aura.iceCost = ColdPineappleRules::kIceCost; aura.bonus = 1;
+				aura.automatic = pineapple->IsAutomatic();
+				aura.blockedUntil = pineapple->GetShutdownTimeRemaining();
+				if (pineapple->GetSleepState()) aura.blockedUntil = 10000;
+				search.attackAuras.push_back(aura);
+			}
 			if (const auto* lotus = dynamic_cast<const DawnLotus*>(entity)) {
 				if (!lotus->IsShutdown() && !lotus->IsActionPaused() && !lotus->IsBungeeTargeted())
 					search.rowStrikes.push_back({p.id,lotus->GetChargeSecondsRemaining(),
@@ -982,6 +1024,7 @@ void Board::PlanColdStorageAttack(bool background)
 			unit.shieldHealth = z.shieldHealth;
 			ProjectShieldRules(unit, entity->mZombieType);
 			unit.biteDps = entity->GetMineSimulationAttackDps();
+			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
 			unit.mowerImmune = !entity->CanBeKilledByMower(); unit.consumesOtherMowers = entity->ConsumesOtherMowersOnContact();
 			if (const auto* giant = dynamic_cast<const GargantuarZombie*>(entity); giant && giant->HasImp() && !giant->HasReleasedImp()) {
 				unit.throwHealth = entity->mBodyMaxHealth*.5f;
@@ -1032,6 +1075,7 @@ void Board::PlanColdStorageAttack(bool background)
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
 			unit.body.purchaseCost = static_cast<float>(cost);
+			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
 			else if (type == ZombieType::ZOMBIE_REINFORCED_DOOR) unit.shieldHealth = ReinforcedDoorZombie::InitialShieldHealth;
 			ProjectShieldRules(unit, type);
@@ -1658,6 +1702,10 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 	s.searchCounterHoldSeconds = result.counterHoldSeconds;
 	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
+	s.searchBurstOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& option) { return option.unit.burst.range > 0; }));
+	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());
+	s.searchAbilityIce = result.construction.abilityIceSpent;
+	s.searchBurstActivations = result.construction.burstActivations; s.searchAuraActivations = result.construction.auraActivations;
 	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
 	s.searchFormationChosenRow = result.formationChosenRow;
@@ -1694,6 +1742,13 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 		mix(id); mix(plant->mRow); mix(plant->mColumn); mix(static_cast<unsigned>(plant->GetPlacementType())); mix(plant->GetSleepState());
 		mix(plant->GetSimulationAbilityCooldownRemaining() <= 0);
 		if (const auto* lotus = dynamic_cast<const DawnLotus*>(plant)) mix(lotus->IsReadyToActivate());
+		if (const auto* pineapple = dynamic_cast<const ColdPineapple*>(plant)) {
+			mix(pineapple->GetActiveRemaining() > 0); mix(pineapple->IsReadyToActivate()); mix(pineapple->IsAutomatic());
+		}
+	}
+	for (int id : mEntityRegistry.GetAllZombieIDs()) {
+		const auto* boiler = dynamic_cast<const BoilerZombie*>(mEntityRegistry.GetZombie(id));
+		if (boiler && boiler->IsActive() && !boiler->IsDying()) { mix(id); mix(static_cast<unsigned>(boiler->GetBoilerPhase())); }
 	}
 	for (int id : mEntityRegistry.GetAllMowerIDs()) {
 		const Mower* mower = mEntityRegistry.GetMower(id);

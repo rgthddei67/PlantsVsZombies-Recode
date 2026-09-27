@@ -69,6 +69,8 @@
 #include "../Plant/FurnaceCoreFlower.h"
 #include "../Plant/ListeningGrass.h"
 #include "../Plant/IceMint.h"
+#include "../Plant/ColdPineapple.h"
+#include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
 #include "../Plant/NorthStarFlower.h"
 #include "../Plant/IceMirrorGrass.h"
@@ -400,7 +402,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -436,7 +438,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -1416,6 +1418,17 @@ bool TestDriver::ExecuteCurrent() {
 		if (!message.empty()) builder.Message(message);
 		builder.Button(u8"确定", Vector::zero(), Vector(100.0f, 41.6f), 14.0f, []() {});
 		builder.Show();
+		return true;
+	}
+	if (op == "activate_cold_pineapple" || op == "set_pineapple_auto") {
+		GameScene* gs = CurrentGameScene();
+		auto* plant = gs && gs->GetBoard() ? dynamic_cast<ColdPineapple*>(
+			gs->GetBoard()->GetNormalPlantAt(cmd.value("row", -1), cmd.value("col", -1))) : nullptr;
+		if (!plant) { Fail("cold pineapple: missing plant"); return false; }
+		if (op == "set_pineapple_auto") plant->SetAutomatic(cmd.value("value", true));
+		else if (plant->TryActivate() != cmd.value("expectedSuccess", true)) {
+			Fail("cold pineapple activation result mismatch"); return false;
+		}
 		return true;
 	}
 	if (op == "activate_dawn_lotus") {
@@ -4852,6 +4865,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchElapsed"] = board->mColdStorage.searchElapsed;
 		ice["searchRawProduction"] = board->mColdStorage.searchRawProduction;
 		ice["searchRowStrikeCount"] = board->mColdStorage.searchRowStrikeCount;
+		ice["searchBurstOptions"] = board->mColdStorage.searchBurstOptions;
+		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
+		ice["searchAbilityIce"] = board->mColdStorage.searchAbilityIce;
+		ice["searchBurstActivations"] = board->mColdStorage.searchBurstActivations;
+		ice["searchAuraActivations"] = board->mColdStorage.searchAuraActivations;
 		ice["searchFormation"] = {{"baseScore",board->mColdStorage.searchFormationBaseScore},
 			{"scores",board->mColdStorage.searchFormationScores},{"tested",board->mColdStorage.searchFormationTested},
 			{"rejected",board->mColdStorage.searchFormationRejected},{"chosenRow",board->mColdStorage.searchFormationChosenRow}};
@@ -6904,6 +6922,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["hijackerLocked"] =
 				board->GetNightRoofHijackerID() == hijacker->mZombieID;
 		}
+		if (auto* boiler = dynamic_cast<BoilerZombie*>(z)) {
+			zombieState["boilerPhase"] = static_cast<int>(boiler->GetBoilerPhase());
+			zombieState["boilerRemainingMs"] = static_cast<int>(std::lround(boiler->GetPhaseRemaining() * 1000));
+			zombieState["boilerSpent"] = boiler->HasSpentOverdrive();
+			zombieState["boilerResourceReady"] = ResourceManager::GetInstance().HasReanimation("BoilerZombie")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_BOILER_PACK", false)
+				&& boiler->GetAnimatorInternal()->GetTrackFollowerVisible("Zombie_body", "boiler_pack");
+		}
 		if (auto* worker = dynamic_cast<IceWorkerZombie*>(z)) {
 			zombieState["iceRemainingMs"] = static_cast<int>(std::lround(worker->GetIceRemaining() * 1000.0f));
 			zombieState["nextIceYieldOn1000"] = static_cast<int>(std::lround(worker->GetNextIceYield() * 1000.0f));
@@ -8142,6 +8168,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			const std::string cellKey =
 				std::to_string(p->mRow) + "_" + std::to_string(p->mColumn);
 			out["furnaceCoreFlowersByCell"][cellKey] = plantState;
+		}
+		plantState["areaAttackBonusPct"] = static_cast<int>(std::lround(board->GetAreaPlantAttackSpeedBonus(p) * 100));
+		if (auto* pineapple = dynamic_cast<ColdPineapple*>(p)) {
+			plantState["pineappleActiveMs"] = static_cast<int>(std::lround(pineapple->GetActiveRemaining() * 1000));
+			plantState["pineappleCooldownMs"] = static_cast<int>(std::lround(pineapple->GetCooldownRemaining() * 1000));
+			plantState["pineappleAutomatic"] = pineapple->IsAutomatic();
+			plantState["pineappleReady"] = pineapple->IsReadyToActivate();
+			plantState["pineappleAffordable"] = pineapple->CanAffordActivation();
+			plantState["pineappleResourcesReady"] = ResourceManager::GetInstance().HasReanimation("ColdPineapple")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDPINEAPPLE", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_COLDPINEAPPLE_HEAD", false);
+			out["coldPineapplesByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plantState;
 		}
 		if (auto* mint = dynamic_cast<IceMint*>(p)) {
 			plantState["productionRemainingMs"] = static_cast<int>(std::lround(mint->GetProductionRemaining() * 1000.0f));
