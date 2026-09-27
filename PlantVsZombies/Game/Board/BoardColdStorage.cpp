@@ -52,7 +52,7 @@ namespace {
 	constexpr float kLargeOrderDelay = 10, kSmallOrderDelay = 5; // 商店订单从付款到到货的游戏秒
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
 	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
-	constexpr int kHugeWaveIceThreshold = 90; // 单波实际付费达到此冰量时显示原版大波提示
+	constexpr int kHugeWaveIceThreshold = 75; // 单波实际付费达到此冰量时显示原版大波提示
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
 	constexpr float kDecisionSeconds = 12.0f; // 常规指挥决策间隔，游戏秒
 	constexpr float kOpeningDecisionSeconds = 18.0f; // 前两分钟两波之间留出经济恢复时间，游戏秒
@@ -102,6 +102,7 @@ namespace {
 			// 沿用原版提示时长；场景保留每条提示的独立生命周期，连续大波不覆盖旧提示。
 			presentation->ShowPrompt(ResourceKeys::Textures::IMAGE_HUGE_WAVE_APPROACHING,
 				0.4f, 4.0f, 0.3f);
+			AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_HUGEWAVE, 0.7f);
 		}
 	}
 
