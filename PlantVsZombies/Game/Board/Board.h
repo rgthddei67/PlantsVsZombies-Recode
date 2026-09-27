@@ -24,6 +24,7 @@
 
 class GameInfoSaver;
 class BoardPresentation;
+namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; }
 class CardSlotManager;
 class Graphics;
 class Sun;
@@ -213,6 +214,11 @@ public:
 	int mZombieNumber = 0;
 
 	ColdStorageState mColdStorage;
+	std::unique_ptr<ColdStorageSearch::Planner> mColdStoragePlanner;
+	std::vector<std::uint64_t> mColdStoragePlanningTickets;
+	std::uint64_t mColdStoragePlanningStamp = 0;
+	float mColdStoragePlanningAt = 0;
+	int mColdStoragePlanningVersion = 1;
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
 	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
 	int GetPlantIceCost(PlantType type) const;
@@ -232,7 +238,16 @@ public:
 	void InitializeColdStorage();
 	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */
 	void UpdateColdStorage(float deltaTime);
-	void PlanColdStorageAttack();
+	/** 采集主线程快照并规划；正式游戏后台计算，显式同步入口供确定性训练/夹具使用。 */
+	void PlanColdStorageAttack(bool background = false);
+	/** 主线程领取完整后台结果；复核局面、队列身份后才修改事务和付款。 */
+	void PollColdStoragePlan();
+	/** 后台快照的关键局面签名；种铲植物、主动技能、小推车状态变化会使结果失效。 */
+	std::uint64_t ColdStoragePlanningStamp() const;
+	/** 两种执行方式共用的提交路径，后台只计算，不碰钱包与实体。 */
+	void ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, ColdStorageSearch::Result& result,
+		const ColdStorageSearch::QueueRevision& revision, int requestedVersion, float age,
+		const std::vector<std::uint64_t>& tickets);
 	/** 付费与队列登记在同一主线程提交；测试与正式指挥官共用。 */
 	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
 	/** 无活动/在途敌军时检查破产或长期无破阵且经营不盈利的低库存败局；存档恢复计时。 */

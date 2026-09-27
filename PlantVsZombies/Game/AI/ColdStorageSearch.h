@@ -3,6 +3,7 @@
 #include "ColdStorageStrategy.h"
 #include "Game/Board/IceProduction.h"
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -96,6 +97,7 @@ struct Counter {
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
 };
 struct Snapshot {
+	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
 	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
 	bool anticipateEconomy = false; // 显式考虑玩家循环经济卡与后续付费订冰，旧策略缺省关闭

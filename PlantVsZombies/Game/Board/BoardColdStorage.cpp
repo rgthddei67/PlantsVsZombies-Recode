@@ -4,6 +4,10 @@
 #include "Game/AI/PlantDefenseMonteCarlo.h"
 #include "Game/AI/ColdStorageStrategy.h"
 #include "Game/AI/ColdStoragePolicy.h"
+#include "Game/AI/ColdStoragePlanner.h"
+#include "Game/AutoTest/TestDriver.h"
+#include "Profiler.h"
+#include <chrono>
 #include "Game/CardSlotManager.h"
 #include "Game/Card.h"
 #include "Game/LawnMower.h"
@@ -24,6 +28,16 @@
 #include <limits>
 
 namespace {
+	constexpr float kPlanningMaxAge = 3.0f; // 后台快照允许的最大游戏时差，秒；超时重采，不削减搜索精度
+	constexpr float kPlanningSurvivingFraction = .75f; // 原部队剩余有效生命低于快照此比例时重采，避免沿用已被炸掉的护卫
+	/** 只统计主线程入口时间；后台耗时由任务自己计时，不能跨线程调用 Profiler。 */
+	struct PlanningTimer {
+		double& maximum;
+		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+		~PlanningTimer() {
+			maximum = std::max(maximum,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count());
+		}
+	};
 	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 1500, 1650, 1800, 2000}; // 各关难度1初始敌方冰块；前段削减囤兵，后段保留长流程
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
 	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
@@ -297,6 +311,7 @@ bool Board::CanAffordPlantIce(PlantType type) const
 void Board::InitializeColdStorage()
 {
 	if (!IsColdStorage()) return;
+	mColdStoragePlanner.reset();
 	mColdStorage = {};
 	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
@@ -426,7 +441,7 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 	const int cost = GetZombieIceCost(type);
 	if (mColdStorage.enemyIce < cost || !std::isfinite(delay)) return false;
 	// 先登记再扣款，只有成功提交的事务能改变余额；免费技能召唤不经过这里。
-	mColdStorage.pending.push_back({type, row, cost, std::clamp(delay, 0.0f, 60.0f), mColdStorage.decisions});
+	mColdStorage.pending.push_back({type, row, cost, std::clamp(delay, 0.0f, 60.0f), mColdStorage.decisions, ++mColdStorage.nextTicket});
 	mColdStorage.enemyIce -= cost;
 	mColdStorage.spent = std::min(kMaxIce, mColdStorage.spent + cost);
 	mColdStorage.incomeWindow.push_back({mColdStorage.elapsed,0,cost});
@@ -434,9 +449,16 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 }
 
 /** 先决定是否值得增援及本波预算，再在合法候选中组织队伍；未派兵不推进波号。 */
-void Board::PlanColdStorageAttack()
+void Board::PlanColdStorageAttack(bool background)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned) return;
+	PROFILE_SCOPE("Commander.PlanMain");
+	PlanningTimer timer{mColdStorage.planningMainMaxMs};
+	if (mColdStoragePlanner && mColdStoragePlanner->Busy()) {
+		if (background) return;
+		mColdStoragePlanner->Cancel(); // 显式同步测试/干预不能同时提交一个旧后台结果。
+		mColdStorage.planning = false;
+	}
 	const auto* learnedWeights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr;
 	if (!mColdStorage.pending.empty() && !learnedWeights) return;
 	auto& s = mColdStorage;
@@ -1020,62 +1042,23 @@ void Board::PlanColdStorageAttack()
 				context[7] += p.health / 4000;
 		}
 		const auto seed = 0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed);
-		const size_t paidCount = s.pending.size();
+		std::vector<std::uint64_t> tickets;
+		for (const auto& paid : s.pending) tickets.push_back(paid.ticket);
+		if (background) {
+			if (!mColdStoragePlanner) mColdStoragePlanner = std::make_unique<ColdStorageSearch::Planner>();
+			mColdStoragePlanningTickets = std::move(tickets);
+			mColdStoragePlanningAt = s.elapsed;
+			mColdStoragePlanningVersion = requestedVersion;
+			mColdStoragePlanningStamp = ColdStoragePlanningStamp();
+			s.planning = mColdStoragePlanner->Start(std::move(search),*weights,seed);
+			if (s.planning) ++s.planningStarted;
+			// 启动失败留待下一次重试，不在渲染帧中突然回退执行昂贵的完整搜索。
+			s.attackDeferred = true;
+			return;
+		}
 		const auto revision = ColdStorageSearch::ReplanCommitted(search,*weights,seed ^ 0x91A7u);
-		s.searchCommittedCount = static_cast<int>(paidCount);
-		s.searchQueueEvaluated = revision.evaluated; s.searchQueueChanged = revision.changed;
-		s.searchQueueBeforeScore = revision.beforeScore; s.searchQueueAfterScore = revision.afterScore;
-		for (size_t i = 0; i < paidCount; ++i) {
-			const auto& body = search.current[search.committed[i].unit].body;
-			s.pending[i].row = body.row;
-			s.pending[i].remaining = std::min(s.pending[i].remaining,body.spawnAt);
-		}
-		auto result = ColdStorageSearch::Search(search, *weights,seed);
-		result.expandedForecast |= requestedVersion == 1 && !search.committed.empty();
-		s.commanderStrategy = "learned_search";
-		s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
-		s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
-		s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
-		s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
-		s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
-		s.searchAnticipateEconomy = search.anticipateEconomy;
-		s.searchExchangeCards = static_cast<int>(search.exchanges.size());
-		s.searchExchanges = result.construction.exchanges; s.searchOrders = result.construction.orders;
-		s.searchExchangeSun = result.construction.exchangeSun; s.searchExchangeIce = result.construction.exchangeIce;
-		s.searchOrderSun = result.construction.orderSun; s.searchOrderIce = result.construction.orderIce;
-		s.searchPendingIce = result.construction.pendingIce;
-		s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
-		s.searchVersion = requestedVersion; s.searchLargestPlan = result.largestPlan;
-		s.searchAdaptive = search.stateModel != nullptr;
-		s.searchExpandedForecast = result.expandedForecast;
-		s.searchNetEconomy = search.netEconomy;
-		s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();
-		s.searchConstructionOptions = static_cast<int>(search.construction.size());
-		s.searchPredictedPlantings = result.construction.planted;
-		s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
-		s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
-		s.searchCounterHoldSeconds = result.counterHoldSeconds;
-		s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
-		s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
-		s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
-		s.searchFormationChosenRow = result.formationChosenRow;
-		s.searchProductionInputs = result.productionInputs;
-		s.formationBlastLoss = result.blastLoss;
-		s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
-		const int before = s.enemyIce;
-		for (const auto& action : result.actions) {
-			const auto& option = search.options[action.option];
-			if (QueueColdStorageZombie(static_cast<ZombieType>(option.type), option.row, action.delay)) {
-				s.commanderFocusRow = option.row;
-				if (option.unit.body.economic) ++s.economicFollowups;
-			}
-		}
-		s.commanderSpent = before - s.enemyIce; s.commanderReserve = s.enemyIce;
-		s.attackDeferred = true; // 队列兑现期间也定期观察；灰烬、前排损失与新收入都会进入下一次快照。
-		if (s.pending.size() > paidCount) {
-			mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0;
-			for (size_t i = paidCount; i < s.pending.size(); ++i) s.pending[i].wave = s.decisions;
-		}
+		auto result = ColdStorageSearch::Search(search,*weights,seed);
+		ApplyColdStoragePlan(search,result,revision,requestedVersion,0,tickets);
 		return;
 	}
 	// 对每条路线比较裸投与各个已解锁护卫，护卫是否值得买由净收益决定。
@@ -1586,6 +1569,130 @@ void Board::PlanColdStorageAttack()
 	}
 }
 
+void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, ColdStorageSearch::Result& result,
+	const ColdStorageSearch::QueueRevision& revision, int requestedVersion, float age,
+	const std::vector<std::uint64_t>& tickets)
+{
+	PROFILE_SCOPE("Commander.Commit");
+	auto& s = mColdStorage;
+	const size_t paidCount = s.pending.size();
+	s.searchCommittedCount = static_cast<int>(tickets.size());
+	s.searchQueueEvaluated = revision.evaluated; s.searchQueueChanged = revision.changed;
+	s.searchQueueBeforeScore = revision.beforeScore; s.searchQueueAfterScore = revision.afterScore;
+	for (size_t i = 0; i < tickets.size(); ++i) {
+		const auto paid = std::find_if(s.pending.begin(),s.pending.end(),[&](const auto& item) { return item.ticket == tickets[i]; });
+		if (paid == s.pending.end()) continue; // 已经出生的旧事务不能被重新插回队列。
+		const auto& body = search.current[search.committed[i].unit].body;
+		if (IsSpawnRowCompatible(paid->type,body.row)) paid->row = body.row;
+		paid->remaining = std::min(paid->remaining,std::max(0.0f,body.spawnAt-age));
+	}
+	result.expandedForecast |= requestedVersion == 1 && !search.committed.empty();
+	s.commanderStrategy = "learned_search";
+	s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
+	s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
+	s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+	s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
+	s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
+	s.searchAnticipateEconomy = search.anticipateEconomy;
+	s.searchExchangeCards = static_cast<int>(search.exchanges.size());
+	s.searchExchanges = result.construction.exchanges; s.searchOrders = result.construction.orders;
+	s.searchExchangeSun = result.construction.exchangeSun; s.searchExchangeIce = result.construction.exchangeIce;
+	s.searchOrderSun = result.construction.orderSun; s.searchOrderIce = result.construction.orderIce;
+	s.searchPendingIce = result.construction.pendingIce;
+	s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
+	s.searchVersion = requestedVersion; s.searchLargestPlan = result.largestPlan;
+	s.searchAdaptive = search.stateModel != nullptr;
+	s.searchExpandedForecast = result.expandedForecast;
+	s.searchNetEconomy = search.netEconomy;
+	s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();
+	s.searchConstructionOptions = static_cast<int>(search.construction.size());
+	s.searchPredictedPlantings = result.construction.planted;
+	s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
+	s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
+	s.searchCounterHoldSeconds = result.counterHoldSeconds;
+	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
+	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
+	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
+	s.searchFormationChosenRow = result.formationChosenRow;
+	s.searchProductionInputs = result.productionInputs;
+	s.formationBlastLoss = result.blastLoss;
+	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
+	const int before = s.enemyIce;
+	for (const auto& action : result.actions) {
+		const auto& option = search.options[action.option];
+		if (QueueColdStorageZombie(static_cast<ZombieType>(option.type), option.row, action.delay)) {
+			s.commanderFocusRow = option.row;
+			if (option.unit.body.economic) ++s.economicFollowups;
+		}
+	}
+	s.commanderSpent = before - s.enemyIce; s.commanderReserve = s.enemyIce;
+	s.attackDeferred = true; // 队列兑现期间也定期观察；灰烬、前排损失与新收入都会进入下一次快照。
+	if (s.pending.size() > paidCount) {
+		mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0;
+		for (size_t i = paidCount; i < s.pending.size(); ++i) s.pending[i].wave = s.decisions;
+	}
+}
+
+std::uint64_t Board::ColdStoragePlanningStamp() const
+{
+	std::uint64_t stamp = 1469598103934665603ULL;
+	const auto mix = [&](std::uint64_t value) { stamp = (stamp ^ value)*1099511628211ULL; };
+	// 即使瞬发植物在领取前已消失，创建序号也留下痕迹。
+	mix(mEntityRegistry.GetNextPlantID());
+	for (int id : mEntityRegistry.GetAllPlantIDs()) {
+		const Plant* plant = mEntityRegistry.GetPlant(id);
+		if (!plant || !plant->IsActive()) continue;
+		mix(id); mix(plant->mRow); mix(plant->mColumn); mix(static_cast<unsigned>(plant->GetPlacementType())); mix(plant->GetSleepState());
+		mix(plant->GetSimulationAbilityCooldownRemaining() <= 0);
+		if (const auto* lotus = dynamic_cast<const DawnLotus*>(plant)) mix(lotus->IsReadyToActivate());
+	}
+	for (int id : mEntityRegistry.GetAllMowerIDs()) {
+		const Mower* mower = mEntityRegistry.GetMower(id);
+		if (mower && mower->IsActive()) { mix(id); mix(static_cast<unsigned>(mower->mState)); }
+	}
+	return stamp;
+}
+
+void Board::PollColdStoragePlan()
+{
+	if (!mColdStoragePlanner || !mColdStoragePlanner->Busy()) return;
+	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned) {
+		mColdStoragePlanner->Cancel();
+		mColdStorage.planning = false;
+		return;
+	}
+	PROFILE_SCOPE("Commander.PollMain");
+	PlanningTimer timer{mColdStorage.planningMainMaxMs};
+	auto work = mColdStoragePlanner->TakeReady();
+	if (!work) return;
+	auto& s = mColdStorage;
+	s.planning = false;
+	s.planningWorkerMs = work->milliseconds;
+	const float age = s.elapsed-mColdStoragePlanningAt;
+	bool valid = !work->failed && age >= 0 && age <= kPlanningMaxAge
+		&& GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get(mLevel)
+		&& s.enemyIce >= work->snapshot.budget && ColdStoragePlanningStamp() == mColdStoragePlanningStamp;
+	// 改过路线的在途友军若已经按旧路线出生，整案重采；不把旧承诺的收益借给新计划。
+	for (auto ticket : mColdStoragePlanningTickets)
+		if (std::none_of(s.pending.begin(),s.pending.end(),[&](const auto& paid) { return paid.ticket == ticket; })) valid = false;
+	float before = 0, now = 0;
+	for (const auto& unit : work->snapshot.current) if (unit.id > 0) {
+		before += unit.body.health;
+		const Zombie* entity = mEntityRegistry.GetZombie(unit.id);
+		if (entity && entity->IsActive() && !entity->IsDying() && !entity->IsMindControlled())
+			now += std::min(unit.body.health,static_cast<float>(entity->mBodyHealth+entity->mHelmHealth+entity->mShieldHealth));
+	}
+	if (now < before*kPlanningSurvivingFraction) valid = false;
+	if (!valid) {
+		++s.planningDiscarded;
+		s.decisionRemaining = 0; // 下一个正常更新用新局面重算，不扣冰，也不提前结束战斗。
+		return;
+	}
+	ApplyColdStoragePlan(work->snapshot,work->result,work->revision,mColdStoragePlanningVersion,age,mColdStoragePlanningTickets);
+	++s.planningApplied;
+	s.decisionRemaining = kStagingRecheck;
+}
+
 void Board::UpdateColdStorage(float dt)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || dt <= 0) return;
@@ -1615,6 +1722,7 @@ void Board::UpdateColdStorage(float dt)
 	for (auto it = s.pending.begin(); it != s.pending.end();) {
 		it->remaining -= dt;
 		if (it->remaining > 0) { ++it; continue; }
+		PROFILE_SCOPE("Commander.Spawn");
 		Zombie* z = CreateResolvedWaveZombie(it->type, it->row, static_cast<float>(SCENE_WIDTH) + 40.0f);
 		if (!z) { it->remaining = 1.0f; ++it; continue; }
 		s.refundableCosts.emplace(z->mZombieID, it->cost);
@@ -1624,11 +1732,12 @@ void Board::UpdateColdStorage(float dt)
 		it = s.pending.erase(it);
 		UpdateZombieMetrics();
 	}
+	PollColdStoragePlan();
 	s.decisionRemaining -= dt;
 	// 学习分支将已付队列作为未来友军重新推演；旧 AI 仍等队列兑现，避免漏算其承诺。
-	if (s.decisionRemaining <= 0 && (s.pending.empty()
+	if (!s.planning && s.decisionRemaining <= 0 && (s.pending.empty()
 		|| (GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get(mLevel)))) {
-		PlanColdStorageAttack();
+		PlanColdStorageAttack(!GameAPP::mAutoTestMode || TestDriver::GetInstance().BackgroundCommander());
 		s.decisionRemaining = s.attackDeferred ? kStagingRecheck : DecisionInterval(s.elapsed, s.commanderStrategy == "short_game");
 	}
 }
@@ -1664,6 +1773,8 @@ nlohmann::json Board::SaveColdStorage() const
 void Board::LoadColdStorage(const nlohmann::json& j)
 {
 	if (!IsColdStorage() || !j.is_object() || j.empty()) return;
+	mColdStoragePlanner.reset();
+	mColdStorage.planning = false;
 	auto integer = [&](const char* key, int fallback, int low, int high) {
 		return std::clamp(j.value(key, fallback), low, high);
 	};
@@ -1732,6 +1843,6 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 		if (type<0 || type>=static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES) || row<0 || row>=mRows
 			|| !std::isfinite(remaining) || s.pending.size()>=kMaxSimultaneous) continue;
 		s.pending.push_back({static_cast<ZombieType>(type), row, std::clamp(p.value("cost",0),0,kMaxIce),std::clamp(remaining,0.0f,60.0f),
-			std::clamp(p.value("wave",s.decisions),0,s.decisions)});
+			std::clamp(p.value("wave",s.decisions),0,s.decisions), ++s.nextTicket});
 	}
 }

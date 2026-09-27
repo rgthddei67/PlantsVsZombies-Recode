@@ -2,6 +2,7 @@
 
 #include "Game/Zombie/ZombieType.h"
 #include <array>
+#include <cstdint>
 #include <deque>
 #include <map>
 #include <string>
@@ -14,6 +15,7 @@ struct ColdStorageDeployment {
 	int cost = 0;
 	float remaining = 0.0f;
 	int wave = 0; // 原付款批次；滚动增援不能把旧队列的产冰归入新波
+	std::uint64_t ticket = 0; // 本次 Board 内的队列身份；读档重新编号，后台结果不能改到后来入队的单位
 };
 
 /** 最近经营窗口中的实际收支；正数金额，补给与预测收益不在此登记。 */
@@ -28,6 +30,10 @@ struct ColdStorageProductionEvent { float at = 0; int wave = 0, amount = 0; };
 
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
+	std::uint64_t nextTicket = 0;
+	bool planning = false; // 后台计算尚未领取；不入档、不代表已付款
+	int planningStarted = 0, planningApplied = 0, planningDiscarded = 0;
+	double planningWorkerMs = 0, planningMainMaxMs = 0; // 后台总耗时/主线程决策入口最大耗时，毫秒
 	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
 	int playerIce = 200; // 开局冷库可支撑完整五路基础阵型，后续依赖采购
 	int enemyIce = 0;

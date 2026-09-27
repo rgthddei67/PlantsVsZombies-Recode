@@ -734,6 +734,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 		[](const auto& command) { return command.value("op",std::string()) == "commander_episode"; });
 	mInteractive = j.value("interactive", false);
 	mHumanObservation = j.value("humanObservation",false);
+	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
 	if (mBatchSteps < 0 || mBatchSteps > 32 || (mInteractive && mBatchSteps != 0)) return false;
@@ -1096,7 +1097,7 @@ bool TestDriver::ExecuteCurrent() {
 		}
 		return true;
 	}
-	if (op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "player_plant") {
+	if (op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "await_ice_attack" || op == "player_plant") {
 		GameScene* gs = CurrentGameScene();
 		Board* board = gs ? gs->GetBoard() : nullptr;
 		if (!board || !board->IsColdStorage()) { Fail("cold storage command: unsupported board"); return false; }
@@ -1106,7 +1107,8 @@ bool TestDriver::ExecuteCurrent() {
 			board->LoadColdStorage(state);
 			return true;
 		}
-		if (op == "plan_ice_attack") { board->PlanColdStorageAttack(); return true; }
+		if (op == "plan_ice_attack") { board->PlanColdStorageAttack(cmd.value("background",false)); return true; }
+		if (op == "await_ice_attack") { board->PollColdStoragePlan(); return !board->mColdStorage.planning; }
 		if (op == "player_plant") {
 			const std::string result = gs->GetCardSlotManager()->TryPlantFromSlot(cmd.value("slot",0),cmd.value("row",0),cmd.value("col",0));
 			if (result != cmd.value("expectedResult", std::string())) { Fail("player_plant: " + result); return false; }
@@ -4866,6 +4868,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchCounterHoldSeconds"] = board->mColdStorage.searchCounterHoldSeconds;
+		ice["planning"] = board->mColdStorage.planning;
+		ice["planningStarted"] = board->mColdStorage.planningStarted;
+		ice["planningApplied"] = board->mColdStorage.planningApplied;
+		ice["planningDiscarded"] = board->mColdStorage.planningDiscarded;
+		ice["planningWorkerMs"] = board->mColdStorage.planningWorkerMs;
+		ice["planningMainMaxMs"] = board->mColdStorage.planningMainMaxMs;
 		ice["searchQueue"] = {{"committed",board->mColdStorage.searchCommittedCount},
 			{"evaluated",board->mColdStorage.searchQueueEvaluated},{"changed",board->mColdStorage.searchQueueChanged},
 			{"beforeScore",board->mColdStorage.searchQueueBeforeScore},{"afterScore",board->mColdStorage.searchQueueAfterScore}};

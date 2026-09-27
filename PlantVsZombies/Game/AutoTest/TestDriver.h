@@ -18,6 +18,8 @@ public:
 	bool LoadScript(const std::string& path);
 
 	bool IsActive() const { return mActive; }
+	/** 真人日志沿用正式后台规划；批量陪练保持同步，避免墙钟速度影响种子对照。 */
+	bool BackgroundCommander() const { return mBackgroundCommander; }
 	int  ExitCode() const { return mExitCode; }
 
 	// 每帧调用（GameAPP::Run 中 sceneManager.Update() 之后）。未激活时立即返回。
@@ -63,6 +65,7 @@ private:
 	/** 先写临时文件再发布唯一序号的响应，避免读取半份状态。 */
 	void PublishInteractiveReply();
 	bool mHumanObservation = false;
+	bool mBackgroundCommander = false; // 性能夹具可显式启用；真人观察默认启用，批量训练默认同步
 	bool mHumanRecordingFailed = false;
 	int mHumanLastDecision = -1, mHumanLastBoardState = -1;
 	bool mHumanLastTrophy = false;

@@ -1,4 +1,7 @@
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/AI/ColdStoragePlanner.h"
+#include <chrono>
+#include <thread>
 #include <limits>
 #include "Game/AI/ColdStorageStrategy.h"
 #include <cstdlib>
@@ -794,4 +797,44 @@ int main()
 	check(ColdStorageSearch::Evaluate(counterTiming,{},nullptr,8)[6] == 0,
 		"counter patience never waives the player's real resource requirement");
 	std::cout << "Immediate and patient counter models, common baseline and committed casts passed\n";
+	ColdStorageSearch::Snapshot threaded = counterTiming;
+	threaded.capacity = 8; threaded.budget = 200;
+	threaded.options.push_back({0,0,24,outsideWorker,{}});
+	threaded.committed.push_back({1,{true,true,false,false,false,false}});
+	ColdStorageSearch::StateModel ownedModel;
+	threaded.stateModel = &ownedModel;
+	ColdStorageSearch::Planner planner;
+	check(planner.Start(threaded,earn,81), "background planner accepts one snapshot");
+	check(!planner.Start(threaded,earn,82), "a busy planner never queues a duplicate purchase search");
+	auto expectedQueue = threaded;
+	const auto expectedRevision = ColdStorageSearch::ReplanCommitted(expectedQueue,earn,81 ^ 0x91A7u);
+	ownedModel.coefficients[0][4] = 99; // 修改来源，不能改变已复制到工作线程的模型。
+	threaded.current.clear();
+	std::unique_ptr<ColdStorageSearch::Planner::Work> completed;
+	const auto deadline = std::chrono::steady_clock::now()+std::chrono::seconds(10);
+	while (!completed && std::chrono::steady_clock::now() < deadline) {
+		completed = planner.TakeReady();
+		if (!completed) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	check(completed && !completed->failed && !planner.Busy(), "background result is completed and consumed exactly once");
+	check(completed->snapshot.stateModel->coefficients[0][4] == 0 && completed->snapshot.current.size() == 2,
+		"the worker owns policy models and entity values independently of its caller");
+	check(completed->revision.afterScore == expectedRevision.afterScore
+		&& completed->revision.changed == expectedRevision.changed
+		&& completed->snapshot.current[1].body.row == expectedQueue.current[1].body.row
+		&& completed->snapshot.current[1].body.spawnAt == expectedQueue.current[1].body.spawnAt,
+		"background paid-queue replanning matches the synchronous route and deadline exactly");
+	const auto synchronous = ColdStorageSearch::Search(completed->snapshot,earn,81);
+	check(synchronous.features == completed->result.features && synchronous.score == completed->result.score
+		&& synchronous.evaluated == completed->result.evaluated && synchronous.actions.size() == completed->result.actions.size(),
+		"background and synchronous searches retain exactly the same score, candidate budget and result");
+	for (size_t i=0; i<synchronous.actions.size(); ++i)
+		check(synchronous.actions[i].option == completed->result.actions[i].option
+			&& synchronous.actions[i].delay == completed->result.actions[i].delay, "thread scheduling never changes the selected actions");
+	check(!planner.TakeReady(), "a result cannot be delivered twice");
+	check(planner.Start(threaded,earn,82), "planner can restart after completion");
+	planner.Cancel();
+	check(!planner.Busy() && !planner.TakeReady(), "cancellation releases worker ownership and publishes no partial result");
+	std::cout << "Owned background snapshots, deterministic search and cancellation passed\n";
+
 }

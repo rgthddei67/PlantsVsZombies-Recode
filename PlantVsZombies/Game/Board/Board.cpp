@@ -1,5 +1,6 @@
 #include "Game/Board/Board.h"
 #include "Game/AI/MineWaveFormation.h"
+#include "Game/AI/ColdStoragePlanner.h"
 #include "Logger.h"
 #include "Game/Board/BoardPresentation.h"
 #include "Game/LawnMower.h"

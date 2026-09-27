@@ -9,6 +9,7 @@
 
 namespace ColdStorageSearch {
 namespace {
+struct SearchCancelled {}; // 取消只由拥有任务的 Planner 捕获，不作为可提交结果
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
 constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
@@ -615,6 +616,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	capPlayerResources();
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
+		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		if (s.anticipateEconomy && pendingIce > 0 && t >= arrival) {
 			playerIce += pendingIce; pendingIce = 0;
 		} else if (!s.anticipateEconomy && !orderArrived && t >= s.incomingIceAt) {

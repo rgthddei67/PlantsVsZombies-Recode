@@ -340,6 +340,7 @@ if(BUILD_TESTING)
     add_test(NAME plant-defense-monte-carlo COMMAND PlantDefenseMonteCarloTests)
 
     add_executable(ColdStorageStrategyTests tests/ColdStorageStrategyTests.cpp
+        PlantVsZombies/Game/AI/ColdStoragePlanner.cpp
         PlantVsZombies/Game/AI/ColdStorageStrategy.cpp
         PlantVsZombies/Game/AI/ColdStorageSearch.cpp)
     target_include_directories(ColdStorageStrategyTests PRIVATE ${SRC_DIR})
