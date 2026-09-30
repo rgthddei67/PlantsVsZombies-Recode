@@ -83,9 +83,12 @@
     {
       "op": "set_cold_storage",
       "state": {
-        "decisions": 11
+        "decisions": 28
       }
     },
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 0, "expectedSuccess": false},
+    {"op": "assert_state", "path": "coldStorage.enemyIce", "equals": 100},
+    {"op": "set_cold_storage", "state": {"decisions": 29}},
     {
       "op": "queue_ice_zombie",
       "type": "ZOMBIE_REDEYE_GARGANTUAR",
@@ -112,7 +115,7 @@
     {
       "op": "assert_state",
       "path": "coldStorage.decisions",
-      "equals": 11
+      "equals": 29
     },
     {
       "op": "assert_state",
@@ -121,8 +124,13 @@
     },
     {
       "op": "dump_state",
-      "name": "round_twelve.json"
+      "name": "round_thirty.json"
     },
+    {"op": "set_spawn_paused", "value": false},
+    {"op": "wait_seconds", "value": 2.2},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "assert_state", "path": "redEyeGargantuarZombieCount", "equals": 1},
+    {"op": "dump_state", "name": "redeye_deployed.json"},
     {
       "op": "assert_state",
       "path": "maxWave",
@@ -153,8 +161,32 @@
       "op": "dump_state",
       "name": "wave_101.json"
     },
-    {
-      "op": "quit"
-    }
+    {"op": "goto_level", "level": 83, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 25},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "assert_state", "path": "coldStorage.unlockRounds.ZOMBIE_GARGANTUAR", "equals": 20},
+    {"op": "assert_state", "path": "coldStorage.unlockRounds.ZOMBIE_REDEYE_GARGANTUAR", "equals": 30},
+    {"op": "set_cold_storage", "state": {"enemyIce": 100, "decisions": 18, "decisionRemaining": 60}},
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 0, "expectedSuccess": false},
+    {"op": "assert_state", "path": "coldStorage.enemyIce", "equals": 100},
+    {"op": "set_cold_storage", "state": {"decisions": 19}},
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 0},
+    {"op": "assert_state", "path": "coldStorage.enemyIce", "equals": 84},
+    {"op": "assert_state", "path": "coldStorage.pendingCount", "equals": 1},
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 1, "expectedSuccess": false},
+    {"op": "dump_state", "name": "round_twenty.json"},
+    {"op": "set_spawn_paused", "value": false},
+    {"op": "wait_seconds", "value": 2.2},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "assert_state", "path": "gargantuarZombieCount", "equals": 1},
+    {"op": "assert_state", "path": "redEyeGargantuarZombieCount", "equals": 0},
+    {"op": "dump_state", "name": "giant_deployed.json"},
+    {"op": "commander_experiment", "weights": [1, 1, 1, 1, 1, 1, -1, 1], "allZombies": true},
+    {"op": "set_cold_storage", "state": {"enemyIce": 100, "decisions": 0, "pending": []}},
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 0},
+    {"op": "queue_ice_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 1},
+    {"op": "assert_state", "path": "coldStorage.enemyIce", "equals": 60},
+    {"op": "quit"}
   ]
 }

@@ -88,6 +88,8 @@ namespace {
 	constexpr float kCollateralScorePerIce = 0.4f; // 邻路额外损失每冰折算的出兵评分，可被突破价值抵消
 	constexpr float kEscortIncomeShare = 0.5f; // 工人预期收入分配给护卫的保护价值权重
 	constexpr float kStagingRecheck = 3.0f; // 暂缓后续梯队后重新看战况的间隔，游戏秒
+	constexpr int kGargantuarUnlockWave = 20; // 冷藏站 AI 普通巨人首次可购买波次，留出前期发育空间
+	constexpr int kRedeyeUnlockWave = 30; // 冷藏站 AI 红眼首次可购买波次，普通关卡沿用 gamedata.json
 	constexpr float kBlastStakeMinimum = 24.0f; // 爆炸牌可用时仍允许投入的小队风险额度，冰块
 	constexpr float kBlastStakeMaximum = 40.0f; // 库存充裕时单个爆区的常规最高投资损失，冰块
 	constexpr float kBlastStakeFraction = 0.06f; // 库存折算为可承受爆区风险的比例
@@ -505,12 +507,19 @@ bool Board::IsColdStorageCleared() const
 	return true;
 }
 
+int Board::GetColdStorageUnlockWave(ZombieType type) const
+{
+	if (type == ZombieType::ZOMBIE_GARGANTUAR) return kGargantuarUnlockWave;
+	if (type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) return kRedeyeUnlockWave;
+	return GameDataManager::GetInstance().GetZombieAppearWave(type);
+}
+
 bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| row < 0 || row >= mRows || !IsSpawnRowCompatible(type, row)
 		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
-			&& GameDataManager::GetInstance().GetZombieAppearWave(type) > mColdStorage.decisions + 1)
+			&& GetColdStorageUnlockWave(type) > mColdStorage.decisions + 1)
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
 		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= kMaxSimultaneous) return false;
 	const int cost = GetZombieIceCost(type);
@@ -539,7 +548,7 @@ void Board::PlanColdStorageAttack(bool background)
 	auto& s = mColdStorage;
 	const bool allUnitsUnlocked = ColdStoragePolicy::AllUnits();
 	const auto isUnlocked = [&](ZombieType type) {
-		return allUnitsUnlocked || GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1;
+		return allUnitsUnlocked || GetColdStorageUnlockWave(type) <= s.decisions + 1;
 	};
 	s.commanderMode = "pressure";
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
@@ -886,10 +895,10 @@ void Board::PlanColdStorageAttack(bool background)
 		if (!allUnitsUnlocked && s.pending.empty() && GetColdStorageHostileCount() == 0) {
 			int probeCost = kMaxIce;
 			for (auto type : mSpawnZombieList)
-				if (GameDataManager::GetInstance().GetZombieAppearWave(type) <= s.decisions + 1)
+				if (GetColdStorageUnlockWave(type) <= s.decisions + 1)
 					probeCost = std::min(probeCost,GetZombieIceCost(type));
 			if (probeCost > 0) for (auto type : mSpawnZombieList) {
-				const int wavesNeeded = GameDataManager::GetInstance().GetZombieAppearWave(type) - (s.decisions + 1);
+				const int wavesNeeded = GetColdStorageUnlockWave(type) - (s.decisions + 1);
 				if (wavesNeeded > 0 && static_cast<long long>(wavesNeeded)*probeCost + GetZombieIceCost(type)
 					+ ColdStorageState::RecoveryReserveIce <= s.enemyIce) s.unlockProbe = true;
 			}

@@ -223,6 +223,8 @@ public:
 	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
 	int GetPlantIceCost(PlantType type) const;
 	int GetZombieIceCost(ZombieType type) const;
+	/** 冷藏站指挥官的兵种解锁波次；独立于普通关卡刷新，搜索与付款共用。 */
+	int GetColdStorageUnlockWave(ZombieType type) const;
 	bool CanAffordPlantIce(PlantType type) const;
 	/** 植物主动技能的原子付款；冷藏站用冰块，其他地图用阳光。 */
 	bool TrySpendPlantAbilityResource(int ice, int sun);

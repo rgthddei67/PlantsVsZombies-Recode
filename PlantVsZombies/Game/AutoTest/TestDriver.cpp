@@ -4953,7 +4953,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["plantCosts"] = nlohmann::json::object();
 		for (const auto& entry : kPlantNames) ice["plantCosts"][entry.first]=board->GetPlantIceCost(entry.second);
 		ice["unlockRounds"] = nlohmann::json::object();
-		for (ZombieType type : board->GetSpawnZombieList()) ice["unlockRounds"][ZombieTypeName(type)] = GameDataManager::GetInstance().GetZombieAppearWave(type);
+		for (ZombieType type : board->GetSpawnZombieList()) ice["unlockRounds"][ZombieTypeName(type)] = board->GetColdStorageUnlockWave(type);
 		ice["zombieCosts"] = nlohmann::json::object();
 		for (const auto& entry : kZombieNames) ice["zombieCosts"][entry.first]=board->GetZombieIceCost(entry.second);
 	}

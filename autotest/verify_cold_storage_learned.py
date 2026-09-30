@@ -21,6 +21,11 @@ for name, state in states.items():
     assert ice['pendingCount'] + len(ice['refundableCosts']) <= 64
     if name in ('opening', 'late'):
         assert ice['commanderStrategy'] == 'learned_search' and ice['pendingCount'] > 0
+        # 付款后的 decisions 已加一；刚提交的队伍只能使用本次购买波次已解锁的兵种。
+        assert all(ice['unlockRounds'][names[p['type']]] <= ice['decisions'] for p in ice['pending']), name
+        if name == 'late':
+            assert ice['unlockRounds']['ZOMBIE_REDEYE_GARGANTUAR'] == 30
+            assert all(names[p['type']] != 'ZOMBIE_REDEYE_GARGANTUAR' for p in ice['pending'])
         assert ice['commanderSpent'] <= ice['commanderBudget']
         comparison = ice['searchFormation']
         version=policy.get('searchVersion',1)
