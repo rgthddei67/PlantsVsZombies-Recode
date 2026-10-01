@@ -81,7 +81,7 @@ enum class PlantType
 	PLANT_AMBERLICHEN, // 琥珀地衣，9-7 奖励
 	PLANT_ICEMINT, // 冰晶薄荷；10-1 奖励，长期产冰经济植物
 	PLANT_COLDPINEAPPLE, // 蓄冷菠萝；10-3 奖励，付费开启九格攻速领域
-	PLANT_ICESTORAGENUT, // 冰仓坚果；10-5 奖励，抗碾压与付费修复
+	PLANT_ICESTORAGENUT, // 冰仓坚果；10-4 奖励，抗碾压与付费修复
 	NUM_PLANT_TYPES,
 };
 

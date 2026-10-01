@@ -121,6 +121,7 @@ namespace AdventureProgression
 		PlantType::PLANT_BOUNDARYFLOWER,
 		PlantType::PLANT_DAWNLOTUS,
 		NO_PLANT_REWARD,
+
 		PlantType::PLANT_CARRYVINE, // 9-1 通关后解锁整组搬运工具
 		NO_PLANT_REWARD, // 9-2 开凿僵尸教学，不新增植物奖励
 		PlantType::PLANT_ECHOSHROOM, // 9-3 回声菇
@@ -130,10 +131,16 @@ namespace AdventureProgression
 		PlantType::PLANT_AMBERLICHEN, // 9-7 琥珀地衣
 		NO_PLANT_REWARD, // 9-8 金雾综合矿场
 		NO_PLANT_REWARD, // 9-9 矿场收官，不新增植物奖励
-		// 10-1 获得冰晶薄荷，10-2 开始使用双方经济单位。
-		PlantType::PLANT_ICEMINT, NO_PLANT_REWARD, PlantType::PLANT_COLDPINEAPPLE,
-		NO_PLANT_REWARD, PlantType::PLANT_ICESTORAGENUT, NO_PLANT_REWARD,
-		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+
+		PlantType::PLANT_ICEMINT, 
+		NO_PLANT_REWARD, 
+		PlantType::PLANT_COLDPINEAPPLE,
+		PlantType::PLANT_ICESTORAGENUT, 
+		NO_PLANT_REWARD, 
+		NO_PLANT_REWARD,
+		NO_PLANT_REWARD, 
+		NO_PLANT_REWARD, 
+		NO_PLANT_REWARD,
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */
