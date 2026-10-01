@@ -96,3 +96,13 @@ int CoffeeBean::GetWaitTimeRemainingMs() const
 {
 	return static_cast<int>(std::lround(mWaitTimer * 1000.0f));
 }
+
+float CoffeeBean::GetFullWakeDelay()
+{
+	return kWaitBeforeCrumbleSeconds + kWakeUpDurationSeconds;
+}
+
+float CoffeeBean::GetPendingWakeDelay() const
+{
+	return mPhase == Phase::WAITING ? mWaitTimer + kWakeUpDurationSeconds : 0.0f;
+}

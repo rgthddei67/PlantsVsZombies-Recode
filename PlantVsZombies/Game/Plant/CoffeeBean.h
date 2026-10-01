@@ -25,6 +25,10 @@ public:
 
 	const char* GetPhaseName() const;
 	int GetWaitTimeRemainingMs() const;
+	/** 从新种咖啡到目标清醒的完整游戏秒数，不含目标自己的后续动作。 */
+	static float GetFullWakeDelay();
+	/** 已放下咖啡尚未启动的唤醒等待；已进入碎裂时由目标自己的唤醒计时接管。 */
+	float GetPendingWakeDelay() const;
 
 protected:
 	void SetupPlant() override;

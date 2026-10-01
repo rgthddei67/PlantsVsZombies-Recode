@@ -21,6 +21,8 @@
 #include "Game/Plant/IceStorageNut.h"
 #include "Game/Plant/ColdPineapple.h"
 #include "Game/Plant/EliteScaredyShroom.h"
+#include "Game/Plant/DoomShroom.h"
+#include "Game/Plant/CoffeeBean.h"
 #include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
 #include "Game/Bullet/Bullet.h"
@@ -157,16 +159,15 @@ namespace {
 	};
 
 	/** 返回对应结算几何在目标行的水平半径；负值表示该行不会命中。 */
-	float EconomyBlastReach(const EconomyBlast& blast, int row)
+	float EconomyBlastReach(const EconomyBlast& blast, int row, float targetDeltaY)
 	{
 		const int rows = std::abs(blast.row - row);
 		if (blast.type == PlantType::PLANT_COBCANNON) return rows <= blast.rowRadius ? blast.radius : -1.0f;
 		if (blast.type == PlantType::PLANT_JALAPENO) return rows == 0 ? 10000.0f : -1.0f;
 		if (blast.type == PlantType::PLANT_CHERRYBOMB) return rows <= 1 ? 130.0f : -1.0f;
 		if (blast.type == PlantType::PLANT_SQUASH) return rows == 0 ? 50.0f : -1.0f;
-		// 与 CreateDoomBoom 的圆/碰撞矩形纵向口径一致，用当前棋盘行距换算。
-		const float dy = std::max(0.0f, rows * static_cast<float>(CELL_COLLIDER_SIZE_Y)
-			- (row > blast.row ? 65.0f : 35.0f));
+		// 使用实际出生行 Y 与植物爆心之差，保留地图的僵尸锚点偏移，不能只用“行差 × 100”。
+		const float dy = std::max({0.0f,targetDeltaY-65.0f,-targetDeltaY-35.0f});
 		return dy <= 250.0f ? 25.0f + std::sqrt(250.0f * 250.0f - dy * dy) : -1.0f;
 	}
 
@@ -586,6 +587,9 @@ void Board::PlanColdStorageAttack(bool background)
 	const auto isUnlocked = [&](ZombieType type) {
 		return allUnitsUnlocked || GetColdStorageUnlockWave(type) <= s.decisions + 1;
 	};
+	const auto blastReach = [&](const EconomyBlast& blast, int row) {
+		return EconomyBlastReach(blast,row,GetZombieSpawnY(row,blast.x)-GetCellCenterPosition(blast.row,0).y);
+	};
 	s.commanderMode = "pressure";
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
@@ -678,21 +682,24 @@ void Board::PlanColdStorageAttack(bool background)
 	// 读取真正可支付的反制。毁灭菇卡还需要咖啡，已种下的睡菇不受毁灭菇卡冷却限制。
 	std::vector<EconomyBlast> economyBlasts;
 	float responseWindow = 60.0f, coffeeWait = 60.0f;
+	float coffeeRecharge = 0.0f;
 	int coffeeSun = 0;
 	bool hasCoffee = false;
+	const bool doomNeedsCoffee = !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround);
 	const int futureIce = s.playerIce + (s.orderRemaining <= kResponseLookaheadSeconds ? s.orderIce : 0);
 	if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
 		if (card && card->GetGameplayPlantType() == PlantType::PLANT_INSTANT_COFFEE) {
 			hasCoffee = true;
 			coffeeWait = std::min(coffeeWait, card->GetCooldownTimer());
 			coffeeSun = card->GetSunCost();
+			coffeeRecharge = card->GetCooldownTime();
 		}
 	}
 	if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
 		if (!card) continue;
 		const auto type = card->GetGameplayPlantType();
 		if (!IsInstantBlast(type)) continue;
-		const bool doom = type == PlantType::PLANT_DOOMSHROOM;
+		const bool doom = type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee;
 		if (doom && !hasCoffee) continue;
 		const int sunCost = card->GetSunCost() + (doom ? coffeeSun : 0);
 		const int iceCost = GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0);
@@ -710,14 +717,21 @@ void Board::PlanColdStorageAttack(bool background)
 		const Plant* plant = mEntityRegistry.GetPlant(p.id);
 		if (!plant) continue;
 		if (IsInstantBlast(plant->GetPlacementType())) {
-			if (!plant->GetSleepState()) {
+			const auto* doom = dynamic_cast<const DoomShroom*>(plant);
+			const float committedRemaining = doom ? doom->GetExplosionTimeRemaining() : -1.0f;
+			if (committedRemaining >= 0) {
+				responseWindow = 0.0f;
+				economyBlasts.push_back({plant->GetPlacementType(),p.row,p.x,committedRemaining,true});
+			} else if (!plant->GetSleepState()) {
 				responseWindow = 0.0f;
 				economyBlasts.push_back({plant->GetPlacementType(), p.row, p.x, 1.0f, true});
 			}
-			else if (hasCoffee && mSun >= coffeeSun && futureIce >= GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE))
+			else if (hasCoffee && CanPlantAt(PlantType::PLANT_INSTANT_COFFEE,p.row,p.column)
+				&& mSun >= coffeeSun && futureIce >= GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE))
 			{
 				responseWindow = std::min(responseWindow, coffeeWait);
-				economyBlasts.push_back({plant->GetPlacementType(), p.row, p.x, coffeeWait + 1.5f, false});
+				economyBlasts.push_back({plant->GetPlacementType(),p.row,p.x,
+					coffeeWait+CoffeeBean::GetFullWakeDelay()+(doom ? DoomShroom::GetChargeDuration() : 0),false});
 			}
 		}
 		if (p.cobBlastDamage > 0.0f) {
@@ -794,7 +808,7 @@ void Board::PlanColdStorageAttack(bool background)
 		const float income = incomeUntil(survival.life);
 		float worstLoss = 0.0f;
 		for (const auto& blast : economyBlasts) {
-			const float reach = EconomyBlastReach(blast, row);
+			const float reach = blastReach(blast, row);
 			if (reach < 0.0f || (blast.committed && blast.ready < worker.spawnAt)) continue;
 			float impact = std::max(0.0f, blast.ready - worker.spawnAt) + (blast.committed ? 0.0f : 1.0f);
 			// 跟进延迟、减速和啃食也会改变进入爆区的时间，不再按固定速度外推。
@@ -805,9 +819,9 @@ void Board::PlanColdStorageAttack(bool background)
 			const float safeIncome = incomeUntil(impact);
 			int collateral = addedGuards;
 			for (const auto& z : snapshot.zombies) {
-				if (z.id == workerID || z.mindControlled || EconomyBlastReach(blast, z.row) < 0.0f) continue;
+				if (z.id == workerID || z.mindControlled || blastReach(blast, z.row) < 0.0f) continue;
 				const float projectedX = std::max(frontX[z.row], z.x - z.moveSpeed * (worker.spawnAt + impact));
-				if (std::abs(projectedX - blast.x) <= EconomyBlastReach(blast, z.row)) ++collateral;
+				if (std::abs(projectedX - blast.x) <= blastReach(blast, z.row)) ++collateral;
 			}
 			const float risk = blast.committed ? 1.0f
 				: std::min(kMaximumBlastRisk, kUnusedBlastRisk + collateral * kCrowdedBlastRisk);
@@ -891,9 +905,9 @@ void Board::PlanColdStorageAttack(bool background)
 		ColdStorageStrategy::BlastThreat threat;
 		threat.x = blast.x; threat.ready = blast.ready; threat.damage = blast.damage;
 		threat.committed = blast.committed;
-		threat.usesObjectX = blast.type != PlantType::PLANT_DOOMSHROOM;
+		threat.usesObjectX = true; // 毁灭的圆/判定矩形也基于僵尸对象原点，不是其实际碰撞箱中心
 		threat.reach.fill(-1.0f);
-		for (int row = 0; row < mRows; ++row) threat.reach[row] = EconomyBlastReach(blast, row);
+		for (int row = 0; row < mRows; ++row) threat.reach[row] = blastReach(blast, row);
 		blastThreats.push_back(threat);
 	}
 	auto blastRisk = [&](const std::vector<ColdStorageStrategy::SplashUnit>& additions) {
@@ -967,23 +981,29 @@ void Board::PlanColdStorageAttack(bool background)
 		}
 		// 一个卡槽只代表一张可用反制牌，合法格位是替代落点，不能凭空复制次数。
 		int source = 0;
+		const int coffeeSource = hasCoffee ? source++ : -1;
 		auto addCounter = [&](const EconomyBlast& blast, int id, int sun, int ice, float recharge, bool targeted) {
 			ColdStorageSearch::Counter counter;
 			counter.source = id; counter.sunCost = sun; counter.iceCost = ice;
 			counter.recharge = recharge; counter.targeted = targeted;
 			counter.windup = blast.type == PlantType::PLANT_COBCANNON ? 4.0f : targeted ? 1.7f : 1.0f;
+			if (blast.type == PlantType::PLANT_DOOMSHROOM)
+				counter.windup = DoomShroom::GetChargeDuration()+(doomNeedsCoffee ? CoffeeBean::GetFullWakeDelay() : 0);
 			counter.blast.x = blast.x; counter.blast.ready = blast.ready; counter.blast.damage = blast.damage;
 			counter.blast.committed = blast.committed;
-			counter.blast.usesObjectX = blast.type != PlantType::PLANT_DOOMSHROOM;
+			counter.blast.usesObjectX = true;
 			counter.blast.reach.fill(-1);
-			for (int row = 0; row < mRows; ++row) counter.blast.reach[row] = EconomyBlastReach(blast,row);
+			for (int row = 0; row < mRows; ++row) counter.blast.reach[row] = blastReach(blast,row);
+			if (blast.type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee && !blast.committed) {
+				counter.sharedSource = coffeeSource; counter.sharedReady = coffeeWait; counter.sharedRecharge = coffeeRecharge;
+			}
 			search.counters.push_back(counter);
 		};
 		if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
 			if (!card) continue;
 			const auto type = card->GetGameplayPlantType();
 			if (!IsInstantBlast(type) && type != PlantType::PLANT_SQUASH) continue;
-			const bool doom = type == PlantType::PLANT_DOOMSHROOM;
+			const bool doom = type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee;
 			if (doom && !hasCoffee) continue;
 			const int id = source++;
 			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
@@ -1063,8 +1083,22 @@ void Board::PlanColdStorageAttack(bool background)
 				const Zombie* target = mEntityRegistry.GetZombie(squash->GetTargetZombieID());
 				addCounter({PlantType::PLANT_SQUASH,p.row,target ? target->GetPosition().x : p.x,target ? 1.0f : 0.0f,target != nullptr},source++,0,0,10000,target == nullptr);
 			} else if (IsInstantBlast(entity->GetPlacementType())) {
-				if (!entity->GetSleepState()) addCounter({entity->GetPlacementType(),p.row,p.x,1,true},source++,0,0,10000,false);
-				else if (hasCoffee) addCounter({entity->GetPlacementType(),p.row,p.x,coffeeWait,false},source++,coffeeSun,GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE),10000,false);
+				const auto* doom = dynamic_cast<const DoomShroom*>(entity);
+				const float committedRemaining = doom ? doom->GetExplosionTimeRemaining() : -1.0f;
+				if (committedRemaining >= 0) {
+					addCounter({entity->GetPlacementType(),p.row,p.x,committedRemaining,true},source++,0,0,10000,false);
+					search.counters.back().plantID = p.id;
+					search.counters.back().vulnerableSeconds = std::max(0.0f,committedRemaining-DoomShroom::GetChargeDuration());
+				} else if (!entity->GetSleepState()) {
+					addCounter({entity->GetPlacementType(),p.row,p.x,1,true},source++,0,0,10000,false);
+				} else if (hasCoffee && CanPlantAt(PlantType::PLANT_INSTANT_COFFEE,p.row,p.column)) {
+					addCounter({entity->GetPlacementType(),p.row,p.x,coffeeWait,false},source++,coffeeSun,GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE),10000,false);
+					auto& counter = search.counters.back();
+					counter.plantID = p.id; counter.stored = true;
+					counter.vulnerableSeconds = CoffeeBean::GetFullWakeDelay();
+					counter.windup = counter.vulnerableSeconds+DoomShroom::GetChargeDuration();
+					counter.sharedSource = coffeeSource; counter.sharedReady = coffeeWait; counter.sharedRecharge = coffeeRecharge;
+				}
 			} else if (p.cobBlastDamage > 0) {
 				const int id = source++;
 				for (const auto& cell : snapshot.cells) addCounter({PlantType::PLANT_COBCANNON,cell.row,cell.x,p.abilityCooldownRemaining,false,p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);
@@ -1110,7 +1144,9 @@ void Board::PlanColdStorageAttack(bool background)
 			plant.stopDuty = p.frozenApplicationsPerSecond * p.frozenDuration + p.butterApplicationsPerSecond * p.butterDuration;
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				const auto type = entity->GetPlacementType();
-				if (IsInstantBlast(type) || type == PlantType::PLANT_SQUASH) continue;
+				// 毁灭菇是可预存、可被吃掉的反制来源；保留实体才能判断后续咖啡是否仍有目标。
+				if ((IsInstantBlast(type) && type != PlantType::PLANT_DOOMSHROOM) || type == PlantType::PLANT_SQUASH) continue;
+				if (type == PlantType::PLANT_DOOMSHROOM && !entity->GetSleepState()) plant.edible = false;
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
 				plant.assetValue = plantCapital(entity);
 				if (const auto* nut = dynamic_cast<const IceStorageNut*>(entity)) {

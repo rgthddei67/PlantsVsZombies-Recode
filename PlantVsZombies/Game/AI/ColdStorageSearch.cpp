@@ -42,6 +42,7 @@ constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预�
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
 constexpr float kCapitalBlastFraction = .35f; // 爆区预计折损超过现有库存此比例时，不能依赖削血/位移维持大额采购
+constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
 
 /** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
 float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false) {
@@ -251,17 +252,26 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	candidate.score += candidate.opponentScore;
 	// 不把玩家一定会尽早交牌当成进攻收益。比较完整且各自合法的一次推演，
 	// 不能逐项拼接两个世界的最坏损失，也不能让玩家凭空多出冷却或资源。
-	if (std::any_of(s.counters.begin(),s.counters.end(),[](const auto& counter) { return !counter.blast.committed; })) {
+	float storedHold = kStoredCounterSeconds;
+	// 长队列还能分批出生到一分钟之后。等待对照随已知的己方出生计划延长，
+	// 避免新兵仅靠晚于固定等待窗口就被误判为已经骗掉了预存毁灭。
+	for (const auto& unit : s.current) storedHold = std::max(storedHold,unit.body.spawnAt);
+	for (const auto& action : candidate.actions) storedHold = std::max(storedHold,action.delay);
+	for (float hold : {kPatientCounterSeconds,storedHold}) {
+		if (std::none_of(s.counters.begin(),s.counters.end(),[&](const auto& counter) {
+			return !counter.blast.committed && (hold == kPatientCounterSeconds || counter.stored);
+		})) continue;
 		Result patient;
 		patient.actions = candidate.actions;
-		patient.features = Evaluate(s,patient.actions,&patient.construction,kPatientCounterSeconds);
+		patient.features = Evaluate(s,patient.actions,&patient.construction,kPatientCounterSeconds,
+			hold == kPatientCounterSeconds ? 0 : storedHold);
 		Calibrate(s,patient);
 		patient.baselineFeatures = baseline;
 		patient.opponentAssets = patient.construction.opponentAssets;
 		patient.baselineOpponentAssets = baselineOpponentAssets;
 		patient.opponentScore = s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
 		patient.score = Score(patient.features,weights)+patient.opponentScore;
-		patient.counterHoldSeconds = kPatientCounterSeconds;
+		patient.counterHoldSeconds = hold;
 		if (patient.score < candidate.score) candidate = std::move(patient);
 	}
 	for (const auto& action : candidate.actions) {
@@ -311,6 +321,8 @@ struct PendingCounter {
 	int target = -1;
 	float lastTargetX = 0;
 	bool targetLocked = false;
+	int plantID = 0;
+	float invulnerableAt = 0;
 };
 
 /** 模拟已经种下的逐行主动打击：按生命和推进择敌，前排位置本身不能替工人挡主伤害。 */
@@ -360,11 +372,17 @@ bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit
 }
 
 /** 多张牌共享真实资源、同卡落点共享冷却；先兑现已提交反制，再选择一次可支付的新动作。 */
-void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>& plants, std::vector<Unit>& units,
+void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plants, std::vector<Unit>& units,
 	const std::vector<float>& initialHealth, std::vector<float>& ready,
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
-	float holdSeconds, std::vector<float>& holdUntil) {
+	float holdSeconds, float storedHoldSeconds, std::vector<float>& holdUntil) {
 	for (auto it = pending.begin(); it != pending.end();) {
+		if (it->plantID > 0) {
+			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
+			// 咖啡已经放下仍不等于爆炸已脱离宿主；睡眠/唤醒等待阶段被吃掉就不能引爆。
+			if (source == plants.end() || source->health <= 0) { it = pending.erase(it); continue; }
+			if (time >= it->invulnerableAt) source->edible = false;
+		}
 		// 假想新种倭瓜在起跳前继续追踪；不能把移动目标仍判在最初的观察落点。
 		// 正式已提交反制没有 target 索引，保持其快照落点，避免替玩家撤销或重新瞄准。
 		if (it->target >= 0 && !it->targetLocked) {
@@ -383,6 +401,10 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
 			features[6] += body.purchaseCost * damage / std::max(1.0f, initialHealth[i]);
 		}
+		if (it->plantID > 0) {
+			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
+			for (auto& plant : plants) if (plant.row == source->row && plant.column == source->column) plant.health = 0;
+		}
 		it = pending.erase(it);
 	}
 	int selected = -1;
@@ -392,7 +414,11 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 	for (size_t c = 0; c < state.counters.size(); ++c) {
 		const auto& counter = state.counters[c];
 		if (counter.blast.committed || time < ready[counter.source]
+			|| (counter.sharedSource >= 0 && time < ready[counter.sharedSource])
 			|| counter.sunCost > sun || counter.iceCost > ice) continue;
+		if (counter.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
+			return p.id == counter.plantID && p.health > 0;
+		})) continue;
 		if (counter.cellRow >= 0 && std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.health > 0 && p.layer == 1 && p.row == counter.cellRow && p.column == counter.cellColumn;
 		})) continue;
@@ -427,8 +453,9 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
 		// 等待从首次存在值得反制的目标开始；同一张牌所有落点共用一次等待。
 		// 已提交的爆炸走上方独立结算；接近房屋的救险也不为了聚团继续等。
-		if (!urgent && holdSeconds > 0) {
-			if (holdUntil[counter.source] < 0) holdUntil[counter.source] = time+holdSeconds;
+		const float patience = counter.stored ? std::max(holdSeconds,storedHoldSeconds) : holdSeconds;
+		if (!urgent && patience > 0) {
+			if (holdUntil[counter.source] < 0) holdUntil[counter.source] = time+patience;
 			if (time < holdUntil[counter.source]) continue;
 		}
 		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + counter.iceCost * 0.2f);
@@ -438,9 +465,12 @@ void AdvanceCounters(const Snapshot& state, float time, const std::vector<Plant>
 		const auto& counter = state.counters[selected];
 		sun -= counter.sunCost; ice -= counter.iceCost;
 		ready[counter.source] = time + counter.recharge;
+		if (counter.sharedSource >= 0) ready[counter.sharedSource] = time + counter.sharedRecharge;
 		holdUntil[counter.source] = -1;
 		pending.push_back({impact,time + counter.windup,selectedTarget,
 			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
+		pending.back().plantID = counter.plantID;
+		pending.back().invulnerableAt = time + counter.vulnerableSeconds;
 	}
 }
 }
@@ -545,8 +575,14 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 			break;
 		}
 	}
-	for (const auto& card : state.counters) if (!card.blast.committed && counterReady[card.source] <= time+delivery)
+	for (const auto& card : state.counters) {
+		if (card.blast.committed || counterReady[card.source] > time+delivery
+			|| (card.sharedSource >= 0 && counterReady[card.sharedSource] > time+delivery)) continue;
+		if (card.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
+			return p.id == card.plantID && p.health > 0;
+		})) continue;
 		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+	}
 	for (const auto& card : state.construction) if (constructionReady[card.source] <= time+delivery)
 		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
 	// 已部署的付费能力也能形成订冰需求；来源消失或手动模式没有受益目标时不凭空补货。
@@ -789,7 +825,7 @@ static void AdvancePlantRepairs(float time, std::vector<Plant>& plants, const st
 	}
 }
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds) {
 	Weights f{};
 	auto units = s.current;
 	for (const auto& a : plan) {
@@ -834,10 +870,18 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (const auto& strike : s.rowStrikes) rowStrikeReady.push_back(strike.ready);
 	std::vector<PendingCounter> pending;
 	for (const auto& counter : s.counters) {
-		if (counter.blast.committed) pending.push_back({counter.blast,counter.blast.ready});
+		if (counter.blast.committed) {
+			pending.push_back({counter.blast,counter.blast.ready});
+			pending.back().plantID = counter.plantID;
+			pending.back().invulnerableAt = counter.vulnerableSeconds;
+		}
 		else {
 			if (counterReady.size() <= static_cast<size_t>(counter.source)) counterReady.resize(counter.source + 1);
 			counterReady[counter.source] = counter.blast.ready;
+		}
+		if (counter.sharedSource >= 0) {
+			if (counterReady.size() <= static_cast<size_t>(counter.sharedSource)) counterReady.resize(counter.sharedSource+1);
+			counterReady[counter.sharedSource] = counter.sharedReady;
 		}
 	}
 	std::vector<bool> refunded(units.size()), breached(units.size());
@@ -889,7 +933,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvancePlantRepairs(t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
-		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,counterHoldUntil);
+		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {

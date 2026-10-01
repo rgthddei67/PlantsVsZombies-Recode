@@ -1150,6 +1150,57 @@ int main()
 	check(Evaluate(growing,{})[3] == 50000,"growth forecast cannot attack an unseen offscreen target");
 	check(growing.plants[0].growth.progress == 0,"forecast growth never changes the input snapshot");
 	std::cout << "Capital conservation and growing attack aura counterfactuals passed\n";
+
+	// 预存清场不一定会被首只工人骗掉：长期蓄爆必须独立比较完整、可支付的一条时间线。
+	Snapshot storedDoom; storedDoom.houseX = -1000;
+	Plant storedSource; storedSource.id = 10; storedSource.x = 800; storedSource.health = 300;
+	storedDoom.plants = {storedSource}; storedDoom.playerSun = 100; storedDoom.playerIce = 5;
+	Counter savedBlast; savedBlast.plantID = 10; savedBlast.stored = true;
+	savedBlast.sunCost = 75; savedBlast.iceCost = 5; savedBlast.windup = 3.4f;
+	savedBlast.recharge = 10000; savedBlast.blast.x = 800; savedBlast.blast.damage = 1800;
+	savedBlast.blast.reach.fill(-1); savedBlast.blast.reach[0] = 275;
+	storedDoom.counters = {savedBlast};
+	Unit firstWorker; firstWorker.body.x = 900; firstWorker.body.health = 500;
+	firstWorker.body.purchaseCost = 24; firstWorker.body.economic = true;
+	storedDoom.current = {firstWorker,firstWorker,firstWorker};
+	storedDoom.current[1].body.spawnAt = 24; storedDoom.current[2].body.spawnAt = 30;
+	const auto earlyDoom = Evaluate(storedDoom,{});
+	const auto heldDoom = Evaluate(storedDoom,{},nullptr,8,32);
+	check(earlyDoom[6] == 24 && heldDoom[6] == 72 && heldDoom[4] < earlyDoom[4],
+		"a stored doom can wait for late workers instead of disappearing after early bait");
+	const auto storedResult = Search(storedDoom,InitialWeights,123);
+	check(storedResult.counterHoldSeconds == 32 && storedResult.features == heldDoom,
+		"search and its no-purchase baseline include the long stored-counter response");
+	storedDoom.current[2].body.spawnAt = 55;
+	const auto lateStoredResult = Search(storedDoom,InitialWeights,123);
+	check(lateStoredResult.counterHoldSeconds == 55 && lateStoredResult.features[6] == 72,
+		"late known arrivals extend stored patience instead of automatically escaping a fixed 32-second window");
+	storedDoom.current[2].body.spawnAt = 30;
+	storedDoom.plants[0].health = 0;
+	check(Evaluate(storedDoom,{})[6] == 0,"destroyed stored doom cannot be awakened by a future coffee");
+	storedDoom.anticipateEconomy = true; storedDoom.shop = {{100,100,0}}; storedDoom.playerIce = 0;
+	ConstructionStats sourceStats;
+	Evaluate(storedDoom,{},&sourceStats);
+	check(sourceStats.orders == 0,"destroyed stored doom cannot invent a future ice order for coffee");
+	storedDoom.anticipateEconomy = false; storedDoom.shop.clear();
+	storedDoom.plants[0].health = 300; storedDoom.playerIce = 4;
+	check(Evaluate(storedDoom,{},nullptr,8,32)[6] == 0,"holding a stored doom does not invent affordable coffee");
+	storedDoom.playerIce = 5; storedDoom.counters[0].blast.committed = true;
+	storedDoom.counters[0].blast.ready = 2; storedDoom.counters[0].sunCost = 1000;
+	check(Evaluate(storedDoom,{}) == Evaluate(storedDoom,{},nullptr,8,32),
+		"already committed wake/explosion ignores patience, new resource fees and card cooldown");
+
+	Snapshot sharedCoffee; sharedCoffee.houseX = -1000; sharedCoffee.playerSun = 150; sharedCoffee.playerIce = 10;
+	sharedCoffee.plants = {storedSource,storedSource}; sharedCoffee.plants[1].id = 11; sharedCoffee.plants[1].row = 4;
+	sharedCoffee.current = {firstWorker,firstWorker}; sharedCoffee.current[1].body.row = 4;
+	savedBlast.windup = 0; savedBlast.sharedSource = 2; savedBlast.sharedRecharge = 7.5f;
+	sharedCoffee.counters = {savedBlast,savedBlast};
+	sharedCoffee.counters[1].source = 1; sharedCoffee.counters[1].plantID = 11;
+	sharedCoffee.counters[1].blast.reach[0] = -1; sharedCoffee.counters[1].blast.reach[4] = 275;
+	check(Evaluate(sharedCoffee,{})[4] == 10,"two stored dooms must share the one real coffee-card cooldown");
+	for (auto& counter : sharedCoffee.counters) counter.sharedSource = -1;
+	check(Evaluate(sharedCoffee,{})[4] == 0,"independent trigger fixture differs from shared coffee");
+	std::cout << "Stored doom patience, source lifetime, committed explosion and shared coffee passed\n";
 	}
 
 

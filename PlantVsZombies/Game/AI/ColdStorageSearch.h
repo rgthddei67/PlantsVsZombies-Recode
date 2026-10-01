@@ -136,6 +136,11 @@ struct Counter {
 	float recharge = 10000, windup = 1;
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
+	int plantID = 0; // 预存一次性反制的来源；释放前可被吃掉，爆炸后只消费这株一次
+	int sharedSource = -1; // 额外共享的触发卡冷却，如多株预存毁灭共用咖啡；-1 表示无需第二张牌
+	float sharedReady = 0, sharedRecharge = 0;
+	float vulnerableSeconds = 0; // 从提交到清醒无敌的等待，游戏秒；已经清醒时为零
+	bool stored = false; // 预存反制额外比较长期蓄爆，不假设小股诱饵一定能骗掉它
 };
 struct Snapshot {
 	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
@@ -204,8 +209,8 @@ float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 大额采购须以增量回报覆盖投入；高爆区风险仅接受可回本或突破的方案，不靠兵种偏好兜底。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve);
-/** 有限步位置推演；counterHoldSeconds 只延迟未提交且非救险的玩家反制，不能延迟已种下的爆炸。 */
-Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0);
+/** 有限步位置推演；两类 hold 秒数只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存来源。 */
+Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0, float storedHoldSeconds = 0);
 /** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */

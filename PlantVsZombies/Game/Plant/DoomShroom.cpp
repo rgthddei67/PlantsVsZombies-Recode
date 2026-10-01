@@ -2,7 +2,16 @@
 #include "../Crater.h"
 #include "../AudioSystem.h"
 #include "../ShadowComponent.h"
+#include "CoffeeBean.h"
+#include "../../Reanimation/Animator.h"
 #include <vector>
+
+namespace {
+	constexpr int kChargeFirstFrame = 19; // 已有 anim_explode 充能轨起始全局帧
+	constexpr int kExplosionFrame = 51; // 主人已确认的正式引爆全局帧，不新增动画事件
+	constexpr float kChargeFps = 23.0f; // 充能轨实际播放帧率，帧/游戏秒
+	constexpr float kReanimationFps = 12.0f; // reanim 基础播放帧率，帧/游戏秒
+}
 
 void DoomShroom::SetupPlant()
 {
@@ -17,7 +26,7 @@ void DoomShroom::SetupPlant()
 
 	// 全局第 51 帧 = anim_explode(19..51) 末帧引爆（主人指定，帧号已按代码口径-1）。
 	// 读档时 SetupPlant 重新注册：RestoreAnimState 恢复的帧在 51 之前，穿过时照常触发。
-	mAnimator->AddFrameEvent(51, [this]() {
+	mAnimator->AddFrameEvent(kExplosionFrame, [this]() {
 		Explode();
 		});
 
@@ -36,7 +45,25 @@ void DoomShroom::OnWakeUp()
 void DoomShroom::StartCharging()
 {
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_REVERSE_EXPLOSION, 0.5f);
-	PlayTrack("anim_explode", 23.0f / 12.0f, 0.0f);
+	PlayTrack("anim_explode", kChargeFps / kReanimationFps, 0.0f);
+}
+
+float DoomShroom::GetChargeDuration()
+{
+	return (kExplosionFrame - kChargeFirstFrame) / kChargeFps;
+}
+
+float DoomShroom::GetExplosionTimeRemaining() const
+{
+	if (GetSleepState()) {
+		if (IsWakingUp()) return GetWakeUpTimeRemaining() + GetChargeDuration();
+		const auto* coffee = mBoard ? dynamic_cast<const CoffeeBean*>(mBoard->GetOverlayPlantAt(mRow,mColumn)) : nullptr;
+		const float pendingWake = coffee && coffee->IsActive() ? coffee->GetPendingWakeDelay() : 0.0f;
+		return pendingWake > 0 ? pendingWake + GetChargeDuration() : -1.0f;
+	}
+	if (!mAnimator || GetCurrentTrackName() != "anim_explode") return -1.0f;
+	return std::max(0.0f,kExplosionFrame-mAnimator->GetCurrentFrame())
+		/ std::max(0.001f,kReanimationFps*mAnimator->EffectiveSpeed());
 }
 
 void DoomShroom::TakeDamage(int damage, DamageSource source)

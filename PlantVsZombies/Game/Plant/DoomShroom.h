@@ -14,6 +14,10 @@ class DoomShroom : public Shroom
 {
 public:
 	using Shroom::Shroom;
+	/** 清醒后到正式爆炸帧的完整时长，游戏秒；预测与现有动画事件共用参数。 */
+	static float GetChargeDuration();
+	/** 已放下咖啡/正在唤醒/已经充能时返回剩余爆炸秒数，未提交的睡眠态返回 -1。 */
+	float GetExplosionTimeRemaining() const;
 	/** 动作提交期间不搬运，防止原目标和结算位置失配。 */
 	bool CanBeRelocated() const override { return Plant::CanBeRelocated() && GetSleepState() && !IsWakingUp(); }
 
