@@ -70,7 +70,26 @@ float ColdPineapple::GetAreaAttackSpeedBonus() const
 
 std::string ColdPineapple::GetManualAbilityDescription() const
 {
-	return mBoard && mBoard->IsColdStorage() ? u8"每次30冰块 · 攻速+100%" : u8"每次100阳光 · 攻速+100%";
+	return mBoard && mBoard->IsColdStorage()
+		? u8"每次" + std::to_string(kIceCost) + u8"冰块 · 攻速+100%"
+		: u8"每次" + std::to_string(kSunCost) + u8"阳光 · 攻速+100%";
+}
+
+std::string ColdPineapple::GetAbilityStatusText() const
+{
+	std::string label;
+	if (mActiveRemaining > 0.0f) label = u8"强化中";
+	else if (mCooldownRemaining > 0.0f) label = u8"冷却";
+	else if (!CanAffordActivation()) label = u8"缺资源";
+	else if (DeltaTime::IsPaused()) label = u8"暂停";
+	else if (IsActionPaused()) label = u8"停机";
+	else label = u8"就绪";
+	if (mAutomatic) label += u8" ↻";
+	// 失败提示也读取当前费用与余额，补足资源后不保留旧的缺资源文案。
+	if (mFeedbackRemaining > 0 && mActiveRemaining <= 0 && mCooldownRemaining <= 0 && !CanAffordActivation())
+		label = mBoard && mBoard->IsColdStorage()
+			? u8"需要" + std::to_string(kIceCost) + u8"冰块" : u8"需要" + std::to_string(kSunCost) + u8"阳光";
+	return label;
 }
 
 void ColdPineapple::Draw(Graphics* g)
@@ -97,9 +116,7 @@ void ColdPineapple::Draw(Graphics* g)
 		g->FillRect(p.x - 23, p.y + 27, 46, 5, glm::vec4(22, 42, 51, 220));
 		g->FillRect(p.x - 22, p.y + 28, 44 * fraction, 3, color);
 	}
-	std::string label = active ? u8"强化中" : mCooldownRemaining > 0 ? u8"冷却" : ready ? u8"就绪" : u8"缺资源";
-	if (mAutomatic) label += u8" ↻";
-	if (mFeedbackRemaining > 0) label = mBoard->IsColdStorage() ? u8"需要30冰块" : u8"需要100阳光";
+	const std::string label = GetAbilityStatusText();
 	const auto font = ResourceKeys::Fonts::FONT_FZCQ;
 	const auto size = g->MeasureTextSize(label, font, 12);
 	g->FillRect(p.x - size.x / 2 - 3, p.y + 33, size.x + 6, 17, glm::vec4(22, 42, 51, 210));

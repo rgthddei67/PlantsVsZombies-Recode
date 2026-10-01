@@ -23,6 +23,8 @@ public:
 	bool IsAbilityAutomatic() const override { return IsAutomatic(); }
 	void SetAbilityAutomatic(bool value) override { SetAutomatic(value); }
 	std::string GetManualAbilityDescription() const override;
+	/** 从持续/冷却、暂停和真实余额分别生成提示，不把不能行动当成缺资源。 */
+	std::string GetAbilityStatusText() const;
 	float GetActiveRemaining() const { return mActiveRemaining; }
 	float GetCooldownRemaining() const { return mCooldownRemaining; }
 	float GetAreaAttackSpeedBonus() const override;

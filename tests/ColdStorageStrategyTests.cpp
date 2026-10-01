@@ -1,5 +1,6 @@
 #include "Game/AI/ColdStorageSearch.h"
 #include "Game/AI/ColdStoragePlanner.h"
+#include "Game/Plant/IceStorageNutRules.h"
 #include <chrono>
 #include <thread>
 #include <limits>
@@ -1205,8 +1206,10 @@ int main()
 	using namespace ColdStorageSearch;
 	Snapshot state; state.houseX=-1000;
 	Plant nut; nut.id=1; nut.x=800; nut.health=8000; nut.reward=20; nut.assetValue=20;
-	nut.repairMaximum=8000; nut.repairAmount=1000; nut.repairCost=10; nut.repairRecharge=10; nut.repairAutomatic=true;
-	nut.crushDamage=1000; nut.immuneDuration=3; nut.vehicleRetreat=40;
+	nut.repairMaximum=IceStorageNutRules::kHealth; nut.repairAmount=IceStorageNutRules::kRepairHealth;
+	nut.repairCost=IceStorageNutRules::kRepairIce; nut.repairRecharge=IceStorageNutRules::kRepairCooldown; nut.repairAutomatic=true;
+	nut.crushDamage=IceStorageNutRules::kCrushDamage; nut.immuneDuration=IceStorageNutRules::kInvulnerability;
+	nut.vehicleRetreat=IceStorageNutRules::kVehicleRetreatCells*80;
 	Unit giant; giant.body.x=850; giant.body.health=3000; giant.body.purchaseCost=16; giant.body.speed=20; giant.body.smashSeconds=5;
 	state.current={giant}; state.plants={nut}; ConstructionStats stats;
 	const auto resistant=Evaluate(state,{});
@@ -1214,18 +1217,18 @@ int main()
 	check(resistant[7]<ordinary[7],"resistant nut delays giant instead of vanishing after one smash");
 	state.plants={nut}; state.playerIce=100;
 	const auto healed=Evaluate(state,{},&stats);
-	check(healed[0]==0 && stats.plantRepairs>0 && stats.plantRepairIce==stats.plantRepairs*10,"affordable repairs keep resistant nut alive through repeated smashes");
+	check(healed[0]==0 && stats.plantRepairs>0 && stats.plantRepairIce==stats.plantRepairs*nut.repairCost,"affordable repairs keep resistant nut alive through repeated smashes");
 	check(healed[1]>=0 && healed[1]<=nut.reward,"healed damage cannot be farmed for unlimited damage score");
 	state.playerIce=0; state.current[0].body.spawnAt=55; state.current[0].body.smashSeconds=4;
 	const auto one=Evaluate(state,{}); state.current.push_back(state.current[0]);
-	check(std::abs(Evaluate(state,{})[1]-one[1])<.001f,"simultaneous giants share one invulnerability window");
+	check(Evaluate(state,{})[1]>one[1],"simultaneous giants each damage the nut without invulnerability");
 	state.current={giant}; state.current[0].body.smashSeconds=0; state.current[0].vehicleCrush=true;
 	const auto vehicle=Evaluate(state,{});
-	check(vehicle[7]<ordinary[7],"vehicle must wait for immunity and cover retreat distance instead of crossing the nut");
+	check(vehicle[7]<ordinary[7],"vehicle must cover retreat distance instead of crossing the nut");
 	state.current.clear(); state.plants={nut,nut}; state.plants[1].id=2;
 	for(auto& p:state.plants) p.health=7000;
-	state.playerIce=10; Evaluate(state,{},&stats);
-	check(stats.plantRepairs==1 && stats.plantRepairIce==10,"two nuts compete for the actual player ice wallet");
+	state.playerIce=nut.repairCost; Evaluate(state,{},&stats);
+	check(stats.plantRepairs==1 && stats.plantRepairIce==nut.repairCost,"two nuts compete for the actual player ice wallet");
 	state.plants.resize(1); state.plants[0].health=0;
 	Evaluate(state,{},&stats); check(stats.plantRepairs==0,"repair cannot revive a dead nut");
 	state.plants={nut}; state.plants[0].health=7500;
@@ -1239,6 +1242,6 @@ int main()
 	emergency.blast.reach.fill(-1); emergency.blast.reach[0]=100;
 	state.counters={emergency}; const auto saved=Evaluate(state,{},&stats);
 	check(stats.plantRepairs==0 && saved[6]==32,"manual healing cannot spend the last ice before a viable emergency ash response");
-	std::cout << "Ice-storage nut crush, immunity, repair, shared cost and net damage credit passed\n";
+	std::cout << "Ice-storage nut crush, retreat, repair, shared cost and net damage credit passed\n";
 	}
 }

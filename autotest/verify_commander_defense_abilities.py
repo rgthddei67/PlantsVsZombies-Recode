@@ -14,7 +14,7 @@ for level in (86,87,2001):
     assert a['searchRepairOptions']==5 and a['searchRepairPlants']==1
     assert a['searchArmorRepairs']>0 and a['searchPlantRepairs']>0
     assert a['searchArmorRepairIce']==a['searchArmorRepairs']*4
-    assert a['searchPlantRepairIce']==a['searchPlantRepairs']*10
+    assert a['searchPlantRepairIce']==a['searchPlantRepairs']*20
     assert a['searchAbilityIce']==a['searchArmorRepairIce']+a['searchBurstActivations']*5
     assert b['enemyIce']-a['enemyIce']==a['commanderSpent']==a['spent']-b['spent']
     assert b['playerIce']==a['playerIce']

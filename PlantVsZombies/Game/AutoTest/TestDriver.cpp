@@ -8226,6 +8226,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			out["iceStorageNutsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plantState;
 		}
 		if (auto* pineapple = dynamic_cast<ColdPineapple*>(p)) {
+			plantState["pineappleStatusText"] = pineapple->GetAbilityStatusText();
 			plantState["pineappleActiveMs"] = static_cast<int>(std::lround(pineapple->GetActiveRemaining() * 1000));
 			plantState["pineappleCooldownMs"] = static_cast<int>(std::lround(pineapple->GetCooldownRemaining() * 1000));
 			plantState["pineappleAutomatic"] = pineapple->IsAutomatic();

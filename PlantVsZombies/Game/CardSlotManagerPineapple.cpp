@@ -33,7 +33,7 @@ void CardSlotManager::UpdatePlantAbilityInput()
 	auto& input = GameAPP::GetInstance().GetInputHandler();
 	mPlantAbilityHintRemaining = std::max(0.0f, mPlantAbilityHintRemaining - DeltaTime::GetUnscaledDeltaTime());
 	if (selectedCard || mBoard->mCursorObjectManager.GetActiveType() != CursorObjectType::NONE
-		|| DeltaTime::IsPaused() || mBoard->mTrophySpawned) {
+		|| mBoard->mTrophySpawned) {
 		mPlantAbilityPressID = mPlantAbilityMenuID = NULL_PLANT_ID;
 		mPlantAbilityButtonPressed = false;
 		return;
@@ -78,7 +78,9 @@ void CardSlotManager::UpdatePlantAbilityInput()
 	if (mPlantAbilityPressID != NULL_PLANT_ID && input.IsMouseButtonDown(SDL_BUTTON_LEFT)) {
 		const float dx = point.x - mPlantAbilityPressPosition.x, dy = point.y - mPlantAbilityPressPosition.y;
 		if (dx * dx + dy * dy > kDragDistance * kDragDistance) mPlantAbilityPressCancelled = true;
-		mPlantAbilityHoldSeconds += DeltaTime::GetUnscaledDeltaTime();
+		// 全局暂停把 unscaledDelta 也置零；手势仍按 UI 固定步推进，不修改游戏时钟。
+		mPlantAbilityHoldSeconds += DeltaTime::IsPaused()
+			? DeltaTime::GetFixedStep() : DeltaTime::GetUnscaledDeltaTime();
 		if (!mPlantAbilityPressCancelled && mPlantAbilityHoldSeconds >= kHoldSeconds) {
 			mPlantAbilityLongPress = true;
 			mPlantAbilityMenuID = mPlantAbilityPressID;
@@ -87,7 +89,8 @@ void CardSlotManager::UpdatePlantAbilityInput()
 	if (input.IsMouseButtonReleased(SDL_BUTTON_LEFT)) {
 		mPlantAbilityConsumed = mPlantAbilityButtonPressed || mPlantAbilityPressID != NULL_PLANT_ID;
 		if (mPlantAbilityButtonPressed && menu && overButton) menu->SetAbilityAutomatic(!menu->IsAbilityAutomatic());
-		else if (!mPlantAbilityLongPress && !mPlantAbilityPressCancelled) {
+		else if (!DeltaTime::IsPaused() && CanAcceptGameplayInput()
+			&& !mPlantAbilityLongPress && !mPlantAbilityPressCancelled) {
 			if (auto* pressed = resolve(mPlantAbilityPressID); pressed && hovered == pressed) pressed->TryActivateManualAbility();
 		}
 		mPlantAbilityPressID = NULL_PLANT_ID;
@@ -101,7 +104,7 @@ void CardSlotManager::UpdatePlantAbilityInput()
 
 void CardSlotManager::DrawPlantAbilityMenu(Graphics* g)
 {
-	if (!g || !CanAcceptGameplayInput() || DeltaTime::IsPaused()) return;
+	if (!g || !mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->mTrophySpawned) return;
 	if (mPlantAbilityHintRemaining > 0) {
 #if defined(__ANDROID__)
 		const char* hint = u8"菠萝／冰仓坚果：轻点发动，长按设置";

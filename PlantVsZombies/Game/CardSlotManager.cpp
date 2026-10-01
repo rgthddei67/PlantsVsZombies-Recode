@@ -93,11 +93,13 @@ void CardSlotManager::Start() {
 void CardSlotManager::Update() {
 	mPlantAbilityConsumed = false;
 	// 非战斗选卡/词条页与普通暂停都保留已有预览，但不处理任何玩法输入。
-	if (!CanAcceptGameplayInput()) {
+	if (!mBoard || mBoard->mBoardState != BoardState::GAME) {
 		mPlantAbilityPressID = mPlantAbilityMenuID = NULL_PLANT_ID;
 		return;
 	}
+	// 模式设置不推进战斗，也不付款；普通暂停只放行这个窄输入入口。
 	UpdatePlantAbilityInput();
+	if (!CanAcceptGameplayInput()) return;
 
 	const bool bloverDirectionChanged = UpdateBloverDirectionInput();
 	UpdatePlanternGearMenuInput();
