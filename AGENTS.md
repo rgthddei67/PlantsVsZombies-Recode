@@ -7,6 +7,7 @@
 - 构建、运行、使用 AutoTest，或修改架构、资源、存档行为前，先按 `docs/agent-guide/PROJECT_GUIDE.md` 的导航，阅读对应的构建与调试、AutoTest 验证或架构与资源契约主题。
 - 查询当前数值或实现、执行明确的小改动时，直接用 `rg` 定位源码/权威配置及相关注释；需要历史原因、特殊例外、已知陷阱或找不到入口时，才搜索 `docs/agent-memory/MEMORY.md` 并读取命中的相关段落。不要先读完主题历史再逐项重复核实无关事实。
 - 涉及植物、粒子特效、生存模式词条或僵尸时，使用 `.agents/skills/` 下对应技能的相关流程与约束；按任务读取章节和 references，不因简单调参展开全部新增、动画、美术、存档清单。
+- 涉及第十大关／大混战指挥官 AI 的能力预测、出兵与经济决策、真人日志诊断或训练／策略发布时，使用 `.agents/skills/improving-commander-ai/SKILL.md`；普通单位调参不自动触发训练。
 - 涉及新增或实质重绘可玩地图/背景、Board 网格与 Cell 对齐、背景资源注册或地图缩略图时，必须使用 `.agents/skills/creating-pvz-board-map/SKILL.md`。
 - 复用现有 reanim 时间轴制作新角色动画，或修正分件脱节、换图偏移与循环接缝时，必须使用 `.agents/skills/adapting-classic-reanimation/SKILL.md`。
 - 涉及雨天天气本身，或任何按小/中/大雨生效的能力、变异、条件生成与系统联动时，必须使用 `.agents/skills/adding-rain-weather/SKILL.md`。
