@@ -18,6 +18,14 @@
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
 #include "Game/Zombie/ColdChainGuardRules.h"
+#include "Game/Zombie/CrystalDrummerZombie.h"
+#include "Game/Zombie/CrystalDrummerRules.h"
+#include "Game/Zombie/AdaptiveHelmetZombie.h"
+#include "Game/Zombie/AdaptiveHelmetRules.h"
+#include "Game/Zombie/AuroraPriestZombie.h"
+#include "Game/Zombie/AuroraPriestRules.h"
+#include "Game/Plant/BoundaryFlower.h"
+#include "Game/Plant/BoundaryFlowerRules.h"
 #include "Game/Plant/IceStorageNut.h"
 #include "Game/Plant/ColdPineapple.h"
 #include "Game/Plant/EliteScaredyShroom.h"
@@ -273,6 +281,7 @@ namespace {
 	void ProjectPlantAttack(ColdStorageSearch::Plant& plant, PlantType type)
 	{
 		using P = PlantType;
+		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
 		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
 		if (plant.melon)
 			plant.hitDamage = static_cast<float>(Bullet::GetBaseDamage(type == P::PLANT_MELONPULT ? BulletType::BULLET_MELON : BulletType::BULLET_WINTERMELON));
@@ -326,6 +335,44 @@ namespace {
 		r.interval = kRepairInterval; r.amount = kRepairHealth; r.cost = kRepairIce;
 	}
 
+	/** 同时投影来源动作和目标已承诺层，移除当前临时倍率后在后台逐步重放。 */
+	void ProjectDrum(ColdStorageSearch::Unit& unit, const Zombie* live = nullptr)
+	{
+		if (live) {
+			unit.inspiration = live->CopyDrumInspirationLayers();
+			unit.drumSpeedAmplifier = live->GetDrumSpeedAmplifier();
+			unit.body.speed /= (unit.inspiration.empty() ? 1 : unit.drumSpeedAmplifier*live->GetDrumMoveMultiplier());
+			unit.biteDps /= live->GetDrumBiteMultiplier();
+		}
+		const auto* drummer = dynamic_cast<const CrystalDrummerZombie*>(live);
+		if (live && !drummer) return;
+		unit.drum.enabled = !drummer || (!drummer->IsDrumDisabled() && drummer->HasHead());
+		unit.drum.winding = drummer && drummer->IsDrumWindingUp();
+		unit.drum.remaining = drummer ? drummer->GetDrumRemaining() : CrystalDrummerRules::FirstWait;
+		unit.drum.stopHealth = (drummer ? drummer->mBodyMaxHealth : CrystalDrummerRules::Health)/3;
+	}
+
+	/** 适应只能由首次击穿的合法来源提交；活体已记录的免疫不会被新快照重置。 */
+	void ProjectAdaptation(ColdStorageSearch::Unit& unit, const AdaptiveHelmetZombie* live = nullptr)
+	{
+		unit.adaptiveHelmet = live ? live->mHelmHealth : AdaptiveHelmetRules::HelmetHealth;
+		unit.adaptedOrigin = live ? live->GetAdaptedOrigin() : PlantDamageOrigin{};
+	}
+
+	/** 仪器、余时、已用额度均读实例；场外加速和过载在预测的时间线上重新派生。 */
+	void ProjectRitual(ColdStorageSearch::Unit& unit, const AuroraPriestZombie* live = nullptr)
+	{
+		auto& r = unit.ritual; r.present = true;
+		r.armor = live ? live->mHelmHealth : AuroraPriestRules::DeviceHealth;
+		r.stopHealth = (live ? live->mBodyMaxHealth : AuroraPriestRules::BodyHealth)/3;
+		r.releases = live ? live->GetRitualReleaseCount() : 0;
+		r.remaining = live ? live->GetRitualRemaining() : AuroraPriestRules::Preparation;
+		r.winding = live && live->GetRitualPhase() == AuroraPriestZombie::RitualPhase::WINDUP;
+		r.enabled = !live || (live->GetRitualPhase() != AuroraPriestZombie::RitualPhase::DISABLED
+			&& live->GetRitualPhase() != AuroraPriestZombie::RitualPhase::COMMITTED && live->HasHead());
+		if (live) { unit.body.speed = live->GetForecastBaseMoveSpeed(); unit.biteDps = AuroraPriestRules::NormalBite*live->GetDrumBiteMultiplier(); }
+	}
+
 	/** 当前与未来坚果共用抗碾压/修复参数，未来种植不继承在场实体的冷却或无敌。 */
 	void ProjectIceStorageNut(ColdStorageSearch::Plant& plant, const IceStorageNut* live = nullptr)
 	{
@@ -353,7 +400,7 @@ namespace {
 		case Z::ZOMBIE_FOOTBALL: return {1700, 2, false, false, false};
 		case Z::ZOMBIE_HEALER: return {800, 1, false, true, false};
 		case Z::ZOMBIE_DANCER: case Z::ZOMBIE_ELITE_DANCER: return {1500, 1, false, true, false};
-		case Z::ZOMBIE_AURORA_PRIEST: return {1800, 1, true, true, false};
+		case Z::ZOMBIE_AURORA_PRIEST: return {AuroraPriestRules::BodyHealth+AuroraPriestRules::DeviceHealth, 1, true, true, false};
 		case Z::ZOMBIE_POLAR_CLOCKMAKER: return {1500, 1, false, true, false};
 		case Z::ZOMBIE_DIGGER: case Z::ZOMBIE_ELITE_DIGGER: return {900, 1.5f, true, false, true};
 		case Z::ZOMBIE_POLEVAULTER: case Z::ZOMBIE_ELITE_POLEVAULTER:
@@ -361,13 +408,15 @@ namespace {
 		case Z::ZOMBIE_JACK_IN_THE_BOX: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX: return {800, 1.4f, false, false, true};
 		case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI: return {1500, 1.2f, false, false, true};
 		case Z::ZOMBIE_CATAPULT: return {1200, 1, true, false, false};
-		case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_FASTBUCKET: case Z::ZOMBIE_ADAPTIVE_HELMET:
+		case Z::ZOMBIE_ADAPTIVE_HELMET: return {AdaptiveHelmetRules::BodyHealth+AdaptiveHelmetRules::HelmetHealth, 1, false, false, false};
+		case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_FASTBUCKET:
 			return {1500, 1, false, false, false};
 		case Z::ZOMBIE_DOOR: return {DoorZombie::InitialBodyHealth + DoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_REINFORCED_DOOR: return {DoorZombie::InitialBodyHealth + ReinforcedDoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_ICE_WORKER: return {IceProduction::WorkerHealth, 1, false, true, false};
 		case Z::ZOMBIE_COLD_CHAIN_GUARD: return {ColdChainGuardRules::kBodyHealth+ColdChainGuardRules::kShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_BOILER: return {BoilerRules::kHealth, 1, false, false, false};
+		case Z::ZOMBIE_CRYSTAL_DRUMMER: return {CrystalDrummerRules::Health, 1, false, true, false};
 		case Z::ZOMBIE_NORMAL: return {270, 1, false, false, false};
 		default: return {700, 1.2f, false, false, false};
 		}
@@ -936,6 +985,12 @@ void Board::PlanColdStorageAttack(bool background)
 		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
+		search.precisionReady = CanUseColdStoragePrecisionStrike();
+		search.pendingPrecisionID = std::max(0,s.strikeTargetID);
+		search.pendingPrecisionRemaining = s.strikeAimRemaining;
+		search.discountRemaining = s.discountRemaining;
+		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X;
+		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
@@ -1040,6 +1095,7 @@ void Board::PlanColdStorageAttack(bool background)
 					auto& p = future.plant;
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
 					p.layer = type == PlantType::PLANT_PUMPKINSHELL ? 2 : 1;
+					p.maximumHealth = static_cast<float>(profile.baseHealth);
 					p.health = static_cast<float>(profile.baseHealth); p.dps = profile.attackDps; p.sunPerSecond = profile.sunPerSecond;
 					p.assetValue = future.iceCost+future.sunCost*search.sunIceValue;
 					if (type == PlantType::PLANT_ICESTORAGENUT) ProjectIceStorageNut(p);
@@ -1122,6 +1178,9 @@ void Board::PlanColdStorageAttack(bool background)
 			unit.biteDps = entity->GetMineSimulationAttackDps();
 			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
+			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
+			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(entity)) ProjectRitual(unit,priest);
+			ProjectDrum(unit,entity);
 			unit.vehicleCrush = entity->mZombieType == ZombieType::ZOMBIE_ZAMBONI || entity->mZombieType == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| entity->mZombieType == ZombieType::ZOMBIE_CATAPULT || entity->mZombieType == ZombieType::ZOMBIE_ELITE_CATAPULT;
 			unit.mowerImmune = !entity->CanBeKilledByMower(); unit.consumesOtherMowers = entity->ConsumesOtherMowersOnContact();
@@ -1131,6 +1190,7 @@ void Board::PlanColdStorageAttack(bool background)
 			}
 			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
 				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
+			else unit.body.purchaseCost = 0; // 免费召唤仍有战斗威胁，但不能制造可回收的采购资产。
 			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
 				unit.productionRemaining = worker->GetIceRemaining(); unit.nextYield = worker->GetNextIceYield();
 				unit.productionStopHealth = entity->mBodyMaxHealth / 3;
@@ -1152,6 +1212,12 @@ void Board::PlanColdStorageAttack(bool background)
 				if (type == PlantType::PLANT_DOOMSHROOM && !entity->GetSleepState()) plant.edible = false;
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
 				plant.assetValue = plantCapital(entity);
+				plant.maximumHealth = static_cast<float>(entity->mPlantMaxHealth);
+				if (const auto* boundary = dynamic_cast<const BoundaryFlower*>(entity)) {
+					plant.boundaryShards = boundary->GetShardCount(); plant.boundaryCharge = boundary->GetShardCharge();
+					plant.boundaryRecharge = BoundaryFlowerRules::ShardSeconds;
+					plant.boundaryBlockedUntil = boundary->GetShutdownTimeRemaining();
+				}
 				if (const auto* nut = dynamic_cast<const IceStorageNut*>(entity)) {
 					ProjectIceStorageNut(plant,nut);
 					// 可修复植物的资产按完整价格/最大生命结算，回血不是凭空消耗玩家资产。
@@ -1180,6 +1246,12 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(entity->GetPlacementType()), s.difficulty));
 				plant.assetValue = plantCapital(entity);
+				plant.maximumHealth = static_cast<float>(entity->mPlantMaxHealth);
+				if (const auto* boundary = dynamic_cast<const BoundaryFlower*>(entity)) {
+					plant.boundaryShards = boundary->GetShardCount(); plant.boundaryCharge = boundary->GetShardCharge();
+					plant.boundaryRecharge = BoundaryFlowerRules::ShardSeconds;
+					plant.boundaryBlockedUntil = boundary->GetShutdownTimeRemaining();
+				}
 			}
 			search.plants.push_back(plant);
 		}
@@ -1190,6 +1262,9 @@ void Board::PlanColdStorageAttack(bool background)
 			unit.body.purchaseCost = static_cast<float>(cost);
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
+			if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) ProjectDrum(unit);
+			if (type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) ProjectAdaptation(unit);
+			if (type == ZombieType::ZOMBIE_AURORA_PRIEST) ProjectRitual(unit);
 			unit.vehicleCrush = type == ZombieType::ZOMBIE_ZAMBONI || type == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT;
 			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
@@ -1204,6 +1279,20 @@ void Board::PlanColdStorageAttack(bool background)
 			}
 			return unit;
 		};
+		for (size_t i=0; i<search.ritualSummons.size(); ++i) {
+			search.ritualSummons[i] = purchaseUnit(AuroraPriestRules::SummonTypes[i],0,0,0);
+			search.ritualSummons[i].body.value = static_cast<float>(GetZombieIceCost(AuroraPriestRules::SummonTypes[i]));
+		}
+		search.ritualWhiteout = IsPolarSnowBlindActive();
+		for (int row=0; row<mRows; ++row) for (int col=4; col<=std::min(6,mColumns-1); ++col)
+			if (!HasSnowHoleAt(row,col) && CanPlantOnMineCell(row,col)) search.riftCells.push_back({row,col});
+		for (const auto& pending : mPendingAuroraRifts) {
+			ColdStorageSearch::Rift rift;
+			rift.unit = purchaseUnit(pending.type,pending.row,0,pending.timer);
+			rift.unit.body.x = GetCellCenterPosition(pending.row,pending.column).x;
+			rift.unit.body.value = static_cast<float>(GetZombieIceCost(pending.type));
+			rift.column = pending.column; rift.remaining = pending.timer; search.rifts.push_back(std::move(rift));
+		}
 		for (const auto& paid : s.pending) {
 			ColdStorageSearch::CommittedUnit committed;
 			committed.unit = static_cast<int>(search.current.size());
@@ -1782,6 +1871,11 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	const std::vector<std::uint64_t>& tickets)
 {
 	PROFILE_SCOPE("Commander.Commit");
+	const int beforeSkill = mColdStorage.enemyIce;
+	if (result.precisionTargetID > 0 && !TryStartColdStoragePrecisionStrike(result.precisionTargetID)) {
+		mColdStorage.decisionRemaining = 0;
+		return; // 目标或钱包变动时重算整案，不提交失去技能掩护的后续采购。
+	}
 	auto& s = mColdStorage;
 	const size_t paidCount = s.pending.size();
 	s.searchCommittedCount = static_cast<int>(tickets.size());
@@ -1796,7 +1890,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	}
 	result.expandedForecast |= requestedVersion == 1 && !search.committed.empty();
 	s.commanderStrategy = "learned_search";
-	s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? "observe" : s.unlockProbe ? "unlock" : "search";
+	s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? (result.precisionTargetID > 0 ? "strike" : "observe") : s.unlockProbe ? "unlock" : "search";
 	s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 	s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
 	s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
@@ -1828,6 +1922,15 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchArmorRepairs = result.construction.armorRepairs; s.searchPlantRepairs = result.construction.plantRepairs;
 	s.searchArmorRepairIce = result.construction.armorRepairIce; s.searchPlantRepairIce = result.construction.plantRepairIce;
 	s.searchAbilityIce = result.construction.abilityIceSpent;
+	s.searchDrumOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.drum.enabled; }));
+	s.searchAdaptationOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.adaptiveHelmet > 0; }));
+	s.searchRitualOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.ritual.present; }));
+	s.searchRitualReleases = result.construction.ritualReleases; s.searchRiftSummons = result.construction.riftSummons;
+	s.searchRiftRedirects = result.construction.riftRedirects;
+	s.searchDrumBeats = result.construction.drumBeats; s.searchDrumRecipients = result.construction.drumRecipients;
+	s.searchSupportEvaluated = result.supportEvaluated;
+	s.searchPrecisionTargetID = result.precisionTargetID; s.searchPrecisionEvaluated = result.precisionEvaluated;
+	s.searchPrecisionGain = result.precisionGain;
 	s.searchBurstActivations = result.construction.burstActivations; s.searchAuraActivations = result.construction.auraActivations;
 	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
@@ -1837,7 +1940,6 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchProductionInputs = result.productionInputs;
 	s.formationBlastLoss = result.blastLoss;
 	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
-	const int before = s.enemyIce;
 	for (const auto& action : result.actions) {
 		const auto& option = search.options[action.option];
 		if (QueueColdStorageZombie(static_cast<ZombieType>(option.type), option.row, action.delay)) {
@@ -1845,7 +1947,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 			if (option.unit.body.economic) ++s.economicFollowups;
 		}
 	}
-	s.commanderSpent = before - s.enemyIce; s.commanderReserve = s.enemyIce;
+	s.commanderSpent = beforeSkill - s.enemyIce; s.commanderReserve = s.enemyIce;
 	s.attackDeferred = true; // 队列兑现期间也定期观察；灰烬、前排损失与新收入都会进入下一次快照。
 	if (s.pending.size() > paidCount) {
 		mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0;
@@ -1862,6 +1964,8 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	mix(mEntityRegistry.GetNextPlantID());
 	// 全场费用规则或已承诺的清除目标改变时，后台旧局面不能继续提交。
 	mix(mColdStorage.discountRemaining > 0);
+	mix(mColdStorage.strikeCooldownRemaining <= 0);
+	for (const auto& rift : mPendingAuroraRifts) mix(rift.transactionID);
 	mix(static_cast<std::uint64_t>(mColdStorage.strikeTargetID) + 1ULL);
 	for (int id : mEntityRegistry.GetAllPlantIDs()) {
 		const Plant* plant = mEntityRegistry.GetPlant(id);
@@ -1875,7 +1979,16 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 		}
 	}
 	for (int id : mEntityRegistry.GetAllZombieIDs()) {
-		const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(mEntityRegistry.GetZombie(id));
+		const Zombie* zombie = mEntityRegistry.GetZombie(id);
+		if (zombie && zombie->IsActive() && !zombie->IsDying()) {
+			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(zombie)) {
+				mix(id); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().kind)); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().lineage));
+			}
+			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(zombie)) {
+				mix(id); mix(static_cast<unsigned>(priest->GetRitualPhase())); mix(priest->GetRitualReleaseCount()); mix(priest->IsOverloaded());
+			}
+		}
+		const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(zombie);
 		if (guard && guard->IsActive() && !guard->IsDying()) { mix(id); mix(guard->HasIceShield()); }
 		const auto* boiler = dynamic_cast<const BoilerZombie*>(mEntityRegistry.GetZombie(id));
 		if (boiler && boiler->IsActive() && !boiler->IsDying()) { mix(id); mix(static_cast<unsigned>(boiler->GetBoilerPhase())); }

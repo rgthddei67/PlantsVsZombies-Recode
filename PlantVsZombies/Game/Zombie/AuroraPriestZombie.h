@@ -45,6 +45,8 @@ public:
 	RitualPhase GetRitualPhase() const { return mRitualPhase; }
 	int GetRitualReleaseCount() const { return mRitualReleaseCount; }
 	float GetRitualRemaining() const { return mRitualRemaining; }
+	/** 去掉当前仪器/场外加速，供预测随阶段重新计算移动。 */
+	float GetForecastBaseMoveSpeed() const { return GetMineSimulationMoveSpeed()/GetAmplifiedAbilitySpeedMultiplier(); }
 	bool IsOverloaded() const { return mOverloaded; }
 	bool HasFinaleFollowersConfigured() const { return mFollowersConfigured; }
 

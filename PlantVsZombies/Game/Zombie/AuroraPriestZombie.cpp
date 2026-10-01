@@ -1,3 +1,4 @@
+#include "AuroraPriestRules.h"
 #include "AuroraPriestZombie.h"
 
 #include "../../DeltaTime.h"
@@ -10,16 +11,6 @@
 #include <algorithm>
 
 namespace {
-constexpr int kMaxRitualReleases = 3; // 每只祭司累计释放上限；钟匠回溯可恢复记录时次数
-constexpr int kBodyHealth = 1200; // 极光祭司本体生命
-constexpr int kDeviceHealth = 800; // 非磁性极光仪器生命
-constexpr int kNormalBiteDamage = 50; // 仪器完整时单口伤害
-constexpr int kOverloadBiteDamage = 150; // 仪器破坏后的过载单口伤害
-constexpr float kOutsideWalkMultiplier = 2.0f; // 最右列右缘之外的行走速度倍率
-constexpr float kPreparationSeconds = 6.0f; // 实体完成创建后的仪式准备游戏秒
-constexpr float kWindupSeconds = 2.8f; // 裂隙提交前可被警铃草打断的完整前摇
-constexpr float kRetryWaitSeconds = 5.0f; // 被打断后再次尝试前的等待游戏秒
-constexpr float kCycleCooldownSeconds = 5.0f; // 每次裂隙提交后至下一次前摇的循环冷却游戏秒
 constexpr float kChannelPulseSeconds = 0.62f; // 前摇期间补充一次极光旋涡的游戏秒间隔
 constexpr float kDeviceOffsetX = 24.0f; // 仪器相对身体轨道的水平偏移，动画 px
 constexpr float kDeviceOffsetY = -20.0f; // 仪器相对身体轨道的垂直偏移，动画 px
@@ -34,10 +25,10 @@ constexpr const char* kPrismSlot = "aurora_priest_prism"; // 身体轨道光谱�
 float MaxRitualRemaining(AuroraPriestZombie::RitualPhase phase)
 {
 	switch (phase) {
-	case AuroraPriestZombie::RitualPhase::PREPARING: return kPreparationSeconds;
-	case AuroraPriestZombie::RitualPhase::WINDUP: return kWindupSeconds;
-	case AuroraPriestZombie::RitualPhase::RETRY_WAIT: return kRetryWaitSeconds;
-	case AuroraPriestZombie::RitualPhase::COOLDOWN: return kCycleCooldownSeconds;
+	case AuroraPriestZombie::RitualPhase::PREPARING: return AuroraPriestRules::Preparation;
+	case AuroraPriestZombie::RitualPhase::WINDUP: return AuroraPriestRules::Windup;
+	case AuroraPriestZombie::RitualPhase::RETRY_WAIT: return AuroraPriestRules::Retry;
+	case AuroraPriestZombie::RitualPhase::COOLDOWN: return AuroraPriestRules::Cooldown;
 	case AuroraPriestZombie::RitualPhase::COMMITTED:
 	case AuroraPriestZombie::RitualPhase::DISABLED: return 0.0f;
 	}
@@ -48,12 +39,12 @@ float MaxRitualRemaining(AuroraPriestZombie::RitualPhase phase)
 void AuroraPriestZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
-	mBodyHealth = mBodyMaxHealth = kBodyHealth;
+	mBodyHealth = mBodyMaxHealth = AuroraPriestRules::BodyHealth;
 	mHelmType = HelmType::HELMTYPE_AURORA_DEVICE;
-	mHelmHealth = mHelmMaxHealth = kDeviceHealth;
-	mAttackDamage = kNormalBiteDamage;
+	mHelmHealth = mHelmMaxHealth = AuroraPriestRules::DeviceHealth;
+	mAttackDamage = AuroraPriestRules::NormalBite;
 	mRitualPhase = mIsPreview ? RitualPhase::COMMITTED : RitualPhase::PREPARING;
-	mRitualRemaining = mIsPreview ? 0.0f : kPreparationSeconds;
+	mRitualRemaining = mIsPreview ? 0.0f : AuroraPriestRules::Preparation;
 	mRitualReleaseCount = 0;
 	mOverloaded = false;
 	ConfigureFollowers();
@@ -73,7 +64,7 @@ void AuroraPriestZombie::Update()
 	if (!mIsPreview && IsActive() && !mIsDying
 		&& mRitualPhase != RitualPhase::COMMITTED
 		&& mRitualPhase != RitualPhase::DISABLED) {
-		if (mRitualReleaseCount >= kMaxRitualReleases || !HasHead() || IsMindControlled()
+		if (mRitualReleaseCount >= AuroraPriestRules::MaxReleases || !HasHead() || IsMindControlled()
 			|| mHelmType != HelmType::HELMTYPE_AURORA_DEVICE
 			|| mHelmHealth <= 0) {
 			DisableUncommittedRitual();
@@ -95,8 +86,8 @@ void AuroraPriestZombie::Update()
 						mZombieID, mRow, whiteout)) ++mRitualReleaseCount;
 					// 提交边沿立即开始下一轮冷却，不等待裂隙的独立到场事务。
 					mRitualPhase = RitualPhase::COOLDOWN;
-					mRitualRemaining = kCycleCooldownSeconds;
-					if (mRitualReleaseCount >= kMaxRitualReleases) DisableUncommittedRitual();
+					mRitualRemaining = AuroraPriestRules::Cooldown;
+					if (mRitualReleaseCount >= AuroraPriestRules::MaxReleases) DisableUncommittedRitual();
 					PlayWalkAnimation(0.12f);
 				}
 			}
@@ -116,10 +107,10 @@ bool AuroraPriestZombie::IsOutsideEntryBoundary() const
 
 float AuroraPriestZombie::GetAbilityAnimSpeedMultiplier() const
 {
-	const float baseMultiplier = mOverloaded ? 1.15f : 0.65f;
+	const float baseMultiplier = mOverloaded ? AuroraPriestRules::OverloadSpeed : AuroraPriestRules::NormalSpeed;
 	const bool outsideWalking = !mIsPreview && !mIsEating && !mIsDying
 		&& mRitualPhase != RitualPhase::WINDUP && IsOutsideEntryBoundary();
-	return baseMultiplier * (outsideWalking ? kOutsideWalkMultiplier : 1.0f);
+	return baseMultiplier * (outsideWalking ? AuroraPriestRules::OutsideSpeed : 1.0f);
 }
 
 void AuroraPriestZombie::BeginWindup()
@@ -128,10 +119,10 @@ void AuroraPriestZombie::BeginWindup()
 	if (!mBoard || IsOutsideEntryBoundary()) return;
 	if (mRitualPhase == RitualPhase::COMMITTED
 		|| mRitualPhase == RitualPhase::DISABLED
-		|| mRitualReleaseCount >= kMaxRitualReleases) return;
+		|| mRitualReleaseCount >= AuroraPriestRules::MaxReleases) return;
 	CancelEatingForSpecialAction();
 	mRitualPhase = RitualPhase::WINDUP;
-	mRitualRemaining = kWindupSeconds;
+	mRitualRemaining = AuroraPriestRules::Windup;
 	mRitualVisualPulseTimer = kChannelPulseSeconds;
 	PlayTrack("anim_idle", 0.72f, 0.12f);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BLEEP, 0.44f);
@@ -155,7 +146,7 @@ bool AuroraPriestZombie::InterruptUncommittedSpecialAction()
 {
 	if (mRitualPhase != RitualPhase::WINDUP) return false;
 	mRitualPhase = RitualPhase::RETRY_WAIT;
-	mRitualRemaining = kRetryWaitSeconds;
+	mRitualRemaining = AuroraPriestRules::Retry;
 	PlayWalkAnimation(0.12f);
 	return true;
 }
@@ -165,7 +156,7 @@ void AuroraPriestZombie::RestoreCommittedIrreversibleSpecialAction(bool submitte
 	if (!submitted) return;
 	// v10 时间锚只有“已提交”位；循环技能以完整冷却承接其不可退款语义。
 	mRitualPhase = RitualPhase::COOLDOWN;
-	mRitualRemaining = kCycleCooldownSeconds;
+	mRitualRemaining = AuroraPriestRules::Cooldown;
 	if (!mIsDying && IsActive()) PlayWalkAnimation(0.12f);
 	SyncFollowerPresentation();
 }
@@ -183,7 +174,7 @@ void AuroraPriestZombie::RestoreTemporalAbilityState(
 	const ZombieTemporalAbilityState& state)
 {
 	// 次数随钟匠记录回溯，已提交的独立裂隙不会被撤销。
-	mRitualReleaseCount = std::clamp(state.releaseCount, 0, kMaxRitualReleases);
+	mRitualReleaseCount = std::clamp(state.releaseCount, 0, AuroraPriestRules::MaxReleases);
 	const RitualPhase restoredPhase = static_cast<RitualPhase>(std::clamp(
 		state.phase, static_cast<int>(RitualPhase::PREPARING),
 		static_cast<int>(RitualPhase::COOLDOWN)));
@@ -195,7 +186,7 @@ void AuroraPriestZombie::RestoreTemporalAbilityState(
 	// 磁吸、断头或魅惑不会被核心快照撤销；这些资格丢失时不得复活前摇。
 	if (mRitualPhase != RitualPhase::COMMITTED
 		&& mRitualPhase != RitualPhase::DISABLED
-		&& (mRitualReleaseCount >= kMaxRitualReleases || !HasHead() || IsMindControlled()
+		&& (mRitualReleaseCount >= AuroraPriestRules::MaxReleases || !HasHead() || IsMindControlled()
 			|| mHelmType != HelmType::HELMTYPE_AURORA_DEVICE || mHelmHealth <= 0)) {
 		DisableUncommittedRitual();
 	}
@@ -226,7 +217,7 @@ void AuroraPriestZombie::HelmDrop()
 	Zombie::HelmDrop();
 	if (deviceWasPresent) {
 		mOverloaded = true;
-		mAttackDamage = kOverloadBiteDamage;
+		mAttackDamage = AuroraPriestRules::OverloadBite;
 		DisableUncommittedRitual();
 		UpdateAnimSpeed();
 		if (g_particleSystem && IsActive() && !mIsPreview) {
@@ -298,7 +289,7 @@ void AuroraPriestZombie::OnTemporalCoreStateRestored()
 	Zombie::OnTemporalCoreStateRestored();
 	// 时间锚可把被击碎的极光仪器恢复出来，过载数值必须跟随防具快照同步回退。
 	mOverloaded = mHelmType != HelmType::HELMTYPE_AURORA_DEVICE || mHelmHealth <= 0;
-	mAttackDamage = mOverloaded ? kOverloadBiteDamage : kNormalBiteDamage;
+	mAttackDamage = mOverloaded ? AuroraPriestRules::OverloadBite : AuroraPriestRules::NormalBite;
 	SyncFollowerPresentation();
 }
 
@@ -319,11 +310,11 @@ void AuroraPriestZombie::LoadExtraData(const nlohmann::json& j)
 	mRitualRemaining = std::clamp(j.value("ritualRemaining", 0.0f),
 		0.0f, MaxRitualRemaining(mRitualPhase));
 	// 旧档未记录历史释放量，以零作为兼容起点。
-	mRitualReleaseCount = std::clamp(j.value("ritualReleaseCount", 0), 0, kMaxRitualReleases);
+	mRitualReleaseCount = std::clamp(j.value("ritualReleaseCount", 0), 0, AuroraPriestRules::MaxReleases);
 	mOverloaded = j.value("overloaded", false)
 		|| mHelmType != HelmType::HELMTYPE_AURORA_DEVICE || mHelmHealth <= 0;
-	mAttackDamage = mOverloaded ? kOverloadBiteDamage : kNormalBiteDamage;
-	if (mRitualReleaseCount >= kMaxRitualReleases || !HasHead() || IsMindControlled()) DisableUncommittedRitual();
+	mAttackDamage = mOverloaded ? AuroraPriestRules::OverloadBite : AuroraPriestRules::NormalBite;
+	if (mRitualReleaseCount >= AuroraPriestRules::MaxReleases || !HasHead() || IsMindControlled()) DisableUncommittedRitual();
 	ConfigureFollowers();
 	SyncFollowerPresentation();
 	UpdateAnimSpeed();

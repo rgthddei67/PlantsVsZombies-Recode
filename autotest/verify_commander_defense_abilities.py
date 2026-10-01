@@ -13,12 +13,12 @@ for level in (86,87,2001):
     assert a['commanderStrategy']=='learned_search' and not a['trainingAllUnits']
     assert a['searchRepairOptions']==5 and a['searchRepairPlants']==1
     assert a['searchArmorRepairs']>0 and a['searchPlantRepairs']>0
-    assert a['searchArmorRepairIce']==a['searchArmorRepairs']*4
+    assert a['searchArmorRepairIce']==a['searchArmorRepairs']*1
     assert a['searchPlantRepairIce']==a['searchPlantRepairs']*20
     assert a['searchAbilityIce']==a['searchArmorRepairIce']+a['searchBurstActivations']*5
     assert b['enemyIce']-a['enemyIce']==a['commanderSpent']==a['spent']-b['spent']
     assert b['playerIce']==a['playerIce']
-    assert after['zombiesByType']['ZOMBIE_COLD_CHAIN_GUARD']['helmHealth']==1400
+    assert after['zombiesByType']['ZOMBIE_COLD_CHAIN_GUARD']['helmHealth']==700
     assert after['iceStorageNutsByCell']['0_6']['health']==7000
     print(f"{level}: forecast repairs {a['searchArmorRepairs']} guard / {a['searchPlantRepairs']} nut; real purchase {a['commanderSpent']} ice")
 print('PASS: paid forecasts leave real health and ability wallets untouched.')

@@ -2,6 +2,7 @@
 #include "Game/Plant/Plant.h"
 #include "Game/Plant/GameDataManager.h"
 #include "ColdStorageSkillRules.h"
+#include "Game/MiniGameDefinition.h"
 #include "DeltaTime.h"
 #include "Graphics.h"
 #include "ResourceKeys.h"
@@ -33,6 +34,7 @@ bool Board::TryActivateIceVoucher()
 bool Board::CanUseColdStoragePrecisionStrike() const
 {
 	return IsColdStorage() && mBoardState == BoardState::GAME && !mTrophySpawned && !DeltaTime::IsPaused()
+		&& (MiniGame::IsBrawl(mLevel) || (mLevel >= ColdStorageSkillRules::StrikeUnlockLevel && mLevel <= 90))
 		&& mColdStorage.decisions >= ColdStorageSkillRules::StrikeUnlockWave
 		&& mColdStorage.enemyIce >= ColdStorageSkillRules::StrikeIceCost
 		&& mColdStorage.strikeCooldownRemaining <= 0 && mColdStorage.strikeTargetID < 0;

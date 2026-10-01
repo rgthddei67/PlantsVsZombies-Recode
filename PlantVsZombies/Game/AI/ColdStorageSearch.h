@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ColdStorageStrategy.h"
+#include "Game/PlantDamageOrigin.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Plant/AttackGrowth.h"
 #include <array>
@@ -51,10 +52,27 @@ struct ArmorRepair {
 	float health = 0, maximum = 0, totalMaximum = 0, stopBodyHealth = 0;
 	float remaining = 0, interval = 0, amount = 0, cost = 0;
 };
+/** 鼓手动作与目标的已提交层分别计时，来源死亡不撤销目标效果。 */
+struct Drum {
+	bool enabled = false, winding = false;
+	float remaining = 0, stopHealth = 0;
+};
+/** 仪器破坏取消未提交仪式并切换过载；已提交的裂隙由独立队列持有。 */
+struct Ritual {
+	bool present = false, enabled = false, winding = false;
+	float armor = 0, stopHealth = 0, remaining = 0;
+	int releases = 0;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	PaidBurst burst;
 	ArmorRepair repair;
+	Drum drum;
+	Ritual ritual;
+	float adaptiveHelmet = 0;
+	PlantDamageOrigin adaptedOrigin;
+	std::vector<std::pair<int,float>> inspiration; // 来源身份与剩余游戏秒，同源刷新
+	float drumSpeedAmplifier = 1; // 当前黄色冰道的非中性倍率放大，下次采样更新
 	bool vehicleCrush = false; // 碰到抗碾压植物时使用承伤/推退契约，其他车战斗仍沿用原近似
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
@@ -68,6 +86,10 @@ struct Unit {
 	bool mowerImmune = false, consumesOtherMowers = false; // 单位自身的清洁车交互能力，不从购买价格猜测
 };
 struct Plant {
+	PlantDamageOrigin damageOrigin;
+	float maximumHealth = 0; // 裂隙按最高层原上限选择落点，不随当前残血重排
+	int boundaryShards = 0;
+	float boundaryRecharge = 0, boundaryCharge = 0, boundaryBlockedUntil = 0;
 	AttackGrowth growth; // perShot > 0 时按实际射击成长；DPS 不再冻结在采样时刻
 	float growthSpeed = 1; // 不含菠萝领域的基础行动倍率，领域在时间线中独立推进
 	int row = 0, column = 0, layer = 1;
@@ -120,6 +142,8 @@ struct ConstructionStats {
 	float abilityIceSpent = 0; // 僵尸未来实际可付的技能费，计入支出，不提高成交返冰价
 	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
 	float armorRepairIce = 0, plantRepairIce = 0;
+	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
+	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
@@ -142,6 +166,8 @@ struct Counter {
 	float vulnerableSeconds = 0; // 从提交到清醒无敌的等待，游戏秒；已经清醒时为零
 	bool stored = false; // 预存反制额外比较长期蓄爆，不假设小股诱饵一定能骗掉它
 };
+/** 已提交的裂隙，即使来源死亡也必须进入预测。 */
+struct Rift { Unit unit; int column = 0; float remaining = 0; };
 struct Snapshot {
 	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
 	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
@@ -159,6 +185,17 @@ struct Snapshot {
 	float incomingIceAt = 0;
 	float supplyRemaining = 0, supplyInterval = 0, supplyIce = 0; // 技能钱包的真实补给时序；不作为经营得分
 	float houseX = 160, rightEdge = 1100;
+	float gridLeft = 160, cellWidth = 80;
+	int rows = 5, columns = 9;
+	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价
+	bool precisionReady = false;
+	int precisionTargetID = 0; // 本候选立即购买的技能；零表示保留资金
+	int pendingPrecisionID = 0; // 已支付技能只结算原目标，不再次收费
+	float pendingPrecisionRemaining = 0;
+	std::array<Unit,5> ritualSummons{};
+	std::vector<Rift> rifts;
+	std::vector<std::array<int,2>> riftCells; // 主线程给出的合法落点，不在后台查询 Board
+	bool ritualWhiteout = false;
 	std::vector<Unit> current;
 	std::vector<CommittedUnit> committed;
 	std::vector<Plant> plants;
@@ -173,6 +210,8 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	int precisionTargetID = 0, precisionEvaluated = 0, supportEvaluated = 0;
+	float precisionGain = 0; // 相对保留技能资金的完整最优编队的增量评分
 	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};

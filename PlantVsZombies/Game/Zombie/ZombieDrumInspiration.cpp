@@ -1,13 +1,9 @@
 #include "Zombie.h"
+#include "CrystalDrummerRules.h"
 #include "Game/Board/Board.h"
 #include <algorithm>
 #include <cmath>
 
-namespace {
-	constexpr float kDuration=6.0f; // 每个独立鼓手来源的效果持续游戏秒
-	constexpr float kMoveBonus=0.5f; // 每层鼓舞额外移动倍率，来源之间加算
-	constexpr float kBiteBonus=0.75f; // 每层鼓舞额外啃食频率倍率，不提高单次伤害
-}
 
 void Zombie::ApplyDrumInspiration(int sourceID)
 {
@@ -15,8 +11,8 @@ void Zombie::ApplyDrumInspiration(int sourceID)
 	if (!mDrumInspiration) mDrumInspiration=std::make_unique<DrumInspirationState>();
 	auto& layers=mDrumInspiration->layers;
 	auto it=std::find_if(layers.begin(),layers.end(),[sourceID](const auto& layer){return layer.first==sourceID;});
-	if (it==layers.end()) layers.emplace_back(sourceID,kDuration);
-	else it->second=kDuration;
+	if (it==layers.end()) layers.emplace_back(sourceID,CrystalDrummerRules::Duration);
+	else it->second=CrystalDrummerRules::Duration;
 	UpdateAnimSpeed();
 }
 
@@ -26,8 +22,8 @@ int Zombie::GetDrumInspirationStacks() const
 		? static_cast<int>(mDrumInspiration->layers.size()) : 0;
 }
 
-float Zombie::GetDrumMoveMultiplier() const { return 1.0f+kMoveBonus*GetDrumInspirationStacks(); }
-float Zombie::GetDrumBiteMultiplier() const { return 1.0f+kBiteBonus*GetDrumInspirationStacks(); }
+float Zombie::GetDrumMoveMultiplier() const { return 1.0f+CrystalDrummerRules::MoveBonus*GetDrumInspirationStacks(); }
+float Zombie::GetDrumBiteMultiplier() const { return 1.0f+CrystalDrummerRules::BiteBonus*GetDrumInspirationStacks(); }
 
 void Zombie::UpdateDrumInspiration(float delta)
 {
@@ -61,8 +57,8 @@ void Zombie::LoadDrumInspiration(const nlohmann::json& j)
 		if (!mDrumInspiration) mDrumInspiration=std::make_unique<DrumInspirationState>();
 		auto& layers=mDrumInspiration->layers;
 		auto it=std::find_if(layers.begin(),layers.end(),[id](const auto& layer){return layer.first==id;});
-		if (it==layers.end()) layers.emplace_back(id,std::min(duration,kDuration));
-		else it->second=std::max(it->second,std::min(duration,kDuration));
+		if (it==layers.end()) layers.emplace_back(id,std::min(duration,CrystalDrummerRules::Duration));
+		else it->second=std::max(it->second,std::min(duration,CrystalDrummerRules::Duration));
 	}
 }
 
@@ -71,4 +67,9 @@ float Zombie::GetAmberMovementMultiplier() const
 	// 普通冰减速已经由动画和逻辑步一起缩放，强于地衣，不能再相乘。
 	return !mBoard || mCooldownTimer>0.0f ? 1.0f
 		: AmplifySpeedMultiplierForGoldenIce(mBoard->GetGroundSlowFactor(*this));
+}
+
+std::vector<std::pair<int,float>> Zombie::CopyDrumInspirationLayers() const
+{
+	return GetDrumInspirationStacks() > 0 ? mDrumInspiration->layers : std::vector<std::pair<int,float>>{};
 }

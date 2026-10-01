@@ -1,4 +1,9 @@
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/Board/ColdStorageSkillRules.h"
+#include "Game/Zombie/CrystalDrummerRules.h"
+#include "Game/Zombie/ColdChainGuardRules.h"
+#include "Game/Zombie/AuroraPriestRules.h"
+#include "Game/Zombie/AdaptiveHelmetRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include <chrono>
@@ -1295,4 +1300,131 @@ int main()
 	check(stats.plantRepairs==0 && saved[6]==32,"manual healing cannot spend the last ice before a viable emergency ash response");
 	std::cout << "Ice-storage nut crush, retreat, repair, shared cost and net damage credit passed\n";
 	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-1000; s.budget=80; s.capacity=0; s.precisionReady=true; s.netEconomy=true;
+	Plant flower; flower.id=1; flower.health=300; flower.reward=5; flower.x=400; flower.assetValue=35; flower.sunPerSecond=2;
+	s.plants={flower};
+	check(Search(s,InitialWeights,91).precisionTargetID==0,"precision retains 60 ice rather than deleting a low-value sunflower");
+	Unit worker; worker.id=9; worker.body.health=500; worker.body.x=950; worker.body.economic=true; worker.body.purchaseCost=12;
+	s.current={worker}; s.plants[0].dps=100;
+	const auto targeted=Search(s,InitialWeights,91);
+	check(targeted.precisionTargetID==1 && targeted.precisionGain>0,"precision removes lethal fire when protected production repays its opportunity cost");
+	s.precisionTargetID=1; ConstructionStats stats;
+	const auto fired=Evaluate(s,{},&stats);
+	check(fired[5]==60 && stats.precisionHits==1 && stats.abilityIceSpent==60,"precision charges exactly once and resolves after its aim");
+	s.budget=59; s.precisionTargetID=0;
+	check(Search(s,InitialWeights,91).precisionTargetID==0,"precision cannot spend unaffordable ice");
+	s.current.clear(); s.precisionReady=false; s.budget=0; s.pendingPrecisionID=1; s.pendingPrecisionRemaining=2;
+	s.plants[0].immuneRemaining=60; s.plants[0].repairMaximum=300;
+	Plant shell=flower; shell.id=2; shell.layer=2; shell.health=4000; shell.reward=30;
+	s.plants.push_back(shell);
+	const auto pending=Evaluate(s,{},&stats);
+	check(pending[5]==0 && pending[0]==5 && stats.precisionHits==1,"committed precision bypasses immunity but preserves another layer in the cell");
+	s.pendingPrecisionID=999; Evaluate(s,{},&stats);
+	check(stats.precisionHits==0,"missing precision target never retargets a replacement at the same cell");
+	s.pendingPrecisionID=0; s.current={worker}; s.current[0].body.economic=false; s.current[0].body.x=450; s.current[0].biteDps=1000;
+	s.plants={flower}; s.pendingPrecisionID=1; s.pendingPrecisionRemaining=2;
+	check(Evaluate(s,{},&stats)[0]==5 && stats.precisionHits==0,"target killed during aim earns only its original death reward");
+	std::cout << "Precision value, affordability, delayed identity and layer accounting passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.gridLeft=0; s.cellWidth=100; s.columns=12;
+	Unit drum; drum.id=10; drum.body.x=800; drum.body.health=1600; drum.drum.enabled=true;
+	drum.drum.remaining=.5f; drum.drum.stopHealth=533;
+	Unit ally; ally.id=11; ally.body.x=800; ally.body.health=3000; ally.body.speed=1; ally.body.purchaseCost=10;
+	s.current={drum,ally}; ConstructionStats stats;
+	const auto boosted=Evaluate(s,{},&stats);
+	check(stats.drumRecipients>0 && stats.drumBeats>0,"live drum refreshes reachable allies");
+	s.current={ally}; const auto alone=Evaluate(s,{});
+	check(boosted[7]>alone[7],"drum increases actual allied movement rather than only a role preference");
+	s.current={drum}; Evaluate(s,{},&stats); check(stats.drumRecipients==0,"drummer cannot inspire itself");
+	s.current={drum,ally}; s.current[1].body.row=4;
+	Evaluate(s,{},&stats); check(stats.drumRecipients==0,"drum uses Manhattan cell range including row distance");
+	s.current[1].body.row=0; s.current[0].body.x=1300;
+	Evaluate(s,{},&stats); check(stats.drumRecipients==0,"off-board drummer cannot deliver a pulse");
+	s.current={drum,ally}; s.current[0].body.stopped=60;
+	Evaluate(s,{},&stats); check(stats.drumBeats==0,"hard control pauses uncommitted drum actions");
+	s.current={drum,ally}; s.current[0].body.slow=60;
+	Evaluate(s,{},&stats); const int slowBeats=stats.drumBeats;
+	s.current[0].body.slow=0; Evaluate(s,{},&stats);
+	check(stats.drumBeats>slowBeats,"ordinary ice slow delays drum cadence");
+	s.current={ally}; s.current[0].inspiration={{99,6}};
+	const auto orphan=Evaluate(s,{});
+	check(orphan[7]>alone[7] && orphan[7]<alone[7]*1.1f,"committed inspiration survives missing source but expires rather than lasting forever");
+	s.current[0].body.economic=true; s.current[0].body.speed=0;
+	const auto producer=Evaluate(s,{}); s.current[0].inspiration.clear();
+	check(producer[4]==Evaluate(s,{})[4],"drum never accelerates ice production");
+	std::cout << "Drum cadence, range, independent duration and economic neutrality passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.playerIce=5; s.discountRemaining=1;
+	Plant p; p.id=1; p.health=100; p.repairMaximum=200; p.repairAmount=100; p.repairCost=9; p.repairRecharge=1; p.repairAutomatic=true;
+	s.plants={p}; ConstructionStats stats;
+	Evaluate(s,{},&stats); check(stats.plantRepairs==1 && stats.plantRepairIce==5,"active voucher rounds odd repair fees upward");
+	s.plants[0].repairRemaining=2;
+	Evaluate(s,{},&stats); check(stats.plantRepairs==0,"expired voucher cannot fund later repairs at its old discount");
+	std::cout << "Voucher duration and rounded shared-wallet payment passed\n";
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Unit adaptive; adaptive.id=1; adaptive.body.x=900; adaptive.body.health=900; adaptive.body.purchaseCost=900;
+	adaptive.adaptiveHelmet=AdaptiveHelmetRules::HelmetHealth; s.current={adaptive};
+	Plant melon; melon.id=1; melon.health=1000; melon.x=400; melon.dps=20;
+	melon.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_MELONPULT);
+	s.plants={melon}; auto winter=melon; winter.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_WINTERMELON); s.plants.push_back(winter);
+	check(Evaluate(s,{})[3]==800,"adaptive helmet cancels overflow then blocks both base and upgrade lineage");
+	s.plants[1].damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_PEASHOOTER);
+	check(Evaluate(s,{})[3]==0,"mixed lineages defeat adaptation instead of granting blanket immunity");
+	s.plants.clear(); Counter ash; ash.blast.committed=true; ash.blast.damage=1800; ash.blast.x=900;
+	ash.blast.reach.fill(-1); ash.blast.reach[0]=100;
+	s.counters={ash,ash}; s.counters[1].blast.ready=5;
+	check(Evaluate(s,{})[3]==800,"first ash adapts intact helmet and later ash remains blocked");
+	s.current[0].adaptiveHelmet=0; s.current[0].body.health=800; s.current[0].adaptedOrigin=melon.damageOrigin;
+	check(Evaluate(s,{})[3]==0,"lineage adaptation does not stop ash");
+	s.counters.clear(); s.current={adaptive}; s.current[0].adaptedOrigin=PlantDamageOrigin::Ash(); s.current[0].adaptiveHelmet=0;
+	s.mowers.push_back({0,890,60,230,false,true});
+	check(Evaluate(s,{})[3]==0,"adaptation does not block the mower execution path");
+	std::cout << "Adaptive lineage, first-hit overflow, ash and mower contracts passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.gridLeft=0; s.cellWidth=100; s.columns=10;
+	for(int row=0;row<5;++row) for(int col=4;col<=6;++col) s.riftCells.push_back({row,col});
+	for(auto& child:s.ritualSummons) { child.body.health=1000; child.body.speed=0; child.body.value=8; }
+	Unit priest; priest.id=5; priest.body.x=900; priest.body.health=2000; priest.body.purchaseCost=24;
+	priest.ritual.present=true; priest.ritual.enabled=true; priest.ritual.armor=800; priest.ritual.stopHealth=400;
+	priest.ritual.remaining=6; s.current={priest}; ConstructionStats stats;
+	const auto summon=Evaluate(s,{},&stats);
+	check(stats.ritualReleases==3 && stats.riftSummons==9,"priest obeys three-release lifetime and three summons per normal release");
+	check(summon[5]==0 && summon[3]==24,"free rifts neither spend ice nor manufacture purchase assets");
+	Counter ash; ash.blast.committed=true; ash.blast.damage=1800; ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[0]=100;
+	s.counters={ash};
+	check(Evaluate(s,{},&stats)[3]==0 && stats.ritualReleases==0,"priest device cannot prevent the real body-based ash execution");
+	s.counters.clear();
+	s.current[0].ritual.releases=2; Evaluate(s,{},&stats);
+	check(stats.ritualReleases==1 && stats.riftSummons==3,"live release count is not reset in forecasts");
+	s.current={priest}; s.current[0].ritual.armor=0; Evaluate(s,{},&stats);
+	check(stats.ritualReleases==0,"broken device cancels uncommitted rituals");
+	s.current={priest}; s.current[0].body.x=1200; Evaluate(s,{},&stats);
+	check(stats.ritualReleases==0,"off-board priest can prepare but cannot cast");
+	s.current={priest}; s.current[0].body.stopped=60; Evaluate(s,{},&stats);
+	check(stats.ritualReleases==0,"hard control pauses ritual preparation");
+	s.current={priest}; s.current[0].ritual.remaining=40; s.current[0].body.slow=60; Evaluate(s,{},&stats);
+	check(stats.ritualReleases==0,"ice slow delays ritual while drum cannot shorten it");
+	s.current.clear(); Rift pending; pending.unit=s.ritualSummons[0]; pending.unit.body.row=0; pending.unit.body.x=450;
+	pending.column=4; pending.remaining=.8f; s.rifts={pending};
+	Plant boundary; boundary.id=2; boundary.health=450; boundary.row=0; boundary.column=4;
+	boundary.boundaryShards=1; boundary.boundaryRecharge=15; s.plants={boundary};
+	const auto retained=Evaluate(s,{},&stats);
+	check(stats.riftRedirects==1 && retained[5]==0,"committed rift survives missing source and consumes a real boundary shard");
+	s.plants[0].health=0; Evaluate(s,{},&stats);
+	check(stats.riftRedirects==0,"destroyed boundary flower cannot reject an arrival");
+	std::cout << "Priest cycles, equipment, entry, free summons and committed boundary counter passed\n";
+	}
+
 }

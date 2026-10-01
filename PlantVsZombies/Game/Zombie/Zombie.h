@@ -559,8 +559,12 @@ public:
 	void ApplyPrismMark();
 	/** 不同鼓手按稳定 ID 加算，同源刷新；效果独立于来源寿命。 */
 	void ApplyDrumInspiration(int sourceID);
+	/** 主线程复制已提交的来源及余时，后台只持有数值，不借用实体侧车。 */
+	std::vector<std::pair<int,float>> CopyDrumInspirationLayers() const;
 	int GetDrumInspirationStacks() const;
 	float GetDrumMoveMultiplier() const;
+	/** 数值快照的鼓舞速度放大；倍率为 1 时仍须保留中性语义。 */
+	float GetDrumSpeedAmplifier() const { return AmplifySpeedMultiplierForGoldenIce(2)/2; }
 	float GetDrumBiteMultiplier() const;
 	/** 输出/恢复每个来源的独立余时；重复来源取较长余时，不补满。 */
 	void SaveDrumInspiration(nlohmann::json& j) const;

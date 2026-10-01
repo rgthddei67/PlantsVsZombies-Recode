@@ -13,7 +13,7 @@ for level in (84, 85, 2001):
     assert not after['trainingAllUnits']
     assert after['searchBurstOptions'] == 5 and after['searchAttackAuraCount'] == 1
     assert after['searchBurstActivations'] > 0 and after['searchAuraActivations'] > 0
-    assert after['searchAbilityIce'] == after['searchBurstActivations'] * 5 + after['searchArmorRepairIce']
+    assert after['searchAbilityIce'] == after['searchBurstActivations'] * 5 + after['searchArmorRepairIce'] + (60 if after['searchPrecisionTargetID'] else 0)
     assert before['enemyIce'] - after['enemyIce'] == after['commanderSpent']
     assert after['spent'] - before['spent'] == after['commanderSpent']
     assert after['playerIce'] == before['playerIce'], 'forecast aura payments must not touch the live wallet'

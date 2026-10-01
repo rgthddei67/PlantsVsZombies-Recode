@@ -1,3 +1,4 @@
+#include "Game/Zombie/AuroraPriestRules.h"
 #include "Board.h"
 
 #include "../../GameApp.h"
@@ -15,20 +16,10 @@
 #include <unordered_set>
 
 namespace {
-constexpr float kAuroraRiftUnfoldSeconds = 0.8f; // 裂隙从提交到正式出生的展开游戏秒
 constexpr float kTemporalAnchorSeconds = 6.0f; // 时间锚独立持续游戏秒
 constexpr float kTemporalMarkPulseSeconds = 0.82f; // 时间锚在目标身上续显的游戏秒间隔
-constexpr int kAuroraRiftCount = 3; // 常态单次裂隙数量
-constexpr int kWhiteoutAuroraRiftCount = 4; // 白毛风提交时的裂隙数量
 constexpr int kTemporalTargetLimit = 12; // 单个时间锚最多记录的僵尸数
 constexpr float kDawnNavigationSeconds = 8.0f; // 强风模块全场导航持续游戏秒
-constexpr std::array<ZombieType, 5> kAuroraSummonTypes{
-	ZombieType::ZOMBIE_BUCKET,
-	ZombieType::ZOMBIE_DOOR,
-	ZombieType::ZOMBIE_LADDER,
-	ZombieType::ZOMBIE_POGO,
-	ZombieType::ZOMBIE_FOOTBALL,
-};
 
 /** 复合编队和首领不进入单体稳定 ID 时间恢复。 */
 bool IsTemporalAnchorTargetType(ZombieType type)
@@ -56,7 +47,7 @@ bool Board::CommitAuroraPriestRitual(int ownerZombieID, int sourceRow, bool whit
 			if (target.zombieID == ownerZombieID) target.specialActionSubmitted = true;
 		}
 	}
-	const int requested = whiteout ? kWhiteoutAuroraRiftCount : kAuroraRiftCount;
+	const int requested = whiteout ? AuroraPriestRules::WhiteoutSummons : AuroraPriestRules::Summons;
 	struct Candidate { int row; int column; int plantValue; };
 	std::vector<Candidate> candidates;
 	for (int row = 0; row < mRows; ++row) {
@@ -98,12 +89,12 @@ bool Board::CommitAuroraPriestRitual(int ownerZombieID, int sourceRow, bool whit
 	for (std::size_t index = 0; index < chosen.size(); ++index) {
 		const Candidate& target = chosen[index];
 		PendingAuroraRift rift;
-		rift.type = kAuroraSummonTypes[(ownerZombieID + static_cast<int>(index)
-			+ target.row + target.column) % kAuroraSummonTypes.size()];
+		rift.type = AuroraPriestRules::SummonTypes[(ownerZombieID + static_cast<int>(index)
+			+ target.row + target.column) % AuroraPriestRules::SummonTypes.size()];
 		rift.row = target.row;
 		rift.column = target.column;
 		rift.spawnWave = mCurrentWave;
-		rift.timer = kAuroraRiftUnfoldSeconds;
+		rift.timer = AuroraPriestRules::Unfold;
 		rift.transactionID = mNextDiscontinuousTransactionID++;
 		rift.ownerZombieID = ownerZombieID;
 		mPendingAuroraRifts.push_back(rift);

@@ -127,11 +127,13 @@
 
 2026-10-01 确认为技能卡与指挥官全局技能，均不新增植物／僵尸实体。冰惠券在 10-7 通关后解锁，占普通选卡槽，仅冷藏站可选，点击直接发动；减免种植与植物技能的冰费，阳光原价，多次发动只刷新时间。数值以 `resources/gamedata.json` 与 `Game/Board/ColdStorageSkillRules.h` 为准。稳定卡牌身份沿用 `PlantType`，`GameDataManager::IsSkillCard` 明确区分无实体卡；不可落种、创建预览植物或成为模仿目标，卡槽和图鉴共用原生券面图标。
 
-指挥官精准清除第 15 波起可用，单次 60 冰、全局 30 游戏秒冷却；付款后有 2 游戏秒瞄准提示，到期直接结束全场指定单株的生命周期，无法通过护盾、血量、词条保命或硬控防御。同格其他层保留，双格植物仍是一个实体。目标按稳定 ID 跟随搬运；提前消失不退款、不换靶。实际消灭沿用原有僵尸击杀返冰，技能支出不增加任何僵尸的死亡返冰资格。
+指挥官精准清除从冒险 10-4 起开放（大混战保留），单局第 10 波起可用，单次 60 冰、全局 30 游戏秒冷却；付款后有 2 游戏秒瞄准提示，到期直接结束全场指定单株的生命周期，无法通过护盾、血量、词条保命或硬控防御。同格其他层保留，双格植物仍是一个实体。目标按稳定 ID 跟随搬运；提前消失不退款、不换靶。实际消灭沿用原有僵尸击杀返冰，技能支出不增加任何僵尸的死亡返冰资格。
 
-**目标选择策略由另一窗口完成，本轮不接自动选靶、搜索策略或训练。** 接入 `Board::CanUseColdStoragePrecisionStrike()` 判断全局就绪，主线程调用 `TryStartColdStoragePrecisionStrike(plantID)` 提交；失败不扣冰、不开始冷却。`mColdStorage` 的 `strikeTargetID/strikeAimRemaining/strikeCooldownRemaining` 保存已付款事务，`discountRemaining` 保存玩家减费；关卡 schema v19 迁移旧档为无技能效果。选择策略不得直接修改钱包、倒计时或删除植物。后续能力预测应读取剩余时间与 `GetPlantIcePaymentCost/GetPlantAbilityIceCost`，不要把当前折扣外推到到期之后。
+**能力实现轮原先未接自动选靶；现已由指挥官 AI 接续完成。** 接入 `Board::CanUseColdStoragePrecisionStrike()` 判断全局就绪，主线程调用 `TryStartColdStoragePrecisionStrike(plantID)` 提交；失败不扣冰、不开始冷却。`mColdStorage` 的 `strikeTargetID/strikeAimRemaining/strikeCooldownRemaining` 保存已付款事务，`discountRemaining` 保存玩家减费；关卡 schema v19 迁移旧档为无技能效果。选择策略不得直接修改钱包、倒计时或删除植物。后续能力预测应读取剩余时间与 `GetPlantIcePaymentCost/GetPlantAbilityIceCost`，不要把当前折扣外推到到期之后。
 
-验证入口：`smoke_cold_storage_skills` 覆盖真实卡槽点击、半价种植、自动技能付款、失效恢复、全局冷却、15波边界、瞄准／完成态存档、搬运、单层清除、替换不换靶及非冷藏站拒绝；`smoke_ice_voucher_reward` 覆盖解锁与技能卡奖励页。
+`ColdStorageSearch` 在同一资金与对手模型中比较保留技能、单次清除和清除后的可支付编队，单株本身的返冰或阳光估值不能独自证明技能值得使用。未结算目标及优惠到期进入纯数值预测，后台只返回意图。护卫额外协同候选、击鼓的目标自有层、适应头盔的伤害谱系和祭司的独立裂隙均已投影；免费召唤不制造采购资产或返冰。正式策略范围覆盖到已接入内容的 10-7。专项入口为 `smoke_commander_special_skills`、对应 verifier 和 `ColdStorageStrategyTests`；下一轮局部训练可用 `train_commander_league.py --curriculum abilities`，候选仍须通过独立留出对照，不能凭训练胜率直接替换发布配置。
+
+验证入口：`smoke_cold_storage_skills` 覆盖真实卡槽点击、半价种植、自动技能付款、失效恢复、全局冷却、10波边界、瞄准／完成态存档、搬运、单层清除、替换不换靶及非冷藏站拒绝；`smoke_ice_voucher_reward` 覆盖解锁与技能卡奖励页。
 
 ## 本轮交付与验证入口
 

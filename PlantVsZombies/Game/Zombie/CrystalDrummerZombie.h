@@ -19,6 +19,7 @@ public:
 	/** 恢复本地敲鼓进度并同步停步与装备表现，不补发鼓舞或重放敲击反馈。 */
 	void RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state) override;
 	void OnTemporalCoreStateRestored() override;
+	bool IsDrumDisabled() const { return mDisabled; }
 	bool IsDrumWindingUp() const { return mWindingUp; }
 	float GetDrumRemaining() const { return mRemaining; }
 	int GetDrumBeatCount() const { return mBeatCount; }

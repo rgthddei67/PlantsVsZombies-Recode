@@ -124,6 +124,13 @@ def curriculum_templates(name):
             collection = selection + [('normal:opening_10_5','builder'),
                                       ('opening','hunter'),('masked:opening','lotus')]
             holdout = [(a,'planner' if o=='fortifier' else o) for a,o in holdout]
+    elif name == 'abilities':
+        # 能力适配后的局部训练：正常后段开局与全/半兵池共存，留出种子和对手不参与选优。
+        selection = [('normal:opening_10_5','planner'),('normal:opening_10_6','ash'),
+                     ('normal:opening_10_7','fortifier'),('opening','planner'),('masked:opening','hunter')]
+        collection = selection
+        holdout = [('normal:opening','planner'),('normal:opening_10_6','fortifier'),('normal:opening_10_7','ash')]
+        holdout += [(prefix+'opening',opponent) for prefix in ('','masked:') for opponent in ('planner','fortifier','ash')]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout
@@ -132,7 +139,7 @@ def curriculum_templates(name):
 def draw_cases(templates, rng, seconds, long_seconds, curriculum):
     """Long matches expose delayed attacks; neither idle time nor wave count is a training reward."""
     return [(a,o,rng.randrange(2**30),
-             long_seconds if curriculum in ('openings','coached') or (curriculum in ('endurance','reserves')
+             long_seconds if curriculum in ('openings','coached','abilities') or (curriculum in ('endurance','reserves')
                              and (a.startswith('normal:') or 'banked' in a)) else seconds)
             for a,o in templates]
 
@@ -277,6 +284,9 @@ def train(args):
     for generation in range(args.generations):
         cases = draw_cases(selection,rng,duration,args.long_seconds,args.curriculum)
         population = state_population(champion,rng,args.population,generation) if args.state_only else ([champion,accounting_reference] if accounting_reference is not None else [source,champion] + ([reference] if reference else []))
+        if args.curriculum == 'abilities':
+            # 从同一正式策略起步时不花实战预算重复测完全相同的参数，腾出位置给独立变异。
+            population = [p for i,p in enumerate(population) if p not in population[:i]]
         restart_end = len(population) + args.restarts
         while len(population) < args.population:
             parent = copy.deepcopy(champion)
@@ -351,13 +361,13 @@ if __name__ == '__main__':
     parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
-    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings','coached'),default='balanced',
+    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings','coached','abilities'),default='balanced',
                         help='Openings selects and gates full games; prebuilt positions are separate frozen diagnostics')
     parser.add_argument('--from-candidate',type=Path,help='Inherit prior policy parameters; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
     if (not 120 <= args.seconds <= 1200 or args.generations < 0 or not 120 <= args.long_seconds <= 1800
-            or (args.curriculum in ('endurance','reserves','openings','coached') and args.long_seconds < args.seconds)
+            or (args.curriculum in ('endurance','reserves','openings','coached','abilities') and args.long_seconds < args.seconds)
             or (args.state_only and (not args.state_model or args.restarts))
             or not 0 <= args.restarts <= args.population-2
             or (args.opponent_weight is not None and not 0 <= args.opponent_weight <= 100)

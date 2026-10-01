@@ -1,3 +1,4 @@
+#include "BoundaryFlowerRules.h"
 #include "BoundaryFlower.h"
 
 #include "../../DeltaTime.h"
@@ -10,8 +11,6 @@
 
 namespace {
 constexpr int kHealth = 450; // 界碑花本体生命
-constexpr int kMaxShards = 2; // 同株最多持有的界碑碎片数
-constexpr float kShardSeconds = 15.0f; // 每枚碎片所需游戏秒
 constexpr const char* kFollowerTrack = "stalk_top"; // 金盏花稳定上茎轨道
 constexpr const char* kMonumentSlot = "boundary_monument"; // 界碑身份件命名槽
 constexpr float kFollowerOffsetX = 0.0f; // 界碑身份件局部水平偏移，动画 px
@@ -28,16 +27,16 @@ void BoundaryFlower::SetupPlant()
 
 void BoundaryFlower::PlantUpdate()
 {
-	if (mIsPreview || IsShutdown() || mShardCount >= kMaxShards) return;
+	if (mIsPreview || IsShutdown() || mShardCount >= BoundaryFlowerRules::MaxShards) return;
 	mShardCharge += DeltaTime::GetDeltaTime();
-	while (mShardCharge >= kShardSeconds && mShardCount < kMaxShards) {
-		mShardCharge -= kShardSeconds;
+	while (mShardCharge >= BoundaryFlowerRules::ShardSeconds && mShardCount < BoundaryFlowerRules::MaxShards) {
+		mShardCharge -= BoundaryFlowerRules::ShardSeconds;
 		++mShardCount;
 		if (g_particleSystem) {
 			g_particleSystem->EmitEffect("BoundaryShardReady", GetVisualPosition());
 		}
 	}
-	if (mShardCount >= kMaxShards) mShardCharge = 0.0f;
+	if (mShardCount >= BoundaryFlowerRules::MaxShards) mShardCharge = 0.0f;
 	RefreshPresentation();
 }
 
@@ -66,9 +65,9 @@ void BoundaryFlower::SaveExtraData(nlohmann::json& j) const
 
 void BoundaryFlower::LoadExtraData(const nlohmann::json& j)
 {
-	mShardCount = std::clamp(j.value("shardCount", 0), 0, kMaxShards);
-	mShardCharge = mShardCount >= kMaxShards ? 0.0f
-		: std::clamp(j.value("shardCharge", 0.0f), 0.0f, kShardSeconds);
+	mShardCount = std::clamp(j.value("shardCount", 0), 0, BoundaryFlowerRules::MaxShards);
+	mShardCharge = mShardCount >= BoundaryFlowerRules::MaxShards ? 0.0f
+		: std::clamp(j.value("shardCharge", 0.0f), 0.0f, BoundaryFlowerRules::ShardSeconds);
 	ConfigureRig();
 	RefreshPresentation();
 }

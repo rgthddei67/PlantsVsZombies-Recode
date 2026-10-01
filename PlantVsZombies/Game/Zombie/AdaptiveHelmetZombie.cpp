@@ -1,3 +1,4 @@
+#include "AdaptiveHelmetRules.h"
 #include "AdaptiveHelmetZombie.h"
 
 #include "Game/Board/Board.h"
@@ -7,8 +8,6 @@
 #include <algorithm>
 
 namespace {
-	constexpr int kBodyHealth = 800;                 // 僵尸本体生命
-	constexpr int kAdaptiveHelmetHealth = 100;       // 首次来源记录头盔生命
 	constexpr float kHelmetOffsetX = -9.0f;          // 宽于原头部贴图时向左回中，单位 px
 	constexpr float kHelmetOffsetY = -14.0f;         // 高于原头部贴图时向上回中，单位 px
 	constexpr float kHelmetScale = 0.82f;            // 头盔 follower 尺寸倍率
@@ -54,11 +53,11 @@ namespace {
 void AdaptiveHelmetZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
-	mBodyHealth = kBodyHealth;
-	mBodyMaxHealth = kBodyHealth;
+	mBodyHealth = AdaptiveHelmetRules::BodyHealth;
+	mBodyMaxHealth = AdaptiveHelmetRules::BodyHealth;
 	mHelmType = HelmType::HELMTYPE_ADAPTIVE;
-	mHelmHealth = kAdaptiveHelmetHealth;
-	mHelmMaxHealth = kAdaptiveHelmetHealth;
+	mHelmHealth = AdaptiveHelmetRules::HelmetHealth;
+	mHelmMaxHealth = AdaptiveHelmetRules::HelmetHealth;
 	mAdaptedOrigin = {};
 	ConfigureFollowers();
 	SyncFollowerPresentation();
@@ -221,7 +220,7 @@ void AdaptiveHelmetZombie::ApplyAdaptedOriginState(PlantDamageOrigin origin)
 	}
 
 	// 读档或时间锚已恢复缩放后的上限，不能用出生常量覆盖专属模式/生存倍率。
-	if (mHelmMaxHealth <= 0) mHelmMaxHealth = kAdaptiveHelmetHealth;
+	if (mHelmMaxHealth <= 0) mHelmMaxHealth = AdaptiveHelmetRules::HelmetHealth;
 	if (mHelmType == HelmType::HELMTYPE_ADAPTIVE && mHelmHealth > 0) {
 		mHelmHealth = std::clamp(mHelmHealth, 1, mHelmMaxHealth);
 	}

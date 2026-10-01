@@ -102,6 +102,11 @@ struct ColdStorageState {
 	int searchArmorRepairs = 0, searchPlantRepairs = 0; // 最优案中两方的实际可付修复次数
 	float searchArmorRepairIce = 0, searchPlantRepairIce = 0; // 仅预测的修复支出
 	float searchAbilityIce = 0; // 最优案未来技能费，不等于当前出兵付款
+	int searchAdaptationOptions = 0, searchRitualOptions = 0; // 适应和裂隙能力的合法采购选项
+	int searchRitualReleases = 0, searchRiftSummons = 0, searchRiftRedirects = 0; // 预测释放、到场和界碑反制
+	int searchDrumOptions = 0, searchDrumBeats = 0, searchDrumRecipients = 0; // 数值预测，不在正式场景施加效果
+	int searchSupportEvaluated = 0, searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次协同和精准清除搜索
+	float searchPrecisionGain = 0; // 相对不施法优案的收益，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
 	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档
 	std::array<float, 6> searchFormationScores{}; // 同一队伍投向各行的评分，按 tested 位掩码读取

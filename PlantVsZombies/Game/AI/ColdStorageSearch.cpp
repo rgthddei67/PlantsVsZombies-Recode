@@ -1,5 +1,9 @@
 #include "ColdStorageSearch.h"
 #include "Game/Board/IceProduction.h"
+#include "Game/Board/ColdStorageSkillRules.h"
+#include "Game/Zombie/CrystalDrummerRules.h"
+#include "Game/Zombie/AuroraPriestRules.h"
+#include "Game/Plant/BoundaryFlowerRules.h"
 #include "Game/Plant/DawnLotusRules.h"
 #include "Game/Zombie/ImpThrowRules.h"
 #include <algorithm>
@@ -38,14 +42,29 @@ constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 constexpr int kInvestmentTrials = 32; // 大兵池额外经营对照的单阶段上限；不增加原攻击搜索预算或强制采购
+constexpr int kSupportTrials = 32; // 护卫/光环协同额外对照上限，不强制购买
+constexpr int kPrecisionTargets = 12; // 技能优先候选数，每个最多比较两个编队
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
 constexpr float kCapitalBlastFraction = .35f; // 爆区预计折损超过现有库存此比例时，不能依赖削血/位移维持大额采购
 constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
 
+/** 采购先预留本案技能费；所有维修仍与部队、技能共用同一个钱包。 */
+int PurchaseBudget(const Snapshot& s) { return s.budget-(s.precisionTargetID > 0 ? ColdStorageSkillRules::StrikeIceCost : 0); }
+/** 只延续已经激活的优惠，不假设玩家将来必定续券；整数费用向上取整。 */
+float PlayerIceCost(const Snapshot& s, float time, float cost) {
+	return time < s.discountRemaining && cost > 0 ? std::ceil(cost/ColdStorageSkillRules::DiscountDivisor) : cost;
+}
+
 /** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
-float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false) {
+float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false, PlantDamageOrigin origin = {}) {
+	if (origin.IsValid() && unit.adaptedOrigin.IsValid() && origin == unit.adaptedOrigin) return 0;
+	if (unit.adaptiveHelmet > 0 && origin.IsValid() && damage >= unit.adaptiveHelmet) {
+		const float lost = unit.adaptiveHelmet;
+		unit.body.health -= lost; unit.adaptiveHelmet = 0; unit.adaptedOrigin = origin;
+		return lost; // 首次击穿整击只提交适应，不允许溢入本体。
+	}
 	auto& health = unit.body.health;
 	const float before = health;
 	const float shield = std::clamp(unit.shieldHealth,0.0f,std::max(0.0f,health));
@@ -54,6 +73,8 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 	const float vital = health-shield-vitalLoss;
 	unit.shieldHealth = shield-shieldLoss;
 	// 西瓜和大喷穿的是二类门盾；一类冰盾仍先于本体承受 vitalLoss。
+	unit.adaptiveHelmet = std::max(0.0f,unit.adaptiveHelmet-std::max(0.0f,vitalLoss));
+	unit.ritual.armor = std::max(0.0f,unit.ritual.armor-std::max(0.0f,vitalLoss));
 	unit.repair.health = std::max(0.0f,unit.repair.health-std::max(0.0f,vitalLoss));
 	health = vital > 0 ? vital+unit.shieldHealth : 0;
 	return before-health;
@@ -72,8 +93,13 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 }
 /** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
 float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
+	// 祭司沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
+	if (ash && unit.ritual.present && damage >= unit.body.health-unit.ritual.armor) {
+		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; return lost;
+	}
 	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
-	return ApplyDamage(unit,cap > 0 ? std::min(damage,cap) : damage);
+	return ApplyDamage(unit,cap > 0 ? std::min(damage,cap) : damage,false,false,false,
+		ash ? PlantDamageOrigin::Ash() : PlantDamageOrigin::FromPlant(PlantType::PLANT_DAWNLOTUS));
 }
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
@@ -131,9 +157,9 @@ std::vector<Action> SamplePortfolio(const Snapshot& s, std::mt19937& rng, int tr
 	}
 	int totalCost = 0;
 	for (const auto& action : plan) totalCost += s.options[action.option].cost;
-	if (totalCost > s.budget && !plan.empty()) {
+	if (totalCost > PurchaseBudget(s) && !plan.empty()) {
 		// 按总预算缩小整案，不让后续 Repair 总是先买光前一批、再删掉后面的配合兵力。
-		const int count = std::max(1,static_cast<int>(plan.size())*s.budget/totalCost);
+		const int count = std::max(1,static_cast<int>(plan.size())*PurchaseBudget(s)/totalCost);
 		std::vector<Action> affordable;
 		for (int i = 0; i < count; ++i) affordable.push_back(plan[i*plan.size()/count]);
 		plan = std::move(affordable);
@@ -146,7 +172,7 @@ std::vector<int> SampleTypeCoverage(const Snapshot& s, std::mt19937& rng, int li
 	std::vector<std::vector<int>> types;
 	for (int i=0; i<static_cast<int>(s.options.size()); ++i) {
 		const auto& option = s.options[i];
-		if (option.cost <= 0 || option.cost > s.budget) continue;
+		if (option.cost <= 0 || option.cost > PurchaseBudget(s)) continue;
 		const auto group = std::find_if(types.begin(),types.end(),[&](const auto& entries) {
 			return s.options[entries.front()].type == option.type;
 		});
@@ -168,7 +194,7 @@ std::vector<int> SampleTypeCoverage(const Snapshot& s, std::mt19937& rng, int li
 std::vector<Action> IntroduceOption(const Snapshot& s, std::vector<Action> plan, int option, std::mt19937& rng) {
 	int cost = s.options[option].cost;
 	for (const auto& action : plan) cost += s.options[action.option].cost;
-	while (!plan.empty() && (static_cast<int>(plan.size()) >= ActionLimit(s) || cost > s.budget)) {
+	while (!plan.empty() && (static_cast<int>(plan.size()) >= ActionLimit(s) || cost > PurchaseBudget(s))) {
 		const auto at = rng()%plan.size();
 		cost -= s.options[plan[at].option].cost;
 		plan.erase(plan.begin()+at);
@@ -185,7 +211,7 @@ void Repair(const Snapshot& s, std::vector<Action>& actions) {
 	actions.erase(std::remove_if(actions.begin(), actions.end(), [&](Action& a) {
 		if (a.option < 0 || a.option >= static_cast<int>(s.options.size())) return true;
 		const int cost = s.options[a.option].cost;
-		if (cost <= 0 || spent + cost > s.budget) return true;
+		if (cost <= 0 || spent + cost > PurchaseBudget(s)) return true;
 		spent += cost;
 		a.delay = std::clamp(a.delay, 0.0f, DelayLimit(s));
 		return false;
@@ -242,6 +268,7 @@ void Calibrate(const Snapshot& s, Result& result) {
 Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Action> plan, const Weights& baseline, float baselineOpponentAssets) {
 	Result candidate;
 	candidate.actions = std::move(plan);
+	candidate.precisionTargetID = s.precisionTargetID;
 	candidate.features = Evaluate(s, candidate.actions, &candidate.construction);
 	Calibrate(s, candidate);
 	candidate.baselineFeatures = baseline;
@@ -263,6 +290,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 		})) continue;
 		Result patient;
 		patient.actions = candidate.actions;
+		patient.precisionTargetID = s.precisionTargetID;
 		patient.features = Evaluate(s,patient.actions,&patient.construction,kPatientCounterSeconds,
 			hold == kPatientCounterSeconds ? 0 : storedHold);
 		Calibrate(s,patient);
@@ -415,7 +443,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 		const auto& counter = state.counters[c];
 		if (counter.blast.committed || time < ready[counter.source]
 			|| (counter.sharedSource >= 0 && time < ready[counter.sharedSource])
-			|| counter.sunCost > sun || counter.iceCost > ice) continue;
+			|| counter.sunCost > sun || PlayerIceCost(state,time,counter.iceCost) > ice) continue;
 		if (counter.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.id == counter.plantID && p.health > 0;
 		})) continue;
@@ -446,7 +474,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time))
 				ApplyDiscreteHit(projected,scheduled.blast.damage,true);
 			if (projected.body.health <= 0) continue;
-			const float stake = FullForecast(state) ? std::max(kUnpricedCounterStake,units[i].body.purchaseCost) : units[i].body.purchaseCost;
+			const float stake = std::max(kUnpricedCounterStake,units[i].body.purchaseCost > 0 ? units[i].body.purchaseCost : units[i].body.value);
 			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true) / std::max(1.0f, initialHealth[i]);
 			urgent = urgent || units[i].body.x < state.houseX + 240;
 		}
@@ -458,12 +486,12 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			if (holdUntil[counter.source] < 0) holdUntil[counter.source] = time+patience;
 			if (time < holdUntil[counter.source]) continue;
 		}
-		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + counter.iceCost * 0.2f);
+		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + PlayerIceCost(state,time,counter.iceCost) * 0.2f);
 		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; selectedTarget = candidateTarget; }
 	}
 	if (selected >= 0) {
 		const auto& counter = state.counters[selected];
-		sun -= counter.sunCost; ice -= counter.iceCost;
+		sun -= counter.sunCost; ice -= PlayerIceCost(state,time,counter.iceCost);
 		ready[counter.source] = time + counter.recharge;
 		if (counter.sharedSource >= 0) ready[counter.sharedSource] = time + counter.sharedRecharge;
 		holdUntil[counter.source] = -1;
@@ -491,7 +519,7 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	float best = 0;
 	for (size_t i = 0; i < state.construction.size(); ++i) {
 		const auto& card = state.construction[i]; const auto& p = card.plant;
-		if (time < ready[card.source] || card.sunCost > sun || card.iceCost > ice) continue;
+		if (time < ready[card.source] || card.sunCost > sun || PlayerIceCost(state,time,card.iceCost) > ice) continue;
 		// 曙光莲正式限制是同时一株；死亡后才可再次建设，不能按卡槽数量复制名额。
 		if (card.strike.damage > 0 && std::any_of(strikes.begin(),strikes.end(),[&](const auto& strike) {
 			return std::any_of(plants.begin(),plants.end(),[&](const auto& p) { return p.health > 0 && p.id == strike.plantID; });
@@ -513,7 +541,7 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 			value += std::min(p.health,threat[p.row])*(0.25f+fire[p.row]/50)
 				/ (1+std::max(0.0f,nearest[p.row]-p.x)/200);
 		else value /= 1+0.15f*p.column; // 输出和生产在后方合法位置有更长的存活机会
-		value /= std::max(25,card.sunCost)+card.iceCost;
+		value /= std::max(25,card.sunCost)+PlayerIceCost(state,time,card.iceCost);
 		if (value > best) { best = value; selected = static_cast<int>(i); }
 	}
 	if (selected < 0) return;
@@ -524,8 +552,8 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	plant.productionAt = time+card.firstSunDelay;
 	plants.push_back(plant);
 	ready[card.source] = time+std::max(kConstructionInterval,card.recharge);
-	sun -= card.sunCost; ice -= card.iceCost;
-	++stats.planted; stats.sunSpent += card.sunCost; stats.iceSpent += card.iceCost;
+	sun -= card.sunCost; ice -= PlayerIceCost(state,time,card.iceCost);
+	++stats.planted; stats.sunSpent += card.sunCost; stats.iceSpent += PlayerIceCost(state,time,card.iceCost);
 	if (card.strike.damage > 0) {
 		auto strike = card.strike; strike.plantID = plant.id;
 		strikes.push_back(strike); strikeReady.push_back(time+strike.ready);
@@ -560,18 +588,18 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 	for (const auto& order : state.shop) delivery = std::max(delivery,order.delivery);
 	for (size_t i = 0; i < state.exchanges.size(); ++i) {
 		const auto& card = state.exchanges[i];
-		if (card.sunGain <= 0 || card.iceCost < 0 || card.cells.empty()) continue;
+		if (card.sunGain <= 0 || PlayerIceCost(state,time,card.iceCost) < 0 || card.cells.empty()) continue;
 		for (const auto& cell : card.cells) {
 			if (std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
 				return p.health > 0 && p.layer == 1 && p.row == cell[0] && p.column == cell[1];
 			}) || std::any_of(occupied.begin(),occupied.end(),[&](const auto& p) { return p.first == cell; })) continue;
-			if (exchangeReady[i] <= time+delivery) neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
-			if (exchangeReady[i] > time || ice < card.iceCost || sun >= state.playerSunLimit) break;
+			if (exchangeReady[i] <= time+delivery) neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
+			if (exchangeReady[i] > time || ice < PlayerIceCost(state,time,card.iceCost) || sun >= state.playerSunLimit) break;
 			const float gain = std::min(static_cast<float>(card.sunGain),std::max(0.0f,state.playerSunLimit-sun));
-			sun += gain; ice -= card.iceCost;
+			sun += gain; ice -= PlayerIceCost(state,time,card.iceCost);
 			exchangeReady[i] = time+std::max(kEconomyClearSeconds,card.recharge);
 			occupied.push_back({cell,time+kEconomyClearSeconds});
-			++stats.exchanges; stats.exchangeSun += gain; stats.exchangeIce += card.iceCost;
+			++stats.exchanges; stats.exchangeSun += gain; stats.exchangeIce += PlayerIceCost(state,time,card.iceCost);
 			break;
 		}
 	}
@@ -581,19 +609,19 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		if (card.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.id == card.plantID && p.health > 0;
 		})) continue;
-		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
 	for (const auto& card : state.construction) if (constructionReady[card.source] <= time+delivery)
-		neededIce = std::max(neededIce,static_cast<float>(card.iceCost));
+		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	// 已部署的付费能力也能形成订冰需求；来源消失或手动模式没有受益目标时不凭空补货。
 	for (const auto& aura : auras) if (aura.active+aura.cooldown <= delivery && aura.blockedUntil <= time+delivery) {
 		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
 		if (source != plants.end() && (aura.automatic || AuraHasTarget(state,time,*source,plants,units)))
-			neededIce = std::max(neededIce,static_cast<float>(aura.iceCost));
+			neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,aura.iceCost)));
 	}
 	for (const auto& p : plants) if (p.health > 0 && p.repairMaximum-p.health >= p.repairAmount
 		&& p.repairRemaining <= delivery && p.repairBlockedUntil <= time+delivery)
-		neededIce = std::max(neededIce,p.repairCost);
+		neededIce = std::max(neededIce,PlayerIceCost(state,time,p.repairCost));
 	if (pendingIce > 0 || ice >= neededIce || ice >= state.playerIceLimit) return;
 	const ShopOrder* selected = nullptr;
 	for (const auto& order : state.shop) {
@@ -757,8 +785,8 @@ static void AdvanceAttackAuras(const Snapshot& state, float time, std::vector<At
 		if (source == plants.end()) continue;
 		const bool threatened = !aura.automatic && AuraHasTarget(state,time,*source,plants,units);
 		if (aura.active <= 0 && aura.cooldown <= 0 && time >= aura.blockedUntil
-			&& (aura.automatic || threatened) && ice >= aura.iceCost) {
-			ice -= aura.iceCost; stats.iceSpent += aura.iceCost; ++stats.auraActivations;
+			&& (aura.automatic || threatened) && ice >= PlayerIceCost(state,time,aura.iceCost)) {
+			ice -= PlayerIceCost(state,time,aura.iceCost); stats.iceSpent += PlayerIceCost(state,time,aura.iceCost); ++stats.auraActivations;
 			aura.active = aura.duration;
 		}
 		const float boosted = std::min(kStep,aura.active);
@@ -801,7 +829,7 @@ static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& feature
 }
 
 /** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
-static void AdvancePlantRepairs(float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
+static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
 	float& ice, Weights& features, ConstructionStats& stats, bool automaticPhase) {
 	for (auto& p : plants) if (p.health > 0 && p.repairMaximum > 0) {
 		if (automaticPhase) {
@@ -810,7 +838,7 @@ static void AdvancePlantRepairs(float time, std::vector<Plant>& plants, const st
 		}
 		if (p.repairAutomatic != automaticPhase) continue;
 		const float missing = p.repairMaximum-p.health;
-		if (missing <= 0 || p.repairRemaining > 0 || time < p.repairBlockedUntil || ice < p.repairCost) continue;
+		if (missing <= 0 || p.repairRemaining > 0 || time < p.repairBlockedUntil || ice < PlayerIceCost(state,time,p.repairCost)) continue;
 		// 手动修复只在近身威胁下预测，并排在灰烬反制后，不能假设玩家先花掉救命钱。
 		const bool threatened = !p.repairAutomatic && std::any_of(units.begin(),units.end(),[&](const Unit& u) {
 			return u.body.health > 0 && u.body.spawnAt <= time && u.body.row == p.row && std::abs(u.body.x-p.x) <= 2*kContact;
@@ -818,16 +846,162 @@ static void AdvancePlantRepairs(float time, std::vector<Plant>& plants, const st
 		if (!p.repairAutomatic && !threatened) continue;
 		if (missing < p.repairAmount && (p.repairAutomatic || p.health > p.repairAmount)) continue;
 		const float restored = std::min(missing,p.repairAmount);
-		p.health += restored; ice -= p.repairCost; p.repairRemaining = p.repairRecharge;
+		p.health += restored; ice -= PlayerIceCost(state,time,p.repairCost); p.repairRemaining = p.repairRecharge;
 		const float credit = std::min(p.damageCredit,p.reward*restored/std::max(1.0f,p.initialHealth));
 		p.damageCredit -= credit; features[1] -= credit;
-		stats.iceSpent += p.repairCost; stats.plantRepairIce += p.repairCost; ++stats.plantRepairs;
+		stats.iceSpent += PlayerIceCost(state,time,p.repairCost); stats.plantRepairIce += PlayerIceCost(state,time,p.repairCost); ++stats.plantRepairs;
 	}
+}
+
+/** 已提交鼓舞按墙钟到期；敲鼓按未硬控且受冰减速的时间推进，前摇不移动或啃食。 */
+static void AdvanceDrums(const Snapshot& s, float time, std::vector<Unit>& units,
+	ConstructionStats& stats, std::vector<float>& activity) {
+	using namespace CrystalDrummerRules;
+	activity.assign(units.size(),1);
+	for (auto& unit : units) {
+		for (auto& layer : unit.inspiration) layer.second -= kStep;
+		unit.inspiration.erase(std::remove_if(unit.inspiration.begin(),unit.inspiration.end(),
+			[](const auto& layer) { return layer.second <= 0; }),unit.inspiration.end());
+	}
+	const auto column = [&](const Unit& u) {
+		return static_cast<int>(std::floor((u.body.x+u.body.blastAnchorOffset-s.gridLeft)/s.cellWidth));
+	};
+	for (size_t i=0; i<units.size(); ++i) {
+		auto& source = units[i]; auto& drum = source.drum;
+		if (!drum.enabled || source.body.health <= drum.stopHealth || source.body.spawnAt > time) continue;
+		const float active = std::max(0.0f,kStep-source.body.stopped);
+		const float slow = source.body.slow > 0 ? .5f : 1;
+		float available = active*slow, walking = 0;
+		while (available > 0) {
+			const float consumed = std::min(available,std::max(0.0f,drum.remaining));
+			if (!drum.winding) walking += consumed;
+			available -= consumed; drum.remaining -= consumed;
+			if (drum.remaining > 0) break;
+			if (!drum.winding) { drum.winding = true; drum.remaining = Windup; continue; }
+			drum.winding = false; drum.remaining = BeatInterval-Windup;
+			++stats.drumBeats;
+			const int sc = column(source);
+			if (sc < 0 || sc >= s.columns || source.body.row < 0 || source.body.row >= s.rows) continue;
+			for (auto& target : units) {
+				if (&target == &source || target.body.health <= 0 || target.body.spawnAt > time) continue;
+				const int tc = column(target);
+				if (tc < 0 || tc >= s.columns || target.body.row < 0 || target.body.row >= s.rows
+					|| std::abs(sc-tc)+std::abs(source.body.row-target.body.row) > Range) continue;
+				auto layer = std::find_if(target.inspiration.begin(),target.inspiration.end(),
+					[&](const auto& item) { return item.first == source.id; });
+				if (layer == target.inspiration.end()) target.inspiration.emplace_back(source.id,Duration);
+				else layer->second = Duration;
+				++stats.drumRecipients;
+			}
+		}
+		activity[i] = active > 0 ? walking/(active*slow) : 0;
+	}
+}
+
+/** 已提交裂隙按到场次序消耗界碑碎片；来源是否还活着不影响事务。 */
+static void AdvanceRiftArrivals(const Snapshot& s, float time, std::vector<Plant>& plants,
+	std::vector<Unit>& units, std::vector<int>& columns, ConstructionStats& stats) {
+	for (auto& p : plants) if (p.health > 0 && p.boundaryRecharge > 0 && time >= p.boundaryBlockedUntil
+		&& p.boundaryShards < BoundaryFlowerRules::MaxShards) {
+		p.boundaryCharge += kStep;
+		if (p.boundaryCharge >= p.boundaryRecharge) { ++p.boundaryShards; p.boundaryCharge -= p.boundaryRecharge; }
+		if (p.boundaryShards == BoundaryFlowerRules::MaxShards) p.boundaryCharge = 0;
+	}
+	std::vector<size_t> ready;
+	for (size_t i=0; i<units.size(); ++i) if (columns[i] >= 0 && units[i].body.spawnAt <= time) ready.push_back(i);
+	std::stable_sort(ready.begin(),ready.end(),[&](size_t a,size_t b) {
+		if (units[a].body.spawnAt != units[b].body.spawnAt) return units[a].body.spawnAt < units[b].body.spawnAt;
+		return columns[a] < columns[b];
+	});
+	for (size_t index : ready) {
+		const int row = units[index].body.row, column = columns[index];
+		Plant* selected = nullptr; int distance = 10000;
+		for (auto& p : plants) if (p.health > 0 && p.boundaryShards > 0 && time >= p.boundaryBlockedUntil
+			&& std::abs(p.row-row)<=1 && std::abs(p.column-column)<=1) {
+			const int d = std::abs(p.row-row)+std::abs(p.column-column);
+			if (!selected || d < distance || (d == distance && p.id < selected->id)) { selected = &p; distance = d; }
+		}
+		if (selected) { --selected->boundaryShards; units[index].body.x = s.rightEdge+40; ++stats.riftRedirects; }
+		columns[index] = -1;
+	}
+}
+
+/** 对齐正式最高层耐久优先/分路约束选格；免费召唤不生成成交资产或死亡返冰。 */
+static void CommitForecastRitual(const Snapshot& s, float time, Unit& source, const std::vector<Plant>& plants,
+	std::vector<Unit>& units, size_t& nextSlot, std::vector<int>& columns,
+	std::vector<float>& initialHealth, std::vector<float>& initialX, ConstructionStats& stats) {
+	struct Cell { int row, column; float value; };
+	std::vector<Cell> cells;
+	for (const auto& cell : s.riftCells) {
+		const Plant* top = nullptr;
+		for (const auto& p : plants) if (p.health > 0 && p.row == cell[0] && p.column == cell[1]
+			&& (!top || p.layer > top->layer)) top = &p;
+		cells.push_back({cell[0],cell[1],top ? (top->maximumHealth > 0 ? top->maximumHealth : top->initialHealth)+1000 : 0});
+	}
+	std::stable_sort(cells.begin(),cells.end(),[](const Cell& a,const Cell& b) {
+		if (a.value != b.value) return a.value > b.value;
+		if (a.column != b.column) return a.column < b.column;
+		return a.row < b.row;
+	});
+	const int count = s.ritualWhiteout ? AuroraPriestRules::WhiteoutSummons : AuroraPriestRules::Summons;
+	std::array<int,6> rowCounts{};
+	std::vector<Cell> chosen;
+	for (int pass=0; pass<2; ++pass) for (const auto& cell : cells) {
+		if (static_cast<int>(chosen.size()) >= count) break;
+		if (cell.row < 0 || cell.row >= s.rows || rowCounts[cell.row] >= 2) continue;
+		if (pass == 0 && chosen.size() == 1 && cell.row == chosen.front().row) continue;
+		if (std::any_of(chosen.begin(),chosen.end(),[&](const Cell& c) { return c.row == cell.row && c.column == cell.column; })) continue;
+		chosen.push_back(cell); ++rowCounts[cell.row];
+	}
+	if (chosen.empty()) return;
+	++source.ritual.releases; ++stats.ritualReleases;
+	for (size_t i=0; i<chosen.size() && nextSlot<units.size(); ++i) {
+		const auto& cell = chosen[i];
+		// 活体来源沿用正式 ID；未出生来源使用稳定候选身份，无法预知未来实体分配顺序。
+		const size_t kind = (std::abs(source.id)+i+cell.row+cell.column)%s.ritualSummons.size();
+		auto child = s.ritualSummons[kind];
+		child.id = -1-static_cast<int>(nextSlot);
+		child.body.row = cell.row; child.body.x = s.gridLeft+(cell.column+.5f)*s.cellWidth;
+		child.body.spawnAt = time+AuroraPriestRules::Unfold;
+		child.body.purchaseCost = 0; child.playerRefund = 0;
+		units[nextSlot] = std::move(child); columns[nextSlot] = cell.column;
+		initialHealth[nextSlot] = units[nextSlot].body.health; initialX[nextSlot] = units[nextSlot].body.x;
+		++nextSlot; ++stats.riftSummons;
+	}
+}
+
+/** 仪器/头部存活才继续计时，场外只准备不施法；鼓舞不加速仪式。 */
+static float AdvanceRitual(const Snapshot& s, float time, Unit& unit, float active, const std::vector<Plant>& plants,
+	std::vector<Unit>& units, size_t& nextSlot, std::vector<int>& columns,
+	std::vector<float>& initialHealth, std::vector<float>& initialX, ConstructionStats& stats) {
+	auto& r = unit.ritual;
+	if (!r.enabled) return 1;
+	if (r.armor <= 0 || unit.body.health-r.armor <= r.stopHealth || r.releases >= AuroraPriestRules::MaxReleases) {
+		r.enabled = false; r.winding = false; return 1;
+	}
+	r.remaining = std::max(0.0f,r.remaining-active*(unit.body.slow > 0 ? .5f : 1));
+	const bool wasWinding = r.winding;
+	if (r.remaining <= 0) {
+		if (r.winding) {
+			CommitForecastRitual(s,time,unit,plants,units,nextSlot,columns,initialHealth,initialX,stats);
+			r.winding = false; r.remaining = AuroraPriestRules::Cooldown;
+		} else if (unit.body.x+unit.body.blastAnchorOffset <= s.gridLeft+s.columns*s.cellWidth) {
+			r.winding = true; r.remaining = AuroraPriestRules::Windup;
+		}
+	}
+	return wasWinding || r.winding ? 0 : 1;
 }
 
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds) {
 	Weights f{};
+	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
+	std::vector<std::pair<size_t,int>> committedRifts;
+	for (const auto& rift : s.rifts) {
+		auto unit = rift.unit; unit.body.spawnAt = rift.remaining;
+		unit.body.purchaseCost = 0; unit.playerRefund = 0;
+		committedRifts.emplace_back(units.size(),rift.column); units.push_back(std::move(unit));
+	}
 	for (const auto& a : plan) {
 		if (a.option < 0 || a.option >= static_cast<int>(s.options.size())) continue;
 		auto unit = s.options[a.option].unit;
@@ -848,6 +1022,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		thrownChild[i] = static_cast<int>(units.size());
 		units.push_back(child); // 免费召唤既不增加付款资产，也不向玩家凭空返冰
 	}
+	size_t nextRiftSlot = units.size();
+	if (std::any_of(units.begin(),units.end(),[](const Unit& u) { return u.ritual.enabled; })) {
+		int slots = 0;
+		for (const auto& unit : units) if (unit.ritual.enabled)
+			slots += std::max(0,AuroraPriestRules::MaxReleases-unit.ritual.releases)
+				* (s.ritualWhiteout ? AuroraPriestRules::WhiteoutSummons : AuroraPriestRules::Summons);
+		units.resize(units.size()+std::min(kForecastSummonLimit,slots));
+		for (size_t i=nextRiftSlot; i<units.size(); ++i) { units[i].body.health = 0; units[i].body.spawnAt = Horizon(s)+1; }
+	}
+	std::vector<int> riftColumns(units.size(),-1);
+	for (const auto& rift : committedRifts) riftColumns[rift.first] = rift.second;
 	float enemyIce = std::max(0.0f,s.budget-f[5]), supplyAt = s.supplyRemaining;
 	auto auras = s.attackAuras;
 	std::vector<float> attackRates;
@@ -856,6 +1041,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
 	ConstructionStats constructionStats;
+	if (s.precisionTargetID > 0) constructionStats.abilityIceSpent = ColdStorageSkillRules::StrikeIceCost;
+	int precisionID = s.precisionTargetID > 0 ? s.precisionTargetID : s.pendingPrecisionID;
+	const float precisionAt = s.precisionTargetID > 0 ? ColdStorageSkillRules::StrikeAimDuration : s.pendingPrecisionRemaining;
+	for (size_t i=0; i<units.size(); ++i) if (units[i].id <= 0) units[i].id = -1-static_cast<int>(i);
+	std::vector<float> drumActivity;
 	std::vector<float> constructionReady;
 	for (const auto& card : s.construction) {
 		if (constructionReady.size() <= static_cast<size_t>(card.source)) constructionReady.resize(card.source+1);
@@ -923,6 +1113,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
+		if (precisionID > 0 && t >= precisionAt) {
+			for (auto& p : plants) if (p.id == precisionID && p.health > 0) {
+				// 单株生命周期结束，不借用群伤/砸击，不受壳层或无敌状态阻挡。
+				f[1] += p.reward*p.health/std::max(1.0f,p.initialHealth);
+				f[0] += p.reward; p.health = 0; ++constructionStats.precisionHits;
+				break;
+			}
+			precisionID = 0; // 消失也消费事务，不能命中新种在同格的替代物。
+		}
 		if (s.supplyInterval > 0) while (t >= supplyAt) { enemyIce += s.supplyIce; supplyAt += s.supplyInterval; }
 		if (s.anticipateEconomy && pendingIce > 0 && t >= arrival) {
 			playerIce += pendingIce; pendingIce = 0;
@@ -931,7 +1130,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
-		AdvancePlantRepairs(t,plants,units,playerIce,f,constructionStats,true);
+		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
+		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
@@ -941,7 +1141,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
 			constructionAt = t+kConstructionInterval;
 		}
-		AdvancePlantRepairs(t,plants,units,playerIce,f,constructionStats,false);
+		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
 		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0) {
@@ -993,17 +1193,19 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (p.fume && !p.around && u.x > fumeEnd) continue;
 				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);
 				const bool slowReachesBody = units[i].shieldHealth <= 0 || p.melon || hit.bypass;
-				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow);
+				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow,p.damageOrigin);
 				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2 * attackRate));
 				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
 			}
 		}
+		AdvanceDrums(s,t,units,constructionStats,drumActivity);
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;
 			const float active = std::max(0.0f, kStep - u.stopped);
 			u.stopped = std::max(0.0f, u.stopped - kStep);
+			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,riftColumns,initialHealth,initialX,constructionStats);
 			const float speedFactor = u.slow > 0 ? u.slowFactor : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
 			if (smashTarget[i] >= 0) {
@@ -1050,10 +1252,16 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const bool inRange = worker.burst.range > 0 && std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
 				return p.health > 0 && p.edible && p.row == u.row && triggerX >= p.x && triggerX-p.x <= worker.burst.range;
 			});
-			const auto activity = AdvanceBurst(worker,inRange,active,enemyIce,f,constructionStats);
+			const auto activity = AdvanceBurst(worker,inRange,active*drumActivity[i]*ritualActivity,enemyIce,f,constructionStats);
+			const float ritualMove = !worker.ritual.present ? 1 : (worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed : AuroraPriestRules::OverloadSpeed)
+				* (u.x+u.blastAnchorOffset > s.gridLeft+s.columns*s.cellWidth ? AuroraPriestRules::OutsideSpeed : 1);
+			const float ritualBite = !worker.ritual.present ? 1 : worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed
+				: AuroraPriestRules::OverloadSpeed*AuroraPriestRules::OverloadBite/AuroraPriestRules::NormalBite;
+			const float drumMove = worker.inspiration.empty() ? 1 : worker.drumSpeedAmplifier*(1+CrystalDrummerRules::MoveBonus*worker.inspiration.size());
+			const float drumBite = worker.inspiration.empty() ? 1 : worker.drumSpeedAmplifier*(1+CrystalDrummerRules::BiteBonus*worker.inspiration.size());
 			if (contact >= 0 && u.x <= plants[contact].x + kContact) {
 				auto& p = plants[contact];
-				float damage = worker.biteDps * activity[1] * (speedFactor < 1 ? 0.5f : 1);
+				float damage = worker.biteDps * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? 0.5f : 1);
 				if (u.smashSeconds > 0) {
 					smashTarget[i] = contact;
 					advanceSmash(i,active,speedFactor);
@@ -1063,7 +1271,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					if (active > 0 && DamagePlant(p,p.crushDamage,true,f) && p.health > 0) u.x += p.vehicleRetreat;
 				} else DamagePlant(p,damage,false,f);
 			} else {
-				u.x -= u.speed * activity[0] * speedFactor;
+				u.x -= u.speed * ritualMove * drumMove * activity[0] * speedFactor;
 				// 高速爆发不能跨步穿墙，车辆也不能越过仍存活的抗碾压坚果。
 				if (contact >= 0 && (worker.burst.range > 0 || (worker.vehicleCrush && plants[contact].crushDamage > 0))) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
@@ -1153,7 +1361,8 @@ QueueRevision ReplanCommitted(Snapshot& s, const Weights& baseWeights, std::uint
 	return revision;
 }
 
-Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
+/** 在给定技能意图下搜索编队；正式入口另外比较不施法的机会成本。 */
+static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
 	Result best;
 	if ((s.searchVersion != 1 && s.searchVersion != 2) || !ValidWeights(baseWeights) || (s.stateModel && !s.stateModel->IsValid())
 		|| !std::isfinite(s.opponentWeight) || s.opponentWeight < 0 || s.opponentWeight > 100) return best;
@@ -1167,9 +1376,9 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	best.baselineOpponentAssets = baselineOpponentAssets; best.opponentScore = 0;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
-	if (s.options.empty() || s.capacity <= 0 || s.budget <= 0) return best;
+	if (s.options.empty() || s.capacity <= 0 || PurchaseBudget(s) <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
-	if (cheapest->cost > s.budget) return best;
+	if (cheapest->cost > PurchaseBudget(s)) return best;
 	std::mt19937 rng(seed); // 局部共同随机数使同一快照/参数可重复，搜索次数不改变正式战斗随机流。
 	std::vector<Result> elite{best};
 	bool hasChoice = s.allowWait; // 正式构建启用 fast-math，不能用无穷大充当尚无候选的哨兵。
@@ -1256,7 +1465,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 				if (separate && parent.empty()) continue;
 				for (int option=0; option<static_cast<int>(s.options.size()) && investmentEvaluated<kInvestmentTrials; ++option) {
 					const auto& choice = s.options[option];
-					if (!choice.unit.body.economic || choice.cost <= 0 || choice.cost > s.budget) continue;
+					if (!choice.unit.body.economic || choice.cost <= 0 || choice.cost > PurchaseBudget(s)) continue;
 					auto plan = IntroduceOption(s,separate ? std::vector<Action>{} : parent,option,rng);
 					plan.back().delay = DelayLimit(s)*phase/2;
 					Repair(s,plan);
@@ -1269,13 +1478,39 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 				}
 			}
 	}
+	// 支援能力单独出场可能无收益；显式覆盖边际增援和护卫+工人的可行组合，评分仍完全相同。
+	int supportEvaluated = 0;
+	const auto supportParent = best.actions;
+	std::vector<int> supports;
+	for (int i=0; i<static_cast<int>(s.options.size()); ++i)
+		if (s.options[i].unit.repair.interval > 0 || s.options[i].unit.drum.enabled) supports.push_back(i);
+	std::shuffle(supports.begin(),supports.end(),rng);
+	for (int phase=0; phase<3 && supportEvaluated<kSupportTrials; ++phase) for (int option : supports) {
+		if (supportEvaluated >= kSupportTrials) break;
+		if (s.options[option].cost > PurchaseBudget(s)) continue;
+		auto plan = IntroduceOption(s,phase == 0 ? supportParent : std::vector<Action>{},option,rng);
+		plan.back().delay = 0;
+		if (phase > 0) {
+			const auto worker = std::find_if(s.options.begin(),s.options.end(),[&](const Option& o) {
+				return o.row == s.options[option].row && o.unit.body.economic
+					&& o.cost+s.options[option].cost <= PurchaseBudget(s);
+			});
+			if (worker == s.options.end() || ActionLimit(s) < 2) continue;
+			plan.push_back({static_cast<int>(worker-s.options.begin()),phase*3.0f});
+		}
+		Repair(s,plan);
+		auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
+		++supportEvaluated;
+		if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
+		if (candidate.score > best.score+.001f) best = std::move(candidate);
+	}
 	const float investmentBestScore = best.score;
 	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
 	// 因此可以发现继续支援巨人的收益，也能因灰烬、溅射或减速而保留分路方案。
 	const auto original = best.actions;
 	const float baseScore = best.score;
 	std::array<float, 6> rowScores{};
-	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials+investmentEvaluated;
+	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials+investmentEvaluated+supportEvaluated;
 	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()); ++row) {
 		auto plan = original;
 		if (!Concentrate(s, plan, row)) continue;
@@ -1286,6 +1521,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	}
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
+	best.supportEvaluated = supportEvaluated;
 	best.investmentEvaluated = investmentEvaluated;
 	best.investmentBaseScore = investmentBaseScore; best.investmentBestScore = investmentBestScore;
 	best.evaluated = evaluated;
@@ -1296,19 +1532,90 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	// 小队没有预测到增量击杀、削血或生产时，才升级搜索范围与预测时域。
 	// 两次评估不能混加不同时间窗的分数：升级后整案及等待基线一起重算。
 	if (s.searchVersion == 1 && s.allowWait && cheapest->cost > 0
-		&& std::min(s.capacity,s.budget/cheapest->cost) > ActionLimit(s)
+		&& std::min(s.capacity,PurchaseBudget(s)/cheapest->cost) > ActionLimit(s)
 		&& best.features[2] == 0 && best.features[0] <= best.baselineFeatures[0]
 		&& best.features[1] <= best.baselineFeatures[1] && best.features[4] <= best.baselineFeatures[4]) {
 		auto expanded = s;
 		expanded.searchVersion = 2;
-		auto result = Search(expanded,baseWeights,seed);
+		auto result = SearchFormation(expanded,baseWeights,seed);
 		result.expandedForecast = true;
 		result.evaluated += best.evaluated;
 		result.capitalRejected += best.capitalRejected;
 		result.investmentEvaluated += best.investmentEvaluated;
+		result.supportEvaluated += best.supportEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}
 	return best;
 }
+/** 技能与不施法优案同分制比较；先有限选靶，再只为胜出目标重搜一次可支付编队。 */
+Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed) {
+	auto best = SearchFormation(input,weights,seed);
+	if (!input.precisionReady || input.pendingPrecisionID > 0
+		|| input.budget < ColdStorageSkillRules::StrikeIceCost || !ValidWeights(weights)) return best;
+	auto state = input;
+	if (best.expandedForecast) state.searchVersion = 2;
+	const auto baseline = EvaluatePlan(state,best.effectiveWeights,{}, {},0);
+	const auto incumbent = best;
+	// 这里只压缩选靶预算，不直接给技能收益。火力、主动能力与前锋阻挡仍须通过完整推演兑现。
+	std::vector<std::pair<float,int>> targets;
+	for (const auto& p : state.plants) if (p.id > 0 && p.health > 0) {
+		float priority = p.dps*Horizon(state)+p.assetValue;
+		for (const auto& strike : state.rowStrikes) if (strike.plantID == p.id) priority += strike.damage*state.rows;
+		for (const auto& aura : state.attackAuras) if (aura.plantID == p.id)
+			for (const auto& ally : state.plants) if (ally.health > 0 && std::abs(ally.row-p.row)<=1 && std::abs(ally.column-p.column)<=1)
+				priority += ally.dps*Horizon(state)*aura.bonus;
+		for (const auto& counter : state.counters) if (counter.plantID == p.id) priority += counter.blast.damage;
+		for (const auto& unit : state.current) if (unit.body.health > 0 && unit.body.row == p.row && unit.body.x > p.x)
+			priority += std::min(p.health,unit.body.health)/(1+std::abs(unit.body.x-p.x)/state.cellWidth);
+		targets.emplace_back(priority,p.id);
+	}
+	std::stable_sort(targets.begin(),targets.end(),[](const auto& a,const auto& b) { return a.first > b.first; });
+	if (targets.size() > kPrecisionTargets) targets.resize(kPrecisionTargets);
+	int evaluated = 0;
+	const auto consider = [&](Result candidate) {
+		++evaluated;
+		// 即使旧参数没有成本惩罚，也不能免费使用新技能；正式净冰模型已经计费，不重复惩罚。
+		if (!state.netEconomy) candidate.score -= std::max(0.0f,1+incumbent.effectiveWeights[5])*ColdStorageSkillRules::StrikeIceCost;
+		auto without = state; without.precisionTargetID = 0;
+		const auto sameArmy = EvaluatePlan(without,incumbent.effectiveWeights,candidate.actions,baseline.features,baseline.opponentAssets);
+		// 旧权重可能高度奖励“消灭一株”，新技能另核对真实边际回报，不能用击杀/削血双计分抵掉 60 冰。
+		const auto target = std::find_if(state.plants.begin(),state.plants.end(),[&](const Plant& p) { return p.id == candidate.precisionTargetID; });
+		const float targetReward = target == state.plants.end() ? 0 : target->reward;
+		const bool tacticalGain = candidate.features[2] > sameArmy.features[2]
+			|| candidate.features[4] > sameArmy.features[4]+.001f || candidate.features[3] > sameArmy.features[3]+.001f
+			|| candidate.features[0] > sameArmy.features[0]+targetReward+.001f
+			|| candidate.features[1] > sameArmy.features[1]+targetReward+.001f;
+		if (!tacticalGain) return; // 不能只靠单株自身返冰/未来阳光估值，为没有破阵或护卫作用的打击背书。
+		const float capitalGain = candidate.features[0]-sameArmy.features[0]
+			+ candidate.features[4]-sameArmy.features[4] + candidate.features[3]-sameArmy.features[3]
+			+ sameArmy.opponentAssets-candidate.opponentAssets;
+		if (candidate.features[2] <= sameArmy.features[2] && capitalGain < ColdStorageSkillRules::StrikeIceCost) return;
+		if (candidate.score <= sameArmy.score+.001f || candidate.score <= best.score+.001f) return;
+		if (ShouldRegroup(candidate,state.budget,state.recoveryReserve)
+			|| (state.netEconomy && ShouldConserveCapital(candidate,state.budget,state.recoveryReserve))) return;
+		best = std::move(candidate);
+	};
+	for (const auto& target : targets) {
+		state.precisionTargetID = target.second;
+		for (int mode=0; mode<2; ++mode) {
+			auto plan = mode == 0 ? incumbent.actions : std::vector<Action>{};
+			Repair(state,plan);
+			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
+		}
+	}
+	if (best.precisionTargetID > 0) {
+		state.precisionTargetID = best.precisionTargetID;
+		const auto joint = SearchFormation(state,weights,seed);
+		evaluated += joint.evaluated;
+		consider(EvaluatePlan(state,incumbent.effectiveWeights,joint.actions,baseline.features,baseline.opponentAssets));
+	}
+	best.precisionEvaluated = evaluated;
+	best.evaluated = incumbent.evaluated+evaluated;
+	best.effectiveWeights = incumbent.effectiveWeights; best.stateInputs = incumbent.stateInputs;
+	best.expandedForecast = incumbent.expandedForecast;
+	best.precisionGain = best.precisionTargetID > 0 ? best.score-incumbent.score : 0;
+	return best;
+}
+
 }
