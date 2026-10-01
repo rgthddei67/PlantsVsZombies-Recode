@@ -217,7 +217,9 @@ void CrystalHornMinerZombie::SyncEquipment() const
 	if (!mAnimator) return;
 	const bool windup = mPhase == Phase::WINDUP;
 	mAnimator->SetTrackFollowerImage("anim_head1","crystal_horn",ResourceManager::GetInstance().GetTexture(
-		mHelmHealth * 2 <= mHelmMaxHealth ? "IMAGE_CRYSTALHORN_CRACKED" : "IMAGE_CRYSTALHORN_INTACT",false),-12,-10,0.72f,0.72f,true);
+		mHelmHealth * 2 <= mHelmMaxHealth ? "IMAGE_CRYSTALHORN_CRACKED" : "IMAGE_CRYSTALHORN_INTACT",false),-12,-10,0.72f,0.72f,
+		/*drawAfterAllTracks=*/true, /*inheritOverlayEffect=*/true,
+		/*inheritGlowEffect=*/true); // 一类晶角头盔与本体共用受击白光。
 	mAnimator->SetTrackFollowerVisible("anim_head1","crystal_horn",HasHead() && mHelmHealth > 0 && !mIsDead);
 	// 普通骨架的头、下巴、舌头和头发是独立世界轨；必须一起低头，不能只挪主头图。
 	for (const char* track : {"anim_head1","anim_head2","anim_tongue","anim_hair"}) {

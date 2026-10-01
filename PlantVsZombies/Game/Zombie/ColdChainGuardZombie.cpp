@@ -63,7 +63,9 @@ void ColdChainGuardZombie::SyncShieldPresentation() const
 	const char* key = mShieldStage >= 2 ? "IMAGE_COLDCHAIN_SHIELD_CRACKED2"
 		: mShieldStage == 1 ? "IMAGE_COLDCHAIN_SHIELD_CRACKED1" : "IMAGE_COLDCHAIN_SHIELD";
 	mAnimator->SetTrackFollowerImage("anim_innerarm2", "cold_chain_shield",
-		ResourceManager::GetInstance().GetTexture(key, false), kShieldOffsetX, kShieldOffsetY, 1.0f, 1.0f, true);
+		ResourceManager::GetInstance().GetTexture(key, false), kShieldOffsetX, kShieldOffsetY, 1.0f, 1.0f,
+		/*drawAfterAllTracks=*/true, /*inheritOverlayEffect=*/true,
+		/*inheritGlowEffect=*/true); // 一类冰盾与本体共用受击白光，破损换图也保留继承。
 	mAnimator->SetTrackFollowerVisible("anim_innerarm2", "cold_chain_shield", HasIceShield());
 }
 

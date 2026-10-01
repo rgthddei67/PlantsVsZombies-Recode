@@ -88,7 +88,8 @@ void InsulatorZombie::ConfigureArmorFollower()
 	mAnimator->SetTrackFollowerImage("Zombie_body", kArmorFollowerSlot, texture,
 		kArmorFollowerOffsetX, kArmorFollowerOffsetY,
 		kArmorFollowerScale, kArmorFollowerScale,
-		/*drawAfterAllTracks=*/true);
+		/*drawAfterAllTracks=*/true, /*inheritOverlayEffect=*/true,
+		/*inheritGlowEffect=*/true); // 陶瓷胸甲是一类防具，与本体同步受击白光。
 	mAnimator->SetTrackFollowerVisible("Zombie_body", kArmorFollowerSlot, true);
 	mArmorFollowerConfigured = true;
 }
@@ -278,7 +279,8 @@ void InsulatorZombie::RefreshArmorPresentation()
 		ResourceManager::GetInstance().GetTexture(ArmorImageKey(mArmorStage), false),
 		kArmorFollowerOffsetX, kArmorFollowerOffsetY,
 		kArmorFollowerScale, kArmorFollowerScale,
-		/*drawAfterAllTracks=*/true);
+		/*drawAfterAllTracks=*/true, /*inheritOverlayEffect=*/true,
+		/*inheritGlowEffect=*/true);
 	mAnimator->SetTrackFollowerVisible("Zombie_body", kArmorFollowerSlot,
 		!mIsDead && !mIsDying);
 }
@@ -347,7 +349,8 @@ void InsulatorZombie::ZombieItemUpdate() const
 		ResourceManager::GetInstance().GetTexture(ArmorImageKey(mArmorStage), false),
 		kArmorFollowerOffsetX, kArmorFollowerOffsetY,
 		kArmorFollowerScale, kArmorFollowerScale,
-		/*drawAfterAllTracks=*/true);
+		/*drawAfterAllTracks=*/true, /*inheritOverlayEffect=*/true,
+		/*inheritGlowEffect=*/true);
 	mAnimator->SetTrackFollowerVisible("Zombie_body", kArmorFollowerSlot, true);
 }
 

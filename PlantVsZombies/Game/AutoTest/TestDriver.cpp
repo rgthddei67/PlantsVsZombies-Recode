@@ -6930,6 +6930,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				insulator->GetArmorStage());
 			zombieState["insulatorArmorFollower"] = insulator->HasArmorFollower();
 			zombieState["insulatorArmorVisible"] = insulator->IsArmorVisible();
+			zombieState["insulatorArmorGlowing"] = anim
+				&& anim->GetTrackFollowerGlowEffectEnabled("Zombie_body", "insulator_armor");
 			zombieState["insulatorArmorTexture1Loaded"] =
 				ResourceManager::GetInstance().GetTexture(
 					ResourceKeys::Textures::IMAGE_ZOMBIE_INSULATOR_ARMOR1, false) != nullptr;
@@ -6960,6 +6962,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["guardHasShield"] = guard->HasIceShield();
 			zombieState["guardShieldStage"] = guard->GetShieldDamageStage();
 			zombieState["guardShieldVisible"] = guard->GetAnimatorInternal()->GetTrackFollowerVisible("anim_innerarm2", "cold_chain_shield");
+			zombieState["guardShieldGlowing"] = anim
+				&& anim->GetTrackFollowerGlowEffectEnabled("anim_innerarm2", "cold_chain_shield");
 			zombieState["guardResourcesReady"] = ResourceManager::GetInstance().HasReanimation("ColdChainGuardZombie")
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD", false)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED1", false)
@@ -7629,6 +7633,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["chargeRemainingMs"] = static_cast<int>(std::lround(miner->GetChargeRemaining()*1000));
 			zombieState["chargeTravelled1000"] = static_cast<int>(std::lround(miner->GetChargeTravelled()*1000));
 			zombieState["crystalHelmetVisible"] = anim && anim->GetTrackFollowerVisible("anim_head1","crystal_horn");
+			zombieState["crystalHelmetGlowing"] = anim
+				&& anim->GetTrackFollowerGlowEffectEnabled("anim_head1", "crystal_horn");
 		}
 		if (auto* excavator = dynamic_cast<ExcavatorZombie*>(z)) {
 			const char* names[] = {"READY","APPROACHING","DRILLING","RETRY","SPENT","DISABLED"};
