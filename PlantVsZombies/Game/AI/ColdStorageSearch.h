@@ -45,9 +45,16 @@ struct PaidBurst {
 	float remaining = 0, retryRemaining = 0;
 	float moveMultiplier = 1, biteMultiplier = 1, recoveryMoveMultiplier = 1;
 };
+/** 可付费修复的一类防具；health 属于总生命，不能沿用二类盾的绕盾/穿透语义。 */
+struct ArmorRepair {
+	float health = 0, maximum = 0, totalMaximum = 0, stopBodyHealth = 0;
+	float remaining = 0, interval = 0, amount = 0, cost = 0;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	PaidBurst burst;
+	ArmorRepair repair;
+	bool vehicleCrush = false; // 碰到抗碾压植物时使用承伤/推退契约，其他车战斗仍沿用原近似
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
 	float shieldHealth = 0; // body.health 中的二类防具份额；本体/头盔归零时，剩余护盾不能维持存活
@@ -72,6 +79,10 @@ struct Plant {
 	bool bypassShield = false, fume = false; // 抛物绕盾/大喷穿盾由 Board 解析；西瓜使用 melon 的双层受伤语义
 	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
 	float initialHealth = 0, productionAt = 0; // 削血分母与新生产株首次产出的时刻，游戏秒
+	float repairMaximum = 0, repairAmount = 0, repairCost = 0, repairRecharge = 0, repairRemaining = 0;
+	float repairBlockedUntil = 0, damageCredit = 0; // 暂停新修复的期限，以及可被回血撤回的削血得分
+	bool repairAutomatic = false;
+	float crushDamage = 0, immuneDuration = 0, immuneRemaining = 0, vehicleRetreat = 0;
 	float assetValue = 0; // 当前生命对应的卡价折冰估值；终点再按后续剩余生命折价，不直接返给僵尸
 };
 /** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */
@@ -104,7 +115,8 @@ struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
 	int planted = 0, exchanges = 0, orders = 0;
 	float abilityIceSpent = 0; // 僵尸未来实际可付的技能费，计入支出，不提高成交返冰价
-	int burstActivations = 0, auraActivations = 0;
+	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
+	float armorRepairIce = 0, plantRepairIce = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };

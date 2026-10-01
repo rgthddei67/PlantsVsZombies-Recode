@@ -1,6 +1,6 @@
 # 第十大关：灼热冷藏站与冰块经济
 
-状态：地图与冰块经济已接入；10-1～10-4 角色与指挥官适配已接入；10-5 奖励冰仓坚果已接入，冷链护卫仅完成角色实现，AI 与出怪由专门任务接续。
+状态：地图与冰块经济已接入；10-1～10-4 角色与指挥官适配已接入；10-5～10-6 冰仓坚果、冷链护卫的角色、出怪和指挥官能力适配已接入。
 
 核实日期：2026-09-19
 
@@ -118,6 +118,10 @@
 按主人范围，本轮未改 `Game/AI/`、训练资源或 `spawnlists.json`，护卫不会自动进入指挥官出兵候选。后续窗口需自行决定出怪池、购买价与按波解锁，并在快照/推演中表达一类冰盾、真实修复余时、共享钱包、硬控和永久破盾终态；坚果也需要表达修复模式、冷却、费用、无敌和挡车，不能只按静态血量近似。本轮未新增动画帧事件。
 
 专项：`smoke_cold_storage_defense_units`、`smoke_cold_storage_defense_combat`、`smoke_cold_storage_defense_baselines`、`visual_cold_storage_defense_units`、`smoke_ice_storage_nut_reward`。资源与 ImageGen 提示保存于 `scripts/assets/`，确定性导出与资源输出清单见 `scripts/generate_cold_storage_defense_assets.py` 及同名 SHA-256 锁文件。
+
+### 防御单位 AI 适配已接入（2026-10-01 后续）
+
+上文“未改 AI/出怪”是角色实现轮的交接边界。后续按主人确认将护卫加入 10-5／10-6，沿用默认购买价并推迟至第 10 波解锁，大混战读取同一登记和门槛；正式策略覆盖至 10-6。`ColdChainGuardRules.h` 共用实体/预测参数；`ArmorRepair` 表达一类防具、破盾终态和共享钱包，坚果预测表达修复、无敌与抗碾压并扣除被回血恢复的削血得分。原发布权重保持不变，没有强制护卫配额或固定编队。验证入口：`smoke_commander_defense_abilities`、对应 verifier 和 `ColdStorageStrategyTests`。
 
 ## 本轮交付与验证入口
 

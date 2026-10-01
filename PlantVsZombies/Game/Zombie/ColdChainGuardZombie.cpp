@@ -1,15 +1,13 @@
 #include "ColdChainGuardZombie.h"
+#include "ColdChainGuardRules.h"
 #include "Game/Board/Board.h"
 #include "ResourceManager.h"
 #include "DeltaTime.h"
 #include <cmath>
 
+using namespace ColdChainGuardRules;
+
 namespace {
-constexpr int kBodyHealth = 800; // 本体生命，破盾后不能修复
-constexpr int kShieldHealth = 2000; // 非磁性一类冰盾初始生命
-constexpr int kRepairHealth = 300; // 每轮恢复盾值，不超过当前最大生命
-constexpr int kRepairIce = 4; // 冷藏站每轮消耗所属阵营公共冰块
-constexpr float kRepairInterval = 5.0f; // 完整修复周期，游戏秒；硬控暂停
 constexpr float kShieldOffsetX = -24.0f; // 冰盾左上角相对内前臂锚点，动画像素
 constexpr float kShieldOffsetY = -17.0f; // 冰盾左上角相对内前臂锚点，动画像素
 }

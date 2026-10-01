@@ -1101,4 +1101,94 @@ int main()
 	std::cout << "Temporary attack aura duration, wallet, stacking and source lifetime passed\n";
 	}
 
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot state; state.houseX=-1000; state.budget=8;
+	Unit guard; guard.body.x=900; guard.body.health=1800; guard.body.purchaseCost=2800;
+	guard.repair={1000,2000,2800,266,5,5,300,4};
+	Plant fire; fire.id=1; fire.x=300; fire.health=300; fire.dps=20;
+	state.current={guard}; state.plants={fire}; ConstructionStats stats;
+	const auto funded=Evaluate(state,{},&stats);
+	check(stats.armorRepairs==2 && stats.armorRepairIce==8 && funded[5]==8,"repair spends shared wallet exactly once per successful cycle");
+	state.budget=0; const auto broke=Evaluate(state,{},&stats);
+	check(stats.armorRepairs==0 && funded[3]>broke[3],"repair cannot borrow nonexistent ice or restore body health");
+	state.current[0].body.health=2800; state.current[0].repair.health=2000; state.plants[0].melon=true;
+	const auto melon=Evaluate(state,{});
+	check(std::abs(melon[3]-1600)<.01f,"melon consumes first-class shield before the body without double layer damage");
+	state.plants.clear(); state.current[0]=guard; state.current[0].body.health=2800; state.current[0].repair.health=2000;
+	Counter ash; ash.blast.committed=true; ash.blast.damage=1800; ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[0]=100;
+	state.counters={ash}; state.budget=4;
+	const auto ashSurvivor=Evaluate(state,{},&stats);
+	check(stats.armorRepairs==1 && std::abs(ashSurvivor[3]-1300)<.01f,"nonlethal ash leaves a repairable first-class shield");
+	state.counters[0].blast.damage=2100;
+	const auto broken=Evaluate(state,{},&stats);
+	check(stats.armorRepairs==0 && std::abs(broken[3]-700)<.01f,"broken shield is permanent and cannot heal wounded body");
+	state.counters.clear(); state.current={guard}; state.current[0].body.stopped=60;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==0,"hard control pauses guard repair timer");
+	state.current[0].body.stopped=0; state.current[0].body.slow=60;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==1,"ordinary slow does not slow guard repair cycles");
+	state.current={guard,guard}; state.budget=4;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==1,"two guards share one wallet rather than duplicating its balance");
+	state.current={guard}; state.current[0].body.health=1000+266;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==0,"headless guard cannot repair even with surviving armor");
+	state.current={guard}; state.current[0].repair.health=2000; state.current[0].body.health=2800;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==0,"full armor never spends repair money");
+	state.current={guard}; state.budget=0; state.supplyRemaining=10; state.supplyInterval=30; state.supplyIce=4;
+	Evaluate(state,{},&stats); check(stats.armorRepairs==2,"later supply can fund later cycles without replaying failed cycles");
+	Snapshot escort; escort.houseX=-1000; escort.budget=80; escort.capacity=1;
+	Unit producer; producer.body.x=990; producer.body.row=1; producer.body.health=500; producer.body.economic=true;
+	producer.body.purchaseCost=12; escort.current={producer};
+	fire.row=0; fire.dps=400; escort.plants={fire}; fire.row=1; fire.dps=80; escort.plants.push_back(fire);
+	Option defense; defense.type=58; defense.cost=12; defense.unit=guard; defense.unit.body.health=2800;
+	defense.unit.body.purchaseCost=12; defense.unit.repair.health=2000;
+	for(int row=0; row<2; ++row) { defense.row=row; defense.unit.body.row=row; escort.options.push_back(defense); }
+	const float alone=Evaluate(escort,{})[4];
+	const auto covered=Evaluate(escort,{{1,0}},&stats);
+	check(covered[4]>alone && stats.armorRepairs>0,"guard can sustain a producer against affordable incoming fire");
+	const auto choice=Search(escort,InitialWeights,713);
+	check(!choice.actions.empty() && escort.options[choice.actions[0].option].row==1,
+		"search chooses the useful escort lane instead of spending on the lethal empty lane");
+	std::cout << "Cold-chain first-class armor, paid repair, control and terminal break passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot state; state.houseX=-1000;
+	Plant nut; nut.id=1; nut.x=800; nut.health=8000; nut.reward=20; nut.assetValue=20;
+	nut.repairMaximum=8000; nut.repairAmount=1000; nut.repairCost=10; nut.repairRecharge=10; nut.repairAutomatic=true;
+	nut.crushDamage=1000; nut.immuneDuration=3; nut.vehicleRetreat=40;
+	Unit giant; giant.body.x=850; giant.body.health=3000; giant.body.purchaseCost=16; giant.body.speed=20; giant.body.smashSeconds=5;
+	state.current={giant}; state.plants={nut}; ConstructionStats stats;
+	const auto resistant=Evaluate(state,{});
+	state.plants[0].crushDamage=0; const auto ordinary=Evaluate(state,{});
+	check(resistant[7]<ordinary[7],"resistant nut delays giant instead of vanishing after one smash");
+	state.plants={nut}; state.playerIce=100;
+	const auto healed=Evaluate(state,{},&stats);
+	check(healed[0]==0 && stats.plantRepairs>0 && stats.plantRepairIce==stats.plantRepairs*10,"affordable repairs keep resistant nut alive through repeated smashes");
+	check(healed[1]>=0 && healed[1]<=nut.reward,"healed damage cannot be farmed for unlimited damage score");
+	state.playerIce=0; state.current[0].body.spawnAt=55; state.current[0].body.smashSeconds=4;
+	const auto one=Evaluate(state,{}); state.current.push_back(state.current[0]);
+	check(std::abs(Evaluate(state,{})[1]-one[1])<.001f,"simultaneous giants share one invulnerability window");
+	state.current={giant}; state.current[0].body.smashSeconds=0; state.current[0].vehicleCrush=true;
+	const auto vehicle=Evaluate(state,{});
+	check(vehicle[7]<ordinary[7],"vehicle must wait for immunity and cover retreat distance instead of crossing the nut");
+	state.current.clear(); state.plants={nut,nut}; state.plants[1].id=2;
+	for(auto& p:state.plants) p.health=7000;
+	state.playerIce=10; Evaluate(state,{},&stats);
+	check(stats.plantRepairs==1 && stats.plantRepairIce==10,"two nuts compete for the actual player ice wallet");
+	state.plants.resize(1); state.plants[0].health=0;
+	Evaluate(state,{},&stats); check(stats.plantRepairs==0,"repair cannot revive a dead nut");
+	state.plants={nut}; state.plants[0].health=7500;
+	Evaluate(state,{},&stats); check(stats.plantRepairs==0,"automatic repair waits for a full recovery amount");
+	state.plants[0].health=7000; state.plants[0].repairBlockedUntil=60;
+	Evaluate(state,{},&stats); check(stats.plantRepairs==0,"shutdown blocks new repair while cooldown follows game time");
+	state.plants={nut}; state.plants[0].health=7000; state.plants[0].repairAutomatic=false;
+	Unit target; target.body.x=900; target.body.health=1700; target.body.purchaseCost=16;
+	state.current={target,target}; state.playerIce=20;
+	Counter emergency; emergency.iceCost=20; emergency.blast.damage=1800; emergency.blast.x=900;
+	emergency.blast.reach.fill(-1); emergency.blast.reach[0]=100;
+	state.counters={emergency}; const auto saved=Evaluate(state,{},&stats);
+	check(stats.plantRepairs==0 && saved[6]==32,"manual healing cannot spend the last ice before a viable emergency ash response");
+	std::cout << "Ice-storage nut crush, immunity, repair, shared cost and net damage credit passed\n";
+	}
 }

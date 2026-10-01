@@ -98,7 +98,7 @@ enum class ZombieType {
 	ZOMBIE_CRYSTAL_DRUMMER, // 震晶鼓手，矿道范围鼓舞
 	ZOMBIE_ICE_WORKER, // 制冰工；10-1 首次登场，产冰随存活成长
 	ZOMBIE_BOILER, // 锅炉僵尸；10-3 首次登场，一次付费超频
-	ZOMBIE_COLD_CHAIN_GUARD, // 冷链护卫；只注册实体，AI 出怪另行接入
+	ZOMBIE_COLD_CHAIN_GUARD, // 冷链护卫；一类冰盾付费修复
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

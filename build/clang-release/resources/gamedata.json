@@ -71,7 +71,7 @@
     "PLANT_ICEMIRRORGRASS":  { "cost": 100, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } }
   },
   "zombies": {
-    "ZOMBIE_COLD_CHAIN_GUARD": { "weight": 2800, "appearWave": 1, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
+    "ZOMBIE_COLD_CHAIN_GUARD": { "weight": 2800, "appearWave": 10, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_BOILER": { "weight": 2200, "appearWave": 10, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_ICE_WORKER": { "weight": 2200, "appearWave": 3, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_CRYSTAL_DRUMMER": { "mineFormationRole": 2, "weight": 3000, "appearWave": 3, "survivalRound": 35, "offset": [-50.0, -85.0], "scale": 1.0 },

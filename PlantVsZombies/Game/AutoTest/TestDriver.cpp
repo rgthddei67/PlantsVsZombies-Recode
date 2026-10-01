@@ -4885,6 +4885,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchBurstOptions"] = board->mColdStorage.searchBurstOptions;
 		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
 		ice["searchAbilityIce"] = board->mColdStorage.searchAbilityIce;
+		ice["searchRepairOptions"] = board->mColdStorage.searchRepairOptions;
+		ice["searchRepairPlants"] = board->mColdStorage.searchRepairPlants;
+		ice["searchArmorRepairs"] = board->mColdStorage.searchArmorRepairs;
+		ice["searchPlantRepairs"] = board->mColdStorage.searchPlantRepairs;
+		ice["searchArmorRepairIce"] = board->mColdStorage.searchArmorRepairIce;
+		ice["searchPlantRepairIce"] = board->mColdStorage.searchPlantRepairIce;
 		ice["searchBurstActivations"] = board->mColdStorage.searchBurstActivations;
 		ice["searchAuraActivations"] = board->mColdStorage.searchAuraActivations;
 		ice["searchFormation"] = {{"baseScore",board->mColdStorage.searchFormationBaseScore},

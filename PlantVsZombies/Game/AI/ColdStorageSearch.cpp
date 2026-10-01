@@ -50,6 +50,8 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 	const float vitalLoss = bypass || penetrate ? damage : discardOverflow && shield > 0 ? 0 : damage-shieldLoss;
 	const float vital = health-shield-vitalLoss;
 	unit.shieldHealth = shield-shieldLoss;
+	// 西瓜和大喷穿的是二类门盾；一类冰盾仍先于本体承受 vitalLoss。
+	unit.repair.health = std::max(0.0f,unit.repair.health-std::max(0.0f,vitalLoss));
 	health = vital > 0 ? vital+unit.shieldHealth : 0;
 	return before-health;
 }
@@ -551,6 +553,9 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		if (source != plants.end() && (aura.automatic || AuraHasTarget(state,time,*source,plants,units)))
 			neededIce = std::max(neededIce,static_cast<float>(aura.iceCost));
 	}
+	for (const auto& p : plants) if (p.health > 0 && p.repairMaximum-p.health >= p.repairAmount
+		&& p.repairRemaining <= delivery && p.repairBlockedUntil <= time+delivery)
+		neededIce = std::max(neededIce,p.repairCost);
 	if (pendingIce > 0 || ice >= neededIce || ice >= state.playerIceLimit) return;
 	const ShopOrder* selected = nullptr;
 	for (const auto& order : state.shop) {
@@ -715,6 +720,58 @@ static void AdvanceAttackAuras(const Snapshot& state, float time, std::vector<At
 	}
 }
 
+/** 一类盾只修剩余护甲；硬控暂停计时，满盾/缺钱均消耗本轮机会，不攒免费修复。 */
+static void AdvanceArmorRepair(Unit& unit, float active, float& ice, Weights& features, ConstructionStats& stats) {
+	auto& r = unit.repair;
+	if (active <= 0 || r.interval <= 0 || r.health <= 0 || unit.body.health-r.health <= r.stopBodyHealth) return;
+	r.remaining -= active;
+	while (r.remaining <= 0) {
+		r.remaining += r.interval;
+		if (r.health >= r.maximum || ice < r.cost) continue;
+		const float restored = std::min(r.amount,r.maximum-r.health);
+		ice -= r.cost; features[5] += r.cost;
+		r.health += restored; unit.body.health += restored;
+		stats.abilityIceSpent += r.cost; stats.armorRepairIce += r.cost; ++stats.armorRepairs;
+	}
+}
+
+/** 统一计入啃食与砸击的实际削血；回血会撤回已恢复的削血分，不能靠反复刷血赚分。 */
+static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& features) {
+	if (plant.health <= 0 || plant.immuneRemaining > 0 || damage <= 0) return false;
+	if (crush) damage = plant.crushDamage > 0 ? plant.crushDamage : plant.health;
+	const float credit = plant.reward*std::min(plant.health,damage)/std::max(1.0f,plant.initialHealth);
+	features[1] += credit; plant.damageCredit += credit;
+	plant.health = std::max(0.0f,plant.health-damage);
+	if (plant.health <= 0) features[0] += plant.reward;
+	else if (crush) plant.immuneRemaining = plant.immuneDuration;
+	return true;
+}
+
+/** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
+static void AdvancePlantRepairs(float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
+	float& ice, Weights& features, ConstructionStats& stats, bool automaticPhase) {
+	for (auto& p : plants) if (p.health > 0 && p.repairMaximum > 0) {
+		if (automaticPhase) {
+			p.immuneRemaining = std::max(0.0f,p.immuneRemaining-kStep);
+			p.repairRemaining = std::max(0.0f,p.repairRemaining-kStep);
+		}
+		if (p.repairAutomatic != automaticPhase) continue;
+		const float missing = p.repairMaximum-p.health;
+		if (missing <= 0 || p.repairRemaining > 0 || time < p.repairBlockedUntil || ice < p.repairCost) continue;
+		// 手动修复只在近身威胁下预测，并排在灰烬反制后，不能假设玩家先花掉救命钱。
+		const bool threatened = !p.repairAutomatic && std::any_of(units.begin(),units.end(),[&](const Unit& u) {
+			return u.body.health > 0 && u.body.spawnAt <= time && u.body.row == p.row && std::abs(u.body.x-p.x) <= 2*kContact;
+		});
+		if (!p.repairAutomatic && !threatened) continue;
+		if (missing < p.repairAmount && (p.repairAutomatic || p.health > p.repairAmount)) continue;
+		const float restored = std::min(missing,p.repairAmount);
+		p.health += restored; ice -= p.repairCost; p.repairRemaining = p.repairRecharge;
+		const float credit = std::min(p.damageCredit,p.reward*restored/std::max(1.0f,p.initialHealth));
+		p.damageCredit -= credit; features[1] -= credit;
+		stats.iceSpent += p.repairCost; stats.plantRepairIce += p.repairCost; ++stats.plantRepairs;
+	}
+}
+
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds) {
 	Weights f{};
 	auto units = s.current;
@@ -743,7 +800,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<float> attackRates;
 	auto plants = s.plants;
 	auto mowers = s.mowers;
-	for (auto& plant : plants) plant.initialHealth = plant.health;
+	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
 	ConstructionStats constructionStats;
 	std::vector<float> constructionReady;
@@ -792,14 +849,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		if (FullForecast(s)) {
 			// 正式巨人一次砸击结算原格各层；原宿主消失不改变已经锁定的格位。
 			for (auto& p : plants) if (p.health > 0 && p.row == row && p.column == column) {
-				f[1] += p.reward*p.health/std::max(1.0f,p.initialHealth);
-				f[0] += p.reward; p.health = 0;
+				DamagePlant(p,p.health,true,f);
 			}
 		} else {
 			auto& p = plants[target];
 			if (p.health > 0) {
-				f[1] += p.reward*p.health/std::max(1.0f,p.initialHealth);
-				f[0] += p.reward; p.health = 0;
+				DamagePlant(p,p.health,true,f);
 			}
 		}
 	};
@@ -815,6 +870,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
+		AdvancePlantRepairs(t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
@@ -824,6 +880,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
 			constructionAt = t+kConstructionInterval;
 		}
+		AdvancePlantRepairs(t,plants,units,playerIce,f,constructionStats,false);
 		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0) {
@@ -910,6 +967,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					worker.nextYield = std::min(IceProduction::MaximumYield, worker.nextYield * IceProduction::YieldGrowth);
 				}
 			}
+			AdvanceArmorRepair(worker,active,enemyIce,f,constructionStats);
 			int contact = -1;
 			for (size_t j = 0; j < plants.size(); ++j) {
 				const auto& p = plants[j];
@@ -931,13 +989,13 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					advanceSmash(i,active,speedFactor);
 					continue;
 				}
-				f[1] += p.reward * std::min(p.health, damage) / std::max(1.0f, p.initialHealth);
-				p.health -= damage;
-				if (p.health <= 0) f[0] += p.reward;
+				if (worker.vehicleCrush && p.crushDamage > 0) {
+					if (active > 0 && DamagePlant(p,p.crushDamage,true,f) && p.health > 0) u.x += p.vehicleRetreat;
+				} else DamagePlant(p,damage,false,f);
 			} else {
 				u.x -= u.speed * activity[0] * speedFactor;
-				// 高速爆发也不能跨步穿墙；保持其他兵种原有预测不变。
-				if (worker.burst.range > 0 && contact >= 0) u.x = std::max(u.x,plants[contact].x+kContact);
+				// 高速爆发不能跨步穿墙，车辆也不能越过仍存活的抗碾压坚果。
+				if (contact >= 0 && (worker.burst.range > 0 || (worker.vehicleCrush && plants[contact].crushDamage > 0))) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
 		}
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
@@ -957,7 +1015,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	}
 	for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0) {
 		const auto& u = units[i].body;
-		f[3] += u.purchaseCost * std::clamp(u.health / std::max(1.0f, initialHealth[i]), 0.0f, 1.0f);
+		f[3] += u.purchaseCost * std::clamp(u.health / std::max({1.0f, initialHealth[i], units[i].repair.totalMaximum}), 0.0f, 1.0f);
 		f[7] += u.purchaseCost * std::clamp((initialX[i] - u.x) / 800, 0.0f, 1.0f);
 	}
 	// 建设只是现金换成植株资产；不能把玩家花钱补阵本身误当成被消耗。
