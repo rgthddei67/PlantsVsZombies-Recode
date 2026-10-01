@@ -250,8 +250,13 @@ void CardSlotManager::ClearAllCards() {
 	selectedCard = nullptr;
 }
 
+/** 普通卡进入手持预览，技能卡在同一输入边沿直接发动并开始卡冷却。 */
 void CardSlotManager::SelectCard(Card* card) {
 	if (!card || !CanAcceptGameplayInput()) return;
+	if (GameDataManager::GetInstance().IsSkillCard(card->GetGameplayPlantType())) {
+		TryUseSkillCard(card);
+		return;
+	}
 
 	if (!card->IsReady()) {
 		return;
@@ -282,6 +287,18 @@ void CardSlotManager::SelectCard(Card* card) {
 	selectedCard = card;
 	card->SetSelected(true);
 	CreatePlantPreview(card->GetGameplayPlantType());
+}
+
+bool CardSlotManager::TryUseSkillCard(Card* card) {
+	if (!CanAcceptGameplayInput() || !card || card->GetCardSlotManager() != this
+		|| card->GetPlantType() != PlantType::PLANT_ICEVOUCHER || !card->IsReady()
+		|| !CanUsePlant(card->GetPlantType(), card->GetSunCost())) return false;
+	if (!mBoard->TryActivateIceVoucher()) return false;
+	card->StartCooldown();
+	mBoard->mCursorObjectManager.ClearActive();
+	DeselectCard();
+	UpdateAllCardsState();
+	return true;
 }
 
 void CardSlotManager::DeselectCard() {
@@ -685,6 +702,7 @@ std::string CardSlotManager::TryPlantFromSlot(int slot, int row, int col) {
 	if (!mBoard->CanAffordPlantIce(card->GetGameplayPlantType())) return "insufficient_ice";
 	if (!mBoard->HasPlantingQuota(card->GetGameplayPlantType())) return "planting_quota";
 	if (!mBoard->HasPlantingRequirement(card->GetGameplayPlantType())) return "planting_requirement";
+	if (GameDataManager::GetInstance().IsSkillCard(card->GetGameplayPlantType())) return "requires_skill_activation";
 	// 搬搬藤是两阶段搬运工具，不能伪装成一次普通落种。
 	if (card->GetGameplayPlantType() == PlantType::PLANT_CARRYVINE) return "requires_relocation";
 	if (!mBoard->GetCell(row, col) || !mBoard->CanPlantAt(card->GetGameplayPlantType(), row, col))

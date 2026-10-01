@@ -47,7 +47,7 @@ bool ColdPineapple::IsReadyToActivate() const
 bool ColdPineapple::CanAffordActivation() const
 {
 	return mBoard && (mBoard->IsColdStorage()
-		? mBoard->mColdStorage.playerIce >= kIceCost : mBoard->GetSun() >= kSunCost);
+		? mBoard->mColdStorage.playerIce >= mBoard->GetPlantAbilityIceCost(kIceCost) : mBoard->GetSun() >= kSunCost);
 }
 
 bool ColdPineapple::TryActivate()
@@ -71,7 +71,7 @@ float ColdPineapple::GetAreaAttackSpeedBonus() const
 std::string ColdPineapple::GetManualAbilityDescription() const
 {
 	return mBoard && mBoard->IsColdStorage()
-		? u8"每次" + std::to_string(kIceCost) + u8"冰块 · 攻速+100%"
+		? u8"每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + u8"冰块 · 攻速+100%"
 		: u8"每次" + std::to_string(kSunCost) + u8"阳光 · 攻速+100%";
 }
 
@@ -88,7 +88,7 @@ std::string ColdPineapple::GetAbilityStatusText() const
 	// 失败提示也读取当前费用与余额，补足资源后不保留旧的缺资源文案。
 	if (mFeedbackRemaining > 0 && mActiveRemaining <= 0 && mCooldownRemaining <= 0 && !CanAffordActivation())
 		label = mBoard && mBoard->IsColdStorage()
-			? u8"需要" + std::to_string(kIceCost) + u8"冰块" : u8"需要" + std::to_string(kSunCost) + u8"阳光";
+			? u8"需要" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + u8"冰块" : u8"需要" + std::to_string(kSunCost) + u8"阳光";
 	return label;
 }
 

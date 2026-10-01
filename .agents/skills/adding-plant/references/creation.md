@@ -37,6 +37,8 @@
 `GameDataManager.cpp` 加 `#include` + `RegisterPlant(type, "PLANT_X", IMAGE_X, ANIM_X, "ReanimName", &MakePlant<T>)`。卡片由注册表数据驱动，**无需单独加卡**。
 ### gamedata.json
 
+点击即用、明确不生成植物的技能卡遵循下方无实体卡契约；其余植物继续使用实体画像。
+
 在 `build/clang-release/resources/gamedata.json` 加 `{cost, cooldown, offset, scale, simulation}` 条目（前四项缺任一字段拒启动 exit -6）；其他 preset 自动共享。`simulation` 是 Board 级轻量防线推演画像：所有植物填写 `baseHealth`；普通射手按稳定等效值填写 `attackDps`，跨行攻击另填 `attackRowRadius`；向日葵/阳光菇类填写 `sunPerSecond` 与 `firstSunDelay`；一次性或无法可靠简化的复杂能力明确填 `persistent:false`，不得为了让它参与推演而在 `Board` 写植物类型特判。普通花盆/睡莲这类只承载、没有额外推演能力的 under 层填写 `supportOnly:true`，由 Board 压缩进独立的每格支撑数组并从未来种植卡画像排除；避雷花盆等有特殊战略能力的支撑植物保持 false，继续占详细植物画像。新增植物必须在专项中断言对应 `plantDefinitions.<TYPE>.simulation*` 投影（含适用时的 `simulationSupportOnly`），防止画像漏配或未加载。
 
    低频条件能力若能用紧凑状态精确表达，不要硬摊成静态触发频率：把能力参数留在 `PlantSimulationProfile`，场上实例的真实剩余冷却放 `PlantSnapshot`，卡牌新种实例从就绪态开始；目标资格和会被消费的生命层放 `ZombieSnapshot`，在 `PlantDefenseMonteCarlo` 内用一个无 GameObject 的公共 step 函数原子消费目标、结算能力并进入真实冷却。普通攻击、治疗决策、蹦极/爆区选点与天气路线等 rollout 都必须调用同一函数，Board 只复制通用画像和正式能力接口结果，禁止按植物或僵尸类型分支。无合法目标时能力价值必须为零；睡眠类卡牌用 `daytimeDormant` 在白天只保留阻挡生命，不模拟主动能力。专项至少锁定“有目标生效、无目标零收益、场上剩余冷却继承、卡牌就绪”，并检查所有共用 rollout 入口。
@@ -47,3 +49,9 @@
 ### 资源入库
 
 reanim、贴图、声音、resources.xml 都只改 `build/clang-release/resources/` 这一份权威资源；严禁为 playtest/debug 建副本或 Copy-Item 同步。新增文件仍因 build/ 被忽略而需要 `git add -f`。
+
+### 无实体技能卡
+
+卡槽、奖励与存档沿用稳定 `PlantType` 身份，但 `PlantInfo::skillCard` 必须明确为 true，只登记卡牌名和数值，不注册植物工厂或覆盖 `ANIM_NONE` 映射。`GameDataManager::IsSkillCard` 供选卡、卡槽、实体创建和模仿目标过滤共用；不能为了通过卡图／图鉴流程创建空植物或空 Animator。画像使用零生命、`persistent:false`、`futurePlantable:false`，与真实植物的正生命校验分开。
+
+`CardSlotManager::TryUseSkillCard` 走正式点击即用事务：先校验输入、卡冷却和费用，成功才启动 Card 冷却；全场效果、公共付款与存档由 Board 拥有。卡面与图鉴直接绘制技能图标，奖励标题表达技能卡且不要求植物预览实体。专项用真实卡槽点击验证扣费、冷却和不占格，并验证不能落种／模仿、地图资格及效果中存读档。实现入口参考冰惠券与 `BoardColdStorageAbilities.cpp`；当前数值只查源码和 gamedata。

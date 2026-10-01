@@ -73,6 +73,8 @@ public:
 	// 清空所有卡槽卡牌（销毁 GameObject）。用于生存模式轮间空槽重选。
 	void ClearAllCards();
 	void SelectCard(Card* card);
+	/** 点击即用技能卡的正式入口；成功才扣阳光、开始卡冷却并清除手持物。 */
+	bool TryUseSkillCard(Card* card);
 	void DeselectCard();
 	/** 设置普通空格暂停的玩法输入门禁；不会销毁进入暂停前已拿起的植物预览。 */
 	void SetPauseGameplayInputBlocked(bool blocked) { mPauseGameplayInputBlocked = blocked; }

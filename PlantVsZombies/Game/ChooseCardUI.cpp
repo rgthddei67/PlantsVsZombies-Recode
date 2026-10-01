@@ -310,7 +310,10 @@ void ChooseCardUI::DrawImitaterDialog(Graphics* g) const
 	}
 }
 
+/** 创建可选择的卡片；地图限定技能卡在非适用地图不进入候选。 */
 void ChooseCardUI::AddCard(PlantType type) {
+	if (GameDataManager::GetInstance().IsSkillCard(type)
+		&& (!mGameScene || !mGameScene->GetBoard()->IsColdStorage())) return;
 	if (type == PlantType::PLANT_IMITATER && mImitaterCard) return;
 	// 计算当前卡牌数量对应的行列
 	int cardCount = static_cast<int>(mCards.size());
@@ -506,6 +509,7 @@ std::vector<Card*> ChooseCardUI::ResolveRestorableCards(bool applyImitaterTarget
 				|| gameData.PlantTypeToEnumName(target) != targetName
 				|| (target == PlantType::PLANT_IMITATER || target == PlantType::PLANT_CARRYVINE)
 				|| IsUpgradePlantType(target)
+				|| gameData.IsSkillCard(target)
 				|| !gameData.HasPlant(target)
 				|| !FindCardByType(target)) {
 				continue;
@@ -748,7 +752,8 @@ bool ChooseCardUI::OpenImitaterDialog(Card* imitaterCard)
 		if (!sourceCard) continue;
 		const PlantType target = sourceCard->GetPlantType();
 		// C# SeedPacketsWidget 的模仿模式只遍历前 44 张基础卡，不包含紫卡升级。
-		if ((target == PlantType::PLANT_IMITATER || target == PlantType::PLANT_CARRYVINE) || IsUpgradePlantType(target)) continue;
+		if ((target == PlantType::PLANT_IMITATER || target == PlantType::PLANT_CARRYVINE)
+			|| IsUpgradePlantType(target) || gameData.IsSkillCard(target)) continue;
 		const int pageSlot = optionIndex % IMITATER_DIALOG_CARDS_PER_PAGE;
 		const int row = pageSlot / IMITATER_DIALOG_CARDS_PER_ROW;
 		const int column = pageSlot % IMITATER_DIALOG_CARDS_PER_ROW;

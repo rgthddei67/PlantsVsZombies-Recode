@@ -653,6 +653,19 @@ int main() {
 		Expect(previous["zombies"][0]["bodyHealth"]==270,"迁移保持旧目标生命");
 	}
 	TestLegacyPlayerUpgradePreservesFields();
+	{
+		nlohmann::json oldLevel={{"schemaVersion",18},{"coldStorage",{{"enemyIce",80},{"playerIce",27},
+			{"pending",nlohmann::json::array({{{"type",1},{"remaining",2}}})}}}};
+		const auto queue = oldLevel["coldStorage"]["pending"];
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error),"旧档可迁移双方技能事务");
+		const auto& ice = oldLevel["coldStorage"];
+		Expect(ice["discountRemaining"]==0 && ice["strikeTargetID"]==-1
+			&& ice["strikeAimRemaining"]==0 && ice["strikeCooldownRemaining"]==0,"旧档不虚构减费、瞄准或扣款");
+		Expect(ice["enemyIce"]==80 && ice["playerIce"]==27 && ice["pending"]==queue,"技能迁移保留双方钱包及已付款出兵");
+		const auto migrated = oldLevel;
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error) && oldLevel==migrated,"技能迁移幂等");
+	}
 	TestMovedToxicRewardPlayerUpgrade();
 	TestCurrentPlayerDocumentIsStable();
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();

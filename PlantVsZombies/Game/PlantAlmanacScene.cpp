@@ -3,6 +3,7 @@
 #include "AdventureProgression.h"
 #include "../GameApp.h"
 #include "Plant/Plant.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "ClickableComponent.h"
 #include "./Plant/GameDataManager.h"
 #include "GameObjectManager.h"
@@ -70,9 +71,13 @@ void PlantAlmanacScene::BuildDrawCommands()
 		[this](Graphics* g) {
 			auto& app = GameAPP::GetInstance();
 			if (IsReward()) {
-				app.DrawText(u8"获得新植物！", Vector(445, 65),
+				app.DrawText(GameDataManager::GetInstance().IsSkillCard(mRewardPlant)
+					? u8"获得新技能卡！" : u8"获得新植物！", Vector(445, 65),
 					glm::vec4(255, 214, 104, 255), ResourceKeys::Fonts::FONT_FZJT, 32);
 			}
+			if (mCurrentPlantType == PlantType::PLANT_ICEVOUCHER)
+				ColdStorageSkillRules::DrawVoucher(g, PREVIEW_PLANT_X + GetInfoOffsetX() - 75,
+					PREVIEW_PLANT_Y - 48, 150, 96);
 			if (!mCurrentPlantName.empty())
 				app.DrawText(mCurrentPlantName, Vector(mPlantNameX + GetInfoOffsetX(), 290),
 					glm::vec4(221, 157, 42, 255), ResourceKeys::Fonts::FONT_FZJZ, 24);
@@ -138,6 +143,7 @@ void PlantAlmanacScene::OnCardClicked(PlantType type)
 /** 图鉴与奖励共用无 Board 的展示植物，不触发战斗能力。 */
 void PlantAlmanacScene::CreatePreviewPlant(PlantType type)
 {
+	if (GameDataManager::GetInstance().IsSkillCard(type)) return;
 	auto plant = GameAPP::GetInstance().InstantiatePlant(type, nullptr, -1, -1, true);
 	if (!plant) return;
 	mPreviewPlant = plant;

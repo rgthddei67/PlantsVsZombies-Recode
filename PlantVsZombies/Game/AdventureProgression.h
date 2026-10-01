@@ -138,7 +138,7 @@ namespace AdventureProgression
 		PlantType::PLANT_ICESTORAGENUT, 
 		NO_PLANT_REWARD, 
 		NO_PLANT_REWARD,
-		NO_PLANT_REWARD, 
+		PlantType::PLANT_ICEVOUCHER, // 10-7 解锁点击即用的减费技能卡
 		NO_PLANT_REWARD, 
 		NO_PLANT_REWARD,
 	};

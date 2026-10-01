@@ -405,7 +405,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -1100,6 +1100,25 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("set_fullscreen: SDL/后端切换失败");
 			return false;
 		}
+		return true;
+	}
+	if (op == "use_skill_card" || op == "start_precision_strike") {
+		GameScene* gs = CurrentGameScene();
+		Board* board = gs ? gs->GetBoard() : nullptr;
+		if (!board) { Fail("skill command: missing board"); return false; }
+		bool success = false;
+		if (op == "use_skill_card") {
+			auto* manager = gs->GetCardSlotManager();
+			const int slot = cmd.value("slot", 0);
+			if (manager && slot >= 0 && slot < static_cast<int>(manager->GetCards().size()))
+				success = manager->TryUseSkillCard(manager->GetCards()[slot]);
+		} else {
+			Plant* target = cmd.value("layer", std::string("NORMAL")) == "TOP"
+				? board->GetTopPlantAt(cmd.value("row",0),cmd.value("col",0))
+				: board->GetNormalPlantAt(cmd.value("row",0),cmd.value("col",0));
+			success = board->TryStartColdStoragePrecisionStrike(cmd.value("plantID",target ? target->mPlantID : -1));
+		}
+		if (success != cmd.value("expectedSuccess",true)) { Fail("skill result mismatch: " + op); return false; }
 		return true;
 	}
 	if (op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "await_ice_attack" || op == "player_plant") {
@@ -4977,6 +4996,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		}
 		ice["plantCosts"] = nlohmann::json::object();
 		for (const auto& entry : kPlantNames) ice["plantCosts"][entry.first]=board->GetPlantIceCost(entry.second);
+		ice["plantPaymentCosts"] = nlohmann::json::object();
+		for (const auto& entry : kPlantNames) ice["plantPaymentCosts"][entry.first]=board->GetPlantIcePaymentCost(entry.second);
+		ice["discountRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.discountRemaining * 1000));
+		ice["strikeAimRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.strikeAimRemaining * 1000));
+		ice["strikeCooldownRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.strikeCooldownRemaining * 1000));
+		ice["strikeReady"] = board->CanUseColdStoragePrecisionStrike();
 		ice["unlockRounds"] = nlohmann::json::object();
 		for (ZombieType type : board->GetSpawnZombieList()) ice["unlockRounds"][ZombieTypeName(type)] = board->GetColdStorageUnlockWave(type);
 		ice["zombieCosts"] = nlohmann::json::object();
@@ -5457,6 +5482,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			GameDataManager::GetInstance().GetPlantSimulationProfile(type);
 		out["plantDefinitions"][PlantTypeName(type)] = {
 			{ "sunCost", GameDataManager::GetInstance().GetPlantSunCost(type) },
+			{ "skillCard", GameDataManager::GetInstance().IsSkillCard(type) },
 			{ "cooldownMs", static_cast<int>(std::lround(
 				GameDataManager::GetInstance().GetPlantCooldown(type) * 1000.0f)) },
 			{ "simulationBaseHealth", simulation.baseHealth },

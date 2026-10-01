@@ -278,6 +278,13 @@ void GameDataManager::InitializeHardcodedData() {
 		AnimationType::ANIM_COLDPINEAPPLE, "ColdPineapple", &MakePlant<ColdPineapple>);
 	RegisterZombie(ZombieType::ZOMBIE_BOILER, "ZOMBIE_BOILER",
 		AnimationType::ANIM_BOILER, "BoilerZombie", &MakeZombie<BoilerZombie>);
+	// 技能卡只登记卡牌身份，不污染 ANIM_NONE 映射，也不提供空 Animator/占格实体。
+	PlantInfo voucher;
+	voucher.type = PlantType::PLANT_ICEVOUCHER;
+	voucher.enumName = "PLANT_ICEVOUCHER";
+	voucher.skillCard = true;
+	mPlantInfo[voucher.type] = voucher;
+	mEnumNameToType[voucher.enumName] = voucher.type;
 	RegisterPlant(PlantType::PLANT_ICEMINT, "PLANT_ICEMINT", "IMAGE_ICEMINT",
 		AnimationType::ANIM_ICEMINT, "IceMint", &MakePlant<IceMint>);
 	RegisterZombie(ZombieType::ZOMBIE_ICE_WORKER, "ZOMBIE_ICE_WORKER",
@@ -951,7 +958,7 @@ bool GameDataManager::LoadNumbersFromJson() {
 			out = Vector(e["offset"][0].get<float>(), e["offset"][1].get<float>());
 		};
 		auto readSimulation = [&errors](const nlohmann::json& e,
-			const std::string& who, PlantSimulationProfile& out) {
+			const std::string& who, PlantSimulationProfile& out, bool skillCard) {
 			if (!e.contains("simulation")) return;
 			if (!e["simulation"].is_object()) {
 				errors.push_back(who + " 的 \"simulation\" 须为对象");
@@ -1044,7 +1051,8 @@ bool GameDataManager::LoadNumbersFromJson() {
 					out.supportOnly = simulation["supportOnly"].get<bool>();
 				}
 			}
-			if (out.baseHealth <= 0 || out.attackDps < 0.0f
+			// 技能卡没有生命与占格，不用虚构一个植物血量来绕过实体画像校验。
+			if (out.baseHealth < (skillCard ? 0 : 1) || out.attackDps < 0.0f
 				|| out.attackRowRadius < 0 || out.sunPerSecond < 0.0f
 				|| out.mineAttackShape < 0 || out.mineAttackShape == 1 || out.mineAttackShape > 3
 				|| out.mineAttackRange < 0 || out.mineAttackRange > 9
@@ -1066,6 +1074,8 @@ bool GameDataManager::LoadNumbersFromJson() {
 				|| out.cobBlastRowRadius < 0) {
 				errors.push_back(who + ".simulation 含越界负数或零生命");
 			}
+			if (skillCard && (out.baseHealth != 0 || out.persistent || out.futurePlantable))
+				errors.push_back(who + ".simulation 技能卡必须零生命且不参与植物建设推演");
 		};
 
 		const bool hasPlants = data.contains("plants") && data["plants"].is_object();
@@ -1086,7 +1096,7 @@ bool GameDataManager::LoadNumbersFromJson() {
 				readFloat(e, "cooldown", info.enumName, info.Cooldown);
 				readOffset(e, info.enumName, info.offset);
 				readFloat(e, "scale", info.enumName, info.scale);
-				readSimulation(e, info.enumName, info.simulation);
+				readSimulation(e, info.enumName, info.simulation, info.skillCard);
 			}
 			for (auto& item : plants.items()) {
 				if (mEnumNameToType.find(item.key()) == mEnumNameToType.end())
@@ -1138,6 +1148,7 @@ bool GameDataManager::LoadNumbersFromJson() {
 }
 
 std::shared_ptr<Plant> GameDataManager::CreatePlant(PlantType type, Board* board, int row, int col, bool isPreview) const {
+	if (IsSkillCard(type)) return nullptr;
 	auto it = mPlantInfo.find(type);
 	if (it == mPlantInfo.end() || !it->second.factory) {
 		LOG_ERROR("GameData") << "未注册或缺工厂的植物类型: " << static_cast<int>(type);
@@ -1174,7 +1185,7 @@ AnimationType GameDataManager::GetPlantAnimationType(PlantType plantType) const 
 std::string GameDataManager::GetAnimationName(AnimationType animType) const {
 	// 优先在植物动画中查找
 	for (const auto& pair : mPlantInfo) {
-		if (pair.second.animType == animType)
+		if (!pair.second.skillCard && pair.second.animType == animType)
 			return pair.second.animName;
 	}
 	// 然后在僵尸动画中查找
@@ -1244,6 +1255,11 @@ std::vector<PlantType> GameDataManager::GetAllPlantTypes() const {
 	for (const auto& pair : mPlantInfo)
 		types.push_back(pair.first);
 	return types;
+}
+
+bool GameDataManager::IsSkillCard(PlantType type) const {
+	auto it = mPlantInfo.find(type);
+	return it != mPlantInfo.end() && it->second.skillCard;
 }
 
 bool GameDataManager::HasPlant(PlantType type) const {

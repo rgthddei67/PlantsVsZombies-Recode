@@ -82,6 +82,7 @@ enum class PlantType
 	PLANT_ICEMINT, // 冰晶薄荷；10-1 奖励，长期产冰经济植物
 	PLANT_COLDPINEAPPLE, // 蓄冷菠萝；10-3 奖励，付费开启九格攻速领域
 	PLANT_ICESTORAGENUT, // 冰仓坚果；10-4 奖励，抗碾压与付费修复
+	PLANT_ICEVOUCHER, // 冰惠券；沿用稳定卡牌身份表，但没有植物工厂、动画或占格
 	NUM_PLANT_TYPES,
 };
 

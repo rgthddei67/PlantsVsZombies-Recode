@@ -1,6 +1,6 @@
 ---
 name: adding-plant
-description: Use when adding or modifying PvZ plants, including plant combat, placement, upgrades, animation and projectile integration.
+description: Use when adding or modifying PvZ plants or skill cards sharing plant card slots, including plant combat, placement, upgrades, animation and projectile integration.
 ---
 
 # 新增或修改 PvZ 植物

@@ -8,6 +8,7 @@
 #include "./Plant/GameDataManager.h"
 #include "./Plant/Plantern.h"
 #include "./Plant/PlantUpgradeRules.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "../DeltaTime.h"
 #include "../GameApp.h"
 #include "../Logger.h"
@@ -444,7 +445,7 @@ void Card::LoadTextures()
 	if (!mCardBackground) LOG_ERROR("Card") << "Failed to load card background texture";
 	if (!mCardNormal) LOG_ERROR("Card") << "Failed to load card normal texture";
 	if (!mCardVariants) LOG_ERROR("Card") << "Failed to load card variant texture";
-	if (!mPlantTexture) {
+	if (!mPlantTexture && !GameDataManager::GetInstance().IsSkillCard(mPlantType)) {
 		LOG_ERROR("Card") << "Failed to load plant texture: " << GetPlantTextureKey();
 	}
 }
@@ -478,9 +479,14 @@ void Card::DrawCardBackground(
 		0.0f, color);
 }
 
+/** 绘制植物卡图或无实体技能券；技能卡不查询植物纹理与动画。 */
 void Card::DrawPlantImage(
 	Graphics* g, const Vector& position, const glm::vec4& color)
 {
+	if (mPlantType == PlantType::PLANT_ICEVOUCHER) {
+		ColdStorageSkillRules::DrawVoucher(g, position.x + 4, position.y + 10, CARD_WIDTH - 8, 35, color);
+		return;
+	}
 	if (!mPlantTexture) return;
 	const PlantType displayType = GetDisplayPlantType();
 	if (displayType == PlantType::PLANT_CARRYVINE || displayType == PlantType::PLANT_ECHOSHROOM
@@ -649,7 +655,7 @@ void Card::DrawSunCost(Graphics* g, const Vector& position)
 	if (auto* manager = GetCardSlotManager()) {
 		if (auto* board = manager->GetBoard(); board && board->IsColdStorage()) {
 			g->FillRect(position.x + 2, position.y + 3, 40, 16, glm::vec4(15, 46, 57, 220));
-			g->DrawGlyphRun(std::to_string(board->GetPlantIceCost(GetGameplayPlantType())) + u8"冰",
+			g->DrawGlyphRun(std::to_string(board->GetPlantIcePaymentCost(GetGameplayPlantType())) + u8"冰",
 				ResourceKeys::Fonts::FONT_FZCQ, 12, glm::vec4(175, 240, 255, 255), position.x + 4, position.y + 3);
 		}
 	}
@@ -685,6 +691,7 @@ bool Card::HasImitaterTarget() const
 	return mPlantType == PlantType::PLANT_IMITATER
 		&& mImitaterTarget != PlantType::PLANT_IMITATER && mImitaterTarget != PlantType::PLANT_CARRYVINE
 		&& !IsUpgradePlantType(mImitaterTarget)
+		&& !GameDataManager::GetInstance().IsSkillCard(mImitaterTarget)
 		&& GameDataManager::GetInstance().HasPlant(mImitaterTarget);
 }
 
@@ -693,6 +700,7 @@ bool Card::SetImitaterTarget(PlantType target)
 	if (mPlantType != PlantType::PLANT_IMITATER
 		|| (target == PlantType::PLANT_IMITATER || target == PlantType::PLANT_CARRYVINE)
 		|| IsUpgradePlantType(target)
+		|| GameDataManager::GetInstance().IsSkillCard(target)
 		|| !GameDataManager::GetInstance().HasPlant(target)) {
 		return false;
 	}
@@ -722,7 +730,9 @@ void Card::ClearImitaterTarget()
 	}
 }
 
+/** 刷新植物卡图缓存；原生绘制的技能卡没有必须加载的植物纹理。 */
 void Card::ReloadPlantTexture()
 {
+	if (GameDataManager::GetInstance().IsSkillCard(mPlantType)) { mPlantTexture = nullptr; return; }
 	mPlantTexture = ResourceManager::GetInstance().GetTexture(GetPlantTextureKey());
 }

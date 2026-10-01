@@ -32,6 +32,7 @@
 #include "Game/Plant/PlantUpgradeRules.h"
 #include "GameApp.h"
 #include "DeltaTime.h"
+#include "ColdStorageSkillRules.h"
 #include "ResourceKeys.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -380,6 +381,7 @@ int Board::GetPlantIceCost(PlantType type) const
 	case P::PLANT_PUFFSHROOM: case P::PLANT_POTATOMINE: case P::PLANT_LILYPAD:
 	case P::PLANT_FLOWERPOT: case P::PLANT_INSTANT_COFFEE: return 5;
 	case P::PLANT_CARRYVINE: return 0; // 搬运既有植物不重复收取种植冰块
+	case P::PLANT_ICEVOUCHER: return 0; // 技能卡只消耗阳光，不生成植物
 	case P::PLANT_WALLNUT: case P::PLANT_REPEATER: case P::PLANT_FUMESHROOM:
 	case P::PLANT_TORCHWOOD: case P::PLANT_MAGNETSHROOM: return 15;
 	case P::PLANT_ICESTORAGENUT: return 20; // 抗碾压坚果的正式种植冰价
@@ -419,7 +421,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 bool Board::CanAffordPlantIce(PlantType type) const
 {
 	return !IsColdStorage() || (GameAPP::mDevelopMode && GameAPP::mDevFreePlant)
-		|| mColdStorage.playerIce >= GetPlantIceCost(type);
+		|| mColdStorage.playerIce >= GetPlantIcePaymentCost(type);
 }
 
 void Board::InitializeColdStorage()
@@ -471,7 +473,7 @@ void Board::CommitColdStoragePlant(PlantType type)
 {
 	if (!IsColdStorage()) return;
 	if (!(GameAPP::mDevelopMode && GameAPP::mDevFreePlant))
-		mColdStorage.playerIce = std::max(0, mColdStorage.playerIce - GetPlantIceCost(type));
+		mColdStorage.playerIce = std::max(0, mColdStorage.playerIce - GetPlantIcePaymentCost(type));
 	const auto use = PlantStrategy(type);
 	for (std::size_t i = 0; i < use.size(); ++i)
 		mColdStorage.habits[i] = mColdStorage.habits[i] * kHabitDecay + use[i] * (1.0f - kHabitDecay);
@@ -523,6 +525,7 @@ int Board::GetColdStorageHostileCount() const
 bool Board::IsColdStorageCleared() const
 {
 	if (!IsColdStorage() || !mColdStorage.battleStarted || mTrophySpawned
+		|| mColdStorage.strikeTargetID >= 0
 		|| !mColdStorage.pending.empty() || !mPendingSnowHoleSpawns.empty()
 		|| !mPendingAuroraRifts.empty() || GetColdStorageHostileCount() != 0) return false;
 	// 钟匠已经提交的复活同样属于在途兵力；施法者死亡不能让本局提前结束。
@@ -1857,6 +1860,9 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	const auto mix = [&](std::uint64_t value) { stamp = (stamp ^ value)*1099511628211ULL; };
 	// 即使瞬发植物在领取前已消失，创建序号也留下痕迹。
 	mix(mEntityRegistry.GetNextPlantID());
+	// 全场费用规则或已承诺的清除目标改变时，后台旧局面不能继续提交。
+	mix(mColdStorage.discountRemaining > 0);
+	mix(static_cast<std::uint64_t>(mColdStorage.strikeTargetID) + 1ULL);
 	for (int id : mEntityRegistry.GetAllPlantIDs()) {
 		const Plant* plant = mEntityRegistry.GetPlant(id);
 		if (!plant || !plant->IsActive()) continue;
@@ -1927,6 +1933,7 @@ void Board::UpdateColdStorage(float dt)
 	auto& s = mColdStorage;
 	s.battleStarted = true;
 	s.elapsed += dt;
+	UpdateColdStorageSkills(dt);
 	s.incomeIdleSeconds = std::min(kExhaustionIdleSeconds, s.incomeIdleSeconds + dt);
 	s.plantKillIdleSeconds = std::min(kExhaustionIdleSeconds, s.plantKillIdleSeconds + dt);
 	while (!s.incomeWindow.empty() && s.incomeWindow.front().at < s.elapsed - kExhaustionIdleSeconds)
@@ -1976,6 +1983,8 @@ nlohmann::json Board::SaveColdStorage() const
 	nlohmann::json j{{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
+		{"discountRemaining",s.discountRemaining},{"strikeCooldownRemaining",s.strikeCooldownRemaining},
+		{"strikeTargetID",s.strikeTargetID},{"strikeAimRemaining",s.strikeAimRemaining},
 		{"incomeIdleSeconds",s.incomeIdleSeconds},
 		{"plantKillIdleSeconds",s.plantKillIdleSeconds},
 		{"workerIncome",s.workerIncome},{"playerProductionIncome",s.playerProductionIncome},
@@ -2020,6 +2029,11 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.supplyRemaining = seconds("supplyRemaining", 30, 30);
 	s.decisionRemaining = seconds("decisionRemaining", 12, 60);
 	s.elapsed = seconds("elapsed", 0, 10000000);
+	s.discountRemaining = seconds("discountRemaining", 0, ColdStorageSkillRules::DiscountDuration);
+	s.strikeCooldownRemaining = seconds("strikeCooldownRemaining", 0, ColdStorageSkillRules::StrikeCooldown);
+	s.strikeTargetID = integer("strikeTargetID", -1, -1, std::numeric_limits<int>::max());
+	s.strikeAimRemaining = s.strikeTargetID >= 0
+		? seconds("strikeAimRemaining", 0, ColdStorageSkillRules::StrikeAimDuration) : 0.0f;
 	// 旧档没有可核实的收入时间，给予完整恢复窗口，不能用总对局时间追溯判负。
 	s.incomeIdleSeconds = seconds("incomeIdleSeconds", 0, kExhaustionIdleSeconds);
 	s.plantKillIdleSeconds = seconds("plantKillIdleSeconds", 0, kExhaustionIdleSeconds);

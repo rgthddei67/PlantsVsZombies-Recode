@@ -222,6 +222,20 @@ public:
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
 	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
 	int GetPlantIceCost(PlantType type) const;
+	/** 当前玩家实际种植冰费；基础冰价仍用于击杀奖励，减费只影响玩家付款。 */
+	int GetPlantIcePaymentCost(PlantType type) const;
+	/** 当前全场减费后的植物技能冰费；正冰价向上取整，原零费用保持零。 */
+	int GetPlantAbilityIceCost(int baseCost) const;
+	/** 冰惠券的正式发动入口；先校验地图、战斗、暂停和阳光，再扣款并刷新十秒减费。卡槽拥有卡冷却。 */
+	bool TryActivateIceVoucher();
+	/** 指挥官只读就绪查询；包含第15波、60冰、全局冷却和无在途打击。 */
+	bool CanUseColdStoragePrecisionStrike() const;
+	/** 由策略传入稳定植物ID；成功原子扣60冰、启动30秒冷却与2秒瞄准。失败不改余额，不自行选目标。 */
+	bool TryStartColdStoragePrecisionStrike(int plantID);
+	/** 推进减费、技能冷却与已付款瞄准；目标消失不退款、不换靶，到期无视防御消灭单株。 */
+	void UpdateColdStorageSkills(float deltaTime);
+	/** 世界层绘制已付款目标的瞄准环、十字和倒计时；只读取状态。 */
+	void DrawColdStoragePrecisionStrike(Graphics* g) const;
 	int GetZombieIceCost(ZombieType type) const;
 	/** 冷藏站指挥官的兵种解锁波次；独立于普通关卡刷新，搜索与付款共用。 */
 	int GetColdStorageUnlockWave(ZombieType type) const;

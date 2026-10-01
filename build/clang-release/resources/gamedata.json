@@ -1,5 +1,6 @@
 {
   "plants": {
+    "PLANT_ICEVOUCHER": { "cost": 100, "cooldown": 30.0, "offset": [0.0, 0.0], "scale": 1.0, "simulation": { "baseHealth": 0, "persistent": false, "futurePlantable": false } },
     "PLANT_ICESTORAGENUT": { "cost": 150, "cooldown": 30.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 8000, "persistent": false } },
     "PLANT_COLDPINEAPPLE": { "cost": 150, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_ICEMINT": { "cost": 100, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "sunPerSecond": 0.625, "firstSunDelay": 40.0 } },

@@ -67,6 +67,7 @@ struct PlantInfo {
 	Vector offset{ 0, 0 };       // 绘制偏移量
 	float scale = 1.0f;          // 创建时的缩放（仅 PotatoMine=0.8，其余=1.0）
 	PlantFactoryFn factory = nullptr;  // 具体类的构造工厂
+	bool skillCard = false; // 点击即用的技能卡只有卡牌身份与数值，不具备植物实体
 	PlantSimulationProfile simulation; // 蒙特卡洛防线推演的集中简化画像
 
 	PlantInfo() = default;
@@ -91,6 +92,8 @@ struct ZombieInfo {
 
 class GameDataManager {
 public:
+	/** 已注册的点击即用技能卡；不得创建植物、落种或成为模仿者目标。 */
+	bool IsSkillCard(PlantType type) const;
 	static GameDataManager& GetInstance() {
 		static GameDataManager instance;
 		return instance;

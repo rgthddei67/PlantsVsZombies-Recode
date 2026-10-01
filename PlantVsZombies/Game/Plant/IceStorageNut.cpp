@@ -56,7 +56,7 @@ bool IceStorageNut::IsReadyToActivate() const
 bool IceStorageNut::CanAffordActivation() const
 {
 	return mBoard && (mBoard->IsColdStorage()
-		? mBoard->mColdStorage.playerIce >= kRepairIce : mBoard->GetSun() >= kRepairSun);
+		? mBoard->mColdStorage.playerIce >= mBoard->GetPlantAbilityIceCost(kRepairIce) : mBoard->GetSun() >= kRepairSun);
 }
 
 bool IceStorageNut::TryActivate()
@@ -73,7 +73,7 @@ bool IceStorageNut::TryActivate()
 std::string IceStorageNut::GetManualAbilityDescription() const
 {
 	return mBoard && mBoard->IsColdStorage()
-		? u8"每次" + std::to_string(kRepairIce) + u8"冰块 · 恢复1000生命"
+		? u8"每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kRepairIce)) + u8"冰块 · 恢复1000生命"
 		: u8"每次" + std::to_string(kRepairSun) + u8"阳光 · 恢复1000生命";
 }
 

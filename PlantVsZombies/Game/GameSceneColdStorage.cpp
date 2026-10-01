@@ -48,6 +48,12 @@ void GameScene::DrawColdStorageShop(Graphics* g)
 {
 	if (!mBoard || !mBoard->IsColdStorage() || mBoard->mBoardState != BoardState::GAME) return;
 	const auto& ice = mBoard->mColdStorage;
+	mBoard->DrawColdStoragePrecisionStrike(g);
+	if (ice.discountRemaining > 0) {
+		g->FillRect(365, 72, 255, 25, glm::vec4(18, 47, 57, 230));
+		g->DrawGlyphRun(u8"冰惠券 · 冰费减半 " + std::to_string(static_cast<int>(std::ceil(ice.discountRemaining))) + u8"秒",
+			ResourceKeys::Fonts::FONT_FZCQ, 16, glm::vec4(165, 245, 255, 255), 373, 75);
+	}
 	g->FillRect(590, 573, 235, 27, glm::vec4(20, 35, 40, 190));
 	g->DrawGlyphRun(mBoard->mLevelName + u8"  第" + std::to_string(ice.decisions) + u8"波",
 		ResourceKeys::Fonts::FONT_FZCQ, 18, glm::vec4(255, 235, 175, 255), 600, 575);

@@ -44,6 +44,10 @@ struct ColdStorageState {
 	float supplyRemaining = 30.0f;
 	float decisionRemaining = 45.0f; // 首轮进攻前的布阵时间，游戏秒
 	float elapsed = 0.0f;
+	float discountRemaining = 0.0f; // 玩家全场减费剩余游戏秒；多次使用刷新，不叠加倍率
+	float strikeCooldownRemaining = 0.0f; // 敌方指挥官全局冷却，游戏秒；不属于任何僵尸实体
+	int strikeTargetID = -1; // 已付费瞄准的稳定植物 ID；-1 表示无在途打击
+	float strikeAimRemaining = 0.0f; // 不可打断的瞄准提示剩余游戏秒；随目标移动，不换靶
 	float incomeIdleSeconds = 0.0f; // 连续没有实际制冰/击杀收入的游戏秒；定时补给和派兵不重置，入档
 	float plantKillIdleSeconds = 0.0f; // 连续没有消灭植物的游戏秒；新局/无历史旧档从零计时，入档
 	std::deque<ColdStorageCashFlow> incomeWindow; // 最近经营窗口的实际制冰及购买事务，入档；Update 移除过期记录

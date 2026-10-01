@@ -1751,7 +1751,7 @@ bool Board::OccupyPlantFootprint(PlantType type, int row, int anchorColumn,
 bool Board::CanPlantAt(PlantType type, int row, int col)
 {
 	// 工具卡使用来源/目的两段事务，不可作为普通植物落种。
-	if (type == PlantType::PLANT_CARRYVINE) return false;
+	if (type == PlantType::PLANT_CARRYVINE || GameDataManager::GetInstance().IsSkillCard(type)) return false;
 	if (!MiniGame::AllowsPlant(mLevel, type)) return false;
 	if (!HasPlantingQuota(type)) return false;
 	int anchorRow = row;
@@ -1912,6 +1912,7 @@ void Board::CancelCobCannonTargeting(int plantID)
 
 bool Board::HasPlantingRequirement(PlantType type) const
 {
+	if (GameDataManager::GetInstance().IsSkillCard(type)) return IsColdStorage() && !mTrophySpawned;
 	if (type == PlantType::PLANT_COBCANNON) {
 		for (int row = 0; row < mRows; ++row) {
 			for (int column = 0; column < mColumns - 1; ++column) {
@@ -2227,6 +2228,8 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 	int row, int column, bool skipsettings, bool isPreview, bool playerDeployment)
 {
 	if (playerDeployment && !CanAffordPlantIce(placementType)) return nullptr;
+	if (GameDataManager::GetInstance().IsSkillCard(placementType)
+		|| GameDataManager::GetInstance().IsSkillCard(actualType)) return nullptr;
 	if (!isPreview && placementType == PlantType::PLANT_CARRYVINE) return nullptr;
 	if (!isPreview && !MiniGame::AllowsPlant(mLevel, placementType)) return nullptr;
 	const int requestedRow = row;

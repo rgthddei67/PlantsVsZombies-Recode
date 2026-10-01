@@ -379,6 +379,19 @@ namespace {
 				version = 18;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 18:
+				// v19 保存双方技能事务；旧档没有减费或已付款清除，不能虚构扣款、目标或冷却。
+				if (kind == DocumentKind::Level && upgraded.contains("coldStorage")
+					&& upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					auto& ice = upgraded["coldStorage"];
+					ice["discountRemaining"] = 0.0f;
+					ice["strikeCooldownRemaining"] = 0.0f;
+					ice["strikeTargetID"] = -1;
+					ice["strikeAimRemaining"] = 0.0f;
+				}
+				version = 19;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;
