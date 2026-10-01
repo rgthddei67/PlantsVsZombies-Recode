@@ -20,6 +20,7 @@
 #include "Game/Zombie/ColdChainGuardRules.h"
 #include "Game/Plant/IceStorageNut.h"
 #include "Game/Plant/ColdPineapple.h"
+#include "Game/Plant/EliteScaredyShroom.h"
 #include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
 #include "Game/Bullet/Bullet.h"
@@ -1122,6 +1123,13 @@ void Board::PlanColdStorageAttack(bool background)
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
+					plant.growth = growing->GetSimulationAttackGrowth();
+					plant.growthSpeed = entity->GetSkillSpeedMultiplier();
+					// 当前领域在 attackAuras 中按剩余时长处理，不永久烘焙进基础 DPS。
+					plant.hitDamage = plant.growth.Damage();
+					plant.dps = plant.hitDamage/plant.growth.Interval()*plant.growthSpeed;
+				}
 			}
 			search.plants.push_back(plant);
 		}
@@ -1774,6 +1782,8 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
 	s.searchBurstOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& option) { return option.unit.burst.range > 0; }));
 	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());
+	s.searchGrowingPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& plant) { return plant.growth.perShot > 0; }));
+	s.searchCapitalRejected = result.capitalRejected;
 	s.searchRepairOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.repair.interval > 0; }));
 	s.searchRepairPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& p) { return p.repairMaximum > 0; }));
 	s.searchArmorRepairs = result.construction.armorRepairs; s.searchPlantRepairs = result.construction.plantRepairs;

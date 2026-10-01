@@ -2,6 +2,7 @@
 
 #include "ColdStorageStrategy.h"
 #include "Game/Board/IceProduction.h"
+#include "Game/Plant/AttackGrowth.h"
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -67,6 +68,8 @@ struct Unit {
 	bool mowerImmune = false, consumesOtherMowers = false; // 单位自身的清洁车交互能力，不从购买价格猜测
 };
 struct Plant {
+	AttackGrowth growth; // perShot > 0 时按实际射击成长；DPS 不再冻结在采样时刻
+	float growthSpeed = 1; // 不含菠萝领域的基础行动倍率，领域在时间线中独立推进
 	int row = 0, column = 0, layer = 1;
 	float x = 0, health = 0, dps = 0, reward = 0;
 	float slowRate = 0, slowDuration = 0, stopDuty = 0;
@@ -173,6 +176,7 @@ struct Result {
 	float score = 0, blastLoss = 0, preferenceScore = 0;
 	float opponentAssets = 0, baselineOpponentAssets = 0, opponentScore = 0; // 与不增援基线比较，避免奖励本来就会发生的消耗
 	int evaluated = 0;
+	int capitalRejected = 0; // 资金充足时因大额亏损/清场风险被排除的候选数
 	int investmentEvaluated = 0; // 经营对照次数，升级搜索时合计两阶段；下方分数仅对应最终阶段
 	float investmentBaseScore = 0, investmentBestScore = 0; // 相同评分下，保底进攻案与经营对照后的优案
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
@@ -198,6 +202,8 @@ Weights AccountForIce(const Weights& conditioned);
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
+/** 大额采购须以增量回报覆盖投入；高爆区风险仅接受可回本或突破的方案，不靠兵种偏好兜底。 */
+bool ShouldConserveCapital(const Result& result, int budget, int reserve);
 /** 有限步位置推演；counterHoldSeconds 只延迟未提交且非救险的玩家反制，不能延迟已种下的爆炸。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0);
 /** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */

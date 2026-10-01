@@ -1099,6 +1099,56 @@ int main()
 	Evaluate(arena,{},&stats);
 	check(stats.orders==1 && stats.auraActivations==1 && stats.iceSpent==30,"active ability demand can purchase ice without inventing free skill activations");
 	std::cout << "Temporary attack aura duration, wallet, stacking and source lifetime passed\n";
+
+	// 大额投入不能因库存高或兵种偏好而跳过回本检查；已有工人收入仍从基线扣除。
+	Result capital;
+	capital.actions = {{0,0}}; capital.features[5] = 320;
+	capital.features[4] = capital.baselineFeatures[4] = 600;
+	capital.features[6] = 300; capital.preferenceScore = 500;
+	check(ShouldConserveCapital(capital,400,48),"large doomed purchase cannot consume a healthy treasury");
+	capital.features[4] += 320;
+	check(!ShouldConserveCapital(capital,400,48),"a genuinely cash-profitable investment may still commit a large budget");
+	capital.features[4] = 600; capital.features[2] = 1;
+	check(!ShouldConserveCapital(capital,400,48),"a surviving breakthrough is not blocked by capital conservation");
+	capital.features[2] = 0; capital.features[5] = 24; capital.features[6] = 24;
+	check(!ShouldConserveCapital(capital,400,48),"small counter bait does not require immediate full payback");
+	capital.features[5] = 180; capital.features[6] = 0;
+	check(ShouldConserveCapital(capital,200,48),"depleting the treasury needs incremental return even without ash");
+	capital.features[0] = 180;
+	check(!ShouldConserveCapital(capital,200,48),"paid plant kills can finance an otherwise large attack");
+	Snapshot cashSearch; cashSearch.searchVersion = 2; cashSearch.netEconomy = true;
+	cashSearch.budget = 400; cashSearch.capacity = 64; cashSearch.recoveryReserve = 48;
+	Option speculative; speculative.cost = 24; speculative.preference[0] = 500;
+	speculative.unit.body.x = 1000; speculative.unit.body.health = 100; speculative.unit.body.purchaseCost = 24;
+	Plant lethalFire; lethalFire.health = 1000; lethalFire.x = 300; lethalFire.dps = 10000; lethalFire.edible = false;
+	cashSearch.options = {speculative}; cashSearch.plants = {lethalFire};
+	const auto conserved = Search(cashSearch,InitialWeights,123);
+	check(conserved.capitalRejected > 0 && conserved.features[5] <= 200,
+		"portfolio search actually filters excessive speculative spending before picking an alternative");
+
+	// 持续成长用真实开火时间推进；菠萝对成长的促进远大于冻结初始 DPS 后简单翻倍。
+	Snapshot growing; growing.houseX = -1000;
+	Plant novice; novice.id = 1; novice.x = 300; novice.health = 500; novice.dps = 8/1.5f;
+	novice.growth = {0,.9f,100,1.5f,.2f,.85f,3,5,8,1,28};
+	Unit trainingTarget; trainingTarget.body.x = 1000; trainingTarget.body.health = 50000;
+	trainingTarget.body.purchaseCost = 50000;
+	growing.plants = {novice}; growing.current = {trainingTarget};
+	const float grownLoss = 50000-Evaluate(growing,{})[3];
+	growing.plants[0].growth.perShot = 0;
+	const float fixedLoss = 50000-Evaluate(growing,{})[3];
+	check(grownLoss > fixedLoss*4,"a novice shooter becomes a serious threat within the forecast");
+	growing.plants[0] = novice;
+	Plant growthSource; growthSource.id = 2; growthSource.x = 400; growthSource.column = 1; growthSource.health = 500;
+	growing.plants.push_back(growthSource);
+	AttackAura growthAura; growthAura.plantID = 2; growthAura.active = 10; growthAura.bonus = 1;
+	growthAura.iceCost = 40; growthAura.recharge = 12; growthAura.duration = 10;
+	growing.attackAuras = {growthAura};
+	const float acceleratedLoss = 50000-Evaluate(growing,{})[3];
+	check(acceleratedLoss > grownLoss+fixedLoss/6,"temporary aura accelerates later growth as well as immediate fire");
+	growing.current[0].body.x = 1200;
+	check(Evaluate(growing,{})[3] == 50000,"growth forecast cannot attack an unseen offscreen target");
+	check(growing.plants[0].growth.progress == 0,"forecast growth never changes the input snapshot");
+	std::cout << "Capital conservation and growing attack aura counterfactuals passed\n";
 	}
 
 

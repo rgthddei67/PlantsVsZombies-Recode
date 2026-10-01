@@ -65,16 +65,24 @@ void EliteScaredyShroom::LoadExtraData(const nlohmann::json& j)
 
 float EliteScaredyShroom::GetShootInterval() const
 {
-	const float grownInterval = kBaseShootIntervalSeconds * std::pow(
-		kSpeedFactorPerStage, static_cast<float>(GetAttackSpeedStage()));
-	return std::max(kMinimumShootIntervalSeconds, grownInterval);
+	return GetSimulationAttackGrowth().Interval();
 }
 
 int EliteScaredyShroom::GetPuffDamage() const
 {
-	const int damageStages = GetGrowthShotCount() / kDamageGrowthShots;
-	return std::min(kMaxPuffDamage,
-		kBasePuffDamage + damageStages * kDamagePerStage);
+	return static_cast<int>(GetSimulationAttackGrowth().Damage());
+}
+
+AttackGrowth EliteScaredyShroom::GetSimulationAttackGrowth() const
+{
+	AttackGrowth growth;
+	growth.progress = mGrowthProgress; growth.perShot = GetGrowthRatePercent()/100.0f;
+	growth.maximum = kMaximumGrowthShots;
+	growth.baseInterval = kBaseShootIntervalSeconds; growth.minimumInterval = kMinimumShootIntervalSeconds;
+	growth.intervalFactor = kSpeedFactorPerStage; growth.speedShots = kSpeedGrowthShots;
+	growth.damageShots = kDamageGrowthShots; growth.baseDamage = kBasePuffDamage;
+	growth.damageStep = kDamagePerStage; growth.maximumDamage = kMaxPuffDamage;
+	return growth;
 }
 
 void EliteScaredyShroom::OnPuffFired()

@@ -40,6 +40,8 @@ constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格�
 constexpr int kInvestmentTrials = 32; // 大兵池额外经营对照的单阶段上限；不增加原攻击搜索预算或强制采购
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
+constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
+constexpr float kCapitalBlastFraction = .35f; // 爆区预计折损超过现有库存此比例时，不能依赖削血/位移维持大额采购
 
 /** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
 float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false) {
@@ -650,6 +652,21 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	return gain < std::max(0.0f,plan[5]-baseline[5]) * kRecoveryReturnFraction;
 }
 
+bool ShouldConserveCapital(const Result& result, int budget, int reserve) {
+	if (result.actions.empty()) return false;
+	const auto& plan = result.features;
+	const auto& baseline = result.baselineFeatures;
+	if (plan[2] > baseline[2]) return false;
+	const float spent = std::max(0.0f,plan[5]-baseline[5]);
+	const float cash = plan[0]-baseline[0]+plan[4]-baseline[4];
+	const float blastLoss = std::max(0.0f,plan[6]-baseline[6]);
+	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能替新投资回本。
+	if (blastLoss > budget*kCapitalBlastFraction && cash < spent) return true;
+	if (spent <= budget*kLargeInvestmentFraction && budget-spent >= reserve) return false;
+	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
+	return cash+plan[1]-baseline[1]+pressure < spent;
+}
+
 /** 推进一次性付费阶段；硬控只暂停预热，已经付款的爆发/恢复仍消耗游戏时间。 */
 static std::array<float,2> AdvanceBurst(Unit& unit, bool inRange, float active, float& ice,
 	Weights& features, ConstructionStats& stats) {
@@ -884,7 +901,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0) {
-			const auto& p = plants[pi];
+			auto& p = plants[pi];
 			const float attackRate = auras.empty() ? 1 : attackRates[pi];
 			int target = -1;
 			for (size_t i = 0; i < units.size(); ++i) {
@@ -895,6 +912,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (target < 0 || u.x < units[target].body.x) target = static_cast<int>(i);
 			}
 			if (target < 0) continue;
+			// 只在存在可攻击目标时成长。领域不仅提高本步伤害，也让后续阶段更快到来；
+			// 保守忽略未来受惊重置，不能把尚未成功的近身进攻当成已解除这株高成长火力。
+			float damageRate = attackRate;
+			if (p.growth.perShot > 0) {
+				const float damage = p.growth.Advance(kStep*attackRate*p.growthSpeed);
+				p.hitDamage = p.growth.Damage();
+				p.dps = p.hitDamage/p.growth.Interval()*p.growthSpeed;
+				damageRate = damage/std::max(0.001f,p.dps*kStep);
+			}
 			const auto impact = units[target].body;
 			int secondaryCount = 0;
 			if (p.melon) {
@@ -923,7 +949,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (p.fume && !p.around && u.x > fumeEnd) continue;
 				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);
 				const bool slowReachesBody = units[i].shieldHealth <= 0 || p.melon || hit.bypass;
-				ApplyDamage(units[i],hit.rate*kStep*attackRate,hit.penetrate,hit.bypass,hit.discardOverflow);
+				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow);
 				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2 * attackRate));
 				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
@@ -1104,6 +1130,14 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	std::vector<Result> elite{best};
 	bool hasChoice = s.allowWait; // 正式构建启用 fast-math，不能用无穷大充当尚无候选的哨兵。
 	bool deferredInvestment = false;
+	int capitalRejected = 0;
+	const auto rejectInvestment = [&](const Result& candidate) {
+		if (ShouldRegroup(candidate,s.budget,s.recoveryReserve)) return true;
+		if (s.netEconomy && ShouldConserveCapital(candidate,s.budget,s.recoveryReserve)) {
+			++capitalRejected; return true;
+		}
+		return false;
+	};
 	const int trials = s.searchVersion == 2 ? kPortfolioTrials : kTrials;
 	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
 	const auto coverage = SampleTypeCoverage(s,rng,trials/2);
@@ -1156,7 +1190,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
 		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
-		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) {
+		if (rejectInvestment(candidate)) {
 			deferredInvestment = true;
 			continue;
 		}
@@ -1186,7 +1220,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 					largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 					auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
 					++investmentEvaluated;
-					if (ShouldRegroup(candidate,s.budget,s.recoveryReserve)) { deferredInvestment = true; continue; }
+					if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
 					if (candidate.score > best.score+.001f) best = std::move(candidate);
 				}
 			}
@@ -1203,7 +1237,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		if (!Concentrate(s, plan, row)) continue;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
 		++evaluated; tested |= 1 << row; rowScores[row] = candidate.score;
-		if (ShouldRegroup(candidate, s.budget, s.recoveryReserve)) { rejected |= 1 << row; continue; }
+		if (rejectInvestment(candidate)) { rejected |= 1 << row; continue; }
 		if (candidate.score > best.score + 0.001f) { best = std::move(candidate); chosenRow = row; }
 	}
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
@@ -1211,6 +1245,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 	best.investmentEvaluated = investmentEvaluated;
 	best.investmentBaseScore = investmentBaseScore; best.investmentBestScore = investmentBestScore;
 	best.evaluated = evaluated;
+	best.capitalRejected = capitalRejected;
 	best.largestPlan = largestPlan;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.regrouping = best.actions.empty() && deferredInvestment;
@@ -1225,6 +1260,7 @@ Result Search(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed)
 		auto result = Search(expanded,baseWeights,seed);
 		result.expandedForecast = true;
 		result.evaluated += best.evaluated;
+		result.capitalRejected += best.capitalRejected;
 		result.investmentEvaluated += best.investmentEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;

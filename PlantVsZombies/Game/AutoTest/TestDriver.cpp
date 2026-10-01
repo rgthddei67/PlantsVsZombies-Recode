@@ -4884,6 +4884,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchRowStrikeCount"] = board->mColdStorage.searchRowStrikeCount;
 		ice["searchBurstOptions"] = board->mColdStorage.searchBurstOptions;
 		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
+		ice["searchGrowingPlants"] = board->mColdStorage.searchGrowingPlants;
+		ice["searchCapitalRejected"] = board->mColdStorage.searchCapitalRejected;
 		ice["searchAbilityIce"] = board->mColdStorage.searchAbilityIce;
 		ice["searchRepairOptions"] = board->mColdStorage.searchRepairOptions;
 		ice["searchRepairPlants"] = board->mColdStorage.searchRepairPlants;

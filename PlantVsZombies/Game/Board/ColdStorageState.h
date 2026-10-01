@@ -92,6 +92,7 @@ struct ColdStorageState {
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
 	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家灰烬等待习惯，游戏秒，仅诊断
 	int searchBurstOptions = 0, searchAttackAuraCount = 0; // 当前能力投影数量，仅诊断
+	int searchGrowingPlants = 0, searchCapitalRejected = 0; // 成长火力来源和大额亏损候选淘汰数，仅诊断不入档
 	int searchBurstActivations = 0, searchAuraActivations = 0; // 最优案预测的未来付费次数
 	int searchRepairOptions = 0, searchRepairPlants = 0; // 修复能力候选与当前防线来源数
 	int searchArmorRepairs = 0, searchPlantRepairs = 0; // 最优案中两方的实际可付修复次数
