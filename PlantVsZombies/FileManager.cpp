@@ -13,7 +13,7 @@ namespace {
 	std::filesystem::path Utf8Path(const std::string& path) {
 		return std::filesystem::u8path(path);
 	}
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(__linux__)
 	/** 为经典资源的大小写不敏感引用生成查询键，实际打开仍使用 manifest 的原始名称。 */
 	std::string AssetPathKey(std::string path) {
 		std::replace(path.begin(), path.end(), '\\', '/');
@@ -23,7 +23,7 @@ namespace {
 		return path;
 	}
 
-	/** 只索引 APK 资源清单；直接读 SDL，避免 OpenRead 首次初始化时递归。 */
+	/** 只索引大小写敏感平台的资源清单；直接读 SDL，避免 OpenRead 首次初始化时递归。 */
 	const std::unordered_map<std::string, std::string>& AssetPaths() {
 		static const auto paths = [] {
 			std::unordered_map<std::string, std::string> result;
@@ -51,13 +51,13 @@ namespace {
 }
 
 SDL_RWops* FileManager::OpenRead(const std::string& path) {
-#if defined(__ANDROID__)
-	// AAssetManager 接受包内相对名称，不依赖桌面的 ./ 或反斜杠解析。
+#if defined(__ANDROID__) || defined(__linux__)
+	// APK 和 Linux 统一使用正斜杠相对名称；保留绝对路径语义。
 	std::string normalized = path;
 	std::replace(normalized.begin(), normalized.end(), '\\', '/');
 	while (normalized.rfind("./", 0) == 0) normalized.erase(0, 2);
 	if (SDL_RWops* rw = SDL_RWFromFile(normalized.c_str(), "rb")) return rw;
-	// 原版 reanim 的 IMAGE_REANIM_* 常由大写键拼出路径，APK 路径则区分大小写。
+	// 原版 reanim 的 IMAGE_REANIM_* 常由大写键拼出路径，APK / Linux 路径则区分大小写。
 	// 仅对清单内资源补充解析；绝对存档路径和不存在的资源仍正常报告失败。
 	if (AssetPathKey(normalized).rfind("resources/", 0) == 0) {
 		const auto& paths = AssetPaths();
