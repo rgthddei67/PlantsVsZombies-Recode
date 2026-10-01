@@ -1,6 +1,6 @@
 # 第十大关：灼热冷藏站与冰块经济
 
-状态：地图与冰块经济已接入；10-1～10-2 经济单位与指挥官经营策略已接入；10-3～10-4 新角色接入见文末，决策适配另行进行
+状态：地图与冰块经济已接入；10-1～10-4 角色与指挥官适配已接入；10-5 奖励冰仓坚果已接入，冷链护卫仅完成角色实现，AI 与出怪由专门任务接续。
 
 核实日期：2026-09-19
 
@@ -106,6 +106,18 @@
 ### AI 适配已完成（2026-09-27 后续）
 
 上述“未改 AI”是单位实现轮的交接边界。后续已在 `ColdStorageSearch::PaidBurst/AttackAura` 接入锅炉一次性阶段、共享敌方钱包和菠萝临时领域；`BoilerRules.h` / `ColdPineappleRules.h` 由实体与投影共用。正式策略扩至 10-3/10-4，保留各关卡池、解锁和原训练权重。当前菠萝预测只覆盖已部署来源，不虚构未来新种的技能株；手动释放按当前可受益攻击目标预测，自动模式遵循就绪即付费规则。验证入口为 `smoke_commander_paid_abilities`、对应 verifier 与 `ColdStorageStrategyTests`。
+
+## 10-5～10-6：冰仓坚果与冷链护卫
+
+2026-10-01 主人确认防御经营方向并实现。冰仓坚果把巨人砸击和车辆碾压转为有限承伤，存活后短暂无敌；挡车时将车辆推退，避免持续接触伤害和穿过防线。修复沿用手动／自动操作条，自动仅在缺少完整一轮恢复量时付款，手动允许紧急补满。10-5 通关奖励坚果，10-6 可选用。
+
+冷链护卫用非磁性一类冰盾承伤，西瓜直击和溅射先扣冰盾；只在盾仍存在时周期修复，掉落后不重建、本体不回血。硬控暂停修复周期，普通减速与啃食不改变周期；非冷藏站免费。魅惑保留盾值和周期，冷藏站费用改由玩家支付。
+
+源码入口：`Game/Plant/IceStorageNut.*`、`IceStorageNutRules.h`、`Game/Zombie/ColdChainGuardZombie.*`。费用通过 `BoardColdStorageAbilities.cpp` 原子提交；车辆消费植物的 `ResolveVehicleCrush` 响应，共用操作条消费 `Plant` 的手动技能窄接口。当前参数以这些源码、`gamedata.json` 和正式种植冰价入口为准。
+
+按主人范围，本轮未改 `Game/AI/`、训练资源或 `spawnlists.json`，护卫不会自动进入指挥官出兵候选。后续窗口需自行决定出怪池、购买价与按波解锁，并在快照/推演中表达一类冰盾、真实修复余时、共享钱包、硬控和永久破盾终态；坚果也需要表达修复模式、冷却、费用、无敌和挡车，不能只按静态血量近似。本轮未新增动画帧事件。
+
+专项：`smoke_cold_storage_defense_units`、`smoke_cold_storage_defense_combat`、`smoke_cold_storage_defense_baselines`、`visual_cold_storage_defense_units`、`smoke_ice_storage_nut_reward`。资源与 ImageGen 提示保存于 `scripts/assets/`，确定性导出与资源输出清单见 `scripts/generate_cold_storage_defense_assets.py` 及同名 SHA-256 锁文件。
 
 ## 本轮交付与验证入口
 

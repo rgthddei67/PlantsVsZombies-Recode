@@ -18,6 +18,11 @@ public:
 	bool CanAffordActivation() const;
 	bool IsAutomatic() const { return mAutomatic; }
 	void SetAutomatic(bool automatic) { mAutomatic = automatic; }
+	bool HasManualAbility() const override { return true; }
+	bool TryActivateManualAbility() override { return TryActivate(); }
+	bool IsAbilityAutomatic() const override { return IsAutomatic(); }
+	void SetAbilityAutomatic(bool value) override { SetAutomatic(value); }
+	std::string GetManualAbilityDescription() const override;
 	float GetActiveRemaining() const { return mActiveRemaining; }
 	float GetCooldownRemaining() const { return mCooldownRemaining; }
 	float GetAreaAttackSpeedBonus() const override;

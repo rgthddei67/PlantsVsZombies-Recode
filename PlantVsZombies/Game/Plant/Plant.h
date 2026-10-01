@@ -20,6 +20,12 @@
 class Board;
 class Zombie;
 
+/** 一次车辆碾压的植物侧响应；存活阻挡者可要求车辆退回，距离为当前场景像素。 */
+struct VehicleCrushResponse {
+	bool blocked = false;
+	float retreatDistance = 0.0f;
+};
+
 enum class PlantBungeeState {
 	NONE,
 	GRABBING,
@@ -110,6 +116,16 @@ public:
 	virtual float GetGroundSlowFactorAtCell(int, int) const { return 1.0f; }
 	// 统一结算植物承伤；source 必填，使僵尸增伤只作用于僵尸来源。
 	virtual void TakeDamage(int damage, DamageSource source);
+	/** 临时伤害无敌同时约束数值伤害、敌方直接处决和压扁；不改变占格或铲除。 */
+	virtual bool IsDamageImmune() const { return false; }
+	/** 实体拥有车辆碾压的承伤语义；车辆消费阻挡和退回请求。 */
+	virtual VehicleCrushResponse ResolveVehicleCrush() { Squish(); return {}; }
+	/** 已存在的付费技能共用点击/模式操作条，UI 不拥有费用或冷却。 */
+	virtual bool HasManualAbility() const { return false; }
+	virtual bool TryActivateManualAbility() { return false; }
+	virtual bool IsAbilityAutomatic() const { return false; }
+	virtual void SetAbilityAutomatic(bool) {}
+	virtual std::string GetManualAbilityDescription() const { return {}; }
 	/** 僵尸技能直接移除植物时保留击杀归因；自爆、铲除与升级仍走 Die。 */
 	void KillByZombie();
 	/**

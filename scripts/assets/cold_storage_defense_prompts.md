@@ -1,0 +1,13 @@
+Generated with the built-in image_gen tool. Final exports use the deterministic generator and SHA-256 lock beside it.
+
+## Ice shield
+
+Use case: stylized-concept. Asset type: transparent accessory sprite for a classic Plants vs Zombies 2D hand-painted cartoon game. Primary request: one NON-METAL ice shield held by a cold-chain guard zombie. Isolated shield only, no character, no hand, no lettering. Front three-quarter view, tall rounded rectangular slab with beveled irregular icy edges, broad readable blue cyan facets and white icy glints, heavy dark teal cartoon outline, bottom corners rounded, small frosty white cracks as surface detail. Slightly asymmetric and handmade. Opaque blue ice in the center, transparent background outside the silhouette. No metal rim, no straps visible on front, no snowflake emblem, no tiny detail, no floor, no shadow. Entire shield fully visible and centered, readable when reduced to 55 by 78 pixels, modest chunky proportions. Output genuine transparent alpha.
+
+## Walnut compartment
+
+Use case: stylized-concept. Asset type: transparent accessory sprite for a classic Plants vs Zombies hand-painted 2D cartoon plant. Primary request: ONE small frost-blue ice storage compartment shaped as a squat rounded trapezoid, suitable attached to lower belly of a cartoon walnut, accessory only with no plant or eyes. A pale cream insulated chunky frame surrounding three big bright cyan ice cubes seen through open front, a short ice-crystal tab on each side, thick dark teal outlines, subtle hand-painted soft shading, slightly uneven organic construction. Non-metal. Width roughly twice height. Flat frontal view with a little top visible. Fully centered and fully visible, readable when scaled to 40 x 25 pixels. No text, no labels, no plant, no face, no background, no ground shadow. Genuine transparent background outside the silhouette.
+
+## Damaged shield states
+
+Use case: precise-object-edit. Create a transparent sprite sheet with exactly TWO copies of the attached ice shield, side by side in equal left and right halves with a clear transparent gap. Preserve the reference shield silhouette, proportions, cyan blue facets, hand painted cartoon style, front three-quarter angle, and outline. Left shield: moderately damaged, three thick dark teal branching cracks across the center and a small chipped corner. Right shield: heavily damaged, strong wide branching cracks across the center, several missing chunks at the side edges, opaque remaining ice. Shields stay upright at the same size and baseline. Entire objects visible, no fragments floating far away, no character, no text, no labels, no background. Genuine transparent alpha. These are repairable damage states of exactly the reference object.

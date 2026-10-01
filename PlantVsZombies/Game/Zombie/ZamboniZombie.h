@@ -67,7 +67,7 @@ protected:
 	virtual bool CanCrushRow(int row) const { return row == mRow; }
 	/** @brief 判断植物是否属于原版不可被冰车直接碾压的例外。 */
 	virtual bool CanCrushPlant(const Plant* plant) const;
-	/** @brief 检查车辆攻击矩形并压扁所有允许碾过的植物。 */
+	/** @brief 从迎敌面结算植物碾压响应；存活阻挡者可要求车辆后退。 */
 	void CrushPlants();
 
 	float mDriveSpeed = 25.0f;

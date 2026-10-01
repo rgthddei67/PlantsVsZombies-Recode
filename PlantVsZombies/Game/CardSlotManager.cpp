@@ -91,13 +91,13 @@ void CardSlotManager::Start() {
 }
 
 void CardSlotManager::Update() {
-	mPineappleConsumed = false;
+	mPlantAbilityConsumed = false;
 	// 非战斗选卡/词条页与普通暂停都保留已有预览，但不处理任何玩法输入。
 	if (!CanAcceptGameplayInput()) {
-		mPineapplePressID = mPineappleMenuID = NULL_PLANT_ID;
+		mPlantAbilityPressID = mPlantAbilityMenuID = NULL_PLANT_ID;
 		return;
 	}
-	UpdatePineappleInput();
+	UpdatePlantAbilityInput();
 
 	const bool bloverDirectionChanged = UpdateBloverDirectionInput();
 	UpdatePlanternGearMenuInput();
@@ -610,7 +610,7 @@ void CardSlotManager::UpdatePreviewToMouse(const Vector& mouseWorld) {
 }
 
 void CardSlotManager::HandleCellClick(int row, int col) {
-	if (mPineappleConsumed) return;
+	if (mPlantAbilityConsumed) return;
 	if (mBoard && mBoard->mMineToolActive) return;
 	if (!CanAcceptGameplayInput()) return;
 	if (mBoard->IsCobCannonTargeting()) {
@@ -618,9 +618,9 @@ void CardSlotManager::HandleCellClick(int row, int col) {
 		return;
 	}
 	if (!selectedCard) {
-		// 菠萝的短按/长按统一由UpdatePineappleInput处理；不能再从Cell释放重复发动。
+		// 付费技能的短按/长按统一由UpdatePlantAbilityInput处理；不能再从Cell释放重复发动。
 		if (mBoard->GetNormalPlantAt(row, col)
-			&& mBoard->GetNormalPlantAt(row, col)->mPlantType == PlantType::PLANT_COLDPINEAPPLE) return;
+			&& mBoard->GetNormalPlantAt(row, col)->HasManualAbility()) return;
 		if (mBoard->mCursorObjectManager.GetActiveType() == CursorObjectType::NONE
 			&& mBoard->ActivateDawnLotusAt(row, col)) return;
 		if (mBoard->mCursorObjectManager.GetActiveType() == CursorObjectType::NONE

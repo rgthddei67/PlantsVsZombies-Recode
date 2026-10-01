@@ -65,7 +65,7 @@ private:
 	void FinishShooting();
 	/** @brief 返回同排最靠房屋且与车辆保持原版最小间距的植物。 */
 	Plant* FindBasketballTarget() const;
-	/** @brief 检查车辆攻击矩形并压扁所有允许碾过的同排植物。 */
+	/** @brief 从迎敌面结算同排植物碾压响应；存活阻挡者可要求车辆后退。 */
 	void CrushPlants();
 	bool CanCrushPlant(const Plant* plant) const;
 	/** @brief 按库存重建四个篮筐篮球轨道和投臂带球材质。 */

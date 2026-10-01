@@ -1314,7 +1314,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 				target.helmType = static_cast<HelmType>(std::clamp(savedTarget.value(
 					"helmType", static_cast<int>(HelmType::HELMTYPE_NONE)),
 					static_cast<int>(HelmType::HELMTYPE_NONE),
-					static_cast<int>(HelmType::HELMTYPE_CRYSTAL_HORN)));
+					static_cast<int>(HelmType::HELMTYPE_ICE_SHIELD)));
 				target.helmHealth = std::max(0, savedTarget.value("helmHealth", 0));
 				target.shieldType = static_cast<ShieldType>(std::clamp(savedTarget.value(
 					"shieldType", static_cast<int>(ShieldType::SHIELDTYPE_NONE)),

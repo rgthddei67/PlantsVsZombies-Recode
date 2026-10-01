@@ -72,6 +72,8 @@
 #include "FurnaceCoreFlower.h"
 #include "ListeningGrass.h"
 #include "IceMint.h"
+#include "IceStorageNut.h"
+#include "../Zombie/ColdChainGuardZombie.h"
 #include "ColdPineapple.h"
 #include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
@@ -268,6 +270,10 @@ void GameDataManager::InitializeHardcodedData() {
 		AnimationType::ANIM_SUNSHROOM,
 		"SunShroom", &MakePlant<SunShroom>);
 
+	RegisterPlant(PlantType::PLANT_ICESTORAGENUT, "PLANT_ICESTORAGENUT", "IMAGE_ICESTORAGENUT",
+		AnimationType::ANIM_ICESTORAGENUT, "IceStorageNut", &MakePlant<IceStorageNut>);
+	RegisterZombie(ZombieType::ZOMBIE_COLD_CHAIN_GUARD, "ZOMBIE_COLD_CHAIN_GUARD",
+		AnimationType::ANIM_COLD_CHAIN_GUARD, "ColdChainGuardZombie", &MakeZombie<ColdChainGuardZombie>);
 	RegisterPlant(PlantType::PLANT_COLDPINEAPPLE, "PLANT_COLDPINEAPPLE", "IMAGE_COLDPINEAPPLE",
 		AnimationType::ANIM_COLDPINEAPPLE, "ColdPineapple", &MakePlant<ColdPineapple>);
 	RegisterZombie(ZombieType::ZOMBIE_BOILER, "ZOMBIE_BOILER",

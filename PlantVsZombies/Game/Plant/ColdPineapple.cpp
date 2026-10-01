@@ -68,6 +68,11 @@ float ColdPineapple::GetAreaAttackSpeedBonus() const
 		&& mActiveRemaining > 0.0f ? 1.0f : 0.0f;
 }
 
+std::string ColdPineapple::GetManualAbilityDescription() const
+{
+	return mBoard && mBoard->IsColdStorage() ? u8"每次30冰块 · 攻速+100%" : u8"每次100阳光 · 攻速+100%";
+}
+
 void ColdPineapple::Draw(Graphics* g)
 {
 	Plant::Draw(g);

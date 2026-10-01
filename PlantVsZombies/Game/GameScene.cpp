@@ -1915,7 +1915,7 @@ void GameScene::BuildDrawCommands()
 				if (mCardSlotManager) {
 					mCardSlotManager->DrawPlanternGearMenu(g);
 					mCardSlotManager->DrawRelocationHint(g);
-					mCardSlotManager->DrawPineappleMenu(g);
+					mCardSlotManager->DrawPlantAbilityMenu(g);
 				}
 			},
 			kPlanternGearMenuRenderOrder);

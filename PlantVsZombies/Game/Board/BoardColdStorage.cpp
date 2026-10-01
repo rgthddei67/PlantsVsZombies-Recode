@@ -347,6 +347,7 @@ int Board::GetPlantIceCost(PlantType type) const
 	case P::PLANT_CARRYVINE: return 0; // 搬运既有植物不重复收取种植冰块
 	case P::PLANT_WALLNUT: case P::PLANT_REPEATER: case P::PLANT_FUMESHROOM:
 	case P::PLANT_TORCHWOOD: case P::PLANT_MAGNETSHROOM: return 15;
+	case P::PLANT_ICESTORAGENUT: return 20; // 抗碾压坚果的正式种植冰价
 	case P::PLANT_CHERRYBOMB: case P::PLANT_JALAPENO: case P::PLANT_SNOWPEA:
 	case P::PLANT_PUMPKINSHELL: case P::PLANT_TALLNUT: case P::PLANT_ICESHROOM:
 	case P::PLANT_TWINSUNFLOWER: case P::PLANT_THREEPEATER: return 20;

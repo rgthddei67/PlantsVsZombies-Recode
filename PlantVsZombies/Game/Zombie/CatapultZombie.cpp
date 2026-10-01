@@ -287,14 +287,28 @@ void CatapultZombie::CrushPlants()
 		kAttackWidth,
 		kAttackHeight,
 	};
+	std::vector<Plant*> targets;
 	for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
 		Plant* plant = mBoard->mEntityRegistry.GetPlant(id);
-		if (!CanCrushPlant(plant)) continue;
+		if (CanCrushPlant(plant)) targets.push_back(plant);
+	}
+	std::sort(targets.begin(), targets.end(), [](const Plant* a, const Plant* b) {
+		return a->GetPosition().x != b->GetPosition().x ? a->GetPosition().x > b->GetPosition().x : a->mPlantID < b->mPlantID;
+	});
+	for (Plant* plant : targets) {
 		ColliderComponent* collider = plant->GetColliderComponent();
 		if (!collider) continue;
 		if (HorizontalOverlap(attackRect, collider->GetBoundingBox())
 			>= kRequiredPlantOverlap) {
-			plant->Squish();
+			const auto response = plant->ResolveVehicleCrush();
+			if (response.blocked) {
+				// 无敌中的挡车植物仍阻止穿格；成功承伤才额外推退半格。
+				const SDL_FRect bounds = collider->GetBoundingBox();
+				const float contactCorrection = std::max(0.0f, bounds.x + bounds.w - kRequiredPlantOverlap - attackRect.x);
+				GetTransform()->Translate(std::max(response.retreatDistance, contactCorrection), 0.0f);
+				SyncToRoofTerrain(GetTransform());
+				break;
+			}
 		}
 	}
 }
@@ -412,7 +426,7 @@ void CatapultZombie::Charred()
 
 void CatapultZombie::StartEat(ColliderComponent* /*other*/)
 {
-	// 投篮车不进入啃食态；车辆接触由 CrushPlants 统一走 Plant::Squish()。
+	// 投篮车不进入啃食态；车辆接触由 CrushPlants 统一走植物的车辆碾压响应。
 }
 
 void CatapultZombie::ZombieItemUpdate() const

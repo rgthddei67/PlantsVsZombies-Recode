@@ -17,7 +17,8 @@ enum class HelmType {
 	HELMTYPE_ADAPTIVE,		//适应头盔僵尸的一次性来源记录头盔
 	HELMTYPE_AURORA_DEVICE,	//极光祭司的非磁性仪器；破坏后永久取消未提交仪式
 	HELMTYPE_CLOCK_DISK,		//极夜钟匠的非磁性星盘；破坏后永久取消未提交时间锚
-	HELMTYPE_CRYSTAL_HORN // 非磁性晶角头盔
+	HELMTYPE_CRYSTAL_HORN, // 非磁性晶角头盔
+	HELMTYPE_ICE_SHIELD // 冷链护卫的非磁性一类冰盾
 };
 
 enum class ShieldType {
@@ -97,6 +98,7 @@ enum class ZombieType {
 	ZOMBIE_CRYSTAL_DRUMMER, // 震晶鼓手，矿道范围鼓舞
 	ZOMBIE_ICE_WORKER, // 制冰工；10-1 首次登场，产冰随存活成长
 	ZOMBIE_BOILER, // 锅炉僵尸；10-3 首次登场，一次付费超频
+	ZOMBIE_COLD_CHAIN_GUARD, // 冷链护卫；只注册实体，AI 出怪另行接入
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

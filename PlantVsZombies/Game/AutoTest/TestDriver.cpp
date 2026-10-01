@@ -70,6 +70,8 @@
 #include "../Plant/ListeningGrass.h"
 #include "../Plant/IceMint.h"
 #include "../Plant/ColdPineapple.h"
+#include "../Plant/IceStorageNut.h"
+#include "../Zombie/ColdChainGuardZombie.h"
 #include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
 #include "../Plant/NorthStarFlower.h"
@@ -332,6 +334,7 @@ namespace {
 		case HelmType::HELMTYPE_TALLNUT: return "HELMTYPE_TALLNUT";
 		case HelmType::HELMTYPE_INSULATOR: return "HELMTYPE_INSULATOR";
 		case HelmType::HELMTYPE_CRYSTAL_HORN: return "HELMTYPE_CRYSTAL_HORN";
+		case HelmType::HELMTYPE_ICE_SHIELD: return "HELMTYPE_ICE_SHIELD";
 		case HelmType::HELMTYPE_ADAPTIVE: return "HELMTYPE_ADAPTIVE";
 		case HelmType::HELMTYPE_AURORA_DEVICE: return "HELMTYPE_AURORA_DEVICE";
 		case HelmType::HELMTYPE_CLOCK_DISK: return "HELMTYPE_CLOCK_DISK";
@@ -402,7 +405,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -438,7 +441,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -1418,6 +1421,20 @@ bool TestDriver::ExecuteCurrent() {
 		if (!message.empty()) builder.Message(message);
 		builder.Button(u8"确定", Vector::zero(), Vector(100.0f, 41.6f), 14.0f, []() {});
 		builder.Show();
+		return true;
+	}
+	if (op == "activate_ice_storage_nut" || op == "set_nut_auto" || op == "hit_nut_with_crush" || op == "kill_plant_by_zombie") {
+		GameScene* gs = CurrentGameScene();
+		auto* plant = gs && gs->GetBoard() ? gs->GetBoard()->GetNormalPlantAt(cmd.value("row", -1), cmd.value("col", -1)) : nullptr;
+		if (!plant) { Fail("nut ability: missing plant"); return false; }
+		if (op == "kill_plant_by_zombie") { plant->KillByZombie(); return true; }
+		auto* nut = dynamic_cast<IceStorageNut*>(plant);
+		if (!nut) { Fail("nut ability: wrong plant type"); return false; }
+		if (op == "set_nut_auto") nut->SetAutomatic(cmd.value("value", true));
+		else if (op == "hit_nut_with_crush") nut->ResolveGargantuarSmash();
+		else if (nut->TryActivate() != cmd.value("expectedSuccess", true)) {
+			Fail("nut activation result mismatch"); return false;
+		}
 		return true;
 	}
 	if (op == "activate_cold_pineapple" || op == "set_pineapple_auto") {
@@ -6930,6 +6947,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_BOILER_PACK", false)
 				&& boiler->GetAnimatorInternal()->GetTrackFollowerVisible("Zombie_body", "boiler_pack");
 		}
+		if (auto* guard = dynamic_cast<ColdChainGuardZombie*>(z)) {
+			zombieState["guardRepairMs"] = static_cast<int>(std::lround(guard->GetRepairRemaining() * 1000));
+			zombieState["guardHasShield"] = guard->HasIceShield();
+			zombieState["guardShieldStage"] = guard->GetShieldDamageStage();
+			zombieState["guardShieldVisible"] = guard->GetAnimatorInternal()->GetTrackFollowerVisible("anim_innerarm2", "cold_chain_shield");
+			zombieState["guardResourcesReady"] = ResourceManager::GetInstance().HasReanimation("ColdChainGuardZombie")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED1", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED2", false);
+		}
 		if (auto* worker = dynamic_cast<IceWorkerZombie*>(z)) {
 			zombieState["iceRemainingMs"] = static_cast<int>(std::lround(worker->GetIceRemaining() * 1000.0f));
 			zombieState["nextIceYieldOn1000"] = static_cast<int>(std::lround(worker->GetNextIceYield() * 1000.0f));
@@ -8170,6 +8197,26 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			out["furnaceCoreFlowersByCell"][cellKey] = plantState;
 		}
 		plantState["areaAttackBonusPct"] = static_cast<int>(std::lround(board->GetAreaPlantAttackSpeedBonus(p) * 100));
+		if (auto* nut = dynamic_cast<IceStorageNut*>(p)) {
+			plantState["nutInvulnerableMs"] = static_cast<int>(std::lround(nut->GetInvulnerableRemaining() * 1000));
+			plantState["nutCooldownMs"] = static_cast<int>(std::lround(nut->GetCooldownRemaining() * 1000));
+			plantState["nutAutomatic"] = nut->IsAutomatic();
+			plantState["nutReady"] = nut->IsReadyToActivate();
+			plantState["nutAffordable"] = nut->CanAffordActivation();
+			plantState["nutResourcesReady"] = ResourceManager::GetInstance().HasReanimation("IceStorageNut")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_ICESTORAGENUT", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_ICESTORAGENUT_BODY", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_ICESTORAGENUT_CRACKED1", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_ICESTORAGENUT_CRACKED2", false);
+			for (int zombieID : board->mEntityRegistry.GetAllZombieIDs()) {
+				const auto* vehicle = board->mEntityRegistry.GetZombie(zombieID);
+				if (vehicle && vehicle->mRow == p->mRow && dynamic_cast<const ZamboniZombie*>(vehicle)) {
+					plantState["vehicleGapOn1000"] = static_cast<int>(std::lround((vehicle->GetPosition().x - p->GetPosition().x) * 1000));
+					break;
+				}
+			}
+			out["iceStorageNutsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plantState;
+		}
 		if (auto* pineapple = dynamic_cast<ColdPineapple*>(p)) {
 			plantState["pineappleActiveMs"] = static_cast<int>(std::lround(pineapple->GetActiveRemaining() * 1000));
 			plantState["pineappleCooldownMs"] = static_cast<int>(std::lround(pineapple->GetCooldownRemaining() * 1000));
