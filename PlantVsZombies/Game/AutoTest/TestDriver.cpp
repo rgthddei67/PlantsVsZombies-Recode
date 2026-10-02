@@ -4924,6 +4924,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchInstantCrushTypes"]=nlohmann::json::array();
 		for (auto type:board->mColdStorage.searchInstantCrushTypes) ice["searchInstantCrushTypes"].push_back(ZombieTypeName(type));
 		ice["searchCapitalRejected"] = board->mColdStorage.searchCapitalRejected;
+		ice["searchCapitalRiskAllowance"] = board->mColdStorage.searchCapitalRiskAllowance;
 		ice["searchUnitCandidates"] = nlohmann::json::array();
 		for (const auto& candidate : board->mColdStorage.searchUnitCandidates) {
 			ice["searchUnitCandidates"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(candidate.type))},

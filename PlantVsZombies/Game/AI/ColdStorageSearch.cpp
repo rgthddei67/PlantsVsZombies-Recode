@@ -49,7 +49,7 @@ constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
-constexpr float kCapitalLossFraction = .35f; // 大额投入允许损失的本金比例；现金和存活部队以外的削血不算可续战资本
+constexpr float kCapitalLossFraction = .35f; // 本案及累计试错允许损失的本金比例；只计己方现金和付费存活资产
 constexpr float kReinforcementDelay = 6; // 通用增援的错峰对照间隔，游戏秒；给先行部队拉开承伤距离
 constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
 
@@ -834,7 +834,12 @@ bool ShouldRegroup(const Result& result, int budget, int reserve) {
 	return gain < std::max(0.0f,plan[5]-baseline[5]) * kRecoveryReturnFraction;
 }
 
-bool ShouldConserveCapital(const Result& result, int budget, int reserve) {
+float RemainingCapitalRisk(float fundedCapital, float currentCapital) {
+	const float funded = std::max(0.0f,fundedCapital);
+	return std::max(0.0f,funded*kCapitalLossFraction + currentCapital-funded);
+}
+
+bool ShouldConserveCapital(const Result& result, int budget, int reserve, float riskAllowance) {
 	if (result.actions.empty()) return false;
 	const auto& plan = result.features;
 	const auto& baseline = result.baselineFeatures;
@@ -843,11 +848,15 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve) {
 	const float cash = plan[0]-baseline[0]+plan[4]-baseline[4];
 	const float blastLoss = std::max(0.0f,plan[6]-baseline[6]);
 	const float surviving = std::clamp(plan[3]-baseline[3],0.0f,spent);
+	const float netLoss = std::max(0.0f,spent-cash-surviving);
+	// 单轮小额诱饵不能无限重复享受豁免；已兑现净亏损会消耗试错额度，生产/击杀盈利可重新补回。
+	// 有效前排按幸存资产保留价值，避免要求每个破阵准备步骤都立即现金盈利。
+	if (netLoss > riskAllowance && netLoss > spent*kCapitalLossFraction) return true;
 	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能冒充新增现金。
 	if (spent <= budget*kLargeInvestmentFraction && budget-spent >= reserve) return false;
 	// 风险属于新增投资本身；用整个钱包作分母，会让富裕时的大额送死方案逃过现金回本检查。
 	// 普通火力打光部队同样会耗尽本金，不能只查灰烬；幸存兵力仍可推进和保护后续生产。
-	const float lostCapital = std::max(blastLoss,spent-cash-surviving);
+	const float lostCapital = std::max(blastLoss,netLoss);
 	if (lostCapital > spent*kCapitalLossFraction && cash < spent) return true;
 	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
 	return cash+plan[1]-baseline[1]+pressure < spent;
@@ -1643,7 +1652,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	std::vector<CandidateStats> candidateStats;
 	const auto rejectInvestment = [&](const Result& candidate) {
 		const int denial = ShouldRegroup(candidate,s.budget,s.recoveryReserve) ? 1
-			: s.netEconomy && ShouldConserveCapital(candidate,s.budget,s.recoveryReserve) ? 2 : 0;
+			: s.netEconomy && ShouldConserveCapital(candidate,s.budget,s.recoveryReserve,
+				s.allowWait ? s.capitalRiskAllowance : (std::numeric_limits<float>::max)()) ? 2 : 0;
 		RecordCandidate(s,candidate,denial,candidateStats);
 		if (denial == 2) ++capitalRejected;
 		return denial != 0;
@@ -1805,7 +1815,18 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			const int option = sameRow==group.end() ? group.front() : *sameRow;
 			auto plan = IntroduceOption(s,anchorActions,option,rng);
 			plan.back().delay = pass==0 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
-			compare(std::move(plan)); ++combinationEvaluated;
+			// 第二轮也比较成批后援，保留原前排和整批预算；所有类型使用同一规模与错峰形状。
+			// 不能只给前排追加一只支援，错过少量牺牲后其余成员能够存活的协同。
+			int remaining=PurchaseBudget(s);
+			for (const auto& action:anchorActions) remaining-=s.options[action.option].cost;
+			const int count=std::min({4,remaining/s.options[option].cost,ActionLimit(s)-static_cast<int>(anchorActions.size())});
+			const bool cohort=pass==1 && count>=2;
+			if (cohort) {
+				plan=anchorActions;
+				for (int i=0;i<count;++i) plan.push_back({option,std::min(DelayLimit(s),kReinforcementDelay+i*2)});
+			}
+			compare(std::move(plan),cohort); ++combinationEvaluated;
+			if (cohort) ++cohortEvaluated;
 		}
 	}
 	const float combinationBestScore = best.score;
@@ -1902,7 +1923,8 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 		if (candidate.features[2] <= sameArmy.features[2] && capitalGain < ColdStorageSkillRules::StrikeIceCost) return;
 		if (!BetterOutcome(candidate,sameArmy) || !BetterOutcome(candidate,best)) return;
 		if (ShouldRegroup(candidate,state.budget,state.recoveryReserve)
-			|| (state.netEconomy && ShouldConserveCapital(candidate,state.budget,state.recoveryReserve))) return;
+			|| (state.netEconomy && ShouldConserveCapital(candidate,state.budget,state.recoveryReserve,
+				state.allowWait ? state.capitalRiskAllowance : (std::numeric_limits<float>::max)()))) return;
 		best = std::move(candidate);
 	};
 	for (const auto& target : targets) {

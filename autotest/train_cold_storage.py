@@ -31,6 +31,7 @@ def save(path, value):
 
 
 def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=False):
+    """Build legal cards/rosters and explicit tactical fixtures before a real, resource-limited episode."""
     # 正式各关保留实际卡池及解锁；mask 仅影响显式全兵种实验。
     if arena.startswith('normal:'):
         arena = arena[len('normal:'):]
@@ -47,14 +48,15 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         roster = sorted(random.Random(seed ^ 0xC01D).sample(pool, max(1, len(pool) // 2)))
     match = re.search(r'_10_([1-9])$', arena)
     level = 81 + int(match.group(1)) if match else 82
-    pine_elite = opponent == 'pine_elite'
+    storage_defense = opponent in ('ice_fortifier', 'ice_pine', 'ice_bunker')
+    pine_elite = opponent in ('pine_elite', 'ice_pine', 'ice_bunker')
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier', 'planner', 'pine_elite'):
+    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier', 'planner', 'pine_elite', 'ice_fortifier', 'ice_pine', 'ice_bunker'):
         cards += ['SQUASH']
         # 正式卡槽最多 11 张；已有三叶草对空时，将重复对空位置留给倭瓜。
         if all_zombies:
             cards.remove('CACTUS')
-    if opponent in ('lotus', 'fortifier', 'planner'):
+    if opponent in ('lotus', 'fortifier', 'planner', 'ice_fortifier'):
         cards += ['DAWNLOTUS']
         if all_zombies:
             cards.remove('SQUASH')  # 全兵种保留对空；曙光莲占用这张即时反制卡的正式卡槽。
@@ -68,6 +70,15 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         cards = list(dict.fromkeys(cards))
     if pine_elite:
         cards.append('COLDPINEAPPLE')
+    if storage_defense:
+        cards = ['ICESTORAGENUT' if c == 'WALLNUT' else c for c in cards]
+    if opponent == 'ice_bunker':
+        cards = [c for c in cards if c != 'SQUASH'] + ['DOOMSHROOM', 'INSTANT_COFFEE']
+    if pine_elite and arena.startswith('sustain_'):
+        cards.append('REPEATER')
+    while len(cards) > 11:
+        # 全池蓄爆局仍保留三叶草对空，精简重复直接灰烬，不突破正式卡槽容量。
+        cards.remove(next(c for c in ('SQUASH','CHERRYBOMB','IMITATER') if c in cards))
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
@@ -90,6 +101,59 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
         if roster is not None:
             commands[-1]['units'] = [n for n in roster if not (policy.get('noWorkers') and n == 'ZOMBIE_ICE_WORKER')]
+    if arena.startswith('sustain_'):
+        # 明确标记的经营战术夹具：只在开局布置资源和阵地，比赛中费用/冷却/修复全部走正式入口。
+        # 不在胜利条件里指定工人；同种子移除工人的实战消融检验场景是否确有经营区分度。
+        if not storage_defense:
+            raise ValueError('sustain fixtures require an ice-defense opponent')
+        stock = fixture_rng.choice((240, 320, 400))
+        commands += [
+            {'op':'set_spawn_paused','value':True},
+            {'op':'set_cold_storage','state':{'elapsed':120,'decisions':20,'enemyIce':stock,
+             'initialEnemyIce':stock,'playerIce':2000,'decisionRemaining':1,'dispatchQuietSeconds':25}},
+            {'op':'set_sun','value':800},
+        ]
+        for row in range(5):
+            relative = (row-seed%5)%5
+            lineup = [('SUNFLOWER',3),('SUNFLOWER',5),('ICESTORAGENUT',6)]
+            if 'rebuild' in arena:
+                # 蓄爆阵也保护经济后排，防止廉价狙击收割裸向日葵就足以绕过经营考验。
+                lineup += [('PUMPKINSHELL',3),('PUMPKINSHELL',5)]
+            if pine_elite:
+                # 两路集中与四路分散轮换，剩余路线用普通输出补齐，避免只因空路直接获胜。
+                columns = ([0,2] if relative in (0,2) else []) if 'rebuild' in arena else ([0] if relative<4 else [])
+                lineup += [('COLDPINEAPPLE',1)]
+                for col in columns:
+                    lineup += [('ELITE_SCAREDYSHROOM',col),('PUMPKINSHELL',col)]
+                if not columns:
+                    lineup += [('REPEATER',0),('PUMPKINSHELL',0)]
+            else:
+                lineup += [('MELONPULT',0),('PUMPKINSHELL',0)]
+                if relative in (1,3):
+                    lineup += [('WINTERMELON',0)]
+            for kind,col in lineup:
+                commands.append({'op':'plant','type':'PLANT_'+kind,'row':row,'col':col})
+        if opponent == 'ice_bunker':
+            commands.append({'op':'plant','type':'PLANT_DOOMSHROOM','row':seed%5,'col':7})
+        if 'mature' in arena:
+            # 先让精英菇真实射击成长；单一火力的适应头盔静止靶可持续承受射击，不伪造成长值。
+            # 靶与准备期间的资源只属于夹具，正式计分前清除并恢复一次性初始账本。
+            for row in range(5):
+                commands.append({'op':'spawn_zombie','type':'ZOMBIE_ADAPTIVE_HELMET','row':row,'x':1000,'stationary':True})
+            commands.append({'op':'wait_seconds','value':60,'timeout':90})
+            for row in range(5):
+                commands.append({'op':'kill_zombie','row':row})
+            commands.append({'op':'wait_seconds','value':6,'timeout':15})
+            for row in range(5):
+                if (row-seed%5)%5 < 4:
+                    commands += [{'op':'plant','type':'PLANT_REPEATER','row':row,'col':2},
+                                 {'op':'plant','type':'PLANT_PUMPKINSHELL','row':row,'col':2}]
+            commands += [{'op':'set_sun','value':800},
+                         {'op':'set_cold_storage','state':{'enemyIce':stock,'initialEnemyIce':stock,
+                          'supplied':0,'spent':0,'workerIncome':0,'killIncome':0,'elapsed':120,'decisionRemaining':1,
+                          'supplyRemaining':30,'incomeIdleSeconds':0,'plantKillIdleSeconds':0}}]
+        commands += [{'op':'set_cold_storage','state':{'playerIce':180}},
+                     {'op':'set_spawn_paused','value':False}]
     if arena.startswith(('fortress', 'economy', 'elite_', 'developing', 'banked')):
         developing = arena.startswith('developing')
         banked = arena.startswith('banked')

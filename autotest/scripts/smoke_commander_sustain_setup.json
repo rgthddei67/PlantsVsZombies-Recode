@@ -1,0 +1,16 @@
+{
+  "muteAudio": true,
+  "commands": [
+    {"op":"goto_level","level":87,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_ICESTORAGENUT","PLANT_SUNFLOWER"]},
+    {"op":"wait_state","state":"GAME","timeout":25},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":300,"initialEnemyIce":300,"playerIce":200,"decisionRemaining":60}},
+    {"op":"plant","type":"PLANT_ICESTORAGENUT","row":2,"col":6},
+    {"op":"set_plant_health","row":2,"col":6,"value":7000},
+    {"op":"commander_episode","opponent":"ice_fortifier","seconds":1,"name":"repair_input"},
+    {"op":"assert_state","path":"iceStorageNutsByCell.2_6.health","equals":8000},
+    {"op":"assert_state","path":"iceStorageNutsByCell.2_6.nutCooldownMs","atLeast":8500},
+    {"op":"quit"}
+  ]
+}

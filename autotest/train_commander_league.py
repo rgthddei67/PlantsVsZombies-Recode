@@ -139,6 +139,18 @@ def curriculum_templates(name):
         holdout += [('normal:elite_mono_10_6','pine_elite'),('normal:elite_spread_10_6','hunter')]
         holdout[1] = ('normal:opening_10_6','pine_elite')
         holdout += [('opening_10_6','pine_elite'),('masked:opening_10_6','pine_elite')]
+    elif name == 'sustain':
+        # 经营压力与正常开局并列；完整/删减/正式卡池留出分别统计，胜负不规定必须出工人。
+        pairs = [('sustain_repair_10_6','ice_fortifier'),('sustain_growth_10_6','ice_pine'),
+                 ('sustain_rebuild_10_6','ice_bunker'),('sustain_mature_10_6','ice_pine')]
+        selection = [('normal:'+a,o) for a,o in pairs]
+        selection += [('sustain_repair_10_6','ice_fortifier'),('masked:sustain_growth_10_6','ice_pine'),
+                      ('normal:opening_10_6','ice_bunker')]
+        collection = selection
+        holdout = [(prefix+'opening_10_'+str(level),opponent)
+                   for prefix in ('normal:','','masked:')
+                   for level,opponent in ((5,'ice_fortifier'),(6,'ice_pine'),(7,'ice_bunker'))]
+        holdout += [('normal:'+a,o) for a,o in pairs]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout
@@ -147,7 +159,7 @@ def curriculum_templates(name):
 def draw_cases(templates, rng, seconds, long_seconds, curriculum):
     """Long matches expose delayed attacks; neither idle time nor wave count is a training reward."""
     return [(a,o,rng.randrange(2**30),
-             long_seconds if curriculum in ('openings','coached','abilities') or (curriculum in ('endurance','reserves')
+             long_seconds if curriculum in ('openings','coached','abilities','sustain') or (curriculum in ('endurance','reserves')
                              and (a.startswith('normal:') or 'banked' in a)) else seconds)
             for a,o in templates]
 
@@ -369,13 +381,13 @@ if __name__ == '__main__':
     parser.add_argument('--net-economy',action='store_true',help='Train net-ice accounting candidates; keep original scoring in incumbent/reference comparisons')
     parser.add_argument('--long-seconds',type=int,default=900)
     parser.add_argument('--reference-policy',type=Path,help='Keep an additional baseline in selection and independent release checks')
-    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings','coached','abilities'),default='balanced',
+    parser.add_argument('--curriculum',choices=('balanced','siege','endurance','reserves','openings','coached','abilities','sustain'),default='balanced',
                         help='Openings selects and gates full games; prebuilt positions are separate frozen diagnostics')
     parser.add_argument('--from-candidate',type=Path,help='Inherit prior policy parameters; all scores are measured again')
     parser.add_argument('--seed',type=int,default=None,help='Optional experiment seed; omitted uses recorded entropy')
     args = parser.parse_args()
     if (not 120 <= args.seconds <= 1200 or args.generations < 0 or not 120 <= args.long_seconds <= 1800
-            or (args.curriculum in ('endurance','reserves','openings','coached','abilities') and args.long_seconds < args.seconds)
+            or (args.curriculum in ('endurance','reserves','openings','coached','abilities','sustain') and args.long_seconds < args.seconds)
             or (args.state_only and (not args.state_model or args.restarts))
             or not 0 <= args.restarts <= args.population-2
             or (args.opponent_weight is not None and not 0 <= args.opponent_weight <= 100)

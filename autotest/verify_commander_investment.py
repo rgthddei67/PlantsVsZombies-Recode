@@ -14,6 +14,7 @@ for name in ('wide', 'narrow'):
     assert 0 < compare['cohortEvaluated'] <= compare['evaluated']
     assert abs(ice['searchPreferenceScore']) <= ice['searchFeatures'][5] * abs(ice['searchEffectiveWeights'][5]) * .25 + .01
     assert 'searchRawPreferenceScore' in ice
+    assert abs(ice['searchCapitalRiskAllowance'] - ice['commanderBudget'] * .35) < .01
     assert compare['bestBreach'] or not compare['baseBreach']
     assert (compare['bestBreach'] and not compare['baseBreach']) or compare['bestScore'] + .002 >= compare['baseScore']
     assert ice['planningApplied'] == 1 and not ice['planning']

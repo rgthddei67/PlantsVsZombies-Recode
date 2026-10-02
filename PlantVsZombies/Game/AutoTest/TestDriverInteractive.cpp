@@ -7,6 +7,7 @@
 #include "../Sun.h"
 #include "../Shovel.h"
 #include "Game/Plant/ColdPineapple.h"
+#include "Game/Plant/IceStorageNut.h"
 #include <filesystem>
 #include <stdexcept>
 
@@ -159,6 +160,13 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 			if (!plant || !plant->TryActivateManualAbility()) reason = "cold_pineapple_unavailable";
 			else Log("player activated cold pineapple");
 		}
+		else if (op == "player_activate_ice_storage_nut") {
+			auto* plant = dynamic_cast<IceStorageNut*>(scene->GetBoard()->GetNormalPlantAt(
+				command.at("row").get<int>(),command.at("col").get<int>()));
+			// 陪练与手动修复共用资格、冷却和原子付款；不直接加血或切换自动模式。
+			if (!plant || !plant->TryActivateManualAbility()) reason = "ice_storage_nut_unavailable";
+			else Log("player repaired ice storage nut");
+		}
 		else if (op == "player_plant") {
 			for (const char* key : {"slot", "row", "col"})
 				if (!command.at(key).is_number_integer()) throw std::runtime_error("plant_coordinates_must_be_integers");
@@ -207,7 +215,9 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
 				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
-				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs"}));
+				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
+				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",
+				"growthShots", "puffDamage", "shootIntervalMs"}));
 		}
 	}
 	// 冷却与资金由卡本身导出；legalCells 只说明当前地形/占位资格，不能代替交易时复核。

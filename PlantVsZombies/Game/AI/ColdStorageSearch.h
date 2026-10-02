@@ -218,6 +218,7 @@ struct Snapshot {
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
 	int budget = 0, capacity = 0;
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
+	float capitalRiskAllowance = (std::numeric_limits<float>::max)(); // 累计净亏损后的剩余风险额度，冰；未提供实际账本的夹具不启用
 	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
@@ -293,8 +294,11 @@ Weights AccountForIce(const Weights& conditioned);
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
-/** 大额采购须保留可续战资本；现金与幸存兵力计入本金回收，清场风险仍要求回本或突破。 */
-bool ShouldConserveCapital(const Result& result, int budget, int reserve);
+/** 用已注入资本及当前现金/付费兵力资产计算剩余试错额度，不把对方损失当作己方资本。 */
+float RemainingCapitalRisk(float fundedCapital, float currentCapital);
+/** 大额及累计亏损采购须保留可续战资本；新增现金与幸存兵力可回本，突破仍优先。 */
+bool ShouldConserveCapital(const Result& result, int budget, int reserve,
+	float riskAllowance = (std::numeric_limits<float>::max)());
 /** 有限步位置推演；两类 hold 秒数只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存来源。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0, float storedHoldSeconds = 0);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */

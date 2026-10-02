@@ -1280,6 +1280,7 @@ void Board::PlanColdStorageAttack(bool background)
 		}
 		for (const auto& blast : snapshot.pendingCobBlasts)
 			addCounter({PlantType::PLANT_COBCANNON,blast.targetRow,blast.x,blast.resolveSeconds,true,blast.radius,blast.rowRadius,blast.damage},source++,0,0,10000,false);
+		float currentCapital = static_cast<float>(s.enemyIce);
 		for (const auto& body : formation) search.current.push_back({body});
 		// 生产进度使用同一实体，不以成熟工人的默认第一批代替实际收入。
 		size_t index = 0;
@@ -1317,6 +1318,8 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
 				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
 			else unit.body.purchaseCost = 0; // 免费召唤仍有战斗威胁，但不能制造可回收的采购资产。
+			const float maximum = static_cast<float>(z.bodyMaxHealth+z.helmMaxHealth+z.shieldMaxHealth);
+			currentCapital += unit.body.purchaseCost*std::clamp(unit.body.health/std::max(1.0f,maximum),0.0f,1.0f);
 			if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity)) {
 				unit.productionRemaining = worker->GetIceRemaining(); unit.nextYield = worker->GetNextIceYield();
 				unit.productionStopHealth = entity->mBodyMaxHealth / 3;
@@ -1439,12 +1442,16 @@ void Board::PlanColdStorageAttack(bool background)
 			rift.column = pending.column; rift.remaining = pending.timer; search.rifts.push_back(std::move(rift));
 		}
 		for (const auto& paid : s.pending) {
+			currentCapital += paid.cost; // 已付款未出生的队员仍是完整资产，不能提前算作战损。
 			ColdStorageSearch::CommittedUnit committed;
 			committed.unit = static_cast<int>(search.current.size());
 			for (int row = 0; row < mRows; ++row) committed.legalRows[row] = IsSpawnRowCompatible(paid.type,row);
 			search.committed.push_back(committed);
 			search.current.push_back(purchaseUnit(paid.type,paid.row,paid.cost,paid.remaining));
 		}
+		// 钱包与在场/在途付费资产共同反映已兑现净亏损；该投影每次重采，无需新增存档状态。
+		search.capitalRiskAllowance=ColdStorageSearch::RemainingCapitalRisk(
+			static_cast<float>(s.initialEnemyIce)+s.supplied,currentCapital);
 		for (ZombieType type : mSpawnZombieList) {
 			if (!isUnlocked(type)) continue;
 			// 特殊能力的收益由真实对局训练的局势偏好补充，不排除支援或绕后兵种。
@@ -2075,6 +2082,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 		if (std::find(s.searchInstantCrushTypes.begin(),s.searchInstantCrushTypes.end(),type)==s.searchInstantCrushTypes.end()) s.searchInstantCrushTypes.push_back(type);
 	}
 	s.searchCapitalRejected = result.capitalRejected;
+	s.searchCapitalRiskAllowance=search.capitalRiskAllowance;
 	s.searchRepairOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.repair.interval > 0; }));
 	s.searchRepairPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& p) { return p.repairMaximum > 0; }));
 	s.searchArmorRepairs = result.construction.armorRepairs; s.searchPlantRepairs = result.construction.plantRepairs;

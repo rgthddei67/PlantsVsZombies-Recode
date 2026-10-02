@@ -4,7 +4,7 @@ namespace ColdStorageSearch {
 /** 含某兵种/行的完整候选统计；收益属于整案，不能视为这只单位的独立边际收益。 */
 struct CandidateStats {
 	int type = 0, row = 0, evaluated = 0, standalone = 0, allowed = 0;
-	int regroupRejected = 0, capitalRejected = 0, bestDenial = 0; // 0可接受、1低库存回报不足、2大额资本风险
+	int regroupRejected = 0, capitalRejected = 0, bestDenial = 0; // 0可接受、1低库存回报不足、2大额或累计资本风险
 	bool bestBreach = false;
 	float bestScore = 0, bestCash = 0, bestProduction = 0, bestCost = 0, bestBlastLoss = 0;
 	bool bestAllowedBreach = false;

@@ -1143,6 +1143,19 @@ int main()
 	check(!ShouldConserveCapital(capital,400,48),"a surviving breakthrough is not blocked by capital conservation");
 	capital.features[2] = 0; capital.features[5] = 24; capital.features[6] = 24;
 	check(!ShouldConserveCapital(capital,400,48),"small counter bait does not require immediate full payback");
+	// 连续小额亏损不能每次按当前钱包重新获得试错额度；账本盈利与有效在场资产可补回额度。
+	check(std::abs(RemainingCapitalRisk(1000,1000)-350)<.01f,"fresh treasury has bounded experimental loss capacity");
+	check(std::abs(RemainingCapitalRisk(1000,700)-50)<.01f,"realized loss consumes the cumulative allowance");
+	check(RemainingCapitalRisk(1000,600)==0,"successive small losses can exhaust the allowance before the wallet is empty");
+	check(RemainingCapitalRisk(1000,1200)>RemainingCapitalRisk(1000,1000),"earned cash and surviving paid assets replenish risk capacity");
+	check(ShouldConserveCapital(capital,400,48,0),"spent loss capacity blocks another individually small doomed purchase");
+	capital.features[3]=24;
+	check(!ShouldConserveCapital(capital,400,48,0),"a surviving frontline remains useful even without immediate production");
+	capital.features[3]=0; capital.features[4]+=24;
+	check(!ShouldConserveCapital(capital,400,48,0),"cash-profitable rebuilding remains possible with no remaining risk allowance");
+	capital.features[4]=600; capital.features[2]=1;
+	check(!ShouldConserveCapital(capital,400,48,0),"verified house breach is ahead of cumulative capital recovery");
+	capital.features[2]=0;
 	capital.features[5] = 180; capital.features[6] = 0;
 	check(ShouldConserveCapital(capital,200,48),"depleting the treasury needs incremental return even without ash");
 	capital.features[0] = 180;

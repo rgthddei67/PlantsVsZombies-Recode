@@ -109,7 +109,8 @@ struct ColdStorageState {
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
 	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家灰烬等待习惯，游戏秒，仅诊断
 	int searchBurstOptions = 0, searchAttackAuraCount = 0; // 当前能力投影数量，仅诊断
-	int searchGrowingPlants = 0, searchCapitalRejected = 0; // 成长火力来源和大额亏损候选淘汰数，仅诊断不入档
+	int searchGrowingPlants = 0, searchCapitalRejected = 0; // 成长火力来源和资金风险候选淘汰数，仅诊断不入档
+	float searchCapitalRiskAllowance = 0; // 根据实际净亏损/剩余付费资产计算的风险额度，冰；仅诊断不入档
 	std::vector<ZombieType> searchInstantCrushTypes; // 最优搜索快照中具备压扁预测的候选类型，仅诊断不入档
 	int searchMovementBoundsApplied = 0; // 最优案中使用出生移速范围的单位数，仅诊断不入档
 	int searchGoldenAccelerationSteps = 0, searchGoldenDrumSteps = 0, searchGoldenResidualSteps = 0, searchGoldenMaxStacks = 0; // 最优案中冰道协同实际生效统计，仅诊断不入档

@@ -3,6 +3,8 @@
 #include "Game/GameScene.h"
 #include "Game/SceneManager.h"
 #include "Game/Plant/ColdPineappleRules.h"
+#include "Game/Plant/IceStorageNutRules.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -11,12 +13,17 @@
 
 namespace {
 using Json = nlohmann::json;
+constexpr float kStoredWakeStake=4200; // 蓄爆陪练愿意唤醒毁灭的可见威胁总值，生命及猎工优先值
+constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像素；实际爆炸仍由正式实体结算
 /** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool pineElite = opponent == "pine_elite";
-	const bool planner = opponent == "planner" || pineElite;
+	const bool bunker = opponent == "ice_bunker";
+	const bool storageDefense = opponent == "ice_fortifier" || opponent == "ice_pine" || bunker;
+	const bool pineElite = opponent == "pine_elite" || opponent == "ice_pine" || bunker;
+	const bool planner = opponent == "planner" || pineElite || storageDefense;
+	const std::string wall = storageDefense ? "PLANT_ICESTORAGENUT" : "PLANT_WALLNUT";
 	const bool fortifier = opponent == "fortifier" || planner;
 	const bool lotusPlayer = opponent == "lotus" || fortifier;
 	const bool builder = opponent == "builder" || lotusPlayer;
@@ -48,6 +55,16 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			}
 		}
 	bool releasedLotus = false;
+	// 厚墙陪练只为完整缺血量付费修复，逐株预留真实冰费；不利用过量回执透支同一钱包。
+	if (storageDefense) for (const auto& p : state.at("plants"))
+		if (p.value("nutReady",false) && p.value("nutAffordable",false)
+			&& p.at("maxHealth").get<int>()-p.at("health").get<int>()>=IceStorageNutRules::kRepairHealth) {
+			const int cost=static_cast<int>(std::ceil(IceStorageNutRules::kRepairIce
+				/ (ice.value("discountRemainingMs",0)>0 ? static_cast<float>(ColdStorageSkillRules::DiscountDivisor) : 1.0f)));
+			if (stock<cost+defenseIceReserve) break;
+			actions.push_back({{"op","player_activate_ice_storage_nut"},{"row",p.at("row")},{"col",p.at("col")}});
+			stock-=cost;
+		}
 	// 菠萝只在九格内精英菇确有同行目标时付费增幅，保留近身反制的预算；不空场循环耗冰。
 	if (pineElite && stock >= ColdPineappleRules::kIceCost+defenseIceReserve) {
 		const Json* selected = nullptr; int bestTargets = 0;
@@ -116,7 +133,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		std::vector<std::pair<int,int>> walls;
 		for (const auto& z : zombies) if (z.at("xInt").get<int>() < 1050 && !plants.count({z.at("row"),6}))
 			walls.emplace_back(z.at("row"),6);
-		attempt("PLANT_WALLNUT", walls);
+		attempt(wall, walls);
 	}
 	// 全兵种训练配备实际对空卡，避免把“陪练根本不能打气球”误学成通用最优策略。
 	if (std::any_of(zombies.begin(), zombies.end(), [](const auto& z) { return z.at("type") == "ZOMBIE_BALLOON"; })) {
@@ -139,7 +156,9 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			const int x = state.at("cells").at(cell.first).at(cell.second).at("centerXInt");
 			if ((type == "PLANT_JALAPENO" && z.at("row") == cell.first)
 				|| (type == "PLANT_CHERRYBOMB" && std::abs(z.at("row").get<int>()-cell.first)<=1
-					&& std::abs(z.at("xInt").get<int>()-x)<=130)) health -= 1800;
+					&& std::abs(z.at("xInt").get<int>()-x)<=130)
+				|| (bunker && type=="PLANT_DOOMSHROOM" && (!p.value("sleeping",true) || p.value("wakeUpTimeMs",0)>0)
+					&& std::abs(z.at("row").get<int>()-cell.first)<=2 && std::abs(z.at("xInt").get<int>()-x)<=kStoredWakeReach)) health -= 1800;
 		}
 		return std::max(0,health);
 	};
@@ -161,6 +180,23 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	std::stable_sort(blastCells.begin(), blastCells.end(), [](auto a, auto b) { return a.first > b.first; });
 	std::vector<std::pair<int,int>> cells;
 	for (const auto& c : blastCells) cells.push_back(c.second);
+	// 蓄爆陪练用可见聚团择时唤醒预存毁灭；正在唤醒的同一株不会再次提交咖啡。
+	if (bunker) {
+		std::vector<std::pair<float,std::pair<int,int>>> wakeCells;
+		for (const auto& [cell,p]:plants) if (p.at("type")=="PLANT_DOOMSHROOM" && p.value("sleeping",false)
+			&& p.value("wakeUpTimeMs",0)==0) {
+			const float x=state.at("cells").at(cell.first).at(cell.second).at("centerXInt");
+			float value=0;
+			for (const auto& z:zombies) if (std::abs(z.at("row").get<int>()-cell.first)<=2
+				&& std::abs(z.at("xInt").get<float>()-x)<=kStoredWakeReach) value+=blastValue(z);
+			if (value>=kStoredWakeStake) wakeCells.push_back({value,cell});
+		}
+		std::stable_sort(wakeCells.begin(),wakeCells.end(),[](const auto& a,const auto& b){return a.first>b.first;});
+		std::vector<std::pair<int,int>> wake;
+		for (const auto& entry:wakeCells) wake.push_back(entry.second);
+		attempt("PLANT_INSTANT_COFFEE",wake);
+		if (planted) return actions; // 待下一次快照观察爆炸结果，再决定是否补交灰烬。
+	}
 	attempt("PLANT_CHERRYBOMB", cells);
 	if (counterplay) {
 		std::vector<std::pair<float,int>> lanes;
@@ -193,7 +229,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			const int r = z.at("row"), x = state.at("cells").at(r).at(c).at("centerXInt");
 			if (x < z.at("xInt").get<int>()-20 && !plants.count({r,c})) { cells.emplace_back(r,c); break; }
 		}
-		attempt("PLANT_WALLNUT",cells);
+		attempt(wall,cells);
 	}
 	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
 	// 上面的救险正常使用全部现金；仅后续可延后的建设受预留预算约束，不改玩家真实余额。
@@ -218,7 +254,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	const auto protectionCells = cells;
 	if (!adaptive) attempt("PLANT_PUMPKINSHELL", cells);
 	cells.clear(); for (int r : rows) if (!plants.count({r,6})) cells.emplace_back(r,6);
-	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt("PLANT_WALLNUT", cells);
+	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt(wall, cells);
 	int producers = 0;
 	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER") ++producers;
 	// 防守型陪练有基本经济后先补各路输出与后排保护，避免必须铺完经济才开始防守。
@@ -276,8 +312,14 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	cells.clear(); for (int r : rows) { cells.emplace_back(r,1); cells.emplace_back(r,2); }
 	attempt("PLANT_MELONPULT", cells);
 	if (adaptive) attempt("PLANT_PUMPKINSHELL", protectionCells);
+	if (bunker) {
+		cells.clear();
+		const bool stored=std::any_of(plants.begin(),plants.end(),[](const auto& entry){return entry.second.at("type")=="PLANT_DOOMSHROOM";});
+		if (!stored) for (int r:rows) cells.emplace_back(r,7);
+		attempt("PLANT_DOOMSHROOM",cells);
+	}
 	cells.clear(); for (int r : rows) cells.emplace_back(r,6);
-	attempt("PLANT_WALLNUT", cells);
+	attempt(wall, cells);
 	return actions;
 }
 }
@@ -290,7 +332,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
