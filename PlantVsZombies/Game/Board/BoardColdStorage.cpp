@@ -58,7 +58,7 @@ namespace {
 			maximum = std::max(maximum,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count());
 		}
 	};
-	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 650, 750, 850, 1000}; // 各关难度1初始敌方冰块；后段平滑增加，避免10-6库存突增
+	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 780, 900, 1020, 1200}; // 各关难度1初始敌方冰块；后段平滑增加，避免10-6库存突增
 	constexpr float kOpeningPreparationSeconds = 150.0f; // 选择准备支援后的首轮布阵时间，游戏秒；补给照常推进
 	constexpr double kOpeningCardRechargeMultiplier = 2.2; // 战前支援卡槽恢复速度提高120%，实际冷却除以2.2
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒

@@ -180,8 +180,8 @@ namespace {
 	constexpr int kIceExecutionerTutorialLevel = 61;       // 7-7 首次教学冰像处刑者的冒险关卡
 	constexpr int kIceExecutionerTutorialWave = 3;         // 7-7 第三波额外保底一只处刑者
 	constexpr int kEliteScaredyShroomPlantLimit = 4;      // 精英胆小菇基础累计种植上限；冷藏站支援由查询入口叠加
-	constexpr int kOpeningElitePlantLimit = 12;          // 10-6～10-7 名额支援后的累计种植上限，株
-	constexpr int kLateOpeningElitePlantLimit = 16;      // 10-8～10-9 与大混战名额支援后的累计种植上限，株
+	constexpr int kOpeningElitePlantLimit = 10;          // 10-6～10-7 名额支援后的累计种植上限，株
+	constexpr int kLateOpeningElitePlantLimit = 12;      // 10-8～10-9 与大混战名额支援后的累计种植上限，株
 	constexpr int kPumpkinProtectionCellRadius = 1;       // 南瓜头范围爆炸保护的逻辑格半径；1 表示自身九宫格
 	constexpr int kPumpkinAreaDamageMultiplier = 5;       // 特殊僵尸范围伤害被南瓜头拦截时的默认基础伤害倍率
 	constexpr int kMonteCarloMaxZombies = 16;             // 单个样本最多推进的当前敌方僵尸数
