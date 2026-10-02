@@ -164,7 +164,7 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 
 指挥官在自由变异搜索后，对所有可支付兵种覆盖合法路线，并探索任意类型的同路/分路、同时/错峰配对及优案扩展；候选生成不按经济、鼓手、适应头盔等角色筛选。所有候选使用同一能力推演，预测突破优先，同结果再比较净收益、植物损耗及资源压力。有限搜索不保证穷举或全局最优；每阶段预算见 `ColdStorageSearch.cpp`。`searchCombination` / 对局记录的 `combination` 导出路线与组合次数、比较前后评分及突破标记；升级时次数合计，分数对应最终阶段，突破优先可能让胜出案中间评分下降。精准清除也以任意合法类型探测跟进，不指定工人/肉盾模板。复用专项 `smoke_commander_investment.json` 和 `verify_commander_investment.py`。
 
-路线覆盖使用独立增援案，仍带入已有部队，避免绑定新购物车的亏损进攻。大额采购的新增清场损失按本次支出计算风险比例，现金回本和真实突破仍可放行。`searchUnitCandidates` 导出最终编队阶段、精准清除前的兵种/行比较次数、独立候选次数、资金拒绝原因及最佳允许评分；收益属于含此兵种的完整候选，不是单只单位的边际收益。后台 `planningDiscardReasons` 分别累计过期、局面变化、钱包变化、在途出生、护卫损失等原因，多原因可同时累计；`planningLastDiscardMask` 和 `planningLastAgeMs` 解释最近完成的检查。
+路线覆盖使用独立增援案，仍带入已有部队，避免绑定新购物车的亏损进攻。组合预算还会把各合法类型试入当前优案，比较同时和错峰增援，不指定工人或护卫。大额投入同时核对清场风险及普通火力下未回收的本金：增量现金和幸存部队可支持续战，单纯削血及对方资产损耗不能替大量损失的本金兜底，真实突破仍可放行。`searchUnitCandidates` 导出最终编队阶段、精准清除前的兵种/行比较次数、独立候选次数、资金拒绝原因及最佳允许评分；收益属于含此兵种的完整候选，不是单只单位的边际收益。后台 `planningDiscardReasons` 分别累计过期、局面变化、钱包变化、在途出生、护卫损失等原因，多原因可同时累计；`planningLastDiscardMask` 和 `planningLastAgeMs` 解释最近完成的检查。
 
 `commander_episode` 可显式指定 `sunRefillBelow` 和 `sunRefillTo`，模拟阳光低于或等于阈值时由外部工具再次补款。该夹具只影响测试玩家的钱包，不重置冷却、不补冰、不把未来补款告知 AI。结果的 `externalSun` 记录启用状态和每笔金额；此类压力结果必须单列，不能混入正常资源的训练胜率。省略字段则完全关闭。
 

@@ -268,7 +268,7 @@ Weights AccountForIce(const Weights& conditioned);
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
-/** 大额采购须以增量回报覆盖投入；高爆区风险仅接受可回本或突破的方案，不靠兵种偏好兜底。 */
+/** 大额采购须保留可续战资本；现金与幸存兵力计入本金回收，清场风险仍要求回本或突破。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve);
 /** 有限步位置推演；两类 hold 秒数只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存来源。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0, float storedHoldSeconds = 0);

@@ -49,7 +49,8 @@ constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
-constexpr float kCapitalBlastFraction = .35f; // 大额采购中新增爆区折损占本次支出此比例时，须以现金增量证明回本
+constexpr float kCapitalLossFraction = .35f; // 大额投入允许损失的本金比例；现金和存活部队以外的削血不算可续战资本
+constexpr float kReinforcementDelay = 6; // 通用增援的错峰对照间隔，游戏秒；给先行部队拉开承伤距离
 constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
 
 /** 采购先预留本案技能费；所有维修仍与部队、技能共用同一个钱包。 */
@@ -836,10 +837,13 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve) {
 	const float spent = std::max(0.0f,plan[5]-baseline[5]);
 	const float cash = plan[0]-baseline[0]+plan[4]-baseline[4];
 	const float blastLoss = std::max(0.0f,plan[6]-baseline[6]);
-	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能替新投资回本。
+	const float surviving = std::clamp(plan[3]-baseline[3],0.0f,spent);
+	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能冒充新增现金。
 	if (spent <= budget*kLargeInvestmentFraction && budget-spent >= reserve) return false;
 	// 风险属于新增投资本身；用整个钱包作分母，会让富裕时的大额送死方案逃过现金回本检查。
-	if (blastLoss > spent*kCapitalBlastFraction && cash < spent) return true;
+	// 普通火力打光部队同样会耗尽本金，不能只查灰烬；幸存兵力仍可推进和保护后续生产。
+	const float lostCapital = std::max(blastLoss,spent-cash-surviving);
+	if (lostCapital > spent*kCapitalLossFraction && cash < spent) return true;
 	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
 	return cash+plan[1]-baseline[1]+pressure < spent;
 }
@@ -1675,10 +1679,11 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			if (s.options[groups[a].front()].cost+s.options[groups[b].front()].cost <= PurchaseBudget(s))
 				pairs.emplace_back(a,b);
 	std::shuffle(pairs.begin(),pairs.end(),rng);
-	for (int trial=0; trial<kCombinationTrials && !pairs.empty(); ++trial) {
+	const int pairTrials = kCombinationTrials/2;
+	for (int trial=0; trial<pairTrials && !pairs.empty(); ++trial) {
 		auto plan = SampleCombination(s,groups,pairs[trial%pairs.size()],rng,trial<static_cast<int>(pairs.size()));
 		// 后续把任意配对试入搜索中的优案，可生成三种以上兵种并继续优化出生次序。
-		if (trial >= std::min(static_cast<int>(pairs.size()),kCombinationTrials/2) && trial%2 == 0) {
+		if (trial >= std::min(static_cast<int>(pairs.size()),pairTrials/2) && trial%2 == 0) {
 			auto expanded = elite[rng()%elite.size()].actions;
 			int cost = 0;
 			for (const auto& action : plan) cost += s.options[action.option].cost;
@@ -1694,6 +1699,21 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			plan = std::move(expanded);
 		}
 		compare(std::move(plan)); ++combinationEvaluated;
+	}
+	// 独立单兵与随机配对不能保证试到“给本案的前排补后续支援”。分出原有组合预算，
+	// 轮流给各合法类型试入当前优案；同时/错峰、换兵/增兵都使用相同预测和门禁。
+	for (int pass=0; pass<2 && combinationEvaluated<kCombinationTrials && !best.actions.empty(); ++pass) {
+		for (const auto& group : groups) {
+			if (combinationEvaluated >= kCombinationTrials) break;
+			std::array<int,6> rowCounts{};
+			for (const auto& action : best.actions) ++rowCounts[s.options[action.option].row];
+			const int row = static_cast<int>(std::max_element(rowCounts.begin(),rowCounts.end())-rowCounts.begin());
+			const auto sameRow = std::find_if(group.begin(),group.end(),[&](int option){return s.options[option].row==row;});
+			const int option = sameRow==group.end() ? group.front() : *sameRow;
+			auto plan = IntroduceOption(s,best.actions,option,rng);
+			plan.back().delay = pass==0 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
+			compare(std::move(plan)); ++combinationEvaluated;
+		}
 	}
 	const float combinationBestScore = best.score;
 	const bool combinationBestBreach = best.features[2] > 0;

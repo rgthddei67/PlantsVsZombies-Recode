@@ -1157,6 +1157,19 @@ int main()
 	check(!ShouldConserveCapital(humanBurst,762,48),"the same high-risk investment is allowed when incremental cash actually covers it");
 	humanBurst.features[4]=18; humanBurst.features[2]=1;
 	check(!ShouldConserveCapital(humanBurst,762,48),"a real breakthrough remains exempt from the cash-risk gate");
+	// 第二局头盔团的普通火力损失较低于灰烬门槛，但本金无法续战；纸面削血不能兜底。
+	Result helmetBurst; helmetBurst.actions.assign(34,{0,0});
+	helmetBurst.features={159,161.1876068f,0,0,0,492,100.5600357f,0};
+	helmetBurst.baselineFeatures={12,13.015625f,0,0,0,0,45.7583313f,0};
+	helmetBurst.opponentScore=1015.5070801f;
+	helmetBurst.baselineOpponentAssets=4274.7001953f; helmetBurst.opponentAssets=3259.1931152f;
+	check(ShouldConserveCapital(helmetBurst,789,48),"logged helmet burst cannot finance ordinary-fire capital loss with opponent attrition");
+	helmetBurst.features[3]=200;
+	check(!ShouldConserveCapital(helmetBurst,789,48),"surviving frontline can justify the same investment without forcing immediate cash payback");
+	helmetBurst.features[3]=0; helmetBurst.features[4]=492;
+	check(!ShouldConserveCapital(helmetBurst,789,48),"production that actually repays the investment remains allowed");
+	helmetBurst.features[4]=0; helmetBurst.features[2]=1;
+	check(!ShouldConserveCapital(helmetBurst,789,48),"winning ordinary-fire attack remains ahead of capital recovery");
 	Snapshot cashSearch; cashSearch.searchVersion = 2; cashSearch.netEconomy = true;
 	cashSearch.budget = 400; cashSearch.capacity = 64; cashSearch.recoveryReserve = 48;
 	Option speculative; speculative.cost = 24; speculative.preference[0] = 500;
@@ -1635,6 +1648,34 @@ int main()
 			"candidate outcome counters reconcile without duplicate same-type same-row counting");
 	}
 	std::cout << "Standalone reinforcement, splash exposure and candidate rejection accounting passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	// 能力由选项自身提供：没有经济/护卫类型名单，大池中的后续支援仍须评估实际生存收益。
+	Snapshot s; s.houseX=-10000; s.budget=96; s.capacity=5; s.netEconomy=true;
+	Plant fire; fire.x=300; fire.health=100000; fire.dps=160; fire.edible=false; s.plants={fire};
+	Option front; front.type=921; front.cost=12; front.unit.body.x=800;
+	front.unit.body.health=3200; front.unit.body.purchaseCost=12;
+	front.preference[0]=20; s.options={front};
+	for (int type=0; type<12; ++type) {
+		auto fragile=front; fragile.type=1000+type; fragile.unit.body.health=50; fragile.preference={};
+		s.options.push_back(fragile);
+	}
+	Option producer; producer.type=1917; producer.cost=24; producer.unit.body.x=920;
+	producer.unit.body.health=500; producer.unit.body.purchaseCost=24; producer.unit.body.economic=true;
+	s.options.push_back(producer); Weights income{}; income[4]=1;
+	check(Evaluate(s,{{13,0}})[4]==0 && Evaluate(s,{{0,0},{13,6}})[4]>producer.cost,
+		"unprotected support loses its investment while delayed support can produce behind the selected frontline");
+	for (unsigned seed=1; seed<=16; ++seed) {
+		const auto result=Search(s,income,seed);
+		check(result.features[4]>producer.cost && std::any_of(result.actions.begin(),result.actions.end(),[](const auto& action){return action.option==13;}),
+			"generic reinforcement finds profitable support in an attack plan without a predefined pairing");
+		check(result.combinationEvaluated<=80 && result.features[5]<=s.budget,
+			"reinforcement shares the existing combination budget and respects the actual wallet");
+	}
+	s.plants[0].dps=100000;
+	check(Search(s,income,19).features[4]==0,"unprotectable reinforcement does not invent production to force an economic purchase");
+	std::cout << "Generic followup support, ordinary-fire capital risk and fixed search budget passed\n";
 	}
 
 }
