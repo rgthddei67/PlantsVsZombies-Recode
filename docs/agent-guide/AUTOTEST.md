@@ -21,7 +21,7 @@
 
 真人游玩可用 `human_cold_storage_10_1.json`：`interactive: true` 配合 `humanObservation: true` 让场景正常连续推进，停在选卡页交给主人操作。信箱只接受观察、截图和退出，拒绝 `advance` 与代玩操作；每秒及决策/胜负变化时，向该会话的 `observations.jsonl` 追加局面、收支、卡牌和预测记录。普通步进信箱行为不变。记录写盘失败会标记 `humanRecordingFailed` 并停止采样，不关闭主人的游戏。真人运行不指定启动种子，音效沿用普通 AutoTest 默认值；玩家存档仍不写入。
 
-冷藏站战前支援专项显式设置根字段 `coldStorageBonusSelection: true`，真人观察默认开启；普通专项和训练自动选择无增益，避免改变既有陪练基线。`cold_storage_bonus_pick` 的 `choice=0..3` 与正式按钮共用单次提交入口，可用 `expectedSuccess=false` 验证重复领取被拒绝；UI 验收仍走真实 `click`。`coldStorage.openingBonus`、`coldStorageBonusSelectActive`、`eliteScaredyShroomPlantLimit` 和 `plantCardRechargeMultiplier` 导出已选效果、模态状态、累计上限与真实卡槽计时速度，专项入口为 `smoke_cold_storage_opening_bonus.json`。
+冷藏站／大混战战前支援专项显式设置根字段 `coldStorageBonusSelection: true`，真人观察默认开启；普通专项和训练自动选择无增益，避免改变既有陪练基线。`cold_storage_bonus_pick` 的 `choice=0..3` 与正式按钮共用三选二提交入口（0放弃所有支援，第一项不生效，第二项完成后一起生效），可用 `expectedSuccess=false` 验证重复领取被拒绝；UI 验收仍走真实 `click`。`coldStorage.openingBonusMask`、`coldStorage.openingBonusSelectionComplete`、`coldStorageBonusSelectActive`、`eliteScaredyShroomPlantLimit` 和 `plantCardRechargeMultiplier` 导出已选效果、模态状态、累计上限与真实卡槽计时速度，专项入口为 `smoke_cold_storage_opening_bonus.json`。
 
 `human_observation_contract.json` 配合 `python autotest/verify_human_observation.py` 验证无需 advance 即自然推进、信箱不能代玩以及记录留存。
 

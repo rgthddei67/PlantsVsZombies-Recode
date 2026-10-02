@@ -220,10 +220,14 @@ public:
 	float mColdStoragePlanningAt = 0;
 	int mColdStoragePlanningVersion = 1;
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
-	/** 仅冒险 10-6～10-9 的新局可选支援，不扩展到生存或大混战。 */
+	/** 冒险 10-6～10-9 和小游戏大混战的新局可选支援；不扩展到生存。 */
 	bool SupportsColdStorageOpeningBonus() const;
 	bool NeedsColdStorageOpeningBonus() const;
-	/** 选卡前一次性提交；0 为无增益，1～3 对应名额、准备时间、卡槽冷却。 */
+	/** 已选项查询包含未完成的第一项，供选择窗口显示；未完成时不提供玩法效果。 */
+	bool IsColdStorageOpeningBonusChosen(ColdStorageOpeningBonus bonus) const;
+	int GetColdStorageOpeningBonusSelectionCount() const;
+	bool HasColdStorageOpeningBonus(ColdStorageOpeningBonus bonus) const;
+	/** 选卡前选两个不同支援才提交生效；0 放弃所有支援，1～3 为名额、准备、冷却。 */
 	bool SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus);
 	/** 卡槽冷却计时速度，合并生存词条和单局支援；实体技能不读取此倍率。 */
 	double GetPlantCardRechargeMultiplier() const;
@@ -1631,6 +1635,8 @@ public:
 	/** 返回升级卡等额外在场种植前提是否满足；普通植物恒为 true。 */
 	bool HasPlantingRequirement(PlantType type) const;
 	int GetEliteScaredyShroomPlantLimit() const;
+	/** 当前关卡选择名额支援后的累计上限，同时用于正式种植与战前说明。 */
+	int GetColdStorageOpeningElitePlantLimit() const;
 	int GetEliteScaredyShroomsPlanted() const { return mEliteScaredyShroomsPlanted; }
 	/** 返回格子最上层战斗目标：南瓜层、普通层、承载层依次优先；铲子另按点击区域选层。 */
 	Plant* GetTopPlantAt(int row, int col) const;

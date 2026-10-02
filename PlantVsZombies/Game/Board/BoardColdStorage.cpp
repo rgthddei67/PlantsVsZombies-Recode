@@ -59,8 +59,8 @@ namespace {
 		}
 	};
 	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 650, 750, 850, 1000}; // 各关难度1初始敌方冰块；后段平滑增加，避免10-6库存突增
-	constexpr float kOpeningPreparationBonus = 60.0f; // 战前支援额外布阵时间，游戏秒；补给照常推进
-	constexpr double kOpeningCardRechargeMultiplier = 2.0; // 战前支援卡槽计时速度，实际冷却减半
+	constexpr float kOpeningPreparationSeconds = 150.0f; // 选择准备支援后的首轮布阵时间，游戏秒；补给照常推进
+	constexpr double kOpeningCardRechargeMultiplier = 2.2; // 战前支援卡槽恢复速度提高120%，实际冷却除以2.2
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
 	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
 	constexpr int kLargeOrderSun = 225; // 大额购冰的阳光价格，同时供双方资产预测折算
@@ -477,28 +477,57 @@ bool Board::CanAffordPlantIce(PlantType type) const
 
 bool Board::SupportsColdStorageOpeningBonus() const
 {
-	return IsColdStorage() && !mIsSurvival && !MiniGame::IsBrawl(mLevel) && mLevel >= 87 && mLevel <= 90;
+	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || (mLevel >= 87 && mLevel <= 90));
 }
 
 bool Board::NeedsColdStorageOpeningBonus() const
 {
-	return SupportsColdStorageOpeningBonus() && mColdStorage.openingBonus == ColdStorageOpeningBonus::UNSELECTED;
+	return SupportsColdStorageOpeningBonus() && !mColdStorage.openingBonusSelectionComplete;
+}
+
+bool Board::IsColdStorageOpeningBonusChosen(ColdStorageOpeningBonus bonus) const
+{
+	return bonus >= ColdStorageOpeningBonus::ELITE_QUOTA && bonus <= ColdStorageOpeningBonus::CARD_RECHARGE
+		&& (mColdStorage.openingBonusMask & (1 << (static_cast<int>(bonus) - 1))) != 0;
+}
+
+int Board::GetColdStorageOpeningBonusSelectionCount() const
+{
+	return static_cast<int>(IsColdStorageOpeningBonusChosen(ColdStorageOpeningBonus::ELITE_QUOTA))
+		+ static_cast<int>(IsColdStorageOpeningBonusChosen(ColdStorageOpeningBonus::PREPARATION))
+		+ static_cast<int>(IsColdStorageOpeningBonusChosen(ColdStorageOpeningBonus::CARD_RECHARGE));
+}
+
+bool Board::HasColdStorageOpeningBonus(ColdStorageOpeningBonus bonus) const
+{
+	return SupportsColdStorageOpeningBonus() && mColdStorage.openingBonusSelectionComplete
+		&& IsColdStorageOpeningBonusChosen(bonus);
 }
 
 bool Board::SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus)
 {
 	if (!NeedsColdStorageOpeningBonus() || mBoardState != BoardState::CHOOSE_CARD
 		|| bonus < ColdStorageOpeningBonus::NONE || bonus > ColdStorageOpeningBonus::CARD_RECHARGE) return false;
-	mColdStorage.openingBonus = bonus;
-	// 一次性增加首轮计时；读档只恢复剩余值，不能再领取准备时间。
-	if (bonus == ColdStorageOpeningBonus::PREPARATION) mColdStorage.decisionRemaining += kOpeningPreparationBonus;
+	if (bonus == ColdStorageOpeningBonus::NONE) {
+		mColdStorage.openingBonusMask = 0;
+		mColdStorage.openingBonusSelectionComplete = true;
+		return true;
+	}
+	if (IsColdStorageOpeningBonusChosen(bonus) || GetColdStorageOpeningBonusSelectionCount() >= 2) return false;
+	mColdStorage.openingBonusMask |= 1 << (static_cast<int>(bonus) - 1);
+	if (GetColdStorageOpeningBonusSelectionCount() == 2) {
+		mColdStorage.openingBonusSelectionComplete = true;
+		// 整组选完才应用准备时间；重复点击、读档和第一项后放弃均不会额外延长。
+		if (HasColdStorageOpeningBonus(ColdStorageOpeningBonus::PREPARATION))
+			mColdStorage.decisionRemaining = kOpeningPreparationSeconds;
+	}
 	return true;
 }
 
 double Board::GetPlantCardRechargeMultiplier() const
 {
-	const double support = SupportsColdStorageOpeningBonus()
-		&& mColdStorage.openingBonus == ColdStorageOpeningBonus::CARD_RECHARGE ? kOpeningCardRechargeMultiplier : 1.0;
+	const double support = HasColdStorageOpeningBonus(ColdStorageOpeningBonus::CARD_RECHARGE)
+		? kOpeningCardRechargeMultiplier : 1.0;
 	return mPerkManager.GetPlantCardRechargeMultiplier() * support;
 }
 
@@ -507,7 +536,7 @@ void Board::InitializeColdStorage()
 	if (!IsColdStorage()) return;
 	mColdStoragePlanner.reset();
 	mColdStorage = {};
-	if (SupportsColdStorageOpeningBonus()) mColdStorage.openingBonus = ColdStorageOpeningBonus::UNSELECTED;
+	if (SupportsColdStorageOpeningBonus()) mColdStorage.openingBonusSelectionComplete = false;
 	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
@@ -2125,7 +2154,7 @@ void Board::UpdateColdStorage(float dt)
 nlohmann::json Board::SaveColdStorage() const
 {
 	const auto& s = mColdStorage;
-	nlohmann::json j{{"openingBonus",static_cast<int>(s.openingBonus)},
+	nlohmann::json j{{"openingBonusMask",s.openingBonusMask},{"openingBonusSelectionComplete",s.openingBonusSelectionComplete},
 		{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
@@ -2167,8 +2196,14 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	};
 	auto& s = mColdStorage;
 	// 旧档沿用无增益与原钱包；新档未选择时才重新打开战前窗口。
-	s.openingBonus = SupportsColdStorageOpeningBonus()
-		? static_cast<ColdStorageOpeningBonus>(integer("openingBonus", 0, -1, 3)) : ColdStorageOpeningBonus::NONE;
+	s.openingBonusMask = SupportsColdStorageOpeningBonus() ? integer("openingBonusMask", 0, 0, 7) : 0;
+	s.openingBonusSelectionComplete = !SupportsColdStorageOpeningBonus() || j.value("openingBonusSelectionComplete", true);
+	// 新局只允许两项；损坏位图不制造三重增益。旧档已完成的单选仍保留，不重新领取。
+	if (GetColdStorageOpeningBonusSelectionCount() > 2) s.openingBonusMask = 0;
+	if (mBoardState != BoardState::CHOOSE_CARD && !s.openingBonusSelectionComplete) {
+		s.openingBonusMask = 0;
+		s.openingBonusSelectionComplete = true;
+	}
 	s.playerIce = integer("playerIce", 200, 0, kMaxIce);
 	s.enemyIce = integer("enemyIce", s.enemyIce, 0, kMaxIce);
 	s.initialEnemyIce = integer("initialEnemyIce", s.initialEnemyIce, 1, kMaxIce);
@@ -2176,7 +2211,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.orderIce = integer("orderIce", 0, 0, 100);
 	s.orderRemaining = seconds("orderRemaining", 0, 10);
 	s.supplyRemaining = seconds("supplyRemaining", 30, 30);
-	s.decisionRemaining = seconds("decisionRemaining", 12, 45 + kOpeningPreparationBonus);
+	s.decisionRemaining = seconds("decisionRemaining", 12, kOpeningPreparationSeconds);
 	s.elapsed = seconds("elapsed", 0, 10000000);
 	s.discountRemaining = seconds("discountRemaining", 0, ColdStorageSkillRules::DiscountDuration);
 	s.strikeCooldownRemaining = seconds("strikeCooldownRemaining", 0, ColdStorageSkillRules::StrikeCooldown);

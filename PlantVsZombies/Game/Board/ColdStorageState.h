@@ -28,12 +28,13 @@ struct ColdStorageCashFlow {
 /** 训练用实际产冰事件；批次排除后来工人的收入，不参与钱包或存档。 */
 struct ColdStorageProductionEvent { float at = 0; int wave = 0, amount = 0; };
 
-/** 单局战前支援；稳定值入档，未选择与主动放弃必须区分。 */
-enum class ColdStorageOpeningBonus { UNSELECTED = -1, NONE = 0, ELITE_QUOTA = 1, PREPARATION = 2, CARD_RECHARGE = 3 };
+/** 战前支援按钮的稳定身份；组合按 1 << (身份 - 1) 入档。 */
+enum class ColdStorageOpeningBonus { NONE = 0, ELITE_QUOTA = 1, PREPARATION = 2, CARD_RECHARGE = 3 };
 
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
-	ColdStorageOpeningBonus openingBonus = ColdStorageOpeningBonus::NONE;
+	int openingBonusMask = 0; // 已选支援位图；选择中的第一项尚不生效
+	bool openingBonusSelectionComplete = true; // 区分尚待三选二和主动无增益，也兼容旧档单选
 	std::uint64_t nextTicket = 0;
 	bool planning = false; // 后台计算尚未领取；不入档、不代表已付款
 	int planningStarted = 0, planningApplied = 0, planningDiscarded = 0;

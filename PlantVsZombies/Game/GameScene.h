@@ -93,7 +93,7 @@ public:
 	float GetRoofRainBackgroundAlpha() const;
 
 	void ChooseCardComplete();  // 选卡完成
-	/** 战前支援选择与按钮回调共用入口；拒绝重复选择或战斗中改选。 */
+	/** 战前支援与按钮回调共用入口；第一项刷新窗口，第二项结束选择，拒绝重复或战斗中改选。 */
 	bool ApplyColdStorageOpeningBonus(int choice);
 	bool IsColdStorageBonusSelectActive() const { return mColdStorageBonusSelectActive; }
 
@@ -410,7 +410,7 @@ private:
 
 	/** 打开暂停父菜单；确认按钮在其上追加子弹窗。 */
 	void OpenMenu();
-	/** 场景挂接后、选卡演出前创建本关固定三选一模态框。 */
+	/** 场景挂接后、选卡演出前创建或刷新固定三选二模态框。 */
 	void BeginColdStorageOpeningBonusSelect();
 	/** 追加重开确认，取消时保留父菜单与暂停状态。 */
 	void OpenRestartMenu();

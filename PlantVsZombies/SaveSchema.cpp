@@ -400,6 +400,19 @@ namespace {
 				version = 20;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 20:
+				// v21 支援组合和完成状态；旧单选保留，不能把冷却编号3误解为两项位图。
+				if (kind == DocumentKind::Level && upgraded.contains("coldStorage")
+					&& upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					auto& ice = upgraded["coldStorage"];
+					const int choice = ice.value("openingBonus", 0);
+					ice["openingBonusMask"] = choice >= 1 && choice <= 3 ? 1 << (choice - 1) : 0;
+					ice["openingBonusSelectionComplete"] = choice != -1;
+					ice.erase("openingBonus");
+				}
+				version = 21;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

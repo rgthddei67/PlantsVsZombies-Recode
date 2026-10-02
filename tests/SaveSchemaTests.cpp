@@ -673,12 +673,24 @@ int main() {
 		std::string error;
 		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error),"旧档可迁移战前支援");
 		const auto& ice = oldLevel["coldStorage"];
-		Expect(ice["openingBonus"]==0,"旧局默认无增益，不重新领取战前支援");
+		Expect(ice["openingBonusMask"]==0 && ice["openingBonusSelectionComplete"]==true,"旧局默认无增益，不重新领取战前支援");
 		Expect(ice["enemyIce"]==1500 && ice["playerIce"]==42 && ice["decisionRemaining"]==33.0f
 			&& ice["strikeTargetID"]==12,"支援迁移保留钱包、准备时间和在途技能");
-		oldLevel["coldStorage"]["openingBonus"] = 2;
-		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error) && oldLevel["coldStorage"]["openingBonus"]==2,
+		oldLevel["coldStorage"]["openingBonusMask"] = 3;
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error) && oldLevel["coldStorage"]["openingBonusMask"]==3,
 			"新档迁移不覆盖已选择的支援");
+	}
+	{
+		for (int choice = -1; choice <= 3; ++choice) {
+			nlohmann::json previous = {{"schemaVersion",20},{"coldStorage",{{"openingBonus",choice},
+				{"decisionRemaining",91.0f},{"enemyIce",850}}}};
+			std::string error;
+			Expect(SaveSchema::UpgradeLevelDocument(previous,error),"单选支援可升级为组合存档");
+			const auto& ice = previous["coldStorage"];
+			Expect(ice["openingBonusMask"] == (choice > 0 ? 1 << (choice - 1) : 0)
+				&& ice["openingBonusSelectionComplete"] == (choice != -1),"旧单选不误发第二项或第三项");
+			Expect(ice["decisionRemaining"]==91.0f && ice["enemyIce"]==850,"单选迁移不重置准备时间或资源");
+		}
 	}
 	TestCurrentPlayerDocumentIsStable();
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();

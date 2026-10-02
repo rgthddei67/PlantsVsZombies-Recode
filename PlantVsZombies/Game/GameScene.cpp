@@ -2278,7 +2278,8 @@ void GameScene::OpenQuitMenu()
 
 void GameScene::Update() {
 	// OnEnter 中 SceneManager 尚未挂接新场景；首个 Update 才可由 Builder 找到正确 UIManager。
-	if (mBoard && mBoard->mBoardState == BoardState::CHOOSE_CARD && mBoard->NeedsColdStorageOpeningBonus())
+	if (!mColdStorageBonusSelectActive && mBoard && mBoard->mBoardState == BoardState::CHOOSE_CARD
+		&& mBoard->NeedsColdStorageOpeningBonus())
 		BeginColdStorageOpeningBonusSelect();
 	if (mColdStorageBonusSelectActive) {
 		Scene::Update();
@@ -2643,29 +2644,34 @@ void GameScene::ShowSunCount()
 
 void GameScene::BeginColdStorageOpeningBonusSelect()
 {
-	if (mColdStorageBonusSelectActive || !mBoard || !mBoard->NeedsColdStorageOpeningBonus()) return;
-	mColdStorageBonusSelectActive = true;
-	mColdStorageBonusPreviousPaused = DeltaTime::IsPaused();
-	DeltaTime::SetPaused(true);
-	const int extra = mBoard->mLevel >= 89 ? 6 : 4;
+	if (!mBoard || !mBoard->NeedsColdStorageOpeningBonus()) return;
+	if (!mColdStorageBonusSelectActive) {
+		mColdStorageBonusSelectActive = true;
+		mColdStorageBonusPreviousPaused = DeltaTime::IsPaused();
+		DeltaTime::SetPaused(true);
+	}
+	// 第一项后原地重建；旧框由 UIManager 遍历后释放，暂停所有权始终留在选择流程中。
+	if (auto box = mColdStorageBonusBox.lock()) box->Close();
 	const glm::vec4 titleColor{245, 214, 127, 255};
 	const glm::vec4 textColor{235, 235, 220, 255};
 	GameMessageBox::Builder builder{Vector(SCENE_WIDTH / 2.0f, SCENE_HEIGHT / 2.0f)};
 	builder.Panel(860, 450)
 		.Text(Vector(410, 100), 28, u8"选择战前支援", titleColor)
-		.Text(Vector(160, 145), 18, u8"三选一，仅本关有效。选好支援后再搭配卡牌。", textColor);
+		.Text(Vector(160, 145), 18, u8"三选二，仅本关有效。已选 "
+			+ std::to_string(mBoard->GetColdStorageOpeningBonusSelectionCount()) + u8" / 2 项，选完后搭配卡牌。", textColor);
 	const std::array<std::string, 3> titles{
 		u8"扩充精英胆小菇名额", u8"延长开局准备", u8"卡牌快速冷却"};
 	const std::array<std::string, 3> descriptions{
-		u8"累计种植上限 4 → " + std::to_string(4 + extra) + u8" 株；种植费用照常支付。",
-		u8"首波进攻延后 60 秒：准备时间 45 → 105 秒。",
-		u8"所有卡槽冷却减半，含模仿者与冰惠券；植物自身技能不变。"};
+		u8"累计种植上限 4 → " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + u8" 株；种植费用照常支付。",
+		u8"首次进攻推迟到开战后 150 秒，补给照常进行。",
+		u8"卡槽恢复速度 +120%（冷却÷2.2），含模仿者与冰惠券。"};
 	for (int i = 0; i < 3; ++i) {
 		const float y = 185.0f + i * 80.0f;
+		const bool chosen = mBoard->IsColdStorageOpeningBonusChosen(static_cast<ColdStorageOpeningBonus>(i + 1));
 		builder.Text(Vector(160, y), 24, titles[i], titleColor)
 			.Text(Vector(160, y + 32), 17, descriptions[i], textColor)
-			.Button(u8"选择", Vector(820, y + 3), Vector(120, 44), 20,
-				[this, i]() { ApplyColdStorageOpeningBonus(i + 1); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+			.Button(chosen ? u8"已选择" : u8"选择", Vector(820, y + 3), Vector(120, 44), 20,
+				[this, i]() { ApplyColdStorageOpeningBonus(i + 1); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false, !chosen);
 	}
 	builder.Button(u8"无增益挑战", Vector(455, 460), Vector(190, 44), 20,
 		[this]() { ApplyColdStorageOpeningBonus(0); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false);
@@ -2676,6 +2682,10 @@ bool GameScene::ApplyColdStorageOpeningBonus(int choice)
 {
 	if (choice < 0 || choice > 3 || !mBoard
 		|| !mBoard->SelectColdStorageOpeningBonus(static_cast<ColdStorageOpeningBonus>(choice))) return false;
+	if (mBoard->NeedsColdStorageOpeningBonus()) {
+		BeginColdStorageOpeningBonusSelect();
+		return true;
+	}
 	if (auto box = mColdStorageBonusBox.lock()) box->Close();
 	mColdStorageBonusBox.reset();
 	const bool hadSelection = mColdStorageBonusSelectActive;

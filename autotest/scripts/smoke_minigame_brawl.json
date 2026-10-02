@@ -51,13 +51,15 @@
     {"op":"dump_state","name":"ai_decision.json"},
     {"op":"screenshot","name":"03_battle.png"},
     {"op":"set_spawn_paused","value":true},
-    {"op":"set_cold_storage","state":{"pending":[],"enemyIce":850,"decisions":10}},
-    {"op":"queue_ice_zombie","type":"ZOMBIE_REDEYE_GARGANTUAR","row":0,"expectedSuccess":false},
-    {"op":"set_cold_storage","state":{"decisions":11}},
-    {"op":"queue_ice_zombie","type":"ZOMBIE_REDEYE_GARGANTUAR","row":0},
+    {"op":"set_cold_storage","state":{"pending":[],"enemyIce":850,"decisions":18}},
     {"op":"queue_ice_zombie","type":"ZOMBIE_GARGANTUAR","row":0,"expectedSuccess":false},
-    {"op":"set_cold_storage","state":{"pending":[],"enemyIce":850,"decisions":14}},
+    {"op":"set_cold_storage","state":{"decisions":19}},
     {"op":"queue_ice_zombie","type":"ZOMBIE_GARGANTUAR","row":0},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_REDEYE_GARGANTUAR","row":0,"expectedSuccess":false},
+    {"op":"set_cold_storage","state":{"pending":[],"enemyIce":850,"decisions":28}},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_REDEYE_GARGANTUAR","row":0,"expectedSuccess":false},
+    {"op":"set_cold_storage","state":{"decisions":29}},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_REDEYE_GARGANTUAR","row":0},
     {"op":"quit"}
   ]
 }
