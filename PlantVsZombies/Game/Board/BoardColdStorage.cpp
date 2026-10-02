@@ -293,6 +293,7 @@ namespace {
 	{
 		using P = PlantType;
 		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
+		plant.eliteQuota = type == P::PLANT_ELITE_SCAREDYSHROOM;
 		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
 		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
 		if (plant.melon)
@@ -1099,6 +1100,9 @@ void Board::PlanColdStorageAttack(bool background)
 		search.pendingPrecisionID = std::max(0,s.strikeTargetID);
 		search.pendingPrecisionRemaining = s.strikeAimRemaining;
 		search.discountRemaining = s.discountRemaining;
+		search.interferenceAvailable = SupportsTemporalInterference();
+		search.interferenceRemaining = s.interferenceRemaining;
+		search.interferenceReady = s.interferenceCooldownRemaining;
 		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X;
 		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
@@ -1211,8 +1215,9 @@ void Board::PlanColdStorageAttack(bool background)
 					future.ready = (card->GetCooldownTimer() / cardRecharge); future.recharge = (card->GetCooldownTime() / cardRecharge);
 					future.firstSunDelay = profile.firstSunDelay;
 					if (type == PlantType::PLANT_ELITE_SCAREDYSHROOM) {
-						future.remainingUses = std::max(0,GetEliteScaredyShroomPlantLimit()-GetEliteScaredyShroomsPlanted());
+						future.remainingUses = std::max(0,GetEliteScaredyShroomTotalPlantLimit()-GetEliteScaredyShroomsPlanted());
 						future.quotaGroup = 0; // 本卡和模仿者共享本关累计名额。
+						future.simultaneousLimit = GetEliteScaredyShroomPlantLimit();
 					}
 					auto& p = future.plant;
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
@@ -2186,7 +2191,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchClockRewinds = result.construction.clockRewinds; s.searchClockRevivals = result.construction.clockRevivals;
 	s.searchClockRedirects = result.construction.clockRedirects;
 	s.searchEliteReplacementOptions = static_cast<int>(std::count_if(search.construction.begin(),search.construction.end(),[](const auto& card) { return card.quotaGroup == 0; }));
-	s.searchEliteRemainingUses = std::max(0,GetEliteScaredyShroomPlantLimit()-GetEliteScaredyShroomsPlanted());
+	s.searchEliteRemainingUses = std::max(0,GetEliteScaredyShroomTotalPlantLimit()-GetEliteScaredyShroomsPlanted());
 	s.searchAdaptationOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.adaptiveHelmet > 0; }));
 	s.searchRitualOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.ritual.present; }));
 	s.searchRitualReleases = result.construction.ritualReleases; s.searchRiftSummons = result.construction.riftSummons;
@@ -2229,6 +2234,9 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	mix(mEntityRegistry.GetNextPlantID());
 	// 全场费用规则或已承诺的清除目标改变时，后台旧局面不能继续提交。
 	mix(mColdStorage.discountRemaining > 0);
+	mix(mColdStorage.interferenceRemaining > 0);
+	mix(mColdStorage.interferenceCooldownRemaining <= 0);
+	mix(mColdStorage.playerIce >= ColdStorageSkillRules::InterferenceIceCost);
 	mix(mColdStorage.strikeCooldownRemaining <= 0);
 	for (const auto& rift : mPendingAuroraRifts) mix(rift.transactionID);
 	mix(static_cast<std::uint64_t>(mColdStorage.strikeTargetID) + 1ULL);
@@ -2371,6 +2379,7 @@ nlohmann::json Board::SaveColdStorage() const
 		{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
+		{"interferenceRemaining",s.interferenceRemaining},{"interferenceCooldownRemaining",s.interferenceCooldownRemaining},
 		{"discountRemaining",s.discountRemaining},{"strikeCooldownRemaining",s.strikeCooldownRemaining},
 		{"strikeTargetID",s.strikeTargetID},{"strikeAimRemaining",s.strikeAimRemaining},
 		{"incomeIdleSeconds",s.incomeIdleSeconds},
@@ -2427,6 +2436,8 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.decisionRemaining = seconds("decisionRemaining", 12, kOpeningPreparationSeconds);
 	s.elapsed = seconds("elapsed", 0, 10000000);
 	s.discountRemaining = seconds("discountRemaining", 0, ColdStorageSkillRules::DiscountDuration);
+	s.interferenceRemaining = SupportsTemporalInterference() ? seconds("interferenceRemaining", 0, ColdStorageSkillRules::InterferenceDuration) : 0;
+	s.interferenceCooldownRemaining = SupportsTemporalInterference() ? seconds("interferenceCooldownRemaining", 0, ColdStorageSkillRules::InterferenceCooldown) : 0;
 	s.strikeCooldownRemaining = seconds("strikeCooldownRemaining", 0, ColdStorageSkillRules::StrikeCooldown);
 	s.strikeTargetID = integer("strikeTargetID", -1, -1, std::numeric_limits<int>::max());
 	s.strikeAimRemaining = s.strikeTargetID >= 0

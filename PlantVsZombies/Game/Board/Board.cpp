@@ -1,4 +1,5 @@
 #include "Game/Board/Board.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
 #include "Game/AI/MineWaveFormation.h"
 #include "Game/AI/ColdStoragePlanner.h"
@@ -179,9 +180,9 @@ namespace {
 	constexpr int kWeatherJammerTutorialWave = 3;          // 7-6 首次登场的额外保底波次
 	constexpr int kIceExecutionerTutorialLevel = 61;       // 7-7 首次教学冰像处刑者的冒险关卡
 	constexpr int kIceExecutionerTutorialWave = 3;         // 7-7 第三波额外保底一只处刑者
-	constexpr int kEliteScaredyShroomPlantLimit = 4;      // 精英胆小菇基础累计种植上限；冷藏站支援由查询入口叠加
-	constexpr int kOpeningElitePlantLimit = 10;          // 10-6～10-7 名额支援后的累计种植上限，株
-	constexpr int kLateOpeningElitePlantLimit = 12;      // 10-8～10-9 与大混战名额支援后的累计种植上限，株
+	constexpr int kEliteScaredyShroomPlantLimit = 4;      // 精英胆小菇基础累计种植上限；支援另提供在场和累计上限
+	constexpr int kOpeningElitePlantLimit = 10;          // 10-6～10-7 名额支援后的同时在场上限，株
+	constexpr int kLateOpeningElitePlantLimit = 12;      // 10-8～10-9 与大混战名额支援后的同时在场上限，株
 	constexpr int kPumpkinProtectionCellRadius = 1;       // 南瓜头范围爆炸保护的逻辑格半径；1 表示自身九宫格
 	constexpr int kPumpkinAreaDamageMultiplier = 5;       // 特殊僵尸范围伤害被南瓜头拦截时的默认基础伤害倍率
 	constexpr int kMonteCarloMaxZombies = 16;             // 单个样本最多推进的当前敌方僵尸数
@@ -1768,7 +1769,11 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	// 工具卡使用来源/目的两段事务，不可作为普通植物落种。
 	if (type == PlantType::PLANT_CARRYVINE || GameDataManager::GetInstance().IsSkillCard(type)) return false;
 	if (!MiniGame::AllowsPlant(mLevel, type)) return false;
-	if (!HasPlantingQuota(type)) return false;
+	// 补阵预测允许腾出原株的位置，但正式落种仍必须同时满足两个名额门禁。
+	if (!HasPlantingQuota(type) && !(vacatedPlantID != NULL_PLANT_ID
+		&& type == PlantType::PLANT_ELITE_SCAREDYSHROOM
+		&& mEliteScaredyShroomsPlanted < GetEliteScaredyShroomTotalPlantLimit()
+		&& GetActiveEliteScaredyShroomCount() <= GetEliteScaredyShroomPlantLimit())) return false;
 	int anchorRow = row;
 	int anchorColumn = col;
 	if (!ResolvePlantPlacementAnchor(type, row, col, anchorRow, anchorColumn)) return false;
@@ -1877,7 +1882,8 @@ bool Board::HasPlantingQuota(PlantType type) const
 		return mActivePlanternID == NULL_PLANT_ID;
 	}
 	return type != PlantType::PLANT_ELITE_SCAREDYSHROOM
-		|| mEliteScaredyShroomsPlanted < GetEliteScaredyShroomPlantLimit();
+		|| (mEliteScaredyShroomsPlanted < GetEliteScaredyShroomTotalPlantLimit()
+			&& GetActiveEliteScaredyShroomCount() < GetEliteScaredyShroomPlantLimit());
 }
 
 bool Board::BeginCobCannonTargeting(int row, int col)
@@ -1956,6 +1962,23 @@ int Board::GetEliteScaredyShroomPlantLimit() const
 	if (HasColdStorageOpeningBonus(ColdStorageOpeningBonus::ELITE_QUOTA))
 		return GetColdStorageOpeningElitePlantLimit();
 	return kEliteScaredyShroomPlantLimit;
+}
+
+int Board::GetEliteScaredyShroomTotalPlantLimit() const
+{
+	return GetEliteScaredyShroomPlantLimit() + (HasColdStorageOpeningBonus(ColdStorageOpeningBonus::ELITE_QUOTA)
+		? ColdStorageSkillRules::EliteReplacements : 0);
+}
+
+int Board::GetActiveEliteScaredyShroomCount() const
+{
+	int count = 0;
+	for (int id : mEntityRegistry.GetAllPlantIDs()) {
+		const Plant* plant = mEntityRegistry.GetPlant(id);
+		if (plant && plant->IsActive() && !plant->IsSquished() && plant->mPlantHealth > 0
+			&& plant->GetPlacementType() == PlantType::PLANT_ELITE_SCAREDYSHROOM) ++count;
+	}
+	return count;
 }
 
 int Board::GetColdStorageOpeningElitePlantLimit() const

@@ -55,6 +55,8 @@ struct ColdStorageState {
 	float decisionRemaining = 45.0f; // 首轮进攻前的布阵时间，游戏秒
 	float elapsed = 0.0f;
 	float discountRemaining = 0.0f; // 玩家全场减费剩余游戏秒；多次使用刷新，不叠加倍率
+	float interferenceRemaining = 0.0f; // 玩家时间干扰剩余游戏秒，禁止提交新时间锚
+	float interferenceCooldownRemaining = 0.0f; // 商店技能独立冷却；入档，暂停不推进
 	float strikeCooldownRemaining = 0.0f; // 敌方指挥官全局冷却，游戏秒；不属于任何僵尸实体
 	int strikeTargetID = -1; // 已付费瞄准的稳定植物 ID；-1 表示无在途打击
 	float strikeAimRemaining = 0.0f; // 不可打断的瞄准提示剩余游戏秒；随目标移动，不换靶

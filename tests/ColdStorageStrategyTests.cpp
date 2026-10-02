@@ -2028,4 +2028,37 @@ int main()
 	check(Search(s,income,61).actions.empty(),"batch opportunities do not require mass purchasing when the whole cohort dies before producing");
 	}
 
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.playerIce=119; s.interferenceAvailable=true;
+	Unit dead; dead.id=1; dead.body.health=0; dead.body.x=900; s.current={dead};
+	TemporalAnchor anchor; anchor.at=2; Unit saved=dead; saved.body.health=2200;
+	anchor.targets.push_back({0,saved}); s.temporalAnchors={anchor};
+	ConstructionStats stats;
+	Evaluate(s,{},&stats);
+	check(stats.clockRevivals==1 && stats.interferences==0,"unaffordable interference cannot erase a committed revival");
+	s.playerIce=120; Evaluate(s,{},&stats);
+	check(stats.clockRevivals==0 && stats.interferences==1 && stats.iceSpent==120,
+		"paid interference cancels dead-target records before rewind and spends the shared player wallet once");
+	check(s.playerIce==120 && s.temporalAnchors.size()==1,"interference forecast cannot change live wallet or anchors");
+	s.interferenceReady=3; Evaluate(s,{},&stats);
+	check(stats.clockRevivals==1 && stats.interferences==0,"a cooling interference cannot cancel an earlier rewind");
+	s.interferenceAvailable=false; s.interferenceRemaining=6; Evaluate(s,{},&stats);
+	check(stats.clockRevivals==0 && stats.interferences==0 && stats.iceSpent==0,"already paid interference is not charged again");
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.playerSun=1000; s.playerIce=1000;
+	Plant alive; alive.id=1; alive.eliteQuota=true; alive.health=500; alive.x=200; s.plants={alive};
+	Construction card; card.source=0; card.remainingUses=4; card.simultaneousLimit=1;
+	card.sunCost=200; card.iceCost=30; card.recharge=10; card.plant=alive;
+	card.plant.column=1; card.plant.x=280; card.plant.dps=100; s.construction={card};
+	ConstructionStats stats; Evaluate(s,{},&stats);
+	check(stats.planted==0,"replacement allowances cannot exceed the concurrent elite limit");
+	s.plants[0].health=0; Evaluate(s,{},&stats);
+	check(stats.planted==1,"losing an elite permits a paid replacement without raising the concurrent cap");
+	s.construction[0].remainingUses=0; Evaluate(s,{},&stats);
+	check(stats.planted==0,"an empty board does not replenish the cumulative replacement allowance");
+	}
+
 }

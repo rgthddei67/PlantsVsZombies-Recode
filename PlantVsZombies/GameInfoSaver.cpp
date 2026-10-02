@@ -1015,7 +1015,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	}
 	board->mEliteScaredyShroomsPlanted = std::clamp(
 		std::max(j.value("eliteScaredyShroomsPlanted", 0), savedEliteCount),
-		0, board->GetEliteScaredyShroomPlantLimit());
+		0, board->GetEliteScaredyShroomTotalPlantLimit());
 	board->mMistFuelDropAccumulator = std::clamp(
 		j.value("mistFuelDropAccumulator", 0.0f), 0.0f, 1.0f);
 	board->mMistFuelAssignedThisWave = 0;

@@ -1,3 +1,4 @@
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "GameScene.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "CrazyDaveDialog.h"
@@ -2662,7 +2663,7 @@ void GameScene::BeginColdStorageOpeningBonusSelect()
 	const std::array<std::string, 3> titles{
 		u8"扩充精英胆小菇名额", u8"延长开局准备", u8"卡牌快速冷却"};
 	const std::array<std::string, 3> descriptions{
-		u8"累计种植上限 4 → " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + u8" 株；种植费用照常支付。",
+		u8"最多同时 " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + u8" 株，额外" + std::to_string(ColdStorageSkillRules::EliteReplacements) + u8"次补种；原价，成长归零。",
 		u8"首次进攻推迟到开战后 150 秒，补给照常进行。",
 		u8"卡槽恢复速度 +120%（冷却÷2.2），含模仿者与冰惠券。"};
 	for (int i = 0; i < 3; ++i) {

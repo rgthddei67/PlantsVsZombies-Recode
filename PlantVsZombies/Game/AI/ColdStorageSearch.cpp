@@ -677,6 +677,10 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
 		if ((card.remainingUses >= 0 && uses[quota] == 0) || time < ready[card.source]
 			|| card.sunCost > sun || PlayerIceCost(state,time,card.iceCost) > ice) continue;
+		// 累计剩余次数不是同时在场名额，旧株存活时不能用补种额度扩军。
+		if (card.simultaneousLimit >= 0 && std::count_if(plants.begin(),plants.end(),[](const auto& existing) {
+			return existing.eliteQuota && existing.health > 0;
+		}) >= card.simultaneousLimit) continue;
 		// 曙光莲正式限制是同时一株；死亡后才可再次建设，不能按卡槽数量复制名额。
 		if (card.strike.damage > 0 && std::any_of(strikes.begin(),strikes.end(),[&](const auto& strike) {
 			return std::any_of(plants.begin(),plants.end(),[&](const auto& p) { return p.health > 0 && p.id == strike.plantID; });
@@ -1332,7 +1336,7 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 
 /** 按独立阶段推进各钟匠并记录邻路最高威胁；已有锚的目标不可被重复记录，前摇暂停移动/啃食。 */
 static void AdvanceClocks(const Snapshot& s, float time, std::vector<Unit>& units, const std::vector<size_t>& sources,
-	std::vector<TemporalAnchor>& anchors, std::vector<float>& activity, ConstructionStats& stats) {
+	std::vector<TemporalAnchor>& anchors, std::vector<float>& activity, ConstructionStats& stats, float blockedUntil) {
 	activity.assign(units.size(),1);
 	for (size_t index:sources) {
 		auto& source=units[index]; auto& clock=source.clock;
@@ -1348,6 +1352,7 @@ static void AdvanceClocks(const Snapshot& s, float time, std::vector<Unit>& unit
 			if (clock.remaining>0) break;
 			if (!clock.winding) { clock.winding=true; clock.remaining=PolarClockRules::Windup; continue; }
 			clock.winding=false; clock.remaining=PolarClockRules::Cooldown;
+			if (time+consumedTotal/rate < blockedUntil) continue;
 			if (std::any_of(anchors.begin(),anchors.end(),[&](const auto& anchor){return anchor.ownerID==source.id;})) continue;
 			std::vector<size_t> candidates;
 			for (size_t i=0;i<units.size();++i) {
@@ -1428,6 +1433,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
 	auto temporalAnchors=s.temporalAnchors;
+	float interferenceReady=s.interferenceReady, interferenceUntil=s.interferenceRemaining;
+	if (interferenceUntil > 0) temporalAnchors.clear();
 	std::vector<size_t> clockSources;
 	for (size_t i=0;i<units.size();++i) if (units[i].clock.present) clockSources.push_back(i);
 	ConstructionStats constructionStats;
@@ -1525,6 +1532,22 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
+		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
+		if (s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
+			float restoredHealth=0;
+			for (const auto& anchor:temporalAnchors) if (anchor.at <= t+kStep)
+				for (const auto& target:anchor.targets) if (target.unit >= 0 && target.unit < static_cast<int>(units.size())
+					&& !units[target.unit].temporalIrreversible)
+					restoredHealth+=std::max(0.0f,target.saved.body.health-units[target.unit].body.health);
+			// 至少阻止一次曙光主击规模的恢复，避免为无损小队空耗昂贵技能。
+			if (restoredHealth >= DawnLotusRules::Damage) {
+				temporalAnchors.clear(); playerIce-=ColdStorageSkillRules::InterferenceIceCost;
+				constructionStats.iceSpent+=ColdStorageSkillRules::InterferenceIceCost;
+				++constructionStats.interferences;
+				interferenceReady=t+ColdStorageSkillRules::InterferenceCooldown;
+				interferenceUntil=t+ColdStorageSkillRules::InterferenceDuration;
+			}
+		}
 		if (!temporalAnchors.empty()) ResolveTemporalAnchors(s,t,temporalAnchors,units,plants,initialHealth,f,constructionStats);
 		AdvanceGoldenIce(s,t,units,goldenSources,goldenTrails,constructionStats);
 		if (precisionID > 0 && t >= precisionAt) {
@@ -1616,7 +1639,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			}
 		}
 		AdvanceDrums(s,t,units,constructionStats,drumActivity);
-		if (!clockSources.empty()) AdvanceClocks(s,t,units,clockSources,temporalAnchors,clockActivity,constructionStats);
+		if (!clockSources.empty()) AdvanceClocks(s,t,units,clockSources,temporalAnchors,clockActivity,constructionStats,interferenceUntil);
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;

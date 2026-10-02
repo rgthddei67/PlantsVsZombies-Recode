@@ -31,6 +31,29 @@ bool Board::TryActivateIceVoucher()
 	return true;
 }
 
+bool Board::SupportsTemporalInterference() const
+{
+	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || (mLevel >= 87 && mLevel <= 90));
+}
+
+bool Board::CanUseTemporalInterference() const
+{
+	return SupportsTemporalInterference() && mBoardState == BoardState::GAME && !mTrophySpawned
+		&& !DeltaTime::IsPaused() && mColdStorage.interferenceCooldownRemaining <= 0
+		&& mColdStorage.playerIce >= ColdStorageSkillRules::InterferenceIceCost;
+}
+
+bool Board::TryActivateTemporalInterference()
+{
+	if (!CanUseTemporalInterference()) return false;
+	// 锚是 Board 独立事务；活体和已经死亡的待复活记录必须同时取消。
+	mColdStorage.playerIce -= ColdStorageSkillRules::InterferenceIceCost;
+	mTemporalAnchors.clear();
+	mColdStorage.interferenceRemaining = ColdStorageSkillRules::InterferenceDuration;
+	mColdStorage.interferenceCooldownRemaining = ColdStorageSkillRules::InterferenceCooldown;
+	return true;
+}
+
 bool Board::CanUseColdStoragePrecisionStrike() const
 {
 	return IsColdStorage() && mBoardState == BoardState::GAME && !mTrophySpawned && !DeltaTime::IsPaused()
@@ -57,6 +80,8 @@ void Board::UpdateColdStorageSkills(float dt)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || DeltaTime::IsPaused() || dt <= 0) return;
 	auto& s = mColdStorage;
+	s.interferenceRemaining = std::max(0.0f, s.interferenceRemaining - dt);
+	s.interferenceCooldownRemaining = std::max(0.0f, s.interferenceCooldownRemaining - dt);
 	s.discountRemaining = std::max(0.0f, s.discountRemaining - dt);
 	s.strikeCooldownRemaining = std::max(0.0f, s.strikeCooldownRemaining - dt);
 	if (s.strikeTargetID < 0) return;

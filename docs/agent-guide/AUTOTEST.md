@@ -25,6 +25,8 @@
 
 `human_observation_contract.json` 配合 `python autotest/verify_human_observation.py` 验证无需 advance 即自然推进、信箱不能代玩以及记录留存。
 
+`smoke_cold_storage_player_recovery` 配合 `python autotest/verify_cold_storage_player_recovery.py` 验证名额支援的同时上限/累计补种、模仿者、正常付款及存档，以及商店时间干扰的资格、扣款、禁锚、死者记录取消与冷却恢复。批量和普通步进信箱均接受 `temporal_interference`，走正式 Board 付款入口；真人观察信箱仍只读。`eliteScaredyShroomPlantLimit` 是同时上限，`eliteScaredyShroomTotalPlantLimit` 是累计上限，`activeEliteScaredyShrooms` 包含未变身模仿者。干扰状态位于 `coldStorage.interference*`。
+
 正式游戏与真人日志使用 Board 独占的后台指挥官：主线程采集快照、领取完整结果并提交付款，工作线程只计算自有数值/模型副本。暂停不提交结果；读档/切关取消旧任务；关键局面变化或快照过期会重采。普通批量训练默认同步，避免机器墙钟速度改变配对种子的动作时刻；性能/在线行为夹具可用根字段 `backgroundCommander: true` 走正式后台路径。`plan_ice_attack` 的 `background: true` 只启动任务，`await_ice_attack` 等待并领取结果（包括开发者暂停出怪的隔离夹具）。`smoke_commander_background` 验证未付款、单次提交、过期丢弃和生命周期；`stress_commander_background` 从存档场景对照同步/后台耗时。`coldStorage.planningMainMaxMs` 是主线程决策入口最大耗时，`planningWorkerMs` 是最近完成的后台耗时，均不等于整帧时间；配合 `-Profile` 的 `Commander.PlanMain/PollMain/Commit/Spawn` 判断尖峰，不能只看平均 FPS。
 
 `smoke_cold_storage_exhaustion.json` 验证低库存经营失败收尾、盈利/活动及在途兵力保护、收支窗口与计时读档、低库存重组。`coldStorage.plantKillIdleSeconds` 只由消灭植物重置；滚动窗口 `incomeWindowProduction` / `incomeWindowSpent` 只统计实际制冰和付费出兵，补给不计入。`incomeIdleSeconds` 仍供诊断，但少量产冰不再单独延长败局。`commanderMode: regroup` 表示低库存候选收益不足而继续积累恢复资本，实际购买以 `commanderSpent` 和 `pending` 为准。

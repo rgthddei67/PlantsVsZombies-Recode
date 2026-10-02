@@ -302,7 +302,7 @@ private:
 	std::unique_ptr<CrazyDaveDialog> mCrazyDaveDialog;
 	std::weak_ptr<Button> mMainMenuButton;
 	bool mColdStorageShopOpen = false;
-	std::array<std::weak_ptr<Button>, 3> mColdStorageShopButtons;
+	std::array<std::weak_ptr<Button>, 4> mColdStorageShopButtons;
 	/** 非暂停式冰块采购面板；订单状态唯一保存在 Board。 */
 	void CreateColdStorageShop();
 	void UpdateColdStorageShop();

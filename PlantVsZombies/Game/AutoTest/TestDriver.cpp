@@ -1126,7 +1126,7 @@ bool TestDriver::ExecuteCurrent() {
 		if (success != cmd.value("expectedSuccess",true)) { Fail("skill result mismatch: " + op); return false; }
 		return true;
 	}
-	if (op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "await_ice_attack" || op == "player_plant") {
+	if (op == "temporal_interference" || op == "set_cold_storage" || op == "buy_ice" || op == "queue_ice_zombie" || op == "plan_ice_attack" || op == "await_ice_attack" || op == "player_plant") {
 		GameScene* gs = CurrentGameScene();
 		Board* board = gs ? gs->GetBoard() : nullptr;
 		if (!board || !board->IsColdStorage()) { Fail("cold storage command: unsupported board"); return false; }
@@ -1144,7 +1144,8 @@ bool TestDriver::ExecuteCurrent() {
 			return true;
 		}
 		bool success = false;
-		if (op == "buy_ice") success = board->BuyColdStorageIce(cmd.value("large",false));
+		if (op == "temporal_interference") success = board->TryActivateTemporalInterference();
+		else if (op == "buy_ice") success = board->BuyColdStorageIce(cmd.value("large",false));
 		else {
 			auto type = kZombieNames.find(cmd.value("type", ""));
 			if (type == kZombieNames.end()) { Fail("queue_ice_zombie: invalid type"); return false; }
@@ -5061,6 +5062,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		for (const auto& entry : kPlantNames) ice["plantCosts"][entry.first]=board->GetPlantIceCost(entry.second);
 		ice["plantPaymentCosts"] = nlohmann::json::object();
 		for (const auto& entry : kPlantNames) ice["plantPaymentCosts"][entry.first]=board->GetPlantIcePaymentCost(entry.second);
+		ice["interferenceSupported"] = board->SupportsTemporalInterference();
+		ice["interferenceReady"] = board->CanUseTemporalInterference();
+		ice["interferenceRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.interferenceRemaining * 1000));
+		ice["interferenceCooldownRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.interferenceCooldownRemaining * 1000));
 		ice["discountRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.discountRemaining * 1000));
 		ice["strikeAimRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.strikeAimRemaining * 1000));
 		ice["strikeCooldownRemainingMs"] = static_cast<int>(std::lround(board->mColdStorage.strikeCooldownRemaining * 1000));
@@ -6372,6 +6377,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["loadRestoreActive"] = board->IsLoadRestoreActive();
 	out["eliteScaredyShroomsPlanted"] = board->GetEliteScaredyShroomsPlanted();
 	out["eliteScaredyShroomPlantLimit"] = board->GetEliteScaredyShroomPlantLimit();
+	out["eliteScaredyShroomTotalPlantLimit"] = board->GetEliteScaredyShroomTotalPlantLimit();
+	out["activeEliteScaredyShrooms"] = board->GetActiveEliteScaredyShroomCount();
 	out["coldStorageBonusSelectActive"] = gs->IsColdStorageBonusSelectActive();
 	out["plantCardRechargeMultiplier"] = board->GetPlantCardRechargeMultiplier();
 	// 出怪池不分模式都 dump：冒险关卡验证 spawnlists.json 也要抓手（原先只在生存模式导出）

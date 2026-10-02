@@ -109,7 +109,8 @@ bool Board::CommitAuroraPriestRitual(int ownerZombieID, int sourceRow, bool whit
 
 void Board::CommitPolarClockAnchor(int ownerZombieID, int sourceRow)
 {
-	if (mTrophySpawned) return;
+	// 干扰只阻止本次提交；钟匠仍完成自己的施法周期，禁锚结束后正常再施法。
+	if (mTrophySpawned || mColdStorage.interferenceRemaining > 0) return;
 	for (TemporalAnchor& existing : mTemporalAnchors) {
 		for (TemporalTargetSnapshot& target : existing.targets) {
 			if (target.zombieID == ownerZombieID) target.specialActionSubmitted = true;

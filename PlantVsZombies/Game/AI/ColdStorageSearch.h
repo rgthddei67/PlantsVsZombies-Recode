@@ -122,6 +122,7 @@ struct Unit {
 	bool mowerImmune = false, consumesOtherMowers = false; // 单位自身的清洁车交互能力，不从购买价格猜测
 };
 struct Plant {
+	bool eliteQuota = false; // 本体和补种画像共享精英同时在场计数
 	PlantDamageOrigin damageOrigin;
 	float maximumHealth = 0; // 裂隙按最高层原上限选择落点，不随当前残血重排
 	int boundaryShards = 0;
@@ -164,6 +165,7 @@ struct Construction {
 	int source = 0, sunCost = 0, iceCost = 0;
 	float ready = 0, recharge = 1, firstSunDelay = 0;
 	int remainingUses = -1; // 同 source 共用累计剩余次数，-1 表示不限；死亡不返还
+	int simultaneousLimit = -1; // 非负时仅在存活精英数低于上限时允许补种
 	int quotaGroup = -1; // 非负时跨卡槽共享名额，如本卡与模仿者；缺省按 source
 };
 /** 一张可循环铲种的返阳光卡；候选格共享卡槽冷却，收益来自真实负阳光价格。 */
@@ -191,6 +193,7 @@ struct ConstructionStats {
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
 	int deploymentShots = 0, deploymentHits = 0;
 	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
+	int interferences = 0; // 玩家实际可支付的时间干扰次数
 	int clockAnchors = 0, clockTargets = 0, clockRewinds = 0, clockRevivals = 0, clockRedirects = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
@@ -256,6 +259,8 @@ struct Snapshot {
 	float gridLeft = 160, cellWidth = 80;
 	int rows = 5, columns = 9;
 	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价
+	bool interferenceAvailable = false; // 商店资格，不假定玩家已按按钮
+	float interferenceRemaining = 0, interferenceReady = 0; // 已生效禁锚余时和独立冷却余时，秒
 	bool precisionReady = false;
 	int precisionTargetID = 0; // 本候选立即购买的技能；零表示保留资金
 	int pendingPrecisionID = 0; // 已支付技能只结算原目标，不再次收费

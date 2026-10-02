@@ -427,6 +427,16 @@ namespace {
 				version = 22;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 22:
+				// v23 保留已消耗的精英累计次数；旧局没有已付费时间干扰。
+				if (kind == DocumentKind::Level && upgraded.contains("coldStorage")
+					&& upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					upgraded["coldStorage"]["interferenceRemaining"] = 0.0f;
+					upgraded["coldStorage"]["interferenceCooldownRemaining"] = 0.0f;
+				}
+				version = 23;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

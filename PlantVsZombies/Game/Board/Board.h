@@ -239,6 +239,12 @@ public:
 	int GetPlantAbilityIceCost(int baseCost) const;
 	/** 冰惠券的正式发动入口；先校验地图、战斗、暂停和阳光，再扣款并刷新十秒减费。卡槽拥有卡冷却。 */
 	bool TryActivateIceVoucher();
+	/** 10-6～10-9 与大混战开放商店时间干扰，不要求选择名额支援。 */
+	bool SupportsTemporalInterference() const;
+	/** 校验战斗、暂停、钱包与独立冷却；固定商店价格不受植物减费影响。 */
+	bool CanUseTemporalInterference() const;
+	/** 原子扣款、清除全部已提交锚（包括死者记录），并启动短暂禁锚和冷却。 */
+	bool TryActivateTemporalInterference();
 	/** 指挥官只读就绪查询；包含第15波、60冰、全局冷却和无在途打击。 */
 	bool CanUseColdStoragePrecisionStrike() const;
 	/** 由策略传入稳定植物ID；成功原子扣60冰、启动30秒冷却与2秒瞄准。失败不改余额，不自行选目标。 */
@@ -1640,8 +1646,12 @@ public:
 	/** 返回升级卡等额外在场种植前提是否满足；普通植物恒为 true。 */
 	bool HasPlantingRequirement(PlantType type) const;
 	int GetEliteScaredyShroomPlantLimit() const;
-	/** 当前关卡选择名额支援后的累计上限，同时用于正式种植与战前说明。 */
+	/** 名额支援同时在场上限；无支援时仍作为原有累计上限。 */
 	int GetColdStorageOpeningElitePlantLimit() const;
+	/** 本关累计落种上限，含支援补种机会；模仿者与本卡共用。 */
+	int GetEliteScaredyShroomTotalPlantLimit() const;
+	/** 统计活跃本体与尚未变身的模仿者，不包含已死但尚未移除的实体。 */
+	int GetActiveEliteScaredyShroomCount() const;
 	int GetEliteScaredyShroomsPlanted() const { return mEliteScaredyShroomsPlanted; }
 	/** 返回格子最上层战斗目标：南瓜层、普通层、承载层依次优先；铲子另按点击区域选层。 */
 	Plant* GetTopPlantAt(int row, int col) const;

@@ -184,6 +184,9 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 				if (!shovel || !shovel->TryShovelAtPosition(board->GetCellCenterPosition(row, col))) reason = "no_shovel_target";
 			}
 		}
+		else if (op == "temporal_interference") {
+			if (!scene->GetBoard()->TryActivateTemporalInterference()) reason = "temporal_interference_unavailable";
+		}
 		else if (op == "buy_ice") {
 			if (!scene->GetBoard()->BuyColdStorageIce(command.value("large",false))) reason = "order_unavailable";
 		}

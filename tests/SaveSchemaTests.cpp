@@ -692,6 +692,16 @@ int main() {
 			Expect(ice["decisionRemaining"]==91.0f && ice["enemyIce"]==850,"单选迁移不重置准备时间或资源");
 		}
 	}
+	{
+		nlohmann::json previous={{"schemaVersion",22},{"eliteScaredyShroomsPlanted",10},
+			{"coldStorage",{{"openingBonusMask",1},{"playerIce",123}}}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"时间干扰旧档可迁移");
+		Expect(previous["eliteScaredyShroomsPlanted"]==10 && previous["coldStorage"]["playerIce"]==123,
+			"迁移不重置已消耗补种次数或钱包");
+		Expect(previous["coldStorage"]["interferenceRemaining"]==0 && previous["coldStorage"]["interferenceCooldownRemaining"]==0,
+			"旧档不会凭空获得已发动的时间干扰");
+	}
 	TestCurrentPlayerDocumentIsStable();
 	{
 		nlohmann::json previous = {{"schemaVersion",21},{"plants",nlohmann::json::array({
