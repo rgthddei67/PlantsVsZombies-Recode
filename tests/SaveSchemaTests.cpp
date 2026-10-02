@@ -667,6 +667,19 @@ int main() {
 		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error) && oldLevel==migrated,"技能迁移幂等");
 	}
 	TestMovedToxicRewardPlayerUpgrade();
+	{
+		nlohmann::json oldLevel = {{"schemaVersion",19},{"coldStorage",{
+			{"enemyIce",1500},{"playerIce",42},{"decisionRemaining",33.0f},{"strikeTargetID",12}}}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error),"旧档可迁移战前支援");
+		const auto& ice = oldLevel["coldStorage"];
+		Expect(ice["openingBonus"]==0,"旧局默认无增益，不重新领取战前支援");
+		Expect(ice["enemyIce"]==1500 && ice["playerIce"]==42 && ice["decisionRemaining"]==33.0f
+			&& ice["strikeTargetID"]==12,"支援迁移保留钱包、准备时间和在途技能");
+		oldLevel["coldStorage"]["openingBonus"] = 2;
+		Expect(SaveSchema::UpgradeLevelDocument(oldLevel,error) && oldLevel["coldStorage"]["openingBonus"]==2,
+			"新档迁移不覆盖已选择的支援");
+	}
 	TestCurrentPlayerDocumentIsStable();
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();

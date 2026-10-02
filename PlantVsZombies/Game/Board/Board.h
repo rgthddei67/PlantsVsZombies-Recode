@@ -220,6 +220,13 @@ public:
 	float mColdStoragePlanningAt = 0;
 	int mColdStoragePlanningVersion = 1;
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
+	/** 仅冒险 10-6～10-9 的新局可选支援，不扩展到生存或大混战。 */
+	bool SupportsColdStorageOpeningBonus() const;
+	bool NeedsColdStorageOpeningBonus() const;
+	/** 选卡前一次性提交；0 为无增益，1～3 对应名额、准备时间、卡槽冷却。 */
+	bool SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus);
+	/** 卡槽冷却计时速度，合并生存词条和单局支援；实体技能不读取此倍率。 */
+	double GetPlantCardRechargeMultiplier() const;
 	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
 	int GetPlantIceCost(PlantType type) const;
 	/** 当前玩家实际种植冰费；基础冰价仍用于击杀奖励，减费只影响玩家付款。 */

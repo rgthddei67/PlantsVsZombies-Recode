@@ -179,7 +179,7 @@ namespace {
 	constexpr int kWeatherJammerTutorialWave = 3;          // 7-6 首次登场的额外保底波次
 	constexpr int kIceExecutionerTutorialLevel = 61;       // 7-7 首次教学冰像处刑者的冒险关卡
 	constexpr int kIceExecutionerTutorialWave = 3;         // 7-7 第三波额外保底一只处刑者
-	constexpr int kEliteScaredyShroomPlantLimit = 4;      // 每个关卡累计最多种植的精英胆小菇数量
+	constexpr int kEliteScaredyShroomPlantLimit = 4;      // 精英胆小菇基础累计种植上限；冷藏站支援由查询入口叠加
 	constexpr int kPumpkinProtectionCellRadius = 1;       // 南瓜头范围爆炸保护的逻辑格半径；1 表示自身九宫格
 	constexpr int kPumpkinAreaDamageMultiplier = 5;       // 特殊僵尸范围伤害被南瓜头拦截时的默认基础伤害倍率
 	constexpr int kMonteCarloMaxZombies = 16;             // 单个样本最多推进的当前敌方僵尸数
@@ -1860,7 +1860,7 @@ bool Board::HasPlantingQuota(PlantType type) const
 		return mActivePlanternID == NULL_PLANT_ID;
 	}
 	return type != PlantType::PLANT_ELITE_SCAREDYSHROOM
-		|| mEliteScaredyShroomsPlanted < kEliteScaredyShroomPlantLimit;
+		|| mEliteScaredyShroomsPlanted < GetEliteScaredyShroomPlantLimit();
 }
 
 bool Board::BeginCobCannonTargeting(int row, int col)
@@ -1935,6 +1935,9 @@ bool Board::HasPlantingRequirement(PlantType type) const
 
 int Board::GetEliteScaredyShroomPlantLimit() const
 {
+	// 支援增加本关累计次数；死亡、铲除和模仿者预占继续共用原有计数。
+	if (SupportsColdStorageOpeningBonus() && mColdStorage.openingBonus == ColdStorageOpeningBonus::ELITE_QUOTA)
+		return kEliteScaredyShroomPlantLimit + (mLevel >= 89 ? 6 : 4);
 	return kEliteScaredyShroomPlantLimit;
 }
 

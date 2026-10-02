@@ -392,6 +392,14 @@ namespace {
 				version = 19;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 19:
+				// v20 单局战前支援；旧档不追补增益，不重置钱包或已消耗的准备时间。
+				if (kind == DocumentKind::Level && upgraded.contains("coldStorage")
+					&& upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty())
+					upgraded["coldStorage"]["openingBonus"] = 0;
+				version = 20;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

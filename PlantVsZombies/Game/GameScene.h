@@ -93,6 +93,9 @@ public:
 	float GetRoofRainBackgroundAlpha() const;
 
 	void ChooseCardComplete();  // 选卡完成
+	/** 战前支援选择与按钮回调共用入口；拒绝重复选择或战斗中改选。 */
+	bool ApplyColdStorageOpeningBonus(int choice);
+	bool IsColdStorageBonusSelectActive() const { return mColdStorageBonusSelectActive; }
 
 	// ---- AutoTest 钩子 ----
 	// GetBoard / GetChooseCardUI / IsChooseCardReady 本身只读；
@@ -308,6 +311,9 @@ private:
 	ShovelBank* mShovelUI = nullptr;   // 所有权在 GameObjectManager
 	std::weak_ptr<GameMessageBox> mMenu;
 	std::weak_ptr<GameMessageBox> mPerkSelectBox;
+	std::weak_ptr<GameMessageBox> mColdStorageBonusBox;
+	bool mColdStorageBonusSelectActive = false;
+	bool mColdStorageBonusPreviousPaused = false;
 	std::vector<PerkPairing>      mCurrentPerkOffer;        // 本轮展示的配对（AutoTest dump 用）
 	bool                          mSurvivalPerkSelectActive = false;
 	int                           mSurvivalPerkStepsCompleted = 0; // 本轮已消耗的选择机会数（选择或放弃均 +1）
@@ -404,6 +410,8 @@ private:
 
 	/** 打开暂停父菜单；确认按钮在其上追加子弹窗。 */
 	void OpenMenu();
+	/** 场景挂接后、选卡演出前创建本关固定三选一模态框。 */
+	void BeginColdStorageOpeningBonusSelect();
 	/** 追加重开确认，取消时保留父菜单与暂停状态。 */
 	void OpenRestartMenu();
 	/** 追加退出确认，确认后才离开当前关卡。 */

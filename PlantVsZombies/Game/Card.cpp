@@ -213,7 +213,7 @@ void Card::UpdateCooldown()
 	double rechargeMultiplier = 1.0;
 	if (auto* manager = GetCardSlotManager()) {
 		if (auto* board = manager->GetBoard()) {
-			rechargeMultiplier = board->GetPerkManager().GetPlantCardRechargeMultiplier();
+			rechargeMultiplier = board->GetPlantCardRechargeMultiplier();
 		}
 	}
 	mCooldownTimer -= static_cast<float>(DeltaTime::GetDeltaTime() * rechargeMultiplier);

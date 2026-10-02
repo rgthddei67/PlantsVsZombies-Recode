@@ -739,6 +739,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 		[](const auto& command) { return command.value("op",std::string()) == "commander_episode"; });
 	mInteractive = j.value("interactive", false);
 	mHumanObservation = j.value("humanObservation",false);
+	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
@@ -3133,6 +3134,12 @@ bool TestDriver::ExecuteCurrent() {
 			return false;
 		}
 		gs->SetNextPerkRareRollOverrideForTesting(cmd.value("enabled", true) ? 1 : 0);
+		return true;
+	}
+	if (op == "cold_storage_bonus_pick") {
+		auto* gs = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
+		const bool selected = gs && gs->ApplyColdStorageOpeningBonus(cmd.value("choice", 0));
+		if (selected != cmd.value("expectedSuccess", true)) { Fail("cold_storage_bonus_pick: 选择结果不符"); return false; }
 		return true;
 	}
 	if (op == "survival_perk_pick") {
@@ -6320,6 +6327,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["survivalRound"] = board->mIsSurvival ? board->mSurvivalRound : -1;
 	out["loadRestoreActive"] = board->IsLoadRestoreActive();
 	out["eliteScaredyShroomsPlanted"] = board->GetEliteScaredyShroomsPlanted();
+	out["eliteScaredyShroomPlantLimit"] = board->GetEliteScaredyShroomPlantLimit();
+	out["coldStorageBonusSelectActive"] = gs->IsColdStorageBonusSelectActive();
+	out["plantCardRechargeMultiplier"] = board->GetPlantCardRechargeMultiplier();
 	// 出怪池不分模式都 dump：冒险关卡验证 spawnlists.json 也要抓手（原先只在生存模式导出）
 	out["spawnList"] = nlohmann::json::array();
 	bool spawnListHasBobsledTeam = false;

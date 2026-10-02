@@ -58,7 +58,9 @@ namespace {
 			maximum = std::max(maximum,std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count());
 		}
 	};
-	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 1500, 1650, 1800, 2000}; // 各关难度1初始敌方冰块；前段削减囤兵，后段保留长流程
+	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 650, 750, 850, 1000}; // 各关难度1初始敌方冰块；后段平滑增加，避免10-6库存突增
+	constexpr float kOpeningPreparationBonus = 60.0f; // 战前支援额外布阵时间，游戏秒；补给照常推进
+	constexpr double kOpeningCardRechargeMultiplier = 2.0; // 战前支援卡槽计时速度，实际冷却减半
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
 	constexpr int kSupplyIce = 20; // 每次补给冰块，不随难度再放大，给库存消耗留出空间
 	constexpr int kLargeOrderSun = 225; // 大额购冰的阳光价格，同时供双方资产预测折算
@@ -473,11 +475,39 @@ bool Board::CanAffordPlantIce(PlantType type) const
 		|| mColdStorage.playerIce >= GetPlantIcePaymentCost(type);
 }
 
+bool Board::SupportsColdStorageOpeningBonus() const
+{
+	return IsColdStorage() && !mIsSurvival && !MiniGame::IsBrawl(mLevel) && mLevel >= 87 && mLevel <= 90;
+}
+
+bool Board::NeedsColdStorageOpeningBonus() const
+{
+	return SupportsColdStorageOpeningBonus() && mColdStorage.openingBonus == ColdStorageOpeningBonus::UNSELECTED;
+}
+
+bool Board::SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus)
+{
+	if (!NeedsColdStorageOpeningBonus() || mBoardState != BoardState::CHOOSE_CARD
+		|| bonus < ColdStorageOpeningBonus::NONE || bonus > ColdStorageOpeningBonus::CARD_RECHARGE) return false;
+	mColdStorage.openingBonus = bonus;
+	// 一次性增加首轮计时；读档只恢复剩余值，不能再领取准备时间。
+	if (bonus == ColdStorageOpeningBonus::PREPARATION) mColdStorage.decisionRemaining += kOpeningPreparationBonus;
+	return true;
+}
+
+double Board::GetPlantCardRechargeMultiplier() const
+{
+	const double support = SupportsColdStorageOpeningBonus()
+		&& mColdStorage.openingBonus == ColdStorageOpeningBonus::CARD_RECHARGE ? kOpeningCardRechargeMultiplier : 1.0;
+	return mPerkManager.GetPlantCardRechargeMultiplier() * support;
+}
+
 void Board::InitializeColdStorage()
 {
 	if (!IsColdStorage()) return;
 	mColdStoragePlanner.reset();
 	mColdStorage = {};
+	if (SupportsColdStorageOpeningBonus()) mColdStorage.openingBonus = ColdStorageOpeningBonus::UNSELECTED;
 	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
@@ -636,6 +666,8 @@ void Board::PlanColdStorageAttack(bool background)
 	if (!mColdStorage.pending.empty() && !learnedWeights) return;
 	auto& s = mColdStorage;
 	const bool allUnitsUnlocked = ColdStoragePolicy::AllUnits();
+	// 真实卡槽与预测共用计时速度，不能把卡槽增益套到植物实体技能。
+	const float cardRecharge = static_cast<float>(GetPlantCardRechargeMultiplier());
 	const auto isUnlocked = [&](ZombieType type) {
 		return allUnitsUnlocked || GetColdStorageUnlockWave(type) <= s.decisions + 1;
 	};
@@ -711,7 +743,7 @@ void Board::PlanColdStorageAttack(bool background)
 			// 空路不等于已经获胜：主人仍可能用可支付的南瓜或坚果临时堵住漏怪。
 			bool canIntercept = false;
 			if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
-				if (!card || card->GetCooldownTimer() > travel || card->GetSunCost() > mSun) continue;
+				if (!card || (card->GetCooldownTimer() / cardRecharge) > travel || card->GetSunCost() > mSun) continue;
 				const auto type = card->GetGameplayPlantType();
 				if (GetPlantIceCost(type) > s.playerIce
 					|| GameDataManager::GetInstance().GetPlantSimulationProfile(type).baseHealth < 2000) continue;
@@ -742,9 +774,9 @@ void Board::PlanColdStorageAttack(bool background)
 	if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
 		if (card && card->GetGameplayPlantType() == PlantType::PLANT_INSTANT_COFFEE) {
 			hasCoffee = true;
-			coffeeWait = std::min(coffeeWait, card->GetCooldownTimer());
+			coffeeWait = std::min(coffeeWait, (card->GetCooldownTimer() / cardRecharge));
 			coffeeSun = card->GetSunCost();
-			coffeeRecharge = card->GetCooldownTime();
+			coffeeRecharge = (card->GetCooldownTime() / cardRecharge);
 		}
 	}
 	if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
@@ -757,13 +789,13 @@ void Board::PlanColdStorageAttack(bool background)
 		const int iceCost = GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0);
 		if (mSun < sunCost || futureIce < iceCost) continue;
 		bool legal = false;
-		const float ready = std::max(card->GetCooldownTimer(), doom ? coffeeWait : 0.0f);
+		const float ready = std::max((card->GetCooldownTimer() / cardRecharge), doom ? coffeeWait : 0.0f);
 		for (int row = 0; row < mRows; ++row)
 			for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type, row, col)) {
 				legal = true;
 				economyBlasts.push_back({type, row, GetCellCenterPosition(row, col).x, ready, false});
 			}
-		if (legal) responseWindow = std::min(responseWindow, std::max(card->GetCooldownTimer(), doom ? coffeeWait : 0.0f));
+		if (legal) responseWindow = std::min(responseWindow, std::max((card->GetCooldownTimer() / cardRecharge), doom ? coffeeWait : 0.0f));
 	}
 	for (const auto& p : snapshot.plants) {
 		const Plant* plant = mEntityRegistry.GetPlant(p.id);
@@ -1031,7 +1063,7 @@ void Board::PlanColdStorageAttack(bool background)
 				if (!card || card->GetGameplayPlantType() != PlantType::PLANT_MARIGOLD || card->GetSunCost() >= 0) continue;
 				ColdStorageSearch::SunExchange exchange;
 				exchange.sunGain = -card->GetSunCost(); exchange.iceCost = GetPlantIceCost(card->GetGameplayPlantType());
-				exchange.ready = card->GetCooldownTimer(); exchange.recharge = card->GetCooldownTime();
+				exchange.ready = (card->GetCooldownTimer() / cardRecharge); exchange.recharge = (card->GetCooldownTime() / cardRecharge);
 				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
 					if (CanPlantAt(card->GetGameplayPlantType(),row,col)) exchange.cells.push_back({row,col});
 				if (!exchange.cells.empty()) search.exchanges.push_back(std::move(exchange));
@@ -1065,9 +1097,9 @@ void Board::PlanColdStorageAttack(bool background)
 			if (doom && !hasCoffee) continue;
 			const int id = source++;
 			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
-				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max(card->GetCooldownTimer(),doom ? coffeeWait : 0.0f),false},
+				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max((card->GetCooldownTimer() / cardRecharge),doom ? coffeeWait : 0.0f),false},
 					id,card->GetSunCost() + (doom ? coffeeSun : 0),GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0),
-					card->GetCooldownTime(),type == PlantType::PLANT_SQUASH);
+					(card->GetCooldownTime() / cardRecharge),type == PlantType::PLANT_SQUASH);
 				if (ColdStoragePolicy::AnticipateBuilding()) {
 					search.counters.back().cellRow = row; search.counters.back().cellColumn = col;
 				}
@@ -1090,7 +1122,7 @@ void Board::PlanColdStorageAttack(bool background)
 				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
 					ColdStorageSearch::Construction future;
 					future.source = id; future.sunCost = card->GetSunCost(); future.iceCost = GetPlantIceCost(type);
-					future.ready = card->GetCooldownTimer(); future.recharge = card->GetCooldownTime();
+					future.ready = (card->GetCooldownTimer() / cardRecharge); future.recharge = (card->GetCooldownTime() / cardRecharge);
 					future.firstSunDelay = profile.firstSunDelay;
 					auto& p = future.plant;
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
@@ -1423,8 +1455,8 @@ void Board::PlanColdStorageAttack(bool background)
 		PlantDefenseMonteCarlo::CardSnapshot future;
 		future.typeKey = static_cast<int>(type);
 		future.cost = card->GetSunCost();
-		future.cooldownRemaining = card->GetCooldownTimer();
-		future.cooldownTime = card->GetCooldownTime();
+		future.cooldownRemaining = (card->GetCooldownTimer() / cardRecharge);
+		future.cooldownTime = (card->GetCooldownTime() / cardRecharge);
 		future.attackDps = profile.attackDps;
 		for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
 			if (CanPlantAt(type, row, col)) future.legalCellMask |= std::uint64_t{1} << (row * mColumns + col);
@@ -2093,7 +2125,8 @@ void Board::UpdateColdStorage(float dt)
 nlohmann::json Board::SaveColdStorage() const
 {
 	const auto& s = mColdStorage;
-	nlohmann::json j{{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
+	nlohmann::json j{{"openingBonus",static_cast<int>(s.openingBonus)},
+		{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
 		{"discountRemaining",s.discountRemaining},{"strikeCooldownRemaining",s.strikeCooldownRemaining},
@@ -2133,6 +2166,9 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 		return std::isfinite(value) ? std::clamp(value, 0.0f, high) : fallback;
 	};
 	auto& s = mColdStorage;
+	// 旧档沿用无增益与原钱包；新档未选择时才重新打开战前窗口。
+	s.openingBonus = SupportsColdStorageOpeningBonus()
+		? static_cast<ColdStorageOpeningBonus>(integer("openingBonus", 0, -1, 3)) : ColdStorageOpeningBonus::NONE;
 	s.playerIce = integer("playerIce", 200, 0, kMaxIce);
 	s.enemyIce = integer("enemyIce", s.enemyIce, 0, kMaxIce);
 	s.initialEnemyIce = integer("initialEnemyIce", s.initialEnemyIce, 1, kMaxIce);
@@ -2140,7 +2176,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.orderIce = integer("orderIce", 0, 0, 100);
 	s.orderRemaining = seconds("orderRemaining", 0, 10);
 	s.supplyRemaining = seconds("supplyRemaining", 30, 30);
-	s.decisionRemaining = seconds("decisionRemaining", 12, 60);
+	s.decisionRemaining = seconds("decisionRemaining", 12, 45 + kOpeningPreparationBonus);
 	s.elapsed = seconds("elapsed", 0, 10000000);
 	s.discountRemaining = seconds("discountRemaining", 0, ColdStorageSkillRules::DiscountDuration);
 	s.strikeCooldownRemaining = seconds("strikeCooldownRemaining", 0, ColdStorageSkillRules::StrikeCooldown);

@@ -21,6 +21,8 @@
 
 真人游玩可用 `human_cold_storage_10_1.json`：`interactive: true` 配合 `humanObservation: true` 让场景正常连续推进，停在选卡页交给主人操作。信箱只接受观察、截图和退出，拒绝 `advance` 与代玩操作；每秒及决策/胜负变化时，向该会话的 `observations.jsonl` 追加局面、收支、卡牌和预测记录。普通步进信箱行为不变。记录写盘失败会标记 `humanRecordingFailed` 并停止采样，不关闭主人的游戏。真人运行不指定启动种子，音效沿用普通 AutoTest 默认值；玩家存档仍不写入。
 
+冷藏站战前支援专项显式设置根字段 `coldStorageBonusSelection: true`，真人观察默认开启；普通专项和训练自动选择无增益，避免改变既有陪练基线。`cold_storage_bonus_pick` 的 `choice=0..3` 与正式按钮共用单次提交入口，可用 `expectedSuccess=false` 验证重复领取被拒绝；UI 验收仍走真实 `click`。`coldStorage.openingBonus`、`coldStorageBonusSelectActive`、`eliteScaredyShroomPlantLimit` 和 `plantCardRechargeMultiplier` 导出已选效果、模态状态、累计上限与真实卡槽计时速度，专项入口为 `smoke_cold_storage_opening_bonus.json`。
+
 `human_observation_contract.json` 配合 `python autotest/verify_human_observation.py` 验证无需 advance 即自然推进、信箱不能代玩以及记录留存。
 
 正式游戏与真人日志使用 Board 独占的后台指挥官：主线程采集快照、领取完整结果并提交付款，工作线程只计算自有数值/模型副本。暂停不提交结果；读档/切关取消旧任务；关键局面变化或快照过期会重采。普通批量训练默认同步，避免机器墙钟速度改变配对种子的动作时刻；性能/在线行为夹具可用根字段 `backgroundCommander: true` 走正式后台路径。`plan_ice_attack` 的 `background: true` 只启动任务，`await_ice_attack` 等待并领取结果（包括开发者暂停出怪的隔离夹具）。`smoke_commander_background` 验证未付款、单次提交、过期丢弃和生命周期；`stress_commander_background` 从存档场景对照同步/后台耗时。`coldStorage.planningMainMaxMs` 是主线程决策入口最大耗时，`planningWorkerMs` 是最近完成的后台耗时，均不等于整帧时间；配合 `-Profile` 的 `Commander.PlanMain/PollMain/Commit/Spawn` 判断尖峰，不能只看平均 FPS。
