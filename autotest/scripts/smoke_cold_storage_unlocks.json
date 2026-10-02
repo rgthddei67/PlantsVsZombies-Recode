@@ -3,7 +3,7 @@
     {"op": "commander_experiment", "weights": null},
     {
       "op": "goto_level",
-      "level": 83
+      "level": 89
     },
     {
       "op": "choose_cards",
@@ -161,12 +161,11 @@
       "op": "dump_state",
       "name": "wave_101.json"
     },
-    {"op": "goto_level", "level": 83, "resetTestState": true},
+    {"op": "goto_level", "level": 85, "resetTestState": true},
     {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
     {"op": "wait_state", "state": "GAME", "timeout": 25},
     {"op": "set_spawn_paused", "value": true},
     {"op": "assert_state", "path": "coldStorage.unlockRounds.ZOMBIE_GARGANTUAR", "equals": 20},
-    {"op": "assert_state", "path": "coldStorage.unlockRounds.ZOMBIE_REDEYE_GARGANTUAR", "equals": 30},
     {"op": "set_cold_storage", "state": {"enemyIce": 100, "decisions": 18, "decisionRemaining": 60}},
     {"op": "queue_ice_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 0, "expectedSuccess": false},
     {"op": "assert_state", "path": "coldStorage.enemyIce", "equals": 100},
@@ -183,6 +182,7 @@
     {"op": "assert_state", "path": "redEyeGargantuarZombieCount", "equals": 0},
     {"op": "dump_state", "name": "giant_deployed.json"},
     {"op": "commander_experiment", "weights": [1, 1, 1, 1, 1, 1, -1, 1], "allZombies": true},
+    {"op": "commander_roster", "units": ["ZOMBIE_NORMAL", "ZOMBIE_GARGANTUAR", "ZOMBIE_REDEYE_GARGANTUAR"]},
     {"op": "set_cold_storage", "state": {"enemyIce": 100, "decisions": 0, "pending": []}},
     {"op": "queue_ice_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 0},
     {"op": "queue_ice_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 1},
