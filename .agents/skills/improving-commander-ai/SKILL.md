@@ -11,7 +11,7 @@ description: Diagnose and improve the PvZ Cold Storage commander AI, integrate u
 
 1. 看本次要求、`git status` 和相关最新提交，确认哪些是别的窗口尚未提交的改动。先定位当前源码，不重放旧聊天里的全部试错。
 2. 核对实际运行的 EXE、工作目录、正式策略文件与加载资格；截图显示的波次或资源只能提示症状。构建与可见运行按 [项目指南](../../../docs/agent-guide/PROJECT_GUIDE.md)。
-3. 读取当前 `resources/ai/cold_storage_policy.json` 的权重、预测开关、验证／试玩标记，并查 `ColdStoragePolicy::Get` 的正式关卡范围。训练实验能用不代表正式游戏已启用；换配置后需重启进程验证实际加载。
+3. 读取当前 `resources/ai/cold_storage_policy.json` 的权重、预测开关、验证／试玩标记，并查调用方的棋盘资格与 AI 开关。`ColdStoragePolicy::Get()` 只加载共享策略，不按章节或关卡号限制；新地图仍须接入 Board 的指挥官机制。训练实验能用不代表正式游戏已启用；换配置后需重启进程验证实际加载。
 4. 需要接续设计时，查 [第十大关交接](../../../docs/superpowers/specs/2026-09-18-area10-ice-economy-design.md) 的相关段落。数值、出怪池、能力边界和搜索预算以当前源码／权威资源为准；不要把历史胜率当成本次证据。
 
 ## 定位顺序

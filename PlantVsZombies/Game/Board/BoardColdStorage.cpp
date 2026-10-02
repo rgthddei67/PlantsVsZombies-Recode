@@ -720,7 +720,7 @@ void Board::PlanColdStorageAttack(bool background)
 		mColdStoragePlanner->Cancel(); // 显式同步测试/干预不能同时提交一个旧后台结果。
 		mColdStorage.planning = false;
 	}
-	const auto* learnedWeights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get(mLevel) : nullptr;
+	const auto* learnedWeights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get() : nullptr;
 	if (!mColdStorage.pending.empty() && !learnedWeights) return;
 	auto& s = mColdStorage;
 	const bool allUnitsUnlocked = ColdStoragePolicy::AllUnits();
@@ -2295,7 +2295,7 @@ void Board::PollColdStoragePlan()
 	// 分别记录原有门禁的失效原因，保留多原因并发；记录不能放宽已失效的耦合计划。
 	if (work->failed) reject(Discard::Failed);
 	if (!(age >= 0 && age <= kPlanningMaxAge)) reject(Discard::Age);
-	if (!GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get(mLevel)) reject(Discard::Policy);
+	if (!GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get()) reject(Discard::Policy);
 	if (s.enemyIce < work->snapshot.budget) reject(Discard::Budget);
 	if (ColdStoragePlanningStamp() != mColdStoragePlanningStamp) reject(Discard::WorldChanged);
 	// 改过路线的在途友军若已经按旧路线出生，整案重采；不把旧承诺的收益借给新计划。
@@ -2366,7 +2366,7 @@ void Board::UpdateColdStorage(float dt)
 	s.decisionRemaining -= dt;
 	// 学习分支将已付队列作为未来友军重新推演；旧 AI 仍等队列兑现，避免漏算其承诺。
 	if (!s.planning && s.decisionRemaining <= 0 && (s.pending.empty()
-		|| (GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get(mLevel)))) {
+		|| (GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get()))) {
 		PlanColdStorageAttack(!GameAPP::mAutoTestMode || TestDriver::GetInstance().BackgroundCommander());
 		s.decisionRemaining = s.attackDeferred ? kStagingRecheck : DecisionInterval(s.elapsed, s.commanderStrategy == "short_game");
 	}

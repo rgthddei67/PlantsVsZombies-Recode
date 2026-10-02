@@ -4,8 +4,8 @@
 #include "Game/Zombie/ZombieType.h"
 
 namespace ColdStoragePolicy {
-/** 正式策略仅供 10-1～10-6 与大混战；训练可覆盖第十章，资源无效时回退旧指挥官。 */
-const ColdStorageSearch::Weights* Get(int level);
+/** 返回共享指挥官策略，不按关卡号限制；调用方负责棋盘资格与 AI 开关，资源无效或实验禁用时返回空指针以回退旧指挥官。 */
+const ColdStorageSearch::Weights* Get();
 /** AutoTest 独立试验覆盖，不写玩家存档/资源；null 强制旧 AI，Reset 清除覆盖。 */
 bool SetExperiment(const nlohmann::json& weights, bool allUnits = false,
 	const nlohmann::json* preferences = nullptr, const nlohmann::json* calibration = nullptr,
