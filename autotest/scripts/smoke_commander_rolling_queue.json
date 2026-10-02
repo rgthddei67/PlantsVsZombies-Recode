@@ -6,6 +6,7 @@
     {"op":"choose_cards","cards":["PLANT_SUNFLOWER"]},
     {"op":"wait_state","state":"GAME","timeout":25},
     {"op":"set_spawn_paused","value":true},
+    {"op":"commander_roster","units":["ZOMBIE_ICE_WORKER"]},
     {"op":"set_cold_storage","state":{"enemyIce":76,"initialEnemyIce":76,"decisions":20,"decisionRemaining":60}},
     {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"delay":40},
     {"op":"dump_state","name":"paid.json"},

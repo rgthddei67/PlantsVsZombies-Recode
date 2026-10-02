@@ -42,9 +42,10 @@ constexpr float kForecastImpWalkSpeed = 20; // 小鬼落地后的保守移动近
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
-constexpr int kInvestmentTrials = 32; // 大兵池额外经营对照的单阶段上限；不增加原攻击搜索预算或强制采购
-constexpr int kSupportTrials = 48; // 防具/鼓舞/落种压制协同对照上限，按组合类型轮转，不强制购买
-constexpr int kPrecisionTargets = 12; // 技能优先候选数，每个最多比较两个编队
+constexpr int kRouteTrials = 256; // 单阶段兵种/合法路线覆盖上限，不区分攻击、经济或支援角色
+constexpr int kCombinationTrials = 80; // 单阶段任意兵种配对和优案扩展预算，不预设技能搭配
+constexpr int kPrecisionFollowupTrials = 16; // 每个清除目标的通用跟进探测预算，之后只为胜出目标重搜
+constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较原案、等待和通用跟进
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
@@ -206,6 +207,45 @@ std::vector<Action> IntroduceOption(const Snapshot& s, std::vector<Action> plan,
 	return plan;
 }
 
+/** 按兵种/价格聚合法路线，避免合法行较多的类型挤占组合机会；不检查能力或角色。 */
+std::vector<std::vector<int>> LegalOptionGroups(const Snapshot& s, std::mt19937& rng) {
+	std::vector<std::vector<int>> groups;
+	for (int i=0; i<static_cast<int>(s.options.size()); ++i) {
+		const auto& option = s.options[i];
+		if (option.cost <= 0 || option.cost > PurchaseBudget(s)) continue;
+		const auto group = std::find_if(groups.begin(),groups.end(),[&](const auto& entries) {
+			const auto& first = s.options[entries.front()];
+			return first.type == option.type && first.cost == option.cost;
+		});
+		if (group == groups.end()) groups.push_back({i});
+		else group->push_back(i);
+	}
+	std::shuffle(groups.begin(),groups.end(),rng);
+	for (auto& group : groups) std::shuffle(group.begin(),group.end(),rng);
+	return groups;
+}
+
+/** 抽取任意合法兵种对；同路/分路、同时/错峰都可尝试，不指定前排或支援者。 */
+std::vector<Action> SampleCombination(const Snapshot& s, const std::vector<std::vector<int>>& groups,
+	const std::pair<int,int>& pair, std::mt19937& rng, bool simultaneous) {
+	const auto& first = groups[pair.first]; const auto& second = groups[pair.second];
+	const int a = first[rng()%first.size()];
+	int b = second[rng()%second.size()];
+	if (rng()%4 != 0) {
+		const auto sameRow = std::find_if(second.begin(),second.end(),[&](int option) {
+			return s.options[option].row == s.options[a].row;
+		});
+		if (sameRow != second.end()) b = *sameRow;
+	}
+	std::vector<Action> plan{{a,0},{b,0}};
+	if (!simultaneous) {
+		// 既探索短间隔协作，也探索跨冷却分批；两种分布对所有兵种完全相同。
+		const float span = rng()%2 == 0 ? std::min(6.0f,DelayLimit(s)) : DelayLimit(s);
+		plan[rng()%2].delay = (rng()%(static_cast<int>(span*2)+1))*.5f;
+	}
+	return plan;
+}
+
 /** 修复变异后的越界和超预算动作，稳定排序保留同一时刻的提交次序。 */
 void Repair(const Snapshot& s, std::vector<Action>& actions) {
 	int spent = 0;
@@ -225,6 +265,12 @@ float Score(const Weights& f, const Weights& w) {
 	float value = 0;
 	for (int i = 0; i < FeatureCount; ++i) value += f[i] * w[i];
 	return value;
+}
+
+/** 预测进屋优先于中间收益；同为突破或同未突破时才比较训练所得的净收益评分。 */
+bool BetterOutcome(const Result& a, const Result& b) {
+	if ((a.features[2] > 0) != (b.features[2] > 0)) return a.features[2] > 0;
+	return a.score > b.score + .001f;
 }
 
 /** 汇总工人存活条件，只读当前快照和候选，不读取未来玩家动作。 */
@@ -301,7 +347,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 		patient.opponentScore = s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
 		patient.score = Score(patient.features,weights)+patient.opponentScore;
 		patient.counterHoldSeconds = hold;
-		if (patient.score < candidate.score) candidate = std::move(patient);
+		if (BetterOutcome(candidate,patient)) candidate = std::move(patient);
 	}
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
@@ -1418,7 +1464,9 @@ QueueRevision ReplanCommitted(Snapshot& s, const Weights& baseWeights, std::uint
 	const auto baseline = EvaluatePlan(s,baseWeights,{}, {},0);
 	const auto conditioned = ConditionWeights(baseWeights,DescribeState(s,baseline.features),s.stateModel);
 	const auto weights = s.netEconomy ? AccountForIce(conditioned) : conditioned;
-	revision.beforeScore = revision.afterScore = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets).score;
+	auto bestOutcome = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets);
+	revision.beforeScore = revision.afterScore = bestOutcome.score;
+	revision.beforeBreach = revision.afterBreach = bestOutcome.features[2] > 0;
 	revision.evaluated = 1;
 	auto best = original;
 	std::mt19937 random(seed);
@@ -1439,10 +1487,13 @@ QueueRevision ReplanCommitted(Snapshot& s, const Weights& baseWeights, std::uint
 			if (paid.legalRows[row]) body.row = row;
 			body.spawnAt = original[paid.unit].body.spawnAt * (random()%101)/100.0f;
 		}
-		const float score = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets).score;
+		auto outcome = EvaluatePlan(s,weights,{},baseline.features,baseline.opponentAssets);
 		++revision.evaluated;
-		if (score > revision.afterScore + .001f) { best = s.current; revision.afterScore = score; }
+		if (BetterOutcome(outcome,bestOutcome)) {
+			best = s.current; revision.afterScore = outcome.score; bestOutcome = std::move(outcome);
+		}
 	}
+	revision.afterBreach = bestOutcome.features[2] > 0;
 	s.current = std::move(best);
 	for (const auto& paid : s.committed) {
 		const auto& before = original[paid.unit].body;
@@ -1538,108 +1589,95 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			deferredInvestment = true;
 			continue;
 		}
-		if ((s.allowWait || !candidate.actions.empty()) && (!hasChoice || candidate.score > best.score + 0.001f)) {
+		if ((s.allowWait || !candidate.actions.empty()) && (!hasChoice || BetterOutcome(candidate,best))) {
 			best = candidate; hasChoice = true;
 		}
 		elite.push_back(std::move(candidate));
-		std::stable_sort(elite.begin(), elite.end(), [](const auto& a, const auto& b) { return a.score > b.score; });
+		std::stable_sort(elite.begin(), elite.end(), [](const auto& a, const auto& b) {
+			if ((a.features[2] > 0) != (b.features[2] > 0)) return a.features[2] > 0;
+			return a.score > b.score;
+		});
 		if (elite.size() > 8) elite.resize(8);
 	}
-	int investmentEvaluated = 0;
-	const float investmentBaseScore = best.score;
-	// 大兵池的一次兵种抽样不等于已充分试过经营：错误落点被淘汰后，末尾整体改路无法再救回该兵种。
-	// 固定原进攻优案作保底，额外比较“同行跟进”和“只给已有部队增援”；不改收益、不固定买几只。
-	if (!coverage.empty()) {
-		const auto parent = best.actions;
-		for (int phase=0; phase<3 && investmentEvaluated<kInvestmentTrials; ++phase)
-			for (int separate=0; separate<2 && investmentEvaluated<kInvestmentTrials; ++separate) {
-				if (separate && parent.empty()) continue;
-				for (int option=0; option<static_cast<int>(s.options.size()) && investmentEvaluated<kInvestmentTrials; ++option) {
-					const auto& choice = s.options[option];
-					if (!choice.unit.body.economic || choice.cost <= 0 || choice.cost > PurchaseBudget(s)) continue;
-					auto plan = IntroduceOption(s,separate ? std::vector<Action>{} : parent,option,rng);
-					plan.back().delay = DelayLimit(s)*phase/2;
-					Repair(s,plan);
-					if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
-					largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
-					auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
-					++investmentEvaluated;
-					if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
-					if (candidate.score > best.score+.001f) best = std::move(candidate);
-				}
-			}
-	}
-	// 支援单独出场可能亏损。按能力组合类型轮转，避免大兵池/多个合法行挤掉鼓手+重兵等组合；
-	// 所有候选仍经过相同推演、资金及资本门禁，不能用“有能力”代替收益。
-	int supportEvaluated = 0;
-	const auto supportParent = best.actions;
-	struct SupportGroup { int type = 0, partner = -1; std::vector<std::vector<Action>> plans; };
-	std::vector<SupportGroup> groups;
-	const auto addSupport = [&](int option, int partner) {
-		const auto& choice = s.options[option];
-		const int partnerType = partner < 0 ? -1 : s.options[partner].type;
-		auto group = std::find_if(groups.begin(),groups.end(),[&](const SupportGroup& g) {
-			return g.type == choice.type && g.partner == partnerType;
+	int routeEvaluated = 0, combinationEvaluated = 0;
+	const float combinationBaseScore = best.score;
+	const bool combinationBaseBreach = best.features[2] > 0;
+	const auto groups = LegalOptionGroups(s,rng);
+	const auto parent = best.actions;
+	const auto compare = [&](std::vector<Action> plan) {
+		Repair(s,plan);
+		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
+		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
+		auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
+		if (rejectInvestment(candidate)) { deferredInvestment = true; return; }
+		if (BetterOutcome(candidate,best)) { best = candidate; hasChoice = true; }
+		elite.push_back(std::move(candidate));
+		std::stable_sort(elite.begin(),elite.end(),[](const auto& a,const auto& b) {
+			if ((a.features[2] > 0) != (b.features[2] > 0)) return a.features[2] > 0;
+			return a.score > b.score;
 		});
-		if (group == groups.end()) { groups.push_back({choice.type,partnerType,{}}); group = groups.end()-1; }
-		if (partner < 0) group->plans.push_back(IntroduceOption(s,supportParent,option,rng));
-		else for (int order=0; order<2; ++order) {
-			// 同时到场与前排先到均比较；鼓手先到/后到可改变适应者与重兵受益时段。
-			group->plans.push_back({{option,order == 0 ? 0.0f : 3.0f},{partner,order == 0 ? 2.0f : 0.0f}});
-		}
+		if (elite.size() > 8) elite.resize(8);
 	};
-	for (int option=0; option<static_cast<int>(s.options.size()); ++option) {
-		const auto& choice = s.options[option]; const auto& unit = choice.unit;
-		if (!(unit.repair.interval > 0 || unit.drum.enabled || unit.adaptiveHelmet > 0 || unit.sniper.enabled)
-			|| choice.cost > PurchaseBudget(s)) continue;
-		addSupport(option,-1);
-		if (ActionLimit(s) < 2) continue;
-		for (int partner=0; partner<static_cast<int>(s.options.size()); ++partner) {
-			const auto& other = s.options[partner];
-			if (partner == option || other.row != choice.row || other.cost+choice.cost > PurchaseBudget(s)) continue;
-			const bool heavy = other.unit.adaptiveHelmet > 0 || other.unit.vehicleCrush || other.unit.throwHealth > 0;
-			const bool useful = unit.drum.enabled ? (heavy || (other.unit.body.speed > 0 && other.unit.body.health >= unit.body.health))
-				: other.unit.body.economic || (unit.adaptiveHelmet > 0 && (heavy || other.unit.drum.enabled || other.unit.sniper.enabled));
-			if (useful) addSupport(option,partner);
-		}
-	}
-	std::shuffle(groups.begin(),groups.end(),rng);
-	for (auto& group : groups) std::shuffle(group.plans.begin(),group.plans.end(),rng);
-	for (size_t round=0; supportEvaluated<kSupportTrials; ++round) {
+	// 所有可支付类型都有路线覆盖机会，包含已有部队的保护；不额外优待经营或指定技能。
+	for (size_t route=0; routeEvaluated<kRouteTrials; ++route) {
 		bool found = false;
 		for (const auto& group : groups) {
-			if (supportEvaluated >= kSupportTrials) break;
-			if (round >= group.plans.size()) continue;
-			found = true; auto plan = group.plans[round]; Repair(s,plan);
-			if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
-			largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
-			auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
-			++supportEvaluated;
-			if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
-			if (candidate.score > best.score+.001f) best = std::move(candidate);
+			if (routeEvaluated >= kRouteTrials) break;
+			if (route >= group.size()) continue;
+			found = true;
+			compare(IntroduceOption(s,parent,group[route],rng));
+			++routeEvaluated;
 		}
 		if (!found) break;
 	}
-	const float investmentBestScore = best.score;
+	// 独立两兵案可以跨过“各自亏损、组合才盈利”的谷底；新能力不需要补搭配白名单。
+	std::vector<std::pair<int,int>> pairs;
+	if (ActionLimit(s) >= 2) for (int a=0; a<static_cast<int>(groups.size()); ++a)
+		for (int b=a; b<static_cast<int>(groups.size()); ++b)
+			if (s.options[groups[a].front()].cost+s.options[groups[b].front()].cost <= PurchaseBudget(s))
+				pairs.emplace_back(a,b);
+	std::shuffle(pairs.begin(),pairs.end(),rng);
+	for (int trial=0; trial<kCombinationTrials && !pairs.empty(); ++trial) {
+		auto plan = SampleCombination(s,groups,pairs[trial%pairs.size()],rng,trial<static_cast<int>(pairs.size()));
+		// 后续把任意配对试入搜索中的优案，可生成三种以上兵种并继续优化出生次序。
+		if (trial >= std::min(static_cast<int>(pairs.size()),kCombinationTrials/2) && trial%2 == 0) {
+			auto expanded = elite[rng()%elite.size()].actions;
+			int cost = 0;
+			for (const auto& action : plan) cost += s.options[action.option].cost;
+			for (const auto& action : expanded) cost += s.options[action.option].cost;
+			// 整对预留预算和容量；逐只插入会在第二次腾位时误删刚插入的协作伙伴。
+			while (!expanded.empty() && (expanded.size()+plan.size() > static_cast<size_t>(ActionLimit(s))
+				|| cost > PurchaseBudget(s))) {
+				const auto at = rng()%expanded.size();
+				cost -= s.options[expanded[at].option].cost;
+				expanded.erase(expanded.begin()+at);
+			}
+			expanded.insert(expanded.end(),plan.begin(),plan.end());
+			plan = std::move(expanded);
+		}
+		compare(std::move(plan)); ++combinationEvaluated;
+	}
+	const float combinationBestScore = best.score;
+	const bool combinationBestBreach = best.features[2] > 0;
 	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
 	// 因此可以发现继续支援巨人的收益，也能因灰烬、溅射或减速而保留分路方案。
 	const auto original = best.actions;
 	const float baseScore = best.score;
 	std::array<float, 6> rowScores{};
-	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials+investmentEvaluated+supportEvaluated;
+	int tested = 0, rejected = 0, chosenRow = -1, evaluated = trials+routeEvaluated+combinationEvaluated;
 	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()); ++row) {
 		auto plan = original;
 		if (!Concentrate(s, plan, row)) continue;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
 		++evaluated; tested |= 1 << row; rowScores[row] = candidate.score;
 		if (rejectInvestment(candidate)) { rejected |= 1 << row; continue; }
-		if (candidate.score > best.score + 0.001f) { best = std::move(candidate); chosenRow = row; }
+		if (BetterOutcome(candidate,best)) { best = std::move(candidate); chosenRow = row; }
 	}
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
-	best.supportEvaluated = supportEvaluated;
-	best.investmentEvaluated = investmentEvaluated;
-	best.investmentBaseScore = investmentBaseScore; best.investmentBestScore = investmentBestScore;
+	best.routeEvaluated = routeEvaluated; best.combinationEvaluated = combinationEvaluated;
+	best.combinationBaseScore = combinationBaseScore; best.combinationBestScore = combinationBestScore;
+	best.combinationBaseBreach = combinationBaseBreach; best.combinationBestBreach = combinationBestBreach;
 	best.evaluated = evaluated;
 	best.capitalRejected = capitalRejected;
 	best.largestPlan = largestPlan;
@@ -1657,8 +1695,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		result.expandedForecast = true;
 		result.evaluated += best.evaluated;
 		result.capitalRejected += best.capitalRejected;
-		result.investmentEvaluated += best.investmentEvaluated;
-		result.supportEvaluated += best.supportEvaluated;
+		result.routeEvaluated += best.routeEvaluated;
+		result.combinationEvaluated += best.combinationEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}
@@ -1689,6 +1727,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	std::stable_sort(targets.begin(),targets.end(),[](const auto& a,const auto& b) { return a.first > b.first; });
 	if (targets.size() > kPrecisionTargets) targets.resize(kPrecisionTargets);
 	int evaluated = 0;
+	std::mt19937 rng(seed);
 	const auto consider = [&](Result candidate) {
 		++evaluated;
 		// 即使旧参数没有成本惩罚，也不能免费使用新技能；正式净冰模型已经计费，不重复惩罚。
@@ -1707,7 +1746,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 			+ candidate.features[4]-sameArmy.features[4] + candidate.features[3]-sameArmy.features[3]
 			+ sameArmy.opponentAssets-candidate.opponentAssets;
 		if (candidate.features[2] <= sameArmy.features[2] && capitalGain < ColdStorageSkillRules::StrikeIceCost) return;
-		if (candidate.score <= sameArmy.score+.001f || candidate.score <= best.score+.001f) return;
+		if (!BetterOutcome(candidate,sameArmy) || !BetterOutcome(candidate,best)) return;
 		if (ShouldRegroup(candidate,state.budget,state.recoveryReserve)
 			|| (state.netEconomy && ShouldConserveCapital(candidate,state.budget,state.recoveryReserve))) return;
 		best = std::move(candidate);
@@ -1720,23 +1759,27 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
 		}
 		// 不施法时的优案可能攻击另一行，或全体等待；先给清除后的破口比较可支付的跟进，
-		// 否则“先清关键输出再进工人/适应护卫”的联合收益永远进不了最后的重搜。
+		// 否则“先清关键输出再跟进任意编队”的联合收益永远进不了最后的重搜。
 		const auto plant = std::find_if(state.plants.begin(),state.plants.end(),[&](const Plant& p) { return p.id == target.second; });
 		if (plant == state.plants.end()) continue;
-		int worker = -1, tank = -1, sniper = -1;
-		for (int i=0; i<static_cast<int>(state.options.size()); ++i) {
-			const auto& option = state.options[i];
-			if (option.row != plant->row || option.cost > PurchaseBudget(state)) continue;
-			if (option.unit.body.economic && (worker < 0 || option.cost < state.options[worker].cost)) worker = i;
-			if (option.unit.adaptiveHelmet > 0 && (tank < 0 || option.cost < state.options[tank].cost)) tank = i;
-			if (option.unit.sniper.enabled && (sniper < 0 || option.cost < state.options[sniper].cost)) sniper = i;
-		}
-		for (int leader : {worker,tank,sniper}) {
-			if (leader < 0) continue;
-			std::vector<Action> plan{{leader,0}};
-			if (leader != worker && worker >= 0 && ActionLimit(state) >= 2
-				&& state.options[leader].cost+state.options[worker].cost <= PurchaseBudget(state)) plan.push_back({worker,3});
+		const auto followups = LegalOptionGroups(state,rng);
+		for (int trial=0; trial<kPrecisionFollowupTrials && !followups.empty(); ++trial) {
+			// 清除所在行只是候选落点；跟进的类型和数量不按经济、肉盾、狙击能力筛选。
+			std::vector<Action> plan;
+			const int count = std::min(ActionLimit(state),trial%2 ? 2 : 1);
+			if (count == 0) break;
+			for (int n=0; n<count; ++n) {
+				const auto& group = followups[(trial+n)%followups.size()];
+				int option = group[rng()%group.size()];
+				const auto sameRow = std::find_if(group.begin(),group.end(),[&](int i) { return state.options[i].row == plant->row; });
+				if (sameRow != group.end()) option = *sameRow;
+				// 第一只也能等打击落地后再进场；否则薄血部队会在清除生效前死亡，联合收益被漏掉。
+				const float span = trial%2 ? std::min(6.0f,DelayLimit(state)) : DelayLimit(state);
+				const float delay = trial%3 == 0 ? 0 : (rng()%(static_cast<int>(span*2)+1))*.5f;
+				plan.push_back({option,delay});
+			}
 			Repair(state,plan);
+			if (!state.allowWait && !plan.empty()) plan.front().delay = 0;
 			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
 		}
 	}

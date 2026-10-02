@@ -168,7 +168,10 @@ struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights prefe
 struct Action { int option = 0; float delay = 0; };
 /** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
 struct CommittedUnit { int unit = 0; std::array<bool, 6> legalRows{}; };
-struct QueueRevision { int evaluated = 0, changed = 0; float beforeScore = 0, afterScore = 0; };
+struct QueueRevision {
+	int evaluated = 0, changed = 0; float beforeScore = 0, afterScore = 0;
+	bool beforeBreach = false, afterBreach = false; // 已购队列也采用突破优先，评分仅用于相同结果
+};
 /** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
 struct Counter {
 	ColdStorageStrategy::BlastThreat blast;
@@ -226,8 +229,8 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
-	int precisionTargetID = 0, precisionEvaluated = 0, supportEvaluated = 0;
-	float precisionGain = 0; // 相对保留技能资金的完整最优编队的增量评分
+	int precisionTargetID = 0, precisionEvaluated = 0;
+	float precisionGain = 0; // 相对保留技能资金的增量评分；突破优先时可为负，以 features[2] 判断胜利
 	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
@@ -237,8 +240,9 @@ struct Result {
 	float opponentAssets = 0, baselineOpponentAssets = 0, opponentScore = 0; // 与不增援基线比较，避免奖励本来就会发生的消耗
 	int evaluated = 0;
 	int capitalRejected = 0; // 资金充足时因大额亏损/清场风险被排除的候选数
-	int investmentEvaluated = 0; // 经营对照次数，升级搜索时合计两阶段；下方分数仅对应最终阶段
-	float investmentBaseScore = 0, investmentBestScore = 0; // 相同评分下，保底进攻案与经营对照后的优案
+	int routeEvaluated = 0, combinationEvaluated = 0; // 通用路线覆盖与组合探索次数，升级时合计两阶段
+	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
+	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
@@ -266,7 +270,7 @@ bool ShouldRegroup(const Result& result, int budget, int reserve);
 bool ShouldConserveCapital(const Result& result, int budget, int reserve);
 /** 有限步位置推演；两类 hold 秒数只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存来源。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0, float storedHoldSeconds = 0);
-/** 自由变异后逐行比较同一编队的集中增援；保留观望、分路和时序，不迁移已有实体。 */
+/** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */
 QueueRevision ReplanCommitted(Snapshot& state, const Weights& weights, std::uint32_t seed);

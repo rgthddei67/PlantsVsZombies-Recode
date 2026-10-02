@@ -162,7 +162,7 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 
 ### 大兵池经营对照与外部阳光压力夹具
 
-合法且可支付的兵种多于小队容量时，指挥官会在原攻击搜索后，以同一评分额外比较经济单位的合法路线、跟进时机和单独增援。原优案保底，不强制购买；每阶段次数上限见 `ColdStorageSearch.cpp`。`searchInvestment` / 对局记录的 `investment` 导出次数及比较前后评分；次数在升级搜索时合计，分数对应最终搜索阶段。小兵池沿用原流程，专项为 `smoke_commander_investment.json` 和 `verify_commander_investment.py`。
+指挥官在自由变异搜索后，对所有可支付兵种覆盖合法路线，并探索任意类型的同路/分路、同时/错峰配对及优案扩展；候选生成不按经济、鼓手、适应头盔等角色筛选。所有候选使用同一能力推演，预测突破优先，同结果再比较净收益、植物损耗及资源压力。有限搜索不保证穷举或全局最优；每阶段预算见 `ColdStorageSearch.cpp`。`searchCombination` / 对局记录的 `combination` 导出路线与组合次数、比较前后评分及突破标记；升级时次数合计，分数对应最终阶段，突破优先可能让胜出案中间评分下降。精准清除也以任意合法类型探测跟进，不指定工人/肉盾模板。复用专项 `smoke_commander_investment.json` 和 `verify_commander_investment.py`。
 
 `commander_episode` 可显式指定 `sunRefillBelow` 和 `sunRefillTo`，模拟阳光低于或等于阈值时由外部工具再次补款。该夹具只影响测试玩家的钱包，不重置冷却、不补冰、不把未来补款告知 AI。结果的 `externalSun` 记录启用状态和每笔金额；此类压力结果必须单列，不能混入正常资源的训练胜率。省略字段则完全关闭。
 

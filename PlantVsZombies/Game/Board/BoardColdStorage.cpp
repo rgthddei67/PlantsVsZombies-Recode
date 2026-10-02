@@ -729,7 +729,9 @@ void Board::PlanColdStorageAttack(bool background)
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
 	s.candidatesEvaluated = 0;
-	s.searchInvestmentEvaluated = 0; s.searchInvestmentBaseScore = s.searchInvestmentBestScore = 0;
+	s.searchRouteEvaluated = s.searchCombinationEvaluated = 0;
+	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
+	s.searchCombinationBaseBreach = s.searchCombinationBestBreach = false;
 	s.predictedProduction = 0.0f;
 	s.economyValue = 0.0f;
 	s.economyRow = -1;
@@ -746,6 +748,7 @@ void Board::PlanColdStorageAttack(bool background)
 	s.economyCoverByRow.fill(0.0f);
 	s.searchCommittedCount = s.searchQueueEvaluated = s.searchQueueChanged = 0;
 	s.searchQueueBeforeScore = s.searchQueueAfterScore = 0;
+	s.searchQueueBeforeBreach = s.searchQueueAfterBreach = false;
 	PlantDefenseMonteCarlo::Snapshot snapshot;
 	if (!BuildMonteCarloCombatSnapshot(snapshot, false, false)) return;
 	std::array<float, 6> directDps{}, directSplash{}, slowDuty{}, splashSlowDuty{}, slowDuration{}, dps{}, value{}, armor{}, frontArmor{}, escort{}, splash{}, control{}, frontX{};
@@ -1976,6 +1979,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchCommittedCount = static_cast<int>(tickets.size());
 	s.searchQueueEvaluated = revision.evaluated; s.searchQueueChanged = revision.changed;
 	s.searchQueueBeforeScore = revision.beforeScore; s.searchQueueAfterScore = revision.afterScore;
+	s.searchQueueBeforeBreach = revision.beforeBreach; s.searchQueueAfterBreach = revision.afterBreach;
 	for (size_t i = 0; i < tickets.size(); ++i) {
 		const auto paid = std::find_if(s.pending.begin(),s.pending.end(),[&](const auto& item) { return item.ticket == tickets[i]; });
 		if (paid == s.pending.end()) continue; // 已经出生的旧事务不能被重新插回队列。
@@ -2027,15 +2031,15 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchRitualReleases = result.construction.ritualReleases; s.searchRiftSummons = result.construction.riftSummons;
 	s.searchRiftRedirects = result.construction.riftRedirects;
 	s.searchDrumBeats = result.construction.drumBeats; s.searchDrumRecipients = result.construction.drumRecipients;
-	s.searchSupportEvaluated = result.supportEvaluated;
 	s.searchPrecisionTargetID = result.precisionTargetID; s.searchPrecisionEvaluated = result.precisionEvaluated;
 	s.searchPrecisionGain = result.precisionGain;
 	s.searchBurstActivations = result.construction.burstActivations; s.searchAuraActivations = result.construction.auraActivations;
 	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
 	s.searchFormationChosenRow = result.formationChosenRow;
-	s.searchInvestmentEvaluated = result.investmentEvaluated;
-	s.searchInvestmentBaseScore = result.investmentBaseScore; s.searchInvestmentBestScore = result.investmentBestScore;
+	s.searchRouteEvaluated = result.routeEvaluated; s.searchCombinationEvaluated = result.combinationEvaluated;
+	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
+	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchProductionInputs = result.productionInputs;
 	s.formationBlastLoss = result.blastLoss;
 	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];

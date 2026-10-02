@@ -277,6 +277,7 @@ int main()
 	check(ColdStorageSearch::Search(contextual, contextScore, 77).score < support.score,
 		"healthy allies do not receive wounded-ally preference");
 	contextual.options[0].preference = {}; contextScore[5] = -1;
+	contextual.houseX = -10000; // 观望夹具排除真实获胜路径，避免把胜利优先误判成强制出兵。
 	check(ColdStorageSearch::Search(contextual,contextScore,77).actions.empty(),"waiting remains a legal scored choice");
 	contextual.allowWait = false;
 	const auto resume = ColdStorageSearch::Search(contextual,contextScore,77);
@@ -302,7 +303,7 @@ int main()
 		const auto focused = ColdStorageSearch::Search(formation,formationWeights,seed);
 		check(focused.actions.size() == 2 && focused.actions[0].option == focused.actions[1].option,
 			"repeated row strikes favor concentrating heavy troops instead of exposing every lane");
-		check(focused.formationTested == 31 && focused.evaluated == 101,
+		check(focused.formationTested == 31 && focused.evaluated == 101+focused.routeEvaluated+focused.combinationEvaluated,
 			"every legal lane is compared within a bounded extra search budget");
 		check(focused.score + 0.002f >= focused.formationBaseScore,
 			"formation refinement never replaces the free plan with a worse scored plan");
@@ -494,13 +495,15 @@ int main()
 	const auto broad = ColdStorageSearch::Search(portfolio,breakthrough,731);
 	check(broad.largestPlan == 64 && broad.actions.size() > 8 && broad.features[2] == 1,
 		"an unproductive small search can escalate to a complete team without a spending reward");
-	check(broad.expandedForecast && broad.features[5] <= portfolio.budget && broad.evaluated <= 300,
+	check(broad.expandedForecast && broad.features[5] <= portfolio.budget
+		&& broad.evaluated-broad.routeEvaluated-broad.combinationEvaluated <= 300,
 		"expanded search is explicit in diagnostics and remains bounded and paid");
 	portfolio.searchVersion = 2;
 	const auto large = ColdStorageSearch::Search(portfolio,breakthrough,731);
 	check(large.largestPlan == 64 && large.actions.size() > 8 && large.features[2] > 0,
 		"portfolio search finds a paid large-team breakthrough without a state layer or spending reward");
-	check(large.features[5] <= portfolio.budget && large.evaluated <= 198,"larger search obeys money and bounded evaluation limits");
+	check(large.features[5] <= portfolio.budget && large.evaluated-large.routeEvaluated-large.combinationEvaluated <= 198,
+		"larger search obeys money and bounded evaluation limits");
 	portfolio.capacity = 8;
 	check(ColdStorageSearch::Search(portfolio,breakthrough,731).actions.empty(),"search cannot exceed remaining board capacity");
 	portfolio.capacity = 64; portfolio.plants[0].dps = 100000; portfolio.plants[0].multiTarget = true;
@@ -1005,8 +1008,9 @@ int main()
 	for (unsigned seed=1; seed<=64; ++seed) {
 		const auto result=ColdStorageSearch::Search(crowded,returnWeights,seed);
 		if (result.actions.empty()) ++missed;
-		check(result.investmentEvaluated>0 && result.investmentEvaluated<=32,"additional investment search has a bounded budget");
-		check(result.investmentBestScore>=result.investmentBaseScore,"economic refinement never replaces a higher scoring attack");
+		check(result.routeEvaluated>0 && result.routeEvaluated<=256 && result.combinationEvaluated<=80,"generic route and pair exploration have bounded budgets");
+		check((result.combinationBestBreach && !result.combinationBaseBreach)
+			|| result.combinationBestScore>=result.combinationBaseScore,"generic refinement retains the incumbent unless it improves the goal");
 	}
 	check(missed==0,"wide-roster search must compare protected economic routes even if a random unsafe sample was discarded");
 	std::cout << "Protected investment in 48-type roster missed " << missed << "/64; known safe production="
@@ -1530,12 +1534,71 @@ int main()
 	fire.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_ELITE_SCAREDYSHROOM);
 	s.plants={fire}; s.options={tank,worker};
 	const auto protectedWorker=Search(s,weights,402);
-	check(protectedWorker.actions.size()==2 && protectedWorker.features[4]>0 && protectedWorker.supportEvaluated>0,
+	check(protectedWorker.actions.size()==2 && protectedWorker.features[4]>0 && protectedWorker.combinationEvaluated>0,
 		"single-lineage fire permits an adaptive frontline and profitable rear worker");
 	auto mixed=fire; mixed.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_PEASHOOTER); s.plants.push_back(mixed);
 	const auto mixedResult=Search(s,weights,402);
 	check(mixedResult.features[4]<protectedWorker.features[4],"mixed fire removes adaptive protection instead of blindly preserving the same formation");
 	std::cout << "Search chooses optional drummer/heavy and adaptive/worker synergy by counterfactual return\n";
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	// 极端经营权重与负胜利权重也不能覆盖真实进屋结果；不依赖特定兵种 ID。
+	Snapshot s; s.budget=24; s.capacity=1; s.netEconomy=true; s.recoveryReserve=100;
+	Option runner; runner.type=171; runner.cost=24; runner.unit.body.x=850;
+	runner.unit.body.health=100; runner.unit.body.speed=20; runner.unit.body.purchaseCost=24;
+	Option worker=runner; worker.type=819; worker.unit.body.speed=0; worker.unit.body.economic=true;
+	worker.unit.body.health=500; // 高于工人失去生产资格的真实掉头阈值。
+	s.options={runner,worker}; Weights profit{}; profit[2]=-500; profit[4]=500;
+	check(Evaluate(s,{{0,0}})[2]>0 && Evaluate(s,{{1,0}})[4]>0,"goal fixture has both a winning attack and profitable nonwinning production");
+	for (unsigned seed=1; seed<=16; ++seed) {
+		const auto win=Search(s,profit,seed);
+		check(win.features[2]>0 && !win.actions.empty(),"victory precedes intermediate income and survives capital gates");
+	}
+	s.mowers={{0,160,60,230,false,true}};
+	const auto cleared=Search(s,profit,19);
+	check(cleared.features[2]==0 && !cleared.actions.empty() && s.options[cleared.actions.front().option].unit.body.economic,
+		"a mower-cleared attack is not labelled victory; nonwinning candidates still compare net returns");
+	s.mowers.clear(); s.options.clear(); s.capacity=0;
+	auto late=runner.unit; late.body.spawnAt=120;
+	s.current={late,worker.unit}; CommittedUnit paid; paid.unit=0; paid.legalRows[0]=true; s.committed={paid};
+	const auto revision=ReplanCommitted(s,profit,19);
+	check(!revision.beforeBreach && revision.afterBreach && revision.changed==1 && revision.afterScore<revision.beforeScore,
+		"paid queue prioritizes a newly possible victory even when earlier ending reduces income score");
+	// 清除落地前的薄血部队会被射死；联合胜利需要自行找出延迟进场，而不是立即跟进模板。
+	s.current.clear(); s.committed.clear(); s.precisionReady=true; s.budget=100; s.capacity=1;
+	runner.cost=40; runner.unit.body.purchaseCost=40;
+	worker.row=worker.unit.body.row=1; worker.unit.body.x=1150;
+	s.options={runner,worker}; Plant lethal; lethal.id=8; lethal.x=300; lethal.health=10000; lethal.dps=1000; lethal.reward=10;
+	s.plants={lethal};
+	const auto strike=Search(s,profit,19);
+	check(strike.precisionTargetID==8 && strike.features[2]>0 && strike.precisionGain<0
+		&& !strike.actions.empty() && strike.actions.front().delay>0,
+		"precision and delayed arbitrary followup prioritize victory over larger intermediate production score");
+	std::cout << "Victory-first purchasing, mower truth and paid-queue outcome ordering passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	// 矮血量普通伙伴不符合原鼓手的“重兵/高生命”筛选，但加速收益仍应参与搜索。
+	Snapshot s; s.houseX=-10000; s.budget=102; s.capacity=2;
+	Option fragile; fragile.type=919; fragile.cost=100; fragile.unit.body.x=800;
+	fragile.unit.body.health=100; fragile.unit.body.speed=4; fragile.unit.body.purchaseCost=100;
+	Option drum; drum.type=173; drum.cost=2; drum.unit.body.x=800;
+	drum.unit.body.health=1600; drum.unit.body.purchaseCost=2;
+	drum.unit.drum.enabled=true; drum.unit.drum.remaining=.5f; drum.unit.drum.stopHealth=533;
+	s.options={fragile,drum}; Weights advance{}; advance[7]=30; advance[5]=-1;
+	for (unsigned seed=1; seed<=16; ++seed) {
+		const auto combined=Search(s,advance,seed);
+		check(combined.actions.size()==2 && combined.construction.drumRecipients>0,
+			"any affordable type pair can win comparison without role or health screening");
+	}
+	s.options[1].unit.drum.enabled=false;
+	const auto unhelpful=Search(s,advance,19);
+	check(unhelpful.actions.size()==1,"removing the companion skill removes its purchase benefit");
+	s.budget=101; s.options[1].unit.drum.enabled=true;
+	check(Search(s,advance,19).actions.size()==1,"free combinations still obey the joint purchase budget");
+	std::cout << "Role-independent combinations, skill counterfactual and joint affordability passed\n";
 	}
 
 }

@@ -4900,8 +4900,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
-		ice["searchInvestment"] = {{"evaluated",board->mColdStorage.searchInvestmentEvaluated},
-			{"baseScore",board->mColdStorage.searchInvestmentBaseScore},{"bestScore",board->mColdStorage.searchInvestmentBestScore}};
+		ice["searchCombination"] = {{"routeEvaluated",board->mColdStorage.searchRouteEvaluated},
+			{"evaluated",board->mColdStorage.searchCombinationEvaluated},
+			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
+			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach}};
 		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
 			{"initialYield",IceProduction::InitialYield},{"maximumYield",IceProduction::MaximumYield},
 			{"growth",IceProduction::YieldGrowth},{"workerCost",IceProduction::WorkerCost}};
@@ -4930,7 +4932,6 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchEliteRemainingUses"] = board->mColdStorage.searchEliteRemainingUses;
 		ice["searchDrumBeats"] = board->mColdStorage.searchDrumBeats;
 		ice["searchDrumRecipients"] = board->mColdStorage.searchDrumRecipients;
-		ice["searchSupportEvaluated"] = board->mColdStorage.searchSupportEvaluated;
 		ice["searchPrecisionEvaluated"] = board->mColdStorage.searchPrecisionEvaluated;
 		ice["searchPrecisionTargetID"] = board->mColdStorage.searchPrecisionTargetID;
 		ice["searchPrecisionGain"] = board->mColdStorage.searchPrecisionGain;
@@ -4966,7 +4967,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["planningMainMaxMs"] = board->mColdStorage.planningMainMaxMs;
 		ice["searchQueue"] = {{"committed",board->mColdStorage.searchCommittedCount},
 			{"evaluated",board->mColdStorage.searchQueueEvaluated},{"changed",board->mColdStorage.searchQueueChanged},
-			{"beforeScore",board->mColdStorage.searchQueueBeforeScore},{"afterScore",board->mColdStorage.searchQueueAfterScore}};
+			{"beforeScore",board->mColdStorage.searchQueueBeforeScore},{"afterScore",board->mColdStorage.searchQueueAfterScore},
+			{"beforeBreach",board->mColdStorage.searchQueueBeforeBreach},{"afterBreach",board->mColdStorage.searchQueueAfterBreach}};
 		ice["searchVersion"] = board->mColdStorage.searchVersion;
 		ice["searchLargestPlan"] = board->mColdStorage.searchLargestPlan;
 		ice["searchNetEconomy"] = board->mColdStorage.searchNetEconomy;

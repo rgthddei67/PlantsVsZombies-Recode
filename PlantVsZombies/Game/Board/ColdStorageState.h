@@ -78,8 +78,9 @@ struct ColdStorageState {
 	int decisions = 0;
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
-	int searchInvestmentEvaluated = 0; // 大兵池额外经营对照次数，仅诊断不入档
-	float searchInvestmentBaseScore = 0, searchInvestmentBestScore = 0; // 是否因经营对照改善评分，不代表必定购买工人
+	int searchRouteEvaluated = 0, searchCombinationEvaluated = 0; // 通用路线/组合比较次数，仅诊断不入档
+	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
+	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益
 	float lastBestScore = 0.0f;
 	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一推演时域的计划/不增援预测（产冰固定60秒），诊断不入档
 	float searchPreferenceScore = 0; // 兵种经验对本次评分的贡献，诊断不入档
@@ -90,6 +91,7 @@ struct ColdStorageState {
 	bool searchExpandedForecast = false; // 因小队无收益或带已付队列而采用完整 v2 预测，诊断不入档
 	int searchCommittedCount = 0, searchQueueEvaluated = 0, searchQueueChanged = 0; // 本次已有队列、重排试验及改动数，仅诊断
 	float searchQueueBeforeScore = 0, searchQueueAfterScore = 0; // 相同权重/时域下重排前后评分，仅诊断
+	bool searchQueueBeforeBreach = false, searchQueueAfterBreach = false; // 突破排序不能由评分大小代替
 	int searchVersion = 1, searchLargestPlan = 0; // 实际搜索版本和最大已评估编队，诊断不入档
 	bool searchNetEconomy = false; // 是否按净冰收益评分，诊断不入档
 	bool searchAnticipateBuilding = false; // 实际启用的未来建设预测版本，诊断不入档
@@ -112,7 +114,7 @@ struct ColdStorageState {
 	int searchDrumOptions = 0, searchDrumBeats = 0, searchDrumRecipients = 0; // 数值预测，不在正式场景施加效果
 	int searchDeploymentSniperOptions = 0, searchDeploymentShots = 0, searchDeploymentHits = 0; // 落种压制候选与预测弹道，不触发正式射击
 	int searchEliteReplacementOptions = 0, searchEliteRemainingUses = 0; // 共享累计名额的补菇画像，仅诊断
-	int searchSupportEvaluated = 0, searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次协同和精准清除搜索
+	int searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次精准清除搜索
 	float searchPrecisionGain = 0; // 相对不施法优案的收益，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
 	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档

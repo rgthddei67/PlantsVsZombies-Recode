@@ -14,7 +14,8 @@ for name, state in states.items():
     assert ice['pendingCount'] + state['zombieCount'] <= 64, name
     assert state['testAudio']['musicPct'] == 0 and state['testAudio']['soundPct'] > 0
     revision = ice['searchQueue']
-    assert revision['afterScore'] + .001 >= revision['beforeScore'], name
+    assert revision['afterBreach'] or not revision['beforeBreach'], name
+    assert (revision['afterBreach'] and not revision['beforeBreach']) or revision['afterScore'] + .001 >= revision['beforeScore'], name
 paid, checked, reinforced, restored, automatic, born = (states[n]['coldStorage'] for n in names)
 assert paid['pending'] == checked['pending'] and paid['spent'] == checked['spent']
 assert paid['decisions'] == checked['decisions'] == 20
