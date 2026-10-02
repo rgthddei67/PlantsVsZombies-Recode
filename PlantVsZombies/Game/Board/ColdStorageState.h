@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Game/Zombie/ZombieType.h"
+#include "Game/AI/ColdStorageDiagnostics.h"
 #include <array>
 #include <cstdint>
 #include <deque>
@@ -38,6 +39,10 @@ struct ColdStorageState {
 	std::uint64_t nextTicket = 0;
 	bool planning = false; // 后台计算尚未领取；不入档、不代表已付款
 	int planningStarted = 0, planningApplied = 0, planningDiscarded = 0;
+	std::array<int,static_cast<int>(ColdStorageSearch::PlanDiscardReason::Count)> planningDiscardReasons{}; // 多原因可累计，不入档
+	int planningLastDiscardMask = 0;
+	float planningLastAgeMs = 0;
+	std::vector<ColdStorageSearch::CandidateStats> searchUnitCandidates; // 含兵种/行的整案收益，最终阶段、精准清除前
 	double planningWorkerMs = 0, planningMainMaxMs = 0; // 后台总耗时/主线程决策入口最大耗时，毫秒
 	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
 	int playerIce = 200; // 开局冷库可支撑完整五路基础阵型，后续依赖采购

@@ -4916,6 +4916,17 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
 		ice["searchGrowingPlants"] = board->mColdStorage.searchGrowingPlants;
 		ice["searchCapitalRejected"] = board->mColdStorage.searchCapitalRejected;
+		ice["searchUnitCandidates"] = nlohmann::json::array();
+		for (const auto& candidate : board->mColdStorage.searchUnitCandidates) {
+			ice["searchUnitCandidates"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(candidate.type))},
+				{"row",candidate.row},{"evaluated",candidate.evaluated},{"standalone",candidate.standalone},{"allowed",candidate.allowed},
+				{"regroupRejected",candidate.regroupRejected},{"capitalRejected",candidate.capitalRejected},
+				{"bestBreach",candidate.bestBreach},{"bestDenial",candidate.bestDenial},{"bestScore",candidate.bestScore},
+				{"bestCash",candidate.bestCash},{"bestProduction",candidate.bestProduction},{"bestCost",candidate.bestCost},
+				{"bestBlastLoss",candidate.bestBlastLoss},{"bestAllowedScore",candidate.bestAllowedScore},
+				{"bestAllowedBreach",candidate.bestAllowedBreach}});
+		}
+		ice["searchUnitCandidatesScope"] = "final_formation_before_precision";
 		ice["searchAbilityIce"] = board->mColdStorage.searchAbilityIce;
 		ice["searchRepairOptions"] = board->mColdStorage.searchRepairOptions;
 		ice["searchRepairPlants"] = board->mColdStorage.searchRepairPlants;
@@ -4963,6 +4974,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["planningStarted"] = board->mColdStorage.planningStarted;
 		ice["planningApplied"] = board->mColdStorage.planningApplied;
 		ice["planningDiscarded"] = board->mColdStorage.planningDiscarded;
+		ice["planningDiscardReasons"] = {{"failed",board->mColdStorage.planningDiscardReasons[0]},
+			{"age",board->mColdStorage.planningDiscardReasons[1]},{"policy",board->mColdStorage.planningDiscardReasons[2]},
+			{"budget",board->mColdStorage.planningDiscardReasons[3]},{"worldChanged",board->mColdStorage.planningDiscardReasons[4]},
+			{"paidArrival",board->mColdStorage.planningDiscardReasons[5]},{"escortLoss",board->mColdStorage.planningDiscardReasons[6]}};
+		ice["planningLastDiscardMask"] = board->mColdStorage.planningLastDiscardMask;
+		ice["planningLastAgeMs"] = board->mColdStorage.planningLastAgeMs;
 		ice["planningWorkerMs"] = board->mColdStorage.planningWorkerMs;
 		ice["planningMainMaxMs"] = board->mColdStorage.planningMainMaxMs;
 		ice["searchQueue"] = {{"committed",board->mColdStorage.searchCommittedCount},

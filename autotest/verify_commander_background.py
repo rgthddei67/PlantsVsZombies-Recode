@@ -26,6 +26,8 @@ assert ice['committed']['planningApplied'] == 1 and ice['committed']['spent'] > 
 assert ice['once']['spent'] == ice['stale']['spent'] == ice['committed']['spent']
 assert ice['once']['decisions'] == ice['stale']['decisions'] == ice['committed']['decisions']
 assert ice['stale']['planningDiscarded'] == 1
+assert ice['stale']['planningDiscardReasons']['worldChanged'] == 1
+assert ice['stale']['planningLastDiscardMask'] & (1 << 4)
 assert ice['restored']['spent'] == ice['stale']['spent'] and not ice['restored']['planning']
 assert ice['restored']['pending'] == ice['stale']['pending']
 assert ice['new_board']['spent'] == 0 and not ice['new_board']['planning']

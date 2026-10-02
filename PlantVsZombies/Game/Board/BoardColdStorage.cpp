@@ -729,6 +729,7 @@ void Board::PlanColdStorageAttack(bool background)
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
 	s.candidatesEvaluated = 0;
+	s.searchUnitCandidates.clear();
 	s.searchRouteEvaluated = s.searchCombinationEvaluated = 0;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
 	s.searchCombinationBaseBreach = s.searchCombinationBestBreach = false;
@@ -1992,6 +1993,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? (result.precisionTargetID > 0 ? "strike" : "observe") : s.unlockProbe ? "unlock" : "search";
 	s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 	s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+	s.searchUnitCandidates = result.candidates;
 	s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
 	s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
 	s.searchAnticipateEconomy = search.anticipateEconomy;
@@ -2119,12 +2121,18 @@ void Board::PollColdStoragePlan()
 	s.planning = false;
 	s.planningWorkerMs = work->milliseconds;
 	const float age = s.elapsed-mColdStoragePlanningAt;
-	bool valid = !work->failed && age >= 0 && age <= kPlanningMaxAge
-		&& GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get(mLevel)
-		&& s.enemyIce >= work->snapshot.budget && ColdStoragePlanningStamp() == mColdStoragePlanningStamp;
+	using Discard = ColdStorageSearch::PlanDiscardReason;
+	int discardMask = 0;
+	const auto reject = [&](Discard reason) { discardMask |= 1 << static_cast<int>(reason); };
+	// 分别记录原有门禁的失效原因，保留多原因并发；记录不能放宽已失效的耦合计划。
+	if (work->failed) reject(Discard::Failed);
+	if (!(age >= 0 && age <= kPlanningMaxAge)) reject(Discard::Age);
+	if (!GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get(mLevel)) reject(Discard::Policy);
+	if (s.enemyIce < work->snapshot.budget) reject(Discard::Budget);
+	if (ColdStoragePlanningStamp() != mColdStoragePlanningStamp) reject(Discard::WorldChanged);
 	// 改过路线的在途友军若已经按旧路线出生，整案重采；不把旧承诺的收益借给新计划。
 	for (auto ticket : mColdStoragePlanningTickets)
-		if (std::none_of(s.pending.begin(),s.pending.end(),[&](const auto& paid) { return paid.ticket == ticket; })) valid = false;
+		if (std::none_of(s.pending.begin(),s.pending.end(),[&](const auto& paid) { return paid.ticket == ticket; })) reject(Discard::PaidArrival);
 	float before = 0, now = 0;
 	for (const auto& unit : work->snapshot.current) if (unit.id > 0) {
 		before += unit.body.health;
@@ -2132,8 +2140,11 @@ void Board::PollColdStoragePlan()
 		if (entity && entity->IsActive() && !entity->IsDying() && !entity->IsMindControlled())
 			now += std::min(unit.body.health,static_cast<float>(entity->mBodyHealth+entity->mHelmHealth+entity->mShieldHealth));
 	}
-	if (now < before*kPlanningSurvivingFraction) valid = false;
-	if (!valid) {
+	if (now < before*kPlanningSurvivingFraction) reject(Discard::EscortLoss);
+	s.planningLastAgeMs = age*1000; s.planningLastDiscardMask = discardMask;
+	if (discardMask != 0) {
+		for (size_t i=0; i<s.planningDiscardReasons.size(); ++i)
+			if (discardMask & (1 << i)) ++s.planningDiscardReasons[i];
 		++s.planningDiscarded;
 		s.decisionRemaining = 0; // 下一个正常更新用新局面重算，不扣冰，也不提前结束战斗。
 		return;

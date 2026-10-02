@@ -16,6 +16,11 @@ for name in ('wide', 'narrow'):
     assert ice['planningApplied'] == 1 and not ice['planning']
     assert ice['enemyIce'] == ice['initialEnemyIce'] + ice['supplied'] + ice['workerIncome'] + ice['killIncome'] - ice['spent']
     assert ice['commanderSpent'] <= ice['commanderBudget']
+    workers = [x for x in ice['searchUnitCandidates'] if x['type'] == 'ZOMBIE_ICE_WORKER']
+    assert workers and all(x['standalone'] > 0 for x in workers)
+    assert ice['searchUnitCandidatesScope'] == 'final_formation_before_precision'
+    for candidate in ice['searchUnitCandidates']:
+        assert candidate['evaluated'] == candidate['allowed'] + candidate['regroupRejected'] + candidate['capitalRejected']
     assert state['testAudio']['muted']
 for name in ('refill-1', 'refill-2', 'no-refill'):
     episode = json.loads((root / (name + '.json')).read_text(encoding='utf-8'))

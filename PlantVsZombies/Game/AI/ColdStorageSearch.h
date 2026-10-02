@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ColdStorageStrategy.h"
+#include "ColdStorageDiagnostics.h"
 #include "Game/PlantDamageOrigin.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Plant/AttackGrowth.h"
@@ -229,6 +230,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	std::vector<CandidateStats> candidates; // 最终编队搜索阶段的候选统计；不含精准清除探测
 	int precisionTargetID = 0, precisionEvaluated = 0;
 	float precisionGain = 0; // 相对保留技能资金的增量评分；突破优先时可为负，以 features[2] 判断胜利
 	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数

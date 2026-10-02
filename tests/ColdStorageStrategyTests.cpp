@@ -7,6 +7,7 @@
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include <chrono>
+#include <algorithm>
 #include <thread>
 #include <limits>
 #include "Game/AI/ColdStorageStrategy.h"
@@ -1146,6 +1147,16 @@ int main()
 	check(ShouldConserveCapital(capital,200,48),"depleting the treasury needs incremental return even without ash");
 	capital.features[0] = 180;
 	check(!ShouldConserveCapital(capital,200,48),"paid plant kills can finance an otherwise large attack");
+	// 真人第13波记录的完整预测；新增爆区损失低于钱包35%，却高于本次采购35%。
+	Result humanBurst; humanBurst.actions.assign(40,{0,0});
+	humanBurst.features={222,227.3515625f,0,0,18,480,430.414795f,0};
+	humanBurst.baselineFeatures={0,0,0,0,18,0,179.664764f,0};
+	humanBurst.opponentScore=668.683838f; humanBurst.baselineOpponentAssets=3881.985107f; humanBurst.opponentAssets=3213.30127f;
+	check(ShouldConserveCapital(humanBurst,762,48),"logged 480-ice burst cannot mask a cash deficit with a wealthy wallet and opponent paper loss");
+	humanBurst.features[4]+=480;
+	check(!ShouldConserveCapital(humanBurst,762,48),"the same high-risk investment is allowed when incremental cash actually covers it");
+	humanBurst.features[4]=18; humanBurst.features[2]=1;
+	check(!ShouldConserveCapital(humanBurst,762,48),"a real breakthrough remains exempt from the cash-risk gate");
 	Snapshot cashSearch; cashSearch.searchVersion = 2; cashSearch.netEconomy = true;
 	cashSearch.budget = 400; cashSearch.capacity = 64; cashSearch.recoveryReserve = 48;
 	Option speculative; speculative.cost = 24; speculative.preference[0] = 500;
@@ -1599,6 +1610,31 @@ int main()
 	s.budget=101; s.options[1].unit.drum.enabled=true;
 	check(Search(s,advance,19).actions.size()==1,"free combinations still obey the joint purchase budget");
 	std::cout << "Role-independent combinations, skill counterfactual and joint affordability passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=80; s.capacity=2; s.netEconomy=true;
+	Unit existing; existing.body.row=0; existing.body.x=800; existing.body.health=20000; s.current={existing};
+	Plant melon; melon.row=1; melon.x=300; melon.health=10000; melon.dps=100; melon.melon=true; melon.edible=false; s.plants={melon};
+	Option decoy; decoy.row=decoy.unit.body.row=1; decoy.cost=24; decoy.unit.body.x=900;
+	decoy.unit.body.health=3000; decoy.unit.body.purchaseCost=24; decoy.preference[0]=60;
+	for (int type=0; type<9; ++type) { decoy.type=type; s.options.push_back(decoy); }
+	Option worker; worker.type=99; worker.cost=24; worker.unit.body.x=920; worker.unit.body.health=500;
+	worker.unit.body.purchaseCost=24; worker.unit.body.economic=true; worker.unit.productionRemaining=40; s.options.push_back(worker);
+	Weights income{}; income[4]=1; income[5]=-1;
+	check(Evaluate(s,{{9,0}})[4]>24 && Evaluate(s,{{0,0},{9,0}})[4]==0,
+		"a standalone worker is profitable while appending it to a new adjacent-lane decoy exposes fatal splash");
+	for (unsigned seed=1; seed<=16; ++seed) {
+		const auto result=Search(s,income,seed);
+		check(!result.actions.empty() && std::all_of(result.actions.begin(),result.actions.end(),[](const auto& a){return a.option==9;}),
+			"route refinement can reinforce existing units independently of the current new attack plan");
+		const auto workerStats=std::find_if(result.candidates.begin(),result.candidates.end(),[](const auto& item){return item.type==99;});
+		check(workerStats!=result.candidates.end() && workerStats->standalone>0 && workerStats->allowed>0,
+			"candidate diagnostics include the independent worker comparison");
+		for (const auto& item : result.candidates) check(item.evaluated==item.allowed+item.regroupRejected+item.capitalRejected,
+			"candidate outcome counters reconcile without duplicate same-type same-row counting");
+	}
+	std::cout << "Standalone reinforcement, splash exposure and candidate rejection accounting passed\n";
 	}
 
 }

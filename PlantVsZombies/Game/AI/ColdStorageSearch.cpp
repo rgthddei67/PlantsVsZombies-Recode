@@ -49,7 +49,7 @@ constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
 constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库存一半时，必须证明增量回报能覆盖费用
-constexpr float kCapitalBlastFraction = .35f; // 爆区预计折损超过现有库存此比例时，不能依赖削血/位移维持大额采购
+constexpr float kCapitalBlastFraction = .35f; // 大额采购中新增爆区折损占本次支出此比例时，须以现金增量证明回本
 constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
 
 /** 采购先预留本案技能费；所有维修仍与部队、技能共用同一个钱包。 */
@@ -271,6 +271,43 @@ float Score(const Weights& f, const Weights& w) {
 bool BetterOutcome(const Result& a, const Result& b) {
 	if ((a.features[2] > 0) != (b.features[2] > 0)) return a.features[2] > 0;
 	return a.score > b.score + .001f;
+}
+
+/** 记录完整候选的比较结果，同兵种同行多只只计一次；不改变选兵、评分或资金门禁。 */
+void RecordCandidate(const Snapshot& s, const Result& candidate, int denial, std::vector<CandidateStats>& stats) {
+	for (size_t i=0; i<candidate.actions.size(); ++i) {
+		const auto& option = s.options[candidate.actions[i].option];
+		bool duplicate = false;
+		for (size_t j=0; j<i; ++j) {
+			const auto& prior = s.options[candidate.actions[j].option];
+			if (prior.type == option.type && prior.row == option.row) { duplicate = true; break; }
+		}
+		if (duplicate) continue;
+		auto entry = std::find_if(stats.begin(),stats.end(),[&](const auto& item) {
+			return item.type == option.type && item.row == option.row;
+		});
+		if (entry == stats.end()) { stats.push_back({}); entry = stats.end()-1; entry->type = option.type; entry->row = option.row; }
+		const bool breach = candidate.features[2] > 0;
+		if (entry->evaluated == 0 || (breach && !entry->bestBreach)
+			|| (breach == entry->bestBreach && candidate.score > entry->bestScore)) {
+			entry->bestBreach = breach; entry->bestScore = candidate.score; entry->bestDenial = denial;
+			entry->bestCost = candidate.features[5]-candidate.baselineFeatures[5];
+			entry->bestProduction = candidate.features[4]-candidate.baselineFeatures[4];
+			entry->bestCash = entry->bestProduction+candidate.features[0]-candidate.baselineFeatures[0];
+			entry->bestBlastLoss = candidate.features[6]-candidate.baselineFeatures[6];
+		}
+		++entry->evaluated;
+		if (candidate.actions.size() == 1) ++entry->standalone;
+		if (denial == 0) {
+			if (entry->allowed == 0 || (breach && !entry->bestAllowedBreach)
+				|| (breach == entry->bestAllowedBreach && candidate.score > entry->bestAllowedScore)) {
+				entry->bestAllowedScore = candidate.score; entry->bestAllowedBreach = breach;
+			}
+			++entry->allowed;
+		}
+		else if (denial == 1) ++entry->regroupRejected;
+		else ++entry->capitalRejected;
+	}
 }
 
 /** 汇总工人存活条件，只读当前快照和候选，不读取未来玩家动作。 */
@@ -800,8 +837,9 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve) {
 	const float cash = plan[0]-baseline[0]+plan[4]-baseline[4];
 	const float blastLoss = std::max(0.0f,plan[6]-baseline[6]);
 	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能替新投资回本。
-	if (blastLoss > budget*kCapitalBlastFraction && cash < spent) return true;
 	if (spent <= budget*kLargeInvestmentFraction && budget-spent >= reserve) return false;
+	// 风险属于新增投资本身；用整个钱包作分母，会让富裕时的大额送死方案逃过现金回本检查。
+	if (blastLoss > spent*kCapitalBlastFraction && cash < spent) return true;
 	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
 	return cash+plan[1]-baseline[1]+pressure < spent;
 }
@@ -1526,12 +1564,13 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	bool hasChoice = s.allowWait; // 正式构建启用 fast-math，不能用无穷大充当尚无候选的哨兵。
 	bool deferredInvestment = false;
 	int capitalRejected = 0;
+	std::vector<CandidateStats> candidateStats;
 	const auto rejectInvestment = [&](const Result& candidate) {
-		if (ShouldRegroup(candidate,s.budget,s.recoveryReserve)) return true;
-		if (s.netEconomy && ShouldConserveCapital(candidate,s.budget,s.recoveryReserve)) {
-			++capitalRejected; return true;
-		}
-		return false;
+		const int denial = ShouldRegroup(candidate,s.budget,s.recoveryReserve) ? 1
+			: s.netEconomy && ShouldConserveCapital(candidate,s.budget,s.recoveryReserve) ? 2 : 0;
+		RecordCandidate(s,candidate,denial,candidateStats);
+		if (denial == 2) ++capitalRejected;
+		return denial != 0;
 	};
 	const int trials = s.searchVersion == 2 ? kPortfolioTrials : kTrials;
 	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
@@ -1603,7 +1642,6 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const float combinationBaseScore = best.score;
 	const bool combinationBaseBreach = best.features[2] > 0;
 	const auto groups = LegalOptionGroups(s,rng);
-	const auto parent = best.actions;
 	const auto compare = [&](std::vector<Action> plan) {
 		Repair(s,plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
@@ -1618,14 +1656,14 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		});
 		if (elite.size() > 8) elite.resize(8);
 	};
-	// 所有可支付类型都有路线覆盖机会，包含已有部队的保护；不额外优待经营或指定技能。
+	// 独立增援现有部队，避免把“有收益的单兵”绑定到新购物车中的亏损攻击；已有护卫仍在快照中。
 	for (size_t route=0; routeEvaluated<kRouteTrials; ++route) {
 		bool found = false;
 		for (const auto& group : groups) {
 			if (routeEvaluated >= kRouteTrials) break;
 			if (route >= group.size()) continue;
 			found = true;
-			compare(IntroduceOption(s,parent,group[route],rng));
+			compare({{group[route],0}});
 			++routeEvaluated;
 		}
 		if (!found) break;
@@ -1681,6 +1719,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.evaluated = evaluated;
 	best.capitalRejected = capitalRejected;
 	best.largestPlan = largestPlan;
+	best.candidates = std::move(candidateStats);
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.regrouping = best.actions.empty() && deferredInvestment;
 	// 小队没有预测到增量击杀、削血或生产时，才升级搜索范围与预测时域。
@@ -1793,6 +1832,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	best.evaluated = incumbent.evaluated+evaluated;
 	best.effectiveWeights = incumbent.effectiveWeights; best.stateInputs = incumbent.stateInputs;
 	best.expandedForecast = incumbent.expandedForecast;
+	best.candidates = incumbent.candidates; // 统计窗口只包含精准清除前的编队搜索，不能混合不同技能费用的探测。
 	best.precisionGain = best.precisionTargetID > 0 ? best.score-incumbent.score : 0;
 	return best;
 }
