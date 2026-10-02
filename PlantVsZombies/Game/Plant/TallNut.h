@@ -8,6 +8,7 @@
 class TallNut final : public WallNut {
 public:
 	using WallNut::WallNut;
+	bool SupportsLadderPlacement() const override { return true; }
 
 	bool BlocksZombieJump(ZombieJumpType jumpType) const override;
 	void OnZombieJumpBlocked(ZombieJumpType jumpType) override;

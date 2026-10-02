@@ -818,13 +818,14 @@ static void AdvanceArmorRepair(Unit& unit, float active, float& ice, Weights& fe
 
 /** 统一计入啃食与砸击的实际削血；回血会撤回已恢复的削血分，不能靠反复刷血赚分。 */
 static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& features) {
-	if (plant.health <= 0 || plant.immuneRemaining > 0 || damage <= 0) return false;
+	if (plant.health <= 0 || plant.immuneRemaining > 0 || plant.burstProtection.invulnerable > 0 || damage <= 0) return false;
 	if (crush) damage = plant.crushDamage > 0 ? plant.crushDamage : plant.health;
 	const float credit = plant.reward*std::min(plant.health,damage)/std::max(1.0f,plant.initialHealth);
 	features[1] += credit; plant.damageCredit += credit;
+	const float before = plant.health;
 	plant.health = std::max(0.0f,plant.health-damage);
 	if (plant.health <= 0) features[0] += plant.reward;
-	else if (crush) plant.immuneRemaining = plant.immuneDuration;
+	else if (plant.hasBurstProtection) plant.burstProtection.RecordDamage(before-plant.health);
 	return true;
 }
 
@@ -834,6 +835,7 @@ static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<P
 	for (auto& p : plants) if (p.health > 0 && p.repairMaximum > 0) {
 		if (automaticPhase) {
 			p.immuneRemaining = std::max(0.0f,p.immuneRemaining-kStep);
+			if (p.hasBurstProtection) p.burstProtection.Advance(kStep);
 			p.repairRemaining = std::max(0.0f,p.repairRemaining-kStep);
 		}
 		if (p.repairAutomatic != automaticPhase) continue;

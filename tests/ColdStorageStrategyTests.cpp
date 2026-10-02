@@ -29,6 +29,26 @@ int main()
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
 	};
+	{
+		using namespace IceStorageNutRules;
+		Protection protection;
+		protection.RecordDamage(600); protection.Advance(1.0f); protection.RecordDamage(399);
+		check(protection.invulnerable==0 && protection.RecentDamage()==999,"subthreshold damage does not trigger protection");
+		protection.Advance(0.6f); protection.RecordDamage(600);
+		check(protection.invulnerable==0 && protection.RecentDamage()==999,"rolling window expires each hit independently");
+		protection.RecordDamage(1);
+		check(protection.invulnerable==5 && protection.cooldown==0,"threshold triggers five seconds with no concurrent cooldown");
+		protection.Advance(4); protection.RecordDamage(1000);
+		check(protection.invulnerable==1 && protection.hits.empty(),"immune damage cannot refresh protection or accumulate");
+		protection.Advance(1.25f);
+		check(protection.invulnerable==0 && protection.cooldown==7.25f,"cooldown starts after immunity including partial step");
+		protection.RecordDamage(1000); protection.Advance(7.25f);
+		check(protection.cooldown==0 && protection.hits.empty(),"cooldown damage is discarded on becoming ready");
+		protection.RecordDamage(999);
+		check(protection.invulnerable==0,"fresh ready window requires the full threshold again");
+		protection.RecordDamage(1);
+		check(protection.invulnerable==5,"protection can trigger again after cooldown");
+	}
 	const float ordinary = ForecastSplashExternality(field, {guard, worker}, {bucket});
 	field.melonSlowDuty[1] = field.directSlowDuty[1] = 1;
 	field.slowDuration[1] = 7.5f;
@@ -1264,7 +1284,7 @@ int main()
 	Plant nut; nut.id=1; nut.x=800; nut.health=8000; nut.reward=20; nut.assetValue=20;
 	nut.repairMaximum=IceStorageNutRules::kHealth; nut.repairAmount=IceStorageNutRules::kRepairHealth;
 	nut.repairCost=IceStorageNutRules::kRepairIce; nut.repairRecharge=IceStorageNutRules::kRepairCooldown; nut.repairAutomatic=true;
-	nut.crushDamage=IceStorageNutRules::kCrushDamage; nut.immuneDuration=IceStorageNutRules::kInvulnerability;
+	nut.crushDamage=IceStorageNutRules::kCrushDamage; nut.hasBurstProtection=true;
 	nut.vehicleRetreat=IceStorageNutRules::kVehicleRetreatCells*80;
 	Unit giant; giant.body.x=850; giant.body.health=3000; giant.body.purchaseCost=16; giant.body.speed=20; giant.body.smashSeconds=5;
 	state.current={giant}; state.plants={nut}; ConstructionStats stats;
@@ -1277,7 +1297,10 @@ int main()
 	check(healed[1]>=0 && healed[1]<=nut.reward,"healed damage cannot be farmed for unlimited damage score");
 	state.playerIce=0; state.current[0].body.spawnAt=55; state.current[0].body.smashSeconds=4;
 	const auto one=Evaluate(state,{}); state.current.push_back(state.current[0]);
-	check(Evaluate(state,{})[1]>one[1],"simultaneous giants each damage the nut without invulnerability");
+	check(Evaluate(state,{})[1]==one[1],"first giant triggers protection before simultaneous second smash");
+	state.plants[0].hasBurstProtection=false;
+	check(Evaluate(state,{})[1]>one[1],"without burst protection simultaneous giants each damage the nut");
+	state.plants={nut};
 	state.current={giant}; state.current[0].body.smashSeconds=0; state.current[0].vehicleCrush=true;
 	const auto vehicle=Evaluate(state,{});
 	check(vehicle[7]<ordinary[7],"vehicle must cover retreat distance instead of crossing the nut");

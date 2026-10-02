@@ -4,6 +4,7 @@
 #include "Game/PlantDamageOrigin.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Plant/AttackGrowth.h"
+#include "Game/Plant/IceStorageNutRules.h"
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -107,7 +108,9 @@ struct Plant {
 	float repairMaximum = 0, repairAmount = 0, repairCost = 0, repairRecharge = 0, repairRemaining = 0;
 	float repairBlockedUntil = 0, damageCredit = 0; // 暂停新修复的期限，以及可被回血撤回的削血得分
 	bool repairAutomatic = false;
-	float crushDamage = 0, immuneDuration = 0, immuneRemaining = 0, vehicleRetreat = 0;
+	float crushDamage = 0, immuneRemaining = 0, vehicleRetreat = 0;
+	bool hasBurstProtection = false;
+	IceStorageNutRules::Protection burstProtection; // 自有护体快照；无敌结束才启动冷却，就绪才统计伤害
 	float assetValue = 0; // 当前生命对应的卡价折冰估值；终点再按后续剩余生命折价，不直接返给僵尸
 };
 /** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */

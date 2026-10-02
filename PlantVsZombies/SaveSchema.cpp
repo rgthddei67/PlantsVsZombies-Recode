@@ -413,6 +413,20 @@ namespace {
 				version = 21;
 				upgraded["schemaVersion"] = version;
 				break;
+			case 21:
+				// v22 护体与修复独立持久化；旧档不能恢复更早版本已经删除的无敌。
+				if (kind == DocumentKind::Level && upgraded.contains("plants") && upgraded["plants"].is_array()) {
+					for (auto& plant : upgraded["plants"]) {
+						if (!plant.is_object() || plant.value("type", -1) != static_cast<int>(PlantType::PLANT_ICESTORAGENUT)) continue;
+						auto& extra = plant["extraData"];
+						if (!extra.is_object()) extra = nlohmann::json::object();
+						extra.erase("nutInvulnerableRemaining");
+						extra["nutProtection"] = {{"invulnerable", 0.0f}, {"cooldown", 0.0f}, {"hits", nlohmann::json::array()}};
+					}
+				}
+				version = 22;
+				upgraded["schemaVersion"] = version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

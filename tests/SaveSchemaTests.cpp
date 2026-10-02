@@ -693,6 +693,22 @@ int main() {
 		}
 	}
 	TestCurrentPlayerDocumentIsStable();
+	{
+		nlohmann::json previous = {{"schemaVersion",21},{"plants",nlohmann::json::array({
+			{{"type",static_cast<int>(PlantType::PLANT_ICESTORAGENUT)}, {"health",7200},
+			 {"extraData",{{"nutRepairCooldown",3.0f},{"nutAutomatic",true},{"nutInvulnerableRemaining",99.0f}}}},
+			{{"type",static_cast<int>(PlantType::PLANT_WALLNUT)},{"health",4000}}
+		})}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"旧冰坚果档可升级为独立护体状态");
+		const auto& extra = previous["plants"][0]["extraData"];
+		Expect(extra["nutProtection"]["invulnerable"]==0 && extra["nutProtection"]["cooldown"]==0
+			&& extra["nutProtection"]["hits"].empty() && !extra.contains("nutInvulnerableRemaining"),
+			"旧档不继承废弃无敌，不虚构护体或历史伤害");
+		Expect(previous["plants"][0]["health"]==7200 && extra["nutRepairCooldown"]==3.0f && extra["nutAutomatic"]==true,
+			"迁移保留本体生命和付费修复状态");
+		Expect(!previous["plants"][1].contains("extraData"),"护体迁移不触碰其他植物");
+	}
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();
 	TestVersionFourPlayerUpgradeAddsCrazyDaveTutorialsSeen();

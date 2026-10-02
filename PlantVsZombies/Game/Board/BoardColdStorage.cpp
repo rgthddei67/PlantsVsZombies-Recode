@@ -381,11 +381,11 @@ namespace {
 		using namespace IceStorageNutRules;
 		plant.repairMaximum = live ? live->mPlantMaxHealth : kHealth;
 		plant.repairAmount = kRepairHealth; plant.repairCost = kRepairIce; plant.repairRecharge = kRepairCooldown;
-		plant.crushDamage = kCrushDamage; plant.immuneDuration = kInvulnerability;
+		plant.crushDamage = kCrushDamage; plant.hasBurstProtection = true;
 		plant.vehicleRetreat = kVehicleRetreatCells*CELL_COLLIDER_SIZE_X;
 		if (!live) return;
 		plant.repairRemaining = live->GetCooldownRemaining(); plant.repairAutomatic = live->IsAutomatic();
-		plant.immuneRemaining = live->GetInvulnerableRemaining();
+		plant.burstProtection = live->GetProtectionState();
 		plant.repairBlockedUntil = live->GetShutdownTimeRemaining();
 		if (live->GetSleepState() || live->IsBungeeTargeted() || live->IsSquished() || live->IsIceSealed()) plant.repairBlockedUntil = 10000;
 		if (live->IsIceSealed()) plant.immuneRemaining = 10000; // 当前封存不能被砸伤；解封边沿重新采样

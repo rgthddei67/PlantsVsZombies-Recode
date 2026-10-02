@@ -8261,6 +8261,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		plantState["areaAttackBonusPct"] = static_cast<int>(std::lround(board->GetAreaPlantAttackSpeedBonus(p) * 100));
 		if (auto* nut = dynamic_cast<IceStorageNut*>(p)) {
 			plantState["nutInvulnerableMs"] = static_cast<int>(std::lround(nut->GetInvulnerableRemaining() * 1000));
+			plantState["nutProtectionCooldownMs"] = static_cast<int>(std::lround(nut->GetProtectionState().cooldown * 1000));
+			plantState["nutRecentDamage"] = static_cast<int>(std::lround(nut->GetProtectionState().RecentDamage()));
+			plantState["supportsLadderPlacement"] = nut->SupportsLadderPlacement();
 			plantState["nutCooldownMs"] = static_cast<int>(std::lround(nut->GetCooldownRemaining() * 1000));
 			plantState["nutAutomatic"] = nut->IsAutomatic();
 			plantState["nutReady"] = nut->IsReadyToActivate();

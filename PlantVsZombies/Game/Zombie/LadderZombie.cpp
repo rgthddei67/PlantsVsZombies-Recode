@@ -79,14 +79,7 @@ bool LadderZombie::IsLadderTarget(const Plant* plant) const
 		|| mBoard->HasLadderAt(plant->mRow, plant->mColumn)) {
 		return false;
 	}
-	switch (plant->mPlantType) {
-	case PlantType::PLANT_WALLNUT:
-	case PlantType::PLANT_TALLNUT:
-	case PlantType::PLANT_PUMPKINSHELL:
-		return true;
-	default:
-		return false;
-	}
+	return plant->SupportsLadderPlacement();
 }
 
 Plant* LadderZombie::ResolvePlacementTarget() const

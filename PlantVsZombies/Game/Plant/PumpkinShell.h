@@ -10,6 +10,7 @@ private:
 
 public:
 	using Plant::Plant;
+	bool SupportsLadderPlacement() const override { return true; }
 
 	/** 维护生命派生的破损材质与背片受击高亮。 */
 	void PlantUpdate() override;

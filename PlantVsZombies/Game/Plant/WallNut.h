@@ -12,6 +12,7 @@ private:
 
 public:
 	using Plant::Plant;
+	bool SupportsLadderPlacement() const override { return mPlantType == PlantType::PLANT_WALLNUT; }
 
 	void PlantUpdate() override;
 	void OnZombieBite(const Vector& eaterPosition) override;

@@ -32,10 +32,26 @@ void IceStorageNut::Update()
 	if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME && !DeltaTime::IsPaused()) {
 		const float delta = DeltaTime::GetDeltaTime();
 		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta);
+		mProtection.Advance(delta);
 	}
 	WallNut::Update();
-	// 旧档的 Animator 可能仍带护体染色；取消无敌后统一恢复本体原色。
-	mAnimator->SetTrackColor("anim_face", SDL_Color{255, 255, 255, 255});
+	UpdateProtectionAppearance();
+}
+
+void IceStorageNut::TakeDamage(int damage, DamageSource source)
+{
+	const int before = mPlantHealth;
+	WallNut::TakeDamage(damage, source);
+	// 复用词条缩放和统一免伤链；被免掉的伤害、致死伤害都不能触发护体。
+	if (!IsActive() || mPlantHealth <= 0) return;
+	mProtection.RecordDamage(static_cast<float>(before - mPlantHealth));
+	UpdateProtectionAppearance();
+}
+
+void IceStorageNut::UpdateProtectionAppearance()
+{
+	mAnimator->SetTrackColor("anim_face", IsDamageImmune()
+		? SDL_Color{150, 225, 255, 255} : SDL_Color{255, 255, 255, 255});
 }
 
 void IceStorageNut::PlantUpdate()
@@ -106,6 +122,9 @@ void IceStorageNut::Draw(Graphics* g)
 	if (!g || mIsPreview || !IsActive() || IsSquished()) return;
 	const Vector p = GetPosition();
 	const glm::vec4 cyan(150, 245, 255, 255);
+	if (IsDamageImmune()) {
+		g->DrawText(u8"无敌", ResourceKeys::Fonts::FONT_FZCQ, 14, cyan, p.x - 14, p.y - 62);
+	}
 	const char* label = mAutomatic ? u8"自动修复" : u8"手动修复";
 	g->DrawText(label, ResourceKeys::Fonts::FONT_FZCQ, 12, cyan, p.x - 25, p.y + 29);
 	const float timer = mCooldownRemaining / kRepairCooldown;
@@ -120,6 +139,11 @@ void IceStorageNut::SaveExtraData(nlohmann::json& j) const
 	WallNut::SaveExtraData(j);
 	j["nutRepairCooldown"] = mCooldownRemaining;
 	j["nutAutomatic"] = mAutomatic;
+	j["nutProtection"] = {{"invulnerable", mProtection.invulnerable}, {"cooldown", mProtection.cooldown},
+		{"hits", nlohmann::json::array()}};
+	for (const auto& hit : mProtection.hits) {
+		j["nutProtection"]["hits"].push_back({{"remaining", hit.remaining}, {"damage", hit.damage}});
+	}
 }
 
 void IceStorageNut::LoadExtraData(const nlohmann::json& j)
@@ -128,6 +152,24 @@ void IceStorageNut::LoadExtraData(const nlohmann::json& j)
 	const float cooldown = j.value("nutRepairCooldown", 0.0f);
 	mCooldownRemaining = std::isfinite(cooldown) ? std::clamp(cooldown, 0.0f, kRepairCooldown) : 0.0f;
 	mAutomatic = j.value("nutAutomatic", false);
-	// 故意不读取旧 nutInvulnerableRemaining，不让续局恢复已删除的能力。
-	mAnimator->SetTrackColor("anim_face", SDL_Color{255, 255, 255, 255});
+	mProtection = {};
+	if (j.contains("nutProtection") && j["nutProtection"].is_object()) {
+		const auto& state = j["nutProtection"];
+		const auto remaining = [&state](const char* key, float maximum) {
+			const float value = state.value(key, 0.0f);
+			return std::isfinite(value) ? std::clamp(value, 0.0f, maximum) : 0.0f;
+		};
+		mProtection.invulnerable = remaining("invulnerable", kInvulnerability);
+		mProtection.cooldown = mProtection.invulnerable > 0.0f ? 0.0f : remaining("cooldown", kProtectionCooldown);
+		if (mProtection.invulnerable <= 0.0f && mProtection.cooldown <= 0.0f
+			&& state.contains("hits") && state["hits"].is_array()) {
+			for (const auto& hit : state["hits"]) {
+				if (!hit.is_object()) continue;
+				const float time = hit.value("remaining", 0.0f), damage = hit.value("damage", 0.0f);
+				if (std::isfinite(time) && std::isfinite(damage) && time >= 0.0f && time <= kDamageWindow && damage > 0.0f
+					&& mProtection.RecentDamage() + damage < kDamageThreshold) mProtection.hits.push_back({time, damage});
+			}
+		}
+	}
+	UpdateProtectionAppearance();
 }

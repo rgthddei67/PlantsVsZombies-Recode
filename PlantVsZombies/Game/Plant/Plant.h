@@ -118,6 +118,8 @@ public:
 	virtual void TakeDamage(int damage, DamageSource source);
 	/** 临时伤害无敌同时约束数值伤害、敌方直接处决和压扁；不改变占格或铲除。 */
 	virtual bool IsDamageImmune() const { return false; }
+	/** 是否能作为扶梯的搭建目标；坚果家族和南瓜由自身声明，免伤不影响搭梯。 */
+	virtual bool SupportsLadderPlacement() const { return false; }
 	/** 实体拥有车辆碾压的承伤语义；车辆消费阻挡和退回请求。 */
 	virtual VehicleCrushResponse ResolveVehicleCrush() { Squish(); return {}; }
 	/** 已存在的付费技能共用点击/模式操作条，UI 不拥有费用或冷却。 */
