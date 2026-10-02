@@ -1,0 +1,152 @@
+{
+  "muteAudio": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 1000
+      }
+    },
+    {
+      "op": "commander_roster",
+      "units": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_CRYSTAL_DRUMMER"
+      ]
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 0,
+      "x": 750
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 2,
+      "x": 750
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 910
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 1,
+      "x": 900
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.3
+    },
+    {
+      "op": "dump_state",
+      "name": "live_before.json"
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "live_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 1000
+      }
+    },
+    {
+      "op": "commander_roster",
+      "units": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_CRYSTAL_DRUMMER"
+      ]
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 900
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CRYSTAL_DRUMMER",
+      "row": 1,
+      "x": 920
+    },
+    {
+      "op": "extend_ice_trail",
+      "row": 1,
+      "frontX": 500,
+      "golden": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.3
+    },
+    {
+      "op": "dump_state",
+      "name": "residual_before.json"
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "residual_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

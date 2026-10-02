@@ -1,4 +1,5 @@
 #include "Zombie.h"
+#include "GoldenIceRules.h"
 #include "ZombieCharred.h"
 #include "GildedZamboniZombie.h"
 #include "../Plant/Plant.h"
@@ -32,7 +33,6 @@ namespace {
 	constexpr float kTangleKelpGrabSpeed = 2.0f;           // 资源 12fps 播放为原版 24fps 的速度倍率
 	constexpr float kTangleKelpGrabStartFrame = 22.0f;     // anim_grab 轨道在 Tanglekelp.reanim 中的首帧
 	constexpr float kTangleKelpGrabEndFrame = 26.0f;       // anim_grab 轨道末帧；读档帧钳位避免损坏值越界
-	constexpr int kMaxGoldenIceEffectStacks = 8;           // 独立黄色冰道来源计层的安全上限，防止极端调试生成导致倍率溢出
 	constexpr float kEatingTargetRetentionGap = 6.0f;      // 跳跃受阻后允许僵尸隔空啃食的最大碰撞箱间隙，单位：像素
 	constexpr float kHitGlowDuration = 0.1f;               // 本体与二类护盾受击白光持续时间，单位：游戏秒
 	constexpr float kToxinLayerDuration = 6.0f;            // 单层毒素持续时间，单位：游戏秒
@@ -1470,13 +1470,7 @@ float Zombie::GetAmplifiedAbilitySpeedMultiplier() const
 
 float Zombie::AmplifySpeedMultiplierForGoldenIce(float multiplier) const
 {
-	float amplified = std::max(0.0f, multiplier);
-	for (int stack = 0; stack < mGoldenIceEffectStacks; ++stack) {
-		// 中性倍率不变；每个来源让加速项直接乘二、减速项直接减半。
-		if (amplified > 1.0f) amplified *= 2.0f;
-		else if (amplified < 1.0f) amplified *= 0.5f;
-	}
-	return amplified;
+	return GoldenIceRules::Amplify(multiplier,mGoldenIceEffectStacks);
 }
 
 int Zombie::ComputeGoldenIceEffectStacks() const
@@ -1503,7 +1497,7 @@ int Zombie::ComputeGoldenIceEffectStacks() const
 		|| mBoard->IsGoldenIceAtWorld(mRow, GetPosition().x))) {
 		stacks = 1;
 	}
-	return std::min(stacks, kMaxGoldenIceEffectStacks);
+	return std::min(stacks, GoldenIceRules::MaxStacks);
 }
 
 void Zombie::RefreshGoldenIceSpeedState()
@@ -2944,6 +2938,20 @@ float Zombie::ScaleSimulationMoveSpeed(float speed) const
 	return speed * GetAmplifiedAbilitySpeedMultiplier() * AmplifySpeedMultiplierForGoldenIce(rain)
 		* AmplifySpeedMultiplierForGoldenIce(wind) * GetRoofMarshalAssaultMoveMultiplier()
 		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+}
+
+std::array<float,9> Zombie::GetSimulationGoldenMoveRatios(bool excludeAbility) const
+{
+	const float rain=mBoard ? mBoard->GetZombieRainSpeedMultiplier() : 1;
+	const float wind=mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
+	const float ability=GetAbilityAnimSpeedMultiplier()*(mArmorBreakRushTimer>0 ? kArmorBreakRushSpeedMultiplier : 1);
+	const float baked=(excludeAbility ? 1 : GetAmplifiedAbilitySpeedMultiplier())
+		* AmplifySpeedMultiplierForGoldenIce(rain)*AmplifySpeedMultiplierForGoldenIce(wind);
+	std::array<float,9> ratios{};
+	for (int stacks=0;stacks<=GoldenIceRules::MaxStacks;++stacks)
+		ratios[stacks]=(excludeAbility ? 1 : GoldenIceRules::Amplify(ability,stacks))
+			* GoldenIceRules::Amplify(rain,stacks)*GoldenIceRules::Amplify(wind,stacks)/std::max(.001f,baked);
+	return ratios;
 }
 
 float Zombie::GetMineSimulationMoveSpeed() const

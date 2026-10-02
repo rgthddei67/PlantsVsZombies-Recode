@@ -10,6 +10,7 @@
 #include "../ShadowComponent.h"
 #include "../Plant/Caltrop.h"
 #include "../Plant/Plant.h"
+#include "../Plant/GameDataManager.h"
 #include "ZamboniCharred.h"
 
 #include <algorithm>
@@ -221,14 +222,19 @@ void ZamboniZombie::ZombieItemUpdate() const
 bool ZamboniZombie::CanCrushPlant(const Plant* plant) const
 {
 	if (!plant || plant->IsSquished() || !CanCrushRow(plant->mRow)) return false;
-	switch (plant->mPlantType) {
+	return CanCrushPlantType(plant->mPlantType,plant->GetSleepState());
+}
+
+bool ZamboniZombie::CanCrushPlantType(PlantType type, bool asleep)
+{
+	switch (type) {
 	case PlantType::PLANT_CHERRYBOMB:
 	case PlantType::PLANT_JALAPENO:
 	case PlantType::PLANT_SQUASH:
 		return false;
 	case PlantType::PLANT_ICESHROOM:
 	case PlantType::PLANT_DOOMSHROOM:
-		return plant->GetSleepState();
+		return asleep;
 	case PlantType::PLANT_SPIKEWEED:
 	case PlantType::PLANT_SPIKEROCK:
 		return false;
@@ -246,6 +252,16 @@ void ZamboniZombie::LayIceTrails(const Vector& stableVisualOrigin)
 float ZamboniZombie::GetIceTrailFrontX(const Vector& stableVisualOrigin) const
 {
 	return stableVisualOrigin.x + kIceFrontFromVisualX;
+}
+
+float ZamboniZombie::GetSimulationIceTrailFrontOffset() const
+{
+	return mVisualOffset.x+kIceFrontFromVisualX;
+}
+
+float ZamboniZombie::GetSimulationIceTrailFrontOffset(ZombieType type)
+{
+	return GameDataManager::GetInstance().GetZombieOffset(type).x+kIceFrontFromVisualX;
 }
 
 void ZamboniZombie::CrushPlants()

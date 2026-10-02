@@ -11,6 +11,8 @@ assert len(units) == 39
 profiles=walking["zombieBirthMovement"]
 assert len(profiles)==59
 assert all(p["valid"] and 0<=p["minimum"]<=p["mean"]<=p["maximum"] for p in profiles.values()), profiles
+assert all(p["minimum"]<=p["lowerQuartile"]<=p["upperQuartile"]<=p["maximum"] for p in profiles.values())
+assert profiles["ZOMBIE_ICE_WORKER"]["upperQuartile"]<profiles["ZOMBIE_ICE_WORKER"]["maximum"]
 ordinary=units[:20]
 assert {z['track'] for z in ordinary} == {'anim_walk', 'anim_walk2'}
 for unit in ordinary:

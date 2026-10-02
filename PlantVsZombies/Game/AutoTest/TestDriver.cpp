@@ -4916,6 +4916,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
 		ice["searchGrowingPlants"] = board->mColdStorage.searchGrowingPlants;
 		ice["searchMovementBoundsApplied"] = board->mColdStorage.searchMovementBoundsApplied;
+		ice["searchGoldenAccelerationSteps"]=board->mColdStorage.searchGoldenAccelerationSteps;
+		ice["searchGoldenDrumSteps"]=board->mColdStorage.searchGoldenDrumSteps;
+		ice["searchGoldenResidualSteps"]=board->mColdStorage.searchGoldenResidualSteps;
+		ice["searchGoldenMaxStacks"]=board->mColdStorage.searchGoldenMaxStacks;
+		ice["searchInstantCrushTypes"]=nlohmann::json::array();
+		for (auto type:board->mColdStorage.searchInstantCrushTypes) ice["searchInstantCrushTypes"].push_back(ZombieTypeName(type));
 		ice["searchCapitalRejected"] = board->mColdStorage.searchCapitalRejected;
 		ice["searchUnitCandidates"] = nlohmann::json::array();
 		for (const auto& candidate : board->mColdStorage.searchUnitCandidates) {
@@ -6650,7 +6656,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			const auto motion=GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(type);
 			out["zombieBirthMovement"][ZombieTypeName(type)]={
 				{"valid",motion.valid},{"phaseDependent",motion.phaseDependent},
-				{"minimum",motion.speed[0]},{"mean",motion.speed[1]},{"maximum",motion.speed[2]}};
+				{"minimum",motion.speed[0]},{"mean",motion.speed[1]},{"maximum",motion.speed[2]},
+				{"lowerQuartile",motion.lowerQuartile},{"upperQuartile",motion.upperQuartile}};
 		}
 	}
 	out["zombies"] = nlohmann::json::array();

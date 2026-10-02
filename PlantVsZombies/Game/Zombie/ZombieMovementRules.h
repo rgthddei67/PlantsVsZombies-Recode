@@ -29,6 +29,8 @@ struct BirthProfile {
 	const char* clip = "anim_walk";
 	const char* alternative = "anim_walk2";
 	float rootMinimum = BaseRootSpeed-RootSpeedJitter, rootMaximum = BaseRootSpeed+RootSpeedJitter;
+	float rootStep=1; // 正值为实际出生整数步长；0 为连续范围
+	float rootMultiplierMinimum=1, rootMultiplierMaximum=1; // 另一次独立根倍率随机，如快桶
 	float animationMinimum = MinimumAnimationSpeed, animationMaximum = MaximumAnimationSpeed;
 	float abilityMinimum = 1, abilityMaximum = 1;
 	bool linear = false;
@@ -41,5 +43,6 @@ struct BirthProfile {
 struct SpeedRange {
 	std::array<float,3> speed{}; // 下限、均值、上限，px/游戏秒
 	bool valid=false, phaseDependent=false;
+	float lowerQuartile=0, upperQuartile=0; // 出生分布 25%/75% 分位速度，保护推演不假设全队同时抽到极端值
 };
 }

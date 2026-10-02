@@ -343,6 +343,8 @@ public:
 	virtual float GetMineSimulationAttackDps() const;
 	/** 取稳态行走片段的根运动；硬控余时由推演单独消费，避免当前停格被当成永久静止。 */
 	virtual float GetMineSimulationMoveSpeed() const;
+	/** 各冰道层数相对当前稳态移速的倍率；鼓舞/减速另算，铺路者可排除自身动态能力。 */
+	std::array<float,9> GetSimulationGoldenMoveRatios(bool excludeAbility = false) const;
 	/** 持续行走预测的减速倍率，同时包含动画减速与位移时间缩放。 */
 	float GetSimulationSlowMoveMultiplier() const { return 0.5f * AmplifySpeedMultiplierForGoldenIce(GetSlowAnimFactor()); }
 	virtual float GetMineSimulationSmashSeconds() const { return 0.0f; }

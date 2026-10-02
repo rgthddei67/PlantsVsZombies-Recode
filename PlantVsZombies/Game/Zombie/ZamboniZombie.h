@@ -9,6 +9,12 @@ class Caltrop;
  */
 class ZamboniZombie : public Zombie {
 public:
+	/** 实际碰撞与 AI 共用的冰车压扁资格；状态/行/碰撞过滤仍由各自调用者负责。 */
+	static bool CanCrushPlantType(PlantType type, bool asleep);
+	/** 铺路前缘相对逻辑原点的水平偏移，供预测生成黄色冰道。 */
+	float GetSimulationIceTrailFrontOffset() const;
+	/** 待出生品种只读配置偏移，不试生成实体。 */
+	static float GetSimulationIceTrailFrontOffset(ZombieType type);
 	/** 读取本品种当前运动阶段的稳态速度；后续阶段转换仍由能力时间线近似。 */
 	float GetMineSimulationMoveSpeed() const override;
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */

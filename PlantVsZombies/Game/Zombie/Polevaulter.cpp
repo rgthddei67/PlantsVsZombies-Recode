@@ -445,6 +445,7 @@ ZombieMovementRules::BirthProfile Polevaulter::GetBirthMovementProfile()
 	auto p=Zombie::GetBirthMovementProfile();
 	p.clip="anim_run";
 	p.alternative=nullptr;
+	p.rootStep=0;
 	p.rootMinimum=kRunRootMinimum;
 	p.rootMaximum=kRunRootMaximum;
 	p.animationMinimum=kRunAnimationMinimum;

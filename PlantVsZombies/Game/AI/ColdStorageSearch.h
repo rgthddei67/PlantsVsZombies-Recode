@@ -1,5 +1,6 @@
 #pragma once
 #include "Game/Zombie/ZombieMovementRules.h"
+#include "Game/Zombie/GoldenIceRules.h"
 
 #include "ColdStorageStrategy.h"
 #include "ColdStorageDiagnostics.h"
@@ -74,9 +75,16 @@ struct Ritual {
 	float armor = 0, stopHealth = 0, remaining = 0;
 	int releases = 0;
 };
+/** 活车拥有独立铺路来源及无伤计时；来源死亡后只保留 Snapshot 中的非叠加冰道。 */
+struct GoldenDrive {
+	bool enabled = false;
+	float undamaged = 0, trailLeft = (std::numeric_limits<float>::max)(), frontOffset = 0;
+};
+struct GoldenTrail { float left = 0, remaining = 0; };
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
+	float lowerForecastMoveSpeed=0, upperForecastMoveSpeed=0; // 偏慢/偏快的出生分布分位数，不是数学极值
 	bool birthMovementKnown = false; // 零移速也可能是合法出生阶段，不能把静止品种当成普通行走
 	ZombieMovementRules::PositionCurve movementCurve;
 	float movementCurveBase=0, movementCurveReference=0; // 世界基准与采样位置；保持已采样速度倍率，按推进位置更新车速
@@ -85,10 +93,13 @@ struct Unit {
 	Drum drum;
 	DeploymentSniper sniper;
 	Ritual ritual;
+	GoldenDrive goldenDrive;
+	std::array<float,9> goldenMoveRatios{1,1,1,1,1,1,1,1,1}; // 各层相对采样速度的常驻能力/天气倍率，鼓舞和减速独立推进
+	int goldenStacks = 0; // 每步由活车与残留冰道重算，不永久保留采样覆盖
 	float adaptiveHelmet = 0;
 	PlantDamageOrigin adaptedOrigin;
 	std::vector<std::pair<int,float>> inspiration; // 来源身份与剩余游戏秒，同源刷新
-	float drumSpeedAmplifier = 1; // 当前黄色冰道的非中性倍率放大，下次采样更新
+	bool instantVehicleCrush=false; // 冰车压扁普通植物；投篮车射击阶段暂沿用原模型
 	bool vehicleCrush = false; // 碰到抗碾压植物时使用承伤/推退契约，其他车战斗仍沿用原近似
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
@@ -115,6 +126,7 @@ struct Plant {
 	float sunPerSecond = 0;
 	int rowRadius = 0;
 	float range = 10000;
+	bool vehicleCrushable=true; // 活体与未来株均由冰车自身的目标资格采样
 	bool multiTarget = false, around = false;
 	bool melon = false, edible = true;
 	float hitDamage = 20; // 等效单发伤害，用于将每击上限换算为 DPS；常规小弹丸默认 20
@@ -160,6 +172,7 @@ struct AttackAura {
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
+	int goldenAccelerationSteps = 0, goldenDrumSteps = 0, goldenResidualSteps = 0, goldenMaxStacks = 0; // 实际生效的无伤/鼓舞/残留冰道预测步数及最大来源层数
 	int planted = 0, exchanges = 0, orders = 0;
 	float abilityIceSpent = 0; // 僵尸未来实际可付的技能费，计入支出，不提高成交返冰价
 	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
@@ -211,6 +224,9 @@ struct Snapshot {
 	float incomingIceAt = 0;
 	float supplyRemaining = 0, supplyInterval = 0, supplyIce = 0; // 技能钱包的真实补给时序；不作为经营得分
 	float houseX = 160, rightEdge = 1100;
+	float goldenRightX = 1100, goldenLeftLimit = GoldenIceRules::LeftLimit;
+	std::array<bool,6> goldenAllowedRows{true,true,true,true,true,true}; // Board 排除水路，屋顶左缘由当前几何采样
+	std::array<GoldenTrail,6> goldenTrails{};
 	float gridLeft = 160, cellWidth = 80;
 	int rows = 5, columns = 9;
 	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价

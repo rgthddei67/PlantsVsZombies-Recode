@@ -166,14 +166,18 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 
 路线覆盖使用独立增援案，仍带入已有部队，避免绑定新购物车的亏损进攻。组合预算还会把各合法类型试入当前优案，比较同时和错峰增援，不指定工人或护卫。大额投入同时核对清场风险及普通火力下未回收的本金：增量现金和幸存部队可支持续战，单纯削血及对方资产损耗不能替大量损失的本金兜底，真实突破仍可放行。`searchUnitCandidates` 导出最终编队阶段、精准清除前的兵种/行比较次数、独立候选次数、资金拒绝原因及最佳允许评分；收益属于含此兵种的完整候选，不是单只单位的边际收益。后台 `planningDiscardReasons` 分别累计过期、局面变化、钱包变化、在途出生、护卫损失等原因，多原因可同时累计；`planningLastDiscardMask` 和 `planningLastAgeMs` 解释最近完成的检查。
 
-新购/在途单位由注册品种的 `GetBirthMovementProfile` 提供出生运动参数，`GameDataManager::GetZombieBirthMoveSpeeds` 只读资源步幅或品种线性速度；不创建实体/Animator，不消费正式随机数。特殊品种必须与实际 Setup 共用参数，普通变体可继承父类画像。含生产单位的推演使用快工人/慢前排的合法边界检查追越风险；已有实体用目标自有的 `GetMineSimulationMoveSpeed` 保留实际根倍率、行走 clip、能力速度及当前车辆/地下等运动状态，不重抽随机值。冰车位置曲线随预测推进更新；巨大投手的小鬼步速也从出生画像取得。
+新购/在途单位由注册品种的 `GetBirthMovementProfile` 提供出生运动参数，`GameDataManager::GetZombieBirthMoveSpeeds` 只读资源步幅或品种线性速度；不创建实体/Animator，不消费正式随机数。特殊品种必须与实际 Setup 共用参数，普通变体可继承父类画像。整数根倍率、连续速度及独立随机倍率分别表达，以固定中点积分取得出生分布分位。含生产单位的推演使用偏快工人/偏慢前排的 75%/25% 分位检查追越风险，避免假定全队同时抽到数学极端；缺少分布的数值夹具仍回退合法上下限。已有实体用目标自有的 `GetMineSimulationMoveSpeed` 保留实际根倍率、行走 clip、能力速度及当前车辆/地下等运动状态，不重抽随机值。冰车位置曲线随预测推进更新；巨大投手的小鬼步速也从出生画像取得。
 
-`searchMovementBoundsApplied` 记录最佳方案的边界应用数量。`dump_state` 的 `zombieBirthMovement` 导出全部登记品种的速度范围、资源有效性及 `phaseDependent`，`simulationMoveSpeedOn1000` 导出已有实体的稳态预测速度；动作停步、控制和当前瞬时移速不同，不能一概要求相等。`smoke_commander_movement` / verifier 核对全登记覆盖、实际随机步态/特殊出生速度和预测不污染出生/付款，纯单测覆盖追越、延迟保护与冰车减速。
+`searchMovementBoundsApplied` 记录最佳方案的速度对照应用数量。`dump_state` 的 `zombieBirthMovement` 导出全部登记品种的速度范围、`lowerQuartile` / `upperQuartile`、资源有效性及 `phaseDependent`，`simulationMoveSpeedOn1000` 导出已有实体的稳态预测速度；动作停步、控制和当前瞬时移速不同，不能一概要求相等。`smoke_commander_movement` / verifier 核对全登记覆盖、实际随机步态/特殊出生速度和预测不污染出生/付款，纯单测覆盖追越、延迟保护与冰车减速。
 
-出生画像不是完整行为模拟。已有付费爆发、鼓舞、狙击和祭司能力沿原时间线计算；未来报纸/扶梯丢失、跳杆越障、矿工折返、舞蹈节拍、钟匠循环停步与回溯等仍有近似，日志的 `phaseDependent` 提醒检查这些变化。出生范围对照是保护投资的保守检查，不能当作未来正式随机数或整体胜率提升的证据。
+鎏金冰车的无伤计时、铺路左缘与已有黄色冰道寿命进入快照；新购/在途单位从出生时开始计时。推演按 `GoldenIceRules` 的正式门槛升级，实际预测本体承伤立即清零；自身加速保留品种上限。每步随来源存活、出生、位置和三路覆盖重算独立活车层数，水路不生效；车死后的残留冰道仍放大加减速，但只作为一层、按真实余时到期。鼓舞、移动减速、常驻能力与采样天气分别放大，中性倍率不变；鼓舞不加速敲鼓周期、制冰或修复。已有实体通过 `GetSimulationGoldenMoveRatios` 去除重复烘焙的倍率，后台只接收数值数组。未来天气及未表达的品种阶段仍按当前采样近似。
+
+`searchGoldenAccelerationSteps`、`searchGoldenDrumSteps`、`searchGoldenResidualSteps` 和 `searchGoldenMaxStacks` 记录最佳方案中实际生效的预测步数及最大来源层数，不代表真实技能次数。`smoke_commander_golden_motion` / verifier 检查活车叠层、残留冰道鼓舞及采样不修改真实单位/钱包；数值单测比较无伤/连续承伤、未出生来源、邻路范围、水路、到期、中性速度和减速。真实实体规则另用 `smoke_gilded_zamboni` 验证。
+
+出生画像不是完整行为模拟。已有付费爆发、鼓舞、狙击和祭司能力沿原时间线计算；未来报纸/扶梯丢失、跳杆越障、矿工折返、舞蹈节拍、钟匠循环停步与回溯等仍有近似，日志的 `phaseDependent` 提醒检查这些变化。出生范围对照是保护投资的保守检查，不能当作未来正式随机数或整体胜率提升的证据；车辆接触、速度场刷新与承伤采用有限步长，也不声称逐帧精确。
 
 `commander_episode` 可显式指定 `sunRefillBelow` 和 `sunRefillTo`，模拟阳光低于或等于阈值时由外部工具再次补款。该夹具只影响测试玩家的钱包，不重置冷却、不补冰、不把未来补款告知 AI。结果的 `externalSun` 记录启用状态和每笔金额；此类压力结果必须单列，不能混入正常资源的训练胜率。省略字段则完全关闭。
 
 锅炉与蓄冷菠萝通过 `PaidBurst` / `AttackAura` 数值能力接入；常量分别由实体与 Board 投影共享，预测中的技能费只在预测提交时消耗同一方钱包，不直接扣真实冰库。`smoke_commander_paid_abilities` 和对应 verifier 检查正式加载、能力采集和付款边界；纯预测的阶段、控制、资源竞争与来源失效由 `ColdStorageStrategyTests` 覆盖。新能力先补齐这种可比较的收益与成本，再决定是否需要训练偏好；本次保留原策略权重。
 
-冷链护卫用 `ArmorRepair` 表达一类冰盾的剩余生命、修复余时与共享冰费；与二类铁门盾分开，西瓜先扣一类防具。冰仓坚果的抗砸、无敌、付费修复及预测新建在 `ColdStorageSearch::Plant` 表达；回血撤回已恢复的削血分，车辆只补充与抗碾压坚果的挡车/推退交互，其他车辆战斗仍是既有近似。`smoke_commander_defense_abilities` 核对正式资格和修复预测不污染真实状态；本轮沿用发布权重，以专项和实战评估验收，未重训。
+冷链护卫用 `ArmorRepair` 表达一类冰盾的剩余生命、修复余时与共享冰费；与二类铁门盾分开，西瓜先扣一类防具。冰仓坚果的抗砸、无敌、付费修复及预测新建在 `ColdStorageSearch::Plant` 表达；回血撤回已恢复的削血分。普通冰车和鎏金冰车通过实体共用的 `CanCrushPlantType` 判断压扁资格，普通目标即时移除，冰仓坚果保留有限承伤及推退；投石车阶段和其他复杂车辆行为仍是既有近似。`searchInstantCrushTypes` 导出本次搜索候选中接入压扁的品种；`smoke_commander_ice_convoy` / verifier 同时核对双车投影与实际压扁/挡车，数值单测另比较啃食、碾压和不可碾压目标。`smoke_commander_defense_abilities` 核对正式资格和修复预测不污染真实状态；沿用发布权重，以专项和实战评估验收，未重训。

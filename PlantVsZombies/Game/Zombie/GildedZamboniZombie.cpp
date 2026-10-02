@@ -1,4 +1,5 @@
 #include "GildedZamboniZombie.h"
+#include "GoldenIceRules.h"
 
 #include "../../DeltaTime.h"
 #include "../../GameRandom.h"
@@ -9,14 +10,10 @@
 namespace {
 	constexpr int kGildedZamboniHealth = 2200;             // 鎏金冰车本体血量
 	constexpr float kGildedBaseDriveMultiplier = 0.72f;   // 相对普通冰车速度曲线的基础移速倍率
-	constexpr float kFirstAccelerationTime = 6.0f;        // 首次无伤害加速门槛，单位秒
-	constexpr float kSecondAccelerationTime = 10.0f;      // 第二次加速门槛；满足主人 10 秒为 x4 的示例
-	constexpr float kThirdAccelerationTime = 14.0f;       // 第三次加速门槛；最终速度封顶 x8
 	constexpr int kCaltropHitDamage = 100;                 // 地刺每次扎中鎏金冰车造成的固定基础伤害
 	constexpr int kChomperBiteDamage = 50;                 // 鎏金冰车拒吞时保留的特殊基础伤害
 	constexpr float kPreviewDriveAnimSpeedMin = 0.50f;    // 慢速车辆驾驶动画最小基础倍率
 	constexpr float kPreviewDriveAnimSpeedMax = 0.65f;    // 慢速车辆驾驶动画最大基础倍率
-	constexpr float kMutualInfluenceLeftPadding = 80.0f;  // 活车速度场向车辆左侧包住车身的距离，单位 px；允许近邻冰车互相覆盖
 }
 
 void GildedZamboniZombie::SetupZombie()
@@ -40,12 +37,8 @@ void GildedZamboniZombie::Update()
 void GildedZamboniZombie::UpdateAcceleration(float deltaTime)
 {
 	if (deltaTime <= 0.0f || mAccelerationStage >= 3) return;
-	mUndamagedTime = std::min(kThirdAccelerationTime, mUndamagedTime + deltaTime);
-
-	int nextStage = 0;
-	if (mUndamagedTime >= kThirdAccelerationTime) nextStage = 3;
-	else if (mUndamagedTime >= kSecondAccelerationTime) nextStage = 2;
-	else if (mUndamagedTime >= kFirstAccelerationTime) nextStage = 1;
+	mUndamagedTime = std::min(GoldenIceRules::ThirdAcceleration, mUndamagedTime + deltaTime);
+	const int nextStage = GoldenIceRules::AccelerationStage(mUndamagedTime);
 	if (nextStage == mAccelerationStage) return;
 
 	mAccelerationStage = nextStage;
@@ -122,7 +115,7 @@ float GildedZamboniZombie::GetAmplifiedAbilitySpeedMultiplier() const
 
 float GildedZamboniZombie::GetAccelerationMultiplier() const
 {
-	return std::min(8.0f,
+	return std::min(GoldenIceRules::AccelerationCap,
 		AmplifySpeedMultiplierForGoldenIce(GetAbilityAnimSpeedMultiplier()));
 }
 
@@ -133,7 +126,7 @@ bool GildedZamboniZombie::ProvidesGoldenIceEffectAt(
 		|| mBoard->IsPoolRow(row)) return false;
 
 	const float leftX = includeVehicleBody
-		? std::min(mGoldenTrailMinX, GetPosition().x - kMutualInfluenceLeftPadding)
+		? std::min(mGoldenTrailMinX, GetPosition().x - GoldenIceRules::BodyPadding)
 		: mGoldenTrailMinX;
 	return worldX >= leftX && worldX <= mBoard->GetIceTrailRightX();
 }
@@ -149,11 +142,8 @@ void GildedZamboniZombie::LoadExtraData(const nlohmann::json& j)
 {
 	ZamboniZombie::LoadExtraData(j);
 	mUndamagedTime = std::clamp(
-		j.value("undamagedTime", 0.0f), 0.0f, kThirdAccelerationTime);
-	if (mUndamagedTime >= kThirdAccelerationTime) mAccelerationStage = 3;
-	else if (mUndamagedTime >= kSecondAccelerationTime) mAccelerationStage = 2;
-	else if (mUndamagedTime >= kFirstAccelerationTime) mAccelerationStage = 1;
-	else mAccelerationStage = 0;
+		j.value("undamagedTime", 0.0f), 0.0f, GoldenIceRules::ThirdAcceleration);
+	mAccelerationStage = GoldenIceRules::AccelerationStage(mUndamagedTime);
 	const float trailRight = mBoard ? mBoard->GetIceTrailRightX() : mGoldenTrailMinX;
 	mGoldenTrailMinX = std::clamp(
 		j.value("goldenTrailMinX", trailRight), 25.0f, trailRight);

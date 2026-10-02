@@ -1308,15 +1308,18 @@ ZombieMovementRules::BirthProfile GameDataManager::GetZombieBirthMovement(Zombie
 ZombieMovementRules::SpeedRange GameDataManager::GetZombieBirthMoveSpeeds(ZombieType type) const
 {
 	const auto profile = GetZombieBirthMovement(type);
-	if (profile.linear) return {{profile.velocityMinimum,(profile.velocityMinimum+profile.velocityMaximum)*.5f,profile.velocityMaximum},true,profile.phaseDependent};
+	if (profile.linear) {
+		const float width=profile.velocityMaximum-profile.velocityMinimum;
+		return {{profile.velocityMinimum,profile.velocityMinimum+width*.5f,profile.velocityMaximum},true,profile.phaseDependent,
+			profile.velocityMinimum+width*.25f,profile.velocityMinimum+width*.75f};
+	}
 	auto& resources = ResourceManager::GetInstance();
 	const auto animation = GetZombieAnimationType(type);
 	const auto reanimation = resources.GetReanimation(resources.AnimationTypeToString(animation));
 	if (!reanimation) return {};
 	const auto* ground = reanimation->GetTrack("_ground");
 	if (!ground) return {};
-	float minimum=0, maximum=0, total=0;
-	int count=0;
+	std::vector<float> strides;
 	for (const char* name : {profile.clip,profile.alternative}) {
 		if (!name) continue;
 		const auto range = reanimation->GetTrackFrameRange(name);
@@ -1324,15 +1327,35 @@ ZombieMovementRules::SpeedRange GameDataManager::GetZombieBirthMoveSpeeds(Zombie
 		float distance=0;
 		for (int frame=range.first; frame<range.second; ++frame)
 			distance += std::abs(ground->mFrames[frame+1].x-ground->mFrames[frame].x);
-		const float stride=distance/(range.second-range.first);
-		minimum=count==0 ? stride : std::min(minimum,stride);
-		maximum=std::max(maximum,stride); total+=stride; ++count;
+		strides.push_back(distance/(range.second-range.first));
 	}
-	if (count==0) return {};
-	const float low=minimum*profile.rootMinimum*profile.animationMinimum*profile.abilityMinimum;
-	const float high=maximum*profile.rootMaximum*profile.animationMaximum*profile.abilityMaximum;
-	const float mean=total/count*(profile.rootMinimum+profile.rootMaximum)*.5f*(profile.animationMinimum+profile.animationMaximum)*.5f*(profile.abilityMinimum+profile.abilityMaximum)*.5f;
-	return {{low,std::clamp(mean,low,high),high},true,profile.phaseDependent};
+	if (strides.empty()) return {};
+	// 固定中点积分近似真实出生分布，不调用 RNG；步态等概率，整数根倍率保留离散取值。
+	// 最坏的“每个护卫最慢、每个工人最快”是合法极端，却不能代表常规生存机会。
+	constexpr int kContinuousBins=17; // 每个独立连续出生变量的积分分箱数；不增加后台候选/推演次数
+	const auto samples = [&](float low,float high,float step=0.0f) {
+		std::vector<float> values;
+		if (high<=low) values.push_back(low);
+		else if (step>0) for (float x=low; x<=high+step*.01f; x+=step) values.push_back(x);
+		else for (int i=0;i<kContinuousBins;++i) values.push_back(low+(high-low)*(i+.5f)/kContinuousBins);
+		return values;
+	};
+	const auto roots=samples(profile.rootMinimum,profile.rootMaximum,profile.rootStep);
+	const auto rootMultipliers=samples(profile.rootMultiplierMinimum,profile.rootMultiplierMaximum);
+	const auto animations=samples(profile.animationMinimum,profile.animationMaximum);
+	const auto abilities=samples(profile.abilityMinimum,profile.abilityMaximum);
+	std::vector<float> velocities;
+	for (float stride:strides) for (float root:roots) for (float multiplier:rootMultipliers)
+		for (float clip:animations) for (float ability:abilities) velocities.push_back(stride*root*multiplier*clip*ability);
+	std::sort(velocities.begin(),velocities.end());
+	const auto extremes=std::minmax_element(strides.begin(),strides.end());
+	const float low=*extremes.first*profile.rootMinimum*profile.rootMultiplierMinimum*profile.animationMinimum*profile.abilityMinimum;
+	const float high=*extremes.second*profile.rootMaximum*profile.rootMultiplierMaximum*profile.animationMaximum*profile.abilityMaximum;
+	float mean=0; for (float stride:strides) mean+=stride/strides.size();
+	mean *= (profile.rootMinimum+profile.rootMaximum)*.5f*(profile.rootMultiplierMinimum+profile.rootMultiplierMaximum)*.5f
+		* (profile.animationMinimum+profile.animationMaximum)*.5f*(profile.abilityMinimum+profile.abilityMaximum)*.5f;
+	return {{low,std::clamp(mean,low,high),high},true,profile.phaseDependent,
+		velocities[(velocities.size()-1)/4],velocities[(velocities.size()-1)*3/4]};
 }
 
 std::string GameDataManager::GetZombieAnimName(ZombieType zombieType) const {

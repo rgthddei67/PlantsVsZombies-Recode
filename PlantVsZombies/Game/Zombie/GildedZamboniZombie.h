@@ -22,6 +22,7 @@ public:
 	}
 
 	float GetUndamagedTime() const { return mUndamagedTime; }
+	float GetGoldenTrailMinX() const { return mGoldenTrailMinX; }
 	int GetAccelerationStage() const { return mAccelerationStage; }
 	float GetAccelerationMultiplier() const;
 	/** @brief 判断指定点是否由本车仍存活的黄色冰道来源覆盖，供多车速度场叠层。 */

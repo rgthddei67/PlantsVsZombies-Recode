@@ -1,0 +1,143 @@
+{
+  "muteAudio": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 2001,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_ICESTORAGENUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "initialEnemyIce": 100,
+        "decisions": 100,
+        "decisionRemaining": 1000
+      }
+    },
+    {
+      "op": "commander_roster",
+      "units": [
+        "ZOMBIE_ZAMBONI",
+        "ZOMBIE_GILDED_ZAMBONI",
+        "ZOMBIE_ICE_WORKER"
+      ]
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "dump_state",
+      "name": "planned.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_ICESTORAGENUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 20,
+        "decisionRemaining": 1000
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 3,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ZAMBONI",
+      "row": 0,
+      "x": 840
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 1,
+      "x": 840
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ZAMBONI",
+      "row": 2,
+      "x": 840
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 3,
+      "x": 840
+    },
+    {
+      "op": "dump_state",
+      "name": "before.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "dump_state",
+      "name": "after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

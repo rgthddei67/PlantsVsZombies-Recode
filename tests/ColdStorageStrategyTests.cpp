@@ -1720,4 +1720,86 @@ int main()
 	check(constant[2]>slowing[2],"position-dependent vehicle slowdown changes the breach timeline instead of keeping birth speed forever");
 	}
 
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=24; s.capacity=1;
+	Plant fire; fire.x=300; fire.health=10000; fire.dps=280; fire.edible=false; s.plants={fire};
+	Unit convoy; convoy.body.x=1040; convoy.body.speed=15; convoy.body.health=30000; s.current={convoy};
+	Option worker; worker.type=1917; worker.cost=24; worker.unit.body.x=1140; worker.unit.body.health=500;
+	worker.unit.body.economic=true; worker.unit.body.purchaseCost=24; worker.unit.birthMovementKnown=true;
+	worker.unit.minimumMoveSpeed=8; worker.unit.maximumMoveSpeed=20; s.options={worker};
+	const auto extreme=Evaluate(s,{{0,0}});
+	s.options[0].unit.lowerForecastMoveSpeed=11; s.options[0].unit.upperForecastMoveSpeed=16;
+	const auto representative=Evaluate(s,{{0,0}});
+	check(representative[4]>extreme[4] && representative[4]>worker.cost,
+		"a modestly fast producer can profit behind an existing convoy without assuming every newborn draws maximum speed");
+	Weights income{}; income[4]=1;
+	check(!Search(s,income,29).actions.empty(),"a generic income objective can find convoy support without a mandatory worker recipe");
+	s.current[0].body.health=500;
+	check(Evaluate(s,{{0,0}})[4]<worker.cost,"representative birth uncertainty cannot turn a dying escort into reliable protection");
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Plant wall; wall.x=400; wall.health=100000; wall.reward=100; s.plants={wall};
+	Unit car; car.body.x=500; car.body.speed=15; car.body.health=10000; car.biteDps=50; car.vehicleCrush=true; s.current={car};
+	const auto chewing=Evaluate(s,{}); s.current[0].instantVehicleCrush=true;
+	check(chewing[0]==0 && Evaluate(s,{})[0]==wall.reward,"an ice vehicle clears an ordinary plant by crushing rather than chewing through its health");
+	s.plants[0].vehicleCrushable=false;
+	check(Evaluate(s,{})[0]==0,"awake instant plants excluded by the ice vehicle's target rules are not crushed");
+	s.plants[0].vehicleCrushable=true; s.plants[0].crushDamage=100; s.plants[0].vehicleRetreat=40;
+	check(Evaluate(s,{})[0]==0,"anti-crush storage nuts retain limited impact damage and vehicle retreat");
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Unit car; car.body.x=1000; car.body.speed=2; car.body.health=1000; car.body.purchaseCost=48;
+	car.goldenDrive={true,0,1100,50}; s.current={car};
+	ConstructionStats freeStats, fireStats;
+	const auto freeDrive=Evaluate(s,{},&freeStats);
+	Plant fire; fire.x=0; fire.dps=1; fire.health=100000; fire.edible=false; s.plants={fire};
+	const auto underFire=Evaluate(s,{},&fireStats);
+	check(freeStats.goldenAccelerationSteps>0 && fireStats.goldenAccelerationSteps==0 && freeDrive[7]>underFire[7],
+		"unhurt ice vehicle accelerates over time; repeated real body damage resets upgrades rather than keeping sampled acceleration forever");
+	s.plants.clear(); s.current.push_back(car); ConstructionStats overlap;
+	Evaluate(s,{},&overlap);
+	check(overlap.goldenMaxStacks==2,"nearby live golden vehicles count independent sources with vehicle-body padding");
+	s.current[1].body.spawnAt=61; ConstructionStats future;
+	Evaluate(s,{},&future);
+	check(future.goldenMaxStacks==1,"a not-yet-born golden vehicle cannot amplify existing allies");
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Unit ally; ally.body.row=1; ally.body.x=1080; ally.body.speed=1; ally.body.health=1000; ally.body.purchaseCost=8;
+	ally.inspiration={{10,12}}; s.current={ally};
+	const auto bare=Evaluate(s,{});
+	s.goldenTrails[1]={0,35}; ConstructionStats residual;
+	const auto helped=Evaluate(s,{},&residual);
+	check(helped[7]>bare[7] && residual.goldenDrumSteps>0 && residual.goldenResidualSteps>0 && residual.goldenMaxStacks==1,
+		"persistent golden trail still doubles drum movement after all live sources are gone");
+	s.current[0].inspiration.clear();
+	const auto neutral=Evaluate(s,{}); s.goldenTrails[1].remaining=0;
+	check(Evaluate(s,{})[7]==neutral[7],"golden trail does not accelerate neutral unbuffed movement");
+	s.current[0].body.slow=60; s.goldenTrails[1]={0,35};
+	const auto coldGolden=Evaluate(s,{}); s.goldenTrails[1].remaining=0;
+	check(Evaluate(s,{})[7]>coldGolden[7],"persistent golden trail also amplifies movement slowdown, rather than only helping speed buffs");
+	s.goldenTrails[1]={0,35}; s.goldenAllowedRows[1]=false; ConstructionStats water;
+	Evaluate(s,{},&water);
+	check(water.goldenMaxStacks==0,"water lanes are excluded from residual golden speed fields");
+	s.goldenAllowedRows[1]=true; s.current[0].body.slow=0; s.current[0].inspiration={{10,120}};
+	s.goldenTrails[1]={0,1}; const auto brief=Evaluate(s,{});
+	s.goldenTrails[1].remaining=35; const auto lasting=Evaluate(s,{});
+	s.goldenTrails[1].remaining=120;
+	check(brief[7]<lasting[7] && lasting[7]<Evaluate(s,{})[7],"residual speed field expires instead of persisting throughout the forecast");
+	Unit source; source.body.x=950; source.body.health=1000; source.goldenDrive={true,0,1100,50};
+	s.goldenTrails={}; s.current={source,ally}; s.current[1].body.x=1040;
+	ConstructionStats adjacent, distant; Evaluate(s,{},&adjacent);
+	s.current[1].body.row=2; Evaluate(s,{},&distant);
+	check(adjacent.goldenDrumSteps>0 && distant.goldenDrumSteps==0,"live golden source helps the neighboring lane, not lanes outside its three-row range");
+	}
+
 }

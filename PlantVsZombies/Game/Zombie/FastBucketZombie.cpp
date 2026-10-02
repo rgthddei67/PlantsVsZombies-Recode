@@ -112,8 +112,8 @@ bool FastBucketZombie::ExtractMagneticItem(MagneticItem& item)
 ZombieMovementRules::BirthProfile FastBucketZombie::GetBirthMovementProfile()
 {
 	auto p=Zombie::GetBirthMovementProfile();
-	p.rootMinimum*=kFastBucketMoveSpeedMin;
-	p.rootMaximum*=kFastBucketMoveSpeedMax;
+	p.rootMultiplierMinimum=kFastBucketMoveSpeedMin;
+	p.rootMultiplierMaximum=kFastBucketMoveSpeedMax;
 	p.abilityMinimum=kFastBucketAnimSpeedMin;
 	p.abilityMaximum=kFastBucketAnimSpeedMax;
 	return p;

@@ -73,6 +73,7 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 	const float shieldLoss = bypass ? 0 : std::min(shield,damage);
 	const float vitalLoss = bypass || penetrate ? damage : discardOverflow && shield > 0 ? 0 : damage-shieldLoss;
 	const float vital = health-shield-vitalLoss;
+	if (unit.goldenDrive.enabled && vitalLoss>0) unit.goldenDrive.undamaged=0;
 	unit.shieldHealth = shield-shieldLoss;
 	// 西瓜和大喷穿的是二类门盾；一类冰盾仍先于本体承受 vitalLoss。
 	unit.adaptiveHelmet = std::max(0.0f,unit.adaptiveHelmet-std::max(0.0f,vitalLoss));
@@ -869,8 +870,10 @@ static std::array<float,2> AdvanceBurst(Unit& unit, bool inRange, float active, 
 		stopped = std::max(0.0f,stopped-span);
 		if (b.stage == Stage::WINDUP) b.remaining -= free;
 		else {
-			seconds[0] += free*(b.stage == Stage::ACTIVE ? b.moveMultiplier : b.stage == Stage::RECOVERY ? b.recoveryMoveMultiplier : 1);
-			if (b.stage != Stage::RECOVERY) seconds[1] += free*(b.stage == Stage::ACTIVE ? b.biteMultiplier : 1);
+			seconds[0] += free*GoldenIceRules::Amplify(b.stage == Stage::ACTIVE ? b.moveMultiplier
+				: b.stage == Stage::RECOVERY ? b.recoveryMoveMultiplier : 1,unit.goldenStacks);
+			if (b.stage != Stage::RECOVERY) seconds[1] += free*(b.stage == Stage::ACTIVE ? b.biteMultiplier
+				* GoldenIceRules::Amplify(b.moveMultiplier,unit.goldenStacks)/std::max(.001f,b.moveMultiplier) : 1);
 			if (b.stage == Stage::ACTIVE || b.stage == Stage::RECOVERY) b.remaining -= span;
 		}
 		b.retryRemaining = std::max(0.0f,b.retryRemaining-span);
@@ -1018,6 +1021,45 @@ static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<P
 		const float credit = std::min(p.damageCredit,p.reward*restored/std::max(1.0f,p.initialHealth));
 		p.damageCredit -= credit; features[1] -= credit;
 		stats.iceSpent += PlayerIceCost(state,time,p.repairCost); stats.plantRepairIce += PlayerIceCost(state,time,p.repairCost); ++stats.plantRepairs;
+	}
+}
+
+/** 推进铺路/到期并按当前位置重算活车叠层；来源消失后只剩一层持久场，不影响中性速度。 */
+static void AdvanceGoldenIce(const Snapshot& s, float time, std::vector<Unit>& units,
+	const std::vector<size_t>& sources, std::array<GoldenTrail,6>& trails, ConstructionStats& stats) {
+	for (auto& trail:trails) {
+		trail.remaining=std::max(0.0f,trail.remaining-kStep);
+		if (trail.remaining<=0) trail.left=s.goldenRightX;
+	}
+	for (size_t index:sources) {
+		auto& source=units[index]; const auto& body=source.body;
+		if (body.health<=0 || body.spawnAt>time) continue;
+		const float front=std::max(s.goldenLeftLimit,body.x+body.blastAnchorOffset+source.goldenDrive.frontOffset);
+		source.goldenDrive.trailLeft=std::min(source.goldenDrive.trailLeft,front);
+		for (int row=std::max(0,body.row-1);row<=std::min(5,body.row+1);++row) {
+			if (!s.goldenAllowedRows[row]) continue;
+			trails[row].left=std::min(trails[row].left,front);
+			trails[row].remaining=GoldenIceRules::TrailDuration;
+		}
+	}
+	for (auto& target:units) {
+		target.goldenStacks=0;
+		const auto& body=target.body;
+		if (body.health<=0 || body.spawnAt>time || body.row<0 || body.row>=6) continue;
+		const float x=body.x+body.blastAnchorOffset;
+		if (s.goldenAllowedRows[body.row] && x<=s.goldenRightX) for (size_t index:sources) {
+			const auto& source=units[index];
+			if (source.body.health<=0 || source.body.spawnAt>time || std::abs(source.body.row-body.row)>1) continue;
+			const float left=target.goldenDrive.enabled ? std::min(source.goldenDrive.trailLeft,
+				source.body.x+source.body.blastAnchorOffset-GoldenIceRules::BodyPadding) : source.goldenDrive.trailLeft;
+			if (x>=left) ++target.goldenStacks;
+		}
+		const bool residual=target.goldenStacks==0 && trails[body.row].remaining>0
+			&& s.goldenAllowedRows[body.row] && x>=trails[body.row].left && x<=s.goldenRightX;
+		if (target.goldenStacks==0 && (target.goldenDrive.enabled || residual)) target.goldenStacks=1;
+		target.goldenStacks=std::min(target.goldenStacks,GoldenIceRules::MaxStacks);
+		stats.goldenMaxStacks=std::max(stats.goldenMaxStacks,target.goldenStacks);
+		if (residual) ++stats.goldenResidualSteps;
 	}
 }
 
@@ -1206,15 +1248,20 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<float> attackRates;
 	auto plants = s.plants;
 	auto mowers = s.mowers;
+	auto goldenTrails=s.goldenTrails;
+	std::vector<size_t> goldenSources;
+	for (size_t i=0;i<units.size();++i) if (units[i].goldenDrive.enabled) goldenSources.push_back(i);
 	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
 	ConstructionStats constructionStats;
-	// 同速假设会把先出的前排当成永久掩护。生产案用合法的快后排/慢前排对照，
+	// 同速假设会把先出的前排当成永久掩护。生产案用出生分布的偏快后排/偏慢前排对照，
 	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
 	const bool economicForecast = std::any_of(units.begin(),units.end(),[](const Unit& unit){return unit.body.economic && unit.body.health>0;});
 	if (economicForecast) for (auto& unit : units) {
 		if ((!unit.birthMovementKnown && unit.minimumMoveSpeed<=0) || unit.maximumMoveSpeed<unit.minimumMoveSpeed) continue;
-		unit.body.speed = unit.body.economic ? unit.maximumMoveSpeed : unit.minimumMoveSpeed;
+		const float lower=unit.lowerForecastMoveSpeed>0 ? unit.lowerForecastMoveSpeed : unit.minimumMoveSpeed;
+		const float upper=unit.upperForecastMoveSpeed>0 ? unit.upperForecastMoveSpeed : unit.maximumMoveSpeed;
+		unit.body.speed = unit.body.economic ? upper : lower;
 		++constructionStats.movementBoundsApplied;
 	}
 	if (s.precisionTargetID > 0) constructionStats.abilityIceSpent = ColdStorageSkillRules::StrikeIceCost;
@@ -1297,6 +1344,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
+		AdvanceGoldenIce(s,t,units,goldenSources,goldenTrails,constructionStats);
 		if (precisionID > 0 && t >= precisionAt) {
 			for (auto& p : plants) if (p.id == precisionID && p.health > 0) {
 				// 单株生命周期结束，不借用群伤/砸击，不受壳层或无敌状态阻挡。
@@ -1391,7 +1439,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float active = std::max(0.0f, kStep - u.stopped);
 			u.stopped = std::max(0.0f, u.stopped - kStep);
 			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,riftColumns,initialHealth,initialX,constructionStats);
-			const float speedFactor = u.slow > 0 ? u.slowFactor : 1;
+			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
 			if (smashTarget[i] >= 0) {
 				advanceSmash(i,active,speedFactor);
@@ -1428,7 +1476,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			int contact = -1;
 			for (size_t j = 0; j < plants.size(); ++j) {
 				const auto& p = plants[j];
-				if (p.health <= 0 || !p.edible || p.row != u.row || p.x > u.x + 30) continue;
+				if (p.health <= 0 || !p.edible || p.row != u.row || p.x > u.x + 30
+					|| (worker.instantVehicleCrush && !p.vehicleCrushable)) continue;
 				if (contact < 0 || p.x > plants[contact].x
 					|| (p.x == plants[contact].x && p.layer > plants[contact].layer)) contact = static_cast<int>(j);
 			}
@@ -1439,15 +1488,19 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			});
 			const auto activity = AdvanceBurst(worker,inRange,active*drumActivity[i]*ritualActivity
 				* (worker.sniper.aiming ? 0 : sniperActivity[i]),enemyIce,f,constructionStats);
-			const float ritualMove = !worker.ritual.present ? 1 : (worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed : AuroraPriestRules::OverloadSpeed)
-				* (u.x+u.blastAnchorOffset > s.gridLeft+s.columns*s.cellWidth ? AuroraPriestRules::OutsideSpeed : 1);
-			const float ritualBite = !worker.ritual.present ? 1 : worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed
-				: AuroraPriestRules::OverloadSpeed*AuroraPriestRules::OverloadBite/AuroraPriestRules::NormalBite;
-			const float drumMove = worker.inspiration.empty() ? 1 : worker.drumSpeedAmplifier*(1+CrystalDrummerRules::MoveBonus*worker.inspiration.size());
-			const float drumBite = worker.inspiration.empty() ? 1 : worker.drumSpeedAmplifier*(1+CrystalDrummerRules::BiteBonus*worker.inspiration.size());
+			const float ritualSpeed=worker.ritual.armor>0 ? AuroraPriestRules::NormalSpeed : AuroraPriestRules::OverloadSpeed;
+			const float ritualMove = !worker.ritual.present ? 1 : GoldenIceRules::Amplify(ritualSpeed
+				* (u.x+u.blastAnchorOffset > s.gridLeft+s.columns*s.cellWidth ? AuroraPriestRules::OutsideSpeed : 1),worker.goldenStacks);
+			const float ritualBite = !worker.ritual.present ? 1 : GoldenIceRules::Amplify(ritualSpeed,worker.goldenStacks)
+				* (worker.ritual.armor>0 ? 1 : AuroraPriestRules::OverloadBite/AuroraPriestRules::NormalBite);
+			const float drumMove = GoldenIceRules::Amplify(1+CrystalDrummerRules::MoveBonus*worker.inspiration.size(),worker.goldenStacks);
+			const float drumBite = GoldenIceRules::Amplify(1+CrystalDrummerRules::BiteBonus*worker.inspiration.size(),worker.goldenStacks);
+			const float acceleration=worker.goldenDrive.enabled ? GoldenIceRules::Acceleration(worker.goldenDrive.undamaged,worker.goldenStacks) : 1;
+			if (acceleration>1) ++constructionStats.goldenAccelerationSteps;
+			if (!worker.inspiration.empty() && worker.goldenStacks>0) ++constructionStats.goldenDrumSteps;
 			if (contact >= 0 && u.x <= plants[contact].x + kContact) {
 				auto& p = plants[contact];
-				float damage = worker.biteDps * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? 0.5f : 1);
+				float damage = worker.biteDps * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? GoldenIceRules::Amplify(.5f,worker.goldenStacks) : 1);
 				if (u.smashSeconds > 0) {
 					smashTarget[i] = contact;
 					advanceSmash(i,active,speedFactor);
@@ -1455,15 +1508,19 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				}
 				if (worker.vehicleCrush && p.crushDamage > 0) {
 					if (active > 0 && DamagePlant(p,p.crushDamage,true,f) && p.health > 0) u.x += p.vehicleRetreat;
+				} else if (worker.instantVehicleCrush) {
+					// 普通植物按实体 Squish 压扁，不把车辆当成慢速啃食者；挡车坚果仍走上方承伤/推退。
+					DamagePlant(p,p.health,true,f);
 				} else DamagePlant(p,damage,false,f);
 			} else {
 				// 车辆会随位置减速；保留采样时已有加速状态，不把当前车速冻结到整个时域。
 				const float curve=worker.movementCurve.Factor(u.x-worker.movementCurveBase)
 					/ worker.movementCurve.Factor(worker.movementCurveReference-worker.movementCurveBase);
-				u.x -= u.speed * curve * ritualMove * drumMove * activity[0] * speedFactor;
+				u.x -= u.speed * curve * worker.goldenMoveRatios[worker.goldenStacks] * acceleration * ritualMove * drumMove * activity[0] * speedFactor;
 				// 高速爆发不能跨步穿墙，车辆也不能越过仍存活的抗碾压坚果。
 				if (contact >= 0 && (worker.burst.range > 0 || (worker.vehicleCrush && plants[contact].crushDamage > 0))) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
+			if (worker.goldenDrive.enabled) worker.goldenDrive.undamaged=std::min(GoldenIceRules::ThirdAcceleration,worker.goldenDrive.undamaged+kStep);
 		}
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
 		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。

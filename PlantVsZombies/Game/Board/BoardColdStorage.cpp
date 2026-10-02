@@ -35,6 +35,8 @@
 #include "Game/Plant/DoomShroom.h"
 #include "Game/Plant/CoffeeBean.h"
 #include "Game/Zombie/GargantuarZombie.h"
+#include "Game/Zombie/ZamboniZombie.h"
+#include "Game/Zombie/GildedZamboniZombie.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
 #include "Game/Bullet/Bullet.h"
 #include "Game/Plant/IceMint.h"
@@ -287,6 +289,7 @@ namespace {
 	{
 		using P = PlantType;
 		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
+		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
 		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
 		if (plant.melon)
 			plant.hitDamage = static_cast<float>(Bullet::GetBaseDamage(type == P::PLANT_MELONPULT ? BulletType::BULLET_MELON : BulletType::BULLET_WINTERMELON));
@@ -345,8 +348,7 @@ namespace {
 	{
 		if (live) {
 			unit.inspiration = live->CopyDrumInspirationLayers();
-			unit.drumSpeedAmplifier = live->GetDrumSpeedAmplifier();
-			unit.body.speed /= (unit.inspiration.empty() ? 1 : unit.drumSpeedAmplifier*live->GetDrumMoveMultiplier());
+			unit.body.speed /= (unit.inspiration.empty() ? 1 : live->GetDrumSpeedAmplifier()*live->GetDrumMoveMultiplier());
 			unit.biteDps /= live->GetDrumBiteMultiplier();
 		}
 		const auto* drummer = dynamic_cast<const CrystalDrummerZombie*>(live);
@@ -1067,6 +1069,12 @@ void Board::PlanColdStorageAttack(bool background)
 	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
 	if (const auto* weights = learnedWeights) {
 		ColdStorageSearch::Snapshot search;
+		search.goldenRightX=GetIceTrailRightX();
+		search.goldenLeftLimit=IsRoofBackground() ? GetRoofSlopeEndX() : GoldenIceRules::LeftLimit;
+		for (int row=0;row<static_cast<int>(search.goldenTrails.size());++row) {
+			search.goldenAllowedRows[row]=row<mRows && !IsPoolRow(row);
+			search.goldenTrails[row]={GetGoldenIceTrailMinX(row),GetGoldenIceTrailTimeRemaining(row)};
+		}
 		search.impWalkSpeed=GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(ZombieType::ZOMBIE_IMP).speed[1];
 		const int requestedVersion = ColdStoragePolicy::SearchVersion();
 		search.searchVersion = requestedVersion;
@@ -1290,6 +1298,15 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
 			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(entity)) ProjectRitual(unit,priest);
 			ProjectDrum(unit,entity);
+			const auto* gilded=dynamic_cast<const GildedZamboniZombie*>(entity);
+			unit.goldenMoveRatios=entity->GetSimulationGoldenMoveRatios(gilded!=nullptr || unit.burst.range>0 || unit.ritual.present);
+			// 去掉当前烘焙的减速放大与无伤能力，后续随覆盖/承伤逐步重算，不能重复乘。
+			unit.body.slowFactor/=GoldenIceRules::Amplify(0.5f,entity->GetGoldenIceEffectStacks())/0.5f;
+			if (gilded) {
+				unit.body.speed/=gilded->GetAccelerationMultiplier();
+				unit.goldenDrive={true,gilded->GetUndamagedTime(),gilded->GetGoldenTrailMinX(),gilded->GetSimulationIceTrailFrontOffset()};
+			}
+			unit.instantVehicleCrush=entity->mZombieType==ZombieType::ZOMBIE_ZAMBONI || entity->mZombieType==ZombieType::ZOMBIE_GILDED_ZAMBONI;
 			unit.vehicleCrush = entity->mZombieType == ZombieType::ZOMBIE_ZAMBONI || entity->mZombieType == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| entity->mZombieType == ZombieType::ZOMBIE_CATAPULT || entity->mZombieType == ZombieType::ZOMBIE_ELITE_CATAPULT;
 			unit.mowerImmune = !entity->CanBeKilledByMower(); unit.consumesOtherMowers = entity->ConsumesOtherMowersOnContact();
@@ -1338,6 +1355,7 @@ void Board::PlanColdStorageAttack(bool background)
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+				plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,entity->GetSleepState());
 				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
 					plant.growth = growing->GetSimulationAttackGrowth();
 					plant.growthSpeed = entity->GetSkillSpeedMultiplier();
@@ -1373,6 +1391,8 @@ void Board::PlanColdStorageAttack(bool background)
 			unit.minimumMoveSpeed = motion.speed[0];
 			unit.maximumMoveSpeed = motion.speed[2];
 			unit.birthMovementKnown = motion.valid;
+			unit.lowerForecastMoveSpeed=motion.lowerQuartile;
+			unit.upperForecastMoveSpeed=motion.upperQuartile;
 			projectMovementCurve(unit,type);
 			unit.body.purchaseCost = static_cast<float>(cost);
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
@@ -1381,6 +1401,15 @@ void Board::PlanColdStorageAttack(bool background)
 			if (type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) ProjectAdaptation(unit);
 			if (type == ZombieType::ZOMBIE_THERMAL_SNIPER) ProjectDeploymentSniper(unit);
 			if (type == ZombieType::ZOMBIE_AURORA_PRIEST) ProjectRitual(unit);
+			const auto profile=GameDataManager::GetInstance().GetZombieBirthMovement(type);
+			const float ability=(profile.abilityMinimum+profile.abilityMaximum)*.5f;
+			for (int stacks=0;stacks<=GoldenIceRules::MaxStacks;++stacks)
+				unit.goldenMoveRatios[stacks]=GoldenIceRules::Amplify(ability,stacks)/std::max(.001f,ability)
+					* GoldenIceRules::Amplify(GetZombieRainSpeedMultiplier(),stacks)
+					* GoldenIceRules::Amplify(GetZombieWindMoveMultiplier(false),stacks);
+			if (type==ZombieType::ZOMBIE_GILDED_ZAMBONI)
+				unit.goldenDrive={true,0,search.goldenRightX,ZamboniZombie::GetSimulationIceTrailFrontOffset(type)};
+			unit.instantVehicleCrush=type==ZombieType::ZOMBIE_ZAMBONI || type==ZombieType::ZOMBIE_GILDED_ZAMBONI;
 			unit.vehicleCrush = type == ZombieType::ZOMBIE_ZAMBONI || type == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT;
 			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
@@ -2035,6 +2064,15 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());
 	s.searchGrowingPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& plant) { return plant.growth.perShot > 0; }));
 	s.searchMovementBoundsApplied = result.construction.movementBoundsApplied;
+	s.searchGoldenAccelerationSteps=result.construction.goldenAccelerationSteps;
+	s.searchGoldenDrumSteps=result.construction.goldenDrumSteps;
+	s.searchGoldenResidualSteps=result.construction.goldenResidualSteps;
+	s.searchGoldenMaxStacks=result.construction.goldenMaxStacks;
+	s.searchInstantCrushTypes.clear();
+	for (const auto& option : search.options) if (option.unit.instantVehicleCrush) {
+		const auto type=static_cast<ZombieType>(option.type);
+		if (std::find(s.searchInstantCrushTypes.begin(),s.searchInstantCrushTypes.end(),type)==s.searchInstantCrushTypes.end()) s.searchInstantCrushTypes.push_back(type);
+	}
 	s.searchCapitalRejected = result.capitalRejected;
 	s.searchRepairOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.repair.interval > 0; }));
 	s.searchRepairPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& p) { return p.repairMaximum > 0; }));
