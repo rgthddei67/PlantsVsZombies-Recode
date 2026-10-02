@@ -13,6 +13,8 @@ protected:
 	virtual const char* GetMagneticHelmetImageKey() const;
 
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	ArmorBrokenState mHelmStage = ArmorBrokenState::NO_BROKEN;
 

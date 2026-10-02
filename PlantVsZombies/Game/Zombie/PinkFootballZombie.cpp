@@ -12,9 +12,9 @@ namespace {
 	constexpr int kNormalBiteDamage = 40;
 	constexpr int kFirstPlantStrikeDamage = 400;
 	constexpr int kHelmetBreakDamage = 50;
-	constexpr float kFootballMoveSpeedMultiplier = 1.7f;
-	constexpr float kMoveSpeedMultiplier = 1.85f;
-	constexpr float kAnimationSpeedMultiplier = 1.95f;
+	constexpr float kFootballMoveSpeedMultiplier = ZombieMovementRules::FootballRootMultiplier; // 父类已经应用的根运动倍率
+	constexpr float kMoveSpeedMultiplier = ZombieMovementRules::PinkFootballRootMultiplier; // 本变体最终根运动倍率
+	constexpr float kAnimationSpeedMultiplier = ZombieMovementRules::PinkFootballAnimationMultiplier; // 常驻动画能力倍率，与预测共享
 	constexpr float kHelmetBreakRadius = 120.0f;
 }
 
@@ -179,4 +179,12 @@ void PinkFootballZombie::LoadExtraData(const nlohmann::json& j)
 {
 	FootballZombie::LoadExtraData(j);
 	mFirstPlantStrikeUsed = j.value("firstPlantStrikeUsed", false);
+}
+
+ZombieMovementRules::BirthProfile PinkFootballZombie::GetBirthMovementProfile()
+{
+	auto p=FootballZombie::GetBirthMovementProfile();
+	p.rootMinimum=p.rootMaximum=ZombieMovementRules::BaseRootSpeed*kMoveSpeedMultiplier;
+	p.abilityMinimum=p.abilityMaximum=kAnimationSpeedMultiplier;
+	return p;
 }

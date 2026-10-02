@@ -55,7 +55,7 @@ void ImpZombie::SetupZombie()
 		PlayTrack("anim_walk");
 		return;
 	}
-	mSpeed += GameRandom::Range(-3, 3);
+	mSpeed += GameRandom::Range(-ZombieMovementRules::RootSpeedJitter, ZombieMovementRules::RootSpeedJitter);
 	PlayWalkAnimation(0.0f);
 }
 
@@ -298,4 +298,17 @@ void ImpZombie::LoadExtraData(const nlohmann::json& j)
 		PlayWalkAnimation(0.0f);
 	}
 	ApplyPhasePresentation();
+}
+
+ZombieMovementRules::BirthProfile ImpZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.phaseDependent=true;
+	return p;
+}
+
+float ImpZombie::GetMineSimulationMoveSpeed() const
+{
+	return mPhase==Phase::THROWN ? mHorizontalVelocity*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier() : Zombie::GetMineSimulationMoveSpeed();
 }

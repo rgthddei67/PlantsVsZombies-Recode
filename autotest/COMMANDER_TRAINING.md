@@ -166,6 +166,12 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 
 路线覆盖使用独立增援案，仍带入已有部队，避免绑定新购物车的亏损进攻。组合预算还会把各合法类型试入当前优案，比较同时和错峰增援，不指定工人或护卫。大额投入同时核对清场风险及普通火力下未回收的本金：增量现金和幸存部队可支持续战，单纯削血及对方资产损耗不能替大量损失的本金兜底，真实突破仍可放行。`searchUnitCandidates` 导出最终编队阶段、精准清除前的兵种/行比较次数、独立候选次数、资金拒绝原因及最佳允许评分；收益属于含此兵种的完整候选，不是单只单位的边际收益。后台 `planningDiscardReasons` 分别累计过期、局面变化、钱包变化、在途出生、护卫损失等原因，多原因可同时累计；`planningLastDiscardMask` 和 `planningLastAgeMs` 解释最近完成的检查。
 
+新购/在途单位由注册品种的 `GetBirthMovementProfile` 提供出生运动参数，`GameDataManager::GetZombieBirthMoveSpeeds` 只读资源步幅或品种线性速度；不创建实体/Animator，不消费正式随机数。特殊品种必须与实际 Setup 共用参数，普通变体可继承父类画像。含生产单位的推演使用快工人/慢前排的合法边界检查追越风险；已有实体用目标自有的 `GetMineSimulationMoveSpeed` 保留实际根倍率、行走 clip、能力速度及当前车辆/地下等运动状态，不重抽随机值。冰车位置曲线随预测推进更新；巨大投手的小鬼步速也从出生画像取得。
+
+`searchMovementBoundsApplied` 记录最佳方案的边界应用数量。`dump_state` 的 `zombieBirthMovement` 导出全部登记品种的速度范围、资源有效性及 `phaseDependent`，`simulationMoveSpeedOn1000` 导出已有实体的稳态预测速度；动作停步、控制和当前瞬时移速不同，不能一概要求相等。`smoke_commander_movement` / verifier 核对全登记覆盖、实际随机步态/特殊出生速度和预测不污染出生/付款，纯单测覆盖追越、延迟保护与冰车减速。
+
+出生画像不是完整行为模拟。已有付费爆发、鼓舞、狙击和祭司能力沿原时间线计算；未来报纸/扶梯丢失、跳杆越障、矿工折返、舞蹈节拍、钟匠循环停步与回溯等仍有近似，日志的 `phaseDependent` 提醒检查这些变化。出生范围对照是保护投资的保守检查，不能当作未来正式随机数或整体胜率提升的证据。
+
 `commander_episode` 可显式指定 `sunRefillBelow` 和 `sunRefillTo`，模拟阳光低于或等于阈值时由外部工具再次补款。该夹具只影响测试玩家的钱包，不重置冷却、不补冰、不把未来补款告知 AI。结果的 `externalSun` 记录启用状态和每笔金额；此类压力结果必须单列，不能混入正常资源的训练胜率。省略字段则完全关闭。
 
 锅炉与蓄冷菠萝通过 `PaidBurst` / `AttackAura` 数值能力接入；常量分别由实体与 Board 投影共享，预测中的技能费只在预测提交时消耗同一方钱包，不直接扣真实冰库。`smoke_commander_paid_abilities` 和对应 verifier 检查正式加载、能力采集和付款边界；纯预测的阶段、控制、资源竞争与来源失效由 `ColdStorageStrategyTests` 覆盖。新能力先补齐这种可比较的收益与成本，再决定是否需要训练偏好；本次保留原策略权重。

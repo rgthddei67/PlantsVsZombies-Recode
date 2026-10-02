@@ -28,6 +28,10 @@ protected:
 	float GetAbilityAnimSpeedMultiplier() const override;
 
 public:
+	/** 按当前装备/运动阶段读取实际稳态步速，吃饭或施法时不误用动作 clip。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	/** 回溯恢复报纸时撤销失报狂暴，并同步持报动作，避免有护盾却仍播放空手轨道。 */
 	void OnTemporalCoreStateRestored() override;

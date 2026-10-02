@@ -4,6 +4,7 @@
 
 #include "PlantType.h"
 #include "../Zombie/ZombieType.h"
+#include "../Zombie/ZombieMovementRules.h"
 #include "../../Reanimation/AnimationTypes.h"
 #include "../Definit.h"
 #include <string>
@@ -18,6 +19,7 @@ class Zombie;
 // 工厂函数指针：运行期枚举 → 编译期具体类型。零捕获，可直接由 MakePlant<T>/MakeZombie<T> 赋值。
 using PlantFactoryFn  = std::shared_ptr<Plant>(*)(Board*, PlantType, int, int, AnimationType, float, bool);
 using ZombieFactoryFn = std::shared_ptr<Zombie>(*)(Board*, ZombieType, float, float, int, AnimationType, float, bool);
+using ZombieMovementFactoryFn = ZombieMovementRules::BirthProfile(*)();
 
 /**
  * @brief 轻量防线推演使用的植物画像；只表达可稳定近似的数值，不复制正式植物状态机。
@@ -86,6 +88,7 @@ struct ZombieInfo {
 	int survivalRound = 0;       // 生存模式最早出场轮(1起；0=不进生存，安全默认)
 	int mineFormationRole = 0; // 矿场出波编队：0普通、1前排、2辅助、3侧路工兵；不改变战斗能力
 	ZombieFactoryFn factory = nullptr;  // 具体类的构造工厂
+	ZombieMovementFactoryFn movement = nullptr; // 具体类自有的只读出生运动，不调用构造/Start 或正式 RNG
 
 	ZombieInfo() = default;
 };
@@ -209,6 +212,10 @@ public:
 	 * @return AnimationType 动画类型，若未找到返回 ANIM_NONE
 	 */
 	AnimationType GetZombieAnimationType(ZombieType zombieType) const;
+	/** 读取具体品种的出生运动参数；状态切换另由该品种的能力投影负责。 */
+	ZombieMovementRules::BirthProfile GetZombieBirthMovement(ZombieType zombieType) const;
+	/** 只读资源步幅和品种参数，返回出生速度范围；不创建实体/Animator，不消费 RNG。 */
+	ZombieMovementRules::SpeedRange GetZombieBirthMoveSpeeds(ZombieType zombieType) const;
 
 	/**
 	 * @brief 获取僵尸对应的动画资源名
@@ -321,7 +328,7 @@ private:
 		const std::string& enumName,
 		AnimationType animType,
 		const std::string& animName,
-		ZombieFactoryFn factory);
+		ZombieFactoryFn factory, ZombieMovementFactoryFn movement);
 
 	// ==================== 数据成员 ====================
 	// 植物数据

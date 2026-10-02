@@ -5,6 +5,8 @@
 /** 锅炉僵尸：四格内预热，付费提交一生一次的超频；冻结不延长已提交阶段。 */
 class BoilerZombie final : public Zombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	enum class Phase { READY, PREHEATING, OVERDRIVE, VENTING, SPENT };
 	/** 推进预热与独立于硬控的已提交阶段，然后走普通僵尸生命周期。 */

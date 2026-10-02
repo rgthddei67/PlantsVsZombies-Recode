@@ -169,3 +169,10 @@ void CrystalDrummerZombie::LoadExtraData(const nlohmann::json& j)
 	if (mWindingUp) CancelEatingForSpecialAction();
 	SyncEquipment();
 }
+
+ZombieMovementRules::BirthProfile CrystalDrummerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

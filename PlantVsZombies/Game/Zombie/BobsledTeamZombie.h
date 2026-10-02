@@ -9,6 +9,10 @@
  */
 class BobsledTeamZombie final : public Zombie {
 public:
+	/** 读取本品种当前运动阶段的稳态速度；后续阶段转换仍由能力时间线近似。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	enum class Role {
 		LEADER,
 		FOLLOWER,

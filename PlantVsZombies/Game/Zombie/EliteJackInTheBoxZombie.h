@@ -9,6 +9,8 @@ class Graphics;
  */
 class EliteJackInTheBoxZombie final : public JackInTheBoxZombie {
 public:
+	/** 固定精英手摇步速，复用普通小丑的资源换算。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	enum class PlantTargetingMode {
 		NONE,
 		FORCED,

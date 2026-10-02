@@ -1677,5 +1677,47 @@ int main()
 	check(Search(s,income,19).features[4]==0,"unprotectable reinforcement does not invent production to force an economic purchase");
 	std::cout << "Generic followup support, ordinary-fire capital risk and fixed search budget passed\n";
 	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=200; s.capacity=8;
+	Plant fire; fire.x=300; fire.health=10000; fire.dps=280; fire.edible=false;
+	fire.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_ELITE_SCAREDYSHROOM); s.plants={fire};
+	Option front; front.cost=12; front.unit.body.x=1140; front.unit.body.speed=20;
+	front.unit.body.health=900; front.unit.body.purchaseCost=12; front.unit.adaptiveHelmet=100;
+	Option producer; producer.cost=24; producer.unit.body.x=1140; producer.unit.body.speed=20;
+	producer.unit.body.health=500; producer.unit.body.purchaseCost=24; producer.unit.body.economic=true;
+	s.options={front,producer};
+	const auto sameSpeed=Evaluate(s,{{0,0},{1,6}});
+	s.options[0].unit.birthMovementKnown=s.options[1].unit.birthMovementKnown=true;
+		s.options[0].unit.minimumMoveSpeed=s.options[1].unit.minimumMoveSpeed=8;
+	s.options[0].unit.maximumMoveSpeed=s.options[1].unit.maximumMoveSpeed=16;
+	ConstructionStats stats;
+	const auto overtaken=Evaluate(s,{{0,0},{1,6}},&stats);
+	std::cout << "Movement fixture income before/after=" << sameSpeed[4] << "/" << overtaken[4]
+		<< " bounded=" << stats.movementBoundsApplied << '\n';
+	check(sameSpeed[4]>100 && overtaken[4]<producer.cost && stats.movementBoundsApplied==2,
+		"a faster producer overtakes its immune escort instead of earning imaginary same-speed income");
+	check(Evaluate(s,{{0,0},{1,30}})[4]>producer.cost,
+		"a sufficiently delayed producer can still pay back behind a slow escort without a compulsory pairing");
+	check(s.options[0].unit.body.speed==20 && s.options[1].unit.body.speed==20,
+		"movement-bound evaluation does not mutate sampled units or options");
+	s.current={s.options[0].unit}; s.current[0].minimumMoveSpeed=s.current[0].maximumMoveSpeed=0;
+	s.current[0].birthMovementKnown=false;
+		s.current[0].body.x=800; s.current[0].body.speed=8;
+	Evaluate(s,{{1,0}},&stats);
+	check(stats.movementBoundsApplied==1,"known live escort keeps its sampled movement rather than being rerolled");
+	std::cout << "Birth movement uncertainty, escort overtaking, delayed investment and live-speed preservation passed\n";
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=160; s.rightEdge=1000; s.capacity=1;
+	Unit vehicle; vehicle.body.x=500; vehicle.body.speed=10; vehicle.body.health=1000;
+	vehicle.body.stopX=-10000; vehicle.movementCurveReference=500;
+	s.current={vehicle}; const auto constant=Evaluate(s,{});
+	s.current[0].movementCurve={200,500,300,.2f,.3f};
+	const auto slowing=Evaluate(s,{});
+	check(constant[2]>slowing[2],"position-dependent vehicle slowdown changes the breach timeline instead of keeping birth speed forever");
+	}
 
 }

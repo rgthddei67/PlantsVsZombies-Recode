@@ -183,3 +183,10 @@ void EliteDancerZombie::LoadExtraData(const nlohmann::json& j)
 		mFollowerIDs.resize(kMaxActiveBackupDancers);
 	}
 }
+
+ZombieMovementRules::BirthProfile EliteDancerZombie::GetBirthMovementProfile()
+{
+	auto p=DancerZombie::GetBirthMovementProfile();
+	p.abilityMinimum=p.abilityMaximum=kEliteDancerSpeed;
+	return p;
+}

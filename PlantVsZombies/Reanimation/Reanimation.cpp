@@ -213,6 +213,19 @@ int Reanimation::GetTotalFrames() const {
 	return static_cast<int>((*mTracks)[0].mFrames.size());
 }
 
+std::pair<int,int> Reanimation::GetTrackFrameRange(const std::string& trackName) const
+{
+	const int index = GetFirstTrackIndex(trackName);
+	if (!mTracks || index<0 || index>=static_cast<int>(mTracks->size())) return {-1,-1};
+	const auto& frames = (*mTracks)[index].mFrames;
+	int begin = -1;
+	for (int i=0; i<static_cast<int>(frames.size()); ++i) if (frames[i].f==0) {begin=i; break;}
+	if (begin<0) return {-1,-1};
+	int end = begin;
+	for (int i=begin+1; i<static_cast<int>(frames.size()) && frames[i].f==0; ++i) end=i;
+	return {begin,end};
+}
+
 size_t Reanimation::GetTrackCount() const {
 	return mTracks ? mTracks->size() : 0;
 }

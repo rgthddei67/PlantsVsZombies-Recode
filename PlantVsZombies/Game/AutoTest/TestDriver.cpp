@@ -4915,6 +4915,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchBurstOptions"] = board->mColdStorage.searchBurstOptions;
 		ice["searchAttackAuraCount"] = board->mColdStorage.searchAttackAuraCount;
 		ice["searchGrowingPlants"] = board->mColdStorage.searchGrowingPlants;
+		ice["searchMovementBoundsApplied"] = board->mColdStorage.searchMovementBoundsApplied;
 		ice["searchCapitalRejected"] = board->mColdStorage.searchCapitalRejected;
 		ice["searchUnitCandidates"] = nlohmann::json::array();
 		for (const auto& candidate : board->mColdStorage.searchUnitCandidates) {
@@ -6643,6 +6644,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		};
 	}
 
+	if (opName=="dump_state") {
+		out["zombieBirthMovement"]=nlohmann::json::object();
+		for (auto type : GameDataManager::GetInstance().GetAllZombieTypes()) {
+			const auto motion=GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(type);
+			out["zombieBirthMovement"][ZombieTypeName(type)]={
+				{"valid",motion.valid},{"phaseDependent",motion.phaseDependent},
+				{"minimum",motion.speed[0]},{"mean",motion.speed[1]},{"maximum",motion.speed[2]}};
+		}
+	}
 	out["zombies"] = nlohmann::json::array();
 	out["zombiesByType"] = nlohmann::json::object();
 	out["bobsledTeam"] = nlohmann::json::array();
@@ -6894,6 +6904,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "toxinDamageRemainderOn1000", static_cast<int>(std::lround(
 				z->GetToxinDamageRemainder() * 1000.0f)) },
 			{ "track", z->GetCurrentTrackName() },
+			{ "simulationMoveSpeedOn1000", static_cast<int>(std::lround(z->GetMineSimulationMoveSpeed()*1000)) },
 			{ "animFrame", anim ? anim->GetCurrentFrame() : -1 },
 			{ "flipX", anim && anim->GetFlipX() },
 			{ "animPlaying", anim && anim->IsPlaying() },

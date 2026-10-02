@@ -215,3 +215,10 @@ void EliteLadderZombie::LoadExtraData(const nlohmann::json& j)
 	CheckShieldImage();
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile EliteLadderZombie::GetBirthMovementProfile()
+{
+	auto p=LadderZombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

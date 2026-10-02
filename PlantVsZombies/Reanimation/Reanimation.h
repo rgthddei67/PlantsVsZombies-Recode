@@ -7,6 +7,7 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
+#include <utility>
 
 constexpr float REANIM_MISSING_FIELD_FLOAT = -1024;
 constexpr int REANIM_MISSING_FIELD_INT = -1024;
@@ -35,6 +36,8 @@ public:
 	TrackInfo* GetTrack(const std::string& trackName);
 	/** 返回第一个同名轨道的索引；索引表由同一资源的全部实例共享。 */
 	int GetFirstTrackIndex(const std::string& trackName) const;
+	/** 读取连续 f=0 的动画片段范围；无有效片段返回 {-1,-1}，不创建播放实例或更改资源。 */
+	std::pair<int,int> GetTrackFrameRange(const std::string& trackName) const;
 
 	// 鑾峰彇鎬诲抚鏁?
 	int GetTotalFrames() const;

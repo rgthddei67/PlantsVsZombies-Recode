@@ -350,3 +350,20 @@ void LadderZombie::LoadExtraData(const nlohmann::json& j)
 	}
 	ApplyShieldImage();
 }
+
+ZombieMovementRules::BirthProfile LadderZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.clip="anim_ladderwalk";
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=kGroundRootMotionScale;
+	p.animationMinimum=WalkClipFromVelocity(kCarryingVelocityMin);
+	p.animationMaximum=WalkClipFromVelocity(kCarryingVelocityMax);
+	p.phaseDependent=true;
+	return p;
+}
+
+float LadderZombie::GetMineSimulationMoveSpeed() const
+{
+	return GetSimulationRootMoveSpeed(mShieldType==ShieldType::SHIELDTYPE_LADDER ? "anim_ladderwalk" : "anim_walk",WalkClipFromVelocity(mWalkVelocity));
+}

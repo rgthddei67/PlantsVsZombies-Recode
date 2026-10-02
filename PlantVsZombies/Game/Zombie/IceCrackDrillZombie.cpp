@@ -371,3 +371,10 @@ void IceCrackDrillZombie::SetDrillStateForTesting(
 	}
 	SyncDrillRigPresentation(true);
 }
+
+ZombieMovementRules::BirthProfile IceCrackDrillZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

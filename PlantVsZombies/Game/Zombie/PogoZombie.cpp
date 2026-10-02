@@ -535,3 +535,17 @@ void PogoZombie::LoadExtraData(const nlohmann::json& j)
 	}
 	UpdateBounceAltitude();
 }
+
+ZombieMovementRules::BirthProfile PogoZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=kPogoWalkSpeed;
+	p.phaseDependent=true;
+	return p;
+}
+
+float PogoZombie::GetMineSimulationMoveSpeed() const
+{
+	return mHasPogo ? ScaleSimulationMoveSpeed(kPogoWalkSpeed) : Zombie::GetMineSimulationMoveSpeed();
+}

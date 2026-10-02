@@ -1,0 +1,320 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_MELONPULT",
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 36,
+        "initialEnemyIce": 36,
+        "decisions": 20,
+        "decisionRemaining": 60
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 900
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 901
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 902
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 903
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 904
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 905
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 906
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 907
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 908
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 909
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 910
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 911
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 912
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 913
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 914
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 915
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 916
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 917
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "x": 918
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "x": 919
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FOOTBALL",
+      "row": 0,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PINK_FOOTBALL",
+      "row": 1,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FASTBUCKET",
+      "row": 2,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 3,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 4,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POLEVAULTER",
+      "row": 0,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_LADDER",
+      "row": 1,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ZAMBONI",
+      "row": 2,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 3,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_CATAPULT",
+      "row": 4,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DIGGER",
+      "row": 0,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POGO",
+      "row": 1,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BALLOON",
+      "row": 2,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DANCER",
+      "row": 3,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_DANCER",
+      "row": 4,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_JACK_IN_THE_BOX",
+      "row": 0,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "row": 1,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POLAR_CLOCKMAKER",
+      "row": 2,
+      "x": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 4,
+      "x": 1000
+    },
+    {
+      "op": "dump_state",
+      "name": "walking.json"
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ADAPTIVE_HELMET",
+      "row": 0,
+      "delay": 0
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "delay": 6
+    },
+    {
+      "op": "plan_ice_attack"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchMovementBoundsApplied",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 36
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "projected.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "dump_state",
+      "name": "travel.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -8,6 +8,8 @@
 // 仅把报纸三段贴图换成 FastZombie_paper_paper1/2/3，并上调数值（更厚报纸 + 更肉本体 + 更快 + 概率免伤）。
 class FastPaperZombie : public PaperZombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using PaperZombie::PaperZombie;
 
 	// 读档贴图恢复：先让基类处理断手/掉头/报纸可见性，再把报纸贴图覆盖成 FastZombie 版本。

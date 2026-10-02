@@ -108,3 +108,13 @@ bool FastBucketZombie::ExtractMagneticItem(MagneticItem& item)
 	mAnimator->SetTrackVisible("anim_bucket", false);
 	return true;
 }
+
+ZombieMovementRules::BirthProfile FastBucketZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.rootMinimum*=kFastBucketMoveSpeedMin;
+	p.rootMaximum*=kFastBucketMoveSpeedMax;
+	p.abilityMinimum=kFastBucketAnimSpeedMin;
+	p.abilityMaximum=kFastBucketAnimSpeedMax;
+	return p;
+}

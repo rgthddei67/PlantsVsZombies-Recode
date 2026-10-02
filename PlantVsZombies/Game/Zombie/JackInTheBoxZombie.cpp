@@ -11,6 +11,7 @@
 #include <vector>
 
 namespace {
+	constexpr float kRunVelocityMinimum=.66f, kRunVelocityMaximum=.68f; // 普通小丑出生手摇步速随机范围，原版 px/tick
 	constexpr int kBodyHealth = 500;                    // C# 小丑僵尸本体生命值
 	constexpr float kGroundRootMotionRate = 12.0f;     // _ground 根运动资源帧率换算基准
 	constexpr float kAbilityAnimMultiplier = 1.8f;     // 全局动画倍率，使基类死亡轨约为原版 28 FPS
@@ -60,7 +61,7 @@ void JackInTheBoxZombie::SetupZombie()
 	mSpeed = kGroundRootMotionRate;
 	mRunVelocity = mIsPreview
 		? kReferenceVelocity
-		: GameRandom::Range(0.66f, 0.68f);
+		: GameRandom::Range(kRunVelocityMinimum, kRunVelocityMaximum);
 
 	if (mIsPreview) {
 		PlayTrack("anim_idle");
@@ -410,4 +411,25 @@ void JackInTheBoxZombie::LoadExtraData(const nlohmann::json& j)
 		ClaimLoopSound();
 	}
 	ZombieItemUpdate();
+}
+
+ZombieMovementRules::BirthProfile JackInTheBoxZombie::GetBirthMovementProfile()
+{
+	return GetRunMovementProfile(kRunVelocityMinimum,kRunVelocityMaximum);
+}
+
+ZombieMovementRules::BirthProfile JackInTheBoxZombie::GetRunMovementProfile(float minimum, float maximum)
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=kGroundRootMotionRate;
+	p.animationMinimum=kRunEffectiveClip*minimum/kReferenceVelocity;
+	p.animationMaximum=kRunEffectiveClip*maximum/kReferenceVelocity;
+	p.phaseDependent=true;
+	return p;
+}
+
+float JackInTheBoxZombie::GetMineSimulationMoveSpeed() const
+{
+	return GetSimulationRootMoveSpeed("anim_walk",kRunEffectiveClip/GetAbilityAnimSpeedMultiplier()*mRunVelocity/kReferenceVelocity);
 }

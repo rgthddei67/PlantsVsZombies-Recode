@@ -745,3 +745,20 @@ void DiggerZombie::LoadExtraData(const nlohmann::json& j)
 	}
 	if (mPhase == Phase::TUNNELING) ClaimLoopSound();
 }
+
+ZombieMovementRules::BirthProfile DiggerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=kTunnelVelocityMin*kCSharpTicksPerSecond;
+	p.velocityMaximum=kTunnelVelocityMax*kCSharpTicksPerSecond;
+	p.phaseDependent=true;
+	return p;
+}
+
+float DiggerZombie::GetMineSimulationMoveSpeed() const
+{
+	if (mPhase!=Phase::TUNNELING) return Zombie::GetMineSimulationMoveSpeed();
+	// 地下钻行不消费动画/雨/风倍率，只有通用位移阶段增益。
+	return mTunnelVelocity*kCSharpTicksPerSecond*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier();
+}

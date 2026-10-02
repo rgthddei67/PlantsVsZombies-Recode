@@ -383,3 +383,10 @@ void InsulatorZombie::LoadExtraData(const nlohmann::json& j)
 	RefreshArmorPresentation();
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile InsulatorZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

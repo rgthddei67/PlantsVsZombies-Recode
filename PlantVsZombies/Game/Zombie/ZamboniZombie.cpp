@@ -93,21 +93,7 @@ void ZamboniZombie::ZombieMove(float scaledDelta, Transform* transform)
 {
 	if (!transform || scaledDelta <= 0.0f || mPuncturedByCaltrop) return;
 
-	const float x = transform->GetPosition().x;
-	const float coordinateBaseX = GetDriveCoordinateBaseX();
-	const float curveLeftX = coordinateBaseX + kDriveCurveLeftFromBaseX;
-	const float curveRightX = coordinateBaseX + kDriveCurveRightFromBaseX;
-	const float curveStopX = coordinateBaseX + kDriveCurveStopFromBaseX;
-	if (x > curveStopX) {
-		const float t = std::clamp(
-			(x - curveLeftX) / (curveRightX - curveLeftX),
-			0.0f, 1.0f);
-		mDriveSpeed = (kSlowDriveSpeed + (kFastDriveSpeed - kSlowDriveSpeed) * t)
-			* GetBaseDriveSpeedMultiplier();
-	}
-	else {
-		mDriveSpeed = kInnerDriveSpeed * GetBaseDriveSpeedMultiplier();
-	}
+	mDriveSpeed=GetDriveSpeedAtX(transform->GetPosition().x);
 
 	float speed = mDriveSpeed;
 	speed *= GetAmplifiedAbilitySpeedMultiplier();
@@ -401,4 +387,24 @@ void ZamboniZombie::LoadExtraData(const nlohmann::json& j)
 		mDamageShakeOffset = Vector::zero();
 		ApplyCaltropPuncturePresentation();
 	}
+}
+
+ZombieMovementRules::BirthProfile ZamboniZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=kFastDriveSpeed;
+	p.positionCurve={kDriveCurveLeftFromBaseX,kDriveCurveRightFromBaseX,kDriveCurveStopFromBaseX,kSlowDriveSpeed/kFastDriveSpeed,kInnerDriveSpeed/kFastDriveSpeed};
+	p.phaseDependent=true;
+	return p;
+}
+
+float ZamboniZombie::GetMineSimulationMoveSpeed() const
+{
+	return mPuncturedByCaltrop ? 0 : ScaleSimulationMoveSpeed(GetDriveSpeedAtX(GetPosition().x));
+}
+
+float ZamboniZombie::GetDriveSpeedAtX(float x) const
+{
+	return kFastDriveSpeed*GetBirthMovementProfile().positionCurve.Factor(x-GetDriveCoordinateBaseX())*GetBaseDriveSpeedMultiplier();
 }

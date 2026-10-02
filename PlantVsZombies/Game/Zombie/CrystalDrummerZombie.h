@@ -4,6 +4,8 @@
 /** 震晶鼓手：逻辑倒计时提交鼓舞；已发出的效果归受益目标，装备跟随普通骨架。 */
 class CrystalDrummerZombie final : public Zombie {
 public:
+	/** 出生普通步态；击鼓前摇的停步由鼓舞时间线投影。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	void Update() override;
 	void StartEat(ColliderComponent* other) override;

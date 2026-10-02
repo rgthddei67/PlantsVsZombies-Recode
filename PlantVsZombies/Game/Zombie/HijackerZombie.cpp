@@ -258,3 +258,13 @@ void HijackerZombie::LoadExtraData(const nlohmann::json& j)
 	mLockHealthBoostApplied = j.value("lockHealthBoostApplied", false);
 	// Board 交叉引用在全部僵尸按原 ID 登记后统一收敛；此处不声明声音或重播最终动画。
 }
+
+ZombieMovementRules::BirthProfile HijackerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=kGroundRootMotionRate;
+	p.animationMinimum=p.animationMaximum=kWalkClip;
+	p.phaseDependent=true;
+	return p;
+}

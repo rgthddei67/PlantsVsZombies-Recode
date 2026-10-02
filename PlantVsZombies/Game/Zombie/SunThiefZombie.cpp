@@ -211,3 +211,10 @@ void SunThiefZombie::LoadExtraData(const nlohmann::json& j)
 	UpdateAnimSpeed();
 	SyncEquipment();
 }
+
+ZombieMovementRules::BirthProfile SunThiefZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

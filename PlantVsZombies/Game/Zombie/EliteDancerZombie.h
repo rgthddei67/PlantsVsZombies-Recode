@@ -8,6 +8,8 @@
 /** 黑夜强台风专属精英舞王：无视植物推进，并持续补充普通伴舞。 */
 class EliteDancerZombie : public DancerZombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using DancerZombie::DancerZombie;
 
 	void ZombieUpdate(float scaledTime) override;

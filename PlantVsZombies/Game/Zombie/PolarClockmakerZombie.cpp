@@ -282,3 +282,11 @@ void PolarClockmakerZombie::LoadExtraData(const nlohmann::json& j)
 	SyncFollowerPresentation();
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile PolarClockmakerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.abilityMinimum=p.abilityMaximum=BaseAbilitySpeed;
+	p.phaseDependent=true;
+	return p;
+}

@@ -48,3 +48,10 @@ void FastPaperZombie::CheckShieldImage()
 	mAnimator->SetTrackImage("Zombie_paper_paper",
 		ResourceManager::GetInstance().GetTexture(imageKey));
 }
+
+ZombieMovementRules::BirthProfile FastPaperZombie::GetBirthMovementProfile()
+{
+	auto p=PaperZombie::GetBirthMovementProfile();
+	p.abilityMinimum=p.abilityMaximum=kFastPaperBaseAnimSpeedMultiplier;
+	return p;
+}

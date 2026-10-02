@@ -756,3 +756,17 @@ void BobsledTeamZombie::LoadExtraData(const nlohmann::json& j)
 	ConfigureColliderForPhase();
 	ZombieItemUpdate();
 }
+
+ZombieMovementRules::BirthProfile BobsledTeamZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=kRideSpeed;
+	p.phaseDependent=true;
+	return p;
+}
+
+float BobsledTeamZombie::GetMineSimulationMoveSpeed() const
+{
+	return mPhase==Phase::RIDING ? ScaleSimulationMoveSpeed(kRideSpeed) : Zombie::GetMineSimulationMoveSpeed();
+}

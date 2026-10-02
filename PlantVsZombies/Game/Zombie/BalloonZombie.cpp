@@ -432,3 +432,20 @@ bool BalloonZombie::IsPropellerPlaying() const
 {
 	return mPropellerAnimator && mPropellerAnimator->IsPlaying();
 }
+
+ZombieMovementRules::BirthProfile BalloonZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=kFlightVelocityMin;
+	p.velocityMaximum=kFlightVelocityMax;
+	p.phaseDependent=true;
+	return p;
+}
+
+float BalloonZombie::GetMineSimulationMoveSpeed() const
+{
+	if (mPhase!=Phase::FLYING) return Zombie::GetMineSimulationMoveSpeed();
+	const float wind=mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
+	return mFlightVelocity*AmplifySpeedMultiplierForGoldenIce(wind)*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier();
+}

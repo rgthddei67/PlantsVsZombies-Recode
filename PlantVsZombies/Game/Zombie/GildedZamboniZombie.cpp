@@ -159,3 +159,11 @@ void GildedZamboniZombie::LoadExtraData(const nlohmann::json& j)
 		j.value("goldenTrailMinX", trailRight), 25.0f, trailRight);
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile GildedZamboniZombie::GetBirthMovementProfile()
+{
+	auto p=ZamboniZombie::GetBirthMovementProfile();
+	p.velocityMinimum*=kGildedBaseDriveMultiplier;
+	p.velocityMaximum*=kGildedBaseDriveMultiplier;
+	return p;
+}

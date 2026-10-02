@@ -74,3 +74,10 @@ void ElitePolevaulterZombie::HeadDrop()
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
+
+ZombieMovementRules::BirthProfile ElitePolevaulterZombie::GetBirthMovementProfile()
+{
+	auto p=Polevaulter::GetBirthMovementProfile();
+	p.abilityMinimum=p.abilityMaximum=kEliteAnimationSpeedMultiplier;
+	return p;
+}

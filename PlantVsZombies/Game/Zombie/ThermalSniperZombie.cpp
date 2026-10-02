@@ -294,3 +294,11 @@ void ThermalSniperZombie::LoadExtraData(const nlohmann::json& j)
 	ConfigureFollowers();
 	SyncFollowerPresentation();
 }
+
+ZombieMovementRules::BirthProfile ThermalSniperZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.abilityMinimum=p.abilityMaximum=BaseAbilitySpeed;
+	p.phaseDependent=true;
+	return p;
+}

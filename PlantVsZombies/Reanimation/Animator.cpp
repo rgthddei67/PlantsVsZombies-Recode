@@ -1203,42 +1203,7 @@ std::pair<int, int> Animator::GetTrackRange(const std::string& trackName) {
 		return { -1, -1 };
 	}
 
-	TrackInfo* track = mReanim->GetTrack(trackName);
-	if (!track || track->mFrames.empty()) {
-		LOG_DEBUG("Reanim") << "GetTrackRange: track '" << trackName << "' not found or empty";
-		return { -1, -1 };
-	}
-
-	int totalFrames = static_cast<int>(track->mFrames.size());
-
-	int start = -1;
-	for (int i = 0; i < totalFrames; ++i) {
-		if (track->mFrames[i].f == 0) {
-			start = i;
-			break;
-		}
-	}
-
-	if (start == -1) {
-		LOG_DEBUG("Reanim") << "GetTrackRange: no f=0 frames, returning invalid.";
-		return { -1, -1 };
-	}
-
-	int end = start;
-	for (int i = start + 1; i < totalFrames; ++i) {
-		if (track->mFrames[i].f == 0) {
-			end = i;
-		}
-		else if (track->mFrames[i].f == -1) {
-			break;
-		}
-		else {
-			LOG_DEBUG("Reanim") << "GetTrackRange: unexpected f=" << track->mFrames[i].f << " at " << i << ", stopping.";
-			break;
-		}
-	}
-
-	return { start, end };
+	return mReanim->GetTrackFrameRange(trackName);
 }
 
 void Animator::SetFrameRange(int frameBegin, int frameEnd) {

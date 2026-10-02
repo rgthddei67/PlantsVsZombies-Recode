@@ -1022,11 +1022,21 @@ void Board::PlanColdStorageAttack(bool background)
 			u.value += kEscortIncomeShare * workerValue[z.row] * u.health / std::max(1.0f, escort[z.row]);
 		formation.push_back(u);
 	}
-	// 待购单位沿用经营推演的速度/接触近似；每次付款后立即加入基线，后续选兵不会忽略队友。
+	// 每次采样按兵种缓存纯数值；不把资源/Animator 带给后台线程，也不猜未来随机步态。
+	std::map<ZombieType,ZombieMovementRules::SpeedRange> spawnMovement;
+	// 待购单位沿用经营推演的接触近似；每次付款后立即加入基线，后续选兵不会忽略队友。
+	auto projectMovementCurve = [&](ColdStorageSearch::Unit& unit, ZombieType type) {
+		unit.movementCurve=GameDataManager::GetInstance().GetZombieBirthMovement(type).positionCurve;
+		unit.movementCurveBase=IsRoofBackground() ? GetRoofSlopeEndX()-unit.movementCurve.innerAt : CELL_INITALIZE_POS_X;
+		unit.movementCurveReference=unit.body.x;
+	};
 	auto newSplashUnit = [&](ZombieType type, int row, float delay) {
 		ColdStorageStrategy::SplashUnit u;
 		u.row = row; u.x = SCENE_WIDTH + 40.0f;
 		u.speed = kWorkerForecastSpeed * Assault(type).speed;
+		auto motion = spawnMovement.find(type);
+		if (motion == spawnMovement.end()) motion = spawnMovement.emplace(type,GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(type)).first;
+		if (motion->second.valid) u.speed = motion->second.speed[1]; // 已含品种自身倍率，不能再乘旧 Assault 近似。
 		u.health = Assault(type).health; u.value = static_cast<float>(GetZombieIceCost(type));
 		u.purchaseCost = u.value;
 		u.smashSeconds = Assault(type).smashSeconds;
@@ -1057,6 +1067,7 @@ void Board::PlanColdStorageAttack(bool background)
 	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
 	if (const auto* weights = learnedWeights) {
 		ColdStorageSearch::Snapshot search;
+		search.impWalkSpeed=GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(ZombieType::ZOMBIE_IMP).speed[1];
 		const int requestedVersion = ColdStoragePolicy::SearchVersion();
 		search.searchVersion = requestedVersion;
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
@@ -1269,6 +1280,7 @@ void Board::PlanColdStorageAttack(bool background)
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
+			projectMovementCurve(unit,entity->mZombieType);
 			unit.shieldHealth = z.shieldHealth;
 			ProjectShieldRules(unit, entity->mZombieType);
 			unit.biteDps = entity->GetMineSimulationAttackDps();
@@ -1357,6 +1369,11 @@ void Board::PlanColdStorageAttack(bool background)
 		auto purchaseUnit = [&](ZombieType type, int row, int cost, float delay) {
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
+			const auto& motion = spawnMovement.at(type);
+			unit.minimumMoveSpeed = motion.speed[0];
+			unit.maximumMoveSpeed = motion.speed[2];
+			unit.birthMovementKnown = motion.valid;
+			projectMovementCurve(unit,type);
 			unit.body.purchaseCost = static_cast<float>(cost);
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
@@ -2017,6 +2034,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchBurstOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& option) { return option.unit.burst.range > 0; }));
 	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());
 	s.searchGrowingPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& plant) { return plant.growth.perShot > 0; }));
+	s.searchMovementBoundsApplied = result.construction.movementBoundsApplied;
 	s.searchCapitalRejected = result.capitalRejected;
 	s.searchRepairOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.repair.interval > 0; }));
 	s.searchRepairPlants = static_cast<int>(std::count_if(search.plants.begin(),search.plants.end(),[](const auto& p) { return p.repairMaximum > 0; }));

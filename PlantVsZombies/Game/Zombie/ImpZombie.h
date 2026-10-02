@@ -5,6 +5,10 @@
 /** 经典小鬼：由巨人抛出，完成抛物线和落地演出后恢复普通行走与啃食。 */
 class ImpZombie final : public Zombie {
 public:
+	/** 按当前装备/运动阶段读取实际稳态步速，吃饭或施法时不误用动作 clip。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 出生仅使用小鬼行走轨；抛投运动由巨人投放时间线另行处理。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	enum class Phase {

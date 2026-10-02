@@ -724,3 +724,10 @@ void HealerZombie::LoadExtraData(const nlohmann::json& j)
 	if (mHealingPermanentlyDisabled) mTreatmentState = TreatmentState::DISABLED;
 	ApplyTreatmentPresentation();
 }
+
+ZombieMovementRules::BirthProfile HealerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

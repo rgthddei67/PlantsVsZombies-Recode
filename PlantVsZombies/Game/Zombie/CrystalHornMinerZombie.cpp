@@ -261,3 +261,16 @@ void CrystalHornMinerZombie::LoadExtraData(const nlohmann::json& j)
 	if (!std::isfinite(mTravelled)) mTravelled = 0.0f;
 	SyncEquipment();
 }
+
+ZombieMovementRules::BirthProfile CrystalHornMinerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}
+
+float CrystalHornMinerZombie::GetMineSimulationMoveSpeed() const
+{
+	if (mPhase!=Phase::CHARGING) return Zombie::GetMineSimulationMoveSpeed();
+	return std::abs(mDirection.x)*mChargeSpeed*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier();
+}

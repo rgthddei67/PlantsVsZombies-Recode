@@ -8,6 +8,8 @@
  */
 class InsulatorZombie final : public Zombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	void Update() override;

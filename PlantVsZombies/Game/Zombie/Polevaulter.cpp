@@ -8,6 +8,8 @@
 #include <limits>
 
 namespace {
+	constexpr float kRunRootMinimum=15, kRunRootMaximum=18; // 持杆出生根运动倍率范围
+	constexpr float kRunAnimationMinimum=2.2f, kRunAnimationMaximum=3.2f; // 持杆出生基础播放倍率范围
 	constexpr float kBakedVaultDistance = 150.0f;  // anim_jump 轨道内置的水平视觉位移，单位 px
 	constexpr float kVaultBlockProgress = 0.60f;  // C# 原版在 anim_jump 进度 0.6~0.7 检查高坚果
 	constexpr float kBlockedPlantGap = 5.0f;  // 受阻落点中僵尸碰撞框与阻拦植物保留的间距，单位 px
@@ -29,7 +31,7 @@ void Polevaulter::SetupZombie()
 			this->EatTarget();
 			}, true);
 
-		this->SetAnimationSpeed(GameRandom::Range(2.2f, 3.2f));
+		this->SetAnimationSpeed(GameRandom::Range(kRunAnimationMinimum, kRunAnimationMaximum));
 		PlayTrack("anim_run");
 		// 重写碰撞回调：RUNNING状态碰到植物触发跳跃，WALKING状态走基类吃植物逻辑
 		auto collider = GetColliderComponent();
@@ -66,7 +68,7 @@ void Polevaulter::SetupZombie()
 				});
 		}
 	}
-	this->mSpeed = GameRandom::Range(15.0f, 18.0f);
+	this->mSpeed = GameRandom::Range(kRunRootMinimum, kRunRootMaximum);
 
 	this->mBodyMaxHealth = 500;
 	this->mBodyHealth = 500;
@@ -436,4 +438,17 @@ void Polevaulter::StartEat(ColliderComponent* other)
 	// 状态机入口统一守卫，避免 RUNNING/JUMPING 被任何植物或僵尸碰撞旁路切成啃食动画。
 	if (mVaultState != VaultState::WALKING) return;
 	Zombie::StartEat(other);
+}
+
+ZombieMovementRules::BirthProfile Polevaulter::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.clip="anim_run";
+	p.alternative=nullptr;
+	p.rootMinimum=kRunRootMinimum;
+	p.rootMaximum=kRunRootMaximum;
+	p.animationMinimum=kRunAnimationMinimum;
+	p.animationMaximum=kRunAnimationMaximum;
+	p.phaseDependent=true;
+	return p;
 }

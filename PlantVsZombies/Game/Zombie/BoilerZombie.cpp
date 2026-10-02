@@ -196,3 +196,10 @@ void BoilerZombie::LoadExtraData(const nlohmann::json& j)
 	if (mPhase == Phase::PREHEATING || mPhase == Phase::VENTING) CancelEatingForSpecialAction();
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile BoilerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

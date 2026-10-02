@@ -5,6 +5,8 @@
 /** 开凿者保留普通僵尸战斗与动画事件，只拥有一次开墙任务的阶段和计时。 */
 class ExcavatorZombie final : public Zombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	enum class Phase { READY, APPROACHING, DRILLING, RETRY, SPENT, DISABLED };
 	/** 推进重试并在基类早退后清理失效任务，同步行进朝向与装备。 */

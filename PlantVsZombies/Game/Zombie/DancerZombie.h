@@ -8,6 +8,8 @@
 // 随全局节拍齐舞前进；伴舞阵亡后在节拍==12 时重新打响指补位（有头且未越过 kDanceLimitX 才补）。
 class DancerZombie : public Zombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	enum class DancerPhase {

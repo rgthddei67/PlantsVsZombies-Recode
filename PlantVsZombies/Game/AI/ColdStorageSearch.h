@@ -1,4 +1,5 @@
 #pragma once
+#include "Game/Zombie/ZombieMovementRules.h"
 
 #include "ColdStorageStrategy.h"
 #include "ColdStorageDiagnostics.h"
@@ -75,6 +76,10 @@ struct Ritual {
 };
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
+	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
+	bool birthMovementKnown = false; // 零移速也可能是合法出生阶段，不能把静止品种当成普通行走
+	ZombieMovementRules::PositionCurve movementCurve;
+	float movementCurveBase=0, movementCurveReference=0; // 世界基准与采样位置；保持已采样速度倍率，按推进位置更新车速
 	PaidBurst burst;
 	ArmorRepair repair;
 	Drum drum;
@@ -154,6 +159,7 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
 	int planted = 0, exchanges = 0, orders = 0;
 	float abilityIceSpent = 0; // 僵尸未来实际可付的技能费，计入支出，不提高成交返冰价
 	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
@@ -212,6 +218,7 @@ struct Snapshot {
 	int precisionTargetID = 0; // 本候选立即购买的技能；零表示保留资金
 	int pendingPrecisionID = 0; // 已支付技能只结算原目标，不再次收费
 	float pendingPrecisionRemaining = 0;
+	float impWalkSpeed=20; // Board 从小鬼实际出生画像采样，纯数值夹具保留缺省值
 	std::array<Unit,5> ritualSummons{};
 	std::vector<Rift> rifts;
 	std::vector<std::array<int,2>> riftCells; // 主线程给出的合法落点，不在后台查询 Board

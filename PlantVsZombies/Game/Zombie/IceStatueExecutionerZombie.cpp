@@ -11,6 +11,7 @@
 #include <limits>
 
 namespace {
+	constexpr float kBirthWalkVelocity=.30f; // 初始步行速度，原版 px/tick
 	constexpr int kExecutionerBodyHealth = 300;            // 处刑者本体生命；与 2700 黑帽合计 3000
 	constexpr int kExecutionerHelmetHealth = 2700;         // 黑色橄榄球头盔生命
 	constexpr int kStrikeDamage = 40;                      // 每次已提交锤击的普通僵尸伤害
@@ -57,7 +58,7 @@ void IceStatueExecutionerZombie::SetupZombie()
 	mShieldMaxHealth = 0;
 	mAttackDamage = 50;
 	mSpeed = kGroundRootMotionScale;
-	mWalkVelocity = 0.30f;
+	mWalkVelocity = kBirthWalkVelocity;
 	mExecutionPhase = ExecutionPhase::READY;
 	mExecutionTargetPlantID = NULL_PLANT_ID;
 	mExecutionProgress = 0;
@@ -576,4 +577,14 @@ bool IceStatueExecutionerZombie::AttemptExecutionForTesting(Plant* target)
 {
 	if (!target || mExecutionPhase != ExecutionPhase::READY) return false;
 	return BeginExecution(*target);
+}
+
+ZombieMovementRules::BirthProfile IceStatueExecutionerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=kGroundRootMotionScale;
+	p.animationMinimum=p.animationMaximum=WalkClipFromVelocity(kBirthWalkVelocity);
+	p.phaseDependent=true;
+	return p;
 }

@@ -496,3 +496,18 @@ void CatapultZombie::LoadExtraData(const nlohmann::json& j)
 		mCollider->mEnabled = false;
 	}
 }
+
+ZombieMovementRules::BirthProfile CatapultZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=kDriveSpeedMin;
+	p.velocityMaximum=kDriveSpeedMax;
+	p.phaseDependent=true;
+	return p;
+}
+
+float CatapultZombie::GetMineSimulationMoveSpeed() const
+{
+	return ScaleSimulationMoveSpeed(mDriveSpeed);
+}

@@ -199,3 +199,17 @@ void BackupDancerZombie::LoadExtraData(const nlohmann::json& j)
 	if (mIsEating) return;
 	mLastBeatBucket = -1;	// 下帧按当前节拍重刷轨道（覆盖 RestoreAnimState 的帧位=重新入拍，预期行为）
 }
+
+ZombieMovementRules::BirthProfile BackupDancerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=0;
+	p.phaseDependent=true;
+	return p;
+}
+
+float BackupDancerZombie::GetMineSimulationMoveSpeed() const
+{
+	return mPhase==BackupPhase::RISING ? 0 : Zombie::GetMineSimulationMoveSpeed();
+}

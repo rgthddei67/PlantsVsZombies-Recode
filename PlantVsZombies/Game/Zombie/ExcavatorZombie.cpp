@@ -214,3 +214,10 @@ void ExcavatorZombie::LoadExtraData(const nlohmann::json& j)
 	if (!HasTask()) mWall = mStand = -1;
 	SyncEquipment();
 }
+
+ZombieMovementRules::BirthProfile ExcavatorZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

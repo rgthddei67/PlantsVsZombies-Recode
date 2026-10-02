@@ -289,3 +289,15 @@ void DancerZombie::LoadExtraData(const nlohmann::json& j)
 	// HOLD/DANCING：下帧按节拍重刷轨道（RestoreAnimState 的帧位被重新入拍覆盖，预期行为）
 	mLastBeatBucket = -1;
 }
+
+
+ZombieMovementRules::BirthProfile DancerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.clip="anim_moonwalk";
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=ZombieMovementRules::BaseRootSpeed;
+	p.animationMinimum=p.animationMaximum=kMoonwalkClip;
+	p.phaseDependent=true;
+	return p;
+}

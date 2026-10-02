@@ -57,3 +57,11 @@ void ElitePogoZombie::LoadExtraData(const nlohmann::json& j)
 	PogoZombie::LoadExtraData(j);
 	mImpactBufferAvailable = j.value("impactBufferAvailable", true);
 }
+
+ZombieMovementRules::BirthProfile ElitePogoZombie::GetBirthMovementProfile()
+{
+	auto p=PogoZombie::GetBirthMovementProfile();
+	p.velocityMinimum*=kElitePogoSpeedMultiplier;
+	p.velocityMaximum*=kElitePogoSpeedMultiplier;
+	return p;
+}

@@ -238,3 +238,17 @@ float PaperZombie::GetAbilityAnimSpeedMultiplier() const
 {
 	return mHasNewspaper ? 1.0f : kPaperRageAnimSpeedMultiplier;
 }
+
+ZombieMovementRules::BirthProfile PaperZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=ZombieMovementRules::BaseRootSpeed;
+	p.phaseDependent=true;
+	return p;
+}
+
+float PaperZombie::GetMineSimulationMoveSpeed() const
+{
+	return GetSimulationRootMoveSpeed(mHasNewspaper ? "anim_walk" : "anim_walk_nopaper",mHasNewspaper ? mAnimator->GetSpeed() : kNoPaperWalkClip);
+}

@@ -24,7 +24,7 @@ void DoorZombie::SetupZombie()
 	this->mShieldType = ShieldType::SHIELDTYPE_DOOR;
 	ApplyDoorImage();
 
-	mSpeed += GameRandom::Range(-3, 3);
+	mSpeed += GameRandom::Range(-ZombieMovementRules::RootSpeedJitter, ZombieMovementRules::RootSpeedJitter);
 
 	if (GameRandom::Range(0, 1) == 0)
 		this->PlayTrack("anim_walk");

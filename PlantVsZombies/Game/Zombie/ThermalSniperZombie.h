@@ -11,6 +11,9 @@ class Animator;
  */
 class ThermalSniperZombie final : public Zombie {
 public:
+	static constexpr float BaseAbilitySpeed = 0.8f; // 本品种常驻能力速度倍率，与出生预测共用
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	enum class SniperPhase {
@@ -43,7 +46,7 @@ protected:
 	void ZombieUpdate(float scaledTime) override;
 	void OnMindControlled() override;
 	void HeadDrop() override;
-	float GetAbilityAnimSpeedMultiplier() const override { return 0.8f; }
+	float GetAbilityAnimSpeedMultiplier() const override { return BaseAbilitySpeed; }
 
 private:
 	void ConfigureFollowers();

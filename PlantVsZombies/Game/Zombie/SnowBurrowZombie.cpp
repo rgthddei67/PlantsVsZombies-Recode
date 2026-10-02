@@ -597,3 +597,18 @@ void SnowBurrowZombie::LoadExtraData(const nlohmann::json& j)
 	}
 	ApplyPhasePresentation();
 }
+
+ZombieMovementRules::BirthProfile SnowBurrowZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=kBurrowSpeed;
+	p.phaseDependent=true;
+	return p;
+}
+
+float SnowBurrowZombie::GetMineSimulationMoveSpeed() const
+{
+	if (!IsUnderground()) return Zombie::GetMineSimulationMoveSpeed();
+	return kBurrowSpeed*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier();
+}

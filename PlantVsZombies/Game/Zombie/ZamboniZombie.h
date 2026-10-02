@@ -9,6 +9,10 @@ class Caltrop;
  */
 class ZamboniZombie : public Zombie {
 public:
+	/** 读取本品种当前运动阶段的稳态速度；后续阶段转换仍由能力时间线近似。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	void ZombieUpdate(float scaledTime) override;
@@ -35,6 +39,8 @@ public:
 	float GetDriveSpeed() const { return mDriveSpeed; }
 	/** 返回当前地图供冰车速度曲线使用的水平坐标基准。 */
 	float GetDriveCoordinateBaseX() const;
+	/** 实际移动与主线程预测共用当前位置的基础车速曲线。 */
+	float GetDriveSpeedAtX(float x) const;
 	Vector GetDamageShakeOffset() const { return mDamageShakeOffset; }
 	Vector GetVisualPosition() const override;
 	const char* GetButterSplatTrackName() const override { return "Zombie_head"; }

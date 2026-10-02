@@ -3,8 +3,8 @@
 #include "../AudioSystem.h"
 
 namespace {
-	constexpr float kFootballMoveSpeedMultiplier = 1.7f;	// 橄榄球僵尸相对基础僵尸的水平位移倍率
-	constexpr float kFootballAnimSpeedMultiplier = 1.8f;	// 橄榄球僵尸自身的整体动画能力倍率
+	constexpr float kFootballMoveSpeedMultiplier = ZombieMovementRules::FootballRootMultiplier;	// 橄榄球相对基础僵尸的水平位移倍率
+	constexpr float kFootballAnimSpeedMultiplier = ZombieMovementRules::FootballAnimationMultiplier;	// 常驻动画能力倍率，与预测共享
 	constexpr float kMagnetDestinationX = 20.0f; // 头盔吸附到磁力菇头部附近的局部 X
 	constexpr float kMagnetDestinationY = 20.0f; // 头盔吸附到磁力菇头部附近的局部 Y
 	constexpr float kMagnetDestinationJitter = 10.0f; // 离体装备落点随机扰动，单位 px
@@ -124,4 +124,13 @@ void FootballZombie::OnTemporalCoreStateRestored()
 		mAnimator->SetTrackVisible("zombie_football_leftarm_lower", true);
 		mAnimator->SetTrackImage("zombie_football_leftarm_upper", nullptr);
 	}
+}
+
+ZombieMovementRules::BirthProfile FootballZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=ZombieMovementRules::BaseRootSpeed*kFootballMoveSpeedMultiplier;
+	p.abilityMinimum=p.abilityMaximum=kFootballAnimSpeedMultiplier;
+	return p;
 }

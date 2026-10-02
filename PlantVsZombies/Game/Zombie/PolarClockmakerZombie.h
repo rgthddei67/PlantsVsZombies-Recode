@@ -9,6 +9,9 @@
  */
 class PolarClockmakerZombie final : public Zombie {
 public:
+	static constexpr float BaseAbilitySpeed = 0.7f; // 本品种常驻能力速度倍率，与出生预测共用
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	enum class ClockPhase {
@@ -44,7 +47,7 @@ protected:
 	void SetupZombie() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void OnMindControlled() override;
-	float GetAbilityAnimSpeedMultiplier() const override { return 0.7f; }
+	float GetAbilityAnimSpeedMultiplier() const override { return BaseAbilitySpeed; }
 
 private:
 	/** 配置星盘与悬摆命名 follower，保持普通僵尸时间线不变。 */

@@ -184,7 +184,7 @@ void Zombie::SetupZombie()
 
 	if (mIsPreview) return;
 
-	mSpeed += GameRandom::Range(-3, 3);
+	mSpeed += GameRandom::Range(-ZombieMovementRules::RootSpeedJitter, ZombieMovementRules::RootSpeedJitter);
 
 	if (GameRandom::Range(0, 1) == 0)
 		this->PlayTrack("anim_walk");
@@ -542,7 +542,7 @@ void Zombie::Start()
 	if (this->mIsPreview) {
 		RemoveCollider();
 	}
-	SetAnimationSpeed(GameRandom::Range(1.1f, 1.4f));
+	SetAnimationSpeed(GameRandom::Range(ZombieMovementRules::MinimumAnimationSpeed, ZombieMovementRules::MaximumAnimationSpeed));
 	SetupZombie();
 	ConfigureButterSplatFollower();
 	ConfigureShieldHitGlowTrack();
@@ -2937,22 +2937,40 @@ float Zombie::GetMineSimulationAttackDps() const
 		* GetDrumBiteMultiplier() * GetRoofMarshalAssaultBiteMultiplier();
 }
 
+float Zombie::ScaleSimulationMoveSpeed(float speed) const
+{
+	const float rain = mBoard ? mBoard->GetZombieRainSpeedMultiplier() : 1;
+	const float wind = mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
+	return speed * GetAmplifiedAbilitySpeedMultiplier() * AmplifySpeedMultiplierForGoldenIce(rain)
+		* AmplifySpeedMultiplierForGoldenIce(wind) * GetRoofMarshalAssaultMoveMultiplier()
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+}
+
 float Zombie::GetMineSimulationMoveSpeed() const
 {
 	if (!mAnimator || !mAnimator->GetReanimation()) return 0;
-	const auto* ground = mAnimator->GetReanimation()->GetTrack("_ground");
-	const auto range = mAnimator->GetTrackRange(mAnimator->HasTrack("anim_walk2") ? "anim_walk2" : "anim_walk");
-	if (!ground || range.first < 0 || range.second <= range.first
-		|| range.second >= static_cast<int>(ground->mFrames.size())) return GetUncontrolledHorizontalMoveSpeed();
-	float distance = 0;
-	for (int frame = range.first; frame < range.second; ++frame)
-		distance += std::abs(ground->mFrames[frame+1].x-ground->mFrames[frame].x);
-	const float rain = mBoard ? mBoard->GetZombieRainSpeedMultiplier() : 1;
-	const float wind = mBoard ? mBoard->GetZombieWindMoveMultiplier(false) : 1;
-	return distance/(range.second-range.first) * mSpeed * mAnimator->GetSpeed()
-		* GetAmplifiedAbilitySpeedMultiplier() * AmplifySpeedMultiplierForGoldenIce(rain)
-		* AmplifySpeedMultiplierForGoldenIce(wind) * GetRoofMarshalAssaultMoveMultiplier()
-		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+	const auto profile = GameDataManager::GetInstance().GetZombieBirthMovement(mZombieType);
+	const auto& current = GetCurrentTrackName();
+	// 真实行走/奔跑轨道及其绝对 clip 速度优先，不能拿吃饭/施法 clip 或 base 替代。
+	const bool locomotion = current.find("anim_walk") == 0 || current == "anim_run"
+		|| current == "anim_ladderwalk" || current == "anim_moonwalk" || current == "anim_swim";
+	const char* walking = locomotion ? current.c_str() : profile.clip;
+	if (!locomotion && profile.alternative && mAnimator->HasTrack(profile.alternative)) walking=profile.alternative;
+	const float clip = locomotion && mAnimator->GetClipSpeed()>0 ? mAnimator->GetClipSpeed()
+		: !locomotion && profile.animationMinimum==profile.animationMaximum ? profile.animationMinimum : mAnimator->GetSpeed();
+	return GetSimulationRootMoveSpeed(walking,clip);
+}
+
+float Zombie::GetSimulationRootMoveSpeed(const char* clip, float clipSpeed) const
+{
+	if (!mAnimator || !mAnimator->GetReanimation()) return 0;
+	const auto* ground=mAnimator->GetReanimation()->GetTrack("_ground");
+	const auto range=mAnimator->GetTrackRange(clip);
+	if (!ground || range.first<0 || range.second<=range.first || range.second>=static_cast<int>(ground->mFrames.size())) return 0;
+	float distance=0;
+	for (int frame=range.first; frame<range.second; ++frame)
+		distance+=std::abs(ground->mFrames[frame+1].x-ground->mFrames[frame].x);
+	return ScaleSimulationMoveSpeed(distance/(range.second-range.first)*mSpeed*clipSpeed);
 }
 
 float Zombie::GetTargetLeadX(float seconds) const

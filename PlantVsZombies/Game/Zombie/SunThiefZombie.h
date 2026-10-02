@@ -4,6 +4,8 @@
 /** 盗晶僵尸只拥有动作阶段；累计盗款和携款归 Board 的不可回溯账本。 */
 class SunThiefZombie final : public Zombie {
 public:
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	enum class Phase { READY, WINDUP, COOLDOWN, RETREAT, DISABLED };
 	/** 主线程推进抽取事务；硬控暂停局部计时，撤退位移复用矿道出口图。 */

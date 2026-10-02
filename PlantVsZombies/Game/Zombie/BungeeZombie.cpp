@@ -494,3 +494,17 @@ void BungeeZombie::LoadExtraData(const nlohmann::json& j)
 		}
 	}
 }
+
+ZombieMovementRules::BirthProfile BungeeZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=0;
+	p.phaseDependent=true;
+	return p;
+}
+
+float BungeeZombie::GetMineSimulationMoveSpeed() const
+{
+	return 0;
+}

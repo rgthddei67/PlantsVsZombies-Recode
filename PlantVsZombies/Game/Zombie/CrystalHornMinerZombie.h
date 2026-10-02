@@ -4,6 +4,10 @@
 /** 晶角头盔驱动的直线冲撞；动作提交后不拐弯、不重新锁定目标。 */
 class CrystalHornMinerZombie final : public Zombie {
 public:
+	/** 读取本品种当前运动阶段的稳态速度；后续阶段转换仍由能力时间线近似。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	enum class Phase { READY, WINDUP, CHARGING, COOLDOWN };
 	void Update() override;

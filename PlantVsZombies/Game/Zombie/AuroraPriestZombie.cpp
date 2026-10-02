@@ -319,3 +319,10 @@ void AuroraPriestZombie::LoadExtraData(const nlohmann::json& j)
 	SyncFollowerPresentation();
 	UpdateAnimSpeed();
 }
+
+ZombieMovementRules::BirthProfile AuroraPriestZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

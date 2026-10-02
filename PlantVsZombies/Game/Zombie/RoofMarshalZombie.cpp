@@ -679,3 +679,17 @@ void RoofMarshalZombie::ZombieItemUpdate() const
 			GetTexture(ResourceKeys::Textures::IMAGE_ZOMBIE_ROOFMARSHAL_OUTERARM_UPPER2));
 	}
 }
+
+ZombieMovementRules::BirthProfile RoofMarshalZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.linear=true;
+	p.velocityMinimum=p.velocityMaximum=0;
+	p.phaseDependent=true;
+	return p;
+}
+
+float RoofMarshalZombie::GetMineSimulationMoveSpeed() const
+{
+	return IsWalkingPhase() ? Zombie::GetMineSimulationMoveSpeed() : 0;
+}

@@ -18,6 +18,7 @@
 #include <cmath>
 
 namespace {
+	constexpr int kRootSpeedJitter=2; // 巨人出生根运动倍率的整数浮动范围
 	const std::string kDefaultTrackTextureKey = "DEFAULT";
 	constexpr int kBodyHealth = 3000;                         // 原版经典巨人本体生命
 	constexpr int kSmashFrame = 93;                           // 主人指定的砸击结算全局帧
@@ -91,7 +92,7 @@ void GargantuarZombie::SetupZombie()
 		PlayTrack("anim_idle");
 		return;
 	}
-	mSpeed += GameRandom::Range(-2, 2);
+	mSpeed += GameRandom::Range(-kRootSpeedJitter, kRootSpeedJitter);
 	PlayWalking();
 }
 
@@ -534,4 +535,17 @@ void GargantuarZombie::LoadExtraData(const nlohmann::json& j)
 	ApplyWeaponPresentation();
 	ApplyDamagePresentation();
 	UpdateAnimSpeed();
+}
+
+ZombieMovementRules::BirthProfile GargantuarZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.alternative=nullptr;
+	p.rootMinimum=ZombieMovementRules::BaseRootSpeed-kRootSpeedJitter;
+	p.rootMaximum=ZombieMovementRules::BaseRootSpeed+kRootSpeedJitter;
+	p.animationMinimum=p.animationMaximum=kWalkClipSpeed;
+	p.abilityMinimum=kAnimSpeedMultiplierMin;
+	p.abilityMaximum=kAnimSpeedMultiplierMax;
+	p.phaseDependent=true;
+	return p;
 }

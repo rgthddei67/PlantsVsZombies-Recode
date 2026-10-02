@@ -5,6 +5,8 @@
 #include "../AutoTest/TestDriver.h"
 #include <SDL2/SDL.h>
 #include <algorithm>
+#include <cmath>
+#include "../../ResourceManager.h"
 #include <vector>
 #include <unordered_set>
 
@@ -192,7 +194,7 @@ void GameDataManager::InitializeHardcodedData() {
 	//   5. resources/info.txt 加图鉴名称与说明（卡片本身由注册表数据驱动，无需单独接线）
 	//   6. TestDriver 名称表、资源断言与专项 AutoTest 闭环
 	// 【新增僵尸】同理：ZombieType.h 加枚举 → 写僵尸类 → 下方“僵尸注册”区加一行
-	//      RegisterZombie(..., &MakeZombie<新类>) + 顶部 #include
+	//      RegisterZombie(..., &MakeZombie<新类>, &新类::GetBirthMovementProfile) + 顶部 #include
 	//      + gamedata.json 的 "zombies" 加条目（weight/appearWave/survivalRound 都在 JSON）。
 	// 配套常量：动画类型加在 Reanimation/AnimationTypes.h；资源键加在 ResourceKeys.h。
 	// ============================================================
@@ -273,11 +275,11 @@ void GameDataManager::InitializeHardcodedData() {
 	RegisterPlant(PlantType::PLANT_ICESTORAGENUT, "PLANT_ICESTORAGENUT", "IMAGE_ICESTORAGENUT",
 		AnimationType::ANIM_ICESTORAGENUT, "IceStorageNut", &MakePlant<IceStorageNut>);
 	RegisterZombie(ZombieType::ZOMBIE_COLD_CHAIN_GUARD, "ZOMBIE_COLD_CHAIN_GUARD",
-		AnimationType::ANIM_COLD_CHAIN_GUARD, "ColdChainGuardZombie", &MakeZombie<ColdChainGuardZombie>);
+		AnimationType::ANIM_COLD_CHAIN_GUARD, "ColdChainGuardZombie", &MakeZombie<ColdChainGuardZombie>, &ColdChainGuardZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_COLDPINEAPPLE, "PLANT_COLDPINEAPPLE", "IMAGE_COLDPINEAPPLE",
 		AnimationType::ANIM_COLDPINEAPPLE, "ColdPineapple", &MakePlant<ColdPineapple>);
 	RegisterZombie(ZombieType::ZOMBIE_BOILER, "ZOMBIE_BOILER",
-		AnimationType::ANIM_BOILER, "BoilerZombie", &MakeZombie<BoilerZombie>);
+		AnimationType::ANIM_BOILER, "BoilerZombie", &MakeZombie<BoilerZombie>, &BoilerZombie::GetBirthMovementProfile);
 	// 技能卡只登记卡牌身份，不污染 ANIM_NONE 映射，也不提供空 Animator/占格实体。
 	PlantInfo voucher;
 	voucher.type = PlantType::PLANT_ICEVOUCHER;
@@ -288,19 +290,19 @@ void GameDataManager::InitializeHardcodedData() {
 	RegisterPlant(PlantType::PLANT_ICEMINT, "PLANT_ICEMINT", "IMAGE_ICEMINT",
 		AnimationType::ANIM_ICEMINT, "IceMint", &MakePlant<IceMint>);
 	RegisterZombie(ZombieType::ZOMBIE_ICE_WORKER, "ZOMBIE_ICE_WORKER",
-		AnimationType::ANIM_ICE_WORKER, "IceWorkerZombie", &MakeZombie<IceWorkerZombie>);
+		AnimationType::ANIM_ICE_WORKER, "IceWorkerZombie", &MakeZombie<IceWorkerZombie>, &IceWorkerZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_AMBERLICHEN, "PLANT_AMBERLICHEN", "IMAGE_AMBERLICHEN",
 		AnimationType::ANIM_AMBERLICHEN, "AmberLichen", &MakePlant<AmberLichen>);
 	RegisterZombie(ZombieType::ZOMBIE_CRYSTAL_DRUMMER, "ZOMBIE_CRYSTAL_DRUMMER",
-		AnimationType::ANIM_CRYSTAL_DRUMMER, "CrystalDrummerZombie", &MakeZombie<CrystalDrummerZombie>);
+		AnimationType::ANIM_CRYSTAL_DRUMMER, "CrystalDrummerZombie", &MakeZombie<CrystalDrummerZombie>, &CrystalDrummerZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_PRISMFLOWER, "PLANT_PRISMFLOWER", "IMAGE_PRISMFLOWER",
 		AnimationType::ANIM_PRISMFLOWER, "PrismFlower", &MakePlant<PrismFlower>);
 	RegisterZombie(ZombieType::ZOMBIE_SUN_THIEF, "ZOMBIE_SUN_THIEF",
-		AnimationType::ANIM_SUN_THIEF, "SunThiefZombie", &MakeZombie<SunThiefZombie>);
+		AnimationType::ANIM_SUN_THIEF, "SunThiefZombie", &MakeZombie<SunThiefZombie>, &SunThiefZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_ECHOSHROOM, "PLANT_ECHOSHROOM", "IMAGE_ECHOSHROOM",
 		AnimationType::ANIM_ECHOSHROOM, "EchoShroom", &MakePlant<EchoShroom>);
 	RegisterZombie(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER, "ZOMBIE_CRYSTAL_HORN_MINER",
-		AnimationType::ANIM_CRYSTAL_HORN_MINER, "CrystalHornMinerZombie", &MakeZombie<CrystalHornMinerZombie>);
+		AnimationType::ANIM_CRYSTAL_HORN_MINER, "CrystalHornMinerZombie", &MakeZombie<CrystalHornMinerZombie>, &CrystalHornMinerZombie::GetBirthMovementProfile);
 
 	RegisterPlant(PlantType::PLANT_FUMESHROOM, "PLANT_FUMESHROOM",
 		ResourceKeys::Textures::IMAGE_FUMESHROOM,
@@ -564,287 +566,287 @@ void GameDataManager::InitializeHardcodedData() {
 
 	// ==================== 僵尸注册（仅身份，数值见 gamedata.json） ====================
 	RegisterZombie(ZombieType::ZOMBIE_EXCAVATOR, "ZOMBIE_EXCAVATOR",
-		AnimationType::ANIM_EXCAVATOR_ZOMBIE, "ExcavatorZombie", &MakeZombie<ExcavatorZombie>);
+		AnimationType::ANIM_EXCAVATOR_ZOMBIE, "ExcavatorZombie", &MakeZombie<ExcavatorZombie>, &ExcavatorZombie::GetBirthMovementProfile);
 	RegisterZombie(ZombieType::ZOMBIE_NORMAL, "ZOMBIE_NORMAL",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE, &MakeZombie<Zombie>);
+		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE, &MakeZombie<Zombie>, &Zombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_TRAFFIC_CONE, "ZOMBIE_TRAFFIC_CONE",
 		AnimationType::ANIM_CONE_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_CONE_ZOMBIE, &MakeZombie<ConeZombie>);
+		ResourceKeys::Reanimations::REANIM_CONE_ZOMBIE, &MakeZombie<ConeZombie>, &ConeZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_POLEVAULTER, "ZOMBIE_POLEVAULTER",
 		AnimationType::ANIM_POLEVAULTER_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_POLEVAULTER_ZOMBIE, &MakeZombie<Polevaulter>);
+		ResourceKeys::Reanimations::REANIM_POLEVAULTER_ZOMBIE, &MakeZombie<Polevaulter>, &Polevaulter::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_BUCKET, "ZOMBIE_BUCKET",
 		AnimationType::ANIM_BUCKET_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE, &MakeZombie<BucketZombie>);
+		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE, &MakeZombie<BucketZombie>, &BucketZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_FASTBUCKET, "ZOMBIE_FASTBUCKET",
 		AnimationType::ANIM_BUCKET_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE, &MakeZombie<FastBucketZombie>);
+		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE, &MakeZombie<FastBucketZombie>, &FastBucketZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_NEWSPAPER, "ZOMBIE_NEWSPAPER",
 		AnimationType::ANIM_PAPER_ZOMBIE,
-		"PaperZombie", &MakeZombie<PaperZombie>);
+		"PaperZombie", &MakeZombie<PaperZombie>, &PaperZombie::GetBirthMovementProfile);
 
 	// 复用读报僵尸 reanim，仅换报纸贴图
 	RegisterZombie(ZombieType::ZOMBIE_FASTPAPER, "ZOMBIE_FASTPAPER",
 		AnimationType::ANIM_PAPER_ZOMBIE,
-		"PaperZombie", &MakeZombie<FastPaperZombie>);
+		"PaperZombie", &MakeZombie<FastPaperZombie>, &FastPaperZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_DOOR, "ZOMBIE_DOOR",
 		AnimationType::ANIM_DOOR_ZOMBIE,
-		"DoorZombie", &MakeZombie<DoorZombie>);
+		"DoorZombie", &MakeZombie<DoorZombie>, &DoorZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_FOOTBALL, "ZOMBIE_FOOTBALL",
 		AnimationType::ANIM_FOOTBALL_ZOMBIE,
-		"FootballZombie", &MakeZombie<FootballZombie>);
+		"FootballZombie", &MakeZombie<FootballZombie>, &FootballZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_PINK_FOOTBALL, "ZOMBIE_PINK_FOOTBALL",
 		AnimationType::ANIM_PINK_FOOTBALL_ZOMBIE,
-		"PinkFootballZombie", &MakeZombie<PinkFootballZombie>);
+		"PinkFootballZombie", &MakeZombie<PinkFootballZombie>, &PinkFootballZombie::GetBirthMovementProfile);
 
 	// 舞王僵尸（MJ版）：入场后打响指召唤十字 4 伴舞，死伴舞按节拍补位
 	RegisterZombie(ZombieType::ZOMBIE_DANCER, "ZOMBIE_DANCER",
 		AnimationType::ANIM_DANCE_ZOMBIE,
-		"ZombieJackson", &MakeZombie<DancerZombie>);
+		"ZombieJackson", &MakeZombie<DancerZombie>, &DancerZombie::GetBirthMovementProfile);
 
 	// 伴舞僵尸：gamedata weight=0，只能被舞王召唤（或 AutoTest spawn_zombie 直造）
 	RegisterZombie(ZombieType::ZOMBIE_BACKUP_DANCER, "ZOMBIE_BACKUP_DANCER",
 		AnimationType::ANIM_DANCERWITH_ZOMBIE,
-		"ZombieDancer", &MakeZombie<BackupDancerZombie>);
+		"ZombieDancer", &MakeZombie<BackupDancerZombie>, &BackupDancerZombie::GetBirthMovementProfile);
 
 	// 精英舞王：正式波次仅由强台风以上天气把普通舞王变异为该类型。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_DANCER, "ZOMBIE_ELITE_DANCER",
 		AnimationType::ANIM_ELITE_DANCE_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ZOMBIE_ELITE_JACKSON,
-		&MakeZombie<EliteDancerZombie>);
+		&MakeZombie<EliteDancerZombie>, &EliteDancerZombie::GetBirthMovementProfile);
 
 	// 加固铁门：复用铁门动画，派生类在 SetupZombie 内替换门材质并覆盖耐久规则。
 	RegisterZombie(ZombieType::ZOMBIE_REINFORCED_DOOR, "ZOMBIE_REINFORCED_DOOR",
 		AnimationType::ANIM_DOOR_ZOMBIE,
-		"DoorZombie", &MakeZombie<ReinforcedDoorZombie>);
+		"DoorZombie", &MakeZombie<ReinforcedDoorZombie>, &ReinforcedDoorZombie::GetBirthMovementProfile);
 
 	// 泳池三种地形变体不独立进权重池，由 Board 在选中水路后把基础类型解析为对应变体。
 	RegisterZombie(ZombieType::ZOMBIE_POOL_NORMAL, "ZOMBIE_POOL_NORMAL",
 		AnimationType::ANIM_POOL_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_POOL_NORMAL_ZOMBIE, &MakeZombie<PoolNormalZombie>);
+		ResourceKeys::Reanimations::REANIM_POOL_NORMAL_ZOMBIE, &MakeZombie<PoolNormalZombie>, &PoolNormalZombie::GetBirthMovementProfile);
 	RegisterZombie(ZombieType::ZOMBIE_POOL_CONE, "ZOMBIE_POOL_CONE",
 		AnimationType::ANIM_POOL_CONE_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_POOL_CONE_ZOMBIE, &MakeZombie<PoolConeZombie>);
+		ResourceKeys::Reanimations::REANIM_POOL_CONE_ZOMBIE, &MakeZombie<PoolConeZombie>, &PoolConeZombie::GetBirthMovementProfile);
 	RegisterZombie(ZombieType::ZOMBIE_POOL_BUCKET, "ZOMBIE_POOL_BUCKET",
 		AnimationType::ANIM_POOL_BUCKET_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_POOL_BUCKET_ZOMBIE, &MakeZombie<PoolBucketZombie>);
+		ResourceKeys::Reanimations::REANIM_POOL_BUCKET_ZOMBIE, &MakeZombie<PoolBucketZombie>, &PoolBucketZombie::GetBirthMovementProfile);
 
 	// 精英撑杆：复用普通撑杆时间线，独立 reanim 只替换红蓝运动服材质。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_POLEVAULTER, "ZOMBIE_ELITE_POLEVAULTER",
 		AnimationType::ANIM_ELITE_POLEVAULTER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_POLEVAULTER_ZOMBIE,
-		&MakeZombie<ElitePolevaulterZombie>);
+		&MakeZombie<ElitePolevaulterZombie>, &ElitePolevaulterZombie::GetBirthMovementProfile);
 
 	// 冰车使用车辆专属状态机，不复用普通僵尸的走路/死亡帧事件。
 	RegisterZombie(ZombieType::ZOMBIE_ZAMBONI, "ZOMBIE_ZAMBONI",
 		AnimationType::ANIM_ZAMBONI_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ZAMBONI_ZOMBIE,
-		&MakeZombie<ZamboniZombie>);
+		&MakeZombie<ZamboniZombie>, &ZamboniZombie::GetBirthMovementProfile);
 
 	// 鎏金冰车复用车辆时间线，以独立 reanim 键替换黄色材质并保留普通冰车资源。
 	RegisterZombie(ZombieType::ZOMBIE_GILDED_ZAMBONI, "ZOMBIE_GILDED_ZAMBONI",
 		AnimationType::ANIM_GILDED_ZAMBONI_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_GILDED_ZAMBONI_ZOMBIE,
-		&MakeZombie<GildedZamboniZombie>);
+		&MakeZombie<GildedZamboniZombie>, &GildedZamboniZombie::GetBirthMovementProfile);
 
 	// 海豚僵尸拥有独立的入水、骑乘、跃豚与弃豚状态机。
 	RegisterZombie(ZombieType::ZOMBIE_DOLPHIN_RIDER, "ZOMBIE_DOLPHIN_RIDER",
 		AnimationType::ANIM_DOLPHIN_RIDER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_DOLPHIN_RIDER_ZOMBIE,
-		&MakeZombie<DolphinRiderZombie>);
+		&MakeZombie<DolphinRiderZombie>, &DolphinRiderZombie::GetBirthMovementProfile);
 
 	// 精英海豚复用普通时间线，只替换材质并把成功越障容量扩展为两次。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER, "ZOMBIE_ELITE_DOLPHIN_RIDER",
 		AnimationType::ANIM_ELITE_DOLPHIN_RIDER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_DOLPHIN_RIDER_ZOMBIE,
-		&MakeZombie<EliteDolphinRiderZombie>);
+		&MakeZombie<EliteDolphinRiderZombie>, &EliteDolphinRiderZombie::GetBirthMovementProfile);
 
 	// 小丑僵尸拥有随机开盒倒计时、完整音效生命周期与专属范围爆炸。
 	RegisterZombie(ZombieType::ZOMBIE_JACK_IN_THE_BOX, "ZOMBIE_JACK_IN_THE_BOX",
 		AnimationType::ANIM_JACK_IN_THE_BOX_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_JACK_IN_THE_BOX_ZOMBIE,
-		&MakeZombie<JackInTheBoxZombie>);
+		&MakeZombie<JackInTheBoxZombie>, &JackInTheBoxZombie::GetBirthMovementProfile);
 
 	// 精英小丑复用普通小丑时间线；派生类不注册自爆帧，改为持续投盒。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX,
 		"ZOMBIE_ELITE_JACK_IN_THE_BOX",
 		AnimationType::ANIM_ELITE_JACK_IN_THE_BOX_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_JACK_IN_THE_BOX_ZOMBIE,
-		&MakeZombie<EliteJackInTheBoxZombie>);
+		&MakeZombie<EliteJackInTheBoxZombie>, &EliteJackInTheBoxZombie::GetBirthMovementProfile);
 
 	// 气球生命层破裂前处于空中；陆地完成爆裂演出后转为普通步行。
 	RegisterZombie(ZombieType::ZOMBIE_BALLOON, "ZOMBIE_BALLOON",
 		AnimationType::ANIM_BALLOON_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_BALLOON_ZOMBIE,
-		&MakeZombie<BalloonZombie>);
+		&MakeZombie<BalloonZombie>, &BalloonZombie::GetBirthMovementProfile);
 
 	// 矿工拥有地下穿行、两种出土路径及向前线折返的独立状态机。
 	RegisterZombie(ZombieType::ZOMBIE_DIGGER, "ZOMBIE_DIGGER",
 		AnimationType::ANIM_DIGGER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_DIGGER_ZOMBIE,
-		&MakeZombie<DiggerZombie>);
+		&MakeZombie<DiggerZombie>, &DiggerZombie::GetBirthMovementProfile);
 
 	// 爆破工头复用矿工状态机，在眩晕结束钩子结算固定后排爆破。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_DIGGER, "ZOMBIE_ELITE_DIGGER",
 		AnimationType::ANIM_ELITE_DIGGER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_DIGGER_ZOMBIE,
-		&MakeZombie<EliteDiggerZombie>);
+		&MakeZombie<EliteDiggerZombie>, &EliteDiggerZombie::GetBirthMovementProfile);
 
 	// 跳跳僵尸使用独立弹跳状态机；高坚果阻拦后才回落到普通根运动步行。
 	RegisterZombie(ZombieType::ZOMBIE_POGO, "ZOMBIE_POGO",
 		AnimationType::ANIM_POGO_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_POGO_ZOMBIE,
-		&MakeZombie<PogoZombie>);
+		&MakeZombie<PogoZombie>, &PogoZombie::GetBirthMovementProfile);
 
 	// 精英跳跳复用普通跳跳时序，并由独立配色资源与缓冲器状态扩展能力。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_POGO, "ZOMBIE_ELITE_POGO",
 		AnimationType::ANIM_ELITE_POGO_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_POGO_ZOMBIE,
-		&MakeZombie<ElitePogoZombie>);
+		&MakeZombie<ElitePogoZombie>, &ElitePogoZombie::GetBirthMovementProfile);
 
 	// 蹦极僵尸使用独立垂直状态机；普通刷怪不接入 5-5 的固定五只特殊编排。
 	RegisterZombie(ZombieType::ZOMBIE_BUNGEE, "ZOMBIE_BUNGEE",
 		AnimationType::ANIM_BUNGEE_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_BUNGEE_ZOMBIE,
-		&MakeZombie<BungeeZombie>);
+		&MakeZombie<BungeeZombie>, &BungeeZombie::GetBirthMovementProfile);
 
 	// 扶梯僵尸携带可破坏/可磁吸护盾，并为坚果类创建全地面僵尸共享的攀爬物。
 	RegisterZombie(ZombieType::ZOMBIE_LADDER, "ZOMBIE_LADDER",
 		AnimationType::ANIM_LADDER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_LADDER_ZOMBIE,
-		&MakeZombie<LadderZombie>);
+		&MakeZombie<LadderZombie>, &LadderZombie::GetBirthMovementProfile);
 
 	// 精英扶梯复用经典时间线，在五秒整行扫描后锁定能力分支。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_LADDER, "ZOMBIE_ELITE_LADDER",
 		AnimationType::ANIM_ELITE_LADDER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_LADDER_ZOMBIE,
-		&MakeZombie<EliteLadderZombie>);
+		&MakeZombie<EliteLadderZombie>, &EliteLadderZombie::GetBirthMovementProfile);
 
 	// 投篮车拥有独立十二发篮球、碾压、车辆损坏及专属死亡状态机。
 	RegisterZombie(ZombieType::ZOMBIE_CATAPULT, "ZOMBIE_CATAPULT",
 		AnimationType::ANIM_CATAPULT_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_CATAPULT_ZOMBIE,
-		&MakeZombie<CatapultZombie>);
+		&MakeZombie<CatapultZombie>, &CatapultZombie::GetBirthMovementProfile);
 
 	// 导流投篮车继承普通投篮车全部弹药行为，只增加屋顶锁行与自身径流倍率。
 	RegisterZombie(ZombieType::ZOMBIE_ELITE_CATAPULT, "ZOMBIE_ELITE_CATAPULT",
 		AnimationType::ANIM_ELITE_CATAPULT_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ELITE_CATAPULT_ZOMBIE,
-		&MakeZombie<EliteCatapultZombie>);
+		&MakeZombie<EliteCatapultZombie>, &EliteCatapultZombie::GetBirthMovementProfile);
 
 	// 巨人拥有独立砸击/投掷状态机；小鬼权重为零，只允许由巨人召唤或测试直造。
 	RegisterZombie(ZombieType::ZOMBIE_GARGANTUAR, "ZOMBIE_GARGANTUAR",
 		AnimationType::ANIM_GARGANTUAR_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_GARGANTUAR_ZOMBIE,
-		&MakeZombie<GargantuarZombie>);
+		&MakeZombie<GargantuarZombie>, &GargantuarZombie::GetBirthMovementProfile);
 	RegisterZombie(ZombieType::ZOMBIE_IMP, "ZOMBIE_IMP",
 		AnimationType::ANIM_IMP_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_IMP_ZOMBIE,
-		&MakeZombie<ImpZombie>);
+		&MakeZombie<ImpZombie>, &ImpZombie::GetBirthMovementProfile);
 	// 红眼巨人复用经典巨人时间线；7-8/7-9 由数据表投放，冒险波次上限由 Board 统一执行。
 	RegisterZombie(ZombieType::ZOMBIE_REDEYE_GARGANTUAR, "ZOMBIE_REDEYE_GARGANTUAR",
 		AnimationType::ANIM_GARGANTUAR_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_GARGANTUAR_ZOMBIE,
-		&MakeZombie<RedeyeGargantuarZombie>);
+		&MakeZombie<RedeyeGargantuarZombie>, &RedeyeGargantuarZombie::GetBirthMovementProfile);
 
 	// 5-9 屋脊督军先以视觉样机注册；权重为零，不会污染正式冒险或生存出怪池。
 	RegisterZombie(ZombieType::ZOMBIE_ROOF_MARSHAL, "ZOMBIE_ROOF_MARSHAL",
 		AnimationType::ANIM_ROOF_MARSHAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_ROOF_MARSHAL_ZOMBIE,
-		&MakeZombie<RoofMarshalZombie>);
+		&MakeZombie<RoofMarshalZombie>, &RoofMarshalZombie::GetBirthMovementProfile);
 
 	// 绝缘僵尸复用普通僵尸骨架；陶瓷胸甲作为 Zombie_body 的末尾前景 follower。
 	RegisterZombie(ZombieType::ZOMBIE_INSULATOR, "ZOMBIE_INSULATOR",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<InsulatorZombie>);
+		&MakeZombie<InsulatorZombie>, &InsulatorZombie::GetBirthMovementProfile);
 
 	// 劫持者独立复用小丑时间线，75% 锁定与处决计时全部由黑夜屋顶 Board 状态拥有。
 	RegisterZombie(ZombieType::ZOMBIE_HIJACKER, "ZOMBIE_HIJACKER",
 		AnimationType::ANIM_HIJACKER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_HIJACKER_ZOMBIE,
-		&MakeZombie<HijackerZombie>);
+		&MakeZombie<HijackerZombie>, &HijackerZombie::GetBirthMovementProfile);
 
 	// 急救员复用普通僵尸时间线，以逻辑计时驱动双模式治疗并用身体 follower 区分状态。
 	RegisterZombie(ZombieType::ZOMBIE_HEALER, "ZOMBIE_HEALER",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<HealerZombie>);
+		&MakeZombie<HealerZombie>, &HealerZombie::GetBirthMovementProfile);
 
 	// 接地僵尸复用路障时间线，仅把三阶段护具换成带铜天线的独立电紫资源。
 	RegisterZombie(ZombieType::ZOMBIE_GROUNDING, "ZOMBIE_GROUNDING",
 		AnimationType::ANIM_GROUNDING_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_GROUNDING_ZOMBIE,
-		&MakeZombie<GroundingZombie>);
+		&MakeZombie<GroundingZombie>, &GroundingZombie::GetBirthMovementProfile);
 
 	// 一次正式出怪由队长在首更新补齐三名同类型跟随者；跟随者不重复消费波次预算。
 	RegisterZombie(ZombieType::ZOMBIE_BOBSLED_TEAM, "ZOMBIE_BOBSLED_TEAM",
 		AnimationType::ANIM_BOBSLED_TEAM_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_BOBSLED_TEAM_ZOMBIE,
-		&MakeZombie<BobsledTeamZombie>);
+		&MakeZombie<BobsledTeamZombie>, &BobsledTeamZombie::GetBirthMovementProfile);
 
 	// 工程师复用路障完整时间轴；逻辑计时施工不增加死亡或啃食帧事件。
 	RegisterZombie(ZombieType::ZOMBIE_ICE_WALL_ENGINEER, "ZOMBIE_ICE_WALL_ENGINEER",
 		AnimationType::ANIM_CONE_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_CONE_ZOMBIE,
-		&MakeZombie<IceWallEngineerZombie>);
+		&MakeZombie<IceWallEngineerZombie>, &IceWallEngineerZombie::GetBirthMovementProfile);
 
 	// 钻机复用路障骨骼和帧事件；独立附着 reanim 负责四相钻齿与三档破损轮廓。
 	RegisterZombie(ZombieType::ZOMBIE_ICE_CRACK_DRILL, "ZOMBIE_ICE_CRACK_DRILL",
 		AnimationType::ANIM_ICE_CRACK_DRILL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_CONE_ZOMBIE,
-		&MakeZombie<IceCrackDrillZombie>);
+		&MakeZombie<IceCrackDrillZombie>, &IceCrackDrillZombie::GetBirthMovementProfile);
 
 	// 气象设备是非磁性的独立附着层；铁桶本体完整复用标准铁桶防具契约。
 	RegisterZombie(ZombieType::ZOMBIE_WEATHER_JAMMER, "ZOMBIE_WEATHER_JAMMER",
 		AnimationType::ANIM_BUCKET_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE,
-		&MakeZombie<WeatherJammerZombie>);
+		&MakeZombie<WeatherJammerZombie>, &WeatherJammerZombie::GetBirthMovementProfile);
 
 	// 处刑者复用扶梯全时间线：隐藏梯子、替换冰锤，并让原版红帽作为 anim_head1 命名 follower。
 	RegisterZombie(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER,
 		"ZOMBIE_ICE_STATUE_EXECUTIONER",
 		AnimationType::ANIM_LADDER_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_LADDER_ZOMBIE,
-		&MakeZombie<IceStatueExecutionerZombie>);
+		&MakeZombie<IceStatueExecutionerZombie>, &IceStatueExecutionerZombie::GetBirthMovementProfile);
 
 	// 潜雪僵尸独立复用矿工时间线；雪帽与雪铲无耐久，全部潜雪状态由本体拥有。
 	RegisterZombie(ZombieType::ZOMBIE_SNOW_BURROW, "ZOMBIE_SNOW_BURROW",
 		AnimationType::ANIM_SNOW_BURROW_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_SNOW_BURROW_ZOMBIE,
-		&MakeZombie<SnowBurrowZombie>);
+		&MakeZombie<SnowBurrowZombie>, &SnowBurrowZombie::GetBirthMovementProfile);
 
 	// 适应头盔复用普通僵尸时间线；头盔和胸章是命名 follower，不新增帧事件。
 	RegisterZombie(ZombieType::ZOMBIE_ADAPTIVE_HELMET, "ZOMBIE_ADAPTIVE_HELMET",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<AdaptiveHelmetZombie>);
+		&MakeZombie<AdaptiveHelmetZombie>, &AdaptiveHelmetZombie::GetBirthMovementProfile);
 
 	// 热感狙击手复用普通僵尸完整时间线；装填和出膛由独立逻辑计时，不增加帧事件。
 	RegisterZombie(ZombieType::ZOMBIE_THERMAL_SNIPER, "ZOMBIE_THERMAL_SNIPER",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<ThermalSniperZombie>);
+		&MakeZombie<ThermalSniperZombie>, &ThermalSniperZombie::GetBirthMovementProfile);
 
 	// 两类终章僵尸完整复用普通僵尸时间轴；身份件与提交演出均为命名 follower/粒子。
 	RegisterZombie(ZombieType::ZOMBIE_AURORA_PRIEST, "ZOMBIE_AURORA_PRIEST",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<AuroraPriestZombie>);
+		&MakeZombie<AuroraPriestZombie>, &AuroraPriestZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_POLAR_CLOCKMAKER, "ZOMBIE_POLAR_CLOCKMAKER",
 		AnimationType::ANIM_NORMAL_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
-		&MakeZombie<PolarClockmakerZombie>);
+		&MakeZombie<PolarClockmakerZombie>, &PolarClockmakerZombie::GetBirthMovementProfile);
 
 	// ==================== 非植物/僵尸动画映射 ====================
 	mAnimToString[AnimationType::ANIM_SUN] = ResourceKeys::Reanimations::REANIM_SUN;
@@ -909,13 +911,14 @@ void GameDataManager::RegisterZombie(ZombieType type,
 	const std::string& enumName,
 	AnimationType animType,
 	const std::string& animName,
-	ZombieFactoryFn factory) {
+	ZombieFactoryFn factory, ZombieMovementFactoryFn movement) {
 	ZombieInfo info;
 	info.type = type;
 	info.enumName = enumName;
 	info.animType = animType;
 	info.animName = animName;
 	info.factory = factory;
+	info.movement = movement;
 	mZombieInfo[type] = info;
 
 	// 记录动画类型->资源名，以便通过 AnimationType 统一查询
@@ -1294,6 +1297,42 @@ AnimationType GameDataManager::GetZombieAnimationType(ZombieType zombieType) con
 	if (it != mZombieInfo.end())
 		return it->second.animType;
 	return AnimationType::ANIM_NONE;
+}
+
+ZombieMovementRules::BirthProfile GameDataManager::GetZombieBirthMovement(ZombieType zombieType) const
+{
+	const auto found = mZombieInfo.find(zombieType);
+	return found!=mZombieInfo.end() && found->second.movement ? found->second.movement() : ZombieMovementRules::BirthProfile{};
+}
+
+ZombieMovementRules::SpeedRange GameDataManager::GetZombieBirthMoveSpeeds(ZombieType type) const
+{
+	const auto profile = GetZombieBirthMovement(type);
+	if (profile.linear) return {{profile.velocityMinimum,(profile.velocityMinimum+profile.velocityMaximum)*.5f,profile.velocityMaximum},true,profile.phaseDependent};
+	auto& resources = ResourceManager::GetInstance();
+	const auto animation = GetZombieAnimationType(type);
+	const auto reanimation = resources.GetReanimation(resources.AnimationTypeToString(animation));
+	if (!reanimation) return {};
+	const auto* ground = reanimation->GetTrack("_ground");
+	if (!ground) return {};
+	float minimum=0, maximum=0, total=0;
+	int count=0;
+	for (const char* name : {profile.clip,profile.alternative}) {
+		if (!name) continue;
+		const auto range = reanimation->GetTrackFrameRange(name);
+		if (range.first<0 || range.second<=range.first || range.second>=static_cast<int>(ground->mFrames.size())) return {};
+		float distance=0;
+		for (int frame=range.first; frame<range.second; ++frame)
+			distance += std::abs(ground->mFrames[frame+1].x-ground->mFrames[frame].x);
+		const float stride=distance/(range.second-range.first);
+		minimum=count==0 ? stride : std::min(minimum,stride);
+		maximum=std::max(maximum,stride); total+=stride; ++count;
+	}
+	if (count==0) return {};
+	const float low=minimum*profile.rootMinimum*profile.animationMinimum*profile.abilityMinimum;
+	const float high=maximum*profile.rootMaximum*profile.animationMaximum*profile.abilityMaximum;
+	const float mean=total/count*(profile.rootMinimum+profile.rootMaximum)*.5f*(profile.animationMinimum+profile.animationMaximum)*.5f*(profile.abilityMinimum+profile.abilityMaximum)*.5f;
+	return {{low,std::clamp(mean,low,high),high},true,profile.phaseDependent};
 }
 
 std::string GameDataManager::GetZombieAnimName(ZombieType zombieType) const {

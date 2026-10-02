@@ -529,3 +529,8 @@ void EliteJackInTheBoxZombie::LoadExtraData(const nlohmann::json& j)
 		ClaimLoopSound();
 	}
 }
+
+ZombieMovementRules::BirthProfile EliteJackInTheBoxZombie::GetBirthMovementProfile()
+{
+	return GetRunMovementProfile(kEliteRunVelocity,kEliteRunVelocity);
+}

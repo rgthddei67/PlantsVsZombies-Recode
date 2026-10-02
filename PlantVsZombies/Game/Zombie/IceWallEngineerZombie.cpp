@@ -267,3 +267,10 @@ void IceWallEngineerZombie::ApplyEngineerEquipmentTextures() const
 		}
 	}
 }
+
+ZombieMovementRules::BirthProfile IceWallEngineerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

@@ -307,3 +307,10 @@ void WeatherJammerZombie::SyncDevicePresentation(bool restartTracks) const
 	if (mTerminalAnimator) mTerminalAnimator->PlayTrack(track, speed, 0.0f);
 	mPresentedPhase = mJammerPhase;
 }
+
+ZombieMovementRules::BirthProfile WeatherJammerZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.phaseDependent=true;
+	return p;
+}

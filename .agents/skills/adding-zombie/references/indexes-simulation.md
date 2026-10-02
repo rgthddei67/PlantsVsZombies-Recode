@@ -46,3 +46,6 @@
 ### 预存清场预测要区分宿主、触发卡与已提交唤醒
 
 `ColdStorageSearch::Counter` 的预存来源保留 `plantID`，多株来源的咖啡触发使用 `sharedSource` 共用真实冷却与资源。咖啡已付款不代表爆炸已经脱离宿主：睡眠/唤醒阶段仍可被吃掉；用 `DoomShroom::GetExplosionTimeRemaining()` 获取已提交流程的剩余时长，不能再套卡槽冷却或重复收费。未提交反制比较完整且各自可支付的等待时间线，长队列的等待对照随已知出生计划延长，不能假设首只诱饵一定骗掉预存清场。来源死亡后取消后续触发与订冰需求，爆炸结算只消费该来源一次。圆形爆区使用正式对象原点、判定矩形及 Board 当前出生行 Y，不能混用碰撞箱中心或仅靠行差估计；专项按稳定实体 ID 对照实际命中，覆盖咖啡等待、唤醒与充能阶段。
+### 出生运动画像不得通过试生成读取
+
+品种新增或改变步速时，让具体类的只读 `GetBirthMovementProfile` 与实际 Setup 共用参数，并在 `GameDataManager::RegisterZombie` 登记其回调；普通变体可继承父类。`GetZombieBirthMoveSpeeds` 只读资源 `_ground` / clip 或独立线性速度，不创建 Zombie/Animator、不调用 Start、不消耗正式 RNG。活体 `GetMineSimulationMoveSpeed` 保留实际随机值、装备阶段和固定 clip 速度；独立车辆/地下移动覆写目标自有接口。后台只收数值副本，不能携带资源或实体。出生画像不等于完整行为模拟，新增阶段须检查既有能力时间线，不能靠设置 `phaseDependent` 声称已模拟转换。`smoke_commander_movement` 检查登记覆盖与真实出生速度，策略单测检查工人追越、延迟保护和车辆位置减速。

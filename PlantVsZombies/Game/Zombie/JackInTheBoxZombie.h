@@ -9,6 +9,10 @@
  */
 class JackInTheBoxZombie : public Zombie {
 public:
+	/** 按当前装备/运动阶段读取实际稳态步速，吃饭或施法时不误用动作 clip。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 	~JackInTheBoxZombie() override;
 
@@ -41,6 +45,8 @@ public:
 	bool CanBeFrozen() const override;
 
 protected:
+	/** 普通/精英实际手摇速度共用的出生画像换算。 */
+	static ZombieMovementRules::BirthProfile GetRunMovementProfile(float minimum, float maximum);
 	void SetupZombie() override;
 	void RegisterFrameEvents() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;

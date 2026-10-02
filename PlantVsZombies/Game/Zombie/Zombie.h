@@ -3,6 +3,7 @@
 #define _ZOMBIE_H
 
 #include "ZombieType.h"
+#include "ZombieMovementRules.h"
 #include "MagneticItem.h"
 #include "../AnimatedObject.h"
 #include "../Plant/PlantType.h"
@@ -67,6 +68,8 @@ private:
 	struct TangleKelpState;
 
 public:
+	/** 默认双步态出生运动；改写运动的派生类提供同名静态 getter，注册表直接读取，禁止创建探针实体。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile() { return {}; }
 	ZombieType mZombieType = ZombieType::NUM_ZOMBIE_TYPES;
 
 	int mRow = -1;
@@ -136,7 +139,7 @@ protected:
 	bool mTemporalReplacementRetirement = false; // 时间替身接管稳定 ID 时，旧壳只释放生命周期且不结算死亡
 	bool mDbgAnomalyLogged = false;	// [DBG] 临时插桩：死亡期间轨道异常只记一次
 
-	float mSpeed = 10.0f;
+	float mSpeed = ZombieMovementRules::BaseRootSpeed;
 	int mGroundTrackIndex = -1;
 	int mTangleKelpPlantID = NULL_PLANT_ID;	// 正在抓住本僵尸的水草 ID；保证一只僵尸只能被一株水草锁定
 	std::unique_ptr<TangleKelpState> mTangleKelpState; // 仅被抓目标分配，含拖沉进度及前后层 anim_grab
@@ -339,7 +342,7 @@ public:
 	/** 矿道短视估计使用的持续对植物伤害；特殊锤击另声明等效周期，不复制品种判断。 */
 	virtual float GetMineSimulationAttackDps() const;
 	/** 取稳态行走片段的根运动；硬控余时由推演单独消费，避免当前停格被当成永久静止。 */
-	float GetMineSimulationMoveSpeed() const;
+	virtual float GetMineSimulationMoveSpeed() const;
 	/** 持续行走预测的减速倍率，同时包含动画减速与位移时间缩放。 */
 	float GetSimulationSlowMoveMultiplier() const { return 0.5f * AmplifySpeedMultiplierForGoldenIce(GetSlowAnimFactor()); }
 	virtual float GetMineSimulationSmashSeconds() const { return 0.0f; }
@@ -626,6 +629,10 @@ protected:
 	virtual void ApplyExtraHealthMultiplier(double) {}
 	// 减速时动画降速因子（快速铁桶 0.8 覆写；位移减半由 Update 的 scaledDelta 承担，与此正交）
 	virtual float GetSlowAnimFactor() const { return 0.6f; }
+	/** 预测稳态运动共用实际能力、天气和移动增益；控制停步在推演时间线单独处理。 */
+	float ScaleSimulationMoveSpeed(float speed) const;
+	/** 用指定稳态轨道和实际 clip 速度读取根运动，不计控制停步。 */
+	float GetSimulationRootMoveSpeed(const char* clip, float clipSpeed) const;
 	// 僵尸自身最终提供的整体动画能力倍率；可由固定品种值、运行期状态或已持久化随机结果派生。
 	virtual float GetAbilityAnimSpeedMultiplier() const { return 1.0f; }
 	/** 当前动作是否消费鼓舞攻击加速；默认仅啃食，独立近战动作由目标品种声明。 */

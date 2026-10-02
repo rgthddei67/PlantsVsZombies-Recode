@@ -502,3 +502,21 @@ void DolphinRiderZombie::LoadExtraData(const nlohmann::json& j)
 	mSpeed = kGroundRootMotionRate;
 	ApplyPhasePresentation();
 }
+
+ZombieMovementRules::BirthProfile DolphinRiderZombie::GetBirthMovementProfile()
+{
+	auto p=Zombie::GetBirthMovementProfile();
+	p.clip="anim_walkdolphin";
+	p.alternative=nullptr;
+	p.rootMinimum=p.rootMaximum=kGroundRootMotionRate;
+	p.animationMinimum=p.animationMaximum=kFastGroundClipSpeed;
+	p.phaseDependent=true;
+	return p;
+}
+
+float DolphinRiderZombie::GetMineSimulationMoveSpeed() const
+{
+	if (mPhase==Phase::RIDING) return ScaleSimulationMoveSpeed(kRideWorldSpeed);
+	if (mPhase==Phase::JUMPING) return ScaleSimulationMoveSpeed(kJumpWorldSpeed);
+	return Zombie::GetMineSimulationMoveSpeed();
+}

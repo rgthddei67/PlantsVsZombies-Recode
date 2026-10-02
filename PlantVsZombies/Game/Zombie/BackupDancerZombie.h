@@ -8,6 +8,10 @@
 // 领队关系：mLeaderID 指向舞王；领队死亡/自己被魅惑后即为无主（照常跳舞前进，原版行为）。
 class BackupDancerZombie : public Zombie {
 public:
+	/** 读取本品种当前运动阶段的稳态速度；后续阶段转换仍由能力时间线近似。 */
+	float GetMineSimulationMoveSpeed() const override;
+	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
+	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
 	using Zombie::Zombie;
 
 	enum class BackupPhase {

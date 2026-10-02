@@ -38,7 +38,6 @@ constexpr int kPortfolioTrials = 192; // 第二版固定评估预算，含不同
 constexpr float kPortfolioDelay = 60; // 第二版允许跨过一轮反制冷却的出生时域，游戏秒
 constexpr float kPortfolioHorizon = 120; // 最晚队员也有完整交战窗口，游戏秒；产冰仍只计前 60 秒
 constexpr int kForecastSummonLimit = 64; // 一次推演新增小鬼数量上限，不改变正式召唤上限
-constexpr float kForecastImpWalkSpeed = 20; // 小鬼落地后的保守移动近似，像素/游戏秒
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
@@ -1187,7 +1186,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		Unit child;
 		child.body.row = units[i].body.row;
 		child.body.spawnAt = Horizon(s)+1;
-		child.body.speed = kForecastImpWalkSpeed;
+		child.body.speed = s.impWalkSpeed;
 		thrownChild[i] = static_cast<int>(units.size());
 		units.push_back(child); // 免费召唤既不增加付款资产，也不向玩家凭空返冰
 	}
@@ -1210,6 +1209,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
 	ConstructionStats constructionStats;
+	// 同速假设会把先出的前排当成永久掩护。生产案用合法的快后排/慢前排对照，
+	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
+	const bool economicForecast = std::any_of(units.begin(),units.end(),[](const Unit& unit){return unit.body.economic && unit.body.health>0;});
+	if (economicForecast) for (auto& unit : units) {
+		if ((!unit.birthMovementKnown && unit.minimumMoveSpeed<=0) || unit.maximumMoveSpeed<unit.minimumMoveSpeed) continue;
+		unit.body.speed = unit.body.economic ? unit.maximumMoveSpeed : unit.minimumMoveSpeed;
+		++constructionStats.movementBoundsApplied;
+	}
 	if (s.precisionTargetID > 0) constructionStats.abilityIceSpent = ColdStorageSkillRules::StrikeIceCost;
 	int precisionID = s.precisionTargetID > 0 ? s.precisionTargetID : s.pendingPrecisionID;
 	const float precisionAt = s.precisionTargetID > 0 ? ColdStorageSkillRules::StrikeAimDuration : s.pendingPrecisionRemaining;
@@ -1450,7 +1457,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					if (active > 0 && DamagePlant(p,p.crushDamage,true,f) && p.health > 0) u.x += p.vehicleRetreat;
 				} else DamagePlant(p,damage,false,f);
 			} else {
-				u.x -= u.speed * ritualMove * drumMove * activity[0] * speedFactor;
+				// 车辆会随位置减速；保留采样时已有加速状态，不把当前车速冻结到整个时域。
+				const float curve=worker.movementCurve.Factor(u.x-worker.movementCurveBase)
+					/ worker.movementCurve.Factor(worker.movementCurveReference-worker.movementCurveBase);
+				u.x -= u.speed * curve * ritualMove * drumMove * activity[0] * speedFactor;
 				// 高速爆发不能跨步穿墙，车辆也不能越过仍存活的抗碾压坚果。
 				if (contact >= 0 && (worker.burst.range > 0 || (worker.vehicleCrush && plants[contact].crushDamage > 0))) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
