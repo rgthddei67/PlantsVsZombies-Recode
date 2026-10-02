@@ -16,6 +16,8 @@ python autotest/train_commander_league.py --output build/clang-release/autotest/
 
 `planner` 是保留旧陪练之外的预算型对手：平静时发展经济，威胁接近时为即将转好的灰烬留阳光；现有冰不足以使用反制时仍可先订货。基础经济建成后，会为缺失路线的合法输出攒钱，避免不停买便宜植物而始终买不起输出。救险和金盏花周转先执行，实际交易仍受正常资金、冷却和合法格位约束。它是一种新的压力分布，不预先认定比所有旧陪练都强。`--curriculum coached` 混合该对手与旧陪练，强调前两关正常开局，独立留出仍覆盖整个第十章。
 
+`pine_elite` 陪练使用蓄冷菠萝与精英胆小菇，沿用预算型对手的经济、南瓜保护和灰烬反制。它为菠萝保留邻接输出的格位，只有九格内精英菇有同行目标且付得起费用时，才通过 `player_activate_cold_pineapple` 的正式玩家门禁发动领域。10-6 及以后可合法选择名额支援，另一个增益由配对种子选择卡速或准备时间；每场通过 `goto_level.coldStorageBonusSelection` 独立指定，不改变其他陪练的默认增益。`abilities` 课程同时保留西瓜、混合火力、全池和删减池，含正常开局与精英菇战术片段；片段成绩不能当作完整真人对局胜率。用 `smoke_commander_pine_elite_opponent` 和对应 verifier 检查实际选择、补种与付费领域。
+
 陪练或评分发生变化时，先跑小批配对诊断，再选择是否扩大训练；中途观察可以触发下一批调整或异常停机。正在比较的同一批策略使用固定规则，变更规则须新建输出目录并保留旧输入/结果。不能把交互修改过的半场比赛混入原实验胜率，或根据已看到的留出结果继续挑选同一批参数。
 
 若选优冠军与现用策略完全相同，联赛直接写入 `unchanged_policy` 并结束，不重复跑两份相同参数的留出/残局对照；门槛仍为未通过，空的验证场次不冒充已测胜率。不同的搜索版本、局势模型或其他策略字段都不能借这个分支跳过独立对照。
@@ -58,7 +60,7 @@ python autotest/train_commander_league.py --output build/clang-release/autotest/
 
 两版的进屋特征都至多计一次胜利，并结束这次推演；额外僵尸穿过已失守防线不重复增加胜利收益，胜利之后也不再虚构制冰和伤害。所有购买仍完整计入支出。这些共同战斗规则已回补到第一版，旧权重也必须重新实战比较；`searchVersion` 仍区分候选搜索范围及其他实验预测，不用于保留错误的清场或重复胜利计分。`smoke_commander_mowers.json` 验证正式第一版的待机车、行驶车和已耗车路径。
 
-此版本的玩家模型是有界近似：覆盖普通单格输出/阻挡/生产株、南瓜与曙光莲；尚不模拟紫卡前置建设、地面陷阱和累计配额株的后续种植、金盏花循环铲种或所有特殊技能。合法落点来自当前快照，不把当前非法格自动视作未来合法。`searchConstructionOptions` 和 `searchPredictedPlantings` 可核对预测是否接入；静态防线诊断可加 `audit_commander_forecast.py --static-defense`，只关闭后续陪练输入，结果标明 `playerActions=false`，禁止当成实战胜率。
+玩家补阵是有界近似：覆盖普通单格输出/阻挡/生产株、南瓜、曙光莲和有累计名额的精英胆小菇；紫卡前置建设、地面陷阱和部分特殊技能仍不完整。同种单格植物死亡后的补位复用正式地形判定，精英菇与模仿者共享剩余累计次数，新株从初始成长开始；次数耗尽后也不能虚构为补菇订冰。`searchConstructionOptions`、`searchPredictedPlantings` 与 `searchEliteRemainingUses` 可核对预测是否接入；静态防线诊断可加 `audit_commander_forecast.py --static-defense`，只关闭后续陪练输入，结果标明 `playerActions=false`，禁止当成实战胜率。
 
 这仍是有限推演与局势相关评分，尚非对未来玩家建造和未来再投资的完整多阶段模拟。`searchStateInputs`、`searchEffectiveWeights` 和 `searchAdaptive` 记录实际生效状态，训练逐次决策也保存它们。`smoke_commander_state_model.json` 使用明确的合成参数核对接口能表达等待与扩编，不将该测试当作训练成功或胜率证明；发布仍须通过独立真实对照。
 

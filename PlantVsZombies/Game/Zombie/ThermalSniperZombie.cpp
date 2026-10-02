@@ -1,4 +1,5 @@
 #include "ThermalSniperZombie.h"
+#include "ThermalSniperRules.h"
 
 #include "../../DeltaTime.h"
 #include "../../ParticleSystem/ParticleSystem.h"
@@ -15,10 +16,10 @@
 namespace {
 constexpr int kBodyHealth = 1200; // 热感狙击僵尸本体生命
 constexpr int kBiteDamage = 50; // 单次啃咬基础伤害
-constexpr float kReloadSeconds = 1.5f; // 每只僵尸独立装填所需游戏秒
-constexpr float kAimSeconds = 0.35f; // 落种到出膛的显著瞄准预警时长，单位游戏秒
-constexpr float kPulseSpeed = 1800.0f; // 热脉冲水平飞行速度绝对值，单位 px/游戏秒
-constexpr float kMuzzleOffsetX = 52.0f; // 枪口沿面朝方向相对本体视觉原点的横向偏移，单位 px
+constexpr float kReloadSeconds = ThermalSniperRules::Reload; // 共用独立装填周期，游戏秒
+constexpr float kAimSeconds = ThermalSniperRules::Aim; // 共用落种预警时长，游戏秒
+constexpr float kPulseSpeed = ThermalSniperRules::PulseSpeed; // 共用热脉冲速度，px/游戏秒
+constexpr float kMuzzleOffsetX = ThermalSniperRules::MuzzleOffset; // 共用枪口偏移，px
 constexpr float kMuzzleOffsetY = 26.0f; // 枪口相对本体视觉原点的垂直偏移，单位 px
 constexpr float kPulseTargetOffsetY = 0.0f; // 热脉冲在原落种位置的目标高度，单位 px
 constexpr float kGogglesOffsetX = -13.0f; // 护目镜相对头部轨道的水平偏移，单位动画 px

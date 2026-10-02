@@ -1752,6 +1752,19 @@ bool Board::OccupyPlantFootprint(PlantType type, int row, int anchorColumn,
 
 bool Board::CanPlantAt(PlantType type, int row, int col)
 {
+	return CanPlantAtImpl(type,row,col,NULL_PLANT_ID);
+}
+
+bool Board::CanForecastReplacementAt(PlantType type, int row, int col)
+{
+	const Plant* plant = type == PlantType::PLANT_PUMPKINSHELL ? GetPumpkinAt(row,col) : GetNormalPlantAt(row,col);
+	return plant && plant->IsActive() && plant->GetPlacementType() == type
+		&& !IsMultiCellPlantType(type) && !IsUpgradePlantType(type)
+		&& CanPlantAtImpl(type,row,col,plant->mPlantID);
+}
+
+bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
+{
 	// 工具卡使用来源/目的两段事务，不可作为普通植物落种。
 	if (type == PlantType::PLANT_CARRYVINE || GameDataManager::GetInstance().IsSkillCard(type)) return false;
 	if (!MiniGame::AllowsPlant(mLevel, type)) return false;
@@ -1787,6 +1800,8 @@ bool Board::CanPlantAt(PlantType type, int row, int col)
 	const bool isWater = IsPoolSquare(row, col);
 	Plant* underPlant = mEntityRegistry.GetPlant(cell->GetUnderPlantID());
 	Plant* normalPlant = mEntityRegistry.GetPlant(cell->GetNormalPlantID());
+	if (normalPlant && normalPlant->mPlantID == vacatedPlantID) normalPlant = nullptr;
+	const bool normalEmpty = cell->GetNormalPlantID() == NULL_PLANT_ID || cell->GetNormalPlantID() == vacatedPlantID;
 	const bool hasLilyPad = underPlant
 		&& underPlant->mPlantType == PlantType::PLANT_LILYPAD;
 	const bool hasFlowerPot = underPlant && underPlant->IsRoofSupportPlant();
@@ -1808,7 +1823,7 @@ bool Board::CanPlantAt(PlantType type, int row, int col)
 	}
 	if (type == PlantType::PLANT_PUMPKINSHELL) {
 		// 南瓜有独立外壳层，但水路与屋顶仍分别要求正确的承载植物。
-		if (cell->GetPumpkinPlantID() != NULL_PLANT_ID) return false;
+		if (cell->GetPumpkinPlantID() != NULL_PLANT_ID && cell->GetPumpkinPlantID() != vacatedPlantID) return false;
 		if (normalPlant && IsMultiCellPlantType(normalPlant->mPlantType)) return false;
 		if (isWater) return hasLilyPad;
 		if (IsRoofBackground()) return hasFlowerPot;
@@ -1829,7 +1844,7 @@ bool Board::CanPlantAt(PlantType type, int row, int col)
 		&& type != PlantType::PLANT_TANGLEKELP
 		&& type != PlantType::PLANT_SEASHROOM) {
 		// 屋顶普通植物只占 normal 层，必须由 under 层的花盆承载。
-		return hasFlowerPot && cell->GetNormalPlantID() == NULL_PLANT_ID;
+		return hasFlowerPot && normalEmpty;
 	}
 	if (type == PlantType::PLANT_LILYPAD
 		|| type == PlantType::PLANT_TANGLEKELP
@@ -1841,9 +1856,9 @@ bool Board::CanPlantAt(PlantType type, int row, int col)
 		// 土豆雷没有水面形态；即使已有睡莲也不能落在水路。
 		if (type == PlantType::PLANT_POTATOMINE) return false;
 		return hasLilyPad
-			&& cell->GetNormalPlantID() == NULL_PLANT_ID;
+			&& normalEmpty;
 	}
-	return cell->GetNormalPlantID() == NULL_PLANT_ID
+	return normalEmpty
 		&& (cell->GetUnderPlantID() == NULL_PLANT_ID || hasFlowerPot);
 }
 

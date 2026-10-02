@@ -1333,6 +1333,13 @@ int main()
 	s.current={worker}; s.plants[0].dps=100;
 	const auto targeted=Search(s,InitialWeights,91);
 	check(targeted.precisionTargetID==1 && targeted.precisionGain>0,"precision removes lethal fire when protected production repays its opportunity cost");
+	// 没有在场工人时，等待优案不能代表清除后的机会；必须比较技能和同路新工人的联合投入。
+	auto joint=s; joint.current.clear(); joint.capacity=1; joint.budget=84;
+	Option future; future.type=1; future.cost=12; future.unit=worker; future.unit.id=0;
+	joint.options={future};
+	const auto followed=Search(joint,InitialWeights,91);
+	check(followed.precisionTargetID==1 && followed.actions.size()==1 && followed.features[4]>0,
+		"precision jointly evaluates a new same-row worker even when the no-strike optimum waits");
 	s.precisionTargetID=1; ConstructionStats stats;
 	const auto fired=Evaluate(s,{},&stats);
 	check(fired[5]==60 && stats.precisionHits==1 && stats.abilityIceSpent==60,"precision charges exactly once and resolves after its aim");
@@ -1448,6 +1455,87 @@ int main()
 	s.plants[0].health=0; Evaluate(s,{},&stats);
 	check(stats.riftRedirects==0,"destroyed boundary flower cannot reject an arrival");
 	std::cout << "Priest cycles, equipment, entry, free summons and committed boundary counter passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.playerSun=10000; s.playerIce=10000;
+	Unit sniper; sniper.id=10; sniper.body.x=900; sniper.body.health=1200;
+	sniper.sniper.enabled=true; sniper.sniper.stopHealth=400; s.current={sniper};
+	Construction card; card.source=0; card.sunCost=100; card.recharge=4; card.remainingUses=2;
+	card.plant.row=0; card.plant.column=1; card.plant.x=300;
+	card.plant.health=card.plant.maximumHealth=100; card.plant.dps=1; card.plant.reward=6;
+	s.construction={card}; ConstructionStats stats;
+	const auto hit=Evaluate(s,{},&stats);
+	check(stats.planted==2 && stats.deploymentShots==2 && stats.deploymentHits==2 && hit[0]==12,
+		"deployment sniper punishes replacement while consuming finite card uses");
+	check(s.current[0].sniper.remaining==0 && s.construction[0].remainingUses==2,
+		"forecast does not mutate live reload or planting quota");
+	s.construction[0].remainingUses=0; Evaluate(s,{},&stats);
+	check(stats.planted==0 && stats.deploymentShots==0,"exhausted quota cannot create another target");
+	auto depleted=s; depleted.anticipateEconomy=true; depleted.playerIce=0;
+	depleted.shop={{100,40,1}}; depleted.construction[0].iceCost=30;
+	Evaluate(depleted,{},&stats);
+	check(stats.planted==0 && stats.orders==0,"exhausted replacement quota cannot invent future ice purchases or opponent cash losses");
+	s.construction.clear(); s.plants={card.plant}; Evaluate(s,{},&stats);
+	check(stats.deploymentShots==0,"ready sniper never attacks an old deployment without a planting event");
+	s.plants.clear(); s.construction={card}; s.construction[0].remainingUses=1;
+	s.current[0].body.row=1; Evaluate(s,{},&stats);
+	check(stats.deploymentShots==0,"deployment reaction is restricted to the same row");
+	s.current={sniper}; s.current[0].body.health=400; Evaluate(s,{},&stats);
+	check(stats.deploymentShots==0,"head loss disables future deployment shots");
+	s.current={sniper}; s.current[0].body.stopped=60; s.current[0].sniper.remaining=1.5f;
+	Evaluate(s,{},&stats); check(stats.deploymentShots==0,"hard control pauses reload rather than granting free readiness");
+	s.current={sniper};
+	Plant shell; shell.id=1; shell.row=0; shell.column=6; shell.x=700; shell.layer=2; shell.health=500;
+	s.plants={shell}; const auto blocked=Evaluate(s,{},&stats);
+	check(stats.deploymentHits==1 && blocked[0]==0,"thermal pulse is intercepted by the nearest pumpkin and cannot delete the rear replacement");
+	s.current[0].sniper.muzzleOffset=-700;
+	check(Evaluate(s,{},&stats)[0]==6 && stats.deploymentHits==1,
+		"projected muzzle offset determines flight direction and ignores walls outside the ray");
+	s.current={sniper};
+	s.plants[0].hostileMirrors=1; Evaluate(s,{},&stats);
+	check(stats.deploymentShots==1 && stats.deploymentHits==0,"a formed hostile mirror consumes the pulse before plant damage");
+	s.plants.clear(); s.current.clear();
+	s.construction[0].quotaGroup=0;
+	auto copy=s.construction[0]; copy.source=1; copy.plant.row=1; s.construction.push_back(copy);
+	Evaluate(s,{},&stats); check(stats.planted==1,"imitater and original card share a cumulative quota across rows and cooldowns");
+	s.construction.clear(); s.current={sniper};
+	s.current[0].sniper.aiming=true; s.current[0].sniper.remaining=.35f;
+	s.current[0].sniper.targetID=123; s.current[0].sniper.targetX=300; s.current[0].sniper.damage=100;
+	auto target=card.plant; target.id=123; target.dps=3000; s.plants={target};
+	Evaluate(s,{},&stats);
+	check(stats.deploymentShots==1 && stats.deploymentHits==1,"a pulse already fired survives death of its source during flight");
+	std::cout << "Deployment suppression, interception, independent flight and shared finite replacements passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=102; s.capacity=2;
+	Option heavy; heavy.type=1; heavy.cost=100; heavy.unit.body.x=800; heavy.unit.body.health=3000;
+	heavy.unit.body.speed=1; heavy.unit.body.purchaseCost=100; heavy.unit.throwHealth=1500;
+	Option drum; drum.type=2; drum.cost=2; drum.unit.body.x=800; drum.unit.body.health=1600;
+	drum.unit.body.purchaseCost=2; drum.unit.drum.enabled=true; drum.unit.drum.remaining=.5f; drum.unit.drum.stopHealth=533;
+	s.options={heavy,drum}; Weights weights{}; weights[7]=30; weights[5]=-1;
+	const auto boosted=Search(s,weights,401);
+	check(boosted.actions.size()==2 && boosted.construction.drumRecipients>0,
+		"search buys drummer with a heavy advance when the buff repays its marginal cost");
+	s.options[1].unit.drum.enabled=false;
+	const auto plain=Search(s,weights,401);
+	check(plain.actions.size()==1 && boosted.score>plain.score,"removing drum ability removes the reason to buy the extra unit");
+	s.budget=32; s.options.clear(); weights={0,0,0,.5f,2,-1,0,0};
+	Option tank; tank.type=3; tank.cost=20; tank.unit.body.x=800; tank.unit.body.health=900;
+	tank.unit.body.speed=4; tank.unit.body.purchaseCost=20; tank.unit.adaptiveHelmet=100;
+	Option worker; worker.type=4; worker.cost=12; worker.unit.body.x=820; worker.unit.body.health=500;
+	worker.unit.body.speed=4; worker.unit.body.purchaseCost=12; worker.unit.body.economic=true;
+	Plant fire; fire.id=1; fire.x=300; fire.health=10000; fire.dps=100;
+	fire.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_ELITE_SCAREDYSHROOM);
+	s.plants={fire}; s.options={tank,worker};
+	const auto protectedWorker=Search(s,weights,402);
+	check(protectedWorker.actions.size()==2 && protectedWorker.features[4]>0 && protectedWorker.supportEvaluated>0,
+		"single-lineage fire permits an adaptive frontline and profitable rear worker");
+	auto mixed=fire; mixed.damageOrigin=PlantDamageOrigin::FromPlant(PlantType::PLANT_PEASHOOTER); s.plants.push_back(mixed);
+	const auto mixedResult=Search(s,weights,402);
+	check(mixedResult.features[4]<protectedWorker.features[4],"mixed fire removes adaptive protection instead of blindly preserving the same formation");
+	std::cout << "Search chooses optional drummer/heavy and adaptive/worker synergy by counterfactual return\n";
 	}
 
 }

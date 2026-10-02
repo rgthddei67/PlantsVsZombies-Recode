@@ -34,6 +34,8 @@ public:
 	float GetReloadRemaining() const { return mReloadRemaining; }
 	float GetAimRemaining() const { return mAimRemaining; }
 	int GetLockedPlantID() const { return mLockedPlantID; }
+	int GetLockedDamage() const { return mLockedDamage; }
+	Vector GetLockedPosition() const { return mLockedPosition; }
 
 protected:
 	void SetupZombie() override;

@@ -2,6 +2,7 @@
 #include "DeltaTime.h"
 #include "Game/GameScene.h"
 #include "Game/SceneManager.h"
+#include "Game/Plant/ColdPineappleRules.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -14,7 +15,8 @@ using Json = nlohmann::json;
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool planner = opponent == "planner";
+	const bool pineElite = opponent == "pine_elite";
+	const bool planner = opponent == "planner" || pineElite;
 	const bool fortifier = opponent == "fortifier" || planner;
 	const bool lotusPlayer = opponent == "lotus" || fortifier;
 	const bool builder = opponent == "builder" || lotusPlayer;
@@ -46,6 +48,28 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			}
 		}
 	bool releasedLotus = false;
+	// 菠萝只在九格内精英菇确有同行目标时付费增幅，保留近身反制的预算；不空场循环耗冰。
+	if (pineElite && stock >= ColdPineappleRules::kIceCost+defenseIceReserve) {
+		const Json* selected = nullptr; int bestTargets = 0;
+		for (const auto& p : state.at("plants")) if (p.value("pineappleReady",false) && p.value("pineappleAffordable",false)) {
+			int targets = 0;
+			for (const auto& ally : state.at("plants")) {
+				if (ally.at("type") != "PLANT_ELITE_SCAREDYSHROOM" || ally.value("health",0) <= 0
+					|| std::abs(ally.at("row").get<int>()-p.at("row").get<int>()) > 1
+					|| std::abs(ally.at("col").get<int>()-p.at("col").get<int>()) > 1) continue;
+				if (std::any_of(zombies.begin(),zombies.end(),[&](const Json& z) {
+					return z.at("row") == ally.at("row") && z.at("xInt").get<int>() <= SCENE_WIDTH
+						&& z.at("xInt").get<int>() > state.at("cells").at(ally.at("row").get<int>())
+							.at(ally.at("col").get<int>()).at("centerXInt").get<int>();
+				})) ++targets;
+			}
+			if (targets > bestTargets) { selected = &p; bestTargets = targets; }
+		}
+		if (selected) {
+			actions.push_back({{"op","player_activate_cold_pineapple"},{"row",selected->at("row")},{"col",selected->at("col")}});
+			stock -= ColdPineappleRules::kIceCost;
+		}
+	}
 	// 使用已经充满的实际植物，通过玩家输入门禁释放；不直接改能量或调用伤害结算。
 	if (lotusPlayer && !zombies.empty()) for (const auto& p : state.at("plants"))
 		if (p.value("dawnCanActivate",false)) {
@@ -202,13 +226,23 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	if (fortifier && producers >= 4) {
 		cells.clear(); for (int r : rows) cells.emplace_back(r,0);
 		attempt(eliteDefense ? "PLANT_ELITE_SCAREDYSHROOM" : "PLANT_MELONPULT",cells);
+		const auto attackCells = cells;
+		if (pineElite) {
+			// 尽量让菠萝邻接已建输出，后续补菇保留另一侧格，避免经济株先占满领域核心。
+			cells.clear();
+			for (int r : rows) for (int c : {1,2}) if (std::any_of(plants.begin(),plants.end(),[&](const auto& entry) {
+				return entry.second.at("type") == "PLANT_ELITE_SCAREDYSHROOM"
+					&& std::abs(entry.first.first-r) <= 1 && std::abs(entry.first.second-c) <= 1;
+			})) cells.emplace_back(r,c);
+			attempt("PLANT_COLDPINEAPPLE",cells);
+		}
 		// 高优先级的合法输出已转好但暂时缺阳光时，允许攒钱；不能每秒花掉零钱后永远买不起。
 		// 前面的救险与金盏花周转仍可执行；这是陪练的建设计划，不干预僵尸购买或免费补资源。
 		// 先有八株基本经济再冻结其他建设，避免过早攒大件反而长期缺少收入。
 		if (planner && producers >= 8 && !planted) for (const auto& card : state.at("cards")) {
 			if (card.at("gameplayType") != (eliteDefense ? "PLANT_ELITE_SCAREDYSHROOM" : "PLANT_MELONPULT")
 				|| !card.at("ready").get<bool>() || card.at("sunCost").get<int>() <= sun) continue;
-			for (const auto& [r,c] : cells) {
+			for (const auto& [r,c] : attackCells) {
 				const Json cell = Json::array({r,c});
 				if (std::find(card.at("legalCells").begin(),card.at("legalCells").end(),cell) != card.at("legalCells").end())
 					return actions;
@@ -223,14 +257,14 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			cells.emplace_back(r,3); cells.emplace_back(r,5);
 			if (builder) {
 				if (r != 0 && r != 4) cells.emplace_back(r,4);
-				cells.emplace_back(r,2);
+				if (!pineElite) cells.emplace_back(r,2);
 			}
 		}
 		attempt("PLANT_SUNFLOWER", cells);
 	}
 	// 陌生阵型沿用正式累计配额和冷却；不能在精英菇死亡后免费重建四株。
 	if (eliteDefense) {
-		cells.clear(); for (int r : rows) { cells.emplace_back(r,0); cells.emplace_back(r,1); }
+		cells.clear(); for (int r : rows) { cells.emplace_back(r,0); cells.emplace_back(r,pineElite ? 2 : 1); }
 		attempt("PLANT_ELITE_SCAREDYSHROOM", cells);
 		cells.clear(); for (int r : rows) { cells.emplace_back(r,2); cells.emplace_back(r,1); }
 		attempt("PLANT_REPEATER", cells);
@@ -256,7 +290,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());

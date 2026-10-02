@@ -740,6 +740,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mInteractive = j.value("interactive", false);
 	mHumanObservation = j.value("humanObservation",false);
 	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
+	mDefaultColdStorageBonusSelection = mColdStorageBonusSelection;
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
@@ -993,6 +994,7 @@ bool TestDriver::ExecuteCurrent() {
 		const int mineRevision = cmd.value("mineLayoutRevision",mMineLayoutRevision);
 		if (mineRevision < 0 || mineRevision > MineGrid::CurrentLayoutRevision) { Fail("mineLayoutRevision 超出支持范围"); return false; }
 		if (cmd.value("resetTestState", false)) ResetTestState();
+		mColdStorageBonusSelection = cmd.value("coldStorageBonusSelection",mDefaultColdStorageBonusSelection);
 		auto& sm = SceneManager::GetInstance();
 		const std::string backgroundName = cmd.value("background", "");
 		if (!backgroundName.empty() && !IsBackgroundName(backgroundName)) {
@@ -4921,6 +4923,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchRiftSummons"] = board->mColdStorage.searchRiftSummons;
 		ice["searchRiftRedirects"] = board->mColdStorage.searchRiftRedirects;
 		ice["searchDrumOptions"] = board->mColdStorage.searchDrumOptions;
+		ice["searchDeploymentSniperOptions"] = board->mColdStorage.searchDeploymentSniperOptions;
+		ice["searchDeploymentShots"] = board->mColdStorage.searchDeploymentShots;
+		ice["searchDeploymentHits"] = board->mColdStorage.searchDeploymentHits;
+		ice["searchEliteReplacementOptions"] = board->mColdStorage.searchEliteReplacementOptions;
+		ice["searchEliteRemainingUses"] = board->mColdStorage.searchEliteRemainingUses;
 		ice["searchDrumBeats"] = board->mColdStorage.searchDrumBeats;
 		ice["searchDrumRecipients"] = board->mColdStorage.searchDrumRecipients;
 		ice["searchSupportEvaluated"] = board->mColdStorage.searchSupportEvaluated;

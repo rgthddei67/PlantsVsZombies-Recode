@@ -332,6 +332,8 @@ public:
 	std::array<float, 8> mGoldenIceTimer{}; // 每行黄色冰道剩余寿命，单位秒
 
 private:
+	/** 共用正式地形/名额规则；仅预测允许忽略指定普通层或南瓜占位。 */
+	bool CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID);
 	/** 雪穴预警期间尚未创建的正式波次僵尸；提交前清穴只改回右侧入口。 */
 	struct PendingSnowHoleSpawn {
 		ZombieType type = ZombieType::NUM_ZOMBIE_TYPES;
@@ -1603,6 +1605,8 @@ public:
 
 	/** UI 与测试共用的正式种植判定，不含阳光与卡片冷却。 */
 	bool CanPlantAt(PlantType type, int row, int col);
+	/** 预测同种单格植物死亡后的补种资格；不移除实体，不忽略地形或累计名额。 */
+	bool CanForecastReplacementAt(PlantType type, int row, int col);
 	/** 解析可搬组合的稳定锚点 ID；多格植物任一占格均归到同一锚点。 */
 	int GetRelocationSourceID(int row, int col);
 	/** 检查已有整组植物能否原样移入完整空占地，不应用新种配额或升级前置条件。 */

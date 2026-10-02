@@ -47,8 +47,9 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         roster = sorted(random.Random(seed ^ 0xC01D).sample(pool, max(1, len(pool) // 2)))
     match = re.search(r'_10_([1-9])$', arena)
     level = 81 + int(match.group(1)) if match else 82
+    pine_elite = opponent == 'pine_elite'
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
-    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier', 'planner'):
+    if opponent in ('counter', 'ash', 'adaptive', 'hunter', 'builder', 'lotus', 'fortifier', 'planner', 'pine_elite'):
         cards += ['SQUASH']
         # 正式卡槽最多 11 张；已有三叶草对空时，将重复对空位置留给倭瓜。
         if all_zombies:
@@ -59,9 +60,14 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
             cards.remove('SQUASH')  # 全兵种保留对空；曙光莲占用这张即时反制卡的正式卡槽。
     if opponent == 'ash':
         cards = [c for c in cards if c not in ('MELONPULT', 'WINTERMELON')]
-    elite = arena.startswith('elite_')
+    elite = arena.startswith('elite_') or pine_elite
+    mono = arena.startswith('elite_mono') or pine_elite
     if elite:
-        cards = [({'MELONPULT': 'REPEATER', 'WINTERMELON': 'ELITE_SCAREDYSHROOM'}).get(c, c) for c in cards]
+        cards = [({'MELONPULT': 'ELITE_SCAREDYSHROOM' if mono else 'REPEATER',
+                   'WINTERMELON': 'ELITE_SCAREDYSHROOM'}).get(c, c) for c in cards]
+        cards = list(dict.fromkeys(cards))
+    if pine_elite:
+        cards.append('COLDPINEAPPLE')
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
@@ -70,11 +76,16 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
          'netEconomy': policy.get('netEconomy',False), 'anticipateBuilding': policy.get('anticipateBuilding',False),
          'searchVersion': policy.get('searchVersion',1),'opponentWeight':policy.get('opponentWeight',0),
          'anticipateEconomy':policy.get('anticipateEconomy',False)},
-        {'op': 'goto_level', 'level': level},
+        {'op': 'goto_level', 'level': level, 'coldStorageBonusSelection': pine_elite and level >= 87},
         {'op': 'choose_cards', 'cards': ['PLANT_' + c for c in cards],
          'imitaterTarget': 'PLANT_MARIGOLD'},
         {'op': 'wait_state', 'state': 'GAME', 'timeout': 25},
     ]
+    if pine_elite and level >= 87:
+        # 复用正式三选二：名额搭配卡速或准备时间，随配对种子变化，不向AI泄露玩家未来操作。
+        commands[3:3] = [{'op':'wait_frames','value':3},
+                         {'op':'cold_storage_bonus_pick','choice':1},
+                         {'op':'cold_storage_bonus_pick','choice':3 if seed % 2 else 2}]
     if all_zombies or policy.get('noWorkers'):
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
         if roster is not None:
@@ -99,11 +110,16 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                               ('PUMPKINSHELL', 0), ('PUMPKINSHELL', 1)]
             if elite:
                 lineup = [('REPEATER', 2), ('PUMPKINSHELL', 2), ('SUNFLOWER', 3), ('SUNFLOWER', 5)]
+                if mono:
+                    # 单一持续火力与现有混合火力形成对照；灰烬仍按真实资源/冷却由陪练决定。
+                    lineup = [('SUNFLOWER', 3), ('SUNFLOWER', 5)]
                 # 正式限制是一局累计四株。集中两路与分散四路各用同样的四株，轮换位置。
                 relative = (row - seed % 5) % 5
                 elite_columns = ([0, 1] if relative in (0, 2) else []) if 'cluster' in arena else ([0] if relative < 4 else [])
                 for column in elite_columns:
                     lineup += [('ELITE_SCAREDYSHROOM', column), ('PUMPKINSHELL', column)]
+                if pine_elite:
+                    lineup.append(('COLDPINEAPPLE',1))
             if developing:
                 lineup = [('MELONPULT', 0), ('SUNFLOWER', 3), ('SUNFLOWER', 5)]
             if banked:

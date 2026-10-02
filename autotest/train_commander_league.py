@@ -128,9 +128,17 @@ def curriculum_templates(name):
         # 能力适配后的局部训练：正常后段开局与全/半兵池共存，留出种子和对手不参与选优。
         selection = [('normal:opening_10_5','planner'),('normal:opening_10_6','ash'),
                      ('normal:opening_10_7','fortifier'),('opening','planner'),('masked:opening','hunter')]
+        # 正式10-6卡池里的单一/混合火力片段，检验适应、鼓舞与补种压制的边际价值。
+        # 只改变陪练场景，不规定僵尸必须购买什么；胜负仍由实际游戏结算。
+        selection += [('normal:elite_mono_10_6','pine_elite'),('normal:elite_cluster_10_6','planner')]
+        selection[1] = ('normal:opening_10_6','pine_elite')
+        selection[3] = ('opening_10_6','pine_elite')
         collection = selection
         holdout = [('normal:opening','planner'),('normal:opening_10_6','fortifier'),('normal:opening_10_7','ash')]
         holdout += [(prefix+'opening',opponent) for prefix in ('','masked:') for opponent in ('planner','fortifier','ash')]
+        holdout += [('normal:elite_mono_10_6','pine_elite'),('normal:elite_spread_10_6','hunter')]
+        holdout[1] = ('normal:opening_10_6','pine_elite')
+        holdout += [('opening_10_6','pine_elite'),('masked:opening_10_6','pine_elite')]
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
     return collection, selection, holdout

@@ -75,8 +75,15 @@ int EliteScaredyShroom::GetPuffDamage() const
 
 AttackGrowth EliteScaredyShroom::GetSimulationAttackGrowth() const
 {
+	auto growth = InitialSimulationAttackGrowth(GetGrowthRatePercent() == 100);
+	growth.progress = mGrowthProgress;
+	return growth;
+}
+
+AttackGrowth EliteScaredyShroom::InitialSimulationAttackGrowth(bool night)
+{
 	AttackGrowth growth;
-	growth.progress = mGrowthProgress; growth.perShot = GetGrowthRatePercent()/100.0f;
+	growth.perShot = night ? kNightGrowthFactor : kDayGrowthFactor;
 	growth.maximum = kMaximumGrowthShots;
 	growth.baseInterval = kBaseShootIntervalSeconds; growth.minimumInterval = kMinimumShootIntervalSeconds;
 	growth.intervalFactor = kSpeedFactorPerStage; growth.speedShots = kSpeedGrowthShots;

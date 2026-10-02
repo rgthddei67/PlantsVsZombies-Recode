@@ -24,6 +24,8 @@ public:
 	float GetSimulationAttackDps(float) const override { return GetPuffDamage() / GetShootInterval(); }
 	/** 导出当前成长及正式阶段参数；预测只修改返回副本，不改变实体或存档。 */
 	AttackGrowth GetSimulationAttackGrowth() const;
+	/** 新种画像与实体共用成长参数；不继承旧株成长进度。 */
+	static AttackGrowth InitialSimulationAttackGrowth(bool night);
 
 protected:
 	void SetupPlant() override;

@@ -22,6 +22,8 @@
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/AdaptiveHelmetZombie.h"
 #include "Game/Zombie/AdaptiveHelmetRules.h"
+#include "Game/Zombie/ThermalSniperZombie.h"
+#include "Game/Zombie/ThermalSniperRules.h"
 #include "Game/Zombie/AuroraPriestZombie.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Plant/BoundaryFlower.h"
@@ -29,6 +31,7 @@
 #include "Game/Plant/IceStorageNut.h"
 #include "Game/Plant/ColdPineapple.h"
 #include "Game/Plant/EliteScaredyShroom.h"
+#include "Game/Plant/IceMirrorGrass.h"
 #include "Game/Plant/DoomShroom.h"
 #include "Game/Plant/CoffeeBean.h"
 #include "Game/Zombie/GargantuarZombie.h"
@@ -361,6 +364,24 @@ namespace {
 		unit.adaptedOrigin = live ? live->GetAdaptedOrigin() : PlantDamageOrigin{};
 	}
 
+	/** 投影独立装填和已经锁定的单株；不能把同行已有植物误当成落种事件。 */
+	void ProjectDeploymentSniper(ColdStorageSearch::Unit& unit, const ThermalSniperZombie* live = nullptr)
+	{
+		auto& sniper = unit.sniper;
+		sniper.enabled = !live || (live->HasHead() && live->GetSniperPhase() != ThermalSniperZombie::SniperPhase::DISABLED);
+		sniper.stopHealth = (live ? live->mBodyMaxHealth : unit.body.health)/3;
+		// 活体以实际视觉枪口换算；候选沿用当前出生碰撞近似，并读取品种的视觉偏移。
+		sniper.muzzleOffset = (live ? live->GetVisualPosition().x-unit.body.x
+			: unit.body.blastAnchorOffset+GameDataManager::GetInstance().GetZombieOffset(ZombieType::ZOMBIE_THERMAL_SNIPER).x)
+			-ThermalSniperRules::MuzzleOffset;
+		sniper.aiming = live && live->GetSniperPhase() == ThermalSniperZombie::SniperPhase::AIMING;
+		sniper.remaining = !live ? ThermalSniperRules::Reload : sniper.aiming ? live->GetAimRemaining() : live->GetReloadRemaining();
+		if (sniper.aiming) {
+			sniper.targetID = live->GetLockedPlantID(); sniper.targetX = live->GetLockedPosition().x;
+			sniper.damage = static_cast<float>(live->GetLockedDamage());
+		}
+	}
+
 	/** 仪器、余时、已用额度均读实例；场外加速和过载在预测的时间线上重新派生。 */
 	void ProjectRitual(ColdStorageSearch::Unit& unit, const AuroraPriestZombie* live = nullptr)
 	{
@@ -513,6 +534,7 @@ bool Board::SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus)
 		mColdStorage.openingBonusSelectionComplete = true;
 		return true;
 	}
+
 	if (IsColdStorageOpeningBonusChosen(bonus) || GetColdStorageOpeningBonusSelectionCount() >= 2) return false;
 	mColdStorage.openingBonusMask |= 1 << (static_cast<int>(bonus) - 1);
 	if (GetColdStorageOpeningBonusSelectionCount() == 2) {
@@ -1135,7 +1157,7 @@ void Board::PlanColdStorageAttack(bool background)
 			}
 		}
 		// 从当前实战卡槽采集可能的建设，不读取陪练脚本或未来随机结果。
-		// 初版只表示单格普通株/外壳及曙光莲；不假造紫卡前置株、地面陷阱、累计配额或循环铲种。
+		// 单格普通株/外壳、曙光莲和有限名额精英菇；补种仍受真实地形与累计剩余次数约束。
 		if (ColdStoragePolicy::AnticipateBuilding() && mCardSlotManager) {
 			int source = 0;
 			for (const Card* card : mCardSlotManager->GetCards()) {
@@ -1143,16 +1165,21 @@ void Board::PlanColdStorageAttack(bool background)
 				const auto type = card->GetGameplayPlantType();
 				const auto& profile = GameDataManager::GetInstance().GetPlantSimulationProfile(type);
 				if ((!profile.persistent && type != PlantType::PLANT_ICESTORAGENUT) || !profile.futurePlantable || profile.supportOnly || IsUpgradePlantType(type)
-					|| type == PlantType::PLANT_ELITE_SCAREDYSHROOM || type == PlantType::PLANT_SPIKEWEED
+					|| type == PlantType::PLANT_SPIKEWEED
 					|| card->GetSunCost() < 0 || (profile.daytimeDormant && !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround))) continue;
 				const bool lotus = type == PlantType::PLANT_DAWNLOTUS;
 				if (!lotus && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
 				const int id = source++;
-				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
+				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
+					if (CanPlantAt(type,row,col) || CanForecastReplacementAt(type,row,col)) {
 					ColdStorageSearch::Construction future;
 					future.source = id; future.sunCost = card->GetSunCost(); future.iceCost = GetPlantIceCost(type);
 					future.ready = (card->GetCooldownTimer() / cardRecharge); future.recharge = (card->GetCooldownTime() / cardRecharge);
 					future.firstSunDelay = profile.firstSunDelay;
+					if (type == PlantType::PLANT_ELITE_SCAREDYSHROOM) {
+						future.remainingUses = std::max(0,GetEliteScaredyShroomPlantLimit()-GetEliteScaredyShroomsPlanted());
+						future.quotaGroup = 0; // 本卡和模仿者共享本关累计名额。
+					}
 					auto& p = future.plant;
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
 					p.layer = type == PlantType::PLANT_PUMPKINSHELL ? 2 : 1;
@@ -1167,6 +1194,10 @@ void Board::PlanColdStorageAttack(bool background)
 					p.around = profile.mineAttackShape == 2;
 					p.range = CELL_COLLIDER_SIZE_X*(p.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 					ProjectPlantAttack(p, type);
+					if (type == PlantType::PLANT_ELITE_SCAREDYSHROOM) {
+						p.growth = EliteScaredyShroom::InitialSimulationAttackGrowth(GameAPP::GetInstance().GetBackgroundIsNight(mBackGround));
+						p.hitDamage = p.growth.Damage(); p.dps = p.hitDamage/p.growth.Interval();
+					}
 					p.slowRate = profile.slowApplicationsPerSecond; p.slowDuration = profile.slowDuration;
 					p.stopDuty = profile.frozenApplicationsPerSecond*profile.frozenDuration + profile.butterApplicationsPerSecond*profile.butterDuration;
 					if (lotus) {
@@ -1240,6 +1271,7 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
+			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
 			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(entity)) ProjectRitual(unit,priest);
 			ProjectDrum(unit,entity);
 			unit.vehicleCrush = entity->mZombieType == ZombieType::ZOMBIE_ZAMBONI || entity->mZombieType == ZombieType::ZOMBIE_GILDED_ZAMBONI
@@ -1274,6 +1306,7 @@ void Board::PlanColdStorageAttack(bool background)
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
 				plant.assetValue = plantCapital(entity);
 				plant.maximumHealth = static_cast<float>(entity->mPlantMaxHealth);
+				if (const auto* mirror = dynamic_cast<const IceMirrorGrass*>(entity)) plant.hostileMirrors = mirror->GetMirrorCount();
 				if (const auto* boundary = dynamic_cast<const BoundaryFlower*>(entity)) {
 					plant.boundaryShards = boundary->GetShardCount(); plant.boundaryCharge = boundary->GetShardCharge();
 					plant.boundaryRecharge = BoundaryFlowerRules::ShardSeconds;
@@ -1325,6 +1358,7 @@ void Board::PlanColdStorageAttack(bool background)
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
 			if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) ProjectDrum(unit);
 			if (type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) ProjectAdaptation(unit);
+			if (type == ZombieType::ZOMBIE_THERMAL_SNIPER) ProjectDeploymentSniper(unit);
 			if (type == ZombieType::ZOMBIE_AURORA_PRIEST) ProjectRitual(unit);
 			unit.vehicleCrush = type == ZombieType::ZOMBIE_ZAMBONI || type == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT;
@@ -1984,6 +2018,10 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchArmorRepairIce = result.construction.armorRepairIce; s.searchPlantRepairIce = result.construction.plantRepairIce;
 	s.searchAbilityIce = result.construction.abilityIceSpent;
 	s.searchDrumOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.drum.enabled; }));
+	s.searchDeploymentSniperOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.sniper.enabled; }));
+	s.searchDeploymentShots = result.construction.deploymentShots; s.searchDeploymentHits = result.construction.deploymentHits;
+	s.searchEliteReplacementOptions = static_cast<int>(std::count_if(search.construction.begin(),search.construction.end(),[](const auto& card) { return card.quotaGroup == 0; }));
+	s.searchEliteRemainingUses = std::max(0,GetEliteScaredyShroomPlantLimit()-GetEliteScaredyShroomsPlanted());
 	s.searchAdaptationOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.adaptiveHelmet > 0; }));
 	s.searchRitualOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.ritual.present; }));
 	s.searchRitualReleases = result.construction.ritualReleases; s.searchRiftSummons = result.construction.riftSummons;

@@ -6,6 +6,7 @@
 #include "../CardSlotManager.h"
 #include "../Sun.h"
 #include "../Shovel.h"
+#include "Game/Plant/ColdPineapple.h"
 #include <filesystem>
 #include <stdexcept>
 
@@ -151,6 +152,13 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 				reason = "dawn_lotus_unavailable";
 			else Log("player activated dawn lotus");
 		}
+		else if (op == "player_activate_cold_pineapple") {
+			auto* plant = dynamic_cast<ColdPineapple*>(scene->GetBoard()->GetNormalPlantAt(
+				command.at("row").get<int>(),command.at("col").get<int>()));
+			// 与玩家手动技能共用资格、冷却及付款，陪练不能直接写入领域时长。
+			if (!plant || !plant->TryActivateManualAbility()) reason = "cold_pineapple_unavailable";
+			else Log("player activated cold pineapple");
+		}
 		else if (op == "player_plant") {
 			for (const char* key : {"slot", "row", "col"})
 				if (!command.at(key).is_number_integer()) throw std::runtime_error("plant_coordinates_must_be_integers");
@@ -198,7 +206,8 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 		if (full.contains(key)) for (const auto& entity : full[key]) {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
-				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate"}));
+				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
+				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs"}));
 		}
 	}
 	// 冷却与资金由卡本身导出；legalCells 只说明当前地形/占位资格，不能代替交易时复核。

@@ -58,6 +58,14 @@ struct Drum {
 	bool enabled = false, winding = false;
 	float remaining = 0, stopHealth = 0;
 };
+/** 同行落种反应：装填与前摇独立计时，出膛后的脉冲不再依赖来源存活。 */
+struct DeploymentSniper {
+	bool enabled = false, aiming = false;
+	float remaining = 0, stopHealth = 0;
+	int targetID = 0;
+	float targetX = 0, damage = 0;
+	float muzzleOffset = 0; // 碰撞参考 X 到实际视觉枪口的偏移，像素；Board 转换后提供
+};
 /** 仪器破坏取消未提交仪式并切换过载；已提交的裂隙由独立队列持有。 */
 struct Ritual {
 	bool present = false, enabled = false, winding = false;
@@ -69,6 +77,7 @@ struct Unit {
 	PaidBurst burst;
 	ArmorRepair repair;
 	Drum drum;
+	DeploymentSniper sniper;
 	Ritual ritual;
 	float adaptiveHelmet = 0;
 	PlantDamageOrigin adaptedOrigin;
@@ -90,6 +99,7 @@ struct Plant {
 	PlantDamageOrigin damageOrigin;
 	float maximumHealth = 0; // 裂隙按最高层原上限选择落点，不随当前残血重排
 	int boundaryShards = 0;
+	int hostileMirrors = 0; // 冰镜草已成型镜面，逐发拦截敌方直射弹
 	float boundaryRecharge = 0, boundaryCharge = 0, boundaryBlockedUntil = 0;
 	AttackGrowth growth; // perShot > 0 时按实际射击成长；DPS 不再冻结在采样时刻
 	float growthSpeed = 1; // 不含菠萝领域的基础行动倍率，领域在时间线中独立推进
@@ -124,6 +134,8 @@ struct Construction {
 	RowStrike strike;
 	int source = 0, sunCost = 0, iceCost = 0;
 	float ready = 0, recharge = 1, firstSunDelay = 0;
+	int remainingUses = -1; // 同 source 共用累计剩余次数，-1 表示不限；死亡不返还
+	int quotaGroup = -1; // 非负时跨卡槽共享名额，如本卡与模仿者；缺省按 source
 };
 /** 一张可循环铲种的返阳光卡；候选格共享卡槽冷却，收益来自真实负阳光价格。 */
 struct SunExchange {
@@ -146,6 +158,7 @@ struct ConstructionStats {
 	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
 	float armorRepairIce = 0, plantRepairIce = 0;
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
+	int deploymentShots = 0, deploymentHits = 0;
 	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;

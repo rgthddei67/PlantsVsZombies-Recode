@@ -2,6 +2,7 @@
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
+#include "Game/Zombie/ThermalSniperRules.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Plant/BoundaryFlowerRules.h"
 #include "Game/Plant/DawnLotusRules.h"
@@ -42,7 +43,7 @@ constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 constexpr int kInvestmentTrials = 32; // 大兵池额外经营对照的单阶段上限；不增加原攻击搜索预算或强制采购
-constexpr int kSupportTrials = 32; // 护卫/光环协同额外对照上限，不强制购买
+constexpr int kSupportTrials = 48; // 防具/鼓舞/落种压制协同对照上限，按组合类型轮转，不强制购买
 constexpr int kPrecisionTargets = 12; // 技能优先候选数，每个最多比较两个编队
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
 constexpr float kPatientCounterSeconds = 8; // 对手等聚团再交灰烬的一种预测习惯，游戏秒；与即时反制共同取保守结果
@@ -503,9 +504,26 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 }
 }
 
+/** 已出膛的热脉冲保留独立飞行段；来源死亡不会取消，原目标消失也不重新瞄准。 */
+struct DeploymentPulse {
+	int row = 0, targetID = 0;
+	float x = 0, endX = 0, damage = 0, launchedAt = 0;
+};
+
+/** 每只就绪狙击手独立锁定这次新种，已有植物不会凭空触发射击。 */
+static void ReactToDeployment(float time, const Plant& plant, std::vector<Unit>& units) {
+	for (auto& unit : units) {
+		auto& sniper = unit.sniper;
+		if (!sniper.enabled || sniper.aiming || sniper.remaining > 0 || unit.body.spawnAt > time
+			|| unit.body.health <= sniper.stopHealth || unit.body.row != plant.row) continue;
+		sniper.aiming = true; sniper.remaining = ThermalSniperRules::Aim;
+		sniper.targetID = plant.id; sniper.targetX = plant.x; sniper.damage = plant.maximumHealth;
+	}
+}
+
 /** 按眼前威胁选择可能的补阵，建设与灰烬共用实际资源，不替僵尸指定打法。 */
-static void AdvanceConstruction(const Snapshot& state, float time, float horizon, const std::vector<Unit>& units,
-	std::vector<Plant>& plants, std::vector<float>& ready, std::vector<RowStrike>& strikes,
+static void AdvanceConstruction(const Snapshot& state, float time, float horizon, std::vector<Unit>& units,
+	std::vector<Plant>& plants, std::vector<float>& ready, std::vector<int>& uses, std::vector<RowStrike>& strikes,
 	std::vector<float>& strikeReady, float& sun, float& ice, ConstructionStats& stats) {
 	if (plants.size() >= kConstructionPlantLimit) return;
 	std::array<float,6> threat{}, nearest{}, fire{};
@@ -519,7 +537,9 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	float best = 0;
 	for (size_t i = 0; i < state.construction.size(); ++i) {
 		const auto& card = state.construction[i]; const auto& p = card.plant;
-		if (time < ready[card.source] || card.sunCost > sun || PlayerIceCost(state,time,card.iceCost) > ice) continue;
+		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
+		if ((card.remainingUses >= 0 && uses[quota] == 0) || time < ready[card.source]
+			|| card.sunCost > sun || PlayerIceCost(state,time,card.iceCost) > ice) continue;
 		// 曙光莲正式限制是同时一株；死亡后才可再次建设，不能按卡槽数量复制名额。
 		if (card.strike.damage > 0 && std::any_of(strikes.begin(),strikes.end(),[&](const auto& strike) {
 			return std::any_of(plants.begin(),plants.end(),[&](const auto& p) { return p.health > 0 && p.id == strike.plantID; });
@@ -551,6 +571,9 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	plant.initialHealth = plant.health;
 	plant.productionAt = time+card.firstSunDelay;
 	plants.push_back(plant);
+	ReactToDeployment(time,plant,units);
+	const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
+	if (card.remainingUses >= 0 && uses[quota] > 0) --uses[quota];
 	ready[card.source] = time+std::max(kConstructionInterval,card.recharge);
 	sun -= card.sunCost; ice -= PlayerIceCost(state,time,card.iceCost);
 	++stats.planted; stats.sunSpent += card.sunCost; stats.iceSpent += PlayerIceCost(state,time,card.iceCost);
@@ -580,6 +603,7 @@ static bool AuraHasTarget(const Snapshot& state, float time, const Plant& source
 static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::vector<Plant>& plants,
 	std::vector<float>& exchangeReady, std::vector<std::pair<std::array<int,2>,float>>& occupied,
 	const std::vector<float>& counterReady, const std::vector<float>& constructionReady,
+	const std::vector<int>& constructionUses,
 	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
 	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
@@ -611,8 +635,13 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		})) continue;
 		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
-	for (const auto& card : state.construction) if (constructionReady[card.source] <= time+delivery)
-		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
+	for (const auto& card : state.construction) {
+		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
+		// 名额耗尽后不能继续为不存在的补菇采购冰块，否则会虚构对方资源损耗。
+		if (card.remainingUses >= 0 && constructionUses[quota] == 0) continue;
+		if (constructionReady[card.source] <= time+delivery)
+			neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
+	}
 	// 已部署的付费能力也能形成订冰需求；来源消失或手动模式没有受益目标时不凭空补货。
 	for (const auto& aura : auras) if (aura.active+aura.cooldown <= delivery && aura.blockedUntil <= time+delivery) {
 		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
@@ -827,6 +856,56 @@ static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& feature
 	if (plant.health <= 0) features[0] += plant.reward;
 	else if (plant.hasBurstProtection) plant.burstProtection.RecordDamage(before-plant.health);
 	return true;
+}
+
+/** 推进装填/停步瞄准与已出膛弹道；按沿途最近格及南瓜优先结算，不穿透前墙。 */
+static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vector<Unit>& units,
+	std::vector<Plant>& plants, std::vector<DeploymentPulse>& pulses, std::vector<float>& activity,
+	Weights& features, ConstructionStats& stats) {
+	activity.assign(units.size(),1);
+	for (size_t i=0; i<units.size(); ++i) {
+		auto& unit = units[i]; auto& sniper = unit.sniper;
+		if (!sniper.enabled || unit.body.spawnAt > time) continue;
+		if (unit.body.health <= sniper.stopHealth) { sniper.enabled = false; continue; }
+		const float active = std::max(0.0f,kStep-unit.body.stopped);
+		const float rate = unit.body.slow > 0 ? .5f : 1;
+		if (!sniper.aiming) { sniper.remaining = std::max(0.0f,sniper.remaining-active*rate); continue; }
+		const float stopped = std::min(active,sniper.remaining/rate);
+		activity[i] = active > 0 ? (active-stopped)/active : 0;
+		sniper.remaining -= active*rate;
+		if (sniper.remaining > 0) continue;
+		pulses.push_back({unit.body.row,sniper.targetID,unit.body.x+sniper.muzzleOffset,
+			sniper.targetX,sniper.damage,time+stopped});
+		++stats.deploymentShots;
+		sniper.aiming = false; sniper.remaining = ThermalSniperRules::Reload;
+	}
+	for (auto it=pulses.begin(); it!=pulses.end();) {
+		if (it->launchedAt > time+kStep) { ++it; continue; }
+		const float span = std::min(kStep,time+kStep-it->launchedAt);
+		const float direction = it->endX >= it->x ? 1 : -1;
+		const float next = it->x+direction*std::min(std::abs(it->endX-it->x),ThermalSniperRules::PulseSpeed*span);
+		Plant* hit = nullptr;
+		float distance = 0;
+		for (auto& plant : plants) {
+			if (plant.health <= 0 || plant.row != it->row || plant.layer > 2) continue;
+			if (plant.id == it->targetID && next != it->endX) continue;
+			const float low = plant.x-state.cellWidth*.5f, high = plant.x+state.cellWidth*.5f;
+			if (std::max(it->x,next) < low || std::min(it->x,next) > high) continue;
+			const float d = std::max(0.0f,direction > 0 ? low-it->x : it->x-high);
+			const bool mirrorFirst = hit && plant.hostileMirrors > 0 && hit->hostileMirrors <= 0;
+			const bool sameKind = hit && (plant.hostileMirrors > 0) == (hit->hostileMirrors > 0);
+			if (!hit || d < distance || (d == distance && (mirrorFirst || (sameKind && plant.layer > hit->layer)))) {
+				hit = &plant; distance = d;
+			}
+		}
+		if (hit) {
+			if (hit->hostileMirrors > 0) --hit->hostileMirrors;
+			else { DamagePlant(*hit,it->damage,false,features); ++stats.deploymentHits; }
+		}
+		it->x = next;
+		if (hit || next == it->endX) it = pulses.erase(it);
+		else { it->launchedAt = time+kStep; ++it; }
+	}
 }
 
 /** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
@@ -1049,9 +1128,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (size_t i=0; i<units.size(); ++i) if (units[i].id <= 0) units[i].id = -1-static_cast<int>(i);
 	std::vector<float> drumActivity;
 	std::vector<float> constructionReady;
+	std::vector<int> constructionUses;
+	std::vector<DeploymentPulse> deploymentPulses;
+	std::vector<float> sniperActivity;
 	for (const auto& card : s.construction) {
 		if (constructionReady.size() <= static_cast<size_t>(card.source)) constructionReady.resize(card.source+1);
 		constructionReady[card.source] = card.ready;
+		if (card.remainingUses >= 0) {
+			const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
+			if (constructionUses.size() <= static_cast<size_t>(quota)) constructionUses.resize(quota+1,-1);
+			constructionUses[quota] = card.remainingUses;
+		}
 	}
 	float constructionAt = 0;
 	std::vector<float> initialHealth, initialX, smash(units.size());
@@ -1134,12 +1221,13 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
+		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
+			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {
-			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,
+			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,constructionUses,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats);
 			constructionAt = t+kConstructionInterval;
 		}
@@ -1254,7 +1342,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const bool inRange = worker.burst.range > 0 && std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
 				return p.health > 0 && p.edible && p.row == u.row && triggerX >= p.x && triggerX-p.x <= worker.burst.range;
 			});
-			const auto activity = AdvanceBurst(worker,inRange,active*drumActivity[i]*ritualActivity,enemyIce,f,constructionStats);
+			const auto activity = AdvanceBurst(worker,inRange,active*drumActivity[i]*ritualActivity
+				* (worker.sniper.aiming ? 0 : sniperActivity[i]),enemyIce,f,constructionStats);
 			const float ritualMove = !worker.ritual.present ? 1 : (worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed : AuroraPriestRules::OverloadSpeed)
 				* (u.x+u.blastAnchorOffset > s.gridLeft+s.columns*s.cellWidth ? AuroraPriestRules::OutsideSpeed : 1);
 			const float ritualBite = !worker.ritual.present ? 1 : worker.ritual.armor > 0 ? AuroraPriestRules::NormalSpeed
@@ -1480,31 +1569,56 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 				}
 			}
 	}
-	// 支援能力单独出场可能无收益；显式覆盖边际增援和护卫+工人的可行组合，评分仍完全相同。
+	// 支援单独出场可能亏损。按能力组合类型轮转，避免大兵池/多个合法行挤掉鼓手+重兵等组合；
+	// 所有候选仍经过相同推演、资金及资本门禁，不能用“有能力”代替收益。
 	int supportEvaluated = 0;
 	const auto supportParent = best.actions;
-	std::vector<int> supports;
-	for (int i=0; i<static_cast<int>(s.options.size()); ++i)
-		if (s.options[i].unit.repair.interval > 0 || s.options[i].unit.drum.enabled) supports.push_back(i);
-	std::shuffle(supports.begin(),supports.end(),rng);
-	for (int phase=0; phase<3 && supportEvaluated<kSupportTrials; ++phase) for (int option : supports) {
-		if (supportEvaluated >= kSupportTrials) break;
-		if (s.options[option].cost > PurchaseBudget(s)) continue;
-		auto plan = IntroduceOption(s,phase == 0 ? supportParent : std::vector<Action>{},option,rng);
-		plan.back().delay = 0;
-		if (phase > 0) {
-			const auto worker = std::find_if(s.options.begin(),s.options.end(),[&](const Option& o) {
-				return o.row == s.options[option].row && o.unit.body.economic
-					&& o.cost+s.options[option].cost <= PurchaseBudget(s);
-			});
-			if (worker == s.options.end() || ActionLimit(s) < 2) continue;
-			plan.push_back({static_cast<int>(worker-s.options.begin()),phase*3.0f});
+	struct SupportGroup { int type = 0, partner = -1; std::vector<std::vector<Action>> plans; };
+	std::vector<SupportGroup> groups;
+	const auto addSupport = [&](int option, int partner) {
+		const auto& choice = s.options[option];
+		const int partnerType = partner < 0 ? -1 : s.options[partner].type;
+		auto group = std::find_if(groups.begin(),groups.end(),[&](const SupportGroup& g) {
+			return g.type == choice.type && g.partner == partnerType;
+		});
+		if (group == groups.end()) { groups.push_back({choice.type,partnerType,{}}); group = groups.end()-1; }
+		if (partner < 0) group->plans.push_back(IntroduceOption(s,supportParent,option,rng));
+		else for (int order=0; order<2; ++order) {
+			// 同时到场与前排先到均比较；鼓手先到/后到可改变适应者与重兵受益时段。
+			group->plans.push_back({{option,order == 0 ? 0.0f : 3.0f},{partner,order == 0 ? 2.0f : 0.0f}});
 		}
-		Repair(s,plan);
-		auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
-		++supportEvaluated;
-		if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
-		if (candidate.score > best.score+.001f) best = std::move(candidate);
+	};
+	for (int option=0; option<static_cast<int>(s.options.size()); ++option) {
+		const auto& choice = s.options[option]; const auto& unit = choice.unit;
+		if (!(unit.repair.interval > 0 || unit.drum.enabled || unit.adaptiveHelmet > 0 || unit.sniper.enabled)
+			|| choice.cost > PurchaseBudget(s)) continue;
+		addSupport(option,-1);
+		if (ActionLimit(s) < 2) continue;
+		for (int partner=0; partner<static_cast<int>(s.options.size()); ++partner) {
+			const auto& other = s.options[partner];
+			if (partner == option || other.row != choice.row || other.cost+choice.cost > PurchaseBudget(s)) continue;
+			const bool heavy = other.unit.adaptiveHelmet > 0 || other.unit.vehicleCrush || other.unit.throwHealth > 0;
+			const bool useful = unit.drum.enabled ? (heavy || (other.unit.body.speed > 0 && other.unit.body.health >= unit.body.health))
+				: other.unit.body.economic || (unit.adaptiveHelmet > 0 && (heavy || other.unit.drum.enabled || other.unit.sniper.enabled));
+			if (useful) addSupport(option,partner);
+		}
+	}
+	std::shuffle(groups.begin(),groups.end(),rng);
+	for (auto& group : groups) std::shuffle(group.plans.begin(),group.plans.end(),rng);
+	for (size_t round=0; supportEvaluated<kSupportTrials; ++round) {
+		bool found = false;
+		for (const auto& group : groups) {
+			if (supportEvaluated >= kSupportTrials) break;
+			if (round >= group.plans.size()) continue;
+			found = true; auto plan = group.plans[round]; Repair(s,plan);
+			if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
+			largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
+			auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
+			++supportEvaluated;
+			if (rejectInvestment(candidate)) { deferredInvestment = true; continue; }
+			if (candidate.score > best.score+.001f) best = std::move(candidate);
+		}
+		if (!found) break;
 	}
 	const float investmentBestScore = best.score;
 	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
@@ -1602,6 +1716,26 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 		state.precisionTargetID = target.second;
 		for (int mode=0; mode<2; ++mode) {
 			auto plan = mode == 0 ? incumbent.actions : std::vector<Action>{};
+			Repair(state,plan);
+			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
+		}
+		// 不施法时的优案可能攻击另一行，或全体等待；先给清除后的破口比较可支付的跟进，
+		// 否则“先清关键输出再进工人/适应护卫”的联合收益永远进不了最后的重搜。
+		const auto plant = std::find_if(state.plants.begin(),state.plants.end(),[&](const Plant& p) { return p.id == target.second; });
+		if (plant == state.plants.end()) continue;
+		int worker = -1, tank = -1, sniper = -1;
+		for (int i=0; i<static_cast<int>(state.options.size()); ++i) {
+			const auto& option = state.options[i];
+			if (option.row != plant->row || option.cost > PurchaseBudget(state)) continue;
+			if (option.unit.body.economic && (worker < 0 || option.cost < state.options[worker].cost)) worker = i;
+			if (option.unit.adaptiveHelmet > 0 && (tank < 0 || option.cost < state.options[tank].cost)) tank = i;
+			if (option.unit.sniper.enabled && (sniper < 0 || option.cost < state.options[sniper].cost)) sniper = i;
+		}
+		for (int leader : {worker,tank,sniper}) {
+			if (leader < 0) continue;
+			std::vector<Action> plan{{leader,0}};
+			if (leader != worker && worker >= 0 && ActionLimit(state) >= 2
+				&& state.options[leader].cost+state.options[worker].cost <= PurchaseBudget(state)) plan.push_back({worker,3});
 			Repair(state,plan);
 			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
 		}

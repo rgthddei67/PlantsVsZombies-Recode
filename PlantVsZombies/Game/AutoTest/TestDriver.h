@@ -68,6 +68,7 @@ private:
 	void PublishInteractiveReply();
 	bool mHumanObservation = false;
 	bool mColdStorageBonusSelection = false;
+	bool mDefaultColdStorageBonusSelection = false; // 脚本默认值；单场 goto_level 覆盖不泄漏到下一场
 	bool mBackgroundCommander = false; // 性能夹具可显式启用；真人观察默认启用，批量训练默认同步
 	bool mHumanRecordingFailed = false;
 	int mHumanLastDecision = -1, mHumanLastBoardState = -1;
