@@ -52,6 +52,7 @@ constexpr float kLargeInvestmentFraction = .5f; // 一次投入超过现有库�
 constexpr float kCapitalLossFraction = .35f; // 本案及累计试错允许损失的本金比例；只计己方现金和付费存活资产
 constexpr float kReinforcementDelay = 6; // 通用增援的错峰对照间隔，游戏秒；给先行部队拉开承伤距离
 constexpr float kStoredCounterSeconds = 32; // 预存一次性清场可等后续部队聚集的保守对照，游戏秒；不延迟已提交爆炸
+constexpr float kUrgentCounterDistance = 240; // 距房屋此像素范围内优先救险，灰烬和主动打击都不继续等聚团
 
 /** 采购先预留本案技能费；所有维修仍与部队、技能共用同一个钱包。 */
 int PurchaseBudget(const Snapshot& s) { return s.budget-(s.precisionTargetID > 0 ? ColdStorageSkillRules::StrikeIceCost : 0); }
@@ -363,22 +364,24 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	candidate.baselineOpponentAssets = baselineOpponentAssets;
 	candidate.opponentScore = s.opponentWeight*(baselineOpponentAssets-candidate.opponentAssets);
 	candidate.score += candidate.opponentScore;
-	// 不把玩家一定会尽早交牌当成进攻收益。比较完整且各自合法的一次推演，
+	// 不把玩家一定会尽早交牌/释放蓄满技能当成进攻收益。比较完整且各自合法的一次推演，
 	// 不能逐项拼接两个世界的最坏损失，也不能让玩家凭空多出冷却或资源。
 	float storedHold = kStoredCounterSeconds;
 	// 长队列还能分批出生到一分钟之后。等待对照随已知的己方出生计划延长，
 	// 避免新兵仅靠晚于固定等待窗口就被误判为已经骗掉了预存毁灭。
 	for (const auto& unit : s.current) storedHold = std::max(storedHold,unit.body.spawnAt);
 	for (const auto& action : candidate.actions) storedHold = std::max(storedHold,action.delay);
+	const bool hasRowStrike = !s.rowStrikes.empty() || std::any_of(s.construction.begin(),s.construction.end(),
+		[](const auto& card) { return card.strike.damage > 0; });
 	for (float hold : {kPatientCounterSeconds,storedHold}) {
-		if (std::none_of(s.counters.begin(),s.counters.end(),[&](const auto& counter) {
+		if (!hasRowStrike && std::none_of(s.counters.begin(),s.counters.end(),[&](const auto& counter) {
 			return !counter.blast.committed && (hold == kPatientCounterSeconds || counter.stored);
 		})) continue;
 		Result patient;
 		patient.actions = candidate.actions;
 		patient.precisionTargetID = s.precisionTargetID;
 		patient.features = Evaluate(s,patient.actions,&patient.construction,kPatientCounterSeconds,
-			hold == kPatientCounterSeconds ? 0 : storedHold);
+			hold == kPatientCounterSeconds ? 0 : storedHold,hold);
 		Calibrate(s,patient);
 		patient.baselineFeatures = baseline;
 		patient.opponentAssets = patient.construction.opponentAssets;
@@ -443,14 +446,33 @@ struct PendingCounter {
 	float invulnerableAt = 0;
 };
 
-/** 模拟已经种下的逐行主动打击：按生命和推进择敌，前排位置本身不能替工人挡主伤害。 */
+/** 按共享充能与择时释放模拟逐行打击；前排位置本身不能替工人挡主伤害。 */
 void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& strikes, float time, const std::vector<Plant>& plants,
-	std::vector<Unit>& units, const std::vector<float>& initialHealth, std::vector<float>& ready, Weights& features) {
+	std::vector<Unit>& units, const std::vector<float>& initialHealth, std::vector<float>& ready,
+	float holdSeconds, std::vector<float>& holdUntil, Weights& features) {
+	// 建设模型可在推演中新增来源；每株只拥有一个等待计时，不能为各行复制充能。
+	holdUntil.resize(strikes.size(),-1);
 	for (size_t ability = 0; ability < strikes.size(); ++ability) {
 		const auto& strike = strikes[ability];
 		if (time < ready[ability] || std::none_of(plants.begin(),plants.end(),[&](const auto& plant) {
 			return plant.id == strike.plantID && plant.health > 0;
 		})) continue;
+		if (holdSeconds > 0) {
+			bool hasTarget = false, urgent = false;
+			for (const auto& unit : units) {
+				const auto& body = unit.body;
+				if (body.health <= 0 || body.spawnAt > time) continue;
+				hasTarget = true;
+				urgent = urgent || body.x < state.houseX+kUrgentCounterDistance;
+			}
+			// 蓄满不等于玩家已承诺释放。等已经出生的目标出现才开始计时，
+			// 不把稍晚出生的工人误算成已骗掉充能；来源死亡仍由上方门禁取消。
+			if (!hasTarget) continue;
+			if (!urgent) {
+				if (holdUntil[ability] < 0) holdUntil[ability] = time+holdSeconds;
+				if (time < holdUntil[ability]) continue;
+			}
+		}
 		bool used = false;
 		for (int row = 0; row < static_cast<int>(state.context.size()); ++row) {
 			int target = -1;
@@ -478,7 +500,7 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 			}
 		}
 		// 无目标时保留充能；释放一次覆盖所有行，而不是让每行各自获得独立冷却。
-		if (used) ready[ability] = time + strike.recharge;
+		if (used) { ready[ability] = time + strike.recharge; holdUntil[ability] = -1; }
 	}
 }
 
@@ -566,7 +588,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			if (projected.body.health <= 0) continue;
 			const float stake = std::max(kUnpricedCounterStake,units[i].body.purchaseCost > 0 ? units[i].body.purchaseCost : units[i].body.value);
 			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true) / std::max(1.0f, initialHealth[i]);
-			urgent = urgent || units[i].body.x < state.houseX + 240;
+			urgent = urgent || units[i].body.x < state.houseX+kUrgentCounterDistance;
 		}
 		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
 		// 等待从首次存在值得反制的目标开始；同一张牌所有落点共用一次等待。
@@ -1216,7 +1238,7 @@ static float AdvanceRitual(const Snapshot& s, float time, Unit& unit, float acti
 	return wasWinding || r.winding ? 0 : 1;
 }
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1302,6 +1324,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (const auto& u : units) { initialHealth.push_back(u.body.health); initialX.push_back(u.body.x); }
 	std::vector<float> counterReady;
 	std::vector<float> rowStrikeReady;
+	std::vector<float> rowStrikeHoldUntil;
 	for (const auto& strike : s.rowStrikes) rowStrikeReady.push_back(strike.ready);
 	std::vector<PendingCounter> pending;
 	for (const auto& counter : s.counters) {
@@ -1379,7 +1402,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
-		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,f);
+		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);

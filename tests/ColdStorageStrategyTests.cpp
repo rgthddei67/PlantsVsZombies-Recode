@@ -250,6 +250,57 @@ int main()
 	dawn.plants[0].health = 500; dawn.rowStrikes[0].ready = 0; dawn.rowStrikes[0].recharge = 100;
 	dawn.current.push_back(dawn.current[0]); dawn.current[1].body.row = 1; dawn.current[1].body.spawnAt = 1;
 	check(ColdStorageSearch::Evaluate(dawn,{})[4] > 0,"all rows share one cooldown; a later spawn does not receive another free cast");
+	// 真人可以蓄满后等新工人出生；即时释放的冷却窗口不能自动算成后续工人的安全期。
+	auto dawnTiming = dawn;
+	dawnTiming.current[1].body.spawnAt = 4;
+	const auto dawnImmediate = ColdStorageSearch::Evaluate(dawnTiming,{});
+	const auto dawnPatient = ColdStorageSearch::Evaluate(dawnTiming,{},nullptr,0,0,8);
+	check(dawnPatient[4] < dawnImmediate[4] && dawnPatient[6] == 48 && dawnPatient[3] == 0,
+		"holding one charged row strike catches a later worker in another lane without duplicating the charge");
+	ColdStorageSearch::Weights dawnIncome{}; dawnIncome[4] = 1;
+	const auto robustDawn = ColdStorageSearch::Search(dawnTiming,dawnIncome,31);
+	check(robustDawn.counterHoldSeconds == 8 && robustDawn.features == dawnPatient && robustDawn.baselineFeatures == dawnPatient,
+		"row-strike patience is compared without ash cards and uses a complete common waiting baseline");
+	check(dawnTiming.rowStrikes[0].ready == 0 && dawnTiming.current[0].body.health == 500,
+		"numerical holding does not spend the live charge or mutate sampled units");
+	auto farDawn = dawnTiming;
+	farDawn.current[1].body.spawnAt = 40;
+	ColdStorageSearch::Weights dawnLoss{}; dawnLoss[6] = -1;
+	const auto robustFarDawn = ColdStorageSearch::Search(farDawn,dawnLoss,31);
+	check(robustFarDawn.counterHoldSeconds == 40
+		&& robustFarDawn.features == ColdStorageSearch::Evaluate(farDawn,{},nullptr,0,0,40),
+		"held active strikes cover known later paid arrivals instead of assuming charge was spent before birth");
+	auto urgentDawn = dawnTiming;
+	urgentDawn.current[0].body.x = urgentDawn.houseX+100;
+	check(ColdStorageSearch::Evaluate(urgentDawn,{}) == ColdStorageSearch::Evaluate(urgentDawn,{},nullptr,0,0,8),
+		"held row strike releases immediately when a current target threatens the house");
+	auto lostDawn = dawnTiming;
+	lostDawn.plants[0].health = 0;
+	check(ColdStorageSearch::Evaluate(lostDawn,{}) == ColdStorageSearch::Evaluate(lostDawn,{},nullptr,0,0,8),
+		"a destroyed source cannot release a held row strike");
+	auto snipedDawn = dawnTiming;
+	snipedDawn.pendingPrecisionID = 1; snipedDawn.pendingPrecisionRemaining = 2;
+	auto noStrikeDawn = snipedDawn; noStrikeDawn.rowStrikes.clear();
+	check(ColdStorageSearch::Evaluate(snipedDawn,{},nullptr,0,0,8) == ColdStorageSearch::Evaluate(noStrikeDawn,{}),
+		"destroying the source during its hold cancels release instead of leaving an independent delayed strike");
+	auto noTargetDawn = dawnTiming;
+	noTargetDawn.current.resize(1); noTargetDawn.current[0].body.spawnAt = 59;
+	check(ColdStorageSearch::Evaluate(noTargetDawn,{},nullptr,0,0,8)[6] == 0,
+		"row-strike hold begins with a born target and cannot spend charge on future units");
+	auto builtDawn = dawnTiming;
+	builtDawn.plants.clear(); builtDawn.rowStrikes.clear();
+	ColdStorageSearch::Construction dawnCard;
+	dawnCard.plant = sourcePlant; dawnCard.plant.x = 400;
+	dawnCard.strike = dawnTiming.rowStrikes[0]; dawnCard.remainingUses = 1;
+	builtDawn.construction.push_back(dawnCard);
+	ColdStorageSearch::ConstructionStats builtStats;
+	const auto builtPatient = ColdStorageSearch::Evaluate(builtDawn,{},&builtStats,0,0,8);
+	check(builtStats.planted == 1 && builtPatient[6] == 48
+		&& builtPatient[4] < ColdStorageSearch::Evaluate(builtDawn,{})[4],
+		"a legally constructed source gains its own hold timer and one shared charge");
+	const auto robustBuiltDawn = ColdStorageSearch::Search(builtDawn,dawnIncome,31);
+	check(robustBuiltDawn.counterHoldSeconds == 8 && robustBuiltDawn.features == builtPatient,
+		"search includes active-strike holding for possible construction as well as living sources");
 	ColdStorageSearch::ProductionCalibration calibration;
 	calibration.nodes = {{2,1,2,0.5f,1},{-1,-1,-1,0,0.25f},{-1,-1,-1,0,0.75f}};
 	check(calibration.IsValid(), "finite forward-only calibration tree accepted");

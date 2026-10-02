@@ -275,7 +275,7 @@ struct Result {
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
 	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
-	float counterHoldSeconds = 0; // 本次保守评估采用的玩家灰烬等待习惯，游戏秒；不是僵尸出兵间隔
+	float counterHoldSeconds = 0; // 本次保守评估采用的玩家清场/主动打击等待习惯，游戏秒；不是僵尸出兵间隔
 	ProductionFeatures productionInputs{};
 	float formationBaseScore = 0; // 逐行对比前的最优自由编队评分
 	std::array<float, 6> formationScores{}; // 同兵种/费用/时序整体投向各行的评分，按 tested 位掩码读取
@@ -299,8 +299,9 @@ float RemainingCapitalRisk(float fundedCapital, float currentCapital);
 /** 大额及累计亏损采购须保留可续战资本；新增现金与幸存兵力可回本，突破仍优先。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
-/** 有限步位置推演；两类 hold 秒数只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存来源。 */
-Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr, float counterHoldSeconds = 0, float storedHoldSeconds = 0);
+/** 有限步位置推演；hold 只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。 */
+Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
+	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */
