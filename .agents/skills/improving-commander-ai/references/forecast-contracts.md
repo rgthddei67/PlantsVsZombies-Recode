@@ -25,8 +25,10 @@
 | 防具与适应 | 一类防具和二类盾的受伤顺序、穿透／绕盾、整击溢出、真实伤害来源谱系 | 西瓜／混合火力／灰烬；免伤不自动等于免疫减速或小推车 |
 | 临时鼓舞／攻击领域 | 同源刷新、异源叠加、真实范围、前摇停步、效果余时及所有权 | 去掉采样时已烘焙的倍率再逐步计算；不把短 buff 当永久属性，不加速无关生产或技能周期 |
 | 延迟召唤／投掷 | 来源未提交时死亡会取消；已提交后是独立事务；出生前不能承伤 | 现有在途事件也要入快照；免费召唤有战斗威胁但没有购买资产或死亡返冰 |
+| 时间锚 | 每个来源独立计时，目标按邻路威胁排序且不重复套锚；已提交锚须携带死亡目标的数值副本 | 多来源/错峰、来源先死、范围和容量、界碑改点、不可逆清除；回溯不退还灰烬费或重发死亡返冰，存活工人不回退生产进度 |
 | 付费精准清除 | 单株稳定 ID、瞄准延迟、目标提前消失、同格其他层、机会成本 | 低价值单株不施法；清掉关键输出确实改善破阵／续航时可用；不能只靠目标自身返冰或阳光估值 |
 | 玩家应对 | 真实所选卡、资金、共享卡槽冷却、当前合法落点、已承诺爆炸、存储灰烬与不同等待习惯 | 不假定玩家看到第一只就浪费灰烬；不允许对手模型凭空加钱、复制卡槽或读未来操作 |
+| 部署狙击 | 新种灰烬也属于落种事件；来源与引爆截止时间要入推演，旧植物不会重新触发射击 | 瞄准/飞行与引爆竞速、装填/控场、前墙和镜面拦截；只对原锁定实体放行即时植物的部署承伤入口 |
 | 移动与清场 | 实际网格／碰撞锚点、邻路溅射、范围攻击、小推车及已耗车状态 | 清洁车先结算再判断进屋；只计一次胜利，胜利后不继续累积收入 |
 
 修复会撤回恢复部分的削血得分，避免刷血获利；玩家付费建成且存活的植物属于资产转移，不能把种植花费本身记成被消耗。已生效优惠只延续到真实到期点，后续付款恢复原价。
@@ -43,6 +45,7 @@
 
 - 纯数值边界与反事实：`tests/ColdStorageStrategyTests.cpp`，CMake 目标 `ColdStorageStrategyTests`，CTest `cold-storage-strategy`。
 - 付费能力／防具／新技能：`smoke_commander_paid_abilities`、`smoke_commander_defense_abilities`、`smoke_commander_special_skills` 及各自 verifier。
+- 狙击压制灰烬与钟匠已提交回溯：`smoke_commander_support_pressure`、`verify_commander_support_pressure.py`；纯逻辑测试另比较多钟匠的自主选择。灰烬落种须先触发瞄准再推进本步弹道，按实际 reanim 帧率读取已有来源剩余时间。
 - 正式技能事务：`smoke_cold_storage_skills`；按任务补资格边界，别复制过时的血量或冷却断言。
 - 灰烬、存储毁灭、小推车、队列、经营：在 `autotest/scripts/` 按 `commander_stored_doom`、`commander_mowers`、`commander_rolling_queue`、`commander_investment` 等定位现有专项，选受影响的用例。
 - 线程／性能：`smoke_commander_background`、`stress_commander_background`、`verify_commander_background.py`。分别报告 `planningMainMaxMs` 和 `planningWorkerMs`；后台耗时不等于卡了一整帧，平均 FPS 也不能证明没有决策尖峰。

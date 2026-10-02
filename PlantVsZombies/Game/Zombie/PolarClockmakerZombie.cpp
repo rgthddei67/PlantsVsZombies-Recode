@@ -1,4 +1,5 @@
 #include "PolarClockmakerZombie.h"
+#include "PolarClockRules.h"
 
 #include "../../DeltaTime.h"
 #include "../../ParticleSystem/ParticleSystem.h"
@@ -10,13 +11,13 @@
 #include <algorithm>
 
 namespace {
-constexpr int kBodyHealth = 1000; // 极夜钟匠本体生命
-constexpr int kClockDiskHealth = 1200; // 非磁性星盘生命
+constexpr int kBodyHealth = PolarClockRules::BodyHealth; // 极夜钟匠本体生命
+constexpr int kClockDiskHealth = PolarClockRules::ArmorHealth; // 非磁性星盘生命
 constexpr int kBiteDamage = 50; // 星盘完整或破坏后的单口伤害
-constexpr float kPreparationSeconds = 2.0f; // 完成实体创建后的准备游戏秒
-constexpr float kWindupSeconds = 3.2f; // 时间锚提交前可打断前摇
-constexpr float kRetryWaitSeconds = 4.0f; // 被警铃草打断后的等待游戏秒
-constexpr float kCycleCooldownSeconds = 10.0f; // 每次时间锚提交后至下一次前摇的循环冷却游戏秒
+constexpr float kPreparationSeconds = PolarClockRules::Preparation; // 完成实体创建后的准备游戏秒
+constexpr float kWindupSeconds = PolarClockRules::Windup; // 时间锚提交前可打断前摇
+constexpr float kRetryWaitSeconds = PolarClockRules::RetryWait; // 被警铃草打断后的等待游戏秒
+constexpr float kCycleCooldownSeconds = PolarClockRules::Cooldown; // 每次时间锚提交后至下一次前摇的循环冷却游戏秒
 constexpr float kChannelPulseSeconds = 0.72f; // 前摇期间补充一轮星盘齿轮的游戏秒间隔
 constexpr float kDiskOffsetX = 21.0f; // 星盘相对身体轨道的水平偏移，动画 px
 constexpr float kDiskOffsetY = -21.0f; // 星盘相对身体轨道的垂直偏移，动画 px

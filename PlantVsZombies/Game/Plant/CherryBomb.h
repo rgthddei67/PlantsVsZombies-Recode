@@ -11,6 +11,10 @@ public:
 	bool CanBeRelocated() const override { return false; }
 
 	void SetupPlant() override;
+	/** 读取当前引爆帧的剩余游戏秒；无充能动作时返回 -1，不推进动画。 */
+	float GetExplosionTimeRemaining() const;
+	/** 未来新种按最快出生动画估算引爆窗口，保守判断狙击是否来得及。 */
+	static float GetMinimumChargeDuration();
 
 	void TakeDamage(int damage, DamageSource source) override;
 	void TakeDeploymentInterceptionDamage(int damage, DamageSource source) override {

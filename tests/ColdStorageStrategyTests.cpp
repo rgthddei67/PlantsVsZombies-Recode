@@ -4,6 +4,7 @@
 #include "Game/Zombie/ColdChainGuardRules.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Zombie/AdaptiveHelmetRules.h"
+#include "Game/Zombie/PolarClockRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include <chrono>
@@ -1597,7 +1598,95 @@ int main()
 	auto target=card.plant; target.id=123; target.dps=3000; s.plants={target};
 	Evaluate(s,{},&stats);
 	check(stats.deploymentShots==1 && stats.deploymentHits==1,"a pulse already fired survives death of its source during flight");
-	std::cout << "Deployment suppression, interception, independent flight and shared finite replacements passed\n";
+		std::cout << "Deployment suppression, interception, independent flight and shared finite replacements passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Unit sniper; sniper.body.x=900; sniper.body.health=1200; sniper.body.purchaseCost=16;
+	sniper.sniper.enabled=true; sniper.sniper.stopHealth=400;
+	Unit worker; worker.body.x=920; worker.body.health=500; worker.body.purchaseCost=24; worker.body.economic=true;
+	s.current={sniper,worker,worker};
+	Counter ash; ash.blast.x=700; ash.blast.damage=1800; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
+	ash.cellRow=0; ash.cellColumn=6; ash.deploymentHealth=300; ash.deploymentReward=20;
+	s.counters={ash}; ConstructionStats stats;
+	const auto intercepted=Evaluate(s,{},&stats);
+	check(intercepted[4]>0 && intercepted[6]==0 && intercepted[0]==20 && stats.deploymentShots==1 && stats.deploymentHits==1,
+		"a ready deployment sniper kills newly planted ash before detonation and preserves the following workers");
+	check(s.current[0].sniper.remaining==0 && s.plants.empty() && s.counters[0].blast.ready==0,
+		"ash deployment forecast owns its source and cannot mutate live reload, plants or cooldowns");
+	s.current[0].sniper.remaining=10;
+	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentShots==0,"reloading sniper cannot intercept a later old bomb without a new deployment");
+	s.current[0]=sniper; s.current[0].body.row=1;
+	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentShots==0,"a sniper in another lane cannot suppress this ash placement");
+	s.current[0]=sniper;
+	Plant wall; wall.id=1; wall.row=0; wall.column=7; wall.x=800; wall.health=8000;
+	s.plants={wall};
+	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentHits==1,"an actual front wall intercepts the pulse and protects the rear ash");
+	s.plants.clear(); s.counters[0].blast.x=0; s.counters[0].windup=.5f;
+	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentHits==0,"a pulse arriving after the ash deadline cannot cancel an earlier explosion");
+	s.counters[0]=ash; s.counters[0].blast.committed=true; s.counters[0].blast.ready=.2f; s.counters[0].plantID=99;
+	Plant bomb; bomb.id=99; bomb.x=700; bomb.health=bomb.maximumHealth=300; bomb.edible=false; bomb.deploymentInterceptionOnly=true;
+	s.plants={bomb}; s.current[0].sniper.aiming=true; s.current[0].sniper.remaining=.35f;
+	s.current[0].sniper.targetID=99; s.current[0].sniper.targetX=700; s.current[0].sniper.damage=300;
+	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentHits==0,"an already committed near-expiry bomb wins the timing race against an unfinished aim");
+	std::cout << "Ash planting reactions, wall interception and detonation deadline passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000;
+	Unit tank; tank.id=1; tank.body.x=900; tank.body.health=500; tank.body.purchaseCost=100;
+	Unit clock; clock.id=10; clock.body.row=1; clock.body.x=920;
+	clock.body.health=PolarClockRules::BodyHealth+PolarClockRules::ArmorHealth; clock.helmHealth=PolarClockRules::ArmorHealth;
+	clock.clock={true,true,true,0,PolarClockRules::BodyHealth/3.0f};
+	s.current={tank,clock};
+	Counter ash; ash.blast.committed=true; ash.blast.ready=1; ash.blast.x=900; ash.blast.damage=10000;
+	ash.blast.reach.fill(-1); ash.blast.reach[0]=10000; s.counters={ash}; ConstructionStats stats;
+	const auto rewind=Evaluate(s,{},&stats);
+	check(rewind[3]==100 && rewind[6]==0 && stats.clockRevivals==1 && stats.clockRewinds>0,
+		"a committed neighboring time anchor revives an ash-killed investment and reverses its recoverable blast loss");
+	s.counters[0].blast.reach[1]=10000;
+	check(Evaluate(s,{},&stats)[3]==100 && stats.clockRevivals>=2,"a committed anchor survives death of its source and can restore recorded units");
+	s.current[1].clock.remaining=10; s.current[1].clock.winding=false;
+	check(Evaluate(s,{},&stats)[3]==0 && stats.clockAnchors==0,"destroying the clock before commitment cannot create a resurrection");
+	s.current={tank,clock}; s.current[0].body.row=3;
+	Evaluate(s,{},&stats); check(stats.clockRevivals==1,"clock recording is limited to its own and adjacent lanes");
+	s.current.assign(15,tank); for (int i=0;i<15;++i) { s.current[i].id=i+1; s.current[i].body.health=3000; }
+	clock.id=100; s.current.push_back(clock); s.counters[0].blast.reach[0]=-1;
+	Evaluate(s,{},&stats);
+	check(stats.clockAnchors==1 && stats.clockTargets==PolarClockRules::TargetLimit && stats.clockRewinds==PolarClockRules::TargetLimit,
+		"one anchor records only the twelve highest threats and remains valid after its unrecorded source dies");
+	Snapshot paid; paid.houseX=-10000; tank.body.purchaseCost=24; tank.playerRefund=18; paid.current={tank};
+	TemporalAnchor anchor; anchor.ownerID=999; anchor.at=2; anchor.targets.push_back({0,tank}); paid.temporalAnchors={anchor};
+	ash.blast.ready=1; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
+	paid.counters={ash,ash}; paid.counters[1].blast.ready=7;
+	Evaluate(paid,{},&stats); check(stats.clockRevivals==1 && stats.opponentAssets==18,"death, revival and second death refund the original paid unit only once");
+	paid.counters.clear(); paid.temporalAnchors[0].at=1; paid.current[0].body.x=200;
+	paid.mowers.push_back({0,180,60,230,false,true});
+	check(Evaluate(paid,{},&stats)[3]==0 && stats.clockRevivals==0,"irreversible mower execution cannot be undone by a submitted time anchor");
+	paid.mowers.clear(); paid.current[0].body.health=0; paid.current[0].body.speed=0;
+	paid.gridLeft=0; paid.cellWidth=100; paid.temporalAnchors[0].targets[0].saved.body.x=250;
+	Plant boundary; boundary.row=0; boundary.column=2; boundary.health=450; boundary.boundaryShards=1; paid.plants={boundary};
+	Evaluate(paid,{},&stats); check(stats.clockRevivals==1 && stats.clockRedirects==1,
+		"boundary interception redirects a restored corpse without deleting the legitimate health rewind");
+	Snapshot mature; mature.houseX=-10000; auto producer=tank; producer.body.economic=true; producer.nextYield=18;
+	mature.current={producer}; anchor.targets={{0,producer}}; mature.temporalAnchors={anchor};
+	auto noRewind=mature; noRewind.temporalAnchors.clear();
+	check(Evaluate(mature,{})==Evaluate(noRewind,{}),"surviving mature worker keeps actual production progress through core-only rewind");
+	// 两轮灰烬之间，比较一只与多只钟匠的实际存活收益；不指定搜索结果的固定出生时刻。
+	Snapshot chain; chain.houseX=-10000; chain.budget=36; chain.capacity=2;
+	tank.body.purchaseCost=100; tank.body.x=900; tank.playerRefund=0; chain.current.assign(4,tank);
+	for (int i=0;i<4;++i) chain.current[i].id=i+1;
+	clock.id=0; clock.body.purchaseCost=18; clock.clock.winding=false; clock.clock.remaining=PolarClockRules::Preparation;
+	Option option; option.type=7; option.row=1; option.cost=18; option.unit=clock; chain.options={option};
+	ash.blast.ready=7; chain.counters={ash,ash}; chain.counters[1].blast.ready=13;
+	Weights value{}; value[3]=1; value[5]=-1;
+	const auto multiple=Search(chain,value,71);
+	check(multiple.actions.size()==2 && multiple.features[3]>=400 && multiple.construction.clockRevivals>=4,
+		"free search can choose more than one clock to sustain assault through successive ash windows");
+	check(chain.current[0].body.health==500 && chain.options[0].unit.clock.remaining==PolarClockRules::Preparation,
+		"temporal forecasting cannot rewind or consume any actual entity state");
+	std::cout << "Temporal coverage, multiple clocks, source loss and irreversible economy passed\n";
 	}
 	{
 	using namespace ColdStorageSearch;

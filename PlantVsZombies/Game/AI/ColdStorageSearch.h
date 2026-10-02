@@ -81,6 +81,11 @@ struct GoldenDrive {
 	float undamaged = 0, trailLeft = (std::numeric_limits<float>::max)(), frontOffset = 0;
 };
 struct GoldenTrail { float left = 0, remaining = 0; };
+/** 钟匠本地准备/前摇/冷却；提交后时间锚独立持有，来源死亡不撤销。 */
+struct Clock {
+	bool present = false, enabled = false, winding = false;
+	float remaining = 0, stopBodyHealth = 0;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
@@ -94,6 +99,10 @@ struct Unit {
 	DeploymentSniper sniper;
 	Ritual ritual;
 	GoldenDrive goldenDrive;
+	Clock clock;
+	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和可锚定的本体掉头阈值；已有实体由 Board 精确采样
+	bool temporalEligible = true, temporalIrreversible = false; // 复合编队/首领及清洁车等不可逆清除不参与回溯
+	float blastCredit = 0; // 本单位已计入爆区损失的冰价，回溯恢复生命时撤回对应部分
 	std::array<float,9> goldenMoveRatios{1,1,1,1,1,1,1,1,1}; // 各层相对采样速度的常驻能力/天气倍率，鼓舞和减速独立推进
 	int goldenStacks = 0; // 每步由活车与残留冰道重算，不永久保留采样覆盖
 	float adaptiveHelmet = 0;
@@ -129,6 +138,8 @@ struct Plant {
 	bool vehicleCrushable=true; // 活体与未来株均由冰车自身的目标资格采样
 	bool multiTarget = false, around = false;
 	bool melon = false, edible = true;
+	bool deploymentInterceptionOnly = false; // 灰烬充能无敌只放行命中原触发实体的狙击脉冲，不放行普通误伤
+	float counterBlastAt = (std::numeric_limits<float>::max)(); // 一次性来源的引爆时刻，游戏秒；晚到弹体不能撤销已发生爆炸
 	float hitDamage = 20; // 等效单发伤害，用于将每击上限换算为 DPS；常规小弹丸默认 20
 	bool bypassShield = false, fume = false; // 抛物绕盾/大喷穿盾由 Board 解析；西瓜使用 melon 的双层受伤语义
 	int id = 0; // 主动能力的来源，推演中被消灭后不能继续释放
@@ -180,6 +191,7 @@ struct ConstructionStats {
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
 	int deploymentShots = 0, deploymentHits = 0;
 	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
+	int clockAnchors = 0, clockTargets = 0, clockRewinds = 0, clockRevivals = 0, clockRedirects = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
@@ -204,9 +216,22 @@ struct Counter {
 	float sharedReady = 0, sharedRecharge = 0;
 	float vulnerableSeconds = 0; // 从提交到清醒无敌的等待，游戏秒；已经清醒时为零
 	bool stored = false; // 预存反制额外比较长期蓄爆，不假设小股诱饵一定能骗掉它
+	float deploymentHealth = 0, deploymentReward = 0, deploymentAssetValue = 0; // 新种灰烬的实体画像；零生命保持无落种事件的能力
+	bool clearsCell = false; // 毁灭引爆会清除同格各层；樱桃/辣椒只消耗自身
 };
 /** 已提交的裂隙，即使来源死亡也必须进入预测。 */
 struct Rift { Unit unit; int column = 0; float remaining = 0; };
+/** 只拥有数值副本与稳定 current 下标；资源、返款资格和不可逆提交不随核心状态倒放。 */
+struct TemporalTarget {
+	int unit = -1;
+	Unit saved;
+	bool restoreHelm = true, restoreShield = true, restoreAbility = true;
+};
+struct TemporalAnchor {
+	int ownerID = 0;
+	float at = 0;
+	std::vector<TemporalTarget> targets;
+};
 struct Snapshot {
 	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
 	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
@@ -238,6 +263,7 @@ struct Snapshot {
 	float impWalkSpeed=20; // Board 从小鬼实际出生画像采样，纯数值夹具保留缺省值
 	std::array<Unit,5> ritualSummons{};
 	std::vector<Rift> rifts;
+	std::vector<TemporalAnchor> temporalAnchors;
 	std::vector<std::array<int,2>> riftCells; // 主线程给出的合法落点，不在后台查询 Board
 	bool ritualWhiteout = false;
 	std::vector<Unit> current;

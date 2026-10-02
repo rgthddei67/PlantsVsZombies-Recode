@@ -3,6 +3,7 @@
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/ThermalSniperRules.h"
+#include "Game/Zombie/PolarClockRules.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Plant/BoundaryFlowerRules.h"
 #include "Game/Plant/DawnLotusRules.h"
@@ -67,6 +68,7 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 	if (unit.adaptiveHelmet > 0 && origin.IsValid() && damage >= unit.adaptiveHelmet) {
 		const float lost = unit.adaptiveHelmet;
 		unit.body.health -= lost; unit.adaptiveHelmet = 0; unit.adaptedOrigin = origin;
+		unit.helmHealth = std::max(0.0f,unit.helmHealth-lost);
 		return lost; // 首次击穿整击只提交适应，不允许溢入本体。
 	}
 	auto& health = unit.body.health;
@@ -81,6 +83,7 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 	unit.adaptiveHelmet = std::max(0.0f,unit.adaptiveHelmet-std::max(0.0f,vitalLoss));
 	unit.ritual.armor = std::max(0.0f,unit.ritual.armor-std::max(0.0f,vitalLoss));
 	unit.repair.health = std::max(0.0f,unit.repair.health-std::max(0.0f,vitalLoss));
+	unit.helmHealth = std::max(0.0f,unit.helmHealth-std::max(0.0f,vitalLoss));
 	health = vital > 0 ? vital+unit.shieldHealth : 0;
 	return before-health;
 }
@@ -98,9 +101,10 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 }
 /** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
 float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
-	// 祭司沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
-	if (ash && unit.ritual.present && damage >= unit.body.health-unit.ritual.armor) {
-		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; return lost;
+	// 祭司与钟匠沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
+	const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
+	if (ash && (unit.ritual.present || unit.clock.present) && damage >= unit.body.health-armor-unit.shieldHealth) {
+		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; unit.helmHealth = 0; return lost;
 	}
 	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
 	return ApplyDamage(unit,cap > 0 ? std::min(damage,cap) : damage,false,false,false,
@@ -129,7 +133,7 @@ void AdvanceMowers(std::vector<Mower>& mowers, std::vector<Unit>& units, float t
 				|| u.x+u.boundsOffset+u.boundsWidth < left || u.x+u.boundsOffset > right) continue;
 			mower.moving = true;
 			if (unit.consumesOtherMowers) for (auto& other : mowers) if (&other != &mower) other.active = false;
-			if (!unit.mowerImmune) u.health = 0;
+			if (!unit.mowerImmune) { u.health = 0; unit.temporalIrreversible = true; }
 		}
 		mower.x += movement;
 		if (mower.x > rightEdge+100) mower.active = false;
@@ -444,7 +448,19 @@ struct PendingCounter {
 	bool targetLocked = false;
 	int plantID = 0;
 	float invulnerableAt = 0;
+	bool clearsCell = false;
 };
+
+/** 每只就绪狙击手独立锁定这次新种，已有植物不会凭空触发射击。 */
+void ReactToDeployment(float time, const Plant& plant, std::vector<Unit>& units) {
+	for (auto& unit : units) {
+		auto& sniper = unit.sniper;
+		if (!sniper.enabled || sniper.aiming || sniper.remaining > 0 || unit.body.spawnAt > time
+			|| unit.body.health <= sniper.stopHealth || unit.body.row != plant.row) continue;
+		sniper.aiming = true; sniper.remaining = ThermalSniperRules::Aim;
+		sniper.targetID = plant.id; sniper.targetX = plant.x; sniper.damage = plant.maximumHealth;
+	}
+}
 
 /** 按共享充能与择时释放模拟逐行打击；前排位置本身不能替工人挡主伤害。 */
 void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& strikes, float time, const std::vector<Plant>& plants,
@@ -496,7 +512,8 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 				const bool primary = static_cast<int>(i) == target;
 				if (!primary && std::abs(u.x+u.blastAnchorOffset-center) > strike.radius) continue;
 				const float damage = ApplyDiscreteHit(units[i],primary ? strike.damage : strike.splashDamage,false);
-				features[6] += u.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
+				const float credit = u.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
+				features[6] += credit; units[i].blastCredit += credit;
 			}
 		}
 		// 无目标时保留充能；释放一次覆盖所有行，而不是让每行各自获得独立冷却。
@@ -517,11 +534,13 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
 	float holdSeconds, float storedHoldSeconds, std::vector<float>& holdUntil) {
 	for (auto it = pending.begin(); it != pending.end();) {
-		if (it->plantID > 0) {
+		if (it->plantID != 0) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
 			// 咖啡已经放下仍不等于爆炸已脱离宿主；睡眠/唤醒等待阶段被吃掉就不能引爆。
 			if (source == plants.end() || source->health <= 0) { it = pending.erase(it); continue; }
-			if (time >= it->invulnerableAt) source->edible = false;
+			if (time >= it->invulnerableAt) {
+				source->edible = false; source->deploymentInterceptionOnly = true;
+			}
 		}
 		// 假想新种倭瓜在起跳前继续追踪；不能把移动目标仍判在最初的观察落点。
 		// 正式已提交反制没有 target 索引，保持其快照落点，避免替玩家撤销或重新瞄准。
@@ -539,11 +558,14 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
 			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
-			features[6] += body.purchaseCost * damage / std::max(1.0f, initialHealth[i]);
+			const float credit = body.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
+			features[6] += credit; units[i].blastCredit += credit;
 		}
-		if (it->plantID > 0) {
+		if (it->plantID != 0) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
-			for (auto& plant : plants) if (plant.row == source->row && plant.column == source->column) plant.health = 0;
+			if (it->clearsCell) {
+				for (auto& plant : plants) if (plant.row == source->row && plant.column == source->column) plant.health = 0;
+			} else source->health = 0;
 		}
 		it = pending.erase(it);
 	}
@@ -611,6 +633,21 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
 		pending.back().plantID = counter.plantID;
 		pending.back().invulnerableAt = time + counter.vulnerableSeconds;
+		pending.back().clearsCell = counter.clearsCell;
+		// 即时灰烬也是真实落种事件。先扣同一张卡的费用/冷却，再建立可被狙击的来源；
+		// 已预存毁灭的咖啡触发不算重新种下毁灭，不能给狙击手虚构一个新目标。
+		if (counter.plantID == 0 && counter.deploymentHealth > 0 && counter.cellRow >= 0) {
+			Plant source;
+			source.id = -200000-static_cast<int>(plants.size());
+			source.row = counter.cellRow; source.column = counter.cellColumn; source.x = counter.blast.x;
+			source.health = source.maximumHealth = source.initialHealth = counter.deploymentHealth;
+			source.reward = counter.deploymentReward; source.assetValue = counter.deploymentAssetValue;
+			source.edible = counter.vulnerableSeconds > 0;
+			source.deploymentInterceptionOnly = !source.edible;
+			source.counterBlastAt = pending.back().at;
+			plants.push_back(source); pending.back().plantID = source.id;
+			ReactToDeployment(time,source,units);
+		}
 	}
 }
 }
@@ -620,17 +657,6 @@ struct DeploymentPulse {
 	int row = 0, targetID = 0;
 	float x = 0, endX = 0, damage = 0, launchedAt = 0;
 };
-
-/** 每只就绪狙击手独立锁定这次新种，已有植物不会凭空触发射击。 */
-static void ReactToDeployment(float time, const Plant& plant, std::vector<Unit>& units) {
-	for (auto& unit : units) {
-		auto& sniper = unit.sniper;
-		if (!sniper.enabled || sniper.aiming || sniper.remaining > 0 || unit.body.spawnAt > time
-			|| unit.body.health <= sniper.stopHealth || unit.body.row != plant.row) continue;
-		sniper.aiming = true; sniper.remaining = ThermalSniperRules::Aim;
-		sniper.targetID = plant.id; sniper.targetX = plant.x; sniper.damage = plant.maximumHealth;
-	}
-}
 
 /** 按眼前威胁选择可能的补阵，建设与灰烬共用实际资源，不替僵尸指定打法。 */
 static void AdvanceConstruction(const Snapshot& state, float time, float horizon, std::vector<Unit>& units,
@@ -967,13 +993,15 @@ static void AdvanceArmorRepair(Unit& unit, float active, float& ice, Weights& fe
 		const float restored = std::min(r.amount,r.maximum-r.health);
 		ice -= r.cost; features[5] += r.cost;
 		r.health += restored; unit.body.health += restored;
+		unit.helmHealth += restored;
 		stats.abilityIceSpent += r.cost; stats.armorRepairIce += r.cost; ++stats.armorRepairs;
 	}
 }
 
 /** 统一计入啃食与砸击的实际削血；回血会撤回已恢复的削血分，不能靠反复刷血赚分。 */
-static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& features) {
-	if (plant.health <= 0 || plant.immuneRemaining > 0 || plant.burstProtection.invulnerable > 0 || damage <= 0) return false;
+static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& features, bool deploymentInterception = false) {
+	if (plant.health <= 0 || plant.immuneRemaining > 0 || plant.burstProtection.invulnerable > 0 || damage <= 0
+		|| (plant.deploymentInterceptionOnly && !deploymentInterception)) return false;
 	if (crush) damage = plant.crushDamage > 0 ? plant.crushDamage : plant.health;
 	const float credit = plant.reward*std::min(plant.health,damage)/std::max(1.0f,plant.initialHealth);
 	features[1] += credit; plant.damageCredit += credit;
@@ -1018,6 +1046,10 @@ static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vec
 			const float low = plant.x-state.cellWidth*.5f, high = plant.x+state.cellWidth*.5f;
 			if (std::max(it->x,next) < low || std::min(it->x,next) > high) continue;
 			const float d = std::max(0.0f,direction > 0 ? low-it->x : it->x-high);
+			const float travel = plant.id == it->targetID ? std::abs(it->endX-it->x) : d;
+			const float hitAt = std::max(time,it->launchedAt)+travel/ThermalSniperRules::PulseSpeed;
+			// 弹道按本步内的实际到达先后裁决，不能因先遍历狙击就撤销更早的爆炸。
+			if (hitAt >= plant.counterBlastAt) continue;
 			const bool mirrorFirst = hit && plant.hostileMirrors > 0 && hit->hostileMirrors <= 0;
 			const bool sameKind = hit && (plant.hostileMirrors > 0) == (hit->hostileMirrors > 0);
 			if (!hit || d < distance || (d == distance && (mirrorFirst || (sameKind && plant.layer > hit->layer)))) {
@@ -1026,7 +1058,7 @@ static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vec
 		}
 		if (hit) {
 			if (hit->hostileMirrors > 0) --hit->hostileMirrors;
-			else { DamagePlant(*hit,it->damage,false,features); ++stats.deploymentHits; }
+			else { DamagePlant(*hit,it->damage,false,features,hit->id == it->targetID); ++stats.deploymentHits; }
 		}
 		it->x = next;
 		if (hit || next == it->endX) it = pulses.erase(it);
@@ -1238,6 +1270,109 @@ static float AdvanceRitual(const Snapshot& s, float time, Unit& unit, float acti
 	return wasWinding || r.winding ? 0 : 1;
 }
 
+/** 独立结算已提交锚；只回溯核心和明确可回溯的阶段，钱包、死亡返款及已提交召唤不倒放。 */
+static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<TemporalAnchor>& anchors,
+	std::vector<Unit>& units, std::vector<Plant>& plants, const std::vector<float>& initialHealth,
+	Weights& features, ConstructionStats& stats) {
+	for (auto it=anchors.begin(); it!=anchors.end();) {
+		if (it->at>time) { ++it; continue; }
+		for (const auto& target:it->targets) {
+			if (target.unit<0 || target.unit>=static_cast<int>(units.size())) continue;
+			auto& unit=units[target.unit]; const auto& saved=target.saved;
+			if (unit.temporalIrreversible || !saved.temporalEligible) continue;
+			const bool revived=unit.body.health<=0;
+			const float before=unit.body.health;
+			const int column=std::clamp(static_cast<int>((saved.body.x+saved.body.blastAnchorOffset-s.gridLeft)/s.cellWidth),0,s.columns-1);
+			Plant* boundary=nullptr; int distance=10000;
+			for (auto& p:plants) if (p.health>0 && p.boundaryShards>0 && time>=p.boundaryBlockedUntil
+				&& std::abs(p.row-saved.body.row)<=1 && std::abs(p.column-column)<=1) {
+				const int d=std::abs(p.row-saved.body.row)+std::abs(p.column-column);
+				if (!boundary || d<distance || (d==distance && p.id<boundary->id)) { boundary=&p; distance=d; }
+			}
+			if (!boundary || revived) {
+				unit.body.row=saved.body.row;
+				unit.body.x=boundary ? s.rightEdge+40 : saved.body.x;
+			}
+			if (boundary) { --boundary->boundaryShards; ++stats.clockRedirects; }
+			// 首次死亡的返冰已经兑现，复活不重新登记，也不回退成熟工人的生产账本。
+			if (revived) {
+				unit.productionRemaining=IceProduction::Interval; unit.nextYield=IceProduction::InitialYield;
+				unit.inspiration.clear();
+				if (unit.sniper.enabled || saved.sniper.enabled) { unit.sniper=saved.sniper; unit.sniper.aiming=false; unit.sniper.remaining=ThermalSniperRules::Reload; }
+				unit.burst.stage=PaidBurst::Stage::READY; unit.burst.remaining=unit.burst.retryRemaining=0;
+				unit.repair.remaining=unit.repair.interval;
+				unit.goldenDrive.undamaged=0; unit.goldenDrive.trailLeft=s.rightEdge;
+				if (unit.clock.present && !target.restoreAbility)
+					unit.clock={true,true,false,PolarClockRules::Preparation,unit.clock.stopBodyHealth};
+			}
+			const float helm=target.restoreHelm ? saved.helmHealth : revived ? 0 : unit.helmHealth;
+			const float shield=target.restoreShield ? saved.shieldHealth : revived ? 0 : unit.shieldHealth;
+			unit.body.health=saved.body.health-saved.helmHealth-saved.shieldHealth+helm+shield;
+			unit.helmHealth=helm; unit.shieldHealth=shield;
+			unit.body.slow=saved.body.slow; unit.body.stopped=saved.body.stopped;
+			unit.adaptiveHelmet=target.restoreHelm ? saved.adaptiveHelmet : 0;
+			unit.repair.health=std::min(unit.repair.maximum,helm); unit.ritual.armor=std::min(saved.ritual.armor,helm);
+			if (target.restoreAbility) {
+				unit.adaptedOrigin=saved.adaptedOrigin; unit.drum=saved.drum; unit.ritual=saved.ritual; unit.clock=saved.clock;
+				unit.ritual.armor=std::min(saved.ritual.armor,helm);
+			}
+			if (unit.clock.present && helm<=0) unit.clock.enabled=false;
+			const float restored=std::max(0.0f,unit.body.health-before);
+			const float recovered=std::min(std::max(0.0f,unit.blastCredit-saved.blastCredit),
+				unit.body.purchaseCost*restored/std::max(1.0f,initialHealth[target.unit]));
+			features[6]-=recovered; unit.blastCredit-=recovered;
+			++stats.clockRewinds; if (revived) ++stats.clockRevivals;
+		}
+		it=anchors.erase(it);
+	}
+}
+
+/** 按独立阶段推进各钟匠并记录邻路最高威胁；已有锚的目标不可被重复记录，前摇暂停移动/啃食。 */
+static void AdvanceClocks(const Snapshot& s, float time, std::vector<Unit>& units, const std::vector<size_t>& sources,
+	std::vector<TemporalAnchor>& anchors, std::vector<float>& activity, ConstructionStats& stats) {
+	activity.assign(units.size(),1);
+	for (size_t index:sources) {
+		auto& source=units[index]; auto& clock=source.clock;
+		if (source.body.health<=0 || source.body.spawnAt>time) continue;
+		if (source.helmHealth<=0 || source.body.health-source.helmHealth-source.shieldHealth<=clock.stopBodyHealth) clock.enabled=false;
+		if (!clock.enabled) continue;
+		const float active=std::max(0.0f,kStep-source.body.stopped), rate=source.body.slow>0 ? .5f : 1;
+		float available=active*rate, walking=0, consumedTotal=0;
+		while (available>0) {
+			const float consumed=std::min(available,std::max(0.0f,clock.remaining));
+			if (!clock.winding) walking+=consumed;
+			available-=consumed; clock.remaining-=consumed; consumedTotal+=consumed;
+			if (clock.remaining>0) break;
+			if (!clock.winding) { clock.winding=true; clock.remaining=PolarClockRules::Windup; continue; }
+			clock.winding=false; clock.remaining=PolarClockRules::Cooldown;
+			if (std::any_of(anchors.begin(),anchors.end(),[&](const auto& anchor){return anchor.ownerID==source.id;})) continue;
+			std::vector<size_t> candidates;
+			for (size_t i=0;i<units.size();++i) {
+				const auto& u=units[i];
+				if (!u.temporalEligible || u.temporalIrreversible || u.body.spawnAt>time || std::abs(u.body.row-source.body.row)>1
+					|| u.body.health-u.helmHealth-u.shieldHealth<=u.temporalStopHealth) continue;
+				bool recorded=false;
+				for (const auto& anchor:anchors) for (const auto& target:anchor.targets) recorded|=target.unit==static_cast<int>(i);
+				if (!recorded) candidates.push_back(i);
+			}
+			std::stable_sort(candidates.begin(),candidates.end(),[&](size_t a,size_t b) {
+				const auto score=[&](size_t i){return DawnLotusRules::ThreatScore(static_cast<long long>(units[i].body.health),units[i].body.x+units[i].body.blastAnchorOffset,s.rightEdge);};
+				const auto sa=score(a),sb=score(b);
+				const auto id=[&](size_t i){return units[i].id>0 ? static_cast<long long>(units[i].id) : 0x100000000LL+static_cast<long long>(i);};
+				return sa!=sb ? sa>sb : id(a)<id(b);
+			});
+			if (candidates.empty()) continue;
+			TemporalAnchor anchor; anchor.ownerID=source.id; anchor.at=time+consumedTotal/rate+PolarClockRules::AnchorDuration;
+			for (size_t i:candidates) {
+				if (anchor.targets.size()>=PolarClockRules::TargetLimit) break;
+				anchor.targets.push_back({static_cast<int>(i),units[i],true,true,units[i].id!=source.id});
+			}
+			++stats.clockAnchors; stats.clockTargets+=static_cast<int>(anchor.targets.size()); anchors.push_back(std::move(anchor));
+		}
+		activity[index]=active>0 ? walking/(active*rate) : 0;
+	}
+}
+
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
@@ -1289,6 +1424,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (size_t i=0;i<units.size();++i) if (units[i].goldenDrive.enabled) goldenSources.push_back(i);
 	for (auto& plant : plants) plant.initialHealth = plant.repairMaximum > 0 ? plant.repairMaximum : plant.health;
 	auto strikes = s.rowStrikes;
+	auto temporalAnchors=s.temporalAnchors;
+	std::vector<size_t> clockSources;
+	for (size_t i=0;i<units.size();++i) if (units[i].clock.present) clockSources.push_back(i);
 	ConstructionStats constructionStats;
 	// 同速假设会把先出的前排当成永久掩护。生产案用出生分布的偏快后排/偏慢前排对照，
 	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
@@ -1309,6 +1447,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<int> constructionUses;
 	std::vector<DeploymentPulse> deploymentPulses;
 	std::vector<float> sniperActivity;
+	std::vector<float> clockActivity;
 	for (const auto& card : s.construction) {
 		if (constructionReady.size() <= static_cast<size_t>(card.source)) constructionReady.resize(card.source+1);
 		constructionReady[card.source] = card.ready;
@@ -1332,6 +1471,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			pending.push_back({counter.blast,counter.blast.ready});
 			pending.back().plantID = counter.plantID;
 			pending.back().invulnerableAt = counter.vulnerableSeconds;
+			pending.back().clearsCell = counter.clearsCell;
+			for (auto& plant : plants) if (plant.id == counter.plantID) plant.counterBlastAt = counter.blast.ready;
 		}
 		else {
 			if (counterReady.size() <= static_cast<size_t>(counter.source)) counterReady.resize(counter.source + 1);
@@ -1381,6 +1522,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
+		if (!temporalAnchors.empty()) ResolveTemporalAnchors(s,t,temporalAnchors,units,plants,initialHealth,f,constructionStats);
 		AdvanceGoldenIce(s,t,units,goldenSources,goldenTrails,constructionStats);
 		if (precisionID > 0 && t >= precisionAt) {
 			for (auto& p : plants) if (p.id == precisionID && p.health > 0) {
@@ -1401,9 +1543,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
-		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil);
+		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
+		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
 		if (!s.construction.empty() && t >= constructionAt) {
@@ -1470,6 +1613,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			}
 		}
 		AdvanceDrums(s,t,units,constructionStats,drumActivity);
+		if (!clockSources.empty()) AdvanceClocks(s,t,units,clockSources,temporalAnchors,clockActivity,constructionStats);
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;
@@ -1524,7 +1668,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				return p.health > 0 && p.edible && p.row == u.row && triggerX >= p.x && triggerX-p.x <= worker.burst.range;
 			});
 			const auto activity = AdvanceBurst(worker,inRange,active*drumActivity[i]*ritualActivity
-				* (worker.sniper.aiming ? 0 : sniperActivity[i]),enemyIce,f,constructionStats);
+				* (worker.sniper.aiming ? 0 : sniperActivity[i]) * (clockSources.empty() ? 1 : clockActivity[i]),enemyIce,f,constructionStats);
 			const float ritualSpeed=worker.ritual.armor>0 ? AuroraPriestRules::NormalSpeed : AuroraPriestRules::OverloadSpeed;
 			const float ritualMove = !worker.ritual.present ? 1 : GoldenIceRules::Amplify(ritualSpeed
 				* (u.x+u.blastAnchorOffset > s.gridLeft+s.columns*s.cellWidth ? AuroraPriestRules::OutsideSpeed : 1),worker.goldenStacks);

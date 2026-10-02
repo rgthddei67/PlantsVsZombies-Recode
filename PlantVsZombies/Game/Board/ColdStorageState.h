@@ -123,6 +123,8 @@ struct ColdStorageState {
 	int searchRitualReleases = 0, searchRiftSummons = 0, searchRiftRedirects = 0; // 预测释放、到场和界碑反制
 	int searchDrumOptions = 0, searchDrumBeats = 0, searchDrumRecipients = 0; // 数值预测，不在正式场景施加效果
 	int searchDeploymentSniperOptions = 0, searchDeploymentShots = 0, searchDeploymentHits = 0; // 落种压制候选与预测弹道，不触发正式射击
+	int searchClockOptions = 0, searchClockAnchors = 0, searchClockTargets = 0; // 钟匠候选和预测锚覆盖，仅诊断
+	int searchClockRewinds = 0, searchClockRevivals = 0, searchClockRedirects = 0; // 预测回溯、复活与界碑拒入，仅诊断
 	int searchEliteReplacementOptions = 0, searchEliteRemainingUses = 0; // 共享累计名额的补菇画像，仅诊断
 	int searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次精准清除搜索
 	float searchPrecisionGain = 0; // 相对不施法优案的收益，仅诊断

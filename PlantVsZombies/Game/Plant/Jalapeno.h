@@ -10,6 +10,8 @@ public:
 	using Plant::Plant;
 	/** 已进入结算动作时禁止搬运，保留原目标及动作提交位置。 */
 	bool CanBeRelocated() const override { return false; }
+	/** 读取当前引爆帧的剩余游戏秒；无充能动作时返回 -1，不推进动画。 */
+	float GetExplosionTimeRemaining() const;
 
 	/** 蓄力期间免疫啃食伤害，只保留受击闪光。 */
 	void TakeDamage(int damage, DamageSource source) override;

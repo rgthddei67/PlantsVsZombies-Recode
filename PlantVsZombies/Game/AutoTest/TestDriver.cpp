@@ -81,6 +81,8 @@
 #include "../Zombie/SunThiefZombie.h"
 #include "../Zombie/CrystalDrummerZombie.h"
 #include "../Plant/DawnLotus.h"
+#include "../Plant/CherryBomb.h"
+#include "../Plant/Jalapeno.h"
 #include "../Plant/KernelPult.h"
 #include "../Plant/MelonPult.h"
 #include "../Plant/GloomShroom.h"
@@ -4948,6 +4950,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchDeploymentSniperOptions"] = board->mColdStorage.searchDeploymentSniperOptions;
 		ice["searchDeploymentShots"] = board->mColdStorage.searchDeploymentShots;
 		ice["searchDeploymentHits"] = board->mColdStorage.searchDeploymentHits;
+		ice["searchClockOptions"] = board->mColdStorage.searchClockOptions;
+		ice["searchClockAnchors"] = board->mColdStorage.searchClockAnchors;
+		ice["searchClockTargets"] = board->mColdStorage.searchClockTargets;
+		ice["searchClockRewinds"] = board->mColdStorage.searchClockRewinds;
+		ice["searchClockRevivals"] = board->mColdStorage.searchClockRevivals;
+		ice["searchClockRedirects"] = board->mColdStorage.searchClockRedirects;
 		ice["searchEliteReplacementOptions"] = board->mColdStorage.searchEliteReplacementOptions;
 		ice["searchEliteRemainingUses"] = board->mColdStorage.searchEliteRemainingUses;
 		ice["searchDrumBeats"] = board->mColdStorage.searchDrumBeats;
@@ -8076,6 +8084,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "winterGroundAnchorReady", p->IsWinterGroundAnchorReady() },
 			{ "winterGroundAnchorSpent", p->HasSpentWinterGroundAnchor() },
 		};
+		if (const auto* cherry = dynamic_cast<const CherryBomb*>(p))
+			plantState["instantBlastRemainingMs"] = static_cast<int>(std::lround(cherry->GetExplosionTimeRemaining()*1000));
+		if (const auto* jalapeno = dynamic_cast<const Jalapeno*>(p))
+			plantState["instantBlastRemainingMs"] = static_cast<int>(std::lround(jalapeno->GetExplosionTimeRemaining()*1000));
 		if (const auto animator = p->GetAnimatorInternal()) {
 			const AnimatorRenderProbe& probe = animator->GetLastRenderProbe();
 			plantState["renderProbeReady"] = probe.hasGeometry;

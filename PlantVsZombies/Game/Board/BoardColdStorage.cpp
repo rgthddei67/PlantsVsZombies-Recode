@@ -24,6 +24,8 @@
 #include "Game/Zombie/AdaptiveHelmetRules.h"
 #include "Game/Zombie/ThermalSniperZombie.h"
 #include "Game/Zombie/ThermalSniperRules.h"
+#include "Game/Zombie/PolarClockmakerZombie.h"
+#include "Game/Zombie/PolarClockRules.h"
 #include "Game/Zombie/AuroraPriestZombie.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Plant/BoundaryFlower.h"
@@ -33,6 +35,8 @@
 #include "Game/Plant/EliteScaredyShroom.h"
 #include "Game/Plant/IceMirrorGrass.h"
 #include "Game/Plant/DoomShroom.h"
+#include "Game/Plant/CherryBomb.h"
+#include "Game/Plant/Jalapeno.h"
 #include "Game/Plant/CoffeeBean.h"
 #include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Zombie/ZamboniZombie.h"
@@ -1151,6 +1155,7 @@ void Board::PlanColdStorageAttack(bool background)
 			counter.source = id; counter.sunCost = sun; counter.iceCost = ice;
 			counter.recharge = recharge; counter.targeted = targeted;
 			counter.windup = blast.type == PlantType::PLANT_COBCANNON ? 4.0f : targeted ? 1.7f : 1.0f;
+			if (blast.type == PlantType::PLANT_CHERRYBOMB) counter.windup = CherryBomb::GetMinimumChargeDuration();
 			if (blast.type == PlantType::PLANT_DOOMSHROOM)
 				counter.windup = DoomShroom::GetChargeDuration()+(doomNeedsCoffee ? CoffeeBean::GetFullWakeDelay() : 0);
 			counter.blast.x = blast.x; counter.blast.ready = blast.ready; counter.blast.damage = blast.damage;
@@ -1174,8 +1179,14 @@ void Board::PlanColdStorageAttack(bool background)
 				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max((card->GetCooldownTimer() / cardRecharge),doom ? coffeeWait : 0.0f),false},
 					id,card->GetSunCost() + (doom ? coffeeSun : 0),GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0),
 					(card->GetCooldownTime() / cardRecharge),type == PlantType::PLANT_SQUASH);
-				if (ColdStoragePolicy::AnticipateBuilding()) {
-					search.counters.back().cellRow = row; search.counters.back().cellColumn = col;
+				auto& counter = search.counters.back();
+				counter.cellRow = row; counter.cellColumn = col;
+				if (IsInstantBlast(type)) {
+					counter.deploymentHealth = static_cast<float>(GameDataManager::GetInstance().GetPlantSimulationProfile(type).baseHealth);
+					counter.deploymentReward = search.searchVersion == 2 ? static_cast<float>(PlantKillIce(GetPlantIceCost(type),s.difficulty)) : 0;
+					counter.deploymentAssetValue = GetPlantIceCost(type)+card->GetSunCost()*search.sunIceValue;
+					counter.clearsCell = type == PlantType::PLANT_DOOMSHROOM;
+					if (doom) counter.vulnerableSeconds = CoffeeBean::GetFullWakeDelay();
 				}
 			}
 		}
@@ -1257,14 +1268,19 @@ void Board::PlanColdStorageAttack(bool background)
 				const Zombie* target = mEntityRegistry.GetZombie(squash->GetTargetZombieID());
 				addCounter({PlantType::PLANT_SQUASH,p.row,target ? target->GetPosition().x : p.x,target ? 1.0f : 0.0f,target != nullptr},source++,0,0,10000,target == nullptr);
 			} else if (IsInstantBlast(entity->GetPlacementType())) {
+				const auto counterBegin = search.counters.size();
 				const auto* doom = dynamic_cast<const DoomShroom*>(entity);
-				const float committedRemaining = doom ? doom->GetExplosionTimeRemaining() : -1.0f;
+				const auto* cherry = dynamic_cast<const CherryBomb*>(entity);
+				const auto* jalapeno = dynamic_cast<const Jalapeno*>(entity);
+				const float committedRemaining = doom ? doom->GetExplosionTimeRemaining() : cherry ? cherry->GetExplosionTimeRemaining()
+					: jalapeno ? jalapeno->GetExplosionTimeRemaining() : -1.0f;
 				if (committedRemaining >= 0) {
 					addCounter({entity->GetPlacementType(),p.row,p.x,committedRemaining,true},source++,0,0,10000,false);
 					search.counters.back().plantID = p.id;
-					search.counters.back().vulnerableSeconds = std::max(0.0f,committedRemaining-DoomShroom::GetChargeDuration());
+					search.counters.back().vulnerableSeconds = doom ? std::max(0.0f,committedRemaining-DoomShroom::GetChargeDuration()) : 0;
 				} else if (!entity->GetSleepState()) {
 					addCounter({entity->GetPlacementType(),p.row,p.x,1,true},source++,0,0,10000,false);
+					search.counters.back().plantID = p.id;
 				} else if (hasCoffee && CanPlantAt(PlantType::PLANT_INSTANT_COFFEE,p.row,p.column)) {
 					addCounter({entity->GetPlacementType(),p.row,p.x,coffeeWait,false},source++,coffeeSun,GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE),10000,false);
 					auto& counter = search.counters.back();
@@ -1273,6 +1289,7 @@ void Board::PlanColdStorageAttack(bool background)
 					counter.windup = counter.vulnerableSeconds+DoomShroom::GetChargeDuration();
 					counter.sharedSource = coffeeSource; counter.sharedReady = coffeeWait; counter.sharedRecharge = coffeeRecharge;
 				}
+				if (search.counters.size()>counterBegin) search.counters.back().clearsCell = entity->GetPlacementType() == PlantType::PLANT_DOOMSHROOM;
 			} else if (p.cobBlastDamage > 0) {
 				const int id = source++;
 				for (const auto& cell : snapshot.cells) addCounter({PlantType::PLANT_COBCANNON,cell.row,cell.x,p.abilityCooldownRemaining,false,p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);
@@ -1289,6 +1306,9 @@ void Board::PlanColdStorageAttack(bool background)
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
+			unit.helmHealth = static_cast<float>(z.helmHealth); unit.temporalStopHealth = entity->mBodyMaxHealth/3.0f;
+			unit.temporalEligible = entity->mZombieType != ZombieType::ZOMBIE_BOBSLED_TEAM
+				&& entity->mZombieType != ZombieType::ZOMBIE_ROOF_MARSHAL && entity->mZombieType != ZombieType::ZOMBIE_BOSS;
 			projectMovementCurve(unit,entity->mZombieType);
 			unit.shieldHealth = z.shieldHealth;
 			ProjectShieldRules(unit, entity->mZombieType);
@@ -1297,6 +1317,11 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
+			if (const auto* clock = dynamic_cast<const PolarClockmakerZombie*>(entity)) {
+				const auto phase = clock->GetClockPhase();
+				unit.clock = {true,phase != PolarClockmakerZombie::ClockPhase::DISABLED && phase != PolarClockmakerZombie::ClockPhase::COMMITTED,
+					phase == PolarClockmakerZombie::ClockPhase::WINDUP,clock->GetClockRemaining(),entity->mBodyMaxHealth/3.0f};
+			}
 			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(entity)) ProjectRitual(unit,priest);
 			ProjectDrum(unit,entity);
 			const auto* gilded=dynamic_cast<const GildedZamboniZombie*>(entity);
@@ -1337,8 +1362,10 @@ void Board::PlanColdStorageAttack(bool background)
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				const auto type = entity->GetPlacementType();
 				// 毁灭菇是可预存、可被吃掉的反制来源；保留实体才能判断后续咖啡是否仍有目标。
-				if ((IsInstantBlast(type) && type != PlantType::PLANT_DOOMSHROOM) || type == PlantType::PLANT_SQUASH) continue;
-				if (type == PlantType::PLANT_DOOMSHROOM && !entity->GetSleepState()) plant.edible = false;
+				if (type == PlantType::PLANT_SQUASH) continue;
+				if (IsInstantBlast(type) && !entity->GetSleepState()) {
+					plant.edible = false; plant.deploymentInterceptionOnly = true;
+				}
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(type), s.difficulty));
 				plant.assetValue = plantCapital(entity);
 				plant.maximumHealth = static_cast<float>(entity->mPlantMaxHealth);
@@ -1404,6 +1431,11 @@ void Board::PlanColdStorageAttack(bool background)
 			if (type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) ProjectAdaptation(unit);
 			if (type == ZombieType::ZOMBIE_THERMAL_SNIPER) ProjectDeploymentSniper(unit);
 			if (type == ZombieType::ZOMBIE_AURORA_PRIEST) ProjectRitual(unit);
+			if (type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER) {
+				unit.body.health = PolarClockRules::BodyHealth+PolarClockRules::ArmorHealth;
+				unit.clock = {true,true,false,PolarClockRules::Preparation,PolarClockRules::BodyHealth/3.0f};
+				unit.helmHealth = PolarClockRules::ArmorHealth;
+			}
 			const auto profile=GameDataManager::GetInstance().GetZombieBirthMovement(type);
 			const float ability=(profile.abilityMinimum+profile.abilityMaximum)*.5f;
 			for (int stacks=0;stacks<=GoldenIceRules::MaxStacks;++stacks)
@@ -1418,6 +1450,9 @@ void Board::PlanColdStorageAttack(bool background)
 			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
 			else if (type == ZombieType::ZOMBIE_REINFORCED_DOOR) unit.shieldHealth = ReinforcedDoorZombie::InitialShieldHealth;
 			ProjectShieldRules(unit, type);
+			unit.helmHealth = std::max({unit.helmHealth,unit.adaptiveHelmet,unit.ritual.armor,unit.repair.health});
+			unit.temporalStopHealth = (unit.body.health-unit.helmHealth-unit.shieldHealth)/3;
+			unit.temporalEligible = type != ZombieType::ZOMBIE_BOBSLED_TEAM && type != ZombieType::ZOMBIE_ROOF_MARSHAL && type != ZombieType::ZOMBIE_BOSS;
 			unit.playerRefund = static_cast<float>(cost * 3 / 4);
 			unit.mowerImmune = type == ZombieType::ZOMBIE_ROOF_MARSHAL;
 			unit.consumesOtherMowers = type == ZombieType::ZOMBIE_ELITE_DANCER;
@@ -1440,6 +1475,44 @@ void Board::PlanColdStorageAttack(bool background)
 			rift.unit.body.x = GetCellCenterPosition(pending.row,pending.column).x;
 			rift.unit.body.value = static_cast<float>(GetZombieIceCost(pending.type));
 			rift.column = pending.column; rift.remaining = pending.timer; search.rifts.push_back(std::move(rift));
+		}
+		// 已提交锚连死亡目标也要采样。复建没有第二次采购/返款资格，仅数值核心和显式可回溯阶段回到记录时。
+		for (const auto& liveAnchor : mTemporalAnchors) {
+			ColdStorageSearch::TemporalAnchor anchor; anchor.ownerID = liveAnchor.ownerZombieID; anchor.at = liveAnchor.timer;
+			for (const auto& recorded : liveAnchor.targets) {
+				if (recorded.irreversible || !recorded.hasHead || recorded.type == ZombieType::ZOMBIE_BOBSLED_TEAM
+					|| recorded.type == ZombieType::ZOMBIE_ROOF_MARSHAL || recorded.type == ZombieType::ZOMBIE_BOSS) continue;
+				auto found = std::find_if(search.current.begin(),search.current.end(),[&](const auto& unit) { return unit.id == recorded.zombieID; });
+				if (found == search.current.end()) {
+					auto ghost = purchaseUnit(recorded.type,recorded.row,0,0); ghost.id = recorded.zombieID; ghost.body.health = 0;
+					search.current.push_back(ghost); found = search.current.end()-1;
+				}
+				ColdStorageSearch::TemporalTarget target; target.unit = static_cast<int>(found-search.current.begin()); target.saved = *found;
+				auto& saved = target.saved;
+				saved.body.row = recorded.row; saved.body.x = recorded.x-saved.body.blastAnchorOffset;
+				saved.helmHealth = static_cast<float>(recorded.helmHealth); saved.shieldHealth = static_cast<float>(recorded.shieldHealth);
+				saved.body.health = static_cast<float>(recorded.bodyHealth+recorded.helmHealth+recorded.shieldHealth);
+				saved.body.slow = recorded.slowTimer; saved.body.stopped = std::max({recorded.frozenTimer,recorded.butterTimer,recorded.paralysisTimer});
+				target.restoreHelm = recorded.restoreHelm; target.restoreShield = recorded.restoreShield;
+				target.restoreAbility = recorded.abilityStateValid && recorded.zombieID != liveAnchor.ownerZombieID;
+				if (recorded.type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) {
+					saved.adaptiveHelmet = saved.helmHealth;
+					saved.adaptedOrigin = recorded.abilityPhase == 1 ? PlantDamageOrigin::Ash() : recorded.abilityPhase >= 2
+						? PlantDamageOrigin::FromPlant(static_cast<PlantType>(recorded.abilityPhase-2)) : PlantDamageOrigin{};
+				}
+				if (recorded.type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER && target.restoreAbility)
+					saved.clock = {true,recorded.abilityPhase != 3 && recorded.abilityPhase != 4,recorded.abilityPhase == 1,
+						recorded.abilityRemaining,PolarClockRules::BodyHealth/3.0f};
+				if (recorded.type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER && target.restoreAbility)
+					saved.drum = {recorded.abilityPhase != 2,recorded.abilityPhase == 1,recorded.abilityRemaining,saved.drum.stopHealth};
+				if (recorded.type == ZombieType::ZOMBIE_AURORA_PRIEST && target.restoreAbility) {
+					saved.ritual.enabled = recorded.abilityPhase != 3 && recorded.abilityPhase != 4;
+					saved.ritual.winding = recorded.abilityPhase == 1; saved.ritual.remaining = recorded.abilityRemaining;
+					saved.ritual.releases = recorded.abilityReleaseCount;
+				}
+				anchor.targets.push_back(std::move(target));
+			}
+			search.temporalAnchors.push_back(std::move(anchor));
 		}
 		for (const auto& paid : s.pending) {
 			currentCapital += paid.cost; // 已付款未出生的队员仍是完整资产，不能提前算作战损。
@@ -2091,6 +2164,10 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchDrumOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.drum.enabled; }));
 	s.searchDeploymentSniperOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.sniper.enabled; }));
 	s.searchDeploymentShots = result.construction.deploymentShots; s.searchDeploymentHits = result.construction.deploymentHits;
+	s.searchClockOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o){return o.unit.clock.present;}));
+	s.searchClockAnchors = result.construction.clockAnchors; s.searchClockTargets = result.construction.clockTargets;
+	s.searchClockRewinds = result.construction.clockRewinds; s.searchClockRevivals = result.construction.clockRevivals;
+	s.searchClockRedirects = result.construction.clockRedirects;
 	s.searchEliteReplacementOptions = static_cast<int>(std::count_if(search.construction.begin(),search.construction.end(),[](const auto& card) { return card.quotaGroup == 0; }));
 	s.searchEliteRemainingUses = std::max(0,GetEliteScaredyShroomPlantLimit()-GetEliteScaredyShroomsPlanted());
 	s.searchAdaptationOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.adaptiveHelmet > 0; }));

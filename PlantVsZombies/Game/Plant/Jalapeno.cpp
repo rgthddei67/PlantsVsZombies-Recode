@@ -7,9 +7,12 @@
 #include "Game/Board/Board.h"
 #include "../GameObjectManager.h"
 #include "../Zombie/Zombie.h"
+#include "Reanimation/Animator.h"
+#include <algorithm>
 
 namespace {
 	constexpr int kJalapenoIgniteFrame = 19;        // 主人指定的辣椒本体爆炸全局帧号
+	constexpr float kAnimationFps = 12;            // Jalapeno.reanim 的基础帧率
 	constexpr int kFireVanishFrame = 12;            // 主人指定的整行火焰消失全局帧号
 	constexpr int kJalapenoDamage = 1800;            // 原版整行灰烬伤害
 	constexpr int kFireSegmentCount = 12;            // 原版 DoFwoosh 横铺的火焰段数
@@ -50,6 +53,11 @@ namespace {
 			mAnimator->Play(PlayState::PLAY_ONCE);
 		}
 	};
+}
+
+float Jalapeno::GetExplosionTimeRemaining() const {
+	if (!mAnimator || GetCurrentTrackName() != "anim_explode") return -1;
+	return std::max(0.0f,kJalapenoIgniteFrame-mAnimator->GetCurrentFrame())/std::max(.001f,kAnimationFps*mAnimator->EffectiveSpeed());
 }
 
 void Jalapeno::SetupPlant()

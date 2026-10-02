@@ -1,4 +1,5 @@
 #include "Game/Zombie/AuroraPriestRules.h"
+#include "Game/Zombie/PolarClockRules.h"
 #include "Board.h"
 
 #include "../../GameApp.h"
@@ -16,9 +17,9 @@
 #include <unordered_set>
 
 namespace {
-constexpr float kTemporalAnchorSeconds = 6.0f; // 时间锚独立持续游戏秒
+constexpr float kTemporalAnchorSeconds = PolarClockRules::AnchorDuration; // 时间锚独立持续游戏秒
 constexpr float kTemporalMarkPulseSeconds = 0.82f; // 时间锚在目标身上续显的游戏秒间隔
-constexpr int kTemporalTargetLimit = 12; // 单个时间锚最多记录的僵尸数
+constexpr int kTemporalTargetLimit = PolarClockRules::TargetLimit; // 单个时间锚最多记录的僵尸数
 constexpr float kDawnNavigationSeconds = 8.0f; // 强风模块全场导航持续游戏秒
 
 /** 复合编队和首领不进入单体稳定 ID 时间恢复。 */
