@@ -4902,6 +4902,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
 		ice["searchCombination"] = {{"routeEvaluated",board->mColdStorage.searchRouteEvaluated},
 			{"evaluated",board->mColdStorage.searchCombinationEvaluated},
+			{"cohortEvaluated",board->mColdStorage.searchCohortEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach}};
 		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
@@ -4970,6 +4971,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["productionEvents"].push_back({{"at",event.at},{"wave",event.wave},{"amount",event.amount}});
 		ice["searchBaselineFeatures"] = board->mColdStorage.searchBaselineFeatures;
 		ice["searchPreferenceScore"] = board->mColdStorage.searchPreferenceScore;
+		ice["searchRawPreferenceScore"] = board->mColdStorage.searchRawPreferenceScore;
 		ice["searchOpponent"] = {{"assets",board->mColdStorage.searchOpponentAssets},{"baselineAssets",board->mColdStorage.searchBaselineOpponentAssets},
 			{"weight",board->mColdStorage.searchOpponentWeight},{"score",board->mColdStorage.searchOpponentScore}};
 		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;

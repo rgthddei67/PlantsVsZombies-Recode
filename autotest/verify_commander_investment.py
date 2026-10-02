@@ -11,6 +11,9 @@ for name in ('wide', 'narrow'):
     compare = ice['searchCombination']
     assert 0 < compare['routeEvaluated'] <= 512
     assert 0 < compare['evaluated'] <= 160
+    assert 0 < compare['cohortEvaluated'] <= compare['evaluated']
+    assert abs(ice['searchPreferenceScore']) <= ice['searchFeatures'][5] * abs(ice['searchEffectiveWeights'][5]) * .25 + .01
+    assert 'searchRawPreferenceScore' in ice
     assert compare['bestBreach'] or not compare['baseBreach']
     assert (compare['bestBreach'] and not compare['baseBreach']) or compare['bestScore'] + .002 >= compare['baseScore']
     assert ice['planningApplied'] == 1 and not ice['planning']
@@ -33,4 +36,4 @@ for name in ('refill-1', 'refill-2', 'no-refill'):
         assert extra['enabled'] and len(extra['events']) == 1
         assert extra['events'][0] == {'seconds': 0.0, 'before': 1000, 'after': 9990, 'added': 8990}
         assert episode['final']['sun'] == 9990
-print('Generic route/pair exploration in wide and narrow rosters, outcome ordering, ledger and external-sun diagnostics passed.')
+print('Generic route/pair/batch exploration, bounded learned priors, outcome ordering, ledger and external-sun diagnostics passed.')

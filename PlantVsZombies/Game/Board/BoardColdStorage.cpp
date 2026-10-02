@@ -2039,6 +2039,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.commanderMode = result.regrouping ? "regroup" : result.actions.empty() ? (result.precisionTargetID > 0 ? "strike" : "observe") : s.unlockProbe ? "unlock" : "search";
 	s.commanderBudget = search.budget; s.candidatesEvaluated = result.evaluated;
 	s.lastBestScore = result.score; s.searchPreferenceScore = result.preferenceScore;
+	s.searchRawPreferenceScore=result.rawPreferenceScore;
 	s.searchUnitCandidates = result.candidates;
 	s.searchOpponentAssets = result.opponentAssets; s.searchBaselineOpponentAssets = result.baselineOpponentAssets;
 	s.searchOpponentWeight = search.opponentWeight; s.searchOpponentScore = result.opponentScore;
@@ -2096,6 +2097,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
 	s.searchFormationChosenRow = result.formationChosenRow;
 	s.searchRouteEvaluated = result.routeEvaluated; s.searchCombinationEvaluated = result.combinationEvaluated;
+	s.searchCohortEvaluated=result.cohortEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchProductionInputs = result.productionInputs;

@@ -1802,4 +1802,43 @@ int main()
 	check(adjacent.goldenDrumSteps>0 && distant.goldenDrumSteps==0,"live golden source helps the neighboring lane, not lanes outside its three-row range");
 	}
 
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=24; s.capacity=1; s.netEconomy=true;
+	s.context[0][3]=s.context[0][4]=s.context[0][5]=3;
+	Plant fire; fire.x=300; fire.health=10000; fire.dps=280; fire.edible=false; s.plants={fire};
+	Unit convoy; convoy.body.x=1040; convoy.body.speed=15; convoy.body.health=4500; s.current={convoy};
+	Option worker; worker.type=1917; worker.cost=24; worker.unit.body.x=1140; worker.unit.body.health=500;
+	worker.unit.body.speed=16; worker.unit.body.economic=true; worker.unit.body.purchaseCost=24;
+	worker.preference={-2.27f,-1.88f,0,-5.43f,-13.04f,-12,0,10.56f}; s.options={worker};
+	Weights income{}; income[4]=1;
+	const auto selected=Search(s,income,29);
+	std::cout << "Protected profitable worker: income=" << Evaluate(s,{{0,0}})[4]
+		<< " selected=" << selected.actions.size() << " preference=" << selected.preferenceScore << '\n';
+	check(!selected.actions.empty(),"learned danger priors cannot veto an economically profitable reinforcement behind a living escort");
+	check(selected.rawPreferenceScore<selected.preferenceScore && selected.preferenceScore>=-6,
+		"raw danger priors remain observable while the net-economic contribution stays within the paid price bound");
+	s.current[0].body.health=500;
+	check(Search(s,income,29).actions.empty(),"bounded danger priors do not force an unprofitable worker behind a dying escort");
+	s.options[0].preference[0]=500; s.options[0].unit.body.economic=false;
+	check(Search(s,income,29).actions.empty(),"a bounded positive prior cannot make a useless purchase beat waiting");
+	s.netEconomy=false;
+	check(!Search(s,income,29).actions.empty(),"legacy non-economic policies retain their original preference semantics");
+	}
+
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.budget=192; s.capacity=8; s.netEconomy=true;
+	Plant fire; fire.x=300; fire.health=10000; fire.dps=100; fire.edible=false; s.plants={fire};
+	Option worker; worker.type=1917; worker.cost=24; worker.unit.body.x=1000; worker.unit.body.health=500;
+	worker.unit.body.economic=true; worker.unit.body.purchaseCost=24; s.options={worker};
+	check(Evaluate(s,{{0,0},{0,0}})[4]<48,"one or two exposed producers cannot repay this sustained-fire investment");
+	Weights income{}; income[4]=1;
+	const auto batch=Search(s,income,61);
+	check(batch.actions.size()>2 && batch.features[4]>batch.features[5] && batch.cohortEvaluated>0 && batch.combinationEvaluated<=80,
+		"free batch exploration discovers profitable collective production after early casualties without increasing the combination budget");
+	for (auto& p:s.plants) p.dps=10000;
+	check(Search(s,income,61).actions.empty(),"batch opportunities do not require mass purchasing when the whole cohort dies before producing");
+	}
+
 }

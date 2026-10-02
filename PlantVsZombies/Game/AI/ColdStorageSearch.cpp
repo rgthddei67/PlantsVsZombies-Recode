@@ -43,6 +43,7 @@ constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁�
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
 constexpr int kRouteTrials = 256; // 单阶段兵种/合法路线覆盖上限，不区分攻击、经济或支援角色
 constexpr int kCombinationTrials = 80; // 单阶段任意兵种配对和优案扩展预算，不预设技能搭配
+constexpr float kPreferenceIceFraction = .25f; // 净经济模式下单兵偏好最多相当于其冰价四分之一，不能压过明确回报
 constexpr int kPrecisionFollowupTrials = 16; // 每个清除目标的通用跟进探测预算，之后只为胜出目标重搜
 constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较原案、等待和通用跟进
 constexpr int kQueueTrials = 40; // 已付队列每次滚动重评的候选预算，不改变单位数或购买预算
@@ -405,10 +406,14 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 			const auto& ally = s.options[other.option];
 			if (ally.row == option.row) { context[2] += 1.0f / 3; if (ally.unit.body.economic) context[6] += 1; }
 		}
-		for (int feature = 0; feature < ContextCount; ++feature) {
-			const float value = option.preference[feature] * std::clamp(context[feature], 0.0f, 3.0f);
-			candidate.score += value; candidate.preferenceScore += value;
-		}
+		float rawPreference=0;
+		for (int feature = 0; feature < ContextCount; ++feature)
+			rawPreference += option.preference[feature]*std::clamp(context[feature],0.0f,3.0f);
+		// 技能与火力已经逐步推演，旧危险偏好只能作为有界先验；保留原配置供重训，不暗改兵种权重。
+		const float limit=option.cost*std::abs(weights[5])*kPreferenceIceFraction;
+		const float preference=s.netEconomy ? std::clamp(rawPreference,-limit,limit) : rawPreference;
+		candidate.rawPreferenceScore+=rawPreference;
+		candidate.score+=preference; candidate.preferenceScore+=preference;
 	}
 	candidate.blastLoss = candidate.features[6];
 	return candidate;
@@ -1709,15 +1714,21 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		});
 		if (elite.size() > 8) elite.resize(8);
 	}
-	int routeEvaluated = 0, combinationEvaluated = 0;
+	int routeEvaluated = 0, combinationEvaluated = 0, cohortEvaluated = 0;
 	const float combinationBaseScore = best.score;
 	const bool combinationBaseBreach = best.features[2] > 0;
 	const auto groups = LegalOptionGroups(s,rng);
-	const auto compare = [&](std::vector<Action> plan) {
+	Result cohortAnchor;
+	bool hasCohortAnchor=false;
+	const auto compare = [&](std::vector<Action> plan, bool cohort=false) {
 		Repair(s,plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 		auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
+		// 批次自身可亏损，但接上另一类型后可能回本；只保留数值探索锚点，最终完整案仍过同一资本门禁。
+		if (cohort && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
+			cohortAnchor=candidate; hasCohortAnchor=true;
+		}
 		if (rejectInvestment(candidate)) { deferredInvestment = true; return; }
 		if (BetterOutcome(candidate,best)) { best = candidate; hasChoice = true; }
 		elite.push_back(std::move(candidate));
@@ -1746,7 +1757,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			if (s.options[groups[a].front()].cost+s.options[groups[b].front()].cost <= PurchaseBudget(s))
 				pairs.emplace_back(a,b);
 	std::shuffle(pairs.begin(),pairs.end(),rng);
-	const int pairTrials = kCombinationTrials/2;
+	const int pairTrials = kCombinationTrials/3;
 	for (int trial=0; trial<pairTrials && !pairs.empty(); ++trial) {
 		auto plan = SampleCombination(s,groups,pairs[trial%pairs.size()],rng,trial<static_cast<int>(pairs.size()));
 		// 后续把任意配对试入搜索中的优案，可生成三种以上兵种并继续优化出生次序。
@@ -1767,17 +1778,32 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		}
 		compare(std::move(plan)); ++combinationEvaluated;
 	}
+	// 从同一组合预算中给各类型试成批规模，跨过“单只或两只被清掉，分路群体仍能回本”的谷底。
+	// 所有兵种使用相同集中/分路及错峰形状，既不按生产角色筛选，也不指定护卫组合。
+	for (int pass=0;pass<2 && cohortEvaluated<kCombinationTrials/3;++pass) for (const auto& group:groups) {
+		if (cohortEvaluated>=kCombinationTrials/3) break;
+		const int count=std::min({ActionLimit(s),PurchaseBudget(s)/s.options[group.front()].cost,pass==0 ? 4 : 8});
+		if (count<2) continue;
+		std::vector<Action> plan;
+		for (int i=0;i<count;++i) plan.push_back({group[pass==0 ? 0 : i%group.size()],
+			pass==0 ? 0 : std::min(DelayLimit(s),static_cast<float>(i)*2)});
+		compare(std::move(plan),true); ++combinationEvaluated; ++cohortEvaluated;
+	}
 	// 独立单兵与随机配对不能保证试到“给本案的前排补后续支援”。分出原有组合预算，
 	// 轮流给各合法类型试入当前优案；同时/错峰、换兵/增兵都使用相同预测和门禁。
-	for (int pass=0; pass<2 && combinationEvaluated<kCombinationTrials && !best.actions.empty(); ++pass) {
+	for (int pass=0; pass<2 && combinationEvaluated<kCombinationTrials; ++pass) {
 		for (const auto& group : groups) {
 			if (combinationEvaluated >= kCombinationTrials) break;
+			// 有界先验不能靠夸大前排单独收益来打开组合搜索。等待暂优时，也从最好的非空探索案接支援。
+			const auto anchor=std::find_if(elite.begin(),elite.end(),[](const Result& candidate){return !candidate.actions.empty();});
+			if (best.actions.empty() && anchor==elite.end() && !hasCohortAnchor) break;
+			const auto& anchorActions=!best.actions.empty() ? best.actions : hasCohortAnchor ? cohortAnchor.actions : anchor->actions;
 			std::array<int,6> rowCounts{};
-			for (const auto& action : best.actions) ++rowCounts[s.options[action.option].row];
+			for (const auto& action : anchorActions) ++rowCounts[s.options[action.option].row];
 			const int row = static_cast<int>(std::max_element(rowCounts.begin(),rowCounts.end())-rowCounts.begin());
 			const auto sameRow = std::find_if(group.begin(),group.end(),[&](int option){return s.options[option].row==row;});
 			const int option = sameRow==group.end() ? group.front() : *sameRow;
-			auto plan = IntroduceOption(s,best.actions,option,rng);
+			auto plan = IntroduceOption(s,anchorActions,option,rng);
 			plan.back().delay = pass==0 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
 			compare(std::move(plan)); ++combinationEvaluated;
 		}
@@ -1801,6 +1827,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
 	best.routeEvaluated = routeEvaluated; best.combinationEvaluated = combinationEvaluated;
+	best.cohortEvaluated=cohortEvaluated;
 	best.combinationBaseScore = combinationBaseScore; best.combinationBestScore = combinationBestScore;
 	best.combinationBaseBreach = combinationBaseBreach; best.combinationBestBreach = combinationBestBreach;
 	best.evaluated = evaluated;
@@ -1823,6 +1850,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		result.capitalRejected += best.capitalRejected;
 		result.routeEvaluated += best.routeEvaluated;
 		result.combinationEvaluated += best.combinationEvaluated;
+		result.cohortEvaluated += best.cohortEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}
