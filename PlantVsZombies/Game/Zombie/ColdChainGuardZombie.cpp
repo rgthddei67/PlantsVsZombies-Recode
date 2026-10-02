@@ -94,6 +94,17 @@ void ColdChainGuardZombie::SaveExtraData(nlohmann::json& j) const
 	j["guardRepairRemaining"] = mRepairRemaining;
 }
 
+bool ColdChainGuardZombie::CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const
+{
+	state = { 0, mRepairRemaining, 0 };
+	return true;
+}
+
+void ColdChainGuardZombie::RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state)
+{
+	LoadExtraData({ { "guardRepairRemaining", state.remaining } });
+}
+
 void ColdChainGuardZombie::LoadExtraData(const nlohmann::json& j)
 {
 	const float remaining = j.value("guardRepairRemaining", kRepairInterval);

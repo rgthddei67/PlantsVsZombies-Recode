@@ -68,6 +68,8 @@ protected:
 	/** 巨人砸击接入鼓舞攻击层；与品种步频分别处理黄色冰道，不加速投掷。 */
 	bool UsesDrumAttackSpeed() const override { return mPhase == Phase::SMASHING; }
 	void OnMindControlled() override;
+	/** 通用头部恢复必须保留巨人伤势与红眼变体的专属材质。 */
+	void RestoreHeadImageAfterGarlic() override;
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	/** 按伤势阶段选择头部材质；同时间线换色变体只需覆写此入口。 */

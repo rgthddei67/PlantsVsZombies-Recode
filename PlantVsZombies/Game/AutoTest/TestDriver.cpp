@@ -7056,6 +7056,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["boilerPhase"] = static_cast<int>(boiler->GetBoilerPhase());
 			zombieState["boilerRemainingMs"] = static_cast<int>(std::lround(boiler->GetPhaseRemaining() * 1000));
 			zombieState["boilerSpent"] = boiler->HasSpentOverdrive();
+			zombieState["boilerRetryMs"] = static_cast<int>(std::lround(boiler->GetRetryRemaining() * 1000));
 			zombieState["boilerResourceReady"] = ResourceManager::GetInstance().HasReanimation("BoilerZombie")
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_BOILER_PACK", false)
 				&& boiler->GetAnimatorInternal()->GetTrackFollowerVisible("Zombie_body", "boiler_pack");
@@ -7494,6 +7495,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["gargantuarDamageStage"] = gargantuar->GetDamageStage();
 			zombieState["gargantuarHeadTextureKey"] =
 				gargantuar->GetCurrentHeadTextureKey();
+			const auto* expectedHead = ResourceManager::GetInstance().GetTexture(gargantuar->GetCurrentHeadTextureKey(), false);
+			zombieState["gargantuarHeadTextureApplied"] = expectedHead && anim
+				&& anim->GetTrackImageOverride("anim_head1") == expectedHead;
 			zombieState["gargantuarBodyTextureKey"] =
 				gargantuar->GetCurrentBodyTextureKey();
 			zombieState["gargantuarOuterArmTextureKey"] =

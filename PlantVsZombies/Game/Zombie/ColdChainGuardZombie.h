@@ -20,6 +20,10 @@ public:
 	void SaveExtraData(nlohmann::json& j) const override;
 	/** 还原余时和挂件，不套出生血量或重放修复事务。 */
 	void LoadExtraData(const nlohmann::json& j) override;
+	/** 记录修盾余时；盾类型与耐久由时间锚核心快照持有。 */
+	bool CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const override;
+	/** 按已恢复盾值重建挂件和修复周期，不重新扣费。 */
+	void RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state) override;
 protected:
 	/** 初始化普通僵尸身体、一类冰盾与完整修复周期。 */
 	void SetupZombie() override;

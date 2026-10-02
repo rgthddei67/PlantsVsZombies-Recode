@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 1, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 25},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 1, "x": 830, "stationary": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_REDEYE_GARGANTUAR", "row": 3, "x": 500, "stationary": true},
+    {"op": "damage_zombie", "row": 3, "damage": 4400, "source": "OTHER"},
+    {"op": "spawn_zombie", "type": "ZOMBIE_POLAR_CLOCKMAKER", "row": 2, "x": 1000, "stationary": true},
+    {"op": "wait_value", "path": "weather.temporalAnchorCount", "equals": 1, "timeout": 10},
+    {"op": "dump_state", "name": "redeye_recorded.json"},
+    {"op": "wait_value", "path": "weather.temporalAnchorCount", "equals": 0, "timeout": 10},
+    {"op": "assert_state", "path": "zombies.0.gargantuarHeadTextureApplied", "equals": true},
+    {"op": "assert_state", "path": "zombies.0.gargantuarPhase", "equals": "WALKING"},
+    {"op": "assert_state", "path": "zombies.1.gargantuarHeadTextureApplied", "equals": true},
+    {"op": "assert_state", "path": "zombies.1.gargantuarPhase", "equals": "WALKING"},
+    {"op": "dump_state", "name": "redeye_restored.json"},
+    {"op": "wait_seconds", "value": 2},
+    {"op": "screenshot", "name": "redeye_restored.png"},
+    {"op": "quit"}
+  ]
+}

@@ -20,6 +20,10 @@ public:
 	void SaveExtraData(nlohmann::json& j) const override;
 	/** 修复失头、死亡、魅惑和无效阶段组合，同时重建设备。 */
 	void LoadExtraData(const nlohmann::json& j) override;
+	/** 记录全部锅炉阶段、余时、重试与发动资格；已扣费用不进入快照。 */
+	bool CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const override;
+	/** 恢复本地能力并对齐安全动作，不重放已付款的超频提交。 */
+	void RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state) override;
 	float GetInterruptibleSpecialActionRemaining() const override;
 	bool InterruptUncommittedSpecialAction() override;
 	Phase GetBoilerPhase() const { return mPhase; }

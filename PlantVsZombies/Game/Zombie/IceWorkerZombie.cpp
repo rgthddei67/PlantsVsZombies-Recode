@@ -55,6 +55,19 @@ void IceWorkerZombie::SaveExtraData(nlohmann::json& j) const
 	j["iceBatches"] = mIceBatches;
 }
 
+bool IceWorkerZombie::CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const
+{
+	state = { 0, mIceRemaining, mIceBatches, mNextIceYield };
+	return true;
+}
+
+void IceWorkerZombie::RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state)
+{
+	// 共用实体读档的数值校验与附件恢复，库存不属于实体快照。
+	LoadExtraData({ { "iceRemaining", state.remaining },
+		{ "iceBatches", state.releaseCount }, { "nextIceYield", state.auxiliaryValue } });
+}
+
 void IceWorkerZombie::LoadExtraData(const nlohmann::json& j)
 {
 	const float remaining = j.value("iceRemaining", IceProduction::Interval);

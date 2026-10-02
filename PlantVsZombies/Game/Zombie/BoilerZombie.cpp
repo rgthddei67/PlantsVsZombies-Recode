@@ -177,6 +177,20 @@ void BoilerZombie::SaveExtraData(nlohmann::json& j) const
 	j["boilerSpent"] = mSpent;
 }
 
+bool BoilerZombie::CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const
+{
+	state = { static_cast<int>(mPhase), mRemaining, mSpent ? 1 : 0, mRetryRemaining };
+	return true;
+}
+
+void BoilerZombie::RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state)
+{
+	LoadExtraData({ { "boilerPhase", state.phase }, { "boilerRemaining", state.remaining },
+		{ "boilerSpent", state.releaseCount != 0 }, { "boilerRetryRemaining", state.auxiliaryValue } });
+	// 正式读档另有 Animator 恢复；时间锚只回到对应稳态，不能保留锚后旧前摇轨。
+	ChangePhase(mPhase, mRemaining);
+}
+
 void BoilerZombie::LoadExtraData(const nlohmann::json& j)
 {
 	mPhase = static_cast<Phase>(std::clamp(j.value("boilerPhase", 0), 0, 4));

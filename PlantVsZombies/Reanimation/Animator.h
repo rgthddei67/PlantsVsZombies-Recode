@@ -241,6 +241,8 @@ public:
 	 * @param image 纹理指针，nullptr 表示恢复默认
 	 */
 	void SetTrackImage(const std::string& trackName, const Texture* image);
+	/** 返回首个同名轨道的实例换图；nullptr 表示无覆盖或轨道不存在，不解析默认帧图。 */
+	const Texture* GetTrackImageOverride(const std::string& trackName) const;
 
 	/**
 	 * @brief 设置指定轨道叠加在 reanim 原始变换上的绘制偏移。

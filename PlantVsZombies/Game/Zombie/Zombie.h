@@ -57,6 +57,7 @@ struct ZombieTemporalAbilityState {
 	int phase = -1;
 	float remaining = 0.0f;
 	int releaseCount = 0; // 品种拥有的累计释放次数；随时间锚回溯
+	float auxiliaryValue = 0.0f; // 品种自解释的附加量：制冰工产量或锅炉重试余秒
 };
 
 class Zombie : public AnimatedObject {

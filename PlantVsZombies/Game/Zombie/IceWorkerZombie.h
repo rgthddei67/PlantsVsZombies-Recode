@@ -13,6 +13,10 @@ public:
 	void SaveExtraData(nlohmann::json& j) const override;
 	/** 恢复并校验生产状态，不重新生产或重置成熟度。 */
 	void LoadExtraData(const nlohmann::json& j) override;
+	/** 记录生产余时、成熟产量和批次；已入账冰块由 Board 保留。 */
+	bool CaptureTemporalAbilityState(ZombieTemporalAbilityState& state) const override;
+	/** 恢复本地生产进度并重建制冰机，不重放产冰事务。 */
+	void RestoreTemporalAbilityState(const ZombieTemporalAbilityState& state) override;
 	float GetIceRemaining() const { return mIceRemaining; }
 	float GetNextIceYield() const { return mNextIceYield; }
 	int GetIceBatches() const { return mIceBatches; }

@@ -353,6 +353,12 @@ void GargantuarZombie::RefreshEquipmentPresentationAfterRepair()
 	ApplyDamagePresentation();
 }
 
+void GargantuarZombie::RestoreHeadImageAfterGarlic()
+{
+	// 时间回溯也会清理大蒜表情；nullptr 会退回 reanim 的白眼默认图。
+	ApplyDamagePresentation();
+}
+
 bool GargantuarZombie::TakePlantInstantKill()
 {
 	// 红眼巨人继承同一拒吞契约；统一的 20 点基础咬伤由大嘴花结算。

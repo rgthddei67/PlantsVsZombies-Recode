@@ -1358,6 +1358,11 @@ bool Animator::GetTrackFollowerVisible(const std::string& trackName,
 	return false;
 }
 
+const Texture* Animator::GetTrackImageOverride(const std::string& trackName) const {
+	const int index = GetFirstTrackIndexByName(trackName);
+	return index >= 0 && index < static_cast<int>(mExtraInfos.size()) ? mExtraInfos[index].mImage : nullptr;
+}
+
 bool Animator::GetTrackFollowerInheritsOverlayEffect(const std::string& trackName,
 	const std::string& followerName) const {
 	const int index = GetFirstTrackIndexByName(trackName);

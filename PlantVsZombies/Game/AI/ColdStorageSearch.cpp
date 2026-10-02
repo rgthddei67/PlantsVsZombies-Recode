@@ -1294,7 +1294,7 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 				unit.body.x=boundary ? s.rightEdge+40 : saved.body.x;
 			}
 			if (boundary) { --boundary->boundaryShards; ++stats.clockRedirects; }
-			// 首次死亡的返冰已经兑现，复活不重新登记，也不回退成熟工人的生产账本。
+			// 首次死亡的返冰已经兑现，复活不重新登记；缺少能力快照的旧锚沿用出生状态。
 			if (revived) {
 				unit.productionRemaining=IceProduction::Interval; unit.nextYield=IceProduction::InitialYield;
 				unit.inspiration.clear();
@@ -1315,6 +1315,9 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			if (target.restoreAbility) {
 				unit.adaptedOrigin=saved.adaptedOrigin; unit.drum=saved.drum; unit.ritual=saved.ritual; unit.clock=saved.clock;
 				unit.ritual.armor=std::min(saved.ritual.armor,helm);
+				// 本地成熟度、付费阶段和修盾余时可回溯；已产出的冰与已扣技能费仍保留。
+				unit.productionRemaining=saved.productionRemaining; unit.nextYield=saved.nextYield;
+				unit.burst=saved.burst; unit.repair.remaining=saved.repair.remaining;
 			}
 			if (unit.clock.present && helm<=0) unit.clock.enabled=false;
 			const float restored=std::max(0.0f,unit.body.health-before);

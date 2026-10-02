@@ -1505,6 +1505,23 @@ void Board::PlanColdStorageAttack(bool background)
 						recorded.abilityRemaining,PolarClockRules::BodyHealth/3.0f};
 				if (recorded.type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER && target.restoreAbility)
 					saved.drum = {recorded.abilityPhase != 2,recorded.abilityPhase == 1,recorded.abilityRemaining,saved.drum.stopHealth};
+				// 使用锚中记录的本地能力，不能从锚后活体或死亡替身的出生默认值猜测。
+				if (recorded.type == ZombieType::ZOMBIE_ICE_WORKER && target.restoreAbility) {
+					saved.productionRemaining = std::clamp(recorded.abilityRemaining,0.0f,IceProduction::Interval);
+					saved.nextYield = std::clamp(recorded.abilityAuxiliaryValue,IceProduction::InitialYield,IceProduction::MaximumYield);
+				}
+				if (recorded.type == ZombieType::ZOMBIE_BOILER && target.restoreAbility) {
+					using Stage = ColdStorageSearch::PaidBurst::Stage;
+					saved.burst.stage = static_cast<Stage>(std::clamp(recorded.abilityPhase,0,4));
+					if (recorded.abilityReleaseCount != 0 && recorded.abilityPhase <= 1) saved.burst.stage = Stage::SPENT;
+					const float maximum = saved.burst.stage == Stage::WINDUP ? BoilerRules::kPreheat
+						: saved.burst.stage == Stage::ACTIVE ? BoilerRules::kOverdrive
+						: saved.burst.stage == Stage::RECOVERY ? BoilerRules::kVenting : 0.0f;
+					saved.burst.remaining = std::clamp(recorded.abilityRemaining,0.0f,maximum);
+					saved.burst.retryRemaining = std::clamp(recorded.abilityAuxiliaryValue,0.0f,BoilerRules::kRetry);
+				}
+				if (recorded.type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD && target.restoreAbility)
+					saved.repair.remaining = std::clamp(recorded.abilityRemaining,0.0f,ColdChainGuardRules::kRepairInterval);
 				if (recorded.type == ZombieType::ZOMBIE_AURORA_PRIEST && target.restoreAbility) {
 					saved.ritual.enabled = recorded.abilityPhase != 3 && recorded.abilityPhase != 4;
 					saved.ritual.winding = recorded.abilityPhase == 1; saved.ritual.remaining = recorded.abilityRemaining;

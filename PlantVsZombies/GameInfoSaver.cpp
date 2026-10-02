@@ -467,6 +467,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 				{ "abilityPhase", target.abilityPhase },
 				{ "abilityRemaining", target.abilityRemaining },
 				{ "abilityReleaseCount", target.abilityReleaseCount },
+				{ "abilityAuxiliaryValue", target.abilityAuxiliaryValue },
 			});
 		}
 		j["temporalAnchors"].push_back({
@@ -1334,6 +1335,8 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 					"specialActionSubmitted", false);
 				target.abilityStateValid = savedTarget.value("abilityStateValid", false);
 				target.abilityReleaseCount = std::max(0, savedTarget.value("abilityReleaseCount", 0));
+				// 旧档没有新增三品种的有效能力快照；附加量由目标按自身单位校验。
+				target.abilityAuxiliaryValue = savedTarget.value("abilityAuxiliaryValue", 0.0f);
 				// phase 是由具体僵尸解释的不透明编码；适应头盔会在其中携带完整植物谱系。
 				target.abilityPhase = std::clamp(savedTarget.value("abilityPhase", -1), -1,
 					static_cast<int>(PlantType::NUM_PLANT_TYPES) + 1);

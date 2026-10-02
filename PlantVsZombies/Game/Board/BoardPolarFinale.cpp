@@ -179,6 +179,7 @@ void Board::CommitPolarClockAnchor(int ownerZombieID, int sourceRow)
 				target.abilityPhase = abilityState.phase;
 				target.abilityRemaining = std::max(0.0f, abilityState.remaining);
 				target.abilityReleaseCount = abilityState.releaseCount;
+				target.abilityAuxiliaryValue = abilityState.auxiliaryValue;
 			}
 		}
 		anchor.targets.push_back(target);
@@ -315,7 +316,8 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 			if (target.abilityStateValid) {
 				// 只回放目标自己的阶段；锚内已提交的裂隙和时间锚仍留在 Board。
 				zombie->RestoreTemporalAbilityState({
-					target.abilityPhase, target.abilityRemaining, target.abilityReleaseCount });
+					target.abilityPhase, target.abilityRemaining, target.abilityReleaseCount,
+					target.abilityAuxiliaryValue });
 			}
 			else if (target.zombieID != it->ownerZombieID) {
 				// v10 旧档非来源目标继续使用只保留 submitted 的兼容语义。

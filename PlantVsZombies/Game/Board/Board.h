@@ -383,6 +383,7 @@ private:
 		int abilityPhase = -1;
 		float abilityRemaining = 0.0f;
 		int abilityReleaseCount = 0;
+		float abilityAuxiliaryValue = 0.0f;
 	};
 
 	/** 钟匠提交后与来源生命周期解耦的六秒时间锚。 */
