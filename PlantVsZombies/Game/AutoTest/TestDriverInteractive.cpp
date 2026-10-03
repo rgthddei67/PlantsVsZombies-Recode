@@ -238,11 +238,19 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 			auto& cardState = compact["cards"][slot];
 			cardState["slot"] = slot;
 			cardState["legalCells"] = nlohmann::json::array();
+			cardState["counterVacantCells"] = nlohmann::json::array();
 			if (!cards[slot] || cards[slot]->GetGameplayPlantType() == PlantType::PLANT_CARRYVINE) continue;
+			const auto type = cards[slot]->GetGameplayPlantType();
+			const bool counter = type == PlantType::PLANT_JALAPENO || type == PlantType::PLANT_CHERRYBOMB
+				|| type == PlantType::PLANT_DOOMSHROOM;
 			for (int row = 0; row < scene->GetBoard()->mRows; ++row)
-				for (int col = 0; col < scene->GetBoard()->mColumns; ++col)
+				for (int col = 0; col < scene->GetBoard()->mColumns; ++col) {
 					if (scene->GetBoard()->CanPlantAt(cards[slot]->GetGameplayPlantType(), row, col))
 						cardState["legalCells"].push_back({row, col});
+					// 只公开本方铲一株后的地形资格，不含隐藏僵尸或 AI 预测结果。
+					else if (counter && scene->GetBoard()->CanForecastCounterAt(type,row,col))
+						cardState["counterVacantCells"].push_back({row,col});
+				}
 		}
 	}
 	return compact;

@@ -16,7 +16,7 @@ using Json = nlohmann::json;
 constexpr float kStoredWakeStake=4200; // 蓄爆陪练愿意唤醒毁灭的可见威胁总值，生命及猎工优先值
 constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像素；实际爆炸仍由正式实体结算
 /** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
-std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
+std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
 	const bool holdPineapple = opponent == "ice_pine_hold" || opponent == "ice_bunker_hold";
@@ -135,6 +135,32 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 				if (std::find(card.at("legalCells").begin(), card.at("legalCells").end(), cell) == card.at("legalCells").end()) continue;
 				actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",r},{"col",c}});
 				planted = true; return;
+			}
+			// 独立陪练选项：没有空位才考虑牺牲一株。只读取本方合法格及可见威胁，
+			// 本秒只铲，下一秒重新观察后正常付款放灰烬；不假定铲除当帧已经释放占位。
+			if (shovelCounters && (kind == "PLANT_JALAPENO" || kind == "PLANT_CHERRYBOMB"
+				|| (station && kind == "PLANT_DOOMSHROOM"))) {
+				std::pair<int,int> selected{-1,-1}; int lowestCost = 100000;
+				for (const auto& [r,c] : cells) {
+					const Json cell = Json::array({r,c});
+					const auto& vacant = card.at("counterVacantCells");
+					if (std::find(vacant.begin(),vacant.end(),cell) == vacant.end()) continue;
+					const auto found = plants.find({r,c});
+					if (found == plants.end()) continue;
+					const auto type = found->second.at("type").get<std::string>();
+					// 不铲正在结算的灰烬、蓄爆、路灯或累计限额输出，避免制造另一种假对手。
+					if (type == "PLANT_CHERRYBOMB" || type == "PLANT_JALAPENO" || type == "PLANT_DOOMSHROOM"
+						|| type == "PLANT_SQUASH" || type == "PLANT_PLANTERN" || type == "PLANT_ELITE_SCAREDYSHROOM"
+						|| type == "PLANT_MARIGOLD") continue;
+					int cost = 300;
+					for (const auto& ownedCard : state.at("cards")) if (ownedCard.at("gameplayType") == type)
+						cost = ownedCard.at("sunCost").get<int>();
+					if (cost < lowestCost) { lowestCost = cost; selected = {r,c}; }
+				}
+				if (selected.first >= 0) {
+					actions.push_back({{"op","player_shovel"},{"row",selected.first},{"col",selected.second}});
+					planted = true; return;
+				}
 			}
 		}
 	};
@@ -437,6 +463,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},{"timeScale",timeScale},
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
 			{"playerActions",command.value("playerActions",true)},
+			{"shovelCounters",command.value("shovelCounters",false)},
 			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
@@ -452,7 +479,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		board->mSun = refillTo; full["sun"] = refillTo;
 	}
 	// 静态诊断保留正式战斗，只关闭陪练输入，不能把结果混入实战胜率。
-	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent)) {
+	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent, command.value("shovelCounters",false))) {
 		ExecuteInteractive(action);
 		if (action.at("op") == "player_plant" && !mInteractiveResults.empty() && mInteractiveResults.back().value("ok",false))
 			for (const auto& card : full.at("cards")) if (card.at("slot") == action.at("slot")) {
