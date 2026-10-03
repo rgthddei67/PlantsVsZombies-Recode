@@ -270,8 +270,11 @@ def battle_progress(result):
     return 2*kills + 100*mowers
 
 
-def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=False):
-    """Same scenarios/seeds for every candidate; no training results enter holdout selection."""
+def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=False,
+              wall_timeout_seconds=900):
+    """Pair scenarios/seeds; wall timeout bounds the visible process, not game time or AI work."""
+    if wall_timeout_seconds < 1:
+        raise ValueError('Wall timeout must be positive')
     script = output / (name + '.json')
     commands, jobs = [], []
     for index, weights in enumerate(candidates):
@@ -293,7 +296,7 @@ def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=F
     started = time.monotonic()
     subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
                     str(ROOT / 'autotest/run_commander_batch.ps1'), '-GameDirectory', str(game_dir),
-                    '-Script', str(script)], check=True)
+                    '-Script', str(script), '-TimeoutSeconds', str(wall_timeout_seconds)], check=True)
     status = json.loads((artifact_dir / 'status.json').read_text(encoding='utf-8'))
     log = (artifact_dir / 'run.log').read_text(encoding='utf-8')
     if status['status'] != 'passed' or 'script finished OK' not in log or 'FAIL' in log:
