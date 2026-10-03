@@ -7,7 +7,7 @@
 
 namespace {
 constexpr float kPanelX=8, kPanelWidth=158; // 场外控制台位置与宽度，逻辑像素
-constexpr float kPanelTop=365, kPanelSpacing=48; // 三个常驻设备的纵向布局，逻辑像素
+constexpr float kPanelTop=398, kPanelSpacing=44; // 位于商店面板底边390之下，避免展开时压住设备按钮，逻辑像素
 const char* DeviceName(int d) { return d==0 ? u8"雨势控制" : d==1 ? u8"迷雾控制" : u8"雷荷设备"; }
 const char* SettingName(int d,int v) {
     static const char* rain[]{u8"晴夜",u8"小雨",u8"中雨",u8"大雨"};
@@ -81,15 +81,13 @@ void GameScene::UpdateWeatherStationControls() {
 void GameScene::DrawWeatherStationControls(Graphics* g) {
     if (!g || !mBoard || !mBoard->IsWeatherStation() || mBoard->mBoardState!=BoardState::GAME) return;
     const auto font=ResourceKeys::Fonts::FONT_FZCQ;
-    const auto& ice=mBoard->mColdStorage;
-    g->FillRect(4,275,166,78,glm::vec4(12,24,34,230));
-    g->DrawGlyphRun(u8"植物冰块 "+std::to_string(ice.playerIce),font,16,glm::vec4(170,235,250,255),10,280);
-    g->DrawGlyphRun(u8"僵尸冰块 "+std::to_string(ice.enemyIce),font,16,glm::vec4(220,205,165,255),10,303);
-    g->DrawGlyphRun(u8"补给 "+std::to_string(static_cast<int>(std::ceil(ice.supplyRemaining)))+u8"秒 · 第"+std::to_string(ice.decisions)+u8"波",font,12,glm::vec4(200,220,230,255),10,332);
-    g->FillRect(4,359,166,206,glm::vec4(12,24,34,230));
-    g->DrawGlyphRun(mBoard->HidesStationForecasts() ? u8"气象信号中断" : u8"8秒生效 · 保持至少30秒",font,12,glm::vec4(170,225,240,255),10,514);
+    // 冰块和补给继续使用右下角 GameProgress，左侧只容纳展开菜单及常驻设备。
+    g->FillRect(4,392,166,177,glm::vec4(12,24,34,230));
+    const char* notice=DeltaTime::IsPaused() ? u8"已暂停 · 空格继续操作"
+        : mBoard->HidesStationForecasts() ? u8"气象信号中断" : u8"8秒生效 · 保持至少30秒";
+    g->DrawGlyphRun(notice,font,12,glm::vec4(170,225,240,255),10,535);
     if(mBoard->IsStationDeviceUnlocked(2) && !mBoard->HidesStationForecasts())
-        g->DrawGlyphRun(u8"雷荷 "+std::to_string(static_cast<int>(mBoard->GetNightRoofCharge()))+" / 100",font,14,glm::vec4(210,185,255,255),10,536);
+        g->DrawGlyphRun(u8"雷荷 "+std::to_string(static_cast<int>(mBoard->GetNightRoofCharge()))+" / 100",font,14,glm::vec4(210,185,255,255),10,553);
     if(mStationOpenDevice>=0) {
         g->FillRect(4,98,166,250,glm::vec4(12,24,34,240));
         g->DrawGlyphRun(u8"选择后付款，8秒后生效",font,12,glm::vec4(190,235,245,255),10,103);
