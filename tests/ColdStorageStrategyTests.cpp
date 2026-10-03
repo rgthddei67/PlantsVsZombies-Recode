@@ -1,3 +1,4 @@
+#include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/AI/ColdStorageSearch.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
@@ -2173,6 +2174,25 @@ int main()
     s.plants[0].lightDeliveries={{3,30}}; const auto refueled=Evaluate(s,{});
     check(refueled[7]>empty[7],"already reserved fuel restores light after arrival");
     check(s.plants[0].lightFuel==0 && s.plants[0].lightDeliveries.size()==1,"fuel rollout never mutates real snapshot");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    using namespace ColdStorageDeploymentRules;
+    check(Capacity(2000)==64 && Capacity(4000)==106 && Capacity(8000)==192 && Capacity(100000)==192,
+        "deployment room grows continuously with capital and stays bounded");
+    check(Capacity(8000-768+768)==192,"transferring cash to paid troops preserves capacity");
+    Snapshot s; s.budget=8000; s.capacity=192; s.houseX=100;
+    Option unit; unit.cost=4; unit.unit.body.purchaseCost=4;
+    unit.unit.body.health=100; unit.unit.body.x=900; unit.unit.body.speed=40; s.options={unit};
+    Plant fire; fire.health=1000; fire.x=50; fire.dps=500; fire.edible=false; s.plants={fire};
+    Weights weights{}; weights[2]=100; weights[5]=-1;
+    const auto large=Search(s,weights,731);
+    check(large.expandedForecast && large.largestPlan>64 && large.actions.size()>64 && large.features[2]>0,
+        "funded commander compares and chooses a larger breakthrough without forcing purchases");
+    check(large.actions.size()<=192 && large.features[5]<=s.budget,"large plans obey both live room and real money");
+    s.plants[0].dps=100000; s.plants[0].multiTarget=true;
+    check(Search(s,weights,731).actions.empty(),"wealth does not require buying a doomed army");
     }
 
 }

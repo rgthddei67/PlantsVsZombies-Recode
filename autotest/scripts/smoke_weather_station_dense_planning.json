@@ -381,6 +381,39 @@
       "op": "assert_state",
       "path": "coldStorage.planningDiscardReasons.failed",
       "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 10000
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.deploymentLimit",
+      "equals": 192
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 45
+    },
+    {
+      "op": "dump_state",
+      "name": "rich_plan.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.searchLargestPlan",
+      "atLeast": 65
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningDiscardReasons.age",
+      "equals": 0
     }
   ]
 }

@@ -8,7 +8,7 @@
 namespace {
 constexpr float kPanelX=8, kPanelWidth=158; // 场外控制台位置与宽度，逻辑像素
 constexpr float kPanelTop=398, kPanelSpacing=44; // 位于商店面板底边390之下，避免展开时压住设备按钮，逻辑像素
-const char* DeviceName(int d) { return d==0 ? u8"雨势控制" : d==1 ? u8"迷雾控制" : u8"雷荷设备"; }
+const char* DeviceName(int d) { return d==0 ? u8"雨势" : d==1 ? u8"迷雾" : u8"雷荷"; }
 const char* SettingName(int d,int v) {
     static const char* rain[]{u8"晴夜",u8"小雨",u8"中雨",u8"大雨"};
     static const char* fog[]{u8"无雾",u8"原版迷雾",u8"小雾",u8"中雾",u8"大雾"};
@@ -58,8 +58,13 @@ void GameScene::UpdateWeatherStationControls() {
         std::string label=DeviceName(d);
         if (!unlocked) label+=u8" · 未解锁";
         else if (hidden) { label+=u8" · 信号中断"; if(c.player && c.pending>=0) label+=u8"（已下达）"; }
-        else if (c.pending>=0) label+=" · "+std::string(SettingName(d,c.pending))+" "+std::to_string(static_cast<int>(std::ceil(c.warning)))+u8"秒";
-        else { label+=" · "+std::string(SettingName(d,c.value)); if(c.protection>0) label+=" "+std::to_string(static_cast<int>(std::ceil(c.protection)))+u8"秒"; }
+        // 天气没有自动结束倒计时：前摇表示将切换，保护期只表示暂时不能再次操作。
+        else if (c.pending>=0) label+=" · "+std::to_string(static_cast<int>(std::ceil(c.warning)))+u8"秒后切至"+SettingName(d,c.pending);
+        else {
+            label+=" · "+std::string(SettingName(d,c.value));
+            if(c.protection>0) label+=u8" · 锁定"+std::to_string(static_cast<int>(std::ceil(c.protection)))+u8"秒";
+            else label+=u8" · 可切换";
+        }
         b->SetText(label,ResourceKeys::Fonts::FONT_FZCQ,11);
         b->SetEnabled(active); b->SetSkipDraw(!active); b->SetCanClick(unlocked && !DeltaTime::IsPaused());
     }
@@ -84,7 +89,7 @@ void GameScene::DrawWeatherStationControls(Graphics* g) {
     // 冰块和补给继续使用右下角 GameProgress，左侧只容纳展开菜单及常驻设备。
     g->FillRect(4,392,166,177,glm::vec4(12,24,34,230));
     const char* notice=DeltaTime::IsPaused() ? u8"已暂停 · 空格继续操作"
-        : mBoard->HidesStationForecasts() ? u8"气象信号中断" : u8"8秒生效 · 保持至少30秒";
+        : mBoard->HidesStationForecasts() ? u8"气象信号中断" : u8"天气持续至再次切换";
     g->DrawGlyphRun(notice,font,12,glm::vec4(170,225,240,255),10,535);
     if(mBoard->IsStationDeviceUnlocked(2) && !mBoard->HidesStationForecasts())
         g->DrawGlyphRun(u8"雷荷 "+std::to_string(static_cast<int>(mBoard->GetNightRoofCharge()))+" / 100",font,14,glm::vec4(210,185,255,255),10,553);

@@ -44,6 +44,14 @@
     {"op":"wait_seconds","value":8.2},
     {"op":"assert_state","path":"weatherStation.controls.2.value","equals":1},
     {"op":"assert_state","path":"coldStorage.playerIce","equals":260},
-    {"op":"screenshot","name":"08_charge_enabled_11_3.png"}
+    {"op":"screenshot","name":"08_charge_enabled_11_3.png"},
+    {"op":"station_control","device":1,"value":1},
+    {"op":"wait_frames","value":2},
+    {"op":"screenshot","name":"09_switch_countdown.png"},
+    {"op":"wait_seconds","value":8.2},
+    {"op":"screenshot","name":"10_switch_locked.png"},
+    {"op":"set_timescale","value":4},
+    {"op":"wait_seconds","value":31},
+    {"op":"screenshot","name":"11_switch_ready.png"}
   ]
 }

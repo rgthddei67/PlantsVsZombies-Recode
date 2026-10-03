@@ -4907,6 +4907,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		auto& ice = out["coldStorage"];
 		ice["pendingCount"] = board->mColdStorage.pending.size();
 		ice["hostileCount"] = board->GetColdStorageHostileCount();
+		ice["deploymentLimit"] = board->GetColdStorageDeploymentLimit();
 		ice["trainingAllUnits"] = ColdStoragePolicy::AllUnits();
 		ice["availableUnits"] = nlohmann::json::array();
 		for (auto type : board->GetSpawnZombieList()) ice["availableUnits"].push_back(GameDataManager::GetInstance().ZombieTypeToEnumName(type));

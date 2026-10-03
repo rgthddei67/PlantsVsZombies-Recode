@@ -1,5 +1,6 @@
 #include "Game/Board/NightRoofChargeRules.h"
 #include "ColdStorageSearch.h"
+#include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
@@ -40,7 +41,7 @@ constexpr float kSquashLeadSeconds = 0.3f; // 对齐 Squash::StartRising 起跳�
 constexpr float kRecoveryReturnFraction = 0.5f; // 低库存增援至少应换回半数冰价的预测收入或有效削血价值
 constexpr float kConstructionInterval = 2.0f; // 玩家模型两次建设决策间隔，游戏秒
 constexpr int kConstructionPlantLimit = 128; // 单次推演的植物容量，含已毁植物，约束新增对象开销
-constexpr int kPortfolioActions = 64; // 完整编队覆盖正式可用容量，仍受当前预算和剩余名额限制
+constexpr int kPortfolioActions = ColdStorageDeploymentRules::MaximumCapacity; // 完整编队覆盖正式可用容量，仍受当前预算和剩余名额限制
 constexpr int kPortfolioTrials = 192; // 第二版固定评估预算，含不同规模、同类/混编和错峰方案
 constexpr float kPortfolioDelay = 60; // 第二版允许跨过一轮反制冷却的出生时域，游戏秒
 constexpr float kPortfolioHorizon = 120; // 最晚队员也有完整交战窗口，游戏秒；产冰仍只计前 60 秒
@@ -119,7 +120,7 @@ float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
-	return std::max(0,std::min(s.capacity+(s.weatherStation ? 3 : 0),s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
+	return std::max(0,std::min(s.capacity+(s.weatherStation ? 3 : 0),s.searchVersion == 2 ? kPortfolioActions+(s.weatherStation ? 3 : 0) : s.stateModel ? kAdaptiveActions : kMaxActions));
 }
 float DelayLimit(const Snapshot& s) { return s.searchVersion == 2 ? kPortfolioDelay : s.stateModel ? kAdaptiveDelay : kMaxDelay; }
 /** 已付长队列需要完整战斗预测，但不因此跳过新购物车的小队搜索阶段。 */
@@ -2134,10 +2135,12 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
 	const auto coverage = SampleTypeCoverage(s,rng,trials/2);
 	int largestPlan = 0, initialEvaluated = 1;
+    size_t coverageIndex = 0;
 	for (int trial = 1; trial < trials && withinBudget(); ++trial) {
 		auto plan = elite[rng() % elite.size()].actions;
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
-		if (s.searchVersion == 2 && trial % 2 == 0) plan = SamplePortfolio(s,rng,trial);
+		const bool portfolioTrial = s.searchVersion == 2 && trial % 2 == 0;
+		if (portfolioTrial) plan = SamplePortfolio(s,rng,trial == 2 ? 0 : trial);
 		else if (trial % 3 == 0) {
 			plan.clear();
 			const int focus = s.options[rng() % s.options.size()].row;
@@ -2173,8 +2176,9 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 				else plan.push_back({plan[at].option, plan[at].delay + 2});
 			}
 		}
-		if (trial <= static_cast<int>(coverage.size()))
-			plan = IntroduceOption(s,best.actions,coverage[trial-1],rng);
+		// 兵种覆盖与整队探索交替；不能把刚抽出的整队又覆盖成单兵案。
+		if (!portfolioTrial && coverageIndex < coverage.size())
+			plan = IntroduceOption(s,best.actions,coverage[coverageIndex++],rng);
 		// 给有钱的空场提供一个必定可行的起点；其余候选仍自由比较兵种、路线和队形。
 		if (!s.allowWait && trial == 1 && coverage.empty()) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
 		Repair(s, plan);
@@ -2354,11 +2358,17 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 }
 /** 技能与不施法优案同分制比较；先有限选靶，再只为胜出目标重搜一次可支付编队。 */
 Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed) {
-	auto best = SearchFormation(input,weights,seed);
+    auto state = input;
+    // 富余库存应立即比较大队，不能因小队偶有一点收益就永远不进入完整搜索。
+    // 同一次搜索的行动、等待、技能均使用同一长时域；仍允许便宜小队胜出。
+    const bool fundedPortfolio = state.searchVersion == 1 && state.budget >= ColdStorageDeploymentRules::GrowthCapital
+        && state.capacity > ActionLimit(state);
+    if (fundedPortfolio) state.searchVersion = 2;
+	auto best = SearchFormation(state,weights,seed);
+    best.expandedForecast |= fundedPortfolio;
 	if (SearchTimeExpired(input)) { best.timeLimited=true; return best; }
 	if (!input.precisionReady || input.pendingPrecisionID > 0
 		|| input.budget < ColdStorageSkillRules::StrikeIceCost || !ValidWeights(weights)) return best;
-	auto state = input;
 	if (best.expandedForecast) state.searchVersion = 2;
 	const auto baseline = EvaluatePlan(state,best.effectiveWeights,{}, {},0);
 	const auto incumbent = best;

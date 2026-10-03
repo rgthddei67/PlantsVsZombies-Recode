@@ -5,6 +5,7 @@
 #include "Game/AI/ColdStorageStrategy.h"
 #include "Game/AI/ColdStoragePolicy.h"
 #include "Game/AI/ColdStoragePlanner.h"
+#include "ColdStorageDeploymentRules.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "Profiler.h"
 #include <chrono>
@@ -82,7 +83,6 @@ namespace {
 	constexpr int kSmallOrderSun = 100, kSmallOrderIce = 40; // 小额购冰的阳光价格和实际到货量
 	constexpr float kLargeOrderDelay = 10, kSmallOrderDelay = 5; // 商店订单从付款到到货的游戏秒
 	constexpr int kMaxIce = 1000000; // 存档与长期对局资源安全上限，避免整数溢出
-	constexpr int kMaxSimultaneous = 64; // 正式出兵的敌对同时容量，包含在途；技能召唤沿用自身上限
 	constexpr int kHugeWaveIceThreshold = 75; // 单波实际付费达到此冰量时显示原版大波提示
 	constexpr float kDeploySpacing = 0.65f; // 同一队伍逐只入场间隔，游戏秒
 	constexpr float kDecisionSeconds = 12.0f; // 常规指挥决策间隔，游戏秒
@@ -669,6 +669,18 @@ int Board::GetColdStorageHostileCount() const
 	return count;
 }
 
+int Board::GetColdStorageDeploymentLimit() const
+{
+	std::int64_t capital = mColdStorage.enemyIce;
+	for (const auto& paid : mColdStorage.pending) capital += paid.cost;
+	for (const auto& [id,cost] : mColdStorage.refundableCosts) {
+		const Zombie* zombie = mEntityRegistry.GetZombie(id);
+		if (zombie && zombie->IsActive() && !zombie->IsPreview() && !zombie->IsDying()
+			&& !zombie->IsMindControlled()) capital += cost;
+	}
+	return ColdStorageDeploymentRules::Capacity(capital);
+}
+
 /** 清场且无在途援军时判定破产或长期无破阵且经营不盈利的低库存败局，不中断仍在作战的部队。 */
 bool Board::IsColdStorageCleared() const
 {
@@ -709,7 +721,7 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
 			&& GetColdStorageUnlockWave(type) > mColdStorage.decisions + 1)
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
-		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= kMaxSimultaneous) return false;
+		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= GetColdStorageDeploymentLimit()) return false;
 	const int cost = GetZombieIceCost(type);
 	if (mColdStorage.enemyIce < cost || !std::isfinite(delay)) return false;
 	// 先登记再扣款，只有成功提交的事务能改变余额；免费技能召唤不经过这里。
@@ -1130,7 +1142,7 @@ void Board::PlanColdStorageAttack(bool background)
 		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
-		search.capacity = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
+		search.capacity = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
 		// 观望时长不能把负收益方案变成必选项，否则成型防线会诱发周期性单兵送死。
 		// 唯一例外是下方确有后续兵种可解锁、且能支付整条解锁路径的合法小额探路。
 		search.allowWait = true;
@@ -1822,7 +1834,7 @@ void Board::PlanColdStorageAttack(bool background)
 	const int stage = MiniGame::IsBrawl(mLevel) ? 9
 		: std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel), 1, 9);
 	const int assaultCap = stage <= 5 ? kAssaultEarlyBudget : kAssaultLateBudget;
-	const int availableSlots = std::max(0, kMaxSimultaneous - GetColdStorageHostileCount());
+	const int availableSlots = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
 	struct RaidChoice {
 		ZombieType type = ZombieType::NUM_ZOMBIE_TYPES;
 		ColdStorageStrategy::RaidResult forecast;
@@ -2612,7 +2624,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 		const int type=p.value("type",-1), row=p.value("row",-1);
 		const float remaining=p.value("remaining",0.0f);
 		if (type<0 || type>=static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES) || row<0 || row>=mRows
-			|| !std::isfinite(remaining) || s.pending.size()>=kMaxSimultaneous) continue;
+			|| !std::isfinite(remaining) || s.pending.size()>=ColdStorageDeploymentRules::MaximumCapacity) continue;
 		s.pending.push_back({static_cast<ZombieType>(type), row, std::clamp(p.value("cost",0),0,kMaxIce),std::clamp(remaining,0.0f,60.0f),
 			std::clamp(p.value("wave",s.decisions),0,s.decisions), ++s.nextTicket});
 	}

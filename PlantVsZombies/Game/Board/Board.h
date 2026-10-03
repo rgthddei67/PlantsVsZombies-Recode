@@ -313,6 +313,8 @@ public:
 	/** 无活动/在途敌军时检查破产或长期无破阵且经营不盈利的低库存败局；存档恢复计时。 */
 	bool IsColdStorageCleared() const;
 	int GetColdStorageHostileCount() const;
+	/** 按库存及仍存活/在途的付费资产计算同时部署上限；召唤自身的数量规则不变。 */
+	int GetColdStorageDeploymentLimit() const;
 	/** 保存/恢复完整经济事务，旧地形保持无效果。 */
 	nlohmann::json SaveColdStorage() const;
 	void LoadColdStorage(const nlohmann::json& value);
