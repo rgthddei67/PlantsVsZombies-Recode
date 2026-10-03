@@ -15,7 +15,8 @@ def windows(episode):
     rows = []
     for d in decisions:
         start = d['elapsed']
-        horizon = 120 if d.get('searchVersion',1) == 2 else 90 if d.get('adaptive') else 60
+        # 版本1也能在本次决策升级为完整编队；日志保留配置版本，用扩展标记确定实际时域。
+        horizon = 120 if d.get('searchVersion',1) == 2 or d.get('expandedForecast',False) else 90 if d.get('adaptive') else 60
         end = start + horizon
         observed = next((t for t in traces if t['elapsed'] >= end), None)
         if observed is None:

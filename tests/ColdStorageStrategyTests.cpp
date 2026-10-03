@@ -2094,8 +2094,61 @@ int main()
     s.station.controls[2].value=1;
     const auto on=Evaluate(s,{},&onStats);
     check(offStats.stationDischarges==0 && onStats.stationDischarges>0,"disabled station freezes charge; enabled rainy station reaches discharge");
-    check(on[0]>off[0] && on[3]<off[3] && on[4]<off[4],"hijacker forecast includes enemy destruction, friendly casualties and lost future production");
+    check(on[0]>off[0] && on[1]>off[1] && on[3]<off[3] && on[4]<off[4],"hijacker includes rewarded plant kills, friendly casualties and lost production");
     check(s.current[0].body.health==1000 && s.current[1].body.health==500 && s.stationCharge==74,"station forecast never mutates the source battlefield");
+
+    Plant shell=target; shell.layer=2; shell.health=3000; shell.reward=40; shell.assetValue=50;
+    s.plants.push_back(shell);
+    check(Evaluate(s,{})[1]==0,"pumpkin and host health jointly exceed the hijacker execution line");
+    s.plants[1].health=500;
+    check(Evaluate(s,{})[1]==70,"a damaged pumpkin cannot protect a group below the execution line");
+    s.plants.resize(1); s.playerSun=1000;
+    Construction pumpkin; pumpkin.plant=shell; pumpkin.plant.executionGroup=-1;
+    pumpkin.plant.countsExecution=pumpkin.plant.diesExecution=false;
+    pumpkin.sunCost=125; pumpkin.recharge=1000; s.construction={pumpkin};
+    check(Evaluate(s,{},&onStats)[1]==0 && onStats.planted==1,
+        "a future pumpkin protects its host by joining the same execution health group");
+    s.construction.clear(); s.plants[0].crushDamage=10;
+    s.plants[0].immuneRemaining=100; s.plants[0].deploymentInterceptionOnly=true;
+    check(Evaluate(s,{})[1]==30,
+        "hijacker execution bypasses ordinary crush limits and temporary plant invulnerability");
+    }
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=800; s.budget=100; s.capacity=1;
+    s.stationCharge=74; s.station.controls[0].value=3; s.station.controls[2].value=1;
+    Unit front; front.body.row=1; front.body.x=900; front.body.speed=5;
+    front.body.health=1000; front.body.purchaseCost=100;
+    Unit reserve=front; reserve.body.x=1100; reserve.body.speed=10; reserve.body.spawnAt=20;
+    reserve.body.health=3000;
+    Unit worker=reserve; worker.body.spawnAt=0; worker.body.speed=0; worker.body.economic=true;
+    worker.nextYield=18; s.current={front,reserve,worker};
+    Plant income; income.row=4; income.column=0; income.x=300; income.health=300;
+    income.reward=5; income.executionGroup=36; income.countsExecution=income.diesExecution=true;
+    s.plants={income};
+    Option hijack; hijack.type=1; hijack.cost=24; hijack.row=hijack.unit.body.row=4;
+    hijack.unit.hijacker=true; hijack.unit.body.x=1050; hijack.unit.body.health=1000;
+    hijack.unit.body.purchaseCost=24; hijack.unit.temporalStopHealth=333; s.options={hijack};
+    ConstructionStats keep,ruin;
+    const auto baseline=Evaluate(s,{},&keep), sacrifice=Evaluate(s,{{0,0}},&ruin);
+    check(baseline[2]==1 && sacrifice[2]==1 && ruin.breachSeconds>keep.breachSeconds
+        && sacrifice[1]>baseline[1] && sacrifice[4]>baseline[4],
+        "hijacker can destroy the front to harvest a small kill and more income before a later reserve wins");
+    Weights incomeOnly{}; incomeOnly[4]=1;
+    check(Search(s,incomeOnly,17).actions.empty(),
+        "the commander rejects hijacker friendly fire that delays a winning front for side income");
+    Option reinforcement=hijack; reinforcement.type=2; reinforcement.unit.hijacker=false;
+    reinforcement.unit.body.row=reinforcement.row=1; reinforcement.unit.body.x=850;
+    reinforcement.unit.body.speed=10; reinforcement.unit.body.health=3000;
+    s.options.push_back(reinforcement);
+    const auto supported=Search(s,incomeOnly,17);
+    check(!supported.actions.empty() && supported.actions.front().option==1
+        && supported.construction.breachSeconds<keep.breachSeconds,
+        "a winning position still buys reinforcement that secures an earlier breach");
+    s.current.clear(); s.options.resize(1); s.houseX=-10000; s.plants[0].reward=100;
+    Weights kills{}; kills[1]=1; kills[5]=-1;
+    check(!Search(s,kills,17).actions.empty(),
+        "hijacker remains a legal autonomous choice when the exchange is profitable without friendly losses");
     }
     {
     using namespace ColdStorageSearch;
@@ -2323,6 +2376,46 @@ int main()
     s.stationFogAlpha.fill(0); s.current[0].body.spawnAt=35;
     check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]<Evaluate(s,{})[4],
         "player can conserve fuel while clear and relight when fog actually appears before a delayed wave");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.playerSun=1000; s.playerIce=1000;
+    Option troop; troop.cost=24; troop.row=troop.unit.body.row=2;
+    troop.unit.body.x=900; troop.unit.body.health=1000; troop.unit.body.purchaseCost=24;
+    s.options={troop};
+    Counter doom; doom.source=0; doom.blast.x=850; doom.blast.reach.fill(-1); doom.blast.reach[2]=100;
+    doom.blast.damage=1800; doom.windup=1; doom.recharge=5; doom.cellRow=2; doom.cellColumn=8;
+    doom.deploymentHealth=300; doom.clearsCell=true; doom.craterSeconds=180;
+    s.counters={doom}; ConstructionStats stats;
+    const auto held=Evaluate(s,{{0,0},{0,12}},&stats);
+    check(held[3]==24 && stats.cratersCreated==1,
+        "a doom crater prevents casting again in the same cell against a later wave");
+    s.counters[0].craterSeconds=5;
+    check(Evaluate(s,{{0,0},{0,12}})[3]==0,"an expired crater releases its planting cell");
+    s.counters={doom,doom}; s.counters[1].cellColumn=7;
+    check(Evaluate(s,{{0,0},{0,12}})[3]==0,"another legal blast cell remains available during a crater");
+    s.counters={doom}; s.anticipateEconomy=true;
+    Construction seed; seed.source=0; seed.ready=3; seed.recharge=1000;
+    seed.plant.row=2; seed.plant.column=8; seed.plant.x=850; seed.plant.health=300; seed.plant.sunPerSecond=1;
+    s.construction={seed}; SunExchange exchange; exchange.ready=3; exchange.recharge=1000;
+    exchange.sunGain=100; exchange.iceCost=10; exchange.cells={{2,8}}; s.exchanges={exchange};
+    Evaluate(s,{{0,0}},&stats);
+    check(stats.planted==0 && stats.exchanges==0,
+        "a new crater blocks both ordinary construction and economy-card cycling");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=800; s.budget=100; s.capacity=1; s.netEconomy=true;
+    Unit runner; runner.body.x=1000; runner.body.speed=10; runner.body.health=300; runner.body.purchaseCost=4;
+    Unit worker; worker.body.x=1050; worker.body.health=500; worker.body.economic=true;
+    worker.body.purchaseCost=24; worker.nextYield=18;
+    s.current={runner,worker};
+    Option fog; fog.device=1; fog.setting=2; fog.cost=20; s.options={fog};
+    Weights income{}; income[4]=1;
+    check(Search(s,income,17).actions.empty(),
+        "delaying an existing house breach to collect extra production is not a better victory");
     }
 
     {

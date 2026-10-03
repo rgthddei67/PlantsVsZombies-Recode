@@ -51,6 +51,9 @@ class CalibrationTests(unittest.TestCase):
         result=windows(episode)[0]
         self.assertEqual(result['actualKills'],40)
         self.assertEqual(result['traceOvershoot'],0)
+        episode['decisions'][0].update(searchVersion=1,adaptive=False,expandedForecast=True)
+        self.assertEqual(windows(episode)[0]['actualKills'],40)
+        self.assertEqual(windows(episode)[0]['traceOvershoot'],0)
 
     def test_calibration_prioritizes_ice_error_instead_of_tiny_forecast_ratios(self):
         rows=[{'x':[0]*10,'raw':10,'target':1,'actual':10} for _ in range(24)]

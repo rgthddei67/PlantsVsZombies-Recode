@@ -44,6 +44,7 @@
 #include "Game/Zombie/GildedZamboniZombie.h"
 #include "Game/Zombie/WeatherJammerZombie.h"
 #include "Game/Zombie/HijackerZombie.h"
+#include "Game/Crater.h"
 #include "Game/Zombie/InsulatorZombie.h"
 #include "Game/Plant/Plantern.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
@@ -1227,6 +1228,7 @@ void Board::PlanColdStorageAttack(bool background)
 					counter.deploymentReward = search.searchVersion == 2 ? static_cast<float>(PlantKillIce(GetPlantIceCost(type),s.difficulty)) : 0;
 					counter.deploymentAssetValue = GetPlantIceCost(type)+card->GetSunCost()*search.sunIceValue;
 					counter.clearsCell = type == PlantType::PLANT_DOOMSHROOM;
+					counter.craterSeconds = counter.clearsCell ? Crater::CRATER_DURATION : 0;
 					if (doom) counter.vulnerableSeconds = CoffeeBean::GetFullWakeDelay();
 				}
 			}
@@ -1338,7 +1340,11 @@ void Board::PlanColdStorageAttack(bool background)
 					counter.windup = counter.vulnerableSeconds+DoomShroom::GetChargeDuration();
 					counter.sharedSource = coffeeSource; counter.sharedReady = coffeeWait; counter.sharedRecharge = coffeeRecharge;
 				}
-				if (search.counters.size()>counterBegin) search.counters.back().clearsCell = entity->GetPlacementType() == PlantType::PLANT_DOOMSHROOM;
+				if (search.counters.size()>counterBegin) {
+					auto& counter = search.counters.back();
+					counter.clearsCell = entity->GetPlacementType() == PlantType::PLANT_DOOMSHROOM;
+					counter.craterSeconds = counter.clearsCell ? Crater::CRATER_DURATION : 0;
+				}
 			} else if (p.cobBlastDamage > 0) {
 				const int id = source++;
 				for (const auto& cell : snapshot.cells) addCounter({PlantType::PLANT_COBCANNON,cell.row,cell.x,p.abilityCooldownRemaining,false,p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);

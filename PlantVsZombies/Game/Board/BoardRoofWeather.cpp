@@ -667,7 +667,11 @@ void Board::ResolveNightRoofHijackerExecution()
 		if (g_particleSystem) {
 			g_particleSystem->EmitEffect("JackExplode", plant->GetVisualPosition());
 		}
+		const PlantType killedType = plant->GetPlacementType();
 		plant->Die();
+		// 处决绕过普通伤害入口，但成功消灭植物仍按指挥官地图的正常规则返冰。
+		// 冻结目标 ID 已去重；拒绝死亡的植物不计奖，保护组也不会进入此循环。
+		if (!plant->IsActive()) RewardColdStoragePlantKill(killedType);
 	}
 	for (const int id : zombieTargets) {
 		Zombie* zombie = mEntityRegistry.GetZombie(id);

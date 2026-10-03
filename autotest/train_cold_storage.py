@@ -32,6 +32,9 @@ def save(path, value):
 
 def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=False):
     """Build legal cards/rosters and explicit tactical fixtures before a real, resource-limited episode."""
+    episode_opponent = opponent
+    if opponent in ('ice_pine_hold', 'ice_bunker_hold'):
+        opponent = opponent.removesuffix('_hold')  # 同卡组/规则，只让独立陪练保留手动菠萝。
     # 正式各关保留实际卡池及解锁；mask 仅影响显式全兵种实验。
     if arena.startswith('normal:'):
         arena = arena[len('normal:'):]
@@ -229,7 +232,7 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         commands.append({'op': 'queue_ice_zombie', 'type': policy['probe'], 'row': seed % 5, 'delay': 0})
     # 升级株替换的旧实体在下一逻辑步清理，基线不能把同一格的新旧输出重复计数。
     commands.append({'op': 'wait_frames', 'value': 2})
-    commands.append({'op': 'commander_episode', 'opponent': opponent, 'seconds': seconds,
+    commands.append({'op': 'commander_episode', 'opponent': episode_opponent, 'seconds': seconds,
                      'name': name, 'timeout': seconds + 30})
     return commands
 

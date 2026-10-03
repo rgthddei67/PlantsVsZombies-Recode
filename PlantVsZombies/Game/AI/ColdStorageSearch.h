@@ -202,6 +202,8 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	float breachSeconds = -1; // 首次有效进屋的预测游戏秒；-1 表示尚未突破
+	int cratersCreated = 0; // 实际完成爆炸后生成的预测弹坑，不含被提前消灭的灰烬
 	int planternResponseGear = -1; // -1沿用当前挡位；0..3为有雾时使用的挡位，无雾关灯
 	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
 	int stationDischarges=0, stationJams=0, stationCounters=0, stationFogCounters=0;
@@ -242,6 +244,7 @@ struct Counter {
 	bool stored = false; // 预存反制额外比较长期蓄爆，不假设小股诱饵一定能骗掉它
 	float deploymentHealth = 0, deploymentReward = 0, deploymentAssetValue = 0; // 新种灰烬的实体画像；零生命保持无落种事件的能力
 	bool clearsCell = false; // 毁灭引爆会清除同格各层；樱桃/辣椒只消耗自身
+	float craterSeconds = 0; // 爆炸后禁止该格新种植的游戏秒数，由正式弹坑寿命提供
 };
 /** 已提交的裂隙，即使来源死亡也必须进入预测。 */
 struct Rift { Unit unit; int column = 0; float remaining = 0; };

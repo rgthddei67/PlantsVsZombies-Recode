@@ -1,0 +1,33 @@
+{
+  "description": "Compare the station forecast with real hijacker friendly fire and pumpkin group protection; planning cannot mutate the battlefield.",
+  "muteAudio": true,
+  "commands": [
+    {"op":"goto_level","level":94,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":1000,"playerIce":1000,"decisionRemaining":60}},
+    {"op":"station_control","device":0,"value":3},
+    {"op":"station_control","device":2,"value":1},
+    {"op":"wait_seconds","value":9,"timeout":15},
+    {"op":"set_sun","value":1000},
+    {"op":"plant","type":"PLANT_SUNSHROOM","row":0,"col":0},
+    {"op":"plant","type":"PLANT_SUNSHROOM","row":1,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":1,"col":0},
+    {"op":"set_sun","value":0},
+    {"op":"spawn_zombie","type":"ZOMBIE_HIJACKER","row":4,"x":950,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_ICE_WORKER","row":3,"x":950,"stationary":true},
+    {"op":"set_cold_storage","state":{"enemyIce":0,"playerIce":0,"decisionRemaining":60,"initialEnemyIce":24,"spent":24,"refundableCosts":[{"id":2,"cost":24}]}},
+    {"op":"set_night_roof_charge","phase":"CHARGING","charge":74.9},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"plan_ice_attack"},
+    {"op":"dump_state","name":"forecast.json"},
+    {"op":"assert_state","path":"coldStorage.searchBaselineFeatures.3","equals":0},
+    {"op":"assert_state","path":"plantCount","equals":3},
+    {"op":"assert_state","path":"zombieCount","equals":2},
+    {"op":"wait_seconds","value":14,"timeout":20},
+    {"op":"assert_state","path":"plantCount","equals":2},
+    {"op":"dump_state","name":"actual.json"},
+    {"op":"quit"}
+  ]
+}

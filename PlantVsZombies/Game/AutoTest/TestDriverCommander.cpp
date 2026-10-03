@@ -19,9 +19,10 @@ constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool bunker = opponent == "ice_bunker";
-	const bool storageDefense = opponent == "ice_fortifier" || opponent == "ice_pine" || bunker;
-	const bool pineElite = opponent == "pine_elite" || opponent == "ice_pine" || bunker;
+	const bool holdPineapple = opponent == "ice_pine_hold" || opponent == "ice_bunker_hold";
+	const bool bunker = opponent == "ice_bunker" || opponent == "ice_bunker_hold";
+	const bool storageDefense = opponent == "ice_fortifier" || opponent == "ice_pine" || holdPineapple || bunker;
+	const bool pineElite = opponent == "pine_elite" || opponent == "ice_pine" || holdPineapple || bunker;
 	const bool planner = opponent == "planner" || pineElite || storageDefense;
 	const std::string wall = storageDefense ? "PLANT_ICESTORAGENUT" : "PLANT_WALLNUT";
 	const bool fortifier = opponent == "fortifier" || planner;
@@ -74,7 +75,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			stock-=cost;
 		}
 	// 菠萝只在九格内精英菇确有同行目标时付费增幅，保留近身反制的预算；不空场循环耗冰。
-	if (pineElite && stock >= ColdPineappleRules::kIceCost+defenseIceReserve) {
+	// 保留独立省冰陪练，不覆盖旧对手，便于识别依赖玩家无谓开技能的假收益。
+	if (pineElite && !holdPineapple && stock >= ColdPineappleRules::kIceCost+defenseIceReserve) {
 		const Json* selected = nullptr; int bestTargets = 0;
 		for (const auto& p : state.at("plants")) if (p.value("pineappleReady",false) && p.value("pineappleAffordable",false)) {
 			int targets = 0;
@@ -357,7 +359,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
