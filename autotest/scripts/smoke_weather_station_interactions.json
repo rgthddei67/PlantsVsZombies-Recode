@@ -1,0 +1,377 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 99,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_PLANTERN",
+        "PLANT_WALLNUT",
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "click",
+      "x": 90,
+      "y": 434
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "01_green_menu.png"
+    },
+    {
+      "op": "click",
+      "x": 90,
+      "y": 317
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "weatherStation.controls.1.pending",
+      "equals": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 10,
+      "timeout": 15
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 900,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GILDED_ZAMBONI",
+      "row": 4,
+      "x": 950,
+      "stationary": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_NORMAL.stationFogMovePct",
+      "equals": 50
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_GILDED_ZAMBONI.stationFogMovePct",
+      "equals": 50
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PLANTERN",
+      "row": 2,
+      "col": 7
+    },
+    {
+      "op": "set_plantern_fuel",
+      "value": 100
+    },
+    {
+      "op": "set_plantern_gear",
+      "gear": "HIGH"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_NORMAL.stationFogMovePct",
+      "equals": 100
+    },
+    {
+      "op": "screenshot",
+      "name": "02_lit_fog.png"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "row": 0,
+      "x": 860,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.3
+    },
+    {
+      "op": "assert_state",
+      "path": "weatherStation.hidden",
+      "equals": true
+    },
+    {
+      "op": "station_control",
+      "device": 2,
+      "value": 1,
+      "player": false
+    },
+    {
+      "op": "set_night_roof_charge",
+      "phase": "WARNING",
+      "row": 2,
+      "remaining": 6,
+      "charge": 100
+    },
+    {
+      "op": "screenshot",
+      "name": "03_blackout.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "03_blackout.json"
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ELITE_DANCER",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_SNOW_BURROW",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_EXCAVATOR",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_CRACK_DRILL",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_BOBSLED_TEAM",
+      "row": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_PLANTERN",
+        "PLANT_WALLNUT",
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "station_control",
+      "device": 2,
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8.2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 2,
+      "x": 800,
+      "stationary": true
+    },
+    {
+      "op": "dump_state",
+      "name": "04_before_discharge.json"
+    },
+    {
+      "op": "set_night_roof_charge",
+      "phase": "WARNING",
+      "row": 2,
+      "remaining": 0.1,
+      "charge": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_1.shutdown",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BUCKET.paralyzed",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "05_discharge.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 99,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_PLANTERN",
+        "PLANT_WALLNUT",
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 3,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 4,
+      "col": 5
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 900,
+        "decisions": 20,
+        "decisionRemaining": 60
+      }
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 45
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningApplied",
+      "atLeast": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "06_ai_commit.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "06_ai_commit.png"
+    }
+  ]
+}

@@ -170,6 +170,7 @@ namespace {
 		if (overrideName == "NIGHT_ROOF") return Background::NIGHT_ROOF;
 		if (overrideName == "WINTER_GARDEN") return Background::WINTER_GARDEN;
 		if (overrideName == "GLOOMCRYSTAL_MINE") return Background::GLOOMCRYSTAL_MINE;
+		if (overrideName == "WEATHER_STATION") return Background::WEATHER_STATION;
 		if (overrideName == "HOT_COLD_STORAGE") return Background::HOT_COLD_STORAGE;
 	if (overrideName == "POLAR_NIGHT_SNOWFIELD") return Background::POLAR_NIGHT_SNOWFIELD;
 		return configured;
@@ -406,7 +407,7 @@ namespace {
 
 	/** 处决线只属于当前仍有效的劫持者锁定，不为未锁定状态预留文字行。 */
 	bool ShouldDisplayNightRoofExecutionLine(const Board* board) {
-		return board && board->GetNightRoofExecutionLine() > 0;
+		return board && !board->HidesStationForecasts() && board->GetNightRoofExecutionLine() > 0;
 	}
 
 	/** 风向使用“吹向”而不是气象来向，箭头与植物实际位移方向始终一致。 */
@@ -990,6 +991,7 @@ void GameScene::DrawRoofRunoff(Graphics* g) const
 void GameScene::DrawNightRoofCharge(Graphics* g) const
 {
 	if (!g || !mBoard || !mBoard->SupportsNightRoofCharge()) return;
+	if (mBoard->HidesStationForecasts() && !mBoard->IsNightRoofChargeDischarging()) return;
 	const int row = mBoard->GetNightRoofChargeRow();
 	if (row < 0 || row >= mBoard->mRows) return;
 	if (!mBoard->IsNightRoofChargeWarning()
@@ -1377,6 +1379,7 @@ void GameScene::DrawPolarNightWhiteout(Graphics* g) const
 /** 在左上角绘制当前天气与已锁定的下一天气预警。 */
 void GameScene::DrawWeatherPanel(Graphics* g) const
 {
+	if(mBoard && mBoard->IsWeatherStation()) return; // 三台设备在场外显示，避免通用大面板遮挡首行。
 	if (!g || !mBoard || mWeatherPanelSlide <= 0.0f) return;
 
 	const float eased = mWeatherPanelSlide * mWeatherPanelSlide
@@ -1520,7 +1523,7 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 		detailLineY += kWeatherPanelGaugeLineHeight;
 	}
 
-	if (mBoard->SupportsNightRoofCharge()) {
+	if (mBoard->SupportsNightRoofCharge() && !mBoard->HidesStationForecasts()) {
 		const int chargePercent = static_cast<int>(std::lround(
 			mBoard->GetNightRoofChargeRatio() * 100.0f));
 		std::string chargeLine = std::string(u8"屋顶雷荷：")
@@ -1788,7 +1791,7 @@ void GameScene::BuildDrawCommands()
 {
 	Scene::BuildDrawCommands();
 	if (mBoard && mBoard->IsColdStorage())
-		RegisterDrawCommand("ColdStorageShop", [this](Graphics* g) { DrawColdStorageShop(g); }, LAYER_UI - 1);
+		RegisterDrawCommand("ColdStorageShop", [this](Graphics* g) { DrawColdStorageShop(g); DrawWeatherStationControls(g); }, LAYER_UI - 1);
 
 	Background background = ResolveEnterBackground(
 		std::stoi(SceneManager::GetInstance().GetGlobalData("EnterLevel")));
@@ -1820,6 +1823,11 @@ void GameScene::BuildDrawCommands()
 	else if (background == Background::WINTER_GARDEN) {
 		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_WINTERGARDEN,
 			mStartX, mBackgroundY, 1.0f, 1.0f, LAYER_BACKGROUND, false);
+	}
+	else if (background == Background::WEATHER_STATION) {
+        // 生成图像采用更高原生分辨率，映射回冷藏站同一1880×720世界底图，不移动Cell。
+		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_WEATHER_STATION,
+			mStartX, mBackgroundY, 1880.0f/2025.0f, 720.0f/776.0f, LAYER_BACKGROUND, false);
 	}
 	else if (background == Background::HOT_COLD_STORAGE) {
 		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_HOT_COLD_STORAGE,
@@ -2010,6 +2018,7 @@ void GameScene::OnEnter() {
 		LAYER_UI, mBoard.get());
 	mGameProgress->SetActive(false);
 	CreateColdStorageShop();
+	CreateWeatherStationControls();
 
 	auto button = mUIManager.CreateButton(Vector(990, -5), Vector(125 * 0.9f, 52 * 0.9f));
 	mMainMenuButton = button;
@@ -2291,12 +2300,27 @@ void GameScene::Update() {
 		mResumeMenuAfterAlmanac = false;
 		OpenMenu();
 	}
+    // 首次敌方设备指令采用独立已读位，不重播开局教材；整段期间不推进Scene/Board。
+    if(mBoard && mBoard->IsWeatherStation() && !GameAPP::mAutoTestMode
+        && mBoard->mBoardState==BoardState::GAME && (!mCrazyDaveDialog || !mCrazyDaveDialog->IsActive())) {
+        auto& app=GameAPP::GetInstance();
+        const unsigned unseen=mBoard->mWeatherStation.enemyUsedMask & ~app.mStationCounterTutorialsSeen;
+        for(int device=0;device<3;++device) if(unseen & (1u<<device)) {
+            auto dialog=std::make_unique<CrazyDaveDialog>();
+            if(dialog->Start(-1-device,[device]() {
+                auto& game=GameAPP::GetInstance(); game.mStationCounterTutorialsSeen|=1u<<device;
+                game.mGameInfoSaver.SavePlayerInfo();
+            })) mCrazyDaveDialog=std::move(dialog);
+            break;
+        }
+    }
 	// 戴夫闲聊独占本帧输入和逻辑更新；结束输入不会穿透到选卡、暂停或战场。
 	if (mCrazyDaveDialog && mCrazyDaveDialog->IsActive()) {
 		mCrazyDaveDialog->Update();
 		return;
 	}
 	UpdateColdStorageShop();
+	UpdateWeatherStationControls();
 	Scene::Update();
 
 	// 水面沿用原版逐 Update 计数器，保持与游戏倍速和天气 DeltaTime 解耦；全局暂停仍冻结画面。

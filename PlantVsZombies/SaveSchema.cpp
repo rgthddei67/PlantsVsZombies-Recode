@@ -246,6 +246,7 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 6:
+				if(kind==DocumentKind::Player) upgraded["stationCounterTutorialsSeen"]=0;
 				if (kind == DocumentKind::Level
 					&& !upgraded.contains("openingColdWavePlanInitialized")) {
 					// 关卡 v7 新增 7-8/7-9 开幕寒潮标志；旧档默认仍有一次开幕事件可消费。
@@ -436,6 +437,10 @@ namespace {
 				}
 				version = 23;
 				upgraded["schemaVersion"] = version;
+				break;
+			case 23:
+				if (kind == DocumentKind::Level) upgraded["weatherStation"] = nlohmann::json::object();
+				version = 24; upgraded["schemaVersion"] = version;
 				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";

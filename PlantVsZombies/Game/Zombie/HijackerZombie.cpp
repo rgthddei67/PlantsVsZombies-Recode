@@ -88,7 +88,7 @@ void HijackerZombie::BeginNightRoofFinalization()
 	mPhase = Phase::FINALIZING;
 	mWarningActive = true;
 	mAlarmPulseTimer = 0.0f;
-	PlayTrack("anim_hijack", kHijackClip, 0.08f);
+	if (!mBoard || !mBoard->HidesStationForecasts()) PlayTrack("anim_hijack", kHijackClip, 0.08f);
 	// 定身状态仍保留，但最终能力动画必须跟随 Board 的一秒权威计时前进。
 	UpdateAnimSpeed();
 	ClaimLockSound(kFinalLoopVolume);
@@ -131,6 +131,13 @@ void HijackerZombie::Update()
 		if (mBoard) mBoard->CancelNightRoofHijacker(mZombieID);
 		return;
 	}
+	if(mBoard && mBoard->HidesStationForecasts()) {
+        ReleaseLockSound();
+        // 干扰可能在最后一秒才开始，已经播放的预告动画也必须撤下。
+        if(mPhase==Phase::FINALIZING && mAnimator->GetCurrentTrackName()=="anim_hijack")
+            PlayTrack("anim_walk",kWalkClip,0.0f);
+        return;
+    }
 	if (!mWarningActive) return;
 
 	mAlarmPulseTimer -= DeltaTime::GetDeltaTime();
@@ -228,7 +235,7 @@ void HijackerZombie::Die()
 
 void HijackerZombie::ClaimLockSound(float volume)
 {
-	if (mIsPreview || mIsDead || mIsDying) return;
+	if (mIsPreview || mIsDead || mIsDying || (mBoard && mBoard->HidesStationForecasts())) return;
 	mLoopSoundClaimed = true;
 	AudioSystem::PlayLoopingSound(ResourceKeys::Sounds::SOUND_HIJACKER_HUM, volume);
 }

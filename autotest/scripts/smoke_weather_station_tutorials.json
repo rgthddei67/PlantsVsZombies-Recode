@@ -1,0 +1,91 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 91,
+      "resetTestState": true
+    },
+    {
+      "op": "show_crazy_dave_dialog",
+      "force": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "crazyDave.renderedGeometry",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "intro_91.png"
+    },
+    {
+      "op": "skip_crazy_dave_dialog"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 92,
+      "resetTestState": true
+    },
+    {
+      "op": "show_crazy_dave_dialog",
+      "force": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "crazyDave.renderedGeometry",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "intro_92.png"
+    },
+    {
+      "op": "skip_crazy_dave_dialog"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "show_crazy_dave_dialog",
+      "force": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "crazyDave.renderedGeometry",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "intro_93.png"
+    },
+    {
+      "op": "skip_crazy_dave_dialog"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    }
+  ]
+}

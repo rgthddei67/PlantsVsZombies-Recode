@@ -41,6 +41,10 @@
 #include "Game/Zombie/GargantuarZombie.h"
 #include "Game/Zombie/ZamboniZombie.h"
 #include "Game/Zombie/GildedZamboniZombie.h"
+#include "Game/Zombie/WeatherJammerZombie.h"
+#include "Game/Zombie/HijackerZombie.h"
+#include "Game/Zombie/InsulatorZombie.h"
+#include "Game/Plant/Plantern.h"
 #include "Game/Zombie/ReinforcedDoorZombie.h"
 #include "Game/Bullet/Bullet.h"
 #include "Game/Plant/IceMint.h"
@@ -428,6 +432,10 @@ namespace {
 		case Z::ZOMBIE_GARGANTUAR: return {3000, 1, false, false, true, 4.0f};
 		case Z::ZOMBIE_PINK_FOOTBALL: return {2600, 2, false, false, false};
 		case Z::ZOMBIE_FOOTBALL: return {1700, 2, false, false, false};
+		case Z::ZOMBIE_BUNGEE: return {450, 0, false, false, false};
+		case Z::ZOMBIE_HIJACKER: return {1000, 1, false, true, false};
+		case Z::ZOMBIE_GROUNDING: return {1470, 1, false, true, false};
+		case Z::ZOMBIE_INSULATOR: return {1500, 1, false, true, false};
 		case Z::ZOMBIE_HEALER: return {800, 1, false, true, false};
 		case Z::ZOMBIE_DANCER: case Z::ZOMBIE_ELITE_DANCER: return {1500, 1, false, true, false};
 		case Z::ZOMBIE_AURORA_PRIEST: return {AuroraPriestRules::BodyHealth+AuroraPriestRules::DeviceHealth, 1, true, true, false};
@@ -505,7 +513,7 @@ bool Board::CanAffordPlantIce(PlantType type) const
 
 bool Board::SupportsColdStorageOpeningBonus() const
 {
-	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || (mLevel >= 87 && mLevel <= 90));
+	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || IsWeatherStation() || (mLevel >= 87 && mLevel <= 90));
 }
 
 bool Board::NeedsColdStorageOpeningBonus() const
@@ -565,13 +573,15 @@ void Board::InitializeColdStorage()
 	if (!IsColdStorage()) return;
 	mColdStoragePlanner.reset();
 	mColdStorage = {};
+	mWeatherStation = {};
 	if (SupportsColdStorageOpeningBonus()) mColdStorage.openingBonusSelectionComplete = false;
 	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
 	mColdStorage.initialEnemyIce = MiniGame::IsBrawl(mLevel) ? MiniGame::BRAWL_ENEMY_ICE
-		: kOpeningIce[stage] * (4 + mColdStorage.difficulty - 1) / 4;
+		: (IsWeatherStation() ? WeatherStationRules::EnemyIce[stage] : kOpeningIce[stage]) * (4 + mColdStorage.difficulty - 1) / 4;
 	mColdStorage.enemyIce = mColdStorage.initialEnemyIce;
+	if (IsWeatherStation()) mColdStorage.playerIce = WeatherStationRules::PlayerIce[stage];
 	mColdStorage.habits = GameAPP::GetInstance().mColdStorageHabits;
 }
 
@@ -1096,6 +1106,17 @@ void Board::PlanColdStorageAttack(bool background)
 		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
+		search.weatherStation=IsWeatherStation();
+		if(search.weatherStation) {
+			search.station=mWeatherStation; search.stationCharge=mNightRoofCharge; search.stationOvercharge=mNightRoofOvercharge;
+			search.stationChargePhase=static_cast<int>(mNightRoofChargePhase); search.stationWarning=mNightRoofChargePhaseTimer;
+			search.stationRow=mNightRoofChargeRow; search.stationHijackerID=mNightRoofHijackerID; search.stationGuideID=mNightRoofChargeGuideID;
+			search.stationSelectionAttempted=mNightRoofHijackerSelectionAttempted; search.stationGuided=mNightRoofChargeGuided;
+			search.stationJammed=mWeatherPanelInterferenceTimer;
+            for(int r=0;r<mRows;++r) for(int c=0;c<mColumns;++c) search.stationFogAlpha[r*mColumns+c]=GetFogCellAlpha(r,c);
+			search.sampledRainPlant=GetPlantRainActionSpeedMultiplier(); search.sampledRainZombie=GetZombieRainSpeedMultiplier();
+			for(int rain=0;rain<4;++rain) { search.rainZombie[rain]=ForecastZombieRainMultiplier(static_cast<RainIntensity>(rain)); search.rainPlant[rain]=ForecastPlantRainMultiplier(static_cast<RainIntensity>(rain)); }
+		}
 		search.precisionReady = CanUseColdStoragePrecisionStrike();
 		search.pendingPrecisionID = std::max(0,s.strikeTargetID);
 		search.pendingPrecisionRemaining = s.strikeAimRemaining;
@@ -1103,7 +1124,7 @@ void Board::PlanColdStorageAttack(bool background)
 		search.interferenceAvailable = SupportsTemporalInterference();
 		search.interferenceRemaining = s.interferenceRemaining;
 		search.interferenceReady = s.interferenceCooldownRemaining;
-		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X;
+		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X; search.cellHeight = CELL_COLLIDER_SIZE_Y;
 		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
@@ -1311,6 +1332,20 @@ void Board::PlanColdStorageAttack(bool background)
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
+			unit.hijacker=entity->mZombieType==ZombieType::ZOMBIE_HIJACKER;
+            if(const auto* hijacker=dynamic_cast<const HijackerZombie*>(entity)) unit.hijackerBoosted=hijacker->HasLockHealthBoost();
+            if(const auto* insulator=dynamic_cast<const InsulatorZombie*>(entity)) {
+                unit.overloadRemaining=insulator->GetOverloadTimeRemaining();
+                unit.sampledOverload=insulator->IsOverloaded() ? 2.2f : 1.0f;
+            }
+			unit.grounding=entity->CanGuideNightRoofCharge();
+			unit.insulator=entity->mZombieType==ZombieType::ZOMBIE_INSULATOR;
+			unit.groundHazard=entity->CanBeAffectedByGroundHazards(); unit.paralysisAllowed=entity->CanBeParalyzed();
+			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
+			if(const auto* jammer=dynamic_cast<const WeatherJammerZombie*>(entity)) {
+				unit.jammer=jammer->GetJammerPhase()!=WeatherJammerZombie::JammerPhase::SPENT;
+				unit.jammerRemaining=jammer->GetJammerPhase()==WeatherJammerZombie::JammerPhase::CHANNELING ? jammer->GetChannelRemaining() : 4.0f+jammer->GetRebootRemaining();
+			}
 			unit.helmHealth = static_cast<float>(z.helmHealth); unit.temporalStopHealth = entity->mBodyMaxHealth/3.0f;
 			unit.temporalEligible = entity->mZombieType != ZombieType::ZOMBIE_BOBSLED_TEAM
 				&& entity->mZombieType != ZombieType::ZOMBIE_ROOF_MARSHAL && entity->mZombieType != ZombieType::ZOMBIE_BOSS;
@@ -1399,7 +1434,23 @@ void Board::PlanColdStorageAttack(bool background)
 					plant.dps = plant.hitDamage/plant.growth.Interval()*plant.growthSpeed;
 				}
 			}
-			search.plants.push_back(plant);
+
+            if(IsWeatherStation()) {
+                if(const Plant* entity=mEntityRegistry.GetPlant(p.id)) {
+                    plant.id=p.id; plant.shutdownUntil=entity->GetShutdownTimeRemaining();
+                    plant.grounding=entity->mPlantType==PlantType::PLANT_GROUNDINGSHROOM && !entity->GetSleepState();
+                    plant.lightningPot=entity->mPlantType==PlantType::PLANT_LIGHTNINGRODPOT;
+                    plant.support=entity->IsRoofSupportPlant();
+                    plant.plantern=entity->mPlantType==PlantType::PLANT_PLANTERN;
+                    plant.executionGroup=plant.row*mColumns+plant.column;
+                    plant.countsExecution=plant.layer==1 || plant.layer==2;
+                    plant.diesExecution=plant.layer>0;
+                    if(entity->mPlantType==PlantType::PLANT_PLANTERN)
+                        for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col)
+                            plant.illumination[row*mColumns+col]=GetPlanternIllumination(row,col);
+                }
+            }
+            search.plants.push_back(plant);
 		}
 		// 支撑层同样会阻挡、受击和产生返冰，不能在预测中凭空消失。
 		for (const auto& p : snapshot.supports) {
@@ -1416,12 +1467,34 @@ void Board::PlanColdStorageAttack(bool background)
 					plant.boundaryBlockedUntil = boundary->GetShutdownTimeRemaining();
 				}
 			}
-			search.plants.push_back(plant);
+
+            if(IsWeatherStation()) {
+                if(const Plant* entity=mEntityRegistry.GetPlant(p.id)) {
+                    plant.id=p.id; plant.shutdownUntil=entity->GetShutdownTimeRemaining();
+                    plant.grounding=entity->mPlantType==PlantType::PLANT_GROUNDINGSHROOM && !entity->GetSleepState();
+                    plant.lightningPot=entity->mPlantType==PlantType::PLANT_LIGHTNINGRODPOT;
+                    plant.support=entity->IsRoofSupportPlant();
+                    plant.plantern=entity->mPlantType==PlantType::PLANT_PLANTERN;
+                    plant.executionGroup=plant.row*mColumns+plant.column;
+                    plant.countsExecution=plant.layer==1 || plant.layer==2;
+                    plant.diesExecution=plant.layer>0;
+                    if(entity->mPlantType==PlantType::PLANT_PLANTERN)
+                        for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col)
+                            plant.illumination[row*mColumns+col]=GetPlanternIllumination(row,col);
+                }
+            }
+            search.plants.push_back(plant);
 		}
 		// 新购与已付款单位共用能力投影；已有队列的成交价不能被当前价格覆盖。
 		auto purchaseUnit = [&](ZombieType type, int row, int cost, float delay) {
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
+			unit.hijacker=type==ZombieType::ZOMBIE_HIJACKER; unit.grounding=type==ZombieType::ZOMBIE_GROUNDING; unit.insulator=type==ZombieType::ZOMBIE_INSULATOR;
+			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=4;
+			unit.groundHazard=type!=ZombieType::ZOMBIE_BALLOON && type!=ZombieType::ZOMBIE_BUNGEE;
+			unit.paralysisAllowed=type!=ZombieType::ZOMBIE_ZAMBONI && type!=ZombieType::ZOMBIE_GILDED_ZAMBONI && type!=ZombieType::ZOMBIE_CATAPULT;
+			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
+			if(unit.grounding || unit.insulator) unit.helmHealth=1200;
 			const auto& motion = spawnMovement.at(type);
 			unit.minimumMoveSpeed = motion.speed[0];
 			unit.maximumMoveSpeed = motion.speed[2];
@@ -1566,6 +1639,11 @@ void Board::PlanColdStorageAttack(bool background)
 				}
 				search.options.push_back(option);
 			}
+		}
+		if(IsWeatherStation()) for(int d=0;d<3;++d) for(int v=0;v<WeatherStationRules::Count(d);++v) {
+			if(!CanChangeStationControl(d,v,false)) continue;
+			ColdStorageSearch::Option option; option.device=d; option.setting=v; option.type=-1-d*8-v; option.row=0; option.cost=WeatherStationRules::Cost(d,v);
+			search.options.push_back(option);
 		}
 		for (int row = 0; row < mRows; ++row) {
 			auto& context = search.context[row]; context[0] = 1;
@@ -2106,6 +2184,7 @@ void Board::PlanColdStorageAttack(bool background)
 	s.attackDeferred = s.enemyIce > 0 && ((riskBlocked && s.commanderSpent < s.commanderBudget) || s.commanderMode == "probe");
 	if (!s.pending.empty()) {
 		mCurrentWave = ++s.decisions;
+		if(IsWeatherStation()) mMistFuelAssignedThisWave=0;
 		for (auto& paid : s.pending) paid.wave = s.decisions;
 		ShowPaidWavePrompt(mPresentation, s.commanderSpent);
 		s.dispatchQuietSeconds = 0.0f;
@@ -2119,6 +2198,13 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 {
 	PROFILE_SCOPE("Commander.Commit");
 	const int beforeSkill = mColdStorage.enemyIce;
+	// 环境与出兵先共同验证，失效时整案重采，不支付失去配合的半个方案。
+	int jointCost=result.precisionTargetID>0 ? ColdStorageSkillRules::StrikeIceCost : 0;
+	for(const auto& action:result.actions) {
+		const auto& option=search.options[action.option]; jointCost+=option.cost;
+		if(option.device>=0 && !CanChangeStationControl(option.device,option.setting,false)) { mColdStorage.decisionRemaining=0; return; }
+	}
+	if(jointCost>mColdStorage.enemyIce) { mColdStorage.decisionRemaining=0; return; }
 	if (result.precisionTargetID > 0 && !TryStartColdStoragePrecisionStrike(result.precisionTargetID)) {
 		mColdStorage.decisionRemaining = 0;
 		return; // 目标或钱包变动时重算整案，不提交失去技能掩护的后续采购。
@@ -2212,6 +2298,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
 	for (const auto& action : result.actions) {
 		const auto& option = search.options[action.option];
+		if(option.device>=0) { TryChangeStationControl(option.device,option.setting,false); continue; }
 		if (QueueColdStorageZombie(static_cast<ZombieType>(option.type), option.row, action.delay)) {
 			s.commanderFocusRow = option.row;
 			if (option.unit.body.economic) ++s.economicFollowups;
@@ -2220,7 +2307,9 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.commanderSpent = beforeSkill - s.enemyIce; s.commanderReserve = s.enemyIce;
 	s.attackDeferred = true; // 队列兑现期间也定期观察；灰烬、前排损失与新收入都会进入下一次快照。
 	if (s.pending.size() > paidCount) {
-		mCurrentWave = ++s.decisions; s.dispatchQuietSeconds = 0;
+		mCurrentWave = ++s.decisions;
+		if(IsWeatherStation()) mMistFuelAssignedThisWave=0;
+        s.dispatchQuietSeconds = 0;
 		for (size_t i = paidCount; i < s.pending.size(); ++i) s.pending[i].wave = s.decisions;
 		ShowPaidWavePrompt(mPresentation, s.commanderSpent);
 	}
@@ -2233,6 +2322,14 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	// 即使瞬发植物在领取前已消失，创建序号也留下痕迹。
 	mix(mEntityRegistry.GetNextPlantID());
 	// 全场费用规则或已承诺的清除目标改变时，后台旧局面不能继续提交。
+	mix(mWeatherStation.revision);
+    if(IsWeatherStation()) {
+        // 放电锁定及黑障切换会改变信息和受伤集合，旧环境方案不能跨此边沿提交。
+        mix(static_cast<unsigned>(mNightRoofChargePhase));
+        mix(static_cast<std::uint64_t>(mNightRoofHijackerID));
+        mix(static_cast<std::uint64_t>(mNightRoofChargeGuideID));
+        mix(IsWeatherPanelInterferenceActive());
+    }
 	mix(mColdStorage.discountRemaining > 0);
 	mix(mColdStorage.interferenceRemaining > 0);
 	mix(mColdStorage.interferenceCooldownRemaining <= 0);

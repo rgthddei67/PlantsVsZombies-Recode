@@ -33,7 +33,7 @@ bool Board::TryActivateIceVoucher()
 
 bool Board::SupportsTemporalInterference() const
 {
-	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || (mLevel >= 87 && mLevel <= 90));
+	return IsColdStorage() && !mIsSurvival && (MiniGame::IsBrawl(mLevel) || IsWeatherStation() || (mLevel >= 87 && mLevel <= 90));
 }
 
 bool Board::CanUseTemporalInterference() const
@@ -57,7 +57,7 @@ bool Board::TryActivateTemporalInterference()
 bool Board::CanUseColdStoragePrecisionStrike() const
 {
 	return IsColdStorage() && mBoardState == BoardState::GAME && !mTrophySpawned && !DeltaTime::IsPaused()
-		&& (MiniGame::IsBrawl(mLevel) || (mLevel >= ColdStorageSkillRules::StrikeUnlockLevel && mLevel <= 90))
+		&& (MiniGame::IsBrawl(mLevel) || IsWeatherStation() || (mLevel >= ColdStorageSkillRules::StrikeUnlockLevel && mLevel <= 90))
 		&& mColdStorage.decisions >= ColdStorageSkillRules::StrikeUnlockWave
 		&& mColdStorage.enemyIce >= ColdStorageSkillRules::StrikeIceCost
 		&& mColdStorage.strikeCooldownRemaining <= 0 && mColdStorage.strikeTargetID < 0;

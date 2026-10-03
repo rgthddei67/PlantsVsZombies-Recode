@@ -62,6 +62,7 @@ namespace {
 		case Background::HOT_COLD_STORAGE:
 		case Background::GROUND_DAY:
 			return ResourceKeys::Music::MUSIC_DAY;
+		case Background::WEATHER_STATION:
 		case Background::GROUND_NIGHT:
 			return ResourceKeys::Music::MUSIC_NIGHT;
 		case Background::WATER_POOL:
@@ -2466,6 +2467,7 @@ Plant* Board::MorphImitater(Imitater* imitater)
 }
 
 Zombie* Board::CreateZombie(ZombieType zombieType, int row, float x, bool skipsettings, bool isPreview) {
+	if (!IsStationZombieAllowed(zombieType)) return nullptr;
 	// y 由 row 与地形上的当前 x 共同决定；屋顶出生点因此直接落在连续坡面上。
 	float y = GetZombieSpawnY(row, x);
 	if (y < 0.0f) y = 0.0f;
@@ -2576,7 +2578,7 @@ void Board::UpdateLevel()
 	float deltaTime = DeltaTime::GetDeltaTime();
 
 	if (mBackGround == Background::GROUND_DAY || mBackGround == Background::WATER_POOL ||
-		mBackGround == Background::ROOF || IsColdStorage()) {
+		mBackGround == Background::ROOF || (IsColdStorage() && !IsWeatherStation())) {
 		UpdateSunFalling(deltaTime);
 	}
 	if (mBackGround == Background::WATER_POOL || mBackGround == Background::NIGHT_WATER_POOL) {
@@ -3425,6 +3427,7 @@ void Board::Update()
 	// 夜间泳池迷雾与雨势正交，但同样使用游戏时间并消费更新后的台风强度和实时风向。
 	UpdateFog(DeltaTime::GetDeltaTime());
 	UpdateWeatherPanelInterference(DeltaTime::GetDeltaTime());
+	UpdateWeatherStation(DeltaTime::GetDeltaTime());
 	UpdateIceTrails(DeltaTime::GetDeltaTime());
 	UpdatePolarFinaleRituals(DeltaTime::GetDeltaTime());
 	UpdateMine(DeltaTime::GetDeltaTime());
@@ -3899,6 +3902,7 @@ Plant* Board::CreatePlantWithIDInternal(PlantType actualType,
 }
 
 Zombie* Board::CreateZombieWithID(ZombieType type, int row, float x, int id) {
+	if (!IsStationZombieAllowed(type)) return nullptr;
 	// y 由持久化的 row + x 重建，屋顶不需要新增坐标字段即可恢复连续坡面。
 	float y = GetZombieSpawnY(row, x);
 	if (y < 0.0f) y = 0.0f;

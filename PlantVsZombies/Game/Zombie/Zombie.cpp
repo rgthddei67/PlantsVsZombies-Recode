@@ -815,7 +815,7 @@ void Zombie::Update()
 		if (mIsEating) return;
 
 		// 移动类增益只进入位移阶段；固定车速、飞行与普通根运动共用，技能倒计时不被加速。
-		ZombieMove(scaledDelta * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())
+		ZombieMove(scaledDelta * (mBoard ? mBoard->GetStationFogMoveMultiplier(this) : 1.0f) * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())
 			* GetAmberMovementMultiplier(), transform);
 		// 品种只负责水平推进；坡面高度统一由基类在同帧收敛。
 		SyncToRoofTerrain(transform);
@@ -3105,7 +3105,7 @@ void Zombie::Draw(Graphics* g)
 
 	// 与植物目标提示一样，只读取 Board 锁定 ID 和本实体生命；不会扫描僵尸或植物集合。
 	if (g && !mIsPreview && mBoard
-		&& mBoard->IsZombieThreatenedByNightRoofHijacker(this) && mCollider) {
+		&& !mBoard->HidesStationForecasts() && mBoard->IsZombieThreatenedByNightRoofHijacker(this) && mCollider) {
 		const SDL_FRect bounds = mCollider->GetBoundingBox();
 		const float alpha = mBoard->GetNightRoofHijackerPulseAlpha();
 		g->DrawRect(bounds.x - 3.0f, bounds.y - 3.0f,

@@ -2061,4 +2061,58 @@ int main()
 	check(stats.planted==0,"an empty board does not replenish the cumulative replacement allowance");
 	}
 
+    {
+    using namespace WeatherStationRules;
+    Control device; device.pending=3; device.warning=WarningSeconds;
+    check(!Advance(device,7) && device.value==0,"station prewarning does not apply environment early");
+    check(Advance(device,2) && device.value==3 && device.protection==29,"station crossing keeps only remaining time in protection");
+    check(!CanChange(device,RAIN,0),"both factions must respect the active protection");
+    Advance(device,29);
+    check(CanChange(device,RAIN,0) && !CanChange(device,RAIN,3),"expired device unlocks but cannot renew its current setting");
+    }
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.capacity=4; s.budget=100;
+    s.stationCharge=74; s.station.controls[0].value=3;
+    Unit caster; caster.id=1; caster.hijacker=true; caster.body.health=1000; caster.temporalStopHealth=333;
+    caster.body.x=1000; caster.body.value=caster.body.purchaseCost=24;
+    Unit worker; worker.id=2; worker.body.health=500; worker.body.x=1050; worker.body.economic=true;
+    worker.body.value=worker.body.purchaseCost=24;
+    s.current={caster,worker};
+    Plant target; target.health=1000; target.x=300; target.reward=30; target.assetValue=100;
+    target.executionGroup=0; target.countsExecution=target.diesExecution=true; s.plants={target};
+    ConstructionStats offStats,onStats;
+    const auto off=Evaluate(s,{},&offStats);
+    s.station.controls[2].value=1;
+    const auto on=Evaluate(s,{},&onStats);
+    check(offStats.stationDischarges==0 && onStats.stationDischarges>0,"disabled station freezes charge; enabled rainy station reaches discharge");
+    check(on[0]>off[0] && on[3]<off[3] && on[4]<off[4],"hijacker forecast includes enemy destruction, friendly casualties and lost future production");
+    check(s.current[0].body.health==1000 && s.current[1].body.health==500 && s.stationCharge==74,"station forecast never mutates the source battlefield");
+    }
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.columns=9; s.rows=5;
+    Unit u; u.body.health=10000; u.body.x=900; u.body.speed=10; u.body.purchaseCost=20; u.goldenStacks=3;
+    s.current={u};
+    const auto clear=Evaluate(s,{});
+    s.station.controls[1].value=4;
+    const auto fog=Evaluate(s,{});
+    check(fog[7]<clear[7],"fog reduces movement independently of golden ice");
+    Plant light; light.health=1000; light.plantern=true; light.illumination.fill(1); s.plants={light};
+    const auto lit=Evaluate(s,{});
+    check(std::abs(lit[7]-clear[7])<.001f,"illumination removes fog movement loss");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.playerIce=40;
+    s.station.controls[2].value=1; s.stationCharge=80;
+    Unit observer; observer.body.health=10000; observer.body.x=900; s.current={observer};
+    Plant target; target.health=1000; target.assetValue=100; target.x=200; s.plants={target};
+    ConstructionStats visible,hidden;
+    Evaluate(s,{},&visible); s.stationJammed=100; Evaluate(s,{},&hidden);
+    check(visible.stationCounters>0 && hidden.stationCounters==0,
+        "a player forecast starting inside blackout cannot read hidden live charge");
+    }
+
 }

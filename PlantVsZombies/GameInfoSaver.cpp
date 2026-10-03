@@ -202,6 +202,7 @@ bool GameInfoSaver::SavePlayerInfoImpl()
 	j["adventureLevel"] = gameApp.mAdventureLevel;
 	j["encounteredEliteDancer"] = gameApp.mEncounteredEliteDancer;
 	j["crazyDaveTutorialsSeen"] = gameApp.mCrazyDaveTutorialsSeen;
+	j["stationCounterTutorialsSeen"]=gameApp.mStationCounterTutorialsSeen;
 	j["developerSelectedLevel"] = gameApp.mDeveloperSelectedLevel;
 	j["developerSelectedZombie"] = gameApp.mDeveloperSelectedZombie;
 	j["showPlantHP"] = gameApp.mShowPlantHP;
@@ -240,6 +241,7 @@ bool GameInfoSaver::LoadPlayerInfoImpl()
 	gameApp.Difficulty = j.value("difficulty", 1);
 	gameApp.mAdventureLevel = j.value("adventureLevel", 1);
 	gameApp.mEncounteredEliteDancer = j.value("encounteredEliteDancer", false);
+	gameApp.mStationCounterTutorialsSeen=j.value("stationCounterTutorialsSeen",0u)&7u;
 	gameApp.mCrazyDaveTutorialsSeen.clear();
 	if (auto it = j.find("crazyDaveTutorialsSeen"); it != j.end() && it->is_array()) {
 		// 旧档没有该字段时自然为空；损坏档只接收当前冒险流程内的整数关卡号。
@@ -333,6 +335,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	}
 	j["sun"] = board->mSun;
 	j["coldStorage"] = board->SaveColdStorage();
+	j["weatherStation"] = board->SaveWeatherStation();
 	j["sunCountDown"] = board->mSunCountDown;
 	j["poolSunCountDown"] = board->mPoolSunCountDown;
 	j["currentWave"] = board->mCurrentWave;
@@ -965,6 +968,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	}
 	board->mSun = j.value("sun", 50);
 	board->LoadColdStorage(j.value("coldStorage", nlohmann::json::object()));
+	board->LoadWeatherStation(j.value("weatherStation", nlohmann::json::object()));
 	board->mSunCountDown = std::clamp(
 		j.value("sunCountDown", 5.0f), 0.0f, SPAWN_SUN_TIME);
 	board->mPoolSunCountDown = std::clamp(

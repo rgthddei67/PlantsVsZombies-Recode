@@ -1,3 +1,4 @@
+#include "Game/Board/NightRoofChargeRules.h"
 #include "ColdStorageSearch.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
@@ -113,7 +114,7 @@ float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
 int ActionLimit(const Snapshot& s) {
-	return std::max(0,std::min(s.capacity,s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
+	return std::max(0,std::min(s.capacity+(s.weatherStation ? 3 : 0),s.searchVersion == 2 ? kPortfolioActions : s.stateModel ? kAdaptiveActions : kMaxActions));
 }
 float DelayLimit(const Snapshot& s) { return s.searchVersion == 2 ? kPortfolioDelay : s.stateModel ? kAdaptiveDelay : kMaxDelay; }
 /** 已付长队列需要完整战斗预测，但不因此跳过新购物车的小队搜索阶段。 */
@@ -255,10 +256,17 @@ std::vector<Action> SampleCombination(const Snapshot& s, const std::vector<std::
 
 /** 修复变异后的越界和超预算动作，稳定排序保留同一时刻的提交次序。 */
 void Repair(const Snapshot& s, std::vector<Action>& actions) {
-	int spent = 0;
+	int spent = 0, troops=0;
+	std::array<bool,3> deviceUsed{};
 	actions.erase(std::remove_if(actions.begin(), actions.end(), [&](Action& a) {
 		if (a.option < 0 || a.option >= static_cast<int>(s.options.size())) return true;
-		const int cost = s.options[a.option].cost;
+		const auto& option=s.options[a.option];
+		if (option.device>=0) {
+			if(deviceUsed[option.device]) return true;
+			deviceUsed[option.device]=true; a.delay=0;
+		}
+		if(option.device<0 && ++troops>s.capacity) return true;
+		const int cost = option.cost;
 		if (cost <= 0 || spent + cost > PurchaseBudget(s)) return true;
 		spent += cost;
 		a.delay = std::clamp(a.delay, 0.0f, DelayLimit(s));
@@ -471,7 +479,7 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 	for (size_t ability = 0; ability < strikes.size(); ++ability) {
 		const auto& strike = strikes[ability];
 		if (time < ready[ability] || std::none_of(plants.begin(),plants.end(),[&](const auto& plant) {
-			return plant.id == strike.plantID && plant.health > 0;
+			return plant.id == strike.plantID && plant.health > 0 && plant.shutdownUntil<=time;
 		})) continue;
 		if (holdSeconds > 0) {
 			bool hasTarget = false, urgent = false;
@@ -579,7 +587,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			|| (counter.sharedSource >= 0 && time < ready[counter.sharedSource])
 			|| counter.sunCost > sun || PlayerIceCost(state,time,counter.iceCost) > ice) continue;
 		if (counter.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
-			return p.id == counter.plantID && p.health > 0;
+			return p.id == counter.plantID && p.health > 0 && p.shutdownUntil<=time;
 		})) continue;
 		if (counter.cellRow >= 0 && std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.health > 0 && p.layer == 1 && p.row == counter.cellRow && p.column == counter.cellColumn;
@@ -1381,10 +1389,181 @@ static void AdvanceClocks(const Snapshot& s, float time, std::vector<Unit>& unit
 	}
 }
 
+/** 气象站在纯数值副本中推进；设备事务、雾区和雷荷只影响本次候选，不触碰Board。 */
+using namespace NightRoofChargeRules;
+struct StationProjection {
+    WeatherStationRules::State state;
+    float charge=0, overcharge=0, warning=0, jammed=0;
+    float knownCharge=0, knownRate=0, lastObservation=0;
+    int phase=0, row=-1, hijacker=-1, guide=-1;
+    bool attempted=false, guided=false;
+    std::array<float,54> fogAlpha{};
+    explicit StationProjection(const Snapshot& s,const std::vector<Action>& plan):state(s.station),
+        charge(s.stationCharge),overcharge(s.stationOvercharge),warning(s.stationWarning),jammed(s.stationJammed),
+        knownCharge(s.stationJammed>0 ? 0 : s.stationCharge),phase(s.stationChargePhase),row(s.stationRow),
+        attempted(s.stationSelectionAttempted),guided(s.stationGuided),fogAlpha(s.stationFogAlpha) {
+        for(size_t i=0;i<s.current.size();++i) {
+            if(s.current[i].id==s.stationHijackerID) hijacker=static_cast<int>(i);
+            if(s.current[i].id==s.stationGuideID) guide=static_cast<int>(i);
+        }
+        for(const auto& a:plan) if(s.options[a.option].device>=0) {
+            const auto& o=s.options[a.option]; auto& c=state.controls[o.device];
+            c.pending=o.setting; c.warning=WeatherStationRules::WarningSeconds; c.player=false;
+        }
+    }
+    int Rain() const { return state.controls[0].value; }
+    /** 当前照明与浓度共用一个视野口径；近身感知仅放开索敌，不取消环境减速。 */
+    bool Obscured(const Snapshot& s,const Unit& unit) const {
+        const int col=std::clamp(static_cast<int>((unit.body.x-s.gridLeft)/s.cellWidth),0,s.columns-1);
+        return fogAlpha[unit.body.row*s.columns+col]>96;
+    }
+    bool CanTarget(const Snapshot& s,const Plant& p,const Unit& unit) const {
+        if(std::abs(p.row-unit.body.row)<=1 && std::abs(p.x-unit.body.x)<=100) return true;
+        const int col=std::clamp(static_cast<int>((unit.body.x-s.gridLeft)/s.cellWidth),0,s.columns-1);
+        if(fogAlpha[unit.body.row*s.columns+col]<=96) return true;
+        const int adjacent=col+(unit.body.x>p.x ? -1 : 1);
+        return adjacent>=0 && adjacent<s.columns && fogAlpha[unit.body.row*s.columns+adjacent]<=96;
+    }
+    bool HasPot(const Plant& p,const std::vector<Plant>& plants) const {
+        return std::any_of(plants.begin(),plants.end(),[&](const Plant& q) {
+            return q.lightningPot && q.health>0 && q.row==p.row && q.column==p.column;
+        });
+    }
+    /** 锁定前比较所有普通行与存活接地候选；已公布的路线在预警期间不重选。 */
+    void ChooseRoute(const Snapshot& s,float t,const std::vector<Plant>& plants,const std::vector<Unit>& units) {
+        float best=-std::numeric_limits<float>::max(); row=0; guide=-1; guided=false;
+        for(int candidate=0;candidate<s.rows+static_cast<int>(units.size());++candidate) {
+            const int index=candidate-s.rows;
+            if(index>=0 && (!units[index].grounding || units[index].helmHealth<=0 || units[index].body.health<=0 || units[index].body.spawnAt>t)) continue;
+            const int candidateRow=index<0 ? candidate : units[index].body.row;
+            float score=0;
+            for(const auto& p:plants) if(p.health>0 && p.row==candidateRow && !p.support && !HasPot(p,plants)) {
+                bool protectedPlant=false;
+                for(const auto& q:plants) if(q.health>0 && q.grounding && q.row==p.row && std::abs(q.column-p.column)<=1) protectedPlant=true;
+                if(!protectedPlant) score+=(p.dps*8+p.sunPerSecond*8*s.sunIceValue);
+            }
+            if(index<0) for(const auto& u:units) if(u.body.health>0 && u.body.spawnAt<=t && u.body.row==candidateRow && u.groundHazard)
+                score-=std::min(static_cast<float>(kNightRoofZombieDamage),u.body.health)*u.body.value/std::max(1.0f,u.body.health);
+            if(score>best) { best=score; row=candidateRow; guide=index; guided=index>=0; }
+        }
+    }
+    /** 处决按释放瞬间生命冻结目标组，友伤、工人损失和施法者牺牲一并结算。 */
+    void Discharge(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f) {
+        if(hijacker>=0 && units[hijacker].body.health>units[hijacker].temporalStopHealth) {
+            const float line=units[hijacker].body.health;
+            std::array<float,54> health{}; std::array<bool,54> protectedGroup{};
+            for(const auto& p:plants) if(p.health>0 && p.executionGroup>=0 && p.executionGroup<54) {
+                if(p.countsExecution) health[p.executionGroup]+=p.health;
+                if(HasPot(p,plants)) protectedGroup[p.executionGroup]=true;
+            }
+            for(auto& p:plants) if(p.health>0 && p.diesExecution && p.executionGroup>=0 && p.executionGroup<54
+                && health[p.executionGroup]>0 && health[p.executionGroup]<=line && !protectedGroup[p.executionGroup]) DamagePlant(p,p.health,true,f);
+            for(auto& u:units) if(u.body.health>0 && u.body.spawnAt<=t && u.body.health<=line) { u.body.health=0; u.temporalIrreversible=true; }
+            units[hijacker].body.health=0; units[hijacker].temporalIrreversible=true;
+        }
+        std::vector<size_t> grounding;
+        float damageMultiplier=1;
+        for(const auto& pot:plants) if(pot.health>0 && pot.lightningPot && pot.row==row)
+            for(const auto& host:plants) if(host.health>0 && !host.support && host.row==row && host.column==pot.column) damageMultiplier=2;
+        for(auto& p:plants) if(p.health>0 && p.row==row && !p.support && !HasPot(p,plants)) {
+            int protector=-1, distance=100;
+            for(size_t j=0;j<plants.size();++j) {
+                const auto& q=plants[j]; const int delta=std::abs(q.column-p.column);
+                if(q.health>0 && q.grounding && q.row==row && delta<=1 && delta<distance) { protector=static_cast<int>(j); distance=delta; }
+            }
+            if(protector>=0) grounding.push_back(protector);
+            else { p.shutdownUntil=std::max(p.shutdownUntil,t+kNightRoofPlantShutdownDuration); p.repairBlockedUntil=std::max(p.repairBlockedUntil,t+kNightRoofPlantShutdownDuration); p.boundaryBlockedUntil=std::max(p.boundaryBlockedUntil,t+kNightRoofPlantShutdownDuration); }
+        }
+        if(guided && guide>=0 && units[guide].body.health>0 && units[guide].helmHealth>0) {
+            for(auto& u:units) if(u.body.health>0 && u.body.spawnAt<=t) {
+                const float dx=u.body.x-units[guide].body.x, dy=(u.body.row-units[guide].body.row)*s.cellHeight;
+                if(dx*dx+dy*dy<=130*130) {
+                    u.body.slow=0;
+                    // 聚合停步可能包含不受接地免疫影响的麻痹，不能在这里全部清空。
+                    u.body.slowImmunity=std::max(u.body.slowImmunity,t+30);
+                    u.chargeControlImmunity=std::max(u.chargeControlImmunity,t+30);
+                }
+            }
+        }
+        if(!guided) for(auto& u:units) if(u.body.health>0 && u.body.spawnAt<=t && u.body.row==row && u.groundHazard) {
+            Unit* protector=nullptr;
+            const bool suppressed=std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
+                return p.health>0 && p.grounding && p.row==u.body.row && std::abs(p.x-u.body.x)<=s.cellWidth*1.5f;
+            });
+            for(auto& other:units) if(!suppressed && other.insulator && other.helmHealth>0 && other.body.health>0 && other.body.spawnAt<=t
+                && other.body.row==row && std::abs(other.body.x-u.body.x)<=s.cellWidth*1.5f
+                && (!protector || std::abs(other.body.x-u.body.x)<std::abs(protector->body.x-u.body.x))) protector=&other;
+            if(protector) { const float absorbed=std::min(protector->helmHealth,kNightRoofZombieDamage*damageMultiplier); protector->helmHealth-=absorbed; protector->body.health-=absorbed; protector->overloadRemaining=15; }
+            else { ApplyDamage(u,kNightRoofZombieDamage*damageMultiplier); if(u.paralysisAllowed) u.body.stopped=std::max(u.body.stopped,kNightRoofZombieParalysisDuration); }
+        }
+        std::sort(grounding.begin(),grounding.end()); grounding.erase(std::unique(grounding.begin(),grounding.end()),grounding.end());
+        for(const size_t i:grounding) DamagePlant(plants[i],100,true,f);
+    }
+    /** 只对真实存活单位推进充电/干扰；黑障内对手只能使用先前已观察的电量趋势。 */
+    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats) {
+        if(!s.weatherStation) return;
+        for(auto& c:state.controls) WeatherStationRules::Advance(c,kStep);
+        jammed=std::max(0.0f,jammed-kStep);
+        bool hasHijacker=false;
+        for(auto& unit:units) if(unit.body.health>0 && unit.body.spawnAt<=t) {
+            unit.overloadRemaining=std::max(0.0f,unit.overloadRemaining-kStep);
+            if(unit.hijacker && unit.body.health>unit.temporalStopHealth) hasHijacker=true;
+            if(unit.jammer && unit.body.health>unit.temporalStopHealth && unit.body.stopped<=0
+                && unit.body.x+unit.body.boundsOffset+unit.body.boundsWidth<=s.gridLeft+s.columns*s.cellWidth) {
+                unit.jammerRemaining-=kStep; unit.body.stopped=std::max(unit.body.stopped,kStep);
+                if(unit.jammerRemaining<=0) { jammed=std::min(300.0f,jammed+30); unit.jammer=false; ++stats.stationJams; }
+            }
+        }
+        const int fog=state.controls[1].value;
+        const int left=fog==0 ? s.columns : s.columns-3-fog;
+        for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c) {
+            float light=0;
+            for(const auto& p:plants) if(p.plantern && p.health>0 && p.shutdownUntil<=t) light=std::max(light,p.illumination[r*s.columns+c]);
+            const float target=(c<left ? 0 : c==left ? (fog==4 ? 225.0f : 200.0f) : 255.0f)*(1-light);
+            auto& alpha=fogAlpha[r*s.columns+c]; alpha+=std::clamp(target-alpha,-320*kStep,180*kStep);
+        }
+        const float rate=state.controls[2].value ? (Rain()==0 ? -kNightRoofChargeClearLeakPerSecond : (Rain()==1 ? kNightRoofChargeLightPerSecond : Rain()==2 ? kNightRoofChargeMediumPerSecond : kNightRoofChargeHeavyPerSecond)+(hasHijacker ? kNightRoofHijackerRainChargeBonusPerSecond : 0)) : 0;
+        if(jammed<=0) { knownCharge=charge; knownRate=rate; lastObservation=t; }
+        // 对手拥有正常预算和8秒切换前摇；黑障开始前在本次推演见过的信息可外推，
+          // 快照已经处于黑障且没有历史观测时，不能把真实隐藏电量当作玩家已知。
+        const float expectedCharge=std::clamp(knownCharge+knownRate*(t-lastObservation),0.0f,100.0f);
+        float exposedValue=0;
+        for(const auto& p:plants) if(p.health>0 && !HasPot(p,plants)) exposedValue+=p.assetValue;
+        auto& device=state.controls[2];
+        if(phase==0 && expectedCharge>=35 && exposedValue>80 && playerIce>=40 && WeatherStationRules::CanChange(device,2,0)) {
+            device.pending=0; device.warning=WeatherStationRules::WarningSeconds; device.player=true;
+            playerIce-=40; stats.iceSpent+=40; ++stats.stationCounters;
+        }
+        if(phase==0) {
+            charge=std::clamp(charge+rate*kStep,0.0f,100.0f);
+            if(charge>=kNightRoofHijackerLockThreshold && !attempted) {
+                attempted=true; hijacker=-1;
+                for(size_t i=0;i<units.size();++i) if(units[i].hijacker && units[i].body.spawnAt<=t && units[i].body.health>units[i].temporalStopHealth
+                    && (hijacker<0 || units[i].body.health>units[hijacker].body.health)) hijacker=static_cast<int>(i);
+                if(hijacker>=0 && !units[hijacker].hijackerBoosted) {
+                    units[hijacker].body.health+=1000; units[hijacker].temporalStopHealth+=1000.0f/3;
+                    units[hijacker].hijackerBoosted=true;
+                }
+            }
+            if(charge>=kNightRoofChargeMaximum) { phase=1; warning=hijacker>=0 ? kNightRoofHijackerWarningDuration : kNightRoofChargeWarningDuration; ChooseRoute(s,t,plants,units); }
+        } else {
+            overcharge=std::min(kNightRoofOverchargeMaximum,overcharge+std::max(0.0f,rate)*kStep);
+            warning-=kStep;
+            if(hijacker>=0 && units[hijacker].body.health<=units[hijacker].temporalStopHealth) hijacker=-1;
+            if(hijacker>=0 && phase==1 && warning<=1) units[hijacker].body.stopped=std::max(units[hijacker].body.stopped,warning);
+            if(warning<=0) {
+                if(phase==1) { Discharge(s,t,plants,units,f); phase=2; warning=kNightRoofChargeDischargeDuration; ++stats.stationDischarges; }
+                else { phase=0; charge=overcharge; overcharge=0; attempted=false; hijacker=-1; }
+            }
+        }
+    }
+};
+
 Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
+	StationProjection environment(s,plan);
 	std::vector<std::pair<size_t,int>> committedRifts;
 	for (const auto& rift : s.rifts) {
 		auto unit = rift.unit; unit.body.spawnAt = rift.remaining;
@@ -1393,6 +1572,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	}
 	for (const auto& a : plan) {
 		if (a.option < 0 || a.option >= static_cast<int>(s.options.size())) continue;
+		if (s.options[a.option].device>=0) { f[5]+=s.options[a.option].cost; continue; }
 		auto unit = s.options[a.option].unit;
 		unit.body.spawnAt = a.delay;
 		units.push_back(unit);
@@ -1532,6 +1712,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
+		environment.Step(s,t,plants,units,f,playerIce,constructionStats);
 		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
 		if (s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
 			float restoredHealth=0;
@@ -1565,7 +1746,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		} else if (!s.anticipateEconomy && !orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
-		for (const auto& p : plants) if (p.health > 0 && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
+		for (const auto& p : plants) if (p.health > 0 && p.shutdownUntil<=t && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
@@ -1583,15 +1764,16 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
 		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
-		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0) {
+		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0 && plants[pi].shutdownUntil<=t) {
 			auto& p = plants[pi];
-			const float attackRate = auras.empty() ? 1 : attackRates[pi];
+			const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1);
 			int target = -1;
 			for (size_t i = 0; i < units.size(); ++i) {
 				const auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t || u.x > s.rightEdge
 					|| (p.around ? std::abs(u.x - p.x) > p.range : u.x < p.x - 30 || u.x > p.x + p.range)) continue;
 				if (u.row != p.row && (p.melon || std::abs(u.row - p.row) > p.rowRadius)) continue;
+				if(s.weatherStation && !environment.CanTarget(s,p,units[i])) continue;
 				if (target < 0 || u.x < units[target].body.x) target = static_cast<int>(i);
 			}
 			if (target < 0) continue;
@@ -1635,7 +1817,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow,p.damageOrigin);
 				if (u.canBeChilled && u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2 * attackRate));
-				u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
+				if(units[i].chargeControlImmunity<=t) u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
 			}
 		}
 		AdvanceDrums(s,t,units,constructionStats,drumActivity);
@@ -1707,7 +1889,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			if (!worker.inspiration.empty() && worker.goldenStacks>0) ++constructionStats.goldenDrumSteps;
 			if (contact >= 0 && u.x <= plants[contact].x + kContact) {
 				auto& p = plants[contact];
-				float damage = worker.biteDps * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? GoldenIceRules::Amplify(.5f,worker.goldenStacks) : 1);
+				float damage = worker.biteDps * (worker.overloadRemaining>0 ? 2 : 1)
+                    / (worker.sampledOverload>1 ? 2 : 1) * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? GoldenIceRules::Amplify(.5f,worker.goldenStacks) : 1);
 				if (u.smashSeconds > 0) {
 					smashTarget[i] = contact;
 					advanceSmash(i,active,speedFactor);
@@ -1723,7 +1906,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				// 车辆会随位置减速；保留采样时已有加速状态，不把当前车速冻结到整个时域。
 				const float curve=worker.movementCurve.Factor(u.x-worker.movementCurveBase)
 					/ worker.movementCurve.Factor(worker.movementCurveReference-worker.movementCurveBase);
-				u.x -= u.speed * curve * worker.goldenMoveRatios[worker.goldenStacks] * acceleration * ritualMove * drumMove * activity[0] * speedFactor;
+				const float rainRatio=s.weatherStation ? GoldenIceRules::Amplify(s.rainZombie[environment.Rain()],worker.goldenStacks)/std::max(.001f,GoldenIceRules::Amplify(worker.rawRainMultiplier,worker.goldenStacks)) : 1;
+                const float fogRatio=s.weatherStation && environment.Obscured(s,worker) ? WeatherStationRules::FogMoveMultiplier : 1;
+                const float overload=(worker.overloadRemaining>0 ? GoldenIceRules::Amplify(2.2f,worker.goldenStacks) : 1)/GoldenIceRules::Amplify(worker.sampledOverload,worker.goldenStacks);
+                u.x -= u.speed * rainRatio * fogRatio * overload * curve * worker.goldenMoveRatios[worker.goldenStacks] * acceleration * ritualMove * drumMove * activity[0] * speedFactor;
 				// 高速爆发不能跨步穿墙，车辆也不能越过仍存活的抗碾压坚果。
 				if (contact >= 0 && (worker.burst.range > 0 || (worker.vehicleCrush && plants[contact].crushDamage > 0))) u.x = std::max(u.x,plants[contact].x+kContact);
 			}
@@ -1834,7 +2020,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.baselineOpponentAssets = baselineOpponentAssets; best.opponentScore = 0;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
-	if (s.options.empty() || s.capacity <= 0 || PurchaseBudget(s) <= 0) return best;
+	if (s.options.empty() || (s.capacity <= 0 && !s.weatherStation) || PurchaseBudget(s) <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
 	if (cheapest->cost > PurchaseBudget(s)) return best;
 	std::mt19937 rng(seed); // 局部共同随机数使同一快照/参数可重复，搜索次数不改变正式战斗随机流。

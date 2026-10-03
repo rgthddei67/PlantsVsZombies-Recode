@@ -9,8 +9,8 @@
 namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
-	inline constexpr int ADVENTURE_AREA_COUNT = 10;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 90; // 第十大关冷藏站以冰块经济决定胜负
+	inline constexpr int ADVENTURE_AREA_COUNT = 11;
+	inline constexpr int LAST_ADVENTURE_LEVEL = 99; // 第十一大关气象站沿用冰块经济胜负
 	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * 9;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
@@ -141,6 +141,10 @@ namespace AdventureProgression
 		PlantType::PLANT_ICEVOUCHER, // 10-7 解锁点击即用的减费技能卡
 		NO_PLANT_REWARD, 
 		NO_PLANT_REWARD,
+		// 11-1..11-9：逐步解锁控制台与敌方兵池，不新增植物卡。
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */

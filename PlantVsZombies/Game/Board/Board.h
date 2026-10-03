@@ -1,4 +1,5 @@
 #pragma once
+#include "WeatherStationRules.h"
 #include "ColdStorageState.h"
 #include "../MiniGameDefinition.h"
 #ifndef _BOARD_H
@@ -96,7 +97,8 @@ enum class Background {
 	WINTER_GARDEN,
 	POLAR_NIGHT_SNOWFIELD,
 	GLOOMCRYSTAL_MINE,
-	HOT_COLD_STORAGE
+	HOT_COLD_STORAGE,
+	WEATHER_STATION
 };
 
 inline constexpr int SURVIVAL_ENDLESS_LEVEL = 1000; // 白天无尽专用 level 号
@@ -219,8 +221,27 @@ public:
 	std::uint64_t mColdStoragePlanningStamp = 0;
 	float mColdStoragePlanningAt = 0;
 	int mColdStoragePlanningVersion = 1;
-	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE; }
-	/** 冒险 10-6～10-9 和小游戏大混战的新局可选支援；不扩展到生存。 */
+	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE || IsWeatherStation(); }
+	bool IsWeatherStation() const { return mBackGround == Background::WEATHER_STATION; }
+	WeatherStationRules::State mWeatherStation;
+	/** 设备只按章节解锁；不限制任何僵尸在晴夜提前部署。 */
+	bool IsStationDeviceUnlocked(int device) const;
+	/** 同时检查设备事务、场景状态与请求方钱包；查询不产生扣款。 */
+	bool CanChangeStationControl(int device, int value, bool player) const;
+	/** 在正式钱包提交一次不可取消的环境指令。 */
+	bool TryChangeStationControl(int device, int value, bool player);
+	void UpdateWeatherStation(float seconds);
+	/** 已完成设备指令映射到既有雨效与雾场；不抽取随机天气。 */
+	void ApplyStationEnvironment();
+	float GetStationFogMoveMultiplier(const Zombie* zombie) const;
+	/** 后台使用相同天气曲线，避免复制波次压力倍率。 */
+	float ForecastZombieRainMultiplier(RainIntensity rain) const;
+	float ForecastPlantRainMultiplier(RainIntensity rain) const;
+	bool HidesStationForecasts() const { return IsWeatherStation() && IsWeatherPanelInterferenceActive(); }
+	bool IsStationZombieAllowed(ZombieType type) const;
+	nlohmann::json SaveWeatherStation() const;
+	void LoadWeatherStation(const nlohmann::json& value);
+	/** 冷藏站后段、气象站和小游戏大混战的新局可选支援；不扩展到生存。 */
 	bool SupportsColdStorageOpeningBonus() const;
 	bool NeedsColdStorageOpeningBonus() const;
 	/** 已选项查询包含未完成的第一项，供选择窗口显示；未完成时不提供玩法效果。 */

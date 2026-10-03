@@ -63,9 +63,11 @@ void GameScene::DrawColdStorageShop(Graphics* g)
 		g->DrawGlyphRun(u8"冰惠券 · 冰费减半 " + std::to_string(static_cast<int>(std::ceil(ice.discountRemaining))) + u8"秒",
 			ResourceKeys::Fonts::FONT_FZCQ, 16, glm::vec4(165, 245, 255, 255), 373, 75);
 	}
+	if (!mBoard->IsWeatherStation()) {
 	g->FillRect(590, 573, 235, 27, glm::vec4(20, 35, 40, 190));
 	g->DrawGlyphRun(mBoard->mLevelName + u8"  第" + std::to_string(ice.decisions) + u8"波",
 		ResourceKeys::Fonts::FONT_FZCQ, 18, glm::vec4(255, 235, 175, 255), 600, 575);
+	}
 	if (mColdStorageShopOpen) {
 		g->FillRect(8, 108, 164, mBoard->SupportsTemporalInterference() ? 282 : 158, glm::vec4(18, 47, 57, 240));
 		g->DrawGlyphRun(u8"冷藏站 · 冰块配送", ResourceKeys::Fonts::FONT_FZCQ,

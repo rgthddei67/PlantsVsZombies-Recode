@@ -20,6 +20,7 @@ public:
 	};
 
 	Phase GetPhase() const { return mPhase; }
+	bool HasLockHealthBoost() const { return mLockHealthBoostApplied; }
 	bool CanBeNightRoofHijackerCandidate() const;
 	/** 75% 选择边沿调用；首次锁定增加本体耐久，但不打断移动或当前啃食动作。 */
 	void BeginNightRoofLock();

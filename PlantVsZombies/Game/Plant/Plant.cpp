@@ -647,7 +647,7 @@ void Plant::Draw(Graphics* g)
 	}
 	// 劫持者目标提示只做当前格的常数次槽位查询；不为描边另起任何全场逐帧遍历。
 	if (g && !mIsPreview && mBoard
-		&& mBoard->IsPlantThreatenedByNightRoofHijacker(this) && mCollider) {
+		&& !mBoard->HidesStationForecasts() && mBoard->IsPlantThreatenedByNightRoofHijacker(this) && mCollider) {
 		const SDL_FRect bounds = mCollider->GetBoundingBox();
 		const Vector visualDelta = GetVisualAnchorPosition() - GetPosition();
 		const float alpha = mBoard->GetNightRoofHijackerPulseAlpha();

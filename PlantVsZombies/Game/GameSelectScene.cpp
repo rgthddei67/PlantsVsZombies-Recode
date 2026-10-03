@@ -66,6 +66,8 @@ PreviewSource GetPreviewSource(int level)
 		return { &ResourceKeys::Textures::IMAGE_BACKGROUND_NIGHTROOF, true };
 	case Background::WINTER_GARDEN:
 		return { &ResourceKeys::Textures::IMAGE_BACKGROUND_WINTERGARDEN, true };
+	case Background::WEATHER_STATION:
+		return { &ResourceKeys::Textures::IMAGE_BACKGROUND_WEATHER_STATION, true };
 	case Background::HOT_COLD_STORAGE:
 		return { &ResourceKeys::Textures::IMAGE_BACKGROUND_HOT_COLD_STORAGE, true };
 	case Background::GLOOMCRYSTAL_MINE:

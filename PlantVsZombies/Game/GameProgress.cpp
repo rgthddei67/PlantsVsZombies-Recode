@@ -103,6 +103,7 @@ void GameProgress::Update()
 void GameProgress::Draw(Graphics* g)
 {
 	GameObject::Draw(g);
+	if(mBoard && mBoard->IsWeatherStation()) return; // 气象站资源改由场外设备面板显示。
 	if (mBoard && mBoard->IsColdStorage()) {
 		const auto& ice = mBoard->mColdStorage;
 		g->FillRect(848, 501, 252, 99, glm::vec4(20, 35, 40, 195));

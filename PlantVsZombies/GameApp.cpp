@@ -831,6 +831,7 @@ Background GameAPP::GetBackgroundID(int level) const
 		return definition->background;
 	}
 	if (MiniGame::IsBrawl(level)) return Background::HOT_COLD_STORAGE;
+	if (level >= 91 && level <= 99) return Background::WEATHER_STATION;
 
 	const int area = AdventureProgression::GetAreaNumber(level);
 	switch (area) {
@@ -865,7 +866,7 @@ Background GameAPP::GetBackgroundID(int level) const
 
 bool GameAPP::GetBackgroundIsNight(Background background) const
 {
-	if (background == Background::GROUND_NIGHT || background == Background::NIGHT_WATER_POOL
+	if (background == Background::WEATHER_STATION || background == Background::GROUND_NIGHT || background == Background::NIGHT_WATER_POOL
 		|| background == Background::NIGHT_ROOF
 		|| background == Background::POLAR_NIGHT_SNOWFIELD
 		|| background == Background::GLOOMCRYSTAL_MINE)

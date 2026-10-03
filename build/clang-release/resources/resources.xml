@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/background_weather_station.png</Image>
     <Image>./resources/image/PlantImage/ColdPineapple.png</Image>
     <Image>./resources/image/PlantImage/IceStorageNut.png</Image>
     <Image>./resources/image/PlantImage/IceMint.png</Image>

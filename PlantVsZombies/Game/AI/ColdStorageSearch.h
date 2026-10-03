@@ -1,4 +1,5 @@
 #pragma once
+#include "Game/Board/WeatherStationRules.h"
 #include "Game/Zombie/ZombieMovementRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
 
@@ -120,8 +121,19 @@ struct Unit {
 	float productionStopHealth = IceProduction::WorkerHealth / 3; // 对齐 Zombie::TakeBodyDamage 掉头阈值；掉头后不再生产
 	float throwHealth = 0, throwAnchorX = 0, throwWindup = 1; // 尚持小鬼的投手：触发生命、半场锚点与预计前摇；零生命阈值禁用
 	bool mowerImmune = false, consumesOtherMowers = false; // 单位自身的清洁车交互能力，不从购买价格猜测
+	bool hijackerBoosted=false;
+	float chargeControlImmunity=0, sampledOverload=1; // 引雷免控截止秒、快照已烘焙过载倍率
+	bool hijacker=false, grounding=false, insulator=false, groundHazard=true, paralysisAllowed=true;
+	bool jammer=false; float jammerRemaining=0, overloadRemaining=0;
+	float rawRainMultiplier=1; // 快照中烘焙的雨势，环境推演逐步替换
+
 };
 struct Plant {
+	float shutdownUntil=0;
+	bool grounding=false, lightningPot=false, support=false, plantern=false;
+	int executionGroup=-1; bool countsExecution=false, diesExecution=false;
+	std::array<float,54> illumination{}; // 此灯源当前逐格照明贡献；来源死亡即移除
+
 	bool eliteQuota = false; // 本体和补种画像共享精英同时在场计数
 	PlantDamageOrigin damageOrigin;
 	float maximumHealth = 0; // 裂隙按最高层原上限选择落点，不随当前残血重排
@@ -184,6 +196,7 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	int stationDischarges=0, stationJams=0, stationCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
 	int goldenAccelerationSteps = 0, goldenDrumSteps = 0, goldenResidualSteps = 0, goldenMaxStacks = 0; // 实际生效的无伤/鼓舞/残留冰道预测步数及最大来源层数
 	int planted = 0, exchanges = 0, orders = 0;
@@ -199,7 +212,7 @@ struct ConstructionStats {
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
-struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; };
+struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; int device=-1, setting=0; };
 struct Action { int option = 0; float delay = 0; };
 /** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
 struct CommittedUnit { int unit = 0; std::array<bool, 6> legalRows{}; };
@@ -236,6 +249,14 @@ struct TemporalAnchor {
 	std::vector<TemporalTarget> targets;
 };
 struct Snapshot {
+	bool weatherStation=false;
+	WeatherStationRules::State station;
+	std::array<float,54> stationFogAlpha{};
+	std::array<float,4> rainZombie{1,1,1,1}, rainPlant{1,1,1,1};
+	float sampledRainPlant=1, sampledRainZombie=1, stationCharge=0, stationOvercharge=0, stationWarning=0, stationJammed=0;
+	int stationChargePhase=0, stationRow=-1, stationHijackerID=-1, stationGuideID=-1;
+	bool stationSelectionAttempted=false, stationGuided=false;
+
 	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
 	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
@@ -256,7 +277,7 @@ struct Snapshot {
 	float goldenRightX = 1100, goldenLeftLimit = GoldenIceRules::LeftLimit;
 	std::array<bool,6> goldenAllowedRows{true,true,true,true,true,true}; // Board 排除水路，屋顶左缘由当前几何采样
 	std::array<GoldenTrail,6> goldenTrails{};
-	float gridLeft = 160, cellWidth = 80;
+	float gridLeft = 160, cellWidth = 80, cellHeight = 100;
 	int rows = 5, columns = 9;
 	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价
 	bool interferenceAvailable = false; // 商店资格，不假定玩家已按按钮

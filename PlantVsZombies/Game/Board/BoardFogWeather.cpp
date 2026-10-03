@@ -197,7 +197,7 @@ void Board::ConsumeFogWeatherForecast()
 /** 独立推进雾势阶段和预报；暂停与倍速都跟随 Board 的游戏时间。 */
 void Board::UpdateFogWeather(float deltaTime)
 {
-	if (!SupportsFogWeather()) return;
+	if (!SupportsFogWeather() || IsWeatherStation()) return;
 	mFogWeatherTimer -= deltaTime;
 	if (mFogWeatherTimer <= kFogWeatherForecastLeadTime
 		&& !mFogWeatherForecastReady) {
@@ -345,7 +345,7 @@ bool Board::SetFogDispersalForTesting(float dispersal)
 bool Board::SupportsStageFog() const
 {
 	// 第四大关继续由背景提供通用雾场；其他背景的固定关卡统一由冒险进度表登记。
-	return mBackGround == Background::NIGHT_WATER_POOL
+	return IsStationDeviceUnlocked(WeatherStationRules::FOG) || mBackGround == Background::NIGHT_WATER_POOL
 		|| AdventureProgression::HasLevelSpecificFogMechanics(mLevel);
 }
 
@@ -368,6 +368,7 @@ bool Board::SupportsFogWeather() const
 int Board::GetBaseFogLeftColumn() const
 {
 	if (!SupportsStageFog()) return mColumns;
+	if (IsWeatherStation()) return std::max(0,mColumns-4);
 	const int levelInArea = AdventureProgression::GetLevelNumberInArea(mLevel);
 	if (levelInArea <= 1) return std::min(6, mColumns - 1);
 	if (levelInArea <= 6) return std::min(5, mColumns - 1);
@@ -388,6 +389,7 @@ int Board::GetFogLayerCount() const
 
 int Board::GetEffectiveFogLeftColumn() const
 {
+	if (IsWeatherStation() && mWeatherStation.controls[WeatherStationRules::FOG].value==0) return mColumns;
 	const int baseColumn = GetBaseFogLeftColumn();
 	if (!SupportsStageFog()) return baseColumn;
 	int expansion = 0;

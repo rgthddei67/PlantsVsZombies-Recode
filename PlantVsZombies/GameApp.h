@@ -47,6 +47,7 @@ public:
 	int Difficulty = 3; // 难度系数
 	int mAdventureLevel = 1;    // 玩到的冒险模式关卡
 	bool mEncounteredEliteDancer = false; // 是否曾由正式波次实际刷出精英舞王
+	unsigned mStationCounterTutorialsSeen=0; // 已看过的三类敌方控制台操作教学
 	std::vector<int> mCrazyDaveTutorialsSeen; // 已完整看过或主动跳过的关卡闲聊（稳定冒险关卡号）
 	int mDeveloperSelectedLevel = 1; // 开发者面板上次选择的关卡号
 	std::string mDeveloperSelectedZombie = "ZOMBIE_NORMAL"; // 开发者面板上次选择的召唤僵尸枚举名

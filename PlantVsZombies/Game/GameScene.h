@@ -305,6 +305,13 @@ private:
 	std::array<std::weak_ptr<Button>, 4> mColdStorageShopButtons;
 	/** 非暂停式冰块采购面板；订单状态唯一保存在 Board。 */
 	void CreateColdStorageShop();
+	/** 创建、同步和绘制气象站实时控制台。 */
+	void CreateWeatherStationControls();
+	void UpdateWeatherStationControls();
+	void DrawWeatherStationControls(Graphics* g);
+	int mStationOpenDevice=-1;
+	std::array<std::weak_ptr<Button>,3> mStationDeviceButtons;
+	std::array<std::weak_ptr<Button>,5> mStationSettingButtons;
 	void UpdateColdStorageShop();
 	void DrawColdStorageShop(Graphics* g);
 	std::weak_ptr<Button> mSpeedSettingsButton;

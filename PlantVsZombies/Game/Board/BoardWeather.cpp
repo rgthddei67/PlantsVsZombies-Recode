@@ -639,6 +639,9 @@ namespace {
 	}
 }
 
+float Board::ForecastZombieRainMultiplier(RainIntensity rain) const { return ZombieSpeedForRain(rain,GetWeatherPressureFactor()); }
+float Board::ForecastPlantRainMultiplier(RainIntensity rain) const { return PlantSpeedForRain(rain,GetWeatherPressureFactor()); }
+
 float Board::GetZombieRainSpeedMultiplier() const
 {
 	const float progress = GetWeatherTransitionProgress();
@@ -2278,7 +2281,7 @@ void Board::TriggerLightning()
 {
 	if (mRainIntensity != RainIntensity::HEAVY || IsWinterPrecipitationSnow()) return;
 	// 黑夜屋顶把现有大雨闪电作为独立雷荷的一次增量；不改变雨势或坡面径流。
-	AddNightRoofCharge(kNightRoofChargeLightningBonus);
+	if (!IsWeatherStation()) AddNightRoofCharge(kNightRoofChargeLightningBonus);
 	if (IsStormyNightActive()) {
 		// 暴风雨夜复用原版全屏短闪，不再叠加普通大雨的程序化闪电路径。
 		mStormyNightFlashPattern = 3;
@@ -2317,7 +2320,8 @@ void Board::UpdateWeather(float deltaTime)
 
 	// 每帧只推进当前阶段的倒计时。雨中归零会按当前强度决定续期、增强、衰减或放晴；
 	// CLEAR 阶段归零可继续晴天或进入新雨，雨链本身仍按资格形成有界循环。
-	mWeatherTimer -= deltaTime;
+	if (IsWeatherStation()) { mWeatherTimer=86400.0f; mWeatherForecastReady=false; }
+	else mWeatherTimer -= deltaTime;
 	if (mWeatherTimer <= kWeatherForecastLeadTime && !mWeatherForecastReady) {
 		PrepareWeatherForecast();
 	}
@@ -2512,6 +2516,7 @@ bool Board::SupportsWeather() const
 {
 	// 基础天气保留唯一的进度门槛：正式一大关不启用；
 	// 无尽默认启用，但极夜地形始终使用独立三仪表环境。
+	if (IsWeatherStation()) return true;
 	if (SupportsPolarNightEnvironment() || IsMineBackground() || IsColdStorage()) return false;
 	if (mIsSurvival) return true;
 	return AdventureProgression::IsAdventureLevel(mLevel)
@@ -2521,7 +2526,7 @@ bool Board::SupportsWeather() const
 /** 统一判定玩家是否允许当前地图生成或保留台风。 */
 bool Board::SupportsTyphoon() const
 {
-	return SupportsWeather()
+	return !IsWeatherStation() && SupportsWeather()
 		&& GameAPP::GetInstance().mTyphoonWeatherEnabled
 		&& mBackGround != Background::WINTER_GARDEN;
 }

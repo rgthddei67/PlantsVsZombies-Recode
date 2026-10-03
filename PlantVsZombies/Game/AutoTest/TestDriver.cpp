@@ -651,6 +651,7 @@ namespace {
 		case Background::NIGHT_ROOF:       return "NIGHT_ROOF";
 		case Background::WINTER_GARDEN:    return "WINTER_GARDEN";
 		case Background::GLOOMCRYSTAL_MINE: return "GLOOMCRYSTAL_MINE";
+		case Background::WEATHER_STATION: return "WEATHER_STATION";
 		case Background::HOT_COLD_STORAGE: return "HOT_COLD_STORAGE";
 		case Background::POLAR_NIGHT_SNOWFIELD: return "POLAR_NIGHT_SNOWFIELD";
 		}
@@ -664,7 +665,7 @@ namespace {
 			|| name == "ROOF"
 			|| name == "NIGHT_ROOF"
 			|| name == "WINTER_GARDEN"
-			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE" || name == "HOT_COLD_STORAGE";
+			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE" || name == "HOT_COLD_STORAGE" || name == "WEATHER_STATION";
 	}
 	const char* BossSlotName(AdventureProgression::BossSlot slot) {
 		switch (slot) {
@@ -1279,6 +1280,13 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("disrupt_cold_wave_forecast: 正式干扰结果与 expected 不符");
 			return false;
 		}
+		return true;
+	}
+	if (op == "station_control") {
+		auto* scene=CurrentGameScene(); Board* board=scene ? scene->GetBoard() : nullptr;
+		if (!board) return false;
+		const bool accepted=board->TryChangeStationControl(cmd.value("device",0),cmd.value("value",0),cmd.value("player",true));
+		if(accepted!=cmd.value("expected",true)) { Fail("station_control: unexpected transaction result"); return false; }
 		return true;
 	}
 	if (op == "set_fog_weather") {
@@ -4891,6 +4899,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["levelName"] = board->mLevelName;
 	out["background"] = BackgroundName(board->mBackGround);
 	if (board->IsColdStorage()) {
+		out["weatherStation"]=board->SaveWeatherStation();
+		out["weatherStation"]["active"]=board->IsWeatherStation();
+		out["weatherStation"]["hidden"]=board->HidesStationForecasts();
+		out["weatherStation"]["resourcesReady"]=!board->IsWeatherStation() || ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_WEATHER_STATION",false)!=nullptr;
 		out["coldStorage"] = board->SaveColdStorage();
 		auto& ice = out["coldStorage"];
 		ice["pendingCount"] = board->mColdStorage.pending.size();
@@ -6837,6 +6849,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "resistsTangleKelpDrowning", z->ResistsTangleKelpDrowning() },
 			{ "countableExecutionHealth", z->GetCountableExecutionHealth() },
 			{ "countableMaxHealth", z->GetCountableMaxHealth() },
+			{ "stationFogMovePct",static_cast<int>(std::lround(board->GetStationFogMoveMultiplier(z)*100)) },
 			{ "hijackerDoomed", board->IsZombieThreatenedByNightRoofHijacker(z) },
 			{ "groundHazardEligible", z->CanBeAffectedByGroundHazards() },
 			{ "canBeParalyzed", z->CanBeParalyzed() },
