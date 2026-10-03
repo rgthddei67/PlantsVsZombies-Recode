@@ -473,6 +473,23 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
             compareEnvironment(false,gear);
         compareEnvironment(true,candidate.construction.planternResponseGear);
     }
+    // 手动菠萝有目标不等于玩家一定会花冰。再比较保留技能的完整世界，
+    // 避免无战果的单兵靠虚构两次加速费用反复赚取消耗分；已经开启和自动模式仍照常结算。
+    if(candidate.construction.auraActivations>0 && std::any_of(s.attackAuras.begin(),s.attackAuras.end(),
+        [](const AttackAura& aura) { return !aura.automatic; })) {
+        Result patient;
+        patient.actions=candidate.actions; patient.precisionTargetID=s.precisionTargetID;
+        patient.features=Evaluate(s,patient.actions,&patient.construction,selectedCounterHold,
+            selectedStoredHold,selectedStrikeHold,candidate.construction.counterSpaceReserved,
+            candidate.construction.stationFogCounters>0,candidate.construction.planternResponseGear,true);
+        Calibrate(s,patient);
+        patient.baselineFeatures=baseline; patient.baselineOpponentAssets=baselineOpponentAssets;
+        patient.opponentAssets=patient.construction.opponentAssets;
+        patient.opponentScore=s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
+        patient.score=Score(patient.features,weights)+patient.opponentScore;
+        patient.counterHoldSeconds=candidate.counterHoldSeconds;
+        if(BetterOutcome(candidate,patient)) candidate=std::move(patient);
+    }
 
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
@@ -880,7 +897,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 	const std::vector<float>& counterReady, const std::vector<float>& constructionReady,
 	const std::vector<int>& constructionUses,
 	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
-	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats, bool reserveCounterSpace) {
+	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats, bool reserveCounterSpace, bool preserveManualAuras) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
 	float neededIce = 0;
 	float delivery = 0;
@@ -918,7 +935,8 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 			neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
 	// 已部署的付费能力也能形成订冰需求；来源消失或手动模式没有受益目标时不凭空补货。
-	for (const auto& aura : auras) if (aura.active+aura.cooldown <= delivery && aura.blockedUntil <= time+delivery) {
+	for (const auto& aura : auras) if ((!preserveManualAuras || aura.automatic)
+        && aura.active+aura.cooldown <= delivery && aura.blockedUntil <= time+delivery) {
 		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
 		if (source != plants.end() && (aura.automatic || AuraHasTarget(state,time,*source,plants,units)))
 			neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,aura.iceCost)));
@@ -1097,12 +1115,12 @@ static std::array<float,2> AdvanceBurst(Unit& unit, bool inRange, float active, 
 /** 临时领域按来源存活、真实钱包与持续时间结算；手动模式只预测当前确有受益目标的释放。 */
 static void AdvanceAttackAuras(const Snapshot& state, float time, std::vector<AttackAura>& auras,
 	const std::vector<Plant>& plants, const std::vector<Unit>& units, float& ice,
-	std::vector<float>& rates, ConstructionStats& stats) {
+	std::vector<float>& rates, ConstructionStats& stats, bool preserveManualAuras) {
 	rates.assign(plants.size(),1);
 	for (auto& aura : auras) {
 		const auto source = std::find_if(plants.begin(),plants.end(),[&](const Plant& p) { return p.id == aura.plantID && p.health > 0; });
 		if (source == plants.end()) continue;
-		const bool threatened = !aura.automatic && AuraHasTarget(state,time,*source,plants,units);
+		const bool threatened = !preserveManualAuras && !aura.automatic && AuraHasTarget(state,time,*source,plants,units);
 		if (aura.active <= 0 && aura.cooldown <= 0 && time >= aura.blockedUntil
 			&& (aura.automatic || threatened) && ice >= PlayerIceCost(state,time,aura.iceCost)) {
 			ice -= PlayerIceCost(state,time,aura.iceCost); stats.iceSpent += PlayerIceCost(state,time,aura.iceCost); ++stats.auraActivations;
@@ -1720,7 +1738,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1920,14 +1938,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace);
+			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,preserveManualAuras);
 		if (!reserveCounterSpace && !s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,constructionUses,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats,s.weatherStation ? &environment.fogAlpha : nullptr);
 			constructionAt = t+kConstructionInterval;
 		}
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
-		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats);
+		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats,preserveManualAuras);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0 && plants[pi].shutdownUntil<=t) {
 			auto& p = plants[pi];

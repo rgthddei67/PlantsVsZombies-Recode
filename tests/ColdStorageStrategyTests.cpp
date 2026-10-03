@@ -1161,6 +1161,8 @@ int main()
 	arena.attackAuras={aura}; ConstructionStats stats;
 	const auto boosted=Evaluate(arena,{},&stats);
 	check(std::abs(normal[3]-boosted[3]-120)<.1f && stats.auraActivations==0,"existing aura expires after twelve seconds and is not charged again");
+	check(Evaluate(arena,{},nullptr,0,0,0,false,false,-1,true)==boosted,
+		"preserving manual abilities cannot cancel an already paid active aura");
 	arena.playerIce=30; arena.attackAuras[0].active=0;
 	const auto renewed=Evaluate(arena,{},&stats);
 	check(stats.auraActivations==1 && stats.iceSpent==30 && std::abs(renewed[3]-boosted[3])<.1f,"manual aura uses shared wallet only when a covered shooter has a target");
@@ -1183,6 +1185,10 @@ int main()
 	arena.shop={{100,30,2}};
 	Evaluate(arena,{},&stats);
 	check(stats.orders==1 && stats.auraActivations==1 && stats.iceSpent==30,"active ability demand can purchase ice without inventing free skill activations");
+	arena.attackAuras[0].automatic=false; arena.current={victim};
+	Evaluate(arena,{},&stats,0,0,0,false,false,-1,true);
+	check(stats.orders==0 && stats.auraActivations==0,
+		"holding a manual aura also removes its uncommitted ice-order demand");
 	std::cout << "Temporary attack aura duration, wallet, stacking and source lifetime passed\n";
 
 	// 大额投入不能因库存高或兵种偏好而跳过回本检查；已有工人收入仍从基线扣除。
@@ -2317,6 +2323,35 @@ int main()
     s.stationFogAlpha.fill(0); s.current[0].body.spawnAt=35;
     check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]<Evaluate(s,{})[4],
         "player can conserve fuel while clear and relight when fog actually appears before a delayed wave");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-1000; s.budget=100; s.capacity=1; s.netEconomy=true;
+    s.opponentWeight=1; s.playerIce=200;
+    Plant shooter; shooter.id=1; shooter.x=300; shooter.row=1; shooter.column=1;
+    shooter.dps=100; shooter.health=300;
+    Plant source=shooter; source.id=2; source.column=2; source.x=400; source.dps=0;
+    s.plants={shooter,source};
+    AttackAura aura; aura.plantID=2; aura.duration=12; aura.recharge=9; aura.bonus=1; aura.iceCost=30;
+    s.attackAuras={aura};
+    Option bait; bait.type=1; bait.row=bait.unit.body.row=1; bait.cost=12;
+    bait.unit.body.x=900; bait.unit.body.health=100; bait.unit.body.purchaseCost=12;
+    s.options={bait}; Weights income{}; income[4]=1;
+    check(Search(s,income,42).actions.empty(),
+        "a harmless bait cannot earn pressure by assuming a manual aura is always activated");
+    s.attackAuras[0].automatic=true;
+    const auto automatic=Search(s,income,42);
+    check(automatic.construction.auraActivations>0,
+        "the conservative response cannot disable an explicitly automatic aura");
+    s.attackAuras[0].automatic=false; s.allowWait=false;
+    s.options[0].unit.body.health=1400; s.options[0].unit.body.speed=50;
+    s.options[0].unit.biteDps=1000; s.plants[0].reward=s.plants[1].reward=100;
+    s.plants[0].assetValue=s.plants[1].assetValue=100;
+    income[0]=3; income[1]=1;
+    const auto dangerous=Search(s,income,42);
+    check(!dangerous.actions.empty() && dangerous.construction.auraActivations>0,
+        "the player still activates a manual aura when it prevents a damaging attack");
     }
 
     {
