@@ -2338,7 +2338,10 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
 	const auto coverage = SampleTypeCoverage(s,rng,trials/2);
 	const auto initialGroups = LegalOptionGroups(s,rng);
-	int combinationEvaluated = 0, cohortEvaluated = 0;
+	int combinationEvaluated = 0, cohortEvaluated = 0, reinforcementEvaluated = 0;
+	Result cohortAnchor;
+	bool hasCohortAnchor=false;
+    size_t reinforcementIndex=0;
 	int largestPlan = 0, initialEvaluated = 1;
     size_t coverageIndex = 0;
 	for (int trial = 1; trial < trials && withinBudget(); ++trial) {
@@ -2346,7 +2349,22 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
 		const bool portfolioTrial = s.searchVersion == 2 && trial % 4 == 1;
         const bool cooperationTrial = trial % 4 == 3 && !initialGroups.empty() && ActionLimit(s)>=2;
-        if(cooperationTrial) {
+        const bool reinforcementTrial=cooperationTrial && trial%8==3
+            && (hasCohortAnchor || !best.actions.empty());
+        if(reinforcementTrial) {
+            // 跟队增援不能等所有独立配对/批次搜完才尝试。保留未购买的大队作探索起点，
+            // 即使它单独亏损也可试接任意类型；最终整案仍按同一收益和资本门禁决定。
+            const auto& anchor=hasCohortAnchor && (best.actions.empty() || trial%16==3)
+                ? cohortAnchor.actions : best.actions;
+            const auto& group=initialGroups[reinforcementIndex++%initialGroups.size()];
+            std::array<int,6> rowCounts{};
+            for(const auto& action:anchor) ++rowCounts[s.options[action.option].row];
+            const int row=static_cast<int>(std::max_element(rowCounts.begin(),rowCounts.end())-rowCounts.begin());
+            const auto sameRow=std::find_if(group.begin(),group.end(),[&](int option){return s.options[option].row==row;});
+            plan=IntroduceOption(s,anchor,sameRow==group.end() ? group.front() : *sameRow,rng);
+            plan.back().delay=trial%16==3 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
+        }
+        else if(cooperationTrial) {
             // 协作探索不能排在全部单兵变异之后，否则实时预算先耗尽，经济与护卫永远碰不到一起。
             // 任意两类都能试同步/错峰小批，不限定工人、护卫、路线或必须购买的比例。
             const auto pair=std::make_pair(static_cast<int>(rng()%initialGroups.size()),static_cast<int>(rng()%initialGroups.size()));
@@ -2403,6 +2421,10 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
+        if(portfolioTrial && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
+            cohortAnchor=candidate; hasCohortAnchor=true;
+        }
+        if(reinforcementTrial) ++reinforcementEvaluated;
         if(cooperationTrial) { ++combinationEvaluated; if(candidate.actions.size()>2) ++cohortEvaluated; }
         else ++initialEvaluated; // 协作案归入组合计数，不能在总评估数中重复统计。
 		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
@@ -2424,8 +2446,6 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const float combinationBaseScore = best.score;
 	const bool combinationBaseBreach = best.features[2] > 0;
 	const auto groups = LegalOptionGroups(s,rng);
-	Result cohortAnchor;
-	bool hasCohortAnchor=false;
 	const auto compare = [&](std::vector<Action> plan, bool cohort=false) {
 		Repair(s,plan);
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
@@ -2524,7 +2544,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 				plan=anchorActions;
 				for (int i=0;i<count;++i) plan.push_back({option,std::min(DelayLimit(s),kReinforcementDelay+i*2)});
 			}
-			compare(std::move(plan),cohort); ++combinationEvaluated;
+			compare(std::move(plan),cohort); ++combinationEvaluated; ++reinforcementEvaluated;
 			if (cohort) ++cohortEvaluated;
 		}
 	}
@@ -2548,6 +2568,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
 	best.routeEvaluated = routeEvaluated; best.combinationEvaluated = combinationEvaluated;
 	best.cohortEvaluated=cohortEvaluated;
+	best.reinforcementEvaluated=reinforcementEvaluated;
 	best.combinationBaseScore = combinationBaseScore; best.combinationBestScore = combinationBestScore;
 	best.combinationBaseBreach = combinationBaseBreach; best.combinationBestBreach = combinationBestBreach;
 	best.evaluated = evaluated;
@@ -2573,6 +2594,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		result.routeEvaluated += best.routeEvaluated;
 		result.combinationEvaluated += best.combinationEvaluated;
 		result.cohortEvaluated += best.cohortEvaluated;
+		result.reinforcementEvaluated += best.reinforcementEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}
@@ -2722,6 +2744,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	best.capitalRejected=incumbent.capitalRejected;
 	best.routeEvaluated=incumbent.routeEvaluated; best.combinationEvaluated=incumbent.combinationEvaluated;
 	best.cohortEvaluated=incumbent.cohortEvaluated;
+	best.reinforcementEvaluated=incumbent.reinforcementEvaluated;
 	best.combinationBaseScore=incumbent.combinationBaseScore; best.combinationBestScore=incumbent.combinationBestScore;
 	best.combinationBaseBreach=incumbent.combinationBaseBreach; best.combinationBestBreach=incumbent.combinationBestBreach;
 	best.formationBaseScore=incumbent.formationBaseScore; best.formationScores=incumbent.formationScores;

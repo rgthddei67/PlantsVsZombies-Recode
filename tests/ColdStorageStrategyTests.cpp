@@ -1635,6 +1635,18 @@ int main()
 		"a ready deployment sniper kills newly planted ash before detonation and preserves the following workers");
 	check(s.current[0].sniper.remaining==0 && s.plants.empty() && s.counters[0].blast.ready==0,
 		"ash deployment forecast owns its source and cannot mutate live reload, plants or cooldowns");
+    // 自主采购应识别狙击的增量掩护价值；没有灰烬威胁时，同一兵种不能因专项而变成必买。
+    Snapshot choice=s; choice.current={worker,worker}; choice.budget=32; choice.capacity=2; choice.netEconomy=true;
+    choice.counters[0].blast.ready=2;
+    Option guard; guard.type=701; guard.cost=16; guard.unit=sniper; guard.unit.sniper.remaining=1.5f;
+    Option other=guard; other.type=702; other.cost=4; other.unit.body.purchaseCost=4; other.unit.sniper.enabled=false;
+    choice.options={guard,other}; Weights income{}; income[4]=1;
+    const auto protectedPlan=Search(choice,income,731);
+    check(std::any_of(protectedPlan.actions.begin(),protectedPlan.actions.end(),[](const Action& action){return action.option==0;})
+        && protectedPlan.construction.deploymentHits>0,
+        "free search buys deployment suppression when it protects existing workers from available ash");
+    choice.counters.clear();
+    check(Search(choice,income,731).actions.empty(),"the same sniper is optional when no profitable suppression target exists");
 	s.current[0].sniper.remaining=10;
 	check(Evaluate(s,{},&stats)[4]==0 && stats.deploymentShots==0,"reloading sniper cannot intercept a later old bomb without a new deployment");
 	s.current[0]=sniper; s.current[0].body.row=1;
@@ -2545,6 +2557,8 @@ int main()
     const auto invested=Search(s,income,42);
     check(invested.expandedForecast && invested.largestPlan>8,
         "paid queued assets preserve full search after cash falls below the capital threshold");
+    check(invested.reinforcementEvaluated>0 && invested.reinforcementEvaluated<=invested.combinationEvaluated,
+        "generic reinforcement comparisons share the existing combination evaluation budget");
     float investedSpend=0;
     for(const auto& action:invested.actions) investedSpend+=s.options[action.option].cost;
     check(investedSpend<=s.budget,"committed capital expands exploration but cannot finance new purchases");
@@ -2570,6 +2584,8 @@ int main()
         check(trial.largestPlan>=64 && !trial.candidates.empty() && trial.candidates.front().type==worker.type,
             "full search starts with an affordable troop formation rather than a deduplicated weather-only plan");
         check(trial.actions.empty(),"evaluating a large army does not force a pointless purchase");
+        check(trial.reinforcementEvaluated>0,
+            "rejected nonempty exploration anchors can receive followup comparisons without forcing a purchase");
     }
     }
 

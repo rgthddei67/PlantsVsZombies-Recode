@@ -342,6 +342,7 @@ struct Result {
 	int capitalRejected = 0; // 资金充足时因大额亏损/清场风险被排除的候选数
 	int routeEvaluated = 0, combinationEvaluated = 0; // 通用路线覆盖与组合探索次数，升级时合计两阶段
 	int cohortEvaluated = 0; // combinationEvaluated 中的通用成批规模对照数，不增加该阶段预算
+	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量

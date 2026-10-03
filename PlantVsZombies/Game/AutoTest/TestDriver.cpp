@@ -975,6 +975,7 @@ bool TestDriver::ExecuteCurrent() {
 				{"elapsedMs",elapsed},{"timeLimited",result.timeLimited},{"evaluated",result.evaluated},
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
+				{"reinforcementEvaluated",result.reinforcementEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
 				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
@@ -4983,6 +4984,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchCombination"] = {{"routeEvaluated",board->mColdStorage.searchRouteEvaluated},
 			{"evaluated",board->mColdStorage.searchCombinationEvaluated},
 			{"cohortEvaluated",board->mColdStorage.searchCohortEvaluated},
+			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach}};
 		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
