@@ -152,14 +152,22 @@ std::vector<Action> SamplePortfolio(const Snapshot& s, std::mt19937& rng, int tr
 	std::vector<Action> plan;
 	const int limit = ActionLimit(s);
 	if (limit == 0 || s.options.empty()) return plan;
+    // 设备是一次性设置，不是可重复购买的士兵。整队抽样从合法兵种中取组，
+    // 避免抽到天气后被 Repair 去重成单按钮；后续自由变异仍能加入天气联动。
+    std::vector<int> troopOptions;
+    for(int i=0;i<static_cast<int>(s.options.size());++i)
+        if(s.options[i].device<0 && s.options[i].cost<=PurchaseBudget(s)) troopOptions.push_back(i);
+    const auto sampleOption=[&]() { return troopOptions.empty() ? static_cast<int>(rng()%s.options.size())
+        : troopOptions[rng()%troopOptions.size()]; };
 	const int count = trial % 4 == 0 ? limit : 1 + rng() % limit;
 	const int groups = 1 + rng() % 3;
 	const bool sameType = rng() % 2 == 0, sameRow = rng() % 2 == 0;
-	const int base = rng() % s.options.size();
-	const float duration = static_cast<float>(rng() % (static_cast<int>(DelayLimit(s)*2)+1)) * .5f;
+	const int base = sampleOption();
+	// 首个整队候选比较同步到场，其余仍自由抽取错峰时间，避免完整兵力被稀释成单只接敌。
+	const float duration = trial == 0 ? 0 : static_cast<float>(rng() % (static_cast<int>(DelayLimit(s)*2)+1)) * .5f;
 	const bool gradual = rng() % 2 == 0;
 	for (int group = 0; group < groups; ++group) {
-		const int choice = group == 0 ? base : static_cast<int>(rng() % s.options.size());
+		const int choice = group == 0 ? base : sampleOption();
 		const auto& type = s.options[sameType ? base : choice];
 		const int row = s.options[sameRow ? base : choice].row;
 		const auto option = std::find_if(s.options.begin(),s.options.end(),[&](const auto& o) {
@@ -2212,13 +2220,27 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const int trials = s.searchVersion == 2 ? kPortfolioTrials : kTrials;
 	// 在原有预算内最多拿一半做兵种覆盖，余下仍用于组合变异和完整编队探索。
 	const auto coverage = SampleTypeCoverage(s,rng,trials/2);
+	const auto initialGroups = LegalOptionGroups(s,rng);
+	int combinationEvaluated = 0, cohortEvaluated = 0;
 	int largestPlan = 0, initialEvaluated = 1;
     size_t coverageIndex = 0;
 	for (int trial = 1; trial < trials && withinBudget(); ++trial) {
 		auto plan = elite[rng() % elite.size()].actions;
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
-		const bool portfolioTrial = s.searchVersion == 2 && trial % 2 == 0;
-		if (portfolioTrial) plan = SamplePortfolio(s,rng,trial == 2 ? 0 : trial);
+		const bool portfolioTrial = s.searchVersion == 2 && trial % 4 == 1;
+        const bool cooperationTrial = trial % 4 == 3 && !initialGroups.empty() && ActionLimit(s)>=2;
+        if(cooperationTrial) {
+            // 协作探索不能排在全部单兵变异之后，否则实时预算先耗尽，经济与护卫永远碰不到一起。
+            // 任意两类都能试同步/错峰小批，不限定工人、护卫、路线或必须购买的比例。
+            const auto pair=std::make_pair(static_cast<int>(rng()%initialGroups.size()),static_cast<int>(rng()%initialGroups.size()));
+            plan=SampleCombination(s,initialGroups,pair,rng,trial%8==3);
+            const int repeats=trial%8==3 ? 1 : 2+rng()%3;
+            const auto pairActions=plan;
+            for(int n=1;n<repeats;++n) for(auto action:pairActions) {
+                action.delay=std::min(DelayLimit(s),action.delay+n*.5f); plan.push_back(action);
+            }
+        }
+        else if (portfolioTrial) plan = SamplePortfolio(s,rng,(trial-1)/2);
 		else if (trial % 3 == 0) {
 			plan.clear();
 			const int focus = s.options[rng() % s.options.size()].row;
@@ -2242,7 +2264,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 				plan.push_back({option, static_cast<float>(rng() % (s.stateModel ? 61 : 25)) * 0.5f});
 			}
 		}
-		const int mutations = 1 + rng() % 3;
+		// 首案保留完整抽样，让紧预算至少先比较一次可支付的整队；不强制购买。
+		const int mutations = cooperationTrial || (portfolioTrial && trial == 1) ? 0 : 1 + rng() % 3;
 		for (int n = 0; n < mutations; ++n) {
 			const int mutation = rng() % 5;
 			if (plan.empty() || mutation == 0) plan.push_back({static_cast<int>(rng() % s.options.size()), static_cast<float>(rng() % (s.stateModel ? 61 : 25)) * 0.5f});
@@ -2254,8 +2277,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 				else plan.push_back({plan[at].option, plan[at].delay + 2});
 			}
 		}
-		// 兵种覆盖与整队探索交替；不能把刚抽出的整队又覆盖成单兵案。
-		if (!portfolioTrial && coverageIndex < coverage.size())
+		// 兵种覆盖、整队和协作探索交错；不能把刚抽出的完整协作案覆盖成单兵案。
+		if (!portfolioTrial && !cooperationTrial && coverageIndex < coverage.size())
 			plan = IntroduceOption(s,best.actions,coverage[coverageIndex++],rng);
 		// 给有钱的空场提供一个必定可行的起点；其余候选仍自由比较兵种、路线和队形。
 		if (!s.allowWait && trial == 1 && coverage.empty()) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
@@ -2263,7 +2286,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
 		if (!s.allowWait && !plan.empty()) plan.front().delay = 0;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
-        ++initialEvaluated;
+        if(cooperationTrial) { ++combinationEvaluated; if(candidate.actions.size()>2) ++cohortEvaluated; }
+        else ++initialEvaluated; // 协作案归入组合计数，不能在总评估数中重复统计。
 		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
 		if (rejectInvestment(candidate)) {
 			deferredInvestment = true;
@@ -2279,7 +2303,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		});
 		if (elite.size() > 8) elite.resize(8);
 	}
-	int routeEvaluated = 0, combinationEvaluated = 0, cohortEvaluated = 0;
+	int routeEvaluated = 0;
 	const float combinationBaseScore = best.score;
 	const bool combinationBaseBreach = best.features[2] > 0;
 	const auto groups = LegalOptionGroups(s,rng);
@@ -2438,9 +2462,13 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed) {
     auto state = input;
     // 富余库存应立即比较大队，不能因小队偶有一点收益就永远不进入完整搜索。
+    // 已经扩展却仍等待时直接延续完整搜索，避免每次重付小队与大队两套基线的成本。
     // 同一次搜索的行动、等待、技能均使用同一长时域；仍允许便宜小队胜出。
-    const bool fundedPortfolio = state.searchVersion == 1 && state.budget >= ColdStorageDeploymentRules::GrowthCapital
-        && state.capacity > ActionLimit(state);
+    const auto cheapest=std::min_element(state.options.begin(),state.options.end(),[](const Option& a,const Option& b) { return a.cost<b.cost; });
+    const bool canExploreLarger=cheapest!=state.options.end() && cheapest->cost>0
+        && std::min(state.capacity,PurchaseBudget(state)/cheapest->cost)>ActionLimit(state);
+    const bool fundedPortfolio = state.searchVersion == 1 && canExploreLarger
+        && (state.budget >= ColdStorageDeploymentRules::GrowthCapital || state.resumePortfolio);
     if (fundedPortfolio) state.searchVersion = 2;
 	auto best = SearchFormation(state,weights,seed);
     best.expandedForecast |= fundedPortfolio;

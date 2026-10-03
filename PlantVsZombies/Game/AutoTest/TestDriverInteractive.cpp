@@ -1,4 +1,5 @@
 #include "TestDriver.h"
+#include "Game/Plant/PlanternRules.h"
 #include "../../GameApp.h"
 #include "../../DeltaTime.h"
 #include "../SceneManager.h"
@@ -148,6 +149,11 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 		else if (op == "quit") mInteractiveQuit = true;
 		else if (!manager || !manager->CanAcceptGameplayInput()
 			|| scene->GetUIManager().GetActiveMessageBoxCount() != 0) reason = "gameplay_input_blocked";
+        else if (op == "player_set_plantern_gear") {
+            const int gear=command.at("gear").get<int>();
+            if(gear<0 || gear>3 || !scene->GetBoard()->GetActivePlantern()) reason="plantern_unavailable";
+            else scene->GetBoard()->SetPlanternGear(static_cast<PlanternGear>(gear));
+        }
 		else if (op == "player_activate_dawn_lotus") {
 			if (!scene->GetBoard()->ActivateDawnLotusAt(command.at("row").get<int>(),command.at("col").get<int>()))
 				reason = "dawn_lotus_unavailable";
@@ -221,7 +227,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
 				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
 				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",
-				"growthShots", "puffDamage", "shootIntervalMs"}));
+				"growthShots", "puffDamage", "shootIntervalMs", "fogObscured", "mistFuelReward"}));
 		}
 	}
 	// 冷却与资金由卡本身导出；legalCells 只说明当前地形/占位资格，不能代替交易时复核。

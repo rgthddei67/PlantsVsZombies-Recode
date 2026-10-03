@@ -40,15 +40,23 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 		if (p.at("type") == "PLANT_PUMPKINSHELL") shells.insert(cell);
 		else plants[cell] = p;
 	}
+    const bool station=state.value("background",std::string())=="WEATHER_STATION";
+    const auto& lamp=state.at("plantern");
+    // 气象站陪练按公开雾势开灯，无雾关灯；不从雾中实体的隐藏坐标选择挡位。
+    if(station && lamp.value("active",false)) {
+        const int fog=state.at("weatherStation").at("controls").at(1).at("value");
+        const int gear=fog>0 ? (lamp.value("fuelTenths",0)>=200 ? 3 : 2) : 0;
+        if(lamp.value("gearValue",0)!=gear) actions.push_back({{"op","player_set_plantern_gear"},{"gear",gear}});
+    }
 	std::vector<Json> zombies;
-	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0) zombies.push_back(z);
+	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0 && (!station || !z.value("fogObscured",false))) zombies.push_back(z);
 	std::stable_sort(zombies.begin(), zombies.end(), [](const auto& a, const auto& b) { return a.at("xInt") < b.at("xInt"); });
 	int defenseReserve = 0, defenseIceReserve = 0;
 	// 威胁已经接近时，为十秒内转好的灰烬预留真实阳光；空场及长期冷却时释放这笔预算发展经济。
 	if (planner && !zombies.empty() && zombies.front().at("xInt").get<int>() < 950)
 		for (const auto& card : state.at("cards")) {
 			const auto kind = card.at("gameplayType").get<std::string>();
-			if ((kind == "PLANT_CHERRYBOMB" || kind == "PLANT_JALAPENO" || kind == "PLANT_SQUASH")
+			if ((kind == "PLANT_CHERRYBOMB" || kind == "PLANT_JALAPENO" || kind == "PLANT_SQUASH" || (station && kind == "PLANT_DOOMSHROOM"))
 				&& card.value("cooldownRemainingMs",0) <= 10000) {
 				defenseReserve = std::max(defenseReserve,card.at("sunCost").get<int>());
 				defenseIceReserve = std::max(defenseIceReserve,ice.at("plantCosts").at(kind).get<int>());
@@ -128,6 +136,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 			}
 		}
 	};
+    if(station && !lamp.value("active",false)) attempt("PLANT_PLANTERN",{{2,4},{2,3},{1,4},{3,4}});
 	// 反制陪练优先堵住将要接触防线的路线，让快僵尸实际经历坚果前聚团。
 	if (counterplay && !adaptive) {
 		std::vector<std::pair<int,int>> walls;
@@ -180,6 +189,22 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	std::stable_sort(blastCells.begin(), blastCells.end(), [](auto a, auto b) { return a.first > b.first; });
 	std::vector<std::pair<int,int>> cells;
 	for (const auto& c : blastCells) cells.push_back(c.second);
+    // 夜晚毁灭菇落地就会起爆，不能沿用白天的空场蓄爆。只用可见目标选合法落点。
+    if(bunker && station) {
+        std::vector<std::pair<float,std::pair<int,int>>> doomCells;
+        for(int r=0;r<state.at("rows").get<int>();++r) for(int c=0;c<state.at("columns").get<int>();++c) {
+            const float x=state.at("cells").at(r).at(c).at("centerXInt");
+            float value=0;
+            for(const auto& z:zombies) if(std::abs(z.at("row").get<int>()-r)<=2
+                && std::abs(z.at("xInt").get<float>()-x)<=kStoredWakeReach) value+=blastValue(z);
+            if(value>=kStoredWakeStake) doomCells.push_back({value,{r,c}});
+        }
+        std::stable_sort(doomCells.begin(),doomCells.end(),[](const auto& a,const auto& b){return a.first>b.first;});
+        std::vector<std::pair<int,int>> targets;
+        for(const auto& entry:doomCells) targets.push_back(entry.second);
+        attempt("PLANT_DOOMSHROOM",targets);
+        if(planted) return actions;
+    }
 	// 蓄爆陪练用可见聚团择时唤醒预存毁灭；正在唤醒的同一株不会再次提交咖啡。
 	if (bunker) {
 		std::vector<std::pair<float,std::pair<int,int>>> wakeCells;
@@ -256,7 +281,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	cells.clear(); for (int r : rows) if (!plants.count({r,6})) cells.emplace_back(r,6);
 	if (!zombies.empty() && zombies.front().at("xInt").get<int>() < 850) attempt(wall, cells);
 	int producers = 0;
-	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER") ++producers;
+	for (const auto& [cell,p] : plants) if (p.at("type") == "PLANT_SUNFLOWER" || p.at("type") == "PLANT_SUNSHROOM") ++producers;
 	// 防守型陪练有基本经济后先补各路输出与后排保护，避免必须铺完经济才开始防守。
 	// 只改变这个对手的合法动作顺序，旧陪练继续保留，不能把训练变成针对单一固定阵型。
 	if (fortifier && producers >= 4) {
@@ -296,7 +321,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 				if (!pineElite) cells.emplace_back(r,2);
 			}
 		}
-		attempt("PLANT_SUNFLOWER", cells);
+		attempt(station ? "PLANT_SUNSHROOM" : "PLANT_SUNFLOWER", cells);
 	}
 	// 陌生阵型沿用正式累计配额和冷却；不能在精英菇死亡后免费重建四株。
 	if (eliteDefense) {
@@ -312,7 +337,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 	cells.clear(); for (int r : rows) { cells.emplace_back(r,1); cells.emplace_back(r,2); }
 	attempt("PLANT_MELONPULT", cells);
 	if (adaptive) attempt("PLANT_PUMPKINSHELL", protectionCells);
-	if (bunker) {
+	if (bunker && !station) {
 		cells.clear();
 		const bool stored=std::any_of(plants.begin(),plants.end(),[](const auto& entry){return entry.second.at("type")=="PLANT_DOOMSHROOM";});
 		if (!stored) for (int r:rows) cells.emplace_back(r,7);

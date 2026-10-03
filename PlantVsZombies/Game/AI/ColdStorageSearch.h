@@ -289,6 +289,7 @@ struct Snapshot {
 	std::array<GoldenTrail,6> goldenTrails{};
 	float gridLeft = 160, cellWidth = 80, cellHeight = 100;
 	int rows = 5, columns = 9;
+	bool resumePortfolio = false; // 上次已扩展到完整编队且仍在等待，下一次直接继续同类搜索
 	int stationWave = 0; // 第30波采购新兵将进入第31波，候选与等待采用各自真实耗油阶段
 	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价
 	bool interferenceAvailable = false; // 商店资格，不假定玩家已按按钮

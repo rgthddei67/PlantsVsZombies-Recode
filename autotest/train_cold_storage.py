@@ -46,8 +46,9 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
             raise ValueError('masked arena requires an explicit training registry')
         pool = sorted(policy['trainingUnits'])
         roster = sorted(random.Random(seed ^ 0xC01D).sample(pool, max(1, len(pool) // 2)))
-    match = re.search(r'_10_([1-9])$', arena)
-    level = 81 + int(match.group(1)) if match else 82
+    match = re.search(r'_(10|11)_([1-9])$', arena)
+    level = (81 if match.group(1) == '10' else 90) + int(match.group(2)) if match else 82
+    station = 91 <= level <= 99
     storage_defense = opponent in ('ice_fortifier', 'ice_pine', 'ice_bunker')
     pine_elite = opponent in ('pine_elite', 'ice_pine', 'ice_bunker')
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
@@ -76,9 +77,16 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         cards = [c for c in cards if c != 'SQUASH'] + ['DOOMSHROOM', 'INSTANT_COFFEE']
     if pine_elite and arena.startswith('sustain_'):
         cards.append('REPEATER')
+    if station and 'INSTANT_COFFEE' in cards:
+        cards.remove('INSTANT_COFFEE')  # 夜晚灰烬直接使用，保留正常经济卡位。
     while len(cards) > 11:
         # 全池蓄爆局仍保留三叶草对空，精简重复直接灰烬，不突破正式卡槽容量。
         cards.remove(next(c for c in ('SQUASH','CHERRYBOMB','IMITATER') if c in cards))
+    if station:
+        cards = ['SUNSHROOM' if c == 'SUNFLOWER' else c for c in cards]
+        if len(cards) >= 11:
+            cards.remove(next(c for c in ('SQUASH','CHERRYBOMB','IMITATER') if c in cards))
+        cards.append('PLANTERN')
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,

@@ -755,6 +755,7 @@ void Board::PlanColdStorageAttack(bool background)
 	const auto blastReach = [&](const EconomyBlast& blast, int row) {
 		return EconomyBlastReach(blast,row,GetZombieSpawnY(row,blast.x)-GetCellCenterPosition(blast.row,0).y);
 	};
+	const bool resumePortfolio = s.searchExpandedForecast && s.attackDeferred && s.commanderSpent==0;
 	s.commanderMode = "pressure";
 	s.commanderBudget = s.commanderSpent = s.commanderReserve = 0;
 	s.commanderFocusRow = -1;
@@ -1106,6 +1107,7 @@ void Board::PlanColdStorageAttack(bool background)
 		search.impWalkSpeed=GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(ZombieType::ZOMBIE_IMP).speed[1];
 		const int requestedVersion = ColdStoragePolicy::SearchVersion();
 		search.searchVersion = requestedVersion;
+		search.resumePortfolio = resumePortfolio;
 		search.productionCalibration = ColdStoragePolicy::ProductionModel();
 		search.stateModel = ColdStoragePolicy::AdaptiveModel();
 		search.netEconomy = ColdStoragePolicy::NetEconomy();

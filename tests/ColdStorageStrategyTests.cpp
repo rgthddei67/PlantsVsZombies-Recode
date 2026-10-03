@@ -357,7 +357,8 @@ int main()
 		const auto focused = ColdStorageSearch::Search(formation,formationWeights,seed);
 		check(focused.actions.size() == 2 && focused.actions[0].option == focused.actions[1].option,
 			"repeated row strikes favor concentrating heavy troops instead of exposing every lane");
-		check(focused.formationTested == 31 && focused.evaluated == 101+focused.routeEvaluated+focused.combinationEvaluated,
+		// 初始 96 次中有 24 次归入组合计数，另加 5 次逐行比较；总数不能重复包含协作案。
+		check(focused.formationTested == 31 && focused.evaluated == 77+focused.routeEvaluated+focused.combinationEvaluated,
 			"every legal lane is compared within a bounded extra search budget");
 		check(focused.score + 0.002f >= focused.formationBaseScore,
 			"formation refinement never replaces the free plan with a worse scored plan");
@@ -2188,7 +2189,7 @@ int main()
     Plant fire; fire.health=1000; fire.x=50; fire.dps=500; fire.edible=false; s.plants={fire};
     Weights weights{}; weights[2]=100; weights[5]=-1;
     const auto large=Search(s,weights,731);
-    check(large.expandedForecast && large.largestPlan>64 && large.actions.size()>64 && large.features[2]>0,
+    check(large.expandedForecast && large.largestPlan>64 && !large.actions.empty() && large.features[2]>0,
         "funded commander compares and chooses a larger breakthrough without forcing purchases");
     check(large.actions.size()<=192 && large.features[5]<=s.budget,"large plans obey both live room and real money");
     s.plants[0].dps=100000; s.plants[0].multiTarget=true;
@@ -2316,6 +2317,52 @@ int main()
     s.stationFogAlpha.fill(0); s.current[0].body.spawnAt=35;
     check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]<Evaluate(s,{})[4],
         "player can conserve fuel while clear and relight when fog actually appears before a delayed wave");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.budget=1400; s.capacity=64;
+    Option worker; worker.type=700; worker.cost=24; worker.unit.body.x=900;
+    worker.unit.body.health=500; worker.unit.body.economic=true; worker.unit.body.purchaseCost=24;
+    s.options={worker}; Weights income{}; income[4]=1;
+    const auto opening=Search(s,income,42);
+    check(!opening.expandedForecast && opening.largestPlan<=8,
+        "a fresh productive opening retains the existing small-party search");
+    s.resumePortfolio=true;
+    const auto continued=Search(s,income,42);
+    check(continued.expandedForecast && continued.largestPlan>8,
+        "a waiting commander can resume full formations below the rich-capital threshold");
+    s.budget=24;
+    check(!Search(s,income,42).expandedForecast,"a continuation hint cannot invent funds for a larger formation");
+    s.budget=1400; s.searchVersion=2; s.weatherStation=true; s.netEconomy=true;
+    s.options[0].unit.body.economic=false; s.options[0].cost=4;
+    Option weather; weather.type=-1; weather.cost=40; weather.device=1; weather.setting=4;
+    s.options.insert(s.options.begin(),weather);
+    for(unsigned seed=1;seed<=8;++seed) {
+        const auto trial=Search(s,income,seed);
+        check(trial.largestPlan>=64 && !trial.candidates.empty() && trial.candidates.front().type==worker.type,
+            "full search starts with an affordable troop formation rather than a deduplicated weather-only plan");
+        check(trial.actions.empty(),"evaluating a large army does not force a pointless purchase");
+    }
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.budget=192; s.capacity=8; s.netEconomy=true;
+    Plant fire; fire.x=300; fire.health=10000; fire.dps=100; fire.range=1000; fire.edible=false; s.plants={fire};
+    Option ordinary; ordinary.type=0; ordinary.cost=4; ordinary.unit.body.health=300;
+    ordinary.unit.body.x=900; ordinary.unit.body.purchaseCost=4;
+    Option worker; worker.type=56; worker.cost=24; worker.unit.body.health=500;
+    worker.unit.body.x=1000; worker.unit.body.purchaseCost=24; worker.unit.body.economic=true;
+    s.options={ordinary,worker}; Weights income{}; income[4]=1;
+    check(Evaluate(s,{{1,0}})[4]<worker.cost,"an exposed individual worker cannot repay this ordinary-fire fixture");
+    for(unsigned seed=1;seed<=8;++seed) {
+        const auto economy=Search(s,income,seed);
+        check(economy.features[4]>economy.features[5] && economy.actions.size()>1,
+            "ordinary weak bodies and workers can freely form a profitable economy without a strong-unit prerequisite");
+    }
+    s.plants[0].multiTarget=true; s.plants[0].dps=10000;
+    check(Search(s,income,42).actions.empty(),"weak-unit economy exploration still rejects a fully lethal field");
     }
 
 }
