@@ -2382,6 +2382,45 @@ int main()
     using namespace ColdStorageSearch;
     Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.cellWidth=80;
     s.station.controls[1].value=4; s.station.controls[1].protection=100; s.stationFogAlpha.fill(255);
+    s.playerSun=150; s.playerIce=40;
+    Plant shooter; shooter.row=0; shooter.x=0; shooter.health=10000; shooter.dps=1; shooter.edible=false;
+    s.plants={shooter};
+    Unit worker; worker.body.row=0; worker.body.x=680; worker.body.health=500;
+    worker.body.purchaseCost=24; worker.body.economic=true; worker.productionRemaining=3.6f; s.current={worker};
+    Construction lamp; lamp.source=1; lamp.sunCost=25; lamp.iceCost=10; lamp.ready=5; lamp.recharge=100;
+    lamp.plant.plantern=true; lamp.plant.row=2; lamp.plant.column=4; lamp.plant.x=360;
+    lamp.plant.health=300; lamp.plant.lightFuel=PlanternRules::InitialFuel; lamp.plant.lightGear=PlanternGear::LOW;
+    for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c)
+        lamp.plant.illumination[r*s.columns+c]=PlanternRules::Illumination(PlanternGear::LOW,r-2,c-4);
+    Construction wall; wall.sunCost=150; wall.plant.row=0; wall.plant.column=7; wall.plant.x=600; wall.plant.health=8000;
+    s.construction={wall,lamp};
+    Counter blast; blast.blast.x=600; blast.blast.damage=1800; blast.blast.reach.fill(-1); blast.blast.reach[0]=130;
+    blast.cellRow=0; blast.cellColumn=7; blast.sunCost=125; blast.iceCost=30; blast.windup=1; blast.recharge=100;
+    s.counters={blast};
+    ConstructionStats dark,lit;
+    const auto noBuilding=Evaluate(s,{},&dark,0,0,0,true);
+    const auto lighting=Evaluate(s,{},&lit,0,0,0,true,false,3);
+    check(dark.planted==0 && lit.planted==1 && lit.sunSpent==25 && lit.iceSpent==10 && lighting[4]<noBuilding[4],
+        "counter-first player can rebuild only the lamp and keep the blast cell and shared resources available");
+    check(lighting[4]>0,"lamp cooldown preserves real income before visibility returns");
+    Weights income{}; income[4]=1;
+    const auto chosen=Search(s,income,17);
+    std::cout<<"Counter light: dark/lit/chosen="<<noBuilding[4]<<"/"<<lighting[4]<<"/"<<chosen.features[4]
+        <<" plantings="<<chosen.construction.planted<<" reserved="<<chosen.construction.counterSpaceReserved<<"\n";
+    check(chosen.construction.planted==1 && chosen.features[4]<=lighting[4],
+        "free search includes rebuilding counter visibility instead of treating every reserved world as permanently dark");
+    s.playerIce=9;
+    check(Evaluate(s,{},&lit,0,0,0,true,false,3)[4]==noBuilding[4] && lit.planted==0,
+        "unaffordable lamp does not create free counter visibility");
+    s.playerIce=40; s.construction[1].ready=100;
+    check(Evaluate(s,{},&lit,0,0,0,true,false,3)[4]==noBuilding[4] && lit.planted==0,
+        "lamp rebuilding cannot bypass the selected card cooldown");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.cellWidth=80;
+    s.station.controls[1].value=4; s.station.controls[1].protection=100; s.stationFogAlpha.fill(255);
     s.incomingIce=50; s.incomingIceAt=8; s.anticipateEconomy=true;
     Plant lamp; lamp.plantern=true; lamp.row=2; lamp.column=4; lamp.x=360; lamp.health=300; lamp.lightFuel=9;
     Plant shooter; shooter.row=4; shooter.x=0; shooter.health=10000; shooter.dps=100; shooter.edible=false;

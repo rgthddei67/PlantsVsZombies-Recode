@@ -372,7 +372,11 @@ float RemainingCapitalRisk(float fundedCapital, float currentCapital);
 /** 大额及累计亏损采购须保留可续战资本；新增现金与幸存兵力可回本，突破仍优先。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
-/** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3按可见雾势开关灯；clearFogWhenReady 在共享预算内按真实设备时序尝试关雾；reserveCounterSpace 暂缓未来补阵但不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。 */
+/** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3固定挡位，4随燃料切挡，无雾关灯。
+ * clearFogWhenReady 在共享预算内按真实设备时序尝试关雾；reserveCounterSpace 暂缓未来补阵，
+ * 但显式照明响应仍可合法补灯，不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，
+ * storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。
+ * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
 	bool preserveManualAuras = false);

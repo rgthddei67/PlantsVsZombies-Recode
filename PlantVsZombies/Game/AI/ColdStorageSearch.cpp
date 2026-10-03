@@ -461,11 +461,11 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
             return s.options[a.option].device==WeatherStationRules::FOG && s.options[a.option].setting>0;
         });
     if(s.weatherStation && mayHaveFog) {
-        const auto compareEnvironment=[&](bool clearFog,int lampGear) {
+        const auto compareEnvironment=[&](bool clearFog,int lampGear,bool reserveSpace) {
             Result response;
             response.actions=candidate.actions; response.precisionTargetID=s.precisionTargetID;
             response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,
-                selectedStoredHold,selectedStrikeHold,candidate.construction.counterSpaceReserved,clearFog,lampGear);
+                selectedStoredHold,selectedStrikeHold,reserveSpace,clearFog,lampGear);
             Calibrate(s,response);
             response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
             response.opponentAssets=response.construction.opponentAssets;
@@ -480,8 +480,13 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
             return c.plant.plantern;
         });
         if(hasLamp) for(int gear=0;gear<=(s.fuelAwarePlantern ? FuelAwarePlanternResponse : 3);++gear)
-            compareEnvironment(false,gear);
-        compareEnvironment(true,candidate.construction.planternResponseGear);
+            compareEnvironment(false,gear,candidate.construction.counterSpaceReserved);
+        // 暗场中留空位与补满格子的收益可能暂时相同，前段择优未必选中留位姿态。
+        // 额外保留一次“只补灯再反制”的协同，不能因前置单项不占优而漏掉整套合法应对。
+        if(canReserve && !candidate.construction.counterSpaceReserved
+            && std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c) { return c.plant.plantern; }))
+            compareEnvironment(false,s.fuelAwarePlantern ? FuelAwarePlanternResponse : 3,true);
+        compareEnvironment(true,candidate.construction.planternResponseGear,candidate.construction.counterSpaceReserved);
     }
     // 手动菠萝有目标不等于玩家一定会花冰。再比较保留技能的完整世界，
     // 避免无战果的单兵靠虚构两次加速费用反复赚取消耗分；已经开启和自动模式仍照常结算。
@@ -829,11 +834,18 @@ struct DeploymentPulse {
 	float x = 0, endX = 0, damage = 0, launchedAt = 0;
 };
 
-/** 按眼前威胁选择可能的补阵，建设与灰烬共用实际资源，不替僵尸指定打法。 */
+/** 现有灯与补种估值共用响应挡位，避免按初始I挡把可切高挡的补灯判成无效。 */
+static PlanternGear ResponseLightGear(int response, const Plant& lamp) {
+	if (response < 0) return lamp.lightGear;
+	return static_cast<PlanternGear>(response == FuelAwarePlanternResponse
+		? (lamp.lightFuel >= kResponseHighLightFuel ? 3 : 2) : response);
+}
+
+/** 按眼前威胁选择合法补阵；反制照明姿态只补灯，仍与灰烬共用实际资源。 */
 static void AdvanceConstruction(const Snapshot& state, float time, float horizon, std::vector<Unit>& units,
 	std::vector<Plant>& plants, std::vector<float>& ready, std::vector<int>& uses, std::vector<RowStrike>& strikes,
 	std::vector<float>& strikeReady, float& sun, float& ice, ConstructionStats& stats, const std::array<float,54>* fogAlpha,
-	const std::vector<PlantingBlock>& blocks) {
+	const std::vector<PlantingBlock>& blocks, bool lightingOnly, int planternResponseGear) {
 	if (plants.size() >= kConstructionPlantLimit) return;
 	std::array<float,6> threat{}, nearest{}, fire{};
 	nearest.fill(state.rightEdge+100);
@@ -846,6 +858,7 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	float best = 0;
 	for (size_t i = 0; i < state.construction.size(); ++i) {
 		const auto& card = state.construction[i]; const auto& p = card.plant;
+		if (lightingOnly && !p.plantern) continue;
 		if (PlantingBlocked(blocks,p.row,p.column,time)) continue;
 		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
 		if ((card.remainingUses >= 0 && uses[quota] == 0) || time < ready[card.source]
@@ -874,7 +887,8 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 			value += targets*std::max(0.0f,remaining-card.strike.ready)/std::max(1.0f,card.strike.recharge);
 		}
 		if(p.plantern && fogAlpha) {
-            const float duration=std::min(remaining,p.lightFuel/std::max(.001f,PlanternRules::BurnRate(p.lightGear,PlanternRules::Scarcity(true,state.stationWave,0))));
+            const auto gear=ResponseLightGear(planternResponseGear,p);
+            const float duration=std::min(remaining,p.lightFuel/std::max(.001f,PlanternRules::BurnRate(gear,PlanternRules::Scarcity(true,state.stationWave,0))));
             // 灯要照亮射击目标所在区域，不是照到射手就视为恢复全行火力；未知敌人不提供精确选点。
             for(const auto& ally:plants) if(ally.health>0 && ally.dps>0) {
                 float coverage=0; int cells=0;
@@ -883,7 +897,7 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
                         const float x=state.gridLeft+(c+.5f)*state.cellWidth;
                         if(x<ally.x || x>ally.x+ally.range) continue;
                         ++cells;
-                        if((*fogAlpha)[r*state.columns+c]>96) coverage+=p.illumination[r*state.columns+c];
+                        if((*fogAlpha)[r*state.columns+c]>96) coverage+=PlanternRules::Illumination(gear,r-p.row,c-p.column);
                     }
                 value+=ally.dps*duration*coverage/std::max(1,cells);
             }
@@ -943,7 +957,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 	const std::vector<int>& constructionUses,
 	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
 	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats, bool reserveCounterSpace, bool preserveManualAuras,
-	const std::vector<PlantingBlock>& blocks) {
+	const std::vector<PlantingBlock>& blocks, bool rebuildCounterLight) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
 	float neededIce = 0;
 	float delivery = 0;
@@ -975,7 +989,11 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		})) continue;
 		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
-	if (!reserveCounterSpace) for (const auto& card : state.construction) {
+	for (const auto& card : state.construction) {
+		if (reserveCounterSpace && (!rebuildCounterLight || !card.plant.plantern)) continue;
+		if (card.plant.plantern && std::any_of(plants.begin(),plants.end(),[](const Plant& p) {
+			return p.plantern && p.health>0;
+		})) continue;
 		if (PlantingBlocked(blocks,card.plant.row,card.plant.column,time+delivery)) continue;
 		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
 		// 名额耗尽后不能继续为不存在的补菇采购冰块，否则会虚构对方资源损耗。
@@ -1736,9 +1754,7 @@ struct StationProjection {
             // 除固定挡位外比较低油降挡、补油后升挡的完整响应，不能把整段推演
             // 锁在省油挡，漏掉灰烬回油后重新照见边路工人的风险。
             if(planternResponseGear>=0) {
-                const int response = planternResponseGear == FuelAwarePlanternResponse
-                    ? (p.lightFuel >= kResponseHighLightFuel ? 3 : 2) : planternResponseGear;
-                const auto gear=static_cast<PlanternGear>(fog>0 ? response : 0);
+                const auto gear=fog>0 ? ResponseLightGear(planternResponseGear,p) : PlanternGear::OFF;
                 if(p.lightGear!=gear) {
                     p.lightGear=gear;
                     for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c)
@@ -1858,6 +1874,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	ConstructionStats constructionStats;
 	constructionStats.counterSpaceReserved=reserveCounterSpace;
 	constructionStats.planternResponseGear=planternResponseGear;
+	// 留空位放灰烬不等于拒绝补灯。照明响应世界允许只补灯再清场，-1 原姿态仍
+	// 保留完全不建设的对照；共享卡槽、费用和冷却，不强制僵尸搭配。
+	const bool rebuildCounterLight = s.weatherStation && reserveCounterSpace && planternResponseGear>=0;
 	// 同速假设会把先出的前排当成永久掩护。生产案用出生分布的偏快后排/偏慢前排对照，
 	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
 	const bool economicForecast = std::any_of(units.begin(),units.end(),[](const Unit& unit){return unit.body.economic && unit.body.health>0;});
@@ -1999,10 +2018,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,preserveManualAuras,plantingBlocks);
-		if (!reserveCounterSpace && !s.construction.empty() && t >= constructionAt) {
+			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,preserveManualAuras,plantingBlocks,rebuildCounterLight);
+		if ((!reserveCounterSpace || rebuildCounterLight) && !s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,constructionUses,
-				strikes,rowStrikeReady,playerSun,playerIce,constructionStats,s.weatherStation ? &environment.fogAlpha : nullptr,plantingBlocks);
+				strikes,rowStrikeReady,playerSun,playerIce,constructionStats,s.weatherStation ? &environment.fogAlpha : nullptr,plantingBlocks,reserveCounterSpace,planternResponseGear);
 			constructionAt = t+kConstructionInterval;
 		}
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
