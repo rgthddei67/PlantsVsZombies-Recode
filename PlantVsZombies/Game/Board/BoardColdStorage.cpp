@@ -1224,12 +1224,14 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			const bool doom = type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee;
 			if (doom && !hasCoffee) continue;
 			const int id = source++;
-			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanPlantAt(type,row,col)) {
+			// 当前满格不代表未来安全：战损、精准清除或玩家主动腾位后仍能使用同一卡槽反制。
+			for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col) if (CanForecastCounterAt(type,row,col)) {
 				addCounter({type,row,GetCellCenterPosition(row,col).x,std::max((card->GetCooldownTimer() / cardRecharge),doom ? coffeeWait : 0.0f),false},
 					id,card->GetSunCost() + (doom ? coffeeSun : 0),GetPlantIceCost(type) + (doom ? GetPlantIceCost(PlantType::PLANT_INSTANT_COFFEE) : 0),
 					(card->GetCooldownTime() / cardRecharge),type == PlantType::PLANT_SQUASH);
 				auto& counter = search.counters.back();
 				counter.cellRow = row; counter.cellColumn = col;
+				counter.shovelAllowed = true;
 				if (IsInstantBlast(type)) {
 					counter.deploymentHealth = static_cast<float>(GameDataManager::GetInstance().GetPlantSimulationProfile(type).baseHealth);
 					counter.deploymentReward = search.searchVersion == 2 ? static_cast<float>(PlantKillIce(GetPlantIceCost(type),s.difficulty)) : 0;
@@ -2316,6 +2318,8 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchPlanternResponseGear = result.construction.planternResponseGear;
 	s.searchFogCounters = result.construction.stationFogCounters;
 	s.searchCounterSpaceReserved = result.construction.counterSpaceReserved;
+	s.searchCounterShovels = result.construction.counterShovels;
+	s.searchCounterShovelAssets = result.construction.counterShovelAssets;
 	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
 	s.searchBurstOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& option) { return option.unit.burst.range > 0; }));
 	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());

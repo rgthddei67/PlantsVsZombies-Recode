@@ -1637,6 +1637,8 @@ public:
 	bool CanPlantAt(PlantType type, int row, int col);
 	/** 预测同种单格植物死亡后的补种资格；不移除实体，不忽略地形或累计名额。 */
 	bool CanForecastReplacementAt(PlantType type, int row, int col);
+	/** 单格普通层腾出后的反制落点；保留承载层、地形和种植规则，不实际铲除植物。 */
+	bool CanForecastCounterAt(PlantType type, int row, int col);
 	/** 解析可搬组合的稳定锚点 ID；多格植物任一占格均归到同一锚点。 */
 	int GetRelocationSourceID(int row, int col);
 	/** 检查已有整组植物能否原样移入完整空占地，不应用新种配额或升级前置条件。 */

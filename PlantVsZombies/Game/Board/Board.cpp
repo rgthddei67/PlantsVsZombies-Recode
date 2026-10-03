@@ -1765,6 +1765,16 @@ bool Board::CanForecastReplacementAt(PlantType type, int row, int col)
 		&& CanPlantAtImpl(type,row,col,plant->mPlantID);
 }
 
+bool Board::CanForecastCounterAt(PlantType type, int row, int col)
+{
+	if (CanPlantAt(type,row,col)) return true;
+	const Plant* plant=GetNormalPlantAt(row,col);
+	// 只忽略普通层占位，南瓜和睡莲/花盆仍按正式规则保留；多格铲除另需完整占地投影。
+	return plant && plant->IsActive() && !plant->IsIceSealed()
+		&& !IsMultiCellPlantType(plant->GetPlacementType())
+		&& CanPlantAtImpl(type,row,col,plant->mPlantID);
+}
+
 bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 {
 	// 工具卡使用来源/目的两段事务，不可作为普通植物落种。

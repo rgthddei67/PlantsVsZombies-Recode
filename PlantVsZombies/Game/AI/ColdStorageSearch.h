@@ -209,6 +209,8 @@ struct ConstructionStats {
 	int cratersCreated = 0; // 实际完成爆炸后生成的预测弹坑，不含被提前消灭的灰烬
 	int planternResponseGear = -1; // -1沿用当前挡位；0..3固定应对；4随燃料切II/III挡，无雾关灯
 	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
+	int counterShovels = 0; // 为灰烬腾位而主动牺牲的普通层植物数，不计僵尸击杀奖励
+	float counterShovelAssets = 0; // 主动腾位损失的植物资产，冰价；用于诊断回本与反制代价
 	int stationDischarges=0, stationJams=0, stationCounters=0, stationFogCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
 	int goldenAccelerationSteps = 0, goldenDrumSteps = 0, goldenResidualSteps = 0, goldenMaxStacks = 0; // 实际生效的无伤/鼓舞/残留冰道预测步数及最大来源层数
@@ -240,6 +242,7 @@ struct Counter {
 	float recharge = 10000, windup = 1;
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
+	bool shovelAllowed = false; // Board 已验证可腾出普通层；推演仍受当前占位、资源与反制择时约束
 	int plantID = 0; // 预存一次性反制的来源；释放前可被吃掉，爆炸后只消费这株一次
 	int sharedSource = -1; // 额外共享的触发卡冷却，如多株预存毁灭共用咖啡；-1 表示无需第二张牌
 	float sharedReady = 0, sharedRecharge = 0;
@@ -384,10 +387,11 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
  * clearFogWhenReady 在共享预算内按真实设备时序尝试关雾；reserveCounterSpace 暂缓未来补阵，
  * 但显式照明响应仍可合法补灯，不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，
  * storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。
- * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。 */
+ * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。
+ * shovelCounterSpace 允许付出单格普通层植物的资产与功能损失后腾位反制，不授予击杀奖励。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
-	bool preserveManualAuras = false);
+	bool preserveManualAuras = false, bool shovelCounterSpace = false);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */

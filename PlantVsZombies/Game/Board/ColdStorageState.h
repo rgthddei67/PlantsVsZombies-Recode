@@ -117,6 +117,8 @@ struct ColdStorageState {
 	int searchPlanternResponseGear = -1; // 完整对手推演的路灯响应：-1维持现状、0..3固定挡位、4随燃料切挡，仅诊断
 	int searchFogCounters = 0; // 本次完整对手推演中的付费关雾次数，仅诊断
 	bool searchCounterSpaceReserved = false; // 本次对手选择暂缓补阵，保留反制空位与资金，仅诊断
+	int searchCounterShovels = 0; // 本次完整反制世界中为灰烬主动铲除的普通植物数，仅诊断
+	float searchCounterShovelAssets = 0; // 主动腾位牺牲的植物资产，冰价，仅诊断
 	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家清场/主动打击等待习惯，游戏秒，仅诊断
 	int searchBurstOptions = 0, searchAttackAuraCount = 0; // 当前能力投影数量，仅诊断
 	int searchGrowingPlants = 0, searchCapitalRejected = 0; // 成长火力来源和资金风险候选淘汰数，仅诊断不入档

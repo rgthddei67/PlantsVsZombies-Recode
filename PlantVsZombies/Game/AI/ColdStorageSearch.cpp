@@ -60,6 +60,7 @@ constexpr int kForecastSummonLimit = 64; // 一次推演新增小鬼数量上限
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
+constexpr float kCounterShovelSeconds = .5f; // 玩家决定腾位后再铲种的近似操作耗时，游戏秒；不改变真实铲子
 constexpr int kRouteTrials = 256; // 单阶段兵种/合法路线覆盖上限，不区分攻击、经济或支援角色
 constexpr int kCombinationTrials = 80; // 单阶段任意兵种配对和优案扩展预算，不预设技能搭配
 constexpr float kPreferenceIceFraction = .25f; // 净经济模式下单兵偏好最多相当于其冰价四分之一，不能压过明确回报
@@ -413,6 +414,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	// 不把玩家一定会尽早交牌/释放蓄满技能当成进攻收益。比较完整且各自合法的一次推演，
 	// 不能逐项拼接两个世界的最坏损失，也不能让玩家凭空多出冷却或资源。
 	float selectedCounterHold=0, selectedStoredHold=0, selectedStrikeHold=0;
+	bool selectedManualHold=false;
 	float storedHold = kStoredCounterSeconds;
 	// 长队列还能分批出生到一分钟之后。等待对照随已知的己方出生计划延长，
 	// 避免新兵仅靠晚于固定等待窗口就被误判为已经骗掉了预存毁灭。
@@ -513,7 +515,26 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         patient.opponentScore=s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
         patient.score=Score(patient.features,weights)+patient.opponentScore;
         patient.counterHoldSeconds=candidate.counterHoldSeconds;
-        if(BetterOutcome(candidate,patient)) candidate=std::move(patient);
+        if(BetterOutcome(candidate,patient)) { candidate=std::move(patient); selectedManualHold=true; }
+    }
+
+    // 腾位是完整的另一种玩家应对：同时失去被铲植物的输出、经济与资产，灰烬仍共用钱和冷却。
+    // 只在整个结果对玩家更有利时采用，不能把铲除世界的清场拼接到保留阵地的世界上。
+    if((!s.current.empty() || !candidate.actions.empty())
+        && std::any_of(s.counters.begin(),s.counters.end(),[](const Counter& counter){return counter.shovelAllowed;})
+        && std::any_of(s.plants.begin(),s.plants.end(),[](const Plant& plant){return plant.health>0 && plant.layer==1;})) {
+        Result response;
+        response.actions=candidate.actions; response.precisionTargetID=s.precisionTargetID;
+        response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,selectedStoredHold,
+            selectedStrikeHold,candidate.construction.counterSpaceReserved,candidate.construction.stationFogCounters>0,
+            candidate.construction.planternResponseGear,selectedManualHold,true);
+        Calibrate(s,response);
+        response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
+        response.opponentAssets=response.construction.opponentAssets;
+        response.opponentScore=s.opponentWeight*(baselineOpponentAssets-response.opponentAssets);
+        response.score=Score(response.features,weights)+response.opponentScore;
+        response.counterHoldSeconds=candidate.counterHoldSeconds;
+        if(BetterOutcome(candidate,response)) candidate=std::move(response);
     }
 
 	for (const auto& action : candidate.actions) {
@@ -665,7 +686,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
 	float holdSeconds, float storedHoldSeconds, std::vector<float>& holdUntil,
 	std::vector<PlantingBlock>& blocks, ConstructionStats& stats,
-    const std::array<float,54>* fogAlpha) {
+    const std::array<float,54>* fogAlpha, bool allowShovel, std::vector<float>& shovelReady) {
 	for (auto it = pending.begin(); it != pending.end();) {
 		if (it->plantID != 0) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
@@ -714,7 +735,15 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 	}
 	int selected = -1;
 	int selectedTarget = -1;
+	int selectedPlant = -1;
 	float best = 0;
+	// 一个时步内所有候选复用占位表，补入未来落点后不能按候选反复扫描整块阵地。
+	std::array<int,54> occupied; occupied.fill(-1);
+	for (size_t i=0;i<plants.size();++i) {
+		const auto& plant=plants[i]; const int cell=plant.row*state.columns+plant.column;
+		if (plant.health>0 && plant.layer==1 && plant.row>=0 && plant.row<state.rows
+			&& plant.column>=0 && plant.column<state.columns && cell<static_cast<int>(occupied.size())) occupied[cell]=static_cast<int>(i);
+	}
 	// 玩家能看见僵尸总数，但雾内精确行列不是公开信息。未知单位按遮雾格的均匀先验
     // 估计盲炸覆盖率；选点后仍对真实位置结算，允许炸空，也允许炸中隐蔽的制冰工。
     const auto hidden=[&](const Unit& unit) {
@@ -752,9 +781,11 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 		if (counter.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.id == counter.plantID && p.health > 0 && p.shutdownUntil<=time;
 		})) continue;
-		if (counter.cellRow >= 0 && std::any_of(plants.begin(),plants.end(),[&](const auto& p) {
-			return p.health > 0 && p.layer == 1 && p.row == counter.cellRow && p.column == counter.cellColumn;
-		})) continue;
+		const int cell=counter.cellRow*state.columns+counter.cellColumn;
+		const int victim=counter.cellRow>=0 && cell>=0 && cell<static_cast<int>(occupied.size()) ? occupied[cell] : -1;
+		if (victim>=0 && (!allowShovel || !counter.shovelAllowed)) continue;
+		const float sacrificed=victim<0 ? 0 : plants[victim].assetValue
+			* std::clamp(plants[victim].health/std::max(1.0f,plants[victim].initialHealth),0.0f,1.0f);
 		auto candidate = counter.blast;
 		int candidateTarget = -1;
 		if (counter.targeted) {
@@ -793,7 +824,8 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
             }
             loss+=unknownCount*unknownStake*covered/unknownCells*std::min(1.0f,candidate.damage/std::max(1.0f,unknownHealth));
         }
-		if (loss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
+		const float netLoss=urgent ? loss : loss-sacrificed;
+		if (netLoss < (urgent ? 1 : counter.targeted ? kTargetCounterStake : kAreaCounterStake)) continue;
 		// 等待从首次存在值得反制的目标开始；同一张牌所有落点共用一次等待。
 		// 已提交的爆炸走上方独立结算；接近房屋的救险也不为了聚团继续等。
 		const float patience = counter.stored ? std::max(holdSeconds,storedHoldSeconds) : holdSeconds;
@@ -801,11 +833,21 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			if (holdUntil[counter.source] < 0) holdUntil[counter.source] = time+patience;
 			if (time < holdUntil[counter.source]) continue;
 		}
-		const float value = loss / std::max(1.0f, counter.sunCost * 0.02f + PlayerIceCost(state,time,counter.iceCost) * 0.2f);
-		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; selectedTarget = candidateTarget; }
+		const float value = netLoss / std::max(1.0f, counter.sunCost * 0.02f + PlayerIceCost(state,time,counter.iceCost) * 0.2f);
+		if (value > best) { best = value; selected = static_cast<int>(c); impact = candidate; selectedTarget = candidateTarget; selectedPlant=victim; }
 	}
 	if (selected >= 0) {
 		const auto& counter = state.counters[selected];
+		if (selectedPlant>=0) {
+			// 准备期间不扣钱、不铲株；下一步仍重新检查冷却、钱包、占位及威胁，再完成铲种。
+			if (shovelReady[selected]<0) shovelReady[selected]=time+kCounterShovelSeconds;
+			if (time<shovelReady[selected]) return;
+			auto& removed=plants[selectedPlant];
+			stats.counterShovelAssets+=removed.assetValue*std::clamp(removed.health/std::max(1.0f,removed.initialHealth),0.0f,1.0f);
+			++stats.counterShovels;
+			removed.health=0; // 主动牺牲不走 DamagePlant，不给僵尸击杀冰或伤害得分；外壳/承载层保留。
+		}
+		shovelReady[selected]=-1;
 		sun -= counter.sunCost; ice -= PlayerIceCost(state,time,counter.iceCost);
 		ready[counter.source] = time + counter.recharge;
 		if (counter.sharedSource >= 0) ready[counter.sharedSource] = time + counter.sharedRecharge;
@@ -1826,7 +1868,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras, bool shovelCounterSpace) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1924,6 +1966,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<int> smashTarget(units.size(),-1);
 	for (const auto& u : units) { initialHealth.push_back(u.body.health); initialX.push_back(u.body.x); }
 	std::vector<float> counterReady;
+	std::vector<float> shovelReady(s.counters.size(),-1);
 	std::vector<float> rowStrikeReady;
 	std::vector<float> rowStrikeHoldUntil;
 	for (const auto& strike : s.rowStrikes) rowStrikeReady.push_back(strike.ready);
@@ -2027,7 +2070,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil,plantingBlocks,constructionStats,
-            s.weatherStation ? &environment.fogAlpha : nullptr);
+			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady);
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,

@@ -5081,6 +5081,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchPlanternResponseGear"] = board->mColdStorage.searchPlanternResponseGear;
 		ice["searchFogCounters"] = board->mColdStorage.searchFogCounters;
 		ice["searchCounterSpaceReserved"] = board->mColdStorage.searchCounterSpaceReserved;
+		ice["searchCounterShovels"] = board->mColdStorage.searchCounterShovels;
+		ice["searchCounterShovelAssets"] = board->mColdStorage.searchCounterShovelAssets;
 		ice["planning"] = board->mColdStorage.planning;
 		ice["planningStarted"] = board->mColdStorage.planningStarted;
 		ice["planningApplied"] = board->mColdStorage.planningApplied;

@@ -1666,6 +1666,54 @@ int main()
 	}
 	{
 	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.playerSun=125; s.playerIce=20;
+	Plant filler; filler.id=81; filler.row=0; filler.column=6; filler.x=700;
+	filler.health=filler.initialHealth=filler.maximumHealth=300; filler.assetValue=10; filler.reward=99;
+	Plant shell=filler; shell.id=82; shell.layer=2; shell.health=shell.initialHealth=shell.maximumHealth=4000;
+	shell.assetValue=80; shell.reward=100;
+	s.plants={filler,shell};
+	Unit worker; worker.body.x=950; worker.body.health=500; worker.body.purchaseCost=24; worker.body.economic=true;
+	s.current.assign(20,worker);
+	Counter ash; ash.cellRow=0; ash.cellColumn=6; ash.shovelAllowed=true;
+	ash.sunCost=125; ash.iceCost=20; ash.blast.x=700; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
+	ash.blast.damage=1800; ash.deploymentHealth=300; s.counters={ash};
+	ConstructionStats before,after;
+	const auto safe=Evaluate(s,{},&before);
+	const auto burned=Evaluate(s,{},&after,0,0,0,false,false,-1,false,true);
+	check(safe[4]>0 && burned[4]==0 && after.counterShovels==1 && after.counterShovelAssets==10,
+		"a legal low-value sacrifice opens a paid ash response against a concentrated economy");
+	check(burned[0]==0 && burned[1]==0 && after.opponentAssets==80,
+		"shoveling awards no zombie kill ice or damage score and preserves the pumpkin asset");
+	check(s.plants[0].health==300 && s.playerSun==125 && s.playerIce==20,
+		"shovel forecast never mutates the board snapshot or wallet");
+	s.playerSun=124; Evaluate(s,{},&after,0,0,0,false,false,-1,false,true);
+	check(after.counterShovels==0 && after.sunSpent==0,"cannot sacrifice a plant for unaffordable ash");
+	s.playerSun=125; s.counters[0].blast.ready=1000;
+	Evaluate(s,{},&after,0,0,0,false,false,-1,false,true);
+	check(after.counterShovels==0,"unavailable cooldown does not clear a planting cell early");
+	s.counters[0].blast.ready=0; s.plants[0].assetValue=1000;
+	Evaluate(s,{},&after,0,0,0,false,false,-1,false,true);
+	check(after.counterShovels==0,"ordinary clear value does not justify sacrificing a more valuable plant");
+	s.plants[0]=filler; s.counters[0].shovelAllowed=false;
+	check(Evaluate(s,{},&after,0,0,0,false,false,-1,false,true)[4]>0 && after.counterShovels==0,
+		"a Board-protected occupied cell cannot be shoveled by the opponent model");
+	s.pendingPrecisionID=81; s.pendingPrecisionRemaining=2;
+	check(Evaluate(s,{},&after)[4]<safe[4] && after.counterShovels==0 && after.precisionHits==1,
+		"precision clearing opens the existing counter candidate after the target dies without player shoveling");
+	s.pendingPrecisionID=0; s.counters[0].shovelAllowed=true;
+	s.budget=0; Weights economy{}; economy[4]=1;
+	check(Search(s,economy,71).construction.counterShovels==1,
+		"action and waiting evaluation select the complete legal shovel response when it harms the commander");
+	s.current.clear(); s.budget=960; s.capacity=40; s.searchVersion=2; s.netEconomy=true;
+	Option purchase; purchase.type=56; purchase.cost=24; purchase.unit=worker; s.options={purchase};
+	// 验证同步集中案的风险，不禁止搜索另选少量诱饵或跨冷却错峰。
+	const std::vector<Action> concentrated(40,Action{0,0});
+	check(Evaluate(s,concentrated,&after,0,0,0,false,false,-1,false,true)[4]==0 && after.counterShovels==1,
+		"the synchronized forty-worker purchase loses its imaginary safe income against legal shovel-and-ash");
+	std::cout << "Dynamic counter vacancies, optional sacrifice, shared payment and snapshot isolation passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
 	Snapshot s; s.houseX=-10000;
 	Unit tank; tank.id=1; tank.body.x=900; tank.body.health=500; tank.body.purchaseCost=100;
 	Unit clock; clock.id=10; clock.body.row=1; clock.body.x=920;
