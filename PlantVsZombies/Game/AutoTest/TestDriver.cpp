@@ -745,6 +745,9 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
 	mDefaultColdStorageBonusSelection = mColdStorageBonusSelection;
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
+	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
+	mCommanderFuelAwareLamp = j.value("commanderFuelAwareLamp",true);
+	mCommanderPreservePaidQueue = j.value("commanderPreservePaidQueue",false);
 	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
 	if (mBatchSteps < 0 || mBatchSteps > 32 || (mInteractive && mBatchSteps != 0)) return false;
@@ -935,6 +938,11 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
+		return true;
+	}
+	if (op == "commander_forecast_options") {
+		mCommanderFuelAwareLamp = cmd.value("fuelAwareLamp",mCommanderFuelAwareLamp);
+		mCommanderPreservePaidQueue = cmd.value("preservePaidQueue",mCommanderPreservePaidQueue);
 		return true;
 	}
 	if (op == "commander_roster") {
@@ -4952,6 +4960,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				{"bestAllowedBreach",candidate.bestAllowedBreach}});
 		}
 		ice["searchUnitCandidatesScope"] = "final_formation_before_precision";
+		if (mCommanderForecastTrace) {
+			ice["searchWorkerTrace"] = nlohmann::json::array();
+			for (const auto& sample : board->mColdStorage.searchWorkerTrace)
+				ice["searchWorkerTrace"].push_back({{"id",sample.id},{"row",sample.row},{"at",sample.at},
+					{"x",sample.x},{"health",sample.health},{"income",sample.income}});
+			ice["searchCounterTrace"] = nlohmann::json::array();
+			for (const auto& sample : board->mColdStorage.searchCounterTrace)
+				ice["searchCounterTrace"].push_back({{"at",sample.at},{"x",sample.x},{"damage",sample.damage},
+					{"row",sample.row},{"column",sample.column},{"clearsCell",sample.clearsCell}});
+		}
 		ice["searchAbilityIce"] = board->mColdStorage.searchAbilityIce;
 		ice["searchRepairOptions"] = board->mColdStorage.searchRepairOptions;
 		ice["searchRepairPlants"] = board->mColdStorage.searchRepairPlants;

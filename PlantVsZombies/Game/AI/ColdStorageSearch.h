@@ -20,6 +20,7 @@
 /** 可训练的编队搜索。仅消费数值快照；预测既不扣款也不使用正式游戏随机数。 */
 namespace ColdStorageSearch {
 inline constexpr int FeatureCount = 8;
+inline constexpr int FuelAwarePlanternResponse = 4; // 燃料充足用III挡、低油用II挡的合法玩家应对；不是实际挡位
 using Weights = std::array<float, FeatureCount>;
 inline constexpr int ContextCount = 8; // 偏置、友军伤势、友军密度、前墙、减速、火力、工人数、后排保护
 using ContextWeights = std::array<float, ContextCount>;
@@ -202,9 +203,11 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	std::vector<WorkerForecastTrace> workerTrace;
+	std::vector<CounterForecastTrace> counterTrace;
 	float breachSeconds = -1; // 首次有效进屋的预测游戏秒；-1 表示尚未突破
 	int cratersCreated = 0; // 实际完成爆炸后生成的预测弹坑，不含被提前消灭的灰烬
-	int planternResponseGear = -1; // -1沿用当前挡位；0..3为有雾时使用的挡位，无雾关灯
+	int planternResponseGear = -1; // -1沿用当前挡位；0..3固定应对；4随燃料切II/III挡，无雾关灯
 	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
 	int stationDischarges=0, stationJams=0, stationCounters=0, stationFogCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
@@ -260,6 +263,8 @@ struct TemporalAnchor {
 	std::vector<TemporalTarget> targets;
 };
 struct Snapshot {
+	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹
+	bool fuelAwarePlantern = true; // 仅诊断消融可关闭动态挡位应对，正式搜索始终启用
     bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数
     std::chrono::steady_clock::time_point searchDeadline{};
 	bool weatherStation=false;

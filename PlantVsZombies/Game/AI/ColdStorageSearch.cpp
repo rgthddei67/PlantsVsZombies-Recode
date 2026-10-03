@@ -25,6 +25,7 @@ bool SearchTimeExpired(const Snapshot& s) {
 }
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
+constexpr float kResponseHighLightFuel = 20; // 一种玩家应对的III挡储油门槛，雾火；不改变真人操作和植物规则
 constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
 constexpr int kMaxActions = 8; // 小队搜索阶段的单位上限；升级后的完整编队搜索使用正式容量
 constexpr float kMaxDelay = 12; // 新队员最迟出生时间，游戏秒
@@ -478,7 +479,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         }) || std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c) {
             return c.plant.plantern;
         });
-        if(hasLamp) for(int gear=0;gear<=static_cast<int>(PlanternGear::HIGH);++gear)
+        if(hasLamp) for(int gear=0;gear<=(s.fuelAwarePlantern ? FuelAwarePlanternResponse : 3);++gear)
             compareEnvironment(false,gear);
         compareEnvironment(true,candidate.construction.planternResponseGear);
     }
@@ -672,6 +673,11 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			if (time >= it->at - kSquashFlightSeconds) it->targetLocked = true;
 		}
 		if (it->at > time) { ++it; continue; }
+		if (state.traceEconomy) {
+			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
+			stats.counterTrace.push_back({time,it->blast.x,it->blast.damage,
+				source == plants.end() ? -1 : source->row,source == plants.end() ? -1 : source->column,it->clearsCell});
+		}
 		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
 			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
@@ -1727,9 +1733,12 @@ struct StationProjection {
                 else ++it;
             }
             // 只按已经出现的雾开灯，无雾关灯节油；不偷看暗区僵尸坐标或未来出生时间。
-            // 每个候选固定一个有雾挡位，保留各挡真实覆盖/耗油差异；切挡不移动光源。
+            // 除固定挡位外比较低油降挡、补油后升挡的完整响应，不能把整段推演
+            // 锁在省油挡，漏掉灰烬回油后重新照见边路工人的风险。
             if(planternResponseGear>=0) {
-                const auto gear=static_cast<PlanternGear>(fog>0 ? planternResponseGear : 0);
+                const int response = planternResponseGear == FuelAwarePlanternResponse
+                    ? (p.lightFuel >= kResponseHighLightFuel ? 3 : 2) : planternResponseGear;
+                const auto gear=static_cast<PlanternGear>(fog>0 ? response : 0);
                 if(p.lightGear!=gear) {
                     p.lightGear=gear;
                     for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c)
@@ -2092,6 +2101,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					const int income = static_cast<int>(worker.nextYield);
 					enemyIce += income;
 					if (t < kHorizon) f[4] += income;
+					if (s.traceEconomy) constructionStats.workerTrace.push_back({worker.id,u.row,t,u.x,u.health,static_cast<float>(income)});
 					worker.productionRemaining += IceProduction::Interval;
 					worker.nextYield = std::min(IceProduction::MaximumYield, worker.nextYield * IceProduction::YieldGrowth);
 				}
@@ -2169,6 +2179,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
             }
 		}
 		capPlayerResources();
+		if (s.traceEconomy && static_cast<int>(t/kStep)%4 == 0)
+			for (const auto& worker : units) if (worker.body.economic && worker.body.spawnAt <= t)
+				constructionStats.workerTrace.push_back({worker.id,worker.body.row,t,worker.body.x,worker.body.health,0});
 		// 正式胜负已经发生，后续制冰/建造/伤害均不再兑现，不能继续虚构胜利后的收入。
 		if (f[2] > 0) break;
 	}

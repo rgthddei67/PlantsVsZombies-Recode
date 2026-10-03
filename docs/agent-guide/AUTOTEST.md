@@ -17,6 +17,12 @@
 
 ## AutoTest 测试套件
 
+### 指挥官经济预测诊断
+
+根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；统计收益特征时只汇总前 60 秒，扩展战斗时域中的后续产冰不属于该特征。普通对局和训练默认关闭轨迹。
+
+根字段 `commanderFuelAwareLamp: false` 仅供关闭随燃料切挡响应的消融；正式 AI 默认启用。`commander_forecast_options` 可在不推进时间时修改 `fuelAwareLamp` 和 `preservePaidQueue`；后者也支持根字段 `commanderPreservePaidQueue`，只用于同步 `plan_ice_attack`，跳过已付款队列的重排，不冻结真实出场。做同局面对照时须同时核对活体、资源与待出兵队列一致，避免把重新选路误当预测差异；冻结钱包或暂停决策的隔离夹具不能用作正常对局强度结论。
+
 ### 交互试玩信箱
 
 真人游玩可用 `human_cold_storage_10_1.json`：`interactive: true` 配合 `humanObservation: true` 让场景正常连续推进，停在选卡页交给主人操作。信箱只接受观察、截图和退出，拒绝 `advance` 与代玩操作；每秒及决策/胜负变化时，向该会话的 `observations.jsonl` 追加局面、收支、卡牌和预测记录。普通步进信箱行为不变。记录写盘失败会标记 `humanRecordingFailed` 并停止采样，不关闭主人的游戏。真人运行不指定启动种子，音效沿用普通 AutoTest 默认值；玩家存档仍不写入。

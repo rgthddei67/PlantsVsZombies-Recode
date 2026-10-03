@@ -2380,6 +2380,29 @@ int main()
 
     {
     using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.cellWidth=80;
+    s.station.controls[1].value=4; s.station.controls[1].protection=100; s.stationFogAlpha.fill(255);
+    s.incomingIce=50; s.incomingIceAt=8; s.anticipateEconomy=true;
+    Plant lamp; lamp.plantern=true; lamp.row=2; lamp.column=4; lamp.x=360; lamp.health=300; lamp.lightFuel=9;
+    Plant shooter; shooter.row=4; shooter.x=0; shooter.health=10000; shooter.dps=100; shooter.edible=false;
+    s.plants={lamp,shooter};
+    Unit carrier; carrier.body.row=1; carrier.body.x=680; carrier.body.health=100;
+    carrier.body.purchaseCost=24; carrier.mistFuelReward=40;
+    Unit worker; worker.body.row=4; worker.body.x=680; worker.body.health=200; worker.body.spawnAt=12;
+    worker.body.purchaseCost=24; worker.body.economic=true; worker.productionRemaining=3.6f;
+    s.current={carrier,worker};
+    Counter blast; blast.source=0; blast.blast.x=680; blast.blast.reach.fill(-1); blast.blast.reach[1]=100;
+    blast.blast.damage=1800; blast.iceCost=50; blast.windup=1; blast.recharge=1000; s.counters={blast};
+    const auto adaptive=Evaluate(s,{},nullptr,0,0,0,false,false,FuelAwarePlanternResponse);
+    for(int gear=0;gear<=3;++gear) check(adaptive[4]<Evaluate(s,{},nullptr,0,0,0,false,false,gear)[4],
+        "saving light until a paid blast refuels it then opening III exposes a worker missed by every fixed gear");
+    Weights income{}; income[4]=1;
+    check(Search(s,income,17).construction.planternResponseGear==FuelAwarePlanternResponse,
+        "commander considers fuel-aware relighting instead of treating medium-gear shelter as permanent");
+    }
+
+    {
+    using namespace ColdStorageSearch;
     Snapshot s; s.houseX=-10000; s.playerSun=1000; s.playerIce=1000;
     Option troop; troop.cost=24; troop.row=troop.unit.body.row=2;
     troop.unit.body.x=900; troop.unit.body.health=1000; troop.unit.body.purchaseCost=24;
@@ -2391,6 +2414,11 @@ int main()
     const auto held=Evaluate(s,{{0,0},{0,12}},&stats);
     check(held[3]==24 && stats.cratersCreated==1,
         "a doom crater prevents casting again in the same cell against a later wave");
+    check(stats.workerTrace.empty() && stats.counterTrace.empty(),"ordinary forecasts allocate no diagnostic trajectories");
+    s.traceEconomy=true;
+    check(Evaluate(s,{{0,0},{0,12}},&stats)==held && stats.counterTrace.size()==1,
+        "counter trace records the actual explosion without changing forecast outcomes");
+    s.traceEconomy=false;
     s.counters[0].craterSeconds=5;
     check(Evaluate(s,{{0,0},{0,12}})[3]==0,"an expired crater releases its planting cell");
     s.counters={doom,doom}; s.counters[1].cellColumn=7;
@@ -2416,6 +2444,11 @@ int main()
     Weights income{}; income[4]=1;
     check(Search(s,income,17).actions.empty(),
         "delaying an existing house breach to collect extra production is not a better victory");
+    ConstructionStats traced;
+    const auto plain=Evaluate(s,{}); s.traceEconomy=true;
+    check(Evaluate(s,{},&traced)==plain,"worker tracing must not alter combat or economic outcomes");
+    float recorded=0; for(const auto& sample:traced.workerTrace) recorded+=sample.income;
+    check(recorded==plain[4] && !traced.workerTrace.empty(),"diagnostic production events match credited income before victory");
     }
 
     {

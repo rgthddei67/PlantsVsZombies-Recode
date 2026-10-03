@@ -20,6 +20,12 @@ public:
 	bool IsActive() const { return mActive; }
 	/** 真人日志沿用正式后台规划；批量陪练保持同步，避免墙钟速度影响种子对照。 */
 	bool BackgroundCommander() const { return mBackgroundCommander; }
+	/** 只在显式诊断脚本记录预测工人轨迹和灰烬时点，不改变搜索或交易。 */
+	bool CommanderForecastTrace() const { return mCommanderForecastTrace; }
+	/** 仅供同一局面消融比较，普通脚本和正式对局保持动态挡位预测。 */
+	bool CommanderFuelAwareLamp() const { return mCommanderFuelAwareLamp; }
+	/** 同步诊断时保持已付款队列不重排，确保两种预测比较同一编队。 */
+	bool CommanderPreservePaidQueue() const { return mCommanderPreservePaidQueue; }
 	/** 显式支援专项或真人观察显示正式战前窗口；训练缺省保持无增益。 */
 	bool ColdStorageBonusSelection() const { return mColdStorageBonusSelection; }
 	int  ExitCode() const { return mExitCode; }
@@ -38,6 +44,9 @@ public:
 	const std::string& OutDir() const { return mOutDir; }
 
 private:
+	bool mCommanderForecastTrace = false;
+	bool mCommanderFuelAwareLamp = true;
+	bool mCommanderPreservePaidQueue = false;
 	TestDriver() = default;
 
 	// 执行当前命令。返回 true = 已完成可推进下一条；false = 等待中（下帧重试）。

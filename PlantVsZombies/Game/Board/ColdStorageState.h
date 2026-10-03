@@ -43,6 +43,8 @@ struct ColdStorageState {
 	int planningLastDiscardMask = 0;
 	float planningLastAgeMs = 0;
 	std::vector<ColdStorageSearch::CandidateStats> searchUnitCandidates; // 含兵种/行的整案收益，最终阶段、精准清除前
+	std::vector<ColdStorageSearch::WorkerForecastTrace> searchWorkerTrace; // 显式诊断轨迹，不入档
+	std::vector<ColdStorageSearch::CounterForecastTrace> searchCounterTrace; // 显式诊断轨迹，不入档
 	double planningWorkerMs = 0, planningMainMaxMs = 0; // 后台总耗时/主线程决策入口最大耗时，毫秒
     double planningBudgetMs = 0; // 本轮实时墙钟预算，毫秒，不入档
     bool planningTimeLimited = false; // 是否因预算停止扩展候选，不代表返回了不完整的预测
@@ -111,7 +113,7 @@ struct ColdStorageState {
 	int searchConstructionOptions = 0, searchPredictedPlantings = 0; // 合法建设落点与预测建设数，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
-	int searchPlanternResponseGear = -1; // 完整对手推演采用的雾中路灯挡位，-1为维持现状，仅诊断
+	int searchPlanternResponseGear = -1; // 完整对手推演的路灯响应：-1维持现状、0..3固定挡位、4随燃料切挡，仅诊断
 	int searchFogCounters = 0; // 本次完整对手推演中的付费关雾次数，仅诊断
 	bool searchCounterSpaceReserved = false; // 本次对手选择暂缓补阵，保留反制空位与资金，仅诊断
 	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家清场/主动打击等待习惯，游戏秒，仅诊断

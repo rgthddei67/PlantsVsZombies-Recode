@@ -1,6 +1,17 @@
 #pragma once
 
 namespace ColdStorageSearch {
+/** 显式诊断用工人轨迹；income 非零表示本步兑现的一批产冰，其余为两秒状态采样。 */
+struct WorkerForecastTrace {
+	int id = 0, row = 0;
+	float at = 0, x = 0, health = 0, income = 0;
+};
+/** 显式诊断用灰烬实际引爆点；被提前消灭而取消的来源不会进入此表。 */
+struct CounterForecastTrace {
+	float at = 0, x = 0, damage = 0;
+	int row = -1, column = -1;
+	bool clearsCell = false;
+};
 /** 含某兵种/行的完整候选统计；收益属于整案，不能视为这只单位的独立边际收益。 */
 struct CandidateStats {
 	int type = 0, row = 0, evaluated = 0, standalone = 0, allowed = 0;

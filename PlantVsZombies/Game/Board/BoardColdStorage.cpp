@@ -1099,6 +1099,8 @@ void Board::PlanColdStorageAttack(bool background)
 	// 学习分支只搜索当前可以买到的自由序列；所有扣款/出生仍提交正式 Board 队列。
 	if (const auto* weights = learnedWeights) {
 		ColdStorageSearch::Snapshot search;
+		search.traceEconomy = GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderForecastTrace();
+		search.fuelAwarePlantern = !GameAPP::mAutoTestMode || TestDriver::GetInstance().CommanderFuelAwareLamp();
 		search.goldenRightX=GetIceTrailRightX();
 		search.goldenLeftLimit=IsRoofBackground() ? GetRoofSlopeEndX() : GoldenIceRules::LeftLimit;
 		for (int row=0;row<static_cast<int>(search.goldenTrails.size());++row) {
@@ -1718,7 +1720,9 @@ void Board::PlanColdStorageAttack(bool background)
 			s.attackDeferred = true;
 			return;
 		}
-		const auto revision = ColdStorageSearch::ReplanCommitted(search,*weights,seed ^ 0x91A7u);
+		// 同局面消融须固定已付款的行与到达时刻，不能把队列重排混成预测能力差异。
+		const auto revision = GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderPreservePaidQueue()
+			? ColdStorageSearch::QueueRevision{} : ColdStorageSearch::ReplanCommitted(search,*weights,seed ^ 0x91A7u);
 		auto result = ColdStorageSearch::Search(search,*weights,seed);
 		ApplyColdStoragePlan(search,result,revision,requestedVersion,0,tickets);
 		return;
@@ -2286,6 +2290,8 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchAnticipateBuilding = ColdStoragePolicy::AnticipateBuilding();
 	s.searchConstructionOptions = static_cast<int>(search.construction.size());
 	s.searchPredictedPlantings = result.construction.planted;
+	s.searchWorkerTrace = result.construction.workerTrace;
+	s.searchCounterTrace = result.construction.counterTrace;
 	s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 	s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 	s.searchCounterHoldSeconds = result.counterHoldSeconds;
