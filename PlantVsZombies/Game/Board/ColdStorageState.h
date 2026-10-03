@@ -111,6 +111,7 @@ struct ColdStorageState {
 	int searchConstructionOptions = 0, searchPredictedPlantings = 0; // 合法建设落点与预测建设数，诊断不入档
 	int searchSerial = 0; // 每次搜索递增，包含观望决定；仅供训练记录，不入档
 	float searchElapsed = 0, searchRawProduction = 0; // 精确决策时刻与未校准预测，仅诊断
+	bool searchCounterSpaceReserved = false; // 本次对手选择暂缓补阵，保留反制空位与资金，仅诊断
 	float searchCounterHoldSeconds = 0; // 本次保守预测采用的玩家清场/主动打击等待习惯，游戏秒，仅诊断
 	int searchBurstOptions = 0, searchAttackAuraCount = 0; // 当前能力投影数量，仅诊断
 	int searchGrowingPlants = 0, searchCapitalRejected = 0; // 成长火力来源和资金风险候选淘汰数，仅诊断不入档

@@ -2281,6 +2281,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 	s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 	s.searchCounterHoldSeconds = result.counterHoldSeconds;
+	s.searchCounterSpaceReserved = result.construction.counterSpaceReserved;
 	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());
 	s.searchBurstOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& option) { return option.unit.burst.range > 0; }));
 	s.searchAttackAuraCount = static_cast<int>(search.attackAuras.size());

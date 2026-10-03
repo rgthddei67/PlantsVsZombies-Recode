@@ -202,6 +202,7 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
 	int stationDischarges=0, stationJams=0, stationCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
 	int goldenAccelerationSteps = 0, goldenDrumSteps = 0, goldenResidualSteps = 0, goldenMaxStacks = 0; // 实际生效的无伤/鼓舞/残留冰道预测步数及最大来源层数
@@ -361,9 +362,9 @@ float RemainingCapitalRisk(float fundedCapital, float currentCapital);
 /** 大额及累计亏损采购须保留可续战资本；新增现金与幸存兵力可回本，突破仍优先。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
-/** 有限步位置推演；hold 只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。 */
+/** 有限步位置推演；reserveCounterSpace 暂缓未来补阵但不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
-	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0);
+	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */

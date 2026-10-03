@@ -409,6 +409,23 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 		patient.counterHoldSeconds = hold;
 		if (BetterOutcome(candidate,patient)) candidate = std::move(patient);
 	}
+    // 玩家可以保留炸弹落点与资金，而不是机械补满所有空格。每个姿态都是独立合法的
+    // 完整世界：同一钱包/冷却/视野和既有阵地，不能拼接不同世界的伤害或虚构反制资源。
+    const bool canReserve = !s.construction.empty() && std::any_of(s.counters.begin(),s.counters.end(),
+        [](const Counter& c) { return !c.blast.committed && c.plantID==0 && c.cellRow>=0; });
+    if(canReserve) for(float hold : {0.0f,kPatientCounterSeconds}) {
+        Result counterFirst;
+        counterFirst.actions=candidate.actions; counterFirst.precisionTargetID=s.precisionTargetID;
+        counterFirst.features=Evaluate(s,counterFirst.actions,&counterFirst.construction,hold,storedHold,hold,true);
+        Calibrate(s,counterFirst);
+        counterFirst.baselineFeatures=baseline; counterFirst.baselineOpponentAssets=baselineOpponentAssets;
+        counterFirst.opponentAssets=counterFirst.construction.opponentAssets;
+        counterFirst.opponentScore=s.opponentWeight*(baselineOpponentAssets-counterFirst.opponentAssets);
+        counterFirst.score=Score(counterFirst.features,weights)+counterFirst.opponentScore;
+        counterFirst.counterHoldSeconds=hold;
+        if(BetterOutcome(candidate,counterFirst)) candidate=std::move(counterFirst);
+    }
+
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
@@ -815,7 +832,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 	const std::vector<float>& counterReady, const std::vector<float>& constructionReady,
 	const std::vector<int>& constructionUses,
 	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
-	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats) {
+	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats, bool reserveCounterSpace) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
 	float neededIce = 0;
 	float delivery = 0;
@@ -845,7 +862,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		})) continue;
 		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
-	for (const auto& card : state.construction) {
+	if (!reserveCounterSpace) for (const auto& card : state.construction) {
 		const int quota = card.quotaGroup >= 0 ? card.quotaGroup : card.source;
 		// 名额耗尽后不能继续为不存在的补菇采购冰块，否则会虚构对方资源损耗。
 		if (card.remainingUses >= 0 && constructionUses[quota] == 0) continue;
@@ -1636,7 +1653,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1695,6 +1712,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<size_t> clockSources;
 	for (size_t i=0;i<units.size();++i) if (units[i].clock.present) clockSources.push_back(i);
 	ConstructionStats constructionStats;
+	constructionStats.counterSpaceReserved=reserveCounterSpace;
 	// 同速假设会把先出的前排当成永久掩护。生产案用出生分布的偏快后排/偏慢前排对照，
 	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
 	const bool economicForecast = std::any_of(units.begin(),units.end(),[](const Unit& unit){return unit.body.economic && unit.body.health>0;});
@@ -1834,8 +1852,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats);
-		if (!s.construction.empty() && t >= constructionAt) {
+			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace);
+		if (!reserveCounterSpace && !s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,constructionUses,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats,s.weatherStation ? &environment.fogAlpha : nullptr);
 			constructionAt = t+kConstructionInterval;

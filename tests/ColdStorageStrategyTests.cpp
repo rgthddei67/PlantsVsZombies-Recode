@@ -2195,4 +2195,37 @@ int main()
     check(Search(s,weights,731).actions.empty(),"wealth does not require buying a doomed army");
     }
 
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.playerSun=640; s.playerIce=1000;
+    Unit worker; worker.body.row=2; worker.body.x=1000; worker.body.health=500;
+    worker.body.economic=true; worker.body.purchaseCost=24; worker.productionRemaining=IceProduction::Interval;
+    s.current.assign(20,worker);
+    Counter chili; chili.blast.x=760; chili.blast.damage=1800; chili.blast.ready=1;
+    chili.blast.reach.fill(-1); chili.blast.reach[2]=10000;
+    chili.cellRow=2; chili.cellColumn=7; chili.sunCost=125; chili.iceCost=20; chili.recharge=50; chili.windup=1;
+    s.counters={chili};
+    Construction wall; wall.plant.health=8000; wall.plant.x=760; wall.plant.row=2; wall.plant.column=7;
+    wall.sunCost=150; wall.recharge=100; s.construction={wall};
+    ConstructionStats built,held;
+    const auto building=Evaluate(s,{},&built);
+    const auto reserving=Evaluate(s,{},&held,0,0,0,true);
+    std::cout<<"Counter space: building income="<<building[4]<<" reserved="<<reserving[4]<<" plantings="<<built.planted<<"/"<<held.planted<<"\n";
+    check(built.planted==1 && held.planted==0 && building[4]>reserving[4] && reserving[4]==0,
+        "reserving a legal counter cell avoids invented safety from automatically filling it");
+    Weights weights{}; weights[4]=1;
+    const auto robust=Search(s,weights,42);
+    check(robust.construction.counterSpaceReserved && robust.features[4]==0,
+        "complete plan comparison includes the legal counter-first player response");
+    s.playerSun=0;
+    const auto poor=Evaluate(s,{},nullptr,0,0,0,true);
+    check(poor[4]>0,"a player without sun cannot invent a bomb and denies no genuine development window");
+    Plant producer; producer.health=1000; producer.x=0; producer.sunPerSecond=50; s.plants={producer};
+    check(Evaluate(s,{},nullptr,0,0,0,true)[4]==0,"real sun income reopens affordable counterplay during the rollout");
+    s.plants.clear(); s.playerSun=640; s.counters[0].blast.ready=70;
+    check(Evaluate(s,{},nullptr,0,0,0,true)[4]>0,"reserving a cell does not bypass an unavailable counter cooldown");
+    s.counters[0].blast.ready=5; s.counters.clear();
+    check(Evaluate(s,{},nullptr,0,0,0,true)[4]>0,"without the selected counter card the army keeps its genuine income");
+    }
+
 }
