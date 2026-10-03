@@ -271,19 +271,29 @@ def battle_progress(result):
 
 
 def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=False,
-              wall_timeout_seconds=900):
+              wall_timeout_seconds=900, background_commander=False, time_scale=1):
     """Pair scenarios/seeds; wall timeout bounds the visible process, not game time or AI work."""
     if wall_timeout_seconds < 1:
         raise ValueError('Wall timeout must be positive')
+    if background_commander and steps != 0:
+        raise ValueError('Realtime commander validation requires steps=0; keep accelerated training synchronous')
+    if time_scale not in (1, 2) or (time_scale != 1 and not background_commander):
+        raise ValueError('2x game speed requires explicit realtime background validation')
     script = output / (name + '.json')
     commands, jobs = [], []
     for index, weights in enumerate(candidates):
         for case_index, (arena, opponent, seed, seconds) in enumerate(cases):
             result_name = f'candidate_{index}_case_{case_index}'
-            commands += episode_commands(weights, seed, arena, opponent, seconds, result_name, all_zombies)
+            for command in episode_commands(weights, seed, arena, opponent, seconds, result_name, all_zombies):
+                if command['op'] == 'commander_episode' and time_scale != 1:
+                    commands.append({'op': 'set_timescale', 'value': time_scale})
+                    command = dict(command, timeScale=time_scale)
+                commands.append(command)
             jobs.append((index, case_index, result_name))
     commands += [{'op': 'screenshot', 'name': 'final.png'}, {'op': 'quit'}]
     payload = {'muteAudio': True, 'batchStepsPerFrame': steps, 'commands': commands}
+    if background_commander:
+        payload['backgroundCommander'] = True
     artifact_dir = game_dir / 'autotest' / 'out' / name
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     cache = output / (name + '_scores.json')

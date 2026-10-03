@@ -1,0 +1,28 @@
+{
+  "commands": [
+    {"op":"goto_level","level":97,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM","PLANT_ELITE_SCAREDYSHROOM","PLANT_PUMPKINSHELL","PLANT_JALAPENO","PLANT_DOOMSHROOM","PLANT_PLANTERN","PLANT_COLDPINEAPPLE"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":353,"initialEnemyIce":2100,"playerIce":1303,"decisions":39,"decisionRemaining":60,"openingBonusMask":5,"openingBonusSelectionComplete":true}},
+    {"op":"set_sun","value":9000},
+    {"op":"plant","type":"PLANT_ELITE_SCAREDYSHROOM","row":0,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":0,"col":0},
+    {"op":"plant","type":"PLANT_ELITE_SCAREDYSHROOM","row":1,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":1,"col":0},
+    {"op":"plant","type":"PLANT_ELITE_SCAREDYSHROOM","row":2,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":2,"col":0},
+    {"op":"plant","type":"PLANT_ELITE_SCAREDYSHROOM","row":3,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":3,"col":0},
+    {"op":"plant","type":"PLANT_ELITE_SCAREDYSHROOM","row":4,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":4,"col":0},
+    {"op":"plant","type":"PLANT_PLANTERN","row":2,"col":4},
+    {"op":"set_plantern_fuel","value":75},
+    {"op":"set_plantern_gear","gear":"HIGH"},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":1,"delay":20},
+    {"op":"wait_frames","value":30},
+    {"op":"compare_commander_search","name":"comparison"},
+    {"op":"dump_state","name":"unchanged.json"},
+    {"op":"quit"}
+  ]
+}

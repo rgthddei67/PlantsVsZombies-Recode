@@ -1,4 +1,5 @@
 #include <exception>
+#include <chrono>
 #include <cstdlib>
 #if defined(_WIN32)
 #include <Windows.h>
@@ -938,6 +939,61 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("commander_experiment: invalid weights"); return false;
 		}
 		if (cmd.contains("seed")) GameRandom::SetSeed(cmd.at("seed").get<unsigned>());
+		return true;
+	}
+	if (op == "compare_commander_search") {
+		// 一次主线程采样供所有分支重用；计算期间不推进游戏，也不提交任何采购。
+		auto* scene = CurrentGameScene(); auto* board = scene ? scene->GetBoard() : nullptr;
+		const std::string name = cmd.value("name", "search_comparison");
+		if (!board || !IsSafeSnapshotName(name)) { Fail("compare_commander_search: invalid board/name"); return false; }
+		nlohmann::json before;
+		if (!BuildStateJson(op,before)) return false;
+		ColdStorageSearch::Probe probe;
+		board->PlanColdStorageAttack(false,&probe);
+		if (!probe.captured) { Fail("compare_commander_search: no learned snapshot"); return false; }
+		probe.seed += cmd.value("seedOffset",0u); // 同局面的采样敏感性诊断，不消耗正式战斗随机流。
+		nlohmann::json report = {{"seed",probe.seed},{"weights",probe.weights},
+			{"budget",probe.snapshot.budget},{"capitalRiskAllowance",probe.snapshot.capitalRiskAllowance},
+			{"options",probe.snapshot.options.size()},{"branches",nlohmann::json::array()}};
+		for (const double milliseconds : {300.0,600.0,900.0,1800.0,0.0}) for (const bool relaxRisk : {false,true}) {
+			auto state = probe.snapshot;
+			if (relaxRisk) state.capitalRiskAllowance = (std::numeric_limits<float>::max)();
+			const auto begin = std::chrono::steady_clock::now();
+			const auto duration = std::chrono::microseconds(static_cast<long long>(milliseconds*1000));
+			state.timeLimitedSearch = milliseconds>0;
+			state.searchDeadline = begin+duration/6;
+			auto queue = ColdStorageSearch::ReplanCommitted(state,probe.weights,probe.seed ^ 0x91A7u);
+			state.searchDeadline = begin+duration;
+			const auto result = ColdStorageSearch::Search(state,probe.weights,probe.seed);
+			const double elapsed = std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
+			nlohmann::json actions = nlohmann::json::array();
+			for (const auto& action : result.actions) {
+				const auto& option = state.options[action.option];
+				actions.push_back({{"type",option.type},{"row",option.row},{"cost",option.cost},{"delay",action.delay}});
+			}
+			report["branches"].push_back({{"budgetMs",milliseconds},{"relaxCumulativeRisk",relaxRisk},
+				{"elapsedMs",elapsed},{"timeLimited",result.timeLimited},{"evaluated",result.evaluated},
+				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
+				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
+				{"precisionTargetID",result.precisionTargetID},
+				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
+				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
+				{"expanded",result.expandedForecast},{"precisionEvaluated",result.precisionEvaluated},
+				{"queueEvaluated",queue.evaluated},{"actions",actions}});
+		}
+		nlohmann::json after;
+		if (!BuildStateJson(op,after)) return false;
+		// 音乐后台预解码会按墙钟完成；它不属于棋盘，也不由数值搜索驱动。
+		before.erase("adaptiveMusic"); after.erase("adaptiveMusic");
+		if (before != after) {
+			std::ofstream changes(std::filesystem::path(mOutDir)/(name+"_state_diff.json"));
+			changes << nlohmann::json::diff(before,after).dump(2);
+			Fail("compare_commander_search: mutated board state"); return false;
+		}
+		report["boardUnchanged"] = true;
+		std::ofstream output(std::filesystem::path(mOutDir)/(name+".json"));
+		output << report.dump(2); output.flush();
+		if (!output) { Fail("compare_commander_search: write failed"); return false; }
 		return true;
 	}
 	if (op == "commander_forecast_options") {

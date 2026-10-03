@@ -25,7 +25,7 @@
 
 class GameInfoSaver;
 class BoardPresentation;
-namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; }
+namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; struct Probe; }
 class CardSlotManager;
 class Graphics;
 class Sun;
@@ -298,8 +298,8 @@ public:
 	void InitializeColdStorage();
 	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */
 	void UpdateColdStorage(float deltaTime);
-	/** 采集主线程快照并规划；正式游戏后台计算，显式同步入口供确定性训练/夹具使用。 */
-	void PlanColdStorageAttack(bool background = false);
+	/** 采集主线程快照并规划；probe 非空时只采样到调用方，不改棋盘、规划任务或决策状态。 */
+	void PlanColdStorageAttack(bool background = false, ColdStorageSearch::Probe* probe = nullptr);
 	/** 主线程领取完整后台结果；复核局面、队列身份后才修改事务和付款。 */
 	void PollColdStoragePlan();
 	/** 后台快照的关键局面签名；种铲植物、主动技能、小推车状态变化会使结果失效。 */

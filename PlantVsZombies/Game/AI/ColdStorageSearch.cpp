@@ -44,6 +44,9 @@ constexpr float kConstructionInterval = 2.0f; // 玩家模型两次建设决策�
 constexpr int kConstructionPlantLimit = 128; // 单次推演的植物容量，含已毁植物，约束新增对象开销
 constexpr int kPortfolioActions = ColdStorageDeploymentRules::MaximumCapacity; // 完整编队覆盖正式可用容量，仍受当前预算和剩余名额限制
 constexpr int kPortfolioTrials = 192; // 第二版固定评估预算，含不同规模、同类/混编和错峰方案
+constexpr int kInitialSearchBudgetPercent = 45; // 实时编队阶段先给随机探索的时间比例，余量留给路线和增援
+constexpr int kRouteSearchBudgetPercent = 65; // 独立路线比较累计用时占比，不能耗尽后续组合搜索
+constexpr int kFormationSearchBudgetPercent = 65; // 技能可用时编队搜索占总剩余预算比例，余量比较清除与跟进
 constexpr float kPortfolioDelay = 60; // 第二版允许跨过一轮反制冷却的出生时域，游戏秒
 constexpr float kPortfolioHorizon = 120; // 最晚队员也有完整交战窗口，游戏秒；产冰仍只计前 60 秒
 constexpr int kForecastSummonLimit = 64; // 一次推演新增小鬼数量上限，不改变正式召唤上限
@@ -1120,16 +1123,19 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve, float 
 	const float blastLoss = std::max(0.0f,plan[6]-baseline[6]);
 	const float surviving = std::clamp(plan[3]-baseline[3],0.0f,spent);
 	const float netLoss = std::max(0.0f,spent-cash-surviving);
+	const float pressure = result.opponentScore > 0
+		? std::max(0.0f,result.baselineOpponentAssets-result.opponentAssets) : 0;
 	// 单轮小额诱饵不能无限重复享受豁免；已兑现净亏损会消耗试错额度，生产/击杀盈利可重新补回。
 	// 有效前排按幸存资产保留价值，避免要求每个破阵准备步骤都立即现金盈利。
-	if (netLoss > riskAllowance && netLoss > spent*kCapitalLossFraction) return true;
+	// 历史亏损不能永久封死有利交换：小额进攻若让对方比等待时额外损失更多资产，仍值得比较。
+	// 这只抵扣本案的试错风险，不增加己方钱包/累计额度；大额投资仍走下方现金回本检查。
+	if (std::max(0.0f,netLoss-pressure) > riskAllowance && netLoss > spent*kCapitalLossFraction) return true;
 	// 制冰和击杀才是可再投资的现金；已有部队收入、残存兵价与学到的偏好不能冒充新增现金。
 	if (spent <= budget*kLargeInvestmentFraction && budget-spent >= reserve) return false;
 	// 风险属于新增投资本身；用整个钱包作分母，会让富裕时的大额送死方案逃过现金回本检查。
 	// 普通火力打光部队同样会耗尽本金，不能只查灰烬；幸存兵力仍可推进和保护后续生产。
 	const float lostCapital = std::max(blastLoss,netLoss);
 	if (lostCapital > spent*kCapitalLossFraction && cash < spent) return true;
-	const float pressure = result.opponentScore > 0 ? result.baselineOpponentAssets-result.opponentAssets : 0;
 	return cash+plan[1]-baseline[1]+pressure < spent;
 }
 
@@ -2285,9 +2291,10 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
     // 小队阶段最多占用剩余预算的一半，为必要的整队长时域重搜留下空间。
     const auto begin=std::chrono::steady_clock::now();
     const auto explorationDeadline=s.searchVersion==1 ? begin+(s.searchDeadline-begin)/2 : s.searchDeadline;
+    auto phaseDeadline=begin+(explorationDeadline-begin)*kInitialSearchBudgetPercent/100;
     bool timeLimited=false;
     const auto withinBudget=[&]() {
-        const bool allowed=!s.timeLimitedSearch || std::chrono::steady_clock::now()<explorationDeadline;
+        const bool allowed=!s.timeLimitedSearch || std::chrono::steady_clock::now()<phaseDeadline;
         timeLimited|=!allowed;
         return allowed;
     };
@@ -2431,6 +2438,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		if (elite.size() > 8) elite.resize(8);
 	};
 	// 独立增援现有部队，避免把“有收益的单兵”绑定到新购物车中的亏损攻击；已有护卫仍在快照中。
+	// 未用完的阶段时间自然留给后续阶段；完整候选不截断，离线固定次数搜索不受分段影响。
+	phaseDeadline=begin+(explorationDeadline-begin)*kRouteSearchBudgetPercent/100;
 	for (size_t route=0; routeEvaluated<kRouteTrials && withinBudget(); ++route) {
 		bool found = false;
 		for (const auto& group : groups) {
@@ -2443,6 +2452,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		if (!found) break;
 	}
 	// 独立两兵案可以跨过“各自亏损、组合才盈利”的谷底；新能力不需要补搭配白名单。
+	phaseDeadline=explorationDeadline;
 	std::vector<std::pair<int,int>> pairs;
 	if (ActionLimit(s) >= 2) for (int a=0; a<static_cast<int>(groups.size()); ++a)
 		for (int b=a; b<static_cast<int>(groups.size()); ++b)
@@ -2564,6 +2574,13 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 /** 技能与不施法优案同分制比较；先有限选靶，再只为胜出目标重搜一次可支付编队。 */
 Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed) {
     auto state = input;
+    const bool canUsePrecision=input.precisionReady && input.pendingPrecisionID<=0
+        && input.budget>=ColdStorageSkillRules::StrikeIceCost;
+    if (state.timeLimitedSearch && canUsePrecision) {
+        // 同步训练能走到清除/跟进，实时搜索也必须为它留下比较机会，不能等编队耗尽全部预算。
+        const auto begin=std::chrono::steady_clock::now();
+        state.searchDeadline=begin+(input.searchDeadline-begin)*kFormationSearchBudgetPercent/100;
+    }
     // 富余库存应立即比较大队，不能因小队偶有一点收益就永远不进入完整搜索。
     // 已经扩展却仍等待时直接延续完整搜索，避免每次重付小队与大队两套基线的成本。
     // 同一次搜索的行动、等待、技能均使用同一长时域；仍允许便宜小队胜出。
@@ -2574,6 +2591,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
         && (state.budget >= ColdStorageDeploymentRules::GrowthCapital || state.resumePortfolio);
     if (fundedPortfolio) state.searchVersion = 2;
 	auto best = SearchFormation(state,weights,seed);
+    state.searchDeadline=input.searchDeadline;
     best.expandedForecast |= fundedPortfolio;
 	if (SearchTimeExpired(input)) { best.timeLimited=true; return best; }
 	if (!input.precisionReady || input.pendingPrecisionID > 0
@@ -2597,13 +2615,22 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	std::stable_sort(targets.begin(),targets.end(),[](const auto& a,const auto& b) { return a.first > b.first; });
 	if (targets.size() > kPrecisionTargets) targets.resize(kPrecisionTargets);
 	int evaluated = 0;
+	int largestPlan = incumbent.largestPlan;
 	std::mt19937 rng(seed);
 	const auto consider = [&](Result candidate) {
 		++evaluated;
+		largestPlan=std::max(largestPlan,static_cast<int>(candidate.actions.size()));
 		// 即使旧参数没有成本惩罚，也不能免费使用新技能；正式净冰模型已经计费，不重复惩罚。
 		if (!state.netEconomy) candidate.score -= std::max(0.0f,1+incumbent.effectiveWeights[5])*ColdStorageSkillRules::StrikeIceCost;
 		auto without = state; without.precisionTargetID = 0;
-		const auto sameArmy = EvaluatePlan(without,incumbent.effectiveWeights,candidate.actions,baseline.features,baseline.opponentAssets);
+		// 空编队的“不施法”世界就是本轮已算完的同窗等待基线，不为每个目标重复推演。
+		auto sameArmy = candidate.actions.empty() ? baseline
+			: EvaluatePlan(without,incumbent.effectiveWeights,candidate.actions,baseline.features,baseline.opponentAssets);
+		if (candidate.actions.empty()) {
+			// 基线初算以零资产为参考；复用为“不施法”对照时必须归一到自身，不能带入整座植物阵地的负分。
+			sameArmy.baselineFeatures=baseline.features; sameArmy.baselineOpponentAssets=baseline.opponentAssets;
+			sameArmy.opponentScore=0; sameArmy.score=Score(sameArmy.features,incumbent.effectiveWeights);
+		}
 		// 旧权重可能高度奖励“消灭一株”，新技能另核对真实边际回报，不能用击杀/削血双计分抵掉 60 冰。
 		const auto target = std::find_if(state.plants.begin(),state.plants.end(),[&](const Plant& p) { return p.id == candidate.precisionTargetID; });
 		const float targetReward = target == state.plants.end() ? 0 : target->reward;
@@ -2622,10 +2649,12 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 				state.allowWait ? state.capitalRiskAllowance : (std::numeric_limits<float>::max)()))) return;
 		best = std::move(candidate);
 	};
-	for (const auto& target : targets) {
-        if(SearchTimeExpired(state)) { best.timeLimited=true; break; }
+	std::vector<std::vector<std::vector<int>>> targetGroups(targets.size());
+	const auto probeTarget = [&](size_t index, int firstTrial, int endTrial, bool compareBase) {
+		const auto& target=targets[index];
 		state.precisionTargetID = target.second;
-		for (int mode=0; mode<2 && !SearchTimeExpired(state); ++mode) {
+		const int baseModes=state.timeLimitedSearch && incumbent.actions.empty() ? 1 : 2;
+		for (int mode=0; compareBase && mode<baseModes && !SearchTimeExpired(state); ++mode) {
 			auto plan = mode == 0 ? incumbent.actions : std::vector<Action>{};
 			Repair(state,plan);
 			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
@@ -2633,9 +2662,10 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 		// 不施法时的优案可能攻击另一行，或全体等待；先给清除后的破口比较可支付的跟进，
 		// 否则“先清关键输出再跟进任意编队”的联合收益永远进不了最后的重搜。
 		const auto plant = std::find_if(state.plants.begin(),state.plants.end(),[&](const Plant& p) { return p.id == target.second; });
-		if (plant == state.plants.end()) continue;
-		const auto followups = LegalOptionGroups(state,rng);
-		for (int trial=0; trial<kPrecisionFollowupTrials && !followups.empty() && !SearchTimeExpired(state); ++trial) {
+		if (plant == state.plants.end()) return;
+		auto& followups=targetGroups[index];
+		if (followups.empty()) followups=LegalOptionGroups(state,rng);
+		for (int trial=firstTrial; trial<endTrial && !followups.empty() && !SearchTimeExpired(state); ++trial) {
 			// 清除所在行只是候选落点；跟进的类型和数量不按经济、肉盾、狙击能力筛选。
 			std::vector<Action> plan;
 			const int count = std::min(ActionLimit(state),trial%2 ? 2 : 1);
@@ -2654,11 +2684,25 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 			if (!state.allowWait && !plan.empty()) plan.front().delay = 0;
 			consider(EvaluatePlan(state,incumbent.effectiveWeights,std::move(plan),baseline.features,baseline.opponentAssets));
 		}
+	};
+	if (state.timeLimitedSearch) {
+		// 每个目标先试少量跟进再加深，不能把实时预算全花在第一个目标的十六种变体上。
+		// 先比较任意双兵协作，再比较单兵；名单、落点和最终购买仍由同一评分自由决定。
+		for (int pass=0; pass<kPrecisionFollowupTrials && !SearchTimeExpired(state); ++pass)
+			for (size_t index=0; index<targets.size() && !SearchTimeExpired(state); ++index) {
+				const int trial=pass<2 ? 1-pass : pass;
+				probeTarget(index,trial,trial+1,pass==0);
+			}
+	} else {
+		// 不限时训练保留原来的共同随机数顺序，单独比较实时调度的影响。
+		for (size_t index=0; index<targets.size(); ++index)
+			probeTarget(index,0,kPrecisionFollowupTrials,true);
 	}
 	if (best.precisionTargetID > 0 && !SearchTimeExpired(state)) {
 		state.precisionTargetID = best.precisionTargetID;
 		const auto joint = SearchFormation(state,weights,seed);
 		evaluated += joint.evaluated;
+		largestPlan=std::max(largestPlan,joint.largestPlan);
 		consider(EvaluatePlan(state,incumbent.effectiveWeights,joint.actions,baseline.features,baseline.opponentAssets));
 	}
 	best.precisionEvaluated = evaluated;
@@ -2666,6 +2710,16 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	best.effectiveWeights = incumbent.effectiveWeights; best.stateInputs = incumbent.stateInputs;
 	best.expandedForecast = incumbent.expandedForecast;
 	best.candidates = incumbent.candidates; // 统计窗口只包含精准清除前的编队搜索，不能混合不同技能费用的探测。
+	// EvaluatePlan 生成的是单案结果；技能胜出不能把之前确实做过的编队探索统计清零。
+	best.largestPlan=largestPlan;
+	best.capitalRejected=incumbent.capitalRejected;
+	best.routeEvaluated=incumbent.routeEvaluated; best.combinationEvaluated=incumbent.combinationEvaluated;
+	best.cohortEvaluated=incumbent.cohortEvaluated;
+	best.combinationBaseScore=incumbent.combinationBaseScore; best.combinationBestScore=incumbent.combinationBestScore;
+	best.combinationBaseBreach=incumbent.combinationBaseBreach; best.combinationBestBreach=incumbent.combinationBestBreach;
+	best.formationBaseScore=incumbent.formationBaseScore; best.formationScores=incumbent.formationScores;
+	best.formationTested=incumbent.formationTested; best.formationRejected=incumbent.formationRejected;
+	best.formationChosenRow=incumbent.formationChosenRow;
 	best.precisionGain = best.precisionTargetID > 0 ? best.score-incumbent.score : 0;
     best.timeLimited|=incumbent.timeLimited || SearchTimeExpired(state);
 	return best;

@@ -65,6 +65,7 @@
 namespace {
 	constexpr float kPlanningMaxAge = 3.0f; // 后台快照允许的最大游戏时差，秒；超时必须重采
     constexpr double kPlanningWallBudgetMs = 600; // 1倍速下实时搜索的墙钟预算，毫秒；倍速时同比缩短
+	constexpr double kPlanningRecoveryBudgetMs = 1800; // 空场限时等待后的计算上限，按1倍速毫秒计，给3秒过期门禁留余量
 	constexpr float kPlanningSurvivingFraction = .75f; // 原部队剩余有效生命低于快照此比例时重采，避免沿用已被炸掉的护卫
 	/** 只统计主线程入口时间；后台耗时由任务自己计时，不能跨线程调用 Profiler。 */
 	struct PlanningTimer {
@@ -734,19 +735,23 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 }
 
 /** 先决定是否值得增援及本波预算，再在合法候选中组织队伍；未派兵不推进波号。 */
-void Board::PlanColdStorageAttack(bool background)
+void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* probe)
 {
+	if (probe) probe->captured = false;
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned) return;
 	PROFILE_SCOPE("Commander.PlanMain");
-	PlanningTimer timer{mColdStorage.planningMainMaxMs};
-	if (mColdStoragePlanner && mColdStoragePlanner->Busy()) {
+	// 诊断复用正式采样，但统计清零只作用于临时副本，不能扰动正在运行的 AI。
+	auto diagnosticState = probe ? std::make_unique<ColdStorageState>(mColdStorage) : nullptr;
+	auto& s = probe ? *diagnosticState : mColdStorage;
+	PlanningTimer timer{s.planningMainMaxMs};
+	if (!probe && mColdStoragePlanner && mColdStoragePlanner->Busy()) {
 		if (background) return;
 		mColdStoragePlanner->Cancel(); // 显式同步测试/干预不能同时提交一个旧后台结果。
 		mColdStorage.planning = false;
 	}
 	const auto* learnedWeights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get() : nullptr;
+	if (probe && !learnedWeights) return;
 	if (!mColdStorage.pending.empty() && !learnedWeights) return;
-	auto& s = mColdStorage;
 	const bool allUnitsUnlocked = ColdStoragePolicy::AllUnits();
 	// 真实卡槽与预测共用计时速度，不能把卡槽增益套到植物实体技能。
 	const float cardRecharge = static_cast<float>(GetPlantCardRechargeMultiplier());
@@ -1705,6 +1710,11 @@ void Board::PlanColdStorageAttack(bool background)
 				context[7] += p.health / 4000;
 		}
 		const auto seed = 0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed);
+		if (probe) {
+			probe->snapshot = std::move(search); probe->weights = *weights; probe->seed = seed;
+			probe->captured = true;
+			return;
+		}
 		std::vector<std::uint64_t> tickets;
 		for (const auto& paid : s.pending) tickets.push_back(paid.ticket);
 		if (background) {
@@ -1713,8 +1723,14 @@ void Board::PlanColdStorageAttack(bool background)
 			mColdStoragePlanningAt = s.elapsed;
 			mColdStoragePlanningVersion = requestedVersion;
 			mColdStoragePlanningStamp = ColdStoragePlanningStamp();
+			const double scale=std::max(1.0f,DeltaTime::GetTimeScale());
+			double budgetMs=kPlanningWallBudgetMs;
+			// 空场连续因计算用尽而等待时加深搜索；有在场/在途兵力或已经出手就恢复常规预算。
+			// 只增加后台计算机会，不放宽旧快照门禁，也不把等待时间转成购买奖励。
+			if (resumePortfolio && s.planningTimeLimited && search.current.empty() && s.pending.empty())
+				budgetMs=std::min(kPlanningRecoveryBudgetMs,std::max(kPlanningWallBudgetMs,s.planningBudgetMs*scale)*2);
 			s.planning = mColdStoragePlanner->Start(std::move(search),*weights,seed,
-                kPlanningWallBudgetMs/std::max(1.0f,DeltaTime::GetTimeScale()));
+				budgetMs/scale);
 			if (s.planning) ++s.planningStarted;
 			// 启动失败留待下一次重试，不在渲染帧中突然回退执行昂贵的完整搜索。
 			s.attackDeferred = true;

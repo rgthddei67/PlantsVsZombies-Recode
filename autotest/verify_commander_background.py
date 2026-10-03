@@ -37,7 +37,10 @@ assert not ice['resumed']['planning'] and ice['resumed']['planningApplied'] == 1
 sync = read(stress, 'synchronous')['coldStorage']
 background = read(stress, 'background')['coldStorage']
 assert background['planningApplied'] == 1 and background['planningDiscarded'] == 0
-assert background['candidatesEvaluated'] == sync['candidatesEvaluated']
+if not background['planningTimeLimited']:
+    assert background['candidatesEvaluated'] == sync['candidatesEvaluated']
+else:
+    assert background['planningBudgetMs'] > 0 and background['candidatesEvaluated'] > 0
 assert background['planningMainMaxMs'] < sync['planningMainMaxMs'] * .4
 print('No early/duplicate payment; stale plans discarded; load/scene/pause boundaries passed.')
 print(f"Dense scenario main-thread decision: {sync['planningMainMaxMs']:.3f} ms sync -> "

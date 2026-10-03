@@ -1207,6 +1207,16 @@ int main()
 	check(std::abs(RemainingCapitalRisk(1000,1000)-350)<.01f,"fresh treasury has bounded experimental loss capacity");
 	check(std::abs(RemainingCapitalRisk(1000,700)-50)<.01f,"realized loss consumes the cumulative allowance");
 	check(RemainingCapitalRisk(1000,600)==0,"successive small losses can exhaust the allowance before the wallet is empty");
+	Result attrition; attrition.actions={{0,0}}; attrition.features[5]=84; attrition.features[0]=49;
+	attrition.opponentScore=172; attrition.baselineOpponentAssets=9907; attrition.opponentAssets=9735;
+	check(!ShouldConserveCapital(attrition,353,48,0),
+		"depleted historical risk does not veto a small trade that costs the opponent more than the incremental loss");
+	attrition.opponentAssets=attrition.baselineOpponentAssets;
+	check(ShouldConserveCapital(attrition,353,48,0),"no extra opponent loss cannot justify repeated cash-losing probes");
+	attrition.opponentAssets=9735; attrition.features[5]=220;
+	check(ShouldConserveCapital(attrition,353,48,0),"opponent attrition does not waive a large cash-losing investment check");
+	attrition.features[5]=84; attrition.opponentScore=0;
+	check(ShouldConserveCapital(attrition,353,48,0),"disabled opponent valuation cannot invent attrition credit");
 	check(RemainingCapitalRisk(1000,1200)>RemainingCapitalRisk(1000,1000),"earned cash and surviving paid assets replenish risk capacity");
 	check(ShouldConserveCapital(capital,400,48,0),"spent loss capacity blocks another individually small doomed purchase");
 	capital.features[3]=24;
@@ -1439,6 +1449,8 @@ int main()
 	Option future; future.type=1; future.cost=12; future.unit=worker; future.unit.id=0;
 	joint.options={future};
 	const auto followed=Search(joint,InitialWeights,91);
+	check(followed.largestPlan>=static_cast<int>(followed.actions.size()) && followed.routeEvaluated>0,
+		"a winning precision plan retains the preceding formation coverage diagnostics");
 	check(followed.precisionTargetID==1 && followed.actions.size()==1 && followed.features[4]>0,
 		"precision jointly evaluates a new same-row worker even when the no-strike optimum waits");
 	s.precisionTargetID=1; ConstructionStats stats;

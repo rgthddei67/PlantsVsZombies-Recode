@@ -359,6 +359,13 @@ struct Result {
 bool ValidWeights(const Weights& weights);
 /** 提取只读局势；baseline 的生产仍使用统一的未来 60 秒窗口。 */
 StateFeatures DescribeState(const Snapshot& state, const Weights& baseline);
+/** 只读诊断的一次采样；仅在调用线程内使用，模型借用当前策略，不能跨重载保留。 */
+struct Probe {
+	Snapshot snapshot;
+	Weights weights{};
+	std::uint32_t seed = 0;
+	bool captured = false;
+};
 /** 在固定数值域内计算当前局势的评分权重；无模型时原样返回基础权重。 */
 Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model);
 /** 将经济项换成同一冰价的净收益；支出系数不可独立变异为奖励，残存投资至多按原价计。 */
@@ -369,7 +376,7 @@ float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 用已注入资本及当前现金/付费兵力资产计算剩余试错额度，不把对方损失当作己方资本。 */
 float RemainingCapitalRisk(float fundedCapital, float currentCapital);
-/** 大额及累计亏损采购须保留可续战资本；新增现金与幸存兵力可回本，突破仍优先。 */
+/** 大额采购须保留可续战资本；小额有利交换可用对方相对等待的额外资产损失抵扣本案风险，不能补钱包。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
 /** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3固定挡位，4随燃料切挡，无雾关灯。

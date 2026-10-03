@@ -353,6 +353,12 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent) 
 
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
+	const int timeScale = command.value("timeScale",1);
+	// 同步训练仍固定 1 倍；显式实时验收可用正式 2 倍物理步和对应后台预算，结果必须标记。
+	if ((timeScale != 1 && timeScale != 2)
+		|| (timeScale != 1 && (!BackgroundCommander() || BatchStepsPerFrame() != 0))) {
+		Fail("commander_episode: 2x requires realtime background validation"); return false;
+	}
 	const auto opponent = command.value("opponent", std::string("bomb"));
 	const int refillBelow = command.value("sunRefillBelow",-1);
 	const int refillTo = command.value("sunRefillTo",MAX_SUN);
@@ -367,8 +373,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (!board || !board->IsColdStorage()) { Fail("commander_episode requires cold storage"); return false; }
 	const bool terminal = board->mBoardState == BoardState::LOSE_GAME || board->mTrophySpawned;
 	// 正式判负会暂停时钟；先接收胜负，再检查比赛中是否被改速或手动暂停。
-	if (!terminal && (DeltaTime::GetTimeScale() != 1 || DeltaTime::IsPaused())) {
-		Fail("commander_episode requires 1x fixed steps"); return false;
+	if (!terminal && (DeltaTime::GetTimeScale() != timeScale || DeltaTime::IsPaused())) {
+		Fail("commander_episode: speed differs from declared timeScale"); return false;
 	}
 	if (mEpisodeTicks < 0) {
 		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
@@ -379,7 +385,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	// 普通观测每秒一次，正式胜负在每个逻辑步立即收尾。
 	Json full;
 	if (terminal || mEpisodeTicks % 60 == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
-	else { ++mEpisodeTicks; return false; }
+	else { mEpisodeTicks += timeScale; return false; }
 	if (!full.contains("coldStorage")) { Fail("commander_episode requires cold storage"); return false; }
 	const auto& ice = full.at("coldStorage");
 	// 每次决策留一份紧凑证据，包括观望；避免十秒采样漏掉中间的高额采购。
@@ -428,7 +434,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (ended || mEpisodeTicks >= ticks) {
 		const auto name = command.value("name", std::string("episode"));
 		if (name.empty() || name.find_first_of("/\\:") != std::string::npos) { Fail("invalid episode filename"); return false; }
-		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},
+		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},{"timeScale",timeScale},
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
 			{"playerActions",command.value("playerActions",true)},
 			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
@@ -455,6 +461,6 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			}
 	}
 	mInteractiveResults.clear(); // 训练只保留周期状态，避免把整场收阳光回执积累在内存中。
-	++mEpisodeTicks;
+	mEpisodeTicks += timeScale;
 	return false;
 }

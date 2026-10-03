@@ -87,6 +87,11 @@
     {"op":"dump_state","name":"continued_plan.json"},
     {"op":"assert_state","path":"coldStorage.searchLargestPlan","atLeast":9},
     {"op":"assert_state","path":"coldStorage.planningApplied","atLeast":2},
-    {"op":"assert_state","path":"coldStorage.planningDiscardReasons.age","equals":0}
+    {"op":"assert_state","path":"coldStorage.planningDiscardReasons.age","equals":0},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_NORMAL","row":0,"delay":60},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":30},
+    {"op":"assert_state","path":"coldStorage.planningBudgetMs","equals":300},
+    {"op":"dump_state","name":"reset_budget.json"}
   ]
 }

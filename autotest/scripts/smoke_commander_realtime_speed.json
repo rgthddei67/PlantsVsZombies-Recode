@@ -1,0 +1,14 @@
+{
+  "backgroundCommander": true,
+  "commands": [
+    {"op":"goto_level","level":97,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM","PLANT_MARIGOLD","PLANT_DOOMSHROOM"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_timescale","value":2},
+    {"op":"commander_episode","opponent":"growth","seconds":4,"timeScale":2,"playerActions":false,"name":"double"},
+    {"op":"set_timescale","value":1},
+    {"op":"commander_episode","opponent":"growth","seconds":4,"playerActions":false,"name":"normal"},
+    {"op":"quit"}
+  ]
+}
