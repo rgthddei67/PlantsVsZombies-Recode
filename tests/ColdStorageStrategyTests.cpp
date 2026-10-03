@@ -2228,4 +2228,48 @@ int main()
     check(Evaluate(s,{},nullptr,0,0,0,true)[4]>0,"without the selected counter card the army keeps its genuine income");
     }
 
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.playerIce=40;
+    s.station.controls[WeatherStationRules::FOG].value=4; s.stationFogAlpha.fill(255);
+    Unit worker; worker.body.x=700; worker.body.health=500; worker.body.purchaseCost=24;
+    worker.body.economic=true; worker.productionRemaining=3.6f; s.current={worker};
+    Plant shooter; shooter.x=0; shooter.health=10000; shooter.dps=100; shooter.edible=false; s.plants={shooter};
+    ConstructionStats keptStats,clearStats;
+    const auto kept=Evaluate(s,{},&keptStats);
+    const auto cleared=Evaluate(s,{},&clearStats,0,0,0,false,true);
+    std::cout<<"Fog counter: kept="<<kept[4]<<" cleared="<<cleared[4]<<" cost="<<clearStats.iceSpent<<"\n";
+    check(kept[4]>cleared[4] && cleared[4]>0 && clearStats.stationFogCounters==1 && clearStats.iceSpent==40,
+        "paid fog clearing denies prolonged worker shelter only after the real warning window");
+    check(s.playerIce==40 && s.station.controls[1].value==4 && s.station.controls[1].pending==-1,
+        "fog counter rollout cannot mutate the live wallet or device");
+    Weights income{}; income[4]=1;
+    const auto robust=Search(s,income,42);
+    check(robust.construction.stationFogCounters==1 && robust.features[4]==cleared[4],
+        "free search compares paid clearing with keeping fog in a complete player world");
+    s.playerIce=39;
+    check(Evaluate(s,{},&clearStats,0,0,0,false,true)[4]==kept[4] && clearStats.stationFogCounters==0,
+        "unaffordable fog clearing preserves the genuine worker development window");
+    s.playerIce=40; s.station.controls[1].protection=100;
+    check(Evaluate(s,{},&clearStats,0,0,0,false,true)[4]==kept[4] && clearStats.stationFogCounters==0,
+        "fog protection cannot be bypassed by the player forecast");
+    s.station.controls[1].protection=10;
+    check(Evaluate(s,{},nullptr,0,0,0,false,true)[4]>cleared[4],
+        "remaining protection delays clearing and extends actual productive time");
+    s.station.controls[1].protection=0; s.station.controls[1].pending=0; s.station.controls[1].warning=8;
+    Evaluate(s,{},&clearStats,0,0,0,false,true);
+    check(clearStats.stationFogCounters==0 && clearStats.iceSpent==0,"already paid fog clearing is never charged twice");
+    s.station.controls[1].pending=-1; s.stationJammed=100;
+    check(Evaluate(s,{},&clearStats,0,0,0,false,true)[4]==cleared[4] && clearStats.stationFogCounters==1,
+        "blackout hides forecasts but does not hide present fog or forbid a legal control");
+    s.stationJammed=0; s.station.controls[2].value=1; s.stationCharge=80; s.plants[0].assetValue=100;
+    Evaluate(s,{},&clearStats,0,0,0,false,true);
+    check(clearStats.stationCounters==0 && clearStats.iceSpent==40,"fog and charge counters cannot spend the same forty ice twice");
+    s.station.controls[2].value=0; s.stationCharge=0;
+    s.plants.clear(); s.current[0].body.economic=false; s.current[0].body.speed=10;
+    Weights advance{}; advance[7]=1;
+    check(Search(s,advance,42).construction.stationFogCounters==0,
+        "player keeps slowing fog when removing it would only help the attacker");
+    }
+
 }

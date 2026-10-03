@@ -384,6 +384,7 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 	candidate.score += candidate.opponentScore;
 	// 不把玩家一定会尽早交牌/释放蓄满技能当成进攻收益。比较完整且各自合法的一次推演，
 	// 不能逐项拼接两个世界的最坏损失，也不能让玩家凭空多出冷却或资源。
+	float selectedCounterHold=0, selectedStoredHold=0, selectedStrikeHold=0;
 	float storedHold = kStoredCounterSeconds;
 	// 长队列还能分批出生到一分钟之后。等待对照随已知的己方出生计划延长，
 	// 避免新兵仅靠晚于固定等待窗口就被误判为已经骗掉了预存毁灭。
@@ -407,7 +408,12 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
 		patient.opponentScore = s.opponentWeight*(baselineOpponentAssets-patient.opponentAssets);
 		patient.score = Score(patient.features,weights)+patient.opponentScore;
 		patient.counterHoldSeconds = hold;
-		if (BetterOutcome(candidate,patient)) candidate = std::move(patient);
+		if (BetterOutcome(candidate,patient)) {
+            selectedCounterHold=kPatientCounterSeconds;
+            selectedStoredHold=hold == kPatientCounterSeconds ? 0 : storedHold;
+            selectedStrikeHold=hold;
+            candidate = std::move(patient);
+        }
 	}
     // 玩家可以保留炸弹落点与资金，而不是机械补满所有空格。每个姿态都是独立合法的
     // 完整世界：同一钱包/冷却/视野和既有阵地，不能拼接不同世界的伤害或虚构反制资源。
@@ -423,7 +429,31 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         counterFirst.opponentScore=s.opponentWeight*(baselineOpponentAssets-counterFirst.opponentAssets);
         counterFirst.score=Score(counterFirst.features,weights)+counterFirst.opponentScore;
         counterFirst.counterHoldSeconds=hold;
-        if(BetterOutcome(candidate,counterFirst)) candidate=std::move(counterFirst);
+        if(BetterOutcome(candidate,counterFirst)) {
+            selectedCounterHold=hold; selectedStoredHold=storedHold; selectedStrikeHold=hold;
+            candidate=std::move(counterFirst);
+        }
+    }
+
+    // 只给当前选出的完整玩家姿态增加一次“付费关雾”对照，控制搜索成本。
+    // 关雾也会解除敌方减速；只有整个世界对玩家更有利时才采用，不能只抽走工人的保护。
+    const bool mayHaveFog=s.station.controls[WeatherStationRules::FOG].value>0
+        || s.station.controls[WeatherStationRules::FOG].pending>0
+        || std::any_of(candidate.actions.begin(),candidate.actions.end(),[&](const Action& a) {
+            return s.options[a.option].device==WeatherStationRules::FOG && s.options[a.option].setting>0;
+        });
+    if(s.weatherStation && mayHaveFog) {
+        Result cleared;
+        cleared.actions=candidate.actions; cleared.precisionTargetID=s.precisionTargetID;
+        cleared.features=Evaluate(s,cleared.actions,&cleared.construction,selectedCounterHold,
+            selectedStoredHold,selectedStrikeHold,candidate.construction.counterSpaceReserved,true);
+        Calibrate(s,cleared);
+        cleared.baselineFeatures=baseline; cleared.baselineOpponentAssets=baselineOpponentAssets;
+        cleared.opponentAssets=cleared.construction.opponentAssets;
+        cleared.opponentScore=s.opponentWeight*(baselineOpponentAssets-cleared.opponentAssets);
+        cleared.score=Score(cleared.features,weights)+cleared.opponentScore;
+        cleared.counterHoldSeconds=candidate.counterHoldSeconds;
+        if(BetterOutcome(candidate,cleared)) candidate=std::move(cleared);
     }
 
 	for (const auto& action : candidate.actions) {
@@ -1578,7 +1608,7 @@ struct StationProjection {
         for(const size_t i:grounding) DamagePlant(plants[i],100,true,f);
     }
     /** 只对真实存活单位推进充电/干扰；黑障内对手只能使用先前已观察的电量趋势。 */
-    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave) {
+    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave,bool clearFogWhenReady) {
         if(!s.weatherStation) return;
         for(auto& c:state.controls) WeatherStationRules::Advance(c,kStep);
         jammed=std::max(0.0f,jammed-kStep);
@@ -1591,6 +1621,15 @@ struct StationProjection {
                 unit.jammerRemaining-=kStep; unit.body.stopped=std::max(unit.body.stopped,kStep);
                 if(unit.jammerRemaining<=0) { jammed=std::min(300.0f,jammed+30); unit.jammer=false; ++stats.stationJams; }
             }
+        }
+        // 当前雾势本身可见，黑障只屏蔽预告。等待设备解锁且余额足够后付款，
+        // 不读取隐藏预告抢先操作；与炸弹、商店和关雷荷共用同一个冰块钱包。
+        auto& fogDevice=state.controls[WeatherStationRules::FOG];
+        const int fogCost=WeatherStationRules::Cost(WeatherStationRules::FOG,0);
+        if(clearFogWhenReady && playerIce>=fogCost
+            && WeatherStationRules::CanChange(fogDevice,WeatherStationRules::FOG,0)) {
+            fogDevice.pending=0; fogDevice.warning=WeatherStationRules::WarningSeconds; fogDevice.player=true;
+            playerIce-=fogCost; stats.iceSpent+=fogCost; ++stats.stationFogCounters;
         }
         const int fog=state.controls[1].value;
         const int left=fog==0 ? s.columns : s.columns-3-fog;
@@ -1653,7 +1692,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1808,7 +1847,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
-		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave);
+		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady);
 		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
 		if (s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
 			float restoredHealth=0;
