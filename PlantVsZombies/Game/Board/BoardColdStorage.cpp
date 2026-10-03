@@ -2281,6 +2281,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchFeatures = result.features; s.searchBaselineFeatures = result.baselineFeatures; ++s.searchSerial;
 	s.searchElapsed = s.elapsed; s.searchRawProduction = result.rawProduction;
 	s.searchCounterHoldSeconds = result.counterHoldSeconds;
+	s.searchPlanternResponseGear = result.construction.planternResponseGear;
 	s.searchFogCounters = result.construction.stationFogCounters;
 	s.searchCounterSpaceReserved = result.construction.counterSpaceReserved;
 	s.searchRowStrikeCount = static_cast<int>(search.rowStrikes.size());

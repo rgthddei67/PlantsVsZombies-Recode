@@ -1,5 +1,5 @@
 {
-  "description": "真人中盘阵容的可重现近似夹具：满阵、大雾、2倍速，后台结果应及时通过真实提交门禁。",
+  "description": "真人中盘阵容的可重现近似夹具：满阵、大雾、可主动开灯的路灯花、2倍速，后台结果应及时通过真实提交门禁。",
   "commands": [
     {
       "op": "goto_level",
@@ -18,7 +18,7 @@
         "PLANT_ICESTORAGENUT",
         "PLANT_DAWNLOTUS",
         "PLANT_JALAPENO",
-        "PLANT_ICESHROOM"
+        "PLANT_PLANTERN"
       ]
     },
     {
@@ -170,7 +170,7 @@
     },
     {
       "op": "plant",
-      "type": "PLANT_SUNSHROOM",
+      "type": "PLANT_PLANTERN",
       "row": 2,
       "col": 4
     },
@@ -294,6 +294,8 @@
       "row": 0,
       "col": 2
     },
+    {"op":"set_plantern_fuel","value":52},
+    {"op":"set_plantern_gear","gear":"OFF"},
     {
       "op": "station_control",
       "device": 1,

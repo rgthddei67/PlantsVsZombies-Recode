@@ -435,25 +435,35 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         }
     }
 
-    // 只给当前选出的完整玩家姿态增加一次“付费关雾”对照，控制搜索成本。
-    // 关雾也会解除敌方减速；只有整个世界对玩家更有利时才采用，不能只抽走工人的保护。
+    // 在已选完整反制姿态上比较有限的照明策略，再比较付费关雾；不展开所有组合。
+    // 每个世界独立结算燃料、视野、移速和共享钱包，不拼接多个挡位的最佳效果。
     const bool mayHaveFog=s.station.controls[WeatherStationRules::FOG].value>0
         || s.station.controls[WeatherStationRules::FOG].pending>0
         || std::any_of(candidate.actions.begin(),candidate.actions.end(),[&](const Action& a) {
             return s.options[a.option].device==WeatherStationRules::FOG && s.options[a.option].setting>0;
         });
     if(s.weatherStation && mayHaveFog) {
-        Result cleared;
-        cleared.actions=candidate.actions; cleared.precisionTargetID=s.precisionTargetID;
-        cleared.features=Evaluate(s,cleared.actions,&cleared.construction,selectedCounterHold,
-            selectedStoredHold,selectedStrikeHold,candidate.construction.counterSpaceReserved,true);
-        Calibrate(s,cleared);
-        cleared.baselineFeatures=baseline; cleared.baselineOpponentAssets=baselineOpponentAssets;
-        cleared.opponentAssets=cleared.construction.opponentAssets;
-        cleared.opponentScore=s.opponentWeight*(baselineOpponentAssets-cleared.opponentAssets);
-        cleared.score=Score(cleared.features,weights)+cleared.opponentScore;
-        cleared.counterHoldSeconds=candidate.counterHoldSeconds;
-        if(BetterOutcome(candidate,cleared)) candidate=std::move(cleared);
+        const auto compareEnvironment=[&](bool clearFog,int lampGear) {
+            Result response;
+            response.actions=candidate.actions; response.precisionTargetID=s.precisionTargetID;
+            response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,
+                selectedStoredHold,selectedStrikeHold,candidate.construction.counterSpaceReserved,clearFog,lampGear);
+            Calibrate(s,response);
+            response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
+            response.opponentAssets=response.construction.opponentAssets;
+            response.opponentScore=s.opponentWeight*(baselineOpponentAssets-response.opponentAssets);
+            response.score=Score(response.features,weights)+response.opponentScore;
+            response.counterHoldSeconds=candidate.counterHoldSeconds;
+            if(BetterOutcome(candidate,response)) candidate=std::move(response);
+        };
+        const bool hasLamp=std::any_of(s.plants.begin(),s.plants.end(),[](const Plant& p) {
+            return p.plantern && p.health>0;
+        }) || std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c) {
+            return c.plant.plantern;
+        });
+        if(hasLamp) for(int gear=0;gear<=static_cast<int>(PlanternGear::HIGH);++gear)
+            compareEnvironment(false,gear);
+        compareEnvironment(true,candidate.construction.planternResponseGear);
     }
 
 	for (const auto& action : candidate.actions) {
@@ -1608,7 +1618,7 @@ struct StationProjection {
         for(const size_t i:grounding) DamagePlant(plants[i],100,true,f);
     }
     /** 只对真实存活单位推进充电/干扰；黑障内对手只能使用先前已观察的电量趋势。 */
-    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave,bool clearFogWhenReady) {
+    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave,bool clearFogWhenReady,int planternResponseGear) {
         if(!s.weatherStation) return;
         for(auto& c:state.controls) WeatherStationRules::Advance(c,kStep);
         jammed=std::max(0.0f,jammed-kStep);
@@ -1639,6 +1649,16 @@ struct StationProjection {
             for(auto it=p.lightDeliveries.begin();it!=p.lightDeliveries.end();) {
                 if(it->first<=t) { p.lightFuel=std::min(PlanternRules::FuelCapacity,p.lightFuel+it->second); it=p.lightDeliveries.erase(it); }
                 else ++it;
+            }
+            // 只按已经出现的雾开灯，无雾关灯节油；不偷看暗区僵尸坐标或未来出生时间。
+            // 每个候选固定一个有雾挡位，保留各挡真实覆盖/耗油差异；切挡不移动光源。
+            if(planternResponseGear>=0) {
+                const auto gear=static_cast<PlanternGear>(fog>0 ? planternResponseGear : 0);
+                if(p.lightGear!=gear) {
+                    p.lightGear=gear;
+                    for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c)
+                        p.illumination[r*s.columns+c]=PlanternRules::Illumination(gear,r-p.row,c-p.column);
+                }
             }
             // 停机暂停植物更新和耗油，但正式照明仍由挡位、燃料与存活状态决定。
             if(p.shutdownUntil<=t) p.lightFuel=std::max(0.0f,p.lightFuel-PlanternRules::BurnRate(p.lightGear,
@@ -1692,7 +1712,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -1752,6 +1772,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (size_t i=0;i<units.size();++i) if (units[i].clock.present) clockSources.push_back(i);
 	ConstructionStats constructionStats;
 	constructionStats.counterSpaceReserved=reserveCounterSpace;
+	constructionStats.planternResponseGear=planternResponseGear;
 	// 同速假设会把先出的前排当成永久掩护。生产案用出生分布的偏快后排/偏慢前排对照，
 	// 已出生单位没有随机范围，保持自己的实际速度；控制、停步、鼓舞仍在后续时间线结算。
 	const bool economicForecast = std::any_of(units.begin(),units.end(),[](const Unit& unit){return unit.body.economic && unit.body.health>0;});
@@ -1847,7 +1868,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		const float previousKills = f[0];
-		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady);
+		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady,planternResponseGear);
 		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
 		if (s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
 			float restoredHealth=0;

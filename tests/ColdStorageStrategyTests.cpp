@@ -2272,4 +2272,50 @@ int main()
         "player keeps slowing fog when removing it would only help the attacker");
     }
 
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.cellWidth=80;
+    s.station.controls[1].value=4; s.station.controls[1].protection=100; s.stationFogAlpha.fill(255);
+    Unit worker; worker.body.row=0; worker.body.x=700; worker.body.health=500;
+    worker.body.purchaseCost=24; worker.body.economic=true; worker.productionRemaining=3.6f; s.current={worker};
+    Plant shooter; shooter.row=0; shooter.x=0; shooter.health=10000; shooter.dps=100; shooter.edible=false;
+    Plant lamp; lamp.plantern=true; lamp.row=2; lamp.column=4; lamp.x=360; lamp.health=300;
+    lamp.lightFuel=52; lamp.lightGear=PlanternGear::OFF; s.plants={shooter,lamp};
+    const auto off=Evaluate(s,{});
+    const auto low=Evaluate(s,{},nullptr,0,0,0,false,false,1);
+    const auto medium=Evaluate(s,{},nullptr,0,0,0,false,false,2);
+    const auto high=Evaluate(s,{},nullptr,0,0,0,false,false,3);
+    check(off[4]==low[4] && off[4]==medium[4] && high[4]<off[4],
+        "switching to III reveals its real thin edge; smaller gears cannot invent coverage");
+    Weights income{}; income[4]=1;
+    const auto response=Search(s,income,42);
+    check(response.construction.planternResponseGear==3 && response.features[4]==high[4],
+        "commander compares opening the fueled but currently switched-off lamp");
+    check(s.plants[1].lightGear==PlanternGear::OFF && s.plants[1].lightFuel==52 && s.plants[1].illumination[8]==0,
+        "projected gear, fuel and footprint never mutate the source lamp");
+    s.plants[1].row=4; s.plants[1].column=0;
+    check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]==off[4],"III cannot illuminate outside its actual position and shape");
+    s.plants[1]=lamp; s.plants[1].lightFuel=0;
+    check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]==off[4],"opening an empty lamp does not conjure fuel");
+    s.plants[1].lightDeliveries={{10,30}};
+    check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]>high[4]
+        && Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]<off[4],"known fuel deliveries light the lamp only after arrival");
+    s.plants[1]=lamp; s.plants[1].health=0;
+    check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]==off[4],"a dead lamp cannot respond to fog");
+    s.plants[1]=lamp; s.plants[1].lightFuel=10; s.plants[0].dps=0;
+    s.current[0].body.health=10000; s.current[0].body.speed=10;
+    s.stationWave=30; const auto early=Evaluate(s,{},nullptr,0,0,0,false,false,3);
+    s.stationWave=31; const auto late=Evaluate(s,{},nullptr,0,0,0,false,false,3);
+    check(early[7]>late[7],"active III response still loses useful light sooner after wave thirty");
+    s.current[0]=worker;
+    s.stationWave=30; s.plants[0].dps=100; s.plants[1]=lamp; s.plants[1].lightFuel=30;
+    s.plants[1].lightGear=PlanternGear::HIGH;
+    for(int r=0;r<s.rows;++r) for(int c=0;c<s.columns;++c)
+        s.plants[1].illumination[r*s.columns+c]=PlanternRules::Illumination(PlanternGear::HIGH,r-2,c-4);
+    s.station.controls[1].value=0; s.station.controls[1].pending=4; s.station.controls[1].warning=30;
+    s.stationFogAlpha.fill(0); s.current[0].body.spawnAt=35;
+    check(Evaluate(s,{},nullptr,0,0,0,false,false,3)[4]<Evaluate(s,{})[4],
+        "player can conserve fuel while clear and relight when fog actually appears before a delayed wave");
+    }
+
 }
