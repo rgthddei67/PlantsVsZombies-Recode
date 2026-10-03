@@ -2488,6 +2488,8 @@ void Board::UpdateColdStorage(float dt)
 		PROFILE_SCOPE("Commander.Spawn");
 		Zombie* z = CreateResolvedWaveZombie(it->type, it->row, static_cast<float>(SCENE_WIDTH) + 40.0f);
 		if (!z) { it->remaining = 1.0f; ++it; continue; }
+		// 付费队列绕过普通 CreateOrQueueWaveZombie，也须执行正式波次的雾火分配；通用召唤仍不携带。
+		AssignMistFuelReward(z);
 		s.refundableCosts.emplace(z->mZombieID, it->cost);
 		z->mSpawnWave = it->wave;
 		++s.deployments;
