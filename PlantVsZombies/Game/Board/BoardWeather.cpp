@@ -2257,6 +2257,9 @@ void Board::EndRain()
 {
 	ClearPendingHeavyRainWarning();
 	StopTyphoon();
+	// 付费天气能提前结束长时雨段，必须先停止发射；在途雨丝仍自然落完。
+	if (g_particleSystem && !mRainVisualEffectName.empty())
+		g_particleSystem->StopEffect(mRainVisualEffectName);
 	BeginWeatherTransition(RainIntensity::CLEAR);
 	mForecastRainIntensity = RainIntensity::CLEAR;
 	mActualForecastRainIntensity = RainIntensity::CLEAR;

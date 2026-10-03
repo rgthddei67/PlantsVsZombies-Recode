@@ -2,12 +2,7 @@
 
 #include "Plant.h"
 
-enum class PlanternGear : int {
-	OFF = 0,
-	LOW = 1,
-	MEDIUM = 2,
-	HIGH = 3,
-};
+#include "PlanternRules.h"
 
 /**
  * 迷雾关卡的唯一照明核心。
@@ -16,8 +11,8 @@ enum class PlanternGear : int {
  */
 class Plantern : public Plant {
 public:
-	static constexpr float FUEL_CAPACITY = 100.0f;
-	static constexpr float INITIAL_FUEL = 25.0f;
+	static constexpr float FUEL_CAPACITY = PlanternRules::FuelCapacity;
+	static constexpr float INITIAL_FUEL = PlanternRules::InitialFuel;
 	static constexpr float LOW_FUEL_THRESHOLD = 10.0f; // 跌破此燃料值时触发一次低燃料警报
 
 	using Plant::Plant;

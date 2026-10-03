@@ -27,20 +27,6 @@ namespace {
 	constexpr float kFogInteriorAlpha = 255.0f;          // 雾区内部格的目标 alpha
 	constexpr float kFogFillRate = 180.0f;               // 雾生成或回流时每游戏秒最多增加的 alpha
 	constexpr float kFogClearRate = 320.0f;              // 台风驱散时每游戏秒最多减少的 alpha
-	constexpr int kPlanternLowBackRadius = 1;              // 一档向房屋侧照亮的格数
-	constexpr int kPlanternLowFrontRadius = 2;             // 一档向僵尸来向照亮的格数
-	constexpr int kPlanternLowVerticalRadius = 1;          // 一档向上下照亮的格数
-	constexpr int kPlanternMediumBaseRadiusX = 3;          // 二档原有主体向左右照亮的格数
-	constexpr int kPlanternMediumVerticalRadius = 2;       // 二档向上下照亮的格数
-	constexpr int kPlanternMediumManhattanLimit = 4;       // 二档主体裁去远角时允许的最大横纵格距和
-	constexpr int kPlanternMediumFrontExtension = 4;       // 二档向僵尸来向新增的最远列格距
-	constexpr int kPlanternMediumFrontHalfHeight = 1;      // 二档新增前沿列向上下延伸的格数
-	constexpr int kPlanternHighBaseRadiusX = 4;            // 三档原有主体向左右照亮的格数
-	constexpr int kPlanternHighVerticalRadius = 3;         // 三档向上下照亮的格数
-	constexpr int kPlanternHighManhattanLimit = 6;         // 三档主体裁去远角时允许的最大横纵格距和
-	constexpr int kPlanternHighFrontExtension = 5;         // 三档向僵尸来向新增的最远列格距
-	constexpr int kPlanternHighFrontHalfHeight = 2;        // 三档新增前沿列向上下延伸的格数
-	constexpr float kPlanternHighEdgeIllumination = 0.72f; // 三档最外圈保留的照明比例
 	constexpr float kSuperFogDispersalRate = 0.28f;      // 超强台风每游戏秒累积的雾驱散比例
 	constexpr float kFogReturnRate = 0.06f;              // 停风后基础雾每游戏秒恢复的驱散比例
 	constexpr float kFogMaximumDriftX = 180.0f;          // 持续台风把雾团推向当前风向的最大水平像素
@@ -424,45 +410,7 @@ float Board::GetPlanternIllumination(int row, int col) const
 	const Plantern* plantern = GetActivePlantern();
 	if (!plantern || !plantern->HasUsableLight()) return 0.0f;
 
-	const int relativeX = col - plantern->mColumn;
-	const int relativeY = row - plantern->mRow;
-	const int dx = std::abs(relativeX);
-	const int dy = std::abs(relativeY);
-	switch (plantern->GetGear()) {
-	case PlanternGear::OFF:
-		return 0.0f;
-	case PlanternGear::LOW:
-		return relativeX >= -kPlanternLowBackRadius
-			&& relativeX <= kPlanternLowFrontRadius
-			&& dy <= kPlanternLowVerticalRadius
-			? 1.0f : 0.0f;
-	case PlanternGear::MEDIUM:
-		return (dx <= kPlanternMediumBaseRadiusX
-				&& dy <= kPlanternMediumVerticalRadius
-				&& dx + dy <= kPlanternMediumManhattanLimit)
-			|| (relativeX == kPlanternMediumFrontExtension
-				&& dy <= kPlanternMediumFrontHalfHeight)
-			? 1.0f : 0.0f;
-	case PlanternGear::HIGH: {
-		const auto isInsideHighShape = [](int x, int y) {
-			const int shapeDx = std::abs(x);
-			const int shapeDy = std::abs(y);
-			return (shapeDx <= kPlanternHighBaseRadiusX
-					&& shapeDy <= kPlanternHighVerticalRadius
-					&& shapeDx + shapeDy <= kPlanternHighManhattanLimit)
-				|| (x == kPlanternHighFrontExtension
-					&& shapeDy <= kPlanternHighFrontHalfHeight);
-		};
-		if (!isInsideHighShape(relativeX, relativeY)) return 0.0f;
-		// 由四邻域实时识别扩展后轮廓，只有真正最外圈保留薄雾。
-		const bool isOuterEdge = !isInsideHighShape(relativeX - 1, relativeY)
-			|| !isInsideHighShape(relativeX + 1, relativeY)
-			|| !isInsideHighShape(relativeX, relativeY - 1)
-			|| !isInsideHighShape(relativeX, relativeY + 1);
-		return isOuterEdge ? kPlanternHighEdgeIllumination : 1.0f;
-	}
-	}
-	return 0.0f;
+	return PlanternRules::Illumination(plantern->GetGear(),row-plantern->mRow,col-plantern->mColumn);
 }
 
 int Board::GetFogTileVariant(int row, int col) const

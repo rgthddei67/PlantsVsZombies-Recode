@@ -8,9 +8,11 @@
 #include "Game/PlantDamageOrigin.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Plant/AttackGrowth.h"
+#include "Game/Plant/PlanternRules.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <limits>
 #include <vector>
@@ -112,6 +114,7 @@ struct Unit {
 	bool instantVehicleCrush=false; // 冰车压扁普通植物；投篮车射击阶段暂沿用原模型
 	bool vehicleCrush = false; // 碰到抗碾压植物时使用承伤/推退契约，其他车战斗仍沿用原近似
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
+	float mistFuelReward = 0; // 活体已分配雾火；未来随机掉落不冒充确定收入
 	float playerRefund = 0; // 只有正式付费单位死亡才返给植物方，免费召唤不计
 	float shieldHealth = 0; // body.health 中的二类防具份额；本体/头盔归零时，剩余护盾不能维持存活
 	float shieldedHitCap = 0, shieldedAshCap = 0; // 持盾时的单次伤害上限；零表示不封顶
@@ -132,7 +135,10 @@ struct Plant {
 	float shutdownUntil=0;
 	bool grounding=false, lightningPot=false, support=false, plantern=false;
 	int executionGroup=-1; bool countsExecution=false, diesExecution=false;
-	std::array<float,54> illumination{}; // 此灯源当前逐格照明贡献；来源死亡即移除
+	std::array<float,54> illumination{}; // 当前挡位逐格照明；死亡或燃料耗尽即失效
+	PlanternGear lightGear=PlanternGear::OFF;
+	float lightFuel=0, lightIntakeLimit=PlanternRules::FuelCapacity;
+	std::vector<std::pair<float,float>> lightDeliveries; // 在途雾火的到账秒与预留量，不提前兑现
 
 	bool eliteQuota = false; // 本体和补种画像共享精英同时在场计数
 	PlantDamageOrigin damageOrigin;
@@ -249,6 +255,8 @@ struct TemporalAnchor {
 	std::vector<TemporalTarget> targets;
 };
 struct Snapshot {
+    bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数
+    std::chrono::steady_clock::time_point searchDeadline{};
 	bool weatherStation=false;
 	WeatherStationRules::State station;
 	std::array<float,54> stationFogAlpha{};
@@ -279,6 +287,7 @@ struct Snapshot {
 	std::array<GoldenTrail,6> goldenTrails{};
 	float gridLeft = 160, cellWidth = 80, cellHeight = 100;
 	int rows = 5, columns = 9;
+	int stationWave = 0; // 第30波采购新兵将进入第31波，候选与等待采用各自真实耗油阶段
 	float discountRemaining = 0; // 已激活优惠的真实余时，届满后恢复原价
 	bool interferenceAvailable = false; // 商店资格，不假定玩家已按按钮
 	float interferenceRemaining = 0, interferenceReady = 0; // 已生效禁锚余时和独立冷却余时，秒
@@ -306,6 +315,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+    bool timeLimited=false; // 搜索停止继续扩展，已返回的候选仍经过完整时间线和反制对照
 	std::vector<CandidateStats> candidates; // 最终编队搜索阶段的候选统计；不含精准清除探测
 	int precisionTargetID = 0, precisionEvaluated = 0;
 	float precisionGain = 0; // 相对保留技能资金的增量评分；突破优先时可为负，以 features[2] 判断胜利

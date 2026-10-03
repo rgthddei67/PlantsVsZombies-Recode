@@ -61,7 +61,8 @@
 #include <limits>
 
 namespace {
-	constexpr float kPlanningMaxAge = 3.0f; // 后台快照允许的最大游戏时差，秒；超时重采，不削减搜索精度
+	constexpr float kPlanningMaxAge = 3.0f; // 后台快照允许的最大游戏时差，秒；超时必须重采
+    constexpr double kPlanningWallBudgetMs = 600; // 1倍速下实时搜索的墙钟预算，毫秒；倍速时同比缩短
 	constexpr float kPlanningSurvivingFraction = .75f; // 原部队剩余有效生命低于快照此比例时重采，避免沿用已被炸掉的护卫
 	/** 只统计主线程入口时间；后台耗时由任务自己计时，不能跨线程调用 Profiler。 */
 	struct PlanningTimer {
@@ -1108,6 +1109,7 @@ void Board::PlanColdStorageAttack(bool background)
 		search.budget = s.enemyIce;
 		search.weatherStation=IsWeatherStation();
 		if(search.weatherStation) {
+			search.stationWave=mCurrentWave;
 			search.station=mWeatherStation; search.stationCharge=mNightRoofCharge; search.stationOvercharge=mNightRoofOvercharge;
 			search.stationChargePhase=static_cast<int>(mNightRoofChargePhase); search.stationWarning=mNightRoofChargePhaseTimer;
 			search.stationRow=mNightRoofChargeRow; search.stationHijackerID=mNightRoofHijackerID; search.stationGuideID=mNightRoofChargeGuideID;
@@ -1227,7 +1229,8 @@ void Board::PlanColdStorageAttack(bool background)
 					|| type == PlantType::PLANT_SPIKEWEED
 					|| card->GetSunCost() < 0 || (profile.daytimeDormant && !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround))) continue;
 				const bool lotus = type == PlantType::PLANT_DAWNLOTUS;
-				if (!lotus && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
+				const bool lamp = IsWeatherStation() && type == PlantType::PLANT_PLANTERN;
+				if (!lotus && !lamp && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
 				const int id = source++;
 				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
 					if (CanPlantAt(type,row,col) || CanForecastReplacementAt(type,row,col)) {
@@ -1247,6 +1250,12 @@ void Board::PlanColdStorageAttack(bool background)
 					p.health = static_cast<float>(profile.baseHealth); p.dps = profile.attackDps; p.sunPerSecond = profile.sunPerSecond;
 					p.assetValue = future.iceCost+future.sunCost*search.sunIceValue;
 					if (type == PlantType::PLANT_ICESTORAGENUT) ProjectIceStorageNut(p);
+                    if(lamp) {
+                        p.plantern=true; p.lightFuel=PlanternRules::InitialFuel; p.lightGear=PlanternGear::LOW;
+                        p.lightIntakeLimit=GetMistFuelWaveBudget()*mPerkManager.GetMistFuelMultiplier();
+                        for(int r=0;r<mRows;++r) for(int c=0;c<mColumns;++c)
+                            p.illumination[r*mColumns+c]=PlanternRules::Illumination(p.lightGear,r-row,c-col);
+                    }
 					// 新版完整预测这笔交易：玩家付费造出且随后被消灭，才在推演中结算预期返冰。
 					// 这不会提前增加实际余额或允许预支购买；旧配置保留原来的零收益近似。
 					p.reward = search.searchVersion == 2 ? static_cast<float>(PlantKillIce(GetPlantIceCost(type),s.difficulty)) : 0;
@@ -1332,6 +1341,7 @@ void Board::PlanColdStorageAttack(bool background)
 			if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
+			unit.mistFuelReward=entity->GetMistFuelReward()*mPerkManager.GetMistFuelMultiplier();
 			unit.hijacker=entity->mZombieType==ZombieType::ZOMBIE_HIJACKER;
             if(const auto* hijacker=dynamic_cast<const HijackerZombie*>(entity)) unit.hijackerBoosted=hijacker->HasLockHealthBoost();
             if(const auto* insulator=dynamic_cast<const InsulatorZombie*>(entity)) {
@@ -1445,9 +1455,14 @@ void Board::PlanColdStorageAttack(bool background)
                     plant.executionGroup=plant.row*mColumns+plant.column;
                     plant.countsExecution=plant.layer==1 || plant.layer==2;
                     plant.diesExecution=plant.layer>0;
-                    if(entity->mPlantType==PlantType::PLANT_PLANTERN)
+                    if(const auto* lamp=dynamic_cast<const Plantern*>(entity)) {
+                        plant.lightFuel=lamp->GetFuel(); plant.lightGear=lamp->GetGear();
+                        plant.lightIntakeLimit=lamp->GetWaveIntakeLimit();
+                        // 在途剩余飞行时间未暴露；用完整飞行上界，不能在快照时预支燃料。
+                        if(lamp->GetPendingFuel()>0) plant.lightDeliveries.push_back({PlanternRules::FuelFlightSeconds,lamp->GetPendingFuel()});
                         for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col)
-                            plant.illumination[row*mColumns+col]=GetPlanternIllumination(row,col);
+                            plant.illumination[row*mColumns+col]=PlanternRules::Illumination(plant.lightGear,row-plant.row,col-plant.column);
+                    }
                 }
             }
             search.plants.push_back(plant);
@@ -1478,9 +1493,14 @@ void Board::PlanColdStorageAttack(bool background)
                     plant.executionGroup=plant.row*mColumns+plant.column;
                     plant.countsExecution=plant.layer==1 || plant.layer==2;
                     plant.diesExecution=plant.layer>0;
-                    if(entity->mPlantType==PlantType::PLANT_PLANTERN)
+                    if(const auto* lamp=dynamic_cast<const Plantern*>(entity)) {
+                        plant.lightFuel=lamp->GetFuel(); plant.lightGear=lamp->GetGear();
+                        plant.lightIntakeLimit=lamp->GetWaveIntakeLimit();
+                        // 在途剩余飞行时间未暴露；用完整飞行上界，不能在快照时预支燃料。
+                        if(lamp->GetPendingFuel()>0) plant.lightDeliveries.push_back({PlanternRules::FuelFlightSeconds,lamp->GetPendingFuel()});
                         for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col)
-                            plant.illumination[row*mColumns+col]=GetPlanternIllumination(row,col);
+                            plant.illumination[row*mColumns+col]=PlanternRules::Illumination(plant.lightGear,row-plant.row,col-plant.column);
+                    }
                 }
             }
             search.plants.push_back(plant);
@@ -1671,7 +1691,8 @@ void Board::PlanColdStorageAttack(bool background)
 			mColdStoragePlanningAt = s.elapsed;
 			mColdStoragePlanningVersion = requestedVersion;
 			mColdStoragePlanningStamp = ColdStoragePlanningStamp();
-			s.planning = mColdStoragePlanner->Start(std::move(search),*weights,seed);
+			s.planning = mColdStoragePlanner->Start(std::move(search),*weights,seed,
+                kPlanningWallBudgetMs/std::max(1.0f,DeltaTime::GetTimeScale()));
 			if (s.planning) ++s.planningStarted;
 			// 启动失败留待下一次重试，不在渲染帧中突然回退执行昂贵的完整搜索。
 			s.attackDeferred = true;
@@ -2342,6 +2363,7 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 		if (!plant || !plant->IsActive()) continue;
 		mix(id); mix(plant->mRow); mix(plant->mColumn); mix(static_cast<unsigned>(plant->GetPlacementType())); mix(plant->GetSleepState());
 		mix(plant->GetSimulationAbilityCooldownRemaining() <= 0);
+		if (const auto* lamp = dynamic_cast<const Plantern*>(plant)) { mix(static_cast<unsigned>(lamp->GetGear())); mix(lamp->HasUsableLight()); }
 		if (const auto* lotus = dynamic_cast<const DawnLotus*>(plant)) mix(lotus->IsReadyToActivate());
 		if (const auto* nut = dynamic_cast<const IceStorageNut*>(plant)) { mix(nut->IsDamageImmune()); mix(nut->IsReadyToActivate()); mix(nut->IsAutomatic()); mix(nut->IsIceSealed()); }
 		if (const auto* pineapple = dynamic_cast<const ColdPineapple*>(plant)) {
@@ -2385,6 +2407,8 @@ void Board::PollColdStoragePlan()
 	auto& s = mColdStorage;
 	s.planning = false;
 	s.planningWorkerMs = work->milliseconds;
+    s.planningBudgetMs=work->budgetMilliseconds;
+    s.planningTimeLimited=work->result.timeLimited;
 	const float age = s.elapsed-mColdStoragePlanningAt;
 	using Discard = ColdStorageSearch::PlanDiscardReason;
 	int discardMask = 0;

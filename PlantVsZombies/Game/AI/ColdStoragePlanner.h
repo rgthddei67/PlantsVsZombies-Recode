@@ -15,6 +15,7 @@ public:
 		QueueRevision revision;
 		Result result;
 		double milliseconds = 0;
+        double budgetMilliseconds = 0; // 本次实时搜索的墙钟预算，毫秒；零表示不设截止
 		bool failed = false;
 	private:
 		friend class Planner;
@@ -26,8 +27,8 @@ public:
 	~Planner();
 	Planner(const Planner&) = delete;
 	Planner& operator=(const Planner&) = delete;
-	/** 复制模型并转移数值快照；每个 Board 最多一个任务，繁忙时拒绝重复提交。 */
-	bool Start(Snapshot snapshot, const Weights& weights, std::uint32_t seed);
+	/** 复制模型并转移数值快照；繁忙时拒绝重复提交。预算在完整候选之间检查，零表示不限时。 */
+	bool Start(Snapshot snapshot, const Weights& weights, std::uint32_t seed, double timeBudgetMs = 0);
 	/** 非阻塞轮询；只领取完整结果，不发布被取消或尚未结束的半成品。 */
 	std::unique_ptr<Work> TakeReady();
 	bool Busy() const { return mWork != nullptr; }

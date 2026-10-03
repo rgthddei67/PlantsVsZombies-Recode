@@ -1,0 +1,82 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "station_control",
+      "device": 0,
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.intensity",
+      "equals": "LIGHT"
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectsByName.RainLight.0.emitting",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "rain.png"
+    },
+    {
+      "op": "set_timescale",
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 31
+    },
+    {
+      "op": "station_control",
+      "device": 0,
+      "value": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.intensity",
+      "equals": "CLEAR"
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.RainLight",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "clear.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "clear.json"
+    }
+  ]
+}

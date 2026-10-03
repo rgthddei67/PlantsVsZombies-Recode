@@ -2098,7 +2098,7 @@ int main()
     s.station.controls[1].value=4;
     const auto fog=Evaluate(s,{});
     check(fog[7]<clear[7],"fog reduces movement independently of golden ice");
-    Plant light; light.health=1000; light.plantern=true; light.illumination.fill(1); s.plants={light};
+    Plant light; light.health=1000; light.plantern=true; light.lightFuel=100; light.lightGear=PlanternGear::LOW; light.illumination.fill(1); s.plants={light};
     const auto lit=Evaluate(s,{});
     check(std::abs(lit[7]-clear[7])<.001f,"illumination removes fog movement loss");
     }
@@ -2113,6 +2113,66 @@ int main()
     Evaluate(s,{},&visible); s.stationJammed=100; Evaluate(s,{},&hidden);
     check(visible.stationCounters>0 && hidden.stationCounters==0,
         "a player forecast starting inside blackout cannot read hidden live charge");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.playerSun=1000; s.playerIce=200;
+    Unit worker; worker.body.x=600; worker.body.health=500; worker.body.purchaseCost=24;
+    worker.body.economic=true; worker.productionRemaining=2; s.current={worker};
+    Option purchase; purchase.cost=24; purchase.unit=worker; s.options={purchase};
+    Counter bomb; bomb.blast.x=600; bomb.blast.damage=1800; bomb.blast.reach.fill(-1); bomb.blast.reach[0]=100;
+    bomb.sunCost=125; bomb.iceCost=30; bomb.recharge=100; s.counters={bomb};
+    const auto clear=Evaluate(s,{});
+    s.station.controls[1].value=4; s.stationFogAlpha.fill(255);
+    const auto hidden=Evaluate(s,{});
+    check(hidden[4]>clear[4] && hidden[6]<clear[6],"fog prevents a manual bomb from precisely locating one unseen worker");
+    s.current.assign(20,worker);
+    const auto blind=Evaluate(s,{});
+    check(blind[6]>0,"sufficient public pressure can still trigger a blind bomb and kill hidden units");
+    for(auto& u:s.current) u.body.row=4;
+    check(Evaluate(s,{})[6]==0,"blind bombing does not relocate to the hidden units' exact row");
+    s.current={worker};
+    Plant lamp; lamp.plantern=true; lamp.health=1000; lamp.lightFuel=100; lamp.lightGear=PlanternGear::LOW;
+    lamp.illumination.fill(.72f); s.plants={lamp};
+    check(Evaluate(s,{})[6]==24,"III-thin illumination permits precise bomb targeting after fog clears");
+    s.plants.clear(); s.counters[0].blast.committed=true;
+    check(Evaluate(s,{})[6]==24,"committed explosions hit fogged units normally");
+    }
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.budget=48; s.capacity=2;
+    Option worker; worker.cost=24; worker.type=17; worker.unit.body.x=900; worker.unit.body.health=500;
+    worker.unit.body.economic=true; worker.unit.body.purchaseCost=24; s.options={worker};
+    Weights weights{}; weights[4]=1;
+    s.timeLimitedSearch=true; s.searchDeadline=std::chrono::steady_clock::now()-std::chrono::seconds(1);
+    const auto stopped=Search(s,weights,42);
+    check(stopped.timeLimited && stopped.actions.empty() && stopped.features==stopped.baselineFeatures,
+        "expired realtime budget returns a complete baseline rather than a partial forecast");
+    s.timeLimitedSearch=false;
+    check(!Search(s,weights,42).actions.empty(),"synchronous search ignores the realtime deadline and retains full exploration");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    check(PlanternRules::BurnRate(PlanternGear::HIGH,PlanternRules::Scarcity(true,30,1))==2.1f
+        && PlanternRules::BurnRate(PlanternGear::HIGH,PlanternRules::Scarcity(true,31,0))==4.0f,
+        "station III fuel cost changes only after wave 30");
+    check(PlanternRules::Illumination(PlanternGear::HIGH,0,5)>.6f
+        && PlanternRules::Illumination(PlanternGear::HIGH,0,6)==0,
+        "III edge is thin visible fog while cells outside the actual shape remain dark");
+    Snapshot s; s.weatherStation=true; s.houseX=-10000; s.gridLeft=0; s.station.controls[1].value=4;
+    Unit u; u.body.health=10000; u.body.x=700; u.body.speed=10; u.body.purchaseCost=20; s.current={u};
+    Plant lamp; lamp.plantern=true; lamp.health=1000; lamp.x=0; lamp.lightGear=PlanternGear::HIGH;
+    lamp.lightFuel=30; lamp.illumination.fill(1); s.plants={lamp}; s.stationWave=30;
+    const auto early=Evaluate(s,{});
+    s.stationWave=31; const auto late=Evaluate(s,{});
+    check(early[7]>late[7],"higher late III burn extinguishes light sooner and restores fog slowing");
+    s.plants[0].lightFuel=0; const auto empty=Evaluate(s,{});
+    check(empty[7]<late[7],"empty lamp provides no permanent illumination");
+    s.plants[0].lightDeliveries={{3,30}}; const auto refueled=Evaluate(s,{});
+    check(refueled[7]>empty[7],"already reserved fuel restores light after arrival");
+    check(s.plants[0].lightFuel==0 && s.plants[0].lightDeliveries.size()==1,"fuel rollout never mutates real snapshot");
     }
 
 }

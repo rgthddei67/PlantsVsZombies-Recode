@@ -44,6 +44,8 @@ struct ColdStorageState {
 	float planningLastAgeMs = 0;
 	std::vector<ColdStorageSearch::CandidateStats> searchUnitCandidates; // 含兵种/行的整案收益，最终阶段、精准清除前
 	double planningWorkerMs = 0, planningMainMaxMs = 0; // 后台总耗时/主线程决策入口最大耗时，毫秒
+    double planningBudgetMs = 0; // 本轮实时墙钟预算，毫秒，不入档
+    bool planningTimeLimited = false; // 是否因预算停止扩展候选，不代表返回了不完整的预测
 	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
 	int playerIce = 200; // 开局冷库可支撑完整五路基础阵型，后续依赖采购
 	int enemyIce = 0;

@@ -5012,6 +5012,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["planningLastDiscardMask"] = board->mColdStorage.planningLastDiscardMask;
 		ice["planningLastAgeMs"] = board->mColdStorage.planningLastAgeMs;
 		ice["planningWorkerMs"] = board->mColdStorage.planningWorkerMs;
+        ice["planningBudgetMs"] = board->mColdStorage.planningBudgetMs;
+        ice["planningTimeLimited"] = board->mColdStorage.planningTimeLimited;
 		ice["planningMainMaxMs"] = board->mColdStorage.planningMainMaxMs;
 		ice["searchQueue"] = {{"committed",board->mColdStorage.searchCommittedCount},
 			{"evaluated",board->mColdStorage.searchQueueEvaluated},{"changed",board->mColdStorage.searchQueueChanged},
@@ -8601,6 +8603,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["particleEffectNameCounts"]["GoldMagnetEMP"] = 0;
 	out["particleEffectNameCounts"]["ImitaterMorph"] = 0;
 	out["particleEffectNameCounts"]["SnowLight"] = 0;
+	out["particleEffectNameCounts"]["RainLight"] = 0;
+	out["particleEffectNameCounts"]["RainMedium"] = 0;
+	out["particleEffectNameCounts"]["RainHeavy"] = 0;
 	out["particleEffectNameCounts"]["SnowMedium"] = 0;
 	out["particleEffectNameCounts"]["SnowHeavy"] = 0;
 	out["particleEffectNameCounts"]["ZombieBobsledPlantImpact"] = 0;

@@ -1,0 +1,386 @@
+{
+  "description": "真人中盘阵容的可重现近似夹具：满阵、大雾、2倍速，后台结果应及时通过真实提交门禁。",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ELITE_SCAREDYSHROOM",
+        "PLANT_MARIGOLD",
+        "PLANT_DOOMSHROOM",
+        "PLANT_COLDPINEAPPLE",
+        "PLANT_ICESTORAGENUT",
+        "PLANT_DAWNLOTUS",
+        "PLANT_JALAPENO",
+        "PLANT_ICESHROOM"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9999
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 9999,
+        "openingBonusMask": 1,
+        "openingBonusSelectionComplete": true
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 1,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 4,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 1,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 3,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COLDPINEAPPLE",
+      "row": 3,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 3,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 4,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 3,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 3,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 1,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 4,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNSHROOM",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_DAWNLOTUS",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 1,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 3,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "station_control",
+      "device": 1,
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "set_sun",
+      "value": 2225
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1004,
+        "playerIce": 232,
+        "decisions": 16,
+        "elapsed": 300,
+        "decisionRemaining": 60,
+        "dispatchQuietSeconds": 25
+      }
+    },
+    {
+      "op": "set_timescale",
+      "value": 2
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 45
+    },
+    {
+      "op": "dump_state",
+      "name": "dense_plan.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningApplied",
+      "atLeast": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 45
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 45
+    },
+    {
+      "op": "dump_state",
+      "name": "dense_repeat.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningApplied",
+      "atLeast": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningDiscardReasons.age",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.planningDiscardReasons.failed",
+      "equals": 0
+    }
+  ]
+}

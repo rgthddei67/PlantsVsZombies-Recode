@@ -11,7 +11,6 @@
 #include <cmath>
 
 namespace {
-	constexpr float kMistFuelFlightSeconds = 0.62f; // 雾火从击杀点飞抵路灯花并正式到账的游戏秒
 	constexpr float kMistFuelArcHeight = 58.0f;     // 贝塞尔中点相对直线抬升的像素
 	constexpr float kMistFuelDrawSize = 30.0f;      // 128px 原图在战斗场景中的逻辑绘制边长
 }
@@ -42,7 +41,7 @@ void MistFuel::Update()
 	}
 
 	mTimer += DeltaTime::GetDeltaTime();
-	const float t = std::clamp(mTimer / kMistFuelFlightSeconds, 0.0f, 1.0f);
+	const float t = std::clamp(mTimer / PlanternRules::FuelFlightSeconds, 0.0f, 1.0f);
 	const Vector target = plantern->GetVisualAnchorPosition() + Vector(0.0f, -22.0f);
 	const Vector control = (mStartPosition + target) * 0.5f + Vector(0.0f, -kMistFuelArcHeight);
 	const float oneMinusT = 1.0f - t;

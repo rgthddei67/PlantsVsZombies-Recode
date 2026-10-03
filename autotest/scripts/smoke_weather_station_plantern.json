@@ -1,0 +1,132 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PLANTERN",
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PLANTERN",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "set_plantern_gear",
+      "gear": "HIGH"
+    },
+    {
+      "op": "set_plantern_fuel",
+      "value": 100
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 30
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.burnRateTenths",
+      "equals": 21
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.illuminationPct.2.6",
+      "equals": 72
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.illuminationPct.2.7",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 31
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.burnRateTenths",
+      "equals": 40
+    },
+    {
+      "op": "set_plantern_gear",
+      "gear": "LOW"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.burnRateTenths",
+      "equals": 5
+    },
+    {
+      "op": "set_plantern_gear",
+      "gear": "MEDIUM"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.burnRateTenths",
+      "equals": 11
+    },
+    {
+      "op": "set_plantern_gear",
+      "gear": "HIGH"
+    },
+    {
+      "op": "station_control",
+      "device": 1,
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "screenshot",
+      "name": "iii_range.png"
+    },
+    {
+      "op": "set_plantern_fuel",
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.fuelTenths",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "plantern.illuminationPct.2.6",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "fuel_exhausted.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "fuel_exhausted.png"
+    }
+  ]
+}
