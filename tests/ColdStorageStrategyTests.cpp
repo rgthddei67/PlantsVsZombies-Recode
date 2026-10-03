@@ -2540,6 +2540,21 @@ int main()
     const auto opening=Search(s,income,42);
     check(!opening.expandedForecast && opening.largestPlan<=8,
         "a fresh productive opening retains the existing small-party search");
+    Unit paid; paid.body.health=500; paid.body.x=900; paid.body.purchaseCost=600;
+    paid.body.spawnAt=10; s.current={paid};
+    const auto invested=Search(s,income,42);
+    check(invested.expandedForecast && invested.largestPlan>8,
+        "paid queued assets preserve full search after cash falls below the capital threshold");
+    float investedSpend=0;
+    for(const auto& action:invested.actions) investedSpend+=s.options[action.option].cost;
+    check(investedSpend<=s.budget,"committed capital expands exploration but cannot finance new purchases");
+    s.current[0].body.spawnAt=0;
+    check(Search(s,income,42).expandedForecast,"arrival preserves the same paid search capital");
+    s.current[0].body.purchaseCost=0;
+    check(!Search(s,income,42).expandedForecast,"free summons do not inflate search capital");
+    s.current[0].body.purchaseCost=600; s.current[0].body.health=0;
+    check(!Search(s,income,42).expandedForecast,"lost troops no longer preserve full search capital");
+    s.current.clear();
     s.resumePortfolio=true;
     const auto continued=Search(s,income,42);
     check(continued.expandedForecast && continued.largestPlan>8,

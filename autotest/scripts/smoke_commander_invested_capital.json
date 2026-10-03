@@ -1,0 +1,30 @@
+{
+  "description": "Paid queued troops preserve full search after cash drops below 2000; purchases still use the actual wallet.",
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"commander_experiment","weights":[0,0,0,0,1,0,0,0],"netEconomy":true,"seed":9173},
+    {"op":"goto_level","level":93},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":2100,"initialEnemyIce":2100,"decisions":10,"decisionRemaining":60}},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":1,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":2,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":3,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":4,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":0,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":1,"delay":60},
+    {"op":"queue_ice_zombie","type":"ZOMBIE_ICE_WORKER","row":2,"delay":60},
+    {"op":"assert_state","path":"coldStorage.enemyIce","equals":1908},
+    {"op":"assert_state","path":"coldStorage.pendingCount","equals":8},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":30},
+    {"op":"assert_state","path":"coldStorage.searchExpandedForecast","equals":true},
+    {"op":"assert_state","path":"coldStorage.searchLargestPlan","atLeast":9},
+    {"op":"assert_state","path":"coldStorage.spent","atMost":2100},
+    {"op":"assert_state","path":"coldStorage.planningApplied","equals":1},
+    {"op":"dump_state","name":"invested.json"},
+    {"op":"quit"}
+  ]
+}

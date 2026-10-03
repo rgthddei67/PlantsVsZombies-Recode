@@ -1417,8 +1417,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.throwHealth = entity->mBodyMaxHealth*.5f;
 				unit.throwAnchorX = GetCellCenterPosition(z.row,std::min(5,mColumns-1)).x;
 			}
-			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end())
+			if (const auto paid = s.refundableCosts.find(z.id); paid != s.refundableCosts.end()) {
+				unit.body.purchaseCost = static_cast<float>(paid->second); // 资产沿用原成交价，不按当前品种价格重估。
 				unit.playerRefund = static_cast<float>(paid->second * 3 / 4);
+			}
 			else unit.body.purchaseCost = 0; // 免费召唤仍有战斗威胁，但不能制造可回收的采购资产。
 			const float maximum = static_cast<float>(z.bodyMaxHealth+z.helmMaxHealth+z.shieldMaxHealth);
 			currentCapital += unit.body.purchaseCost*std::clamp(unit.body.health/std::max(1.0f,maximum),0.0f,1.0f);

@@ -23,6 +23,13 @@ struct SearchCancelled {}; // 取消只由拥有任务的 Planner 捕获，不�
 bool SearchTimeExpired(const Snapshot& s) {
     return s.timeLimitedSearch && std::chrono::steady_clock::now()>=s.searchDeadline;
 }
+/** 搜索规模看现金与存活/在途付费兵力的原成交价；买兵是资产转移，不应立即缩回小队。 */
+float PaidSearchCapital(const Snapshot& s) {
+    float capital=static_cast<float>(s.budget);
+    for (const auto& unit : s.current) if (unit.body.health>0)
+        capital+=std::max(0.0f,unit.body.purchaseCost);
+    return capital; // 免费召唤的 purchaseCost 为零；这里只选择搜索范围，不能增加可付款预算。
+}
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
 constexpr float kResponseHighLightFuel = 20; // 一种玩家应对的III挡储油门槛，雾火；不改变真人操作和植物规则
@@ -2581,14 +2588,14 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
         const auto begin=std::chrono::steady_clock::now();
         state.searchDeadline=begin+(input.searchDeadline-begin)*kFormationSearchBudgetPercent/100;
     }
-    // 富余库存应立即比较大队，不能因小队偶有一点收益就永远不进入完整搜索。
+    // 总资本充足时比较大队，付款转成存活/在途兵力不会让搜索退回小队；实际采购仍只用现金。
     // 已经扩展却仍等待时直接延续完整搜索，避免每次重付小队与大队两套基线的成本。
     // 同一次搜索的行动、等待、技能均使用同一长时域；仍允许便宜小队胜出。
     const auto cheapest=std::min_element(state.options.begin(),state.options.end(),[](const Option& a,const Option& b) { return a.cost<b.cost; });
     const bool canExploreLarger=cheapest!=state.options.end() && cheapest->cost>0
         && std::min(state.capacity,PurchaseBudget(state)/cheapest->cost)>ActionLimit(state);
     const bool fundedPortfolio = state.searchVersion == 1 && canExploreLarger
-        && (state.budget >= ColdStorageDeploymentRules::GrowthCapital || state.resumePortfolio);
+        && (PaidSearchCapital(state) >= ColdStorageDeploymentRules::GrowthCapital || state.resumePortfolio);
     if (fundedPortfolio) state.searchVersion = 2;
 	auto best = SearchFormation(state,weights,seed);
     state.searchDeadline=input.searchDeadline;
