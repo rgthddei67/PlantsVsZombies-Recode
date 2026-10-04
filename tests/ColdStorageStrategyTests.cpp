@@ -357,8 +357,9 @@ int main()
 		const auto focused = ColdStorageSearch::Search(formation,formationWeights,seed);
 		check(focused.actions.size() == 2 && focused.actions[0].option == focused.actions[1].option,
 			"repeated row strikes favor concentrating heavy troops instead of exposing every lane");
-		// 初始 96 次中有 24 次归入组合计数，另加 5 次逐行比较；总数不能重复包含协作案。
-		check(focused.formationTested == 31 && focused.evaluated == 77+focused.routeEvaluated+focused.combinationEvaluated,
+		// 重复提案复用后实际积分数可下降；五条合法行仍完整对照，预算上界不能增加。
+		check(focused.formationTested == 31 && focused.evaluated>0
+			&& focused.evaluated<=101+focused.routeEvaluated+focused.combinationEvaluated && focused.duplicatesSkipped>0,
 			"every legal lane is compared within a bounded extra search budget");
 		check(focused.score + 0.002f >= focused.formationBaseScore,
 			"formation refinement never replaces the free plan with a worse scored plan");
@@ -823,6 +824,77 @@ int main()
 		const auto team = ColdStorageSearch::Search(affordableTeam,returnOnTeam,seed);
 		check(team.actions.size() == 2 && team.features[5] == 40 && team.features[4] > 40,
 			"affordable large-space samples retain profitable cooperation instead of buying only the first cohort");
+	}
+	// 自由混编搜索仍需保留灰烬长冷却时在安全路集中大量工人的经营机会。
+	{
+		using namespace ColdStorageSearch;
+		Snapshot window; window.houseX=-10000; window.searchVersion=2;
+		window.budget=1600; window.capacity=48; window.netEconomy=true;
+		window.playerSun=5000; window.playerIce=3000;
+		for (int row=0;row<5;++row) {
+			Option worker; worker.type=709; worker.row=worker.unit.body.row=row; worker.cost=24;
+			worker.unit.body.x=900; worker.unit.body.health=500; worker.unit.body.value=24;
+			worker.unit.body.economic=true; worker.unit.productionStopHealth=500.0f/3;
+			window.options.push_back(worker);
+			if (row!=2) {
+				Plant fire; fire.row=row; fire.x=300; fire.health=100000; fire.dps=1000; fire.edible=false;
+				window.plants.push_back(fire);
+			}
+		}
+		Counter coolingAsh; coolingAsh.blast.ready=90; coolingAsh.recharge=35;
+		coolingAsh.blast.x=900; coolingAsh.blast.reach.fill(130); coolingAsh.blast.damage=1800;
+		coolingAsh.sunCost=150; coolingAsh.iceCost=20; window.counters={coolingAsh};
+		const Weights profit{0,0,0,0,1,-1,0,0};
+		size_t largestWorkers=0;
+		for (std::uint32_t seed=1;seed<=4;++seed) {
+			const auto plan=Search(window,profit,seed);
+			largestWorkers=std::max(largestWorkers,plan.actions.size());
+			check(plan.actions.size()>=20 && plan.actions.size()<=48 && plan.features[4]>plan.features[5]
+				&& std::all_of(plan.actions.begin(),plan.actions.end(),[&](const auto& action) {
+					return window.options[action.option].row==2;
+				}),"long ash cooldown and a safe lane still allow profitable mass worker concentration");
+		}
+		check(largestWorkers>=40,"free composition search retains forty-plus worker investment opportunities");
+		std::cout << "safe-lane worker concentration: " << largestWorkers << " units\n";
+	}
+	// 不同数量的两类协作必须通过真实能力和钱包胜出，改类型编号不能改变搜索结果。
+	{
+		using namespace ColdStorageSearch;
+		Snapshot cooperation; cooperation.houseX=-10000; cooperation.searchVersion=2;
+		cooperation.budget=117; cooperation.capacity=4; cooperation.netEconomy=true;
+		Option support; support.type=700; support.cost=35;
+		support.unit.engineer=true; support.unit.body.x=1010; support.unit.body.health=1000; support.unit.body.value=35;
+		Option income; income.type=701; income.cost=24;
+		income.unit.body.economic=true; income.unit.body.x=900; income.unit.body.health=500;
+		income.unit.body.value=24; income.unit.productionStopHealth=500.0f/3;
+		cooperation.options={support,income};
+		Counter blast; blast.blast.committed=true; blast.blast.x=900;
+		blast.blast.reach.fill(40); blast.blast.damage=1800;
+		for (float at=1;at<120;at+=7) { blast.blast.ready=at; cooperation.counters.push_back(blast); }
+		const Weights profit{0,0,0,0,1,-1,0,0};
+		const auto feasible=Evaluate(cooperation,{{0,0},{1,0},{1,0},{1,0}});
+		for (std::uint32_t seed=1;seed<=8;++seed) {
+			const auto choice=Search(cooperation,profit,seed);
+			check(choice.unevenMixEvaluated>0 && choice.duplicatesSkipped>0
+				&& choice.score>=feasible[4]-feasible[5]-.01f,
+				"generic ratios discover profitable non-equal cooperation without named type templates");
+			int cost=0;
+			for (const auto& action:choice.actions) cost+=cooperation.options[action.option].cost;
+			check(cost<=cooperation.budget && choice.actions.size()<=static_cast<size_t>(cooperation.capacity),
+				"expanded composition search preserves actual wallet and capacity");
+		}
+		const auto original=Search(cooperation,profit,7);
+		cooperation.options[0].type=42; cooperation.options[1].type=444;
+		const auto renamed=Search(cooperation,profit,7);
+		check(original.actions.size()==renamed.actions.size() && original.score==renamed.score
+			&& std::equal(original.actions.begin(),original.actions.end(),renamed.actions.begin(),[](const auto& a,const auto& b) {
+				return a.option==b.option && a.delay==b.delay;
+			}),"composition exploration depends on legal profiles rather than particular type identifiers");
+		cooperation.counters.clear();
+		const auto unneeded=Search(cooperation,profit,7);
+		check(std::none_of(unneeded.actions.begin(),unneeded.actions.end(),[&](const auto& action) {
+			return cooperation.options[action.option].unit.engineer;
+		}),"free exploration drops extra support when unprotected income is better");
 	}
 	// 新能力必须兑现真实护工、费用及离散控制，不修改来源快照。
 	{

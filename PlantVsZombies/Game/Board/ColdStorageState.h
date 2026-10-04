@@ -93,6 +93,7 @@ struct ColdStorageState {
 	int candidatesEvaluated = 0;
 	int searchRouteEvaluated = 0, searchCombinationEvaluated = 0; // 通用路线/组合比较次数，仅诊断不入档
 	int searchCohortEvaluated = 0; // 组合预算中的通用成批候选数，仅诊断不入档
+	int searchUnevenMixEvaluated = 0, searchDuplicatesSkipped = 0; // 通用比例覆盖及重复案复用，仅诊断不入档
 	int searchReinforcementEvaluated = 0; // 组合预算中的跟队增援候选数，仅诊断不入档
 	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
 	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益

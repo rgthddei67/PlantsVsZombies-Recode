@@ -2391,6 +2391,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchFormationChosenRow = result.formationChosenRow;
 	s.searchRouteEvaluated = result.routeEvaluated; s.searchCombinationEvaluated = result.combinationEvaluated;
 	s.searchCohortEvaluated=result.cohortEvaluated;
+	s.searchUnevenMixEvaluated=result.unevenMixEvaluated; s.searchDuplicatesSkipped=result.duplicatesSkipped;
 	s.searchReinforcementEvaluated=result.reinforcementEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;

@@ -352,8 +352,9 @@ struct Result {
 	float opponentAssets = 0, baselineOpponentAssets = 0, opponentScore = 0; // 与不增援基线比较，避免奖励本来就会发生的消耗
 	int evaluated = 0;
 	int capitalRejected = 0; // 资金充足时因大额亏损/清场风险被排除的候选数
-	int routeEvaluated = 0, combinationEvaluated = 0; // 通用路线覆盖与组合探索次数，升级时合计两阶段
+	int routeEvaluated = 0, combinationEvaluated = 0; // 路线覆盖数含重复案复用；组合数仅计实际积分，升级时合计两阶段
 	int cohortEvaluated = 0; // combinationEvaluated 中的通用成批规模对照数，不增加该阶段预算
+	int unevenMixEvaluated = 0, duplicatesSkipped = 0; // 实际积分的非等量混编数、同次搜索复用的重复案数
 	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降

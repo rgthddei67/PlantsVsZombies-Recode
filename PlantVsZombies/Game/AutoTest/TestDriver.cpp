@@ -4987,6 +4987,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchCombination"] = {{"routeEvaluated",board->mColdStorage.searchRouteEvaluated},
 			{"evaluated",board->mColdStorage.searchCombinationEvaluated},
 			{"cohortEvaluated",board->mColdStorage.searchCohortEvaluated},
+			{"unevenMixEvaluated",board->mColdStorage.searchUnevenMixEvaluated},
+			{"duplicatesSkipped",board->mColdStorage.searchDuplicatesSkipped},
 			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach}};
