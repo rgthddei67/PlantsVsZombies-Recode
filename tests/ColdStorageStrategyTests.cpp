@@ -2370,6 +2370,27 @@ int main()
 	check(stats.clockRevivals==1 && stats.interferences==0,"a cooling interference cannot cancel an earlier rewind");
 	s.interferenceAvailable=false; s.interferenceRemaining=6; Evaluate(s,{},&stats);
 	check(stats.clockRevivals==0 && stats.interferences==0 && stats.iceSpent==0,"already paid interference is not charged again");
+	// 灰烬前取消锚与灰烬费用共用钱包，预算不足或仍在冷却时不能凭空获得连招。
+	Snapshot combo; combo.houseX=-10000; combo.playerSun=500; combo.playerIce=140;
+	combo.interferenceAvailable=true;
+	Unit worker; worker.body.x=900; worker.body.health=500; worker.body.purchaseCost=24; worker.body.economic=true;
+	combo.current={worker,worker,worker}; TemporalAnchor future; future.at=20;
+	for(int i=0;i<3;++i) future.targets.push_back({i,worker});
+	combo.temporalAnchors={future}; Counter ash; ash.blast.x=900; ash.blast.damage=1800;
+	ash.blast.reach.fill(10000); ash.iceCost=20; combo.counters={ash};
+	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
+	std::cout << "pre-ash interference=" << stats.interferences << " revivals=" << stats.clockRevivals
+		<< " ice=" << stats.iceSpent << " casts=" << stats.paidCounterCasts << '\n';
+	check(stats.interferences==1 && stats.clockRevivals==0 && stats.iceSpent==120 && stats.paidCounterCasts==1,
+		"pre-ash interference reserves and spends both real costs once before cancelling the anchor");
+	check(combo.playerIce==140 && combo.temporalAnchors.size()==1 && combo.current[0].body.health==500,
+		"pre-ash combination cannot mutate the sampled wallet, live health or anchor");
+	combo.playerIce=139;
+	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
+	check(stats.interferences==0 && stats.clockRevivals==3,"insufficient combined funds cannot prepay interference and ash");
+	combo.playerIce=140; combo.interferenceReady=30;
+	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
+	check(stats.interferences==0 && stats.clockRevivals==3,"cooling time interference does not stop an earlier ash revival");
 	}
 	{
 	using namespace ColdStorageSearch;
@@ -2939,6 +2960,28 @@ int main()
     const auto before=Search(deep,profit,3), after=Search(renamed,profit,3);
     check(before.features==after.features && before.actions.size()==after.actions.size(),
         "multi-stage economy exploration retains the same outcome after all unit ids change");
+    // 同一出生位置与移速，前排必须先出生才可挡住直射；不能在夹具里预先把肉盾放到前面。
+    auto staged=deep;
+    for(auto& option:staged.options) { option.unit.body.x=1100; option.unit.body.speed=10; }
+    const std::vector<Action> together{{0,0},{0,0},{0,0},{1,0},{2,0}};
+    const std::vector<Action> frontFirst{{2,0},{0,6},{0,6},{0,6},{1,6}};
+    check(Evaluate(staged,together)[4]<=Evaluate(staged,together)[5],
+        "normal co-located births do not grant a pre-positioned frontline");
+    const auto stagedProfit=Evaluate(staged,frontFirst);
+    check(stagedProfit[4]>stagedProfit[5],"actual lead time creates a profitable guarded factory from normal births");
+    int stagedMisses=0;
+    for(unsigned seed=1;seed<=8;++seed) {
+        const auto found=Search(staged,profit,seed);
+        if(found.features[4]<=found.features[5]) {
+            ++stagedMisses;
+            std::cout << "staged miss=" << seed << " income=" << found.features[4] << " cost=" << found.features[5]
+                << " refinements=" << found.refinementEvaluated << " incomeEval=" << found.incomeEvaluated << '\n';
+            for(const auto& c:found.candidates) if(c.type==front.type)
+                std::cout << "front candidates=" << c.evaluated << " production=" << c.bestProduction << " cost=" << c.bestCost << '\n';
+        }
+    }
+    std::cout << "normal-birth staged factory misses=" << stagedMisses << "/8\n";
+    check(stagedMisses==0,"wide free search covers lead-time protection without pre-positioned tanks");
     }
 
     {

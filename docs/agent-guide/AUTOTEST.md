@@ -21,6 +21,8 @@
 
 根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；统计收益特征时只汇总前 60 秒，扩展战斗时域中的后续产冰不属于该特征。普通对局和训练默认关闭轨迹。
 
+`commander_episode.traceUnits: true` 在对战结果的 `trace` 中逐游戏秒附加真实 `units`，用稳定 ID、同行相对位置、分层掉血与工人 `iceBatches` 核对前排是否实际掩护生产；默认仍每十秒只记录聚合状态。`python autotest/verify_commander_frontline.py <输出目录> --require-frontline` 检查账本并要求至少一段前排掉血、后方工人血量不变且完成生产的记录，结果不代表胜率。`ice_bunker_temporal` 是独立陪练，在可见工人群有钟匠且真实资金/冷却允许时先执行时间干扰再交灰烬，其他动作沿用 `ice_bunker`。比较真人与脚本时还须核对战前支援：快速卡槽恢复会缩短真实灰烬空窗，不能仅凭卡组或关卡相同判断威胁等价。`battle_commander_temporal_96.json` 使用正常资金与正式后台搜索，不强制僵尸组合。
+
 根字段 `commanderFuelAwareLamp: false` 仅供关闭随燃料切挡响应的消融；正式 AI 默认启用。`commander_forecast_options` 可在不推进时间时修改 `fuelAwareLamp` 和 `preservePaidQueue`；后者也支持根字段 `commanderPreservePaidQueue`，只用于同步 `plan_ice_attack`，跳过已付款队列的重排，不冻结真实出场。做同局面对照时须同时核对活体、资源与待出兵队列一致，避免把重新选路误当预测差异；冻结钱包或暂停决策的隔离夹具不能用作正常对局强度结论。
 
 ### 交互试玩信箱

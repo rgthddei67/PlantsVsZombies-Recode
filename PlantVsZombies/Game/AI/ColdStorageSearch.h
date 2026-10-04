@@ -341,6 +341,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	std::vector<Action> investmentPruningActions; // 未购买的经营中间态，只供同预算删冗员对照，不提交或存档
     bool timeLimited=false; // 搜索停止继续扩展，已返回的候选仍经过完整时间线和反制对照
 	std::vector<CandidateStats> candidates; // 最终编队搜索阶段的候选统计；不含精准清除探测
 	int precisionTargetID = 0, precisionEvaluated = 0;
@@ -405,10 +406,12 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
  * storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。
  * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。
  * shovelCounterSpace 允许付出单格普通层植物的资产与功能损失后腾位反制，不授予击杀奖励。
- * preservePaidDefenses 保留付费手动灰烬、领域、维修及商店反制，既有事务和自动能力仍生效。 */
+ * preservePaidDefenses 保留付费手动灰烬、领域、维修及商店反制，既有事务和自动能力仍生效。
+ * interferenceBeforeAsh 在已选灰烬前取消受威胁的锚，仍共用钱包和时间干扰冷却。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
-	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false);
+	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false,
+	bool interferenceBeforeAsh = false);
 class PlanEvaluator;
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。
  * evaluator 由后台任务独占，函数返回前领完其结果；缺省为空，离线搜索保持同步随机顺序。

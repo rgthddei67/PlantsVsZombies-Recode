@@ -390,10 +390,24 @@ std::vector<Action> RefineCohort(const Snapshot& s,const std::vector<Action>& an
 
 /** 围绕未购买的经营案试任意兵种；同时比较先行、同批和后援，不能只让肉盾晚于工人出生。 */
 std::vector<Action> RefineInvestment(const Snapshot& s,const std::vector<Action>& anchor,
-	const std::vector<int>& group,int shape) {
+	const std::vector<int>& group,int shape,bool rephaseExisting=false) {
 	auto staged=anchor;
+	// 中间态可能靠整批晚出生避开灰烬；接前排时从相对时序重新比较，
+	// 不能让前排现在出生、工人几十秒后才到，误把过早死掉的肉盾当成协同无效。
+	const float first=staged.empty() ? 0 : std::min_element(staged.begin(),staged.end(),
+		[](const Action& a,const Action& b){return a.delay<b.delay;})->delay;
+	for(auto& action:staged) action.delay-=first;
 	const int timing=shape/kRefinementMaxReplacements%3;
 	if(timing==0) for(auto& action:staged) action.delay=std::min(DelayLimit(s),action.delay+kReinforcementDelay);
+	if(rephaseExisting && timing==0 && !group.empty()) {
+		const auto& choice=s.options[group.front()]; bool retimed=false;
+		// 已经买进探索案的同类也可先行；不能为改时序强加第二只、挤掉工人并增加成本。
+		for(auto& action:staged) {
+			const auto& existing=s.options[action.option];
+			if(existing.type==choice.type && existing.cost==choice.cost) { action.delay=0; retimed=true; }
+		}
+		if(retimed) return staged;
+	}
 	return RefineCohort(s,staged,group,1+shape%kRefinementMaxReplacements,
 		timing==2 ? kReinforcementDelay : 0,true);
 }
@@ -488,6 +502,18 @@ public:
 			}
 		}
 		return nullptr;
+	}
+	/** 接近回本的完整中间态可在末段删冗员；仍只是未购买的探索购物车。 */
+	std::vector<Action> PruningAnchor() const {
+		const Result* best=nullptr;
+		const auto consider=[&](const Result& plan) {
+			if(plan.actions.empty() || (plan.features[4]<=plan.baselineFeatures[4]
+				&& plan.construction.workerProtectionProgress<=mBaselineProgress)) return;
+			if(!best || plan.score>best->score) best=&plan;
+		};
+		for(size_t i=0;i<mPlans.size();++i) if(mPresent[i]) consider(mPlans[i]);
+		for(const auto& branch:mDiverse) consider(branch.plan);
+		return best ? best->actions : std::vector<Action>{};
 	}
 private:
 	struct Branch { int index,workers; std::set<std::pair<int,int>> types; float risk,progress; Result plan; };
@@ -664,18 +690,20 @@ bool PrecisionWorthwhile(const Snapshot& s,const Result& candidate,const Result&
 /** 同技能删成员必须仍优于原案并满足真实钱包/资本门禁，不强制留下任何支援。 */
 void PruneWinner(const Snapshot& s,Result& best) {
 	int trials=0;
-	const auto probes=MemberAblations(s,best.actions);
+	const auto anchor=best.actions.empty() ? best.investmentPruningActions : best.actions;
+	const auto probes=MemberAblations(s,anchor);
 	for(auto plan:probes) {
 		if(SearchTimeExpired(s)) break;
 		// 上一轮已经删掉的队员不能在下一反事实中悄悄加回；只接受当前整案的子序列。
 		size_t at=0; bool subset=true;
+		const auto& current=best.actions.empty() ? anchor : best.actions;
 		for(const auto& member:plan) {
-			while(at<best.actions.size() && best.actions[at].option!=member.option) ++at;
-			if(at==best.actions.size()) { subset=false; break; }
+			while(at<current.size() && current[at].option!=member.option) ++at;
+			if(at==current.size()) { subset=false; break; }
 			++at;
 		}
 		if(!subset) continue;
-		if(plan.size()>best.actions.size() || (!s.allowWait && plan.empty())) continue;
+		if(plan.size()>current.size() || (!s.allowWait && plan.empty())) continue;
 		auto candidate=EvaluatePlan(s,best.effectiveWeights,std::move(plan),best.baselineFeatures,best.baselineOpponentAssets);
 		++trials;
 		if(s.precisionTargetID>0 && !s.netEconomy)
@@ -929,6 +957,24 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         if(BetterOutcome(candidate,response)) candidate=std::move(response);
     }
 
+	// 先清锚再交灰烬是独立的完整应对，必须与原择时对照，而不是拼接两种世界的清场收益。
+	const bool hasClock=s.interferenceAvailable && (!s.temporalAnchors.empty()
+		|| std::any_of(s.current.begin(),s.current.end(),[](const Unit& u){return u.clock.present;})
+		|| std::any_of(candidate.actions.begin(),candidate.actions.end(),[&](const Action& a){return s.options[a.option].unit.clock.present;}));
+	if(hasClock && !s.counters.empty()) {
+		Result response;
+		response.actions=candidate.actions; response.precisionTargetID=s.precisionTargetID;
+		response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,selectedStoredHold,
+			selectedStrikeHold,candidate.construction.counterSpaceReserved,candidate.construction.stationFogCounters>0,
+			candidate.construction.planternResponseGear,selectedManualHold,candidate.construction.counterShovels>0,false,true);
+		Calibrate(s,response);
+		response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
+		response.opponentAssets=response.construction.opponentAssets;
+		response.opponentScore=s.opponentWeight*(baselineOpponentAssets-response.opponentAssets);
+		response.score=Score(response.features,weights)+response.opponentScore;
+		response.counterHoldSeconds=candidate.counterHoldSeconds;
+		if(BetterOutcome(candidate,response)) candidate=std::move(response);
+	}
 	for (const auto& action : candidate.actions) {
 		const auto& option = s.options[action.option];
 		auto context = s.context[option.row];
@@ -1072,13 +1118,35 @@ bool CounterHits(const ColdStorageStrategy::BlastThreat& blast, const Unit& unit
 		&& std::abs(body.x + (blast.usesObjectX ? body.blastAnchorOffset : 0) - blast.x) <= blast.reach[body.row];
 }
 
+/** 在已选灰烬之前比较合法时间干扰；只按当前锚目标判断，不预知未来落点或出生。 */
+void PreemptInterference(const Snapshot& s,float time,const ColdStorageStrategy::BlastThreat& blast,
+	const std::vector<Unit>& units,std::vector<TemporalAnchor>& anchors,float reservedIce,float& ice,
+	float& ready,float& until,ConstructionStats& stats) {
+	if(!s.interferenceAvailable || time<ready || ice<ColdStorageSkillRules::InterferenceIceCost+reservedIce) return;
+	float preventable=0;
+	for(const auto& anchor:anchors) for(const auto& target:anchor.targets) {
+		if(target.unit<0 || target.unit>=static_cast<int>(units.size())) continue;
+		const auto& unit=units[target.unit];
+		if(unit.temporalIrreversible || !CounterHits(blast,unit,time)) continue;
+		auto hit=unit;
+		preventable+=std::min(target.saved.body.health,ApplyDiscreteHit(hit,blast.damage,true));
+	}
+	if(preventable<DawnLotusRules::Damage) return;
+	// 时间干扰先付款，灰烬仍须支付预留费用；取消死者记录与禁锚均沿用正式规则。
+	anchors.clear(); ice-=ColdStorageSkillRules::InterferenceIceCost;
+	stats.iceSpent+=ColdStorageSkillRules::InterferenceIceCost; ++stats.interferences;
+	ready=time+ColdStorageSkillRules::InterferenceCooldown;
+	until=time+ColdStorageSkillRules::InterferenceDuration;
+}
+
 /** 多张牌共享真实资源、同卡落点共享冷却；先兑现已提交反制，再选择一次可支付的新动作。 */
 void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plants, std::vector<Unit>& units,
 	const std::vector<float>& initialHealth, std::vector<float>& ready,
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
 	float holdSeconds, float storedHoldSeconds, std::vector<float>& holdUntil,
 	std::vector<PlantingBlock>& blocks, ConstructionStats& stats,
-    const std::array<float,54>* fogAlpha, bool allowShovel, std::vector<float>& shovelReady, bool preservePaidDefenses) {
+    const std::array<float,54>* fogAlpha, bool allowShovel, std::vector<float>& shovelReady, bool preservePaidDefenses,
+	bool interferenceBeforeAsh,std::vector<TemporalAnchor>& anchors,float& interferenceReady,float& interferenceUntil) {
 	for (auto it = pending.begin(); it != pending.end();) {
 		if (it->plantID != 0) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
@@ -1101,6 +1169,8 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			if (time >= it->at - kSquashFlightSeconds) it->targetLocked = true;
 		}
 		if (it->at > time) { ++it; continue; }
+		if(interferenceBeforeAsh && !preservePaidDefenses)
+			PreemptInterference(state,time,it->blast,units,anchors,0,ice,interferenceReady,interferenceUntil,stats);
 		if (state.traceEconomy) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
 			stats.counterTrace.push_back({time,it->blast.x,it->blast.damage,
@@ -1264,6 +1334,9 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			removed.health=0; // 主动牺牲不走 DamagePlant，不给僵尸击杀冰或伤害得分；外壳/承载层保留。
 		}
 		shovelReady[selected]=-1;
+		if(interferenceBeforeAsh && !preservePaidDefenses)
+			PreemptInterference(state,time,impact,units,anchors,PlayerIceCost(state,time,counter.iceCost),
+				ice,interferenceReady,interferenceUntil,stats);
 		sun -= counter.sunCost; ice -= PlayerIceCost(state,time,counter.iceCost);
 		if(counter.sunCost>0 || counter.iceCost>0) ++stats.paidCounterCasts;
 		ready[counter.source] = time + counter.recharge;
@@ -2295,7 +2368,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras, bool shovelCounterSpace, bool preservePaidDefenses) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras, bool shovelCounterSpace, bool preservePaidDefenses, bool interferenceBeforeAsh) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -2504,7 +2577,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil,plantingBlocks,constructionStats,
-			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady,preservePaidDefenses);
+			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady,preservePaidDefenses,
+			 interferenceBeforeAsh,temporalAnchors,interferenceReady,interferenceUntil);
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
@@ -2886,8 +2960,11 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		for(int option:group) if(s.options[option].unit.body.economic) incomeSeeds.push_back(option);
 	InvestmentFrontier investments(best.construction.workerProtectionProgress);
 	const auto incomeShape=[&](size_t index) {
-		// 各类型先比较一名同步搭档，后续遍历轮次再改变数量/先后；不把形状绑在类型序号上。
-		return kRefinementMaxReplacements+static_cast<int>(index/initialGroups.size());
+		// 先比较同步搭档，下一轮直接试先行，而不是先遍历四轮数量才试时序。
+		// 按轮次轮转三种姿态与数量，兵池大小不会把某类型锁在同一形状。
+		const size_t round=index/initialGroups.size();
+		const int count=static_cast<int>(round/3)%kRefinementMaxReplacements;
+		return static_cast<int>((1+2*round)%3)*kRefinementMaxReplacements+count;
 	};
 	size_t incomeSeedIndex=0, incomeGroupIndex=0;
 	int incomeEvaluated=0;
@@ -3167,11 +3244,14 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			collect(false);
 			const auto* investment=deepenInvestment && (best.actions.empty() || trial%2==0) ? investments.Next() : nullptr;
 			const auto& anchor=investment ? investment->actions : !best.actions.empty() ? best.actions : cohortAnchor.actions;
-			if(anchor.size()<3) break;
+			// 经营中间态可能只有一两名成员；小案仍可接前排，不能因此中止整个细化段。
+			if(anchor.empty()) break;
+			if(!investment && anchor.size()<3) continue;
 			// 前段经营探索可能刚在最后一个类型上兑现保护；再从头扫描少量搭档，不能跳过排在它前面的类型。
 			const size_t index=static_cast<size_t>(trial);
-			const int shape=best.actions.empty() ? kRefinementMaxReplacements : 2*kRefinementMaxReplacements;
-			auto plan=investment ? RefineInvestment(s,anchor,initialGroups[index%initialGroups.size()],shape)
+			// 预留的细化段从先行姿态开始，让实时预算也有机会验证正常出生后的前排间距。
+			const int shape=incomeShape(index+initialGroups.size());
+			auto plan=investment ? RefineInvestment(s,anchor,initialGroups[index%initialGroups.size()],shape,true)
 				: RefineCohort(s,anchor,groups[trial%groups.size()],1+trial%kRefinementMaxReplacements,
 					trial%2==0 ? 0 : kReinforcementDelay);
 			if(compare(std::move(plan))) { ++combinationEvaluated; ++refinementEvaluated; }
@@ -3207,6 +3287,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.reinforcementEvaluated=reinforcementEvaluated;
 	best.refinementEvaluated=refinementEvaluated;
 	best.incomeEvaluated=incomeEvaluated;
+	if(best.actions.empty()) best.investmentPruningActions=investments.PruningAnchor();
 	best.combinationBaseScore = combinationBaseScore; best.combinationBestScore = combinationBestScore;
 	best.combinationBaseBreach = combinationBaseBreach; best.combinationBestBreach = combinationBestBreach;
 	best.combinationBaseBreachSeconds = combinationBaseBreachSeconds; best.combinationBestBreachSeconds = combinationBestBreachSeconds;

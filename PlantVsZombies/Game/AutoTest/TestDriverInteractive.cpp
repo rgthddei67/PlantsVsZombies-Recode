@@ -224,6 +224,8 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 		if (full.contains(key)) for (const auto& entity : full[key]) {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
+				"iceRemainingMs", "iceBatches", "nextIceYieldOn1000", "engineerFull", "engineerProtectionUses",
+				"engineerReloadMs", "clockPhase", "clockRemainingMs",
 				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
 				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
 				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",

@@ -19,8 +19,9 @@ constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
+	const bool temporalBunker=opponent=="ice_bunker_temporal";
 	const bool holdPineapple = opponent == "ice_pine_hold" || opponent == "ice_bunker_hold";
-	const bool bunker = opponent == "ice_bunker" || opponent == "ice_bunker_hold";
+	const bool bunker = opponent == "ice_bunker" || opponent == "ice_bunker_hold" || temporalBunker;
 	const bool storageDefense = opponent == "ice_fortifier" || opponent == "ice_pine" || holdPineapple || bunker;
 	const bool pineElite = opponent == "pine_elite" || opponent == "ice_pine" || holdPineapple || bunker;
 	const bool planner = opponent == "planner" || pineElite || storageDefense;
@@ -131,8 +132,24 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 			if (card.at("gameplayType") != kind || !card.at("ready").get<bool>()
 				|| card.at("sunCost").get<int>() > sun || ice.at("plantCosts").at(kind).get<int>() > stock) continue;
 			for (const auto& [r,c] : cells) {
+				const int targetRow=r,targetColumn=c;
 				const Json cell = Json::array({r,c});
 				if (std::find(card.at("legalCells").begin(), card.at("legalCells").end(), cell) == card.at("legalCells").end()) continue;
+				// 独立陪练在可见工人群有钟匠掩护时先付时间干扰，再按原门槛交灰烬。
+				// 仅使用公开单位及真实钱包/冷却，不改变原 ice_bunker 基线，也不替僵尸出兵。
+				if(temporalBunker && (kind=="PLANT_JALAPENO" || kind=="PLANT_CHERRYBOMB" || kind=="PLANT_DOOMSHROOM")
+					&& ice.value("interferenceReady",false)
+					&& stock>=ColdStorageSkillRules::InterferenceIceCost+ice.at("plantCosts").at(kind).get<int>()
+					&& std::any_of(zombies.begin(),zombies.end(),[](const Json& z){return z.at("type")=="ZOMBIE_POLAR_CLOCKMAKER";})
+					&& std::count_if(zombies.begin(),zombies.end(),[&](const Json& z){
+						if(z.at("type")!="ZOMBIE_ICE_WORKER") return false;
+						const int dy=std::abs(z.at("row").get<int>()-targetRow);
+						const int dx=std::abs(z.at("xInt").get<int>()-state.at("cells").at(targetRow).at(targetColumn).at("centerXInt").get<int>());
+						return kind=="PLANT_JALAPENO" ? dy==0 : dy<=(kind=="PLANT_DOOMSHROOM" ? 2 : 1)
+							&& dx<=(kind=="PLANT_DOOMSHROOM" ? kStoredWakeReach : 130);
+					})>=3) {
+					actions.push_back({{"op","temporal_interference"}}); stock-=ColdStorageSkillRules::InterferenceIceCost;
+				}
 				actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",r},{"col",c}});
 				planted = true; return;
 			}
@@ -378,6 +395,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 }
 }
 
+/** 用正式玩家入口推进脚本对战，可选逐秒实体轨迹用于核对掩护及战损。 */
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const int timeScale = command.value("timeScale",1);
@@ -392,7 +410,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -448,7 +466,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"enemyIce",ice.at("enemyIce")},{"pending",ice.at("pending")}});
 	}
 	const bool ended = full.at("boardState") != "GAME" || ice.value("trophySpawned", false);
-	if (mEpisodeTicks % 600 == 0 || ended || mEpisodeTicks >= ticks) {
+	const bool traceUnits=command.value("traceUnits",false);
+	if (mEpisodeTicks % (traceUnits ? 60 : 600) == 0 || ended || mEpisodeTicks >= ticks) {
 		Json plantTypes = Json::object();
 		for (const auto& plant : full.at("plants")) if (plant.value("health",0) > 0 && !plant.value("squished",false)) {
 			const auto type = plant.at("type").get<std::string>();
@@ -457,6 +476,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		mEpisodeTrace.push_back({{"seconds",mEpisodeTicks / 60.0},{"ice",ice},{"sun",full.at("sun")},
 			{"plants",full.at("plantCount")},{"zombies",full.at("zombieCount")},
 			{"plantTypes",plantTypes},{"mowers",full.at("mowerCount")}});
+		// 专项按稳定实体ID跟踪真实前后位置及掉血，不能用“同一局出过两种兵”替代掩护证据。
+		if(traceUnits) mEpisodeTrace.back()["units"]=full.at("zombies");
 	}
 	if (ended || mEpisodeTicks >= ticks) {
 		const auto name = command.value("name", std::string("episode"));
