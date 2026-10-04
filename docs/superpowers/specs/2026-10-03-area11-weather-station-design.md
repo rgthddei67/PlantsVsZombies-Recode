@@ -2,6 +2,8 @@
 
 状态：2026-10-03 首版已落地。本文保留当时批准的设计；当前参数与行为以源码为准，平衡仍需真人试玩。
 
+2026-10-04 后续扩展：11-2奖励雷鸣花，11-3引入防灾工程师；首版地图范围中的“不新增单位”仅指2026-10-03那轮。当前能力参数见 [雷鸣花规则](../../../PlantVsZombies/Game/Plant/ThunderFlowerRules.h) 与 [工程师规则](../../../PlantVsZombies/Game/Zombie/DisasterEngineerRules.h)。完整灰烬保护事务由 `Board::ApplyPlantAshAttack` 在扣血前冻结；两类能力已接入指挥官活体、新购和付费队列推演。
+
 实现入口：[设备规则](../../../PlantVsZombies/Game/Board/WeatherStationRules.h)、[Board 事务](../../../PlantVsZombies/Game/Board/BoardWeatherStation.cpp)、[控制台](../../../PlantVsZombies/Game/GameSceneWeatherStation.cpp)、[指挥官预测](../../../PlantVsZombies/Game/AI/ColdStorageSearch.cpp)。可见验证使用 `smoke_weather_station`、`smoke_weather_station_interactions`、`smoke_weather_station_tutorials`，跨状态核对见 [verify_weather_station.py](../../../autotest/verify_weather_station.py)。
 
 预测沿用有界步长模型：环境、付款、友伤与停机按时间线评估；未来路线、玩家反制和照明持续时间存在近似，不等同于逐帧复刻正式战斗。

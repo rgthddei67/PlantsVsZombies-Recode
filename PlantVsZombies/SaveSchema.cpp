@@ -255,7 +255,16 @@ namespace {
 				version = 7;
 				upgraded["schemaVersion"] = version;
 				break;
+
 			case 7:
+				if (kind == DocumentKind::Player && upgraded.contains("adventureLevel")
+					&& upgraded["adventureLevel"].is_number_integer() && upgraded["adventureLevel"].get<int>()>=93
+					&& upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+					// 已通关11-2的旧玩家补领新奖励；不强制重打，也不重复添加。
+					const int reward=static_cast<int>(PlantType::PLANT_THUNDERFLOWER);
+					auto& cards=upgraded["havecards"];
+					if (std::find(cards.begin(),cards.end(),reward)==cards.end()) cards.push_back(reward);
+				}
 				if (kind == DocumentKind::Level) {
 					// 关卡 v8 新增极夜环境计划；旧档只标记未初始化，由目标背景确定性建立首轮。
 					if (!upgraded.contains("polarNightInitialized")) {
@@ -441,6 +450,13 @@ namespace {
 			case 23:
 				if (kind == DocumentKind::Level) upgraded["weatherStation"] = nlohmann::json::object();
 				version = 24; upgraded["schemaVersion"] = version;
+				break;
+
+			case 24:
+				// v25 旧局没有雷鸣花控制，目标抗性默认中性；电荷麻痹继续保留。
+				if (kind == DocumentKind::Level && upgraded.contains("zombies") && upgraded["zombies"].is_array())
+					for (auto& zombie : upgraded["zombies"]) if (zombie.is_object()) zombie["thunderResistanceTimer"] = 0.0f;
+				version = 25; upgraded["schemaVersion"] = version;
 				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";

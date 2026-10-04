@@ -1781,6 +1781,10 @@ public:
 		PlantType originPlant);
 
 	// 创建樱桃爆炸效果；纵向范围按植物逻辑行覆盖相邻三行，避免泳池美术下沉干扰命中。
+	/** 冻结同次灰烬的保护集合后再扣血；来源同次死亡不撤销已兑现保护。 */
+	void ApplyPlantAshAttack(const std::vector<int>& targets, const std::function<void(Zombie*)>& apply);
+	/** 雷種在落点造成三行局部普通伤害；仅最近的六个合格目标可成功麻痹。 */
+	void CreateThunderImpact(const Vector& position, int row, int damage);
 	void CreateBoom(const Vector& position, int plantRow, int damage = 1800);
 
 	// 毁灭菇爆炸：半径 250 圆形判定、波及全部行、跳过魅惑僵尸；Charred 阈值逻辑同 CreateBoom

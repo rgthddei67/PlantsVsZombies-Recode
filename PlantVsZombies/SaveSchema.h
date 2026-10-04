@@ -4,8 +4,8 @@
 #include <string>
 
 namespace SaveSchema {
-	inline constexpr int kCurrentPlayerVersion = 7;
-	inline constexpr int kCurrentLevelVersion = 24;
+	inline constexpr int kCurrentPlayerVersion = 8;
+	inline constexpr int kCurrentLevelVersion = 25;
 
 	/**
 	 * 将玩家配置文档事务式升级到当前结构。

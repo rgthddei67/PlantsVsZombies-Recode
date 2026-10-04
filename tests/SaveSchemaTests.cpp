@@ -207,8 +207,10 @@ namespace {
 			"关卡旧档应写入当前版本");
 		for (const auto& [key, value] : legacy.items()) {
 			auto migrated=document[key];
-			if (key=="zombies") for (auto& zombie : migrated) zombie.erase("drumInspiration");
-			Expect(migrated == value, "旧玩法字段必须保留；允许新增中性的鼓舞字段");
+			if (key=="zombies") for (auto& zombie : migrated) {
+				zombie.erase("drumInspiration"); zombie.erase("thunderResistanceTimer");
+			}
+			Expect(migrated == value, "旧玩法字段必须保留；允许新增中性的鼓舞和雷鸣花抗性字段");
 		}
 	}
 
@@ -718,6 +720,22 @@ int main() {
 		Expect(previous["plants"][0]["health"]==7200 && extra["nutRepairCooldown"]==3.0f && extra["nutAutomatic"]==true,
 			"迁移保留本体生命和付费修复状态");
 		Expect(!previous["plants"][1].contains("extraData"),"护体迁移不触碰其他植物");
+	}
+
+	{
+		nlohmann::json previous={{"schemaVersion",24},{"zombies", {{{"type",0},{"paralysisTimer",1.2f}}}}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"v24局面能迁移雷鸣花抗性");
+		Expect(previous["zombies"][0]["thunderResistanceTimer"]==0 && previous["zombies"][0]["paralysisTimer"]==1.2f,
+			"旧局默认无雷鸣花抗性，同时保留电荷麻痹");
+	}
+
+	{
+		std::string error;
+		nlohmann::json previous={{"schemaVersion",7},{"adventureLevel",96},{"havecards",{0,1}}};
+		Expect(SaveSchema::UpgradePlayerDocument(previous,error),"已通关11-2的旧玩家补领雷鸣花");
+		Expect(previous["havecards"].size()==3 && previous["havecards"][2]==static_cast<int>(PlantType::PLANT_THUNDERFLOWER),"新奖励只追加一次");
+		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==3,"重复加载不会重复补领");
 	}
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();

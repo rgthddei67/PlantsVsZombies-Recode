@@ -1,5 +1,6 @@
 {
   "plants": {
+    "PLANT_THUNDERFLOWER": { "cost": 225, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 10.0, "attackRowRadius": 1, "paralysisApplicationsPerSecond": 0.5, "paralysisDuration": 0.4 } },
     "PLANT_ICEVOUCHER": { "cost": 100, "cooldown": 30.0, "offset": [0.0, 0.0], "scale": 1.0, "simulation": { "baseHealth": 0, "persistent": false, "futurePlantable": false } },
     "PLANT_ICESTORAGENUT": { "cost": 150, "cooldown": 30.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 8000, "persistent": false } },
     "PLANT_COLDPINEAPPLE": { "cost": 150, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
@@ -72,6 +73,7 @@
     "PLANT_ICEMIRRORGRASS":  { "cost": 100, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } }
   },
   "zombies": {
+    "ZOMBIE_DISASTER_ENGINEER": { "weight": 2200, "appearWave": 3, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_COLD_CHAIN_GUARD": { "weight": 2800, "appearWave": 10, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_BOILER": { "weight": 2200, "appearWave": 10, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_ICE_WORKER": { "weight": 2200, "appearWave": 3, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },

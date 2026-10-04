@@ -2,6 +2,7 @@
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
 #include "Bullet.h"
+#include "Game/Plant/ThunderFlowerRules.h"
 #include "../GameObjectManager.h"
 #include "../ObjectPool/BulletPool.h"
 #include "../ShadowComponent.h"
@@ -112,6 +113,7 @@ namespace {
 		{ BulletType::BULLET_SALT_CRYSTAL, BulletWindResponse::NONE },
 		{ BulletType::BULLET_AURORA_PEA,  BulletWindResponse::LIGHT_PROJECTILE },
 		{ BulletType::BULLET_THERMAL_PULSE, BulletWindResponse::NONE },
+		{ BulletType::BULLET_THUNDER_SEED, BulletWindResponse::NONE },
 	};
 
 	constexpr bool BulletWindProfilesCoverEveryType()
@@ -139,6 +141,7 @@ namespace {
 	/** 返回对象池新建/复用时应恢复的类型基础伤害。 */
 	int DefaultDamageForBullet(BulletType type)
 	{
+		if (type == BulletType::BULLET_THUNDER_SEED) return ThunderFlowerRules::Damage;
 		if (type == BulletType::BULLET_FIREBALL
 			|| type == BulletType::BULLET_TOXICFIREBALL) return kFireballDamage;
 		if (type == BulletType::BULLET_CABBAGE) return kCabbageDamage;
@@ -743,6 +746,10 @@ void Bullet::EnableThreepeaterMotion(int sourceRow)
 void Bullet::BulletHitZombie(Zombie* zombie)
 {
 	if (!zombie) return;
+	if (mBulletType == BulletType::BULLET_THUNDER_SEED) {
+		mBoard->CreateThunderImpact(GetPosition(), mRow, mDamage);
+		return;
+	}
 	if (IsMelonBullet(mBulletType)) {
 		HitMelonZombie(zombie);
 		return;
@@ -1001,6 +1008,10 @@ void Bullet::ConfigurePresentation()
 		mRotationDegrees = kCabbageInitialRotation;
 		mRotationSpeedDegrees = GameRandom::Range(
 			kCabbageSpinSpeedMin, kCabbageSpinSpeedMax);
+		break;
+	case BulletType::BULLET_THUNDER_SEED:
+		mTexture = resources.GetTexture("IMAGE_THUNDER_SEED", false);
+		mScale = 1;
 		break;
 	case BulletType::BULLET_MELON:
 		mTexture = resources.GetTexture(
@@ -1292,7 +1303,9 @@ void Bullet::HitLobbedGround()
 		Die();
 		return;
 	}
-	PlayLobbedImpactFeedback();
+	if (mBulletType == BulletType::BULLET_THUNDER_SEED && !mTrajectory.polarWindMiss)
+		mBoard->CreateThunderImpact(GetPosition(), mRow, mDamage);
+	else PlayLobbedImpactFeedback();
 	Die();
 }
 

@@ -1,0 +1,608 @@
+{
+  "description": "Area11 full-event worker ash protection, paid reload pause/save, capped thunder control and independent charge paralysis.",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_SQUASH"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THUNDERFLOWER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DISASTER_ENGINEER",
+      "row": 2,
+      "x": 880,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 940,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 960,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 970,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 1000,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "screenshot",
+      "name": "units_full.png"
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_0.thunderResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "same_blast_before.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_CHERRYBOMB",
+      "row": 2,
+      "col": 8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "dump_state",
+      "name": "same_blast_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "workers_survived.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_SQUASH"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DISASTER_ENGINEER",
+      "row": 2,
+      "x": 1000,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 880,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 890,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 900,
+      "stationary": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_CHERRYBOMB",
+      "row": 2,
+      "col": 7
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerProtectionUses",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerReloadPaid",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerReloadMs",
+      "atLeast": 5400,
+      "atMost": 6000
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 90
+    },
+    {
+      "op": "dump_state",
+      "name": "reload_before_control.json"
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "index": 0,
+      "effect": "THUNDER"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "dump_state",
+      "name": "reload_controlled.json"
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "index": 0,
+      "effect": "THUNDER",
+      "expectedApplied": false
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "engineer_reload"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "engineer_reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "reload_restored.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerReloadPaid",
+      "equals": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "canister_reloaded.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "reload_complete.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_JALAPENO",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "second_blast_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_SQUASH"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 853,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 853,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 856,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 859,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 862,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 853,
+      "stationary": true
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_THUNDER_SEED",
+      "row": 2,
+      "x": 850,
+      "y": 308,
+      "velocityX": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.05
+    },
+    {
+      "op": "dump_state",
+      "name": "first_arc.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "thunder_arc.png"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_THUNDER_SEED",
+      "row": 2,
+      "x": 850,
+      "y": 308,
+      "velocityX": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.05
+    },
+    {
+      "op": "dump_state",
+      "name": "second_arc.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.6
+    },
+    {
+      "op": "dump_state",
+      "name": "arc_recovered.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_SQUASH"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 900,
+      "stationary": true
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "THUNDER"
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "THUNDER",
+      "expectedApplied": false
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "PARALYSIS",
+      "duration": 2
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "THUNDER",
+      "expectedApplied": false
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_WORKER.paralysisTimerMs",
+      "atLeast": 1850
+    },
+    {
+      "op": "dump_state",
+      "name": "charge_not_shortened.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.1
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "THUNDER"
+    },
+    {
+      "op": "dump_state",
+      "name": "resistance_expired.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 93,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THUNDERFLOWER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_DISASTER_ENGINEER",
+      "row": 2,
+      "x": 1000,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 940,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.5
+    },
+    {
+      "op": "screenshot",
+      "name": "flat_shot.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "flat_first.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "dump_state",
+      "name": "flat_second.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.8
+    },
+    {
+      "op": "screenshot",
+      "name": "flat_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "flat_hit.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

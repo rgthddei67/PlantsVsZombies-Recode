@@ -277,6 +277,7 @@ void Squash::FinishFalling()
 
 void Squash::ApplySquashDamage()
 {
+	std::vector<int> targets;
 	if (mDamageApplied || !mBoard) return;
 	mDamageApplied = true;
 
@@ -297,6 +298,10 @@ void Squash::ApplySquashDamage()
 		const float requiredOverlap = dynamic_cast<FootballZombie*>(zombie)
 			? -kFootballDamageGap : 0.0f;
 		if (overlap > requiredOverlap) {
+			targets.push_back(zombie->mZombieID);
+		}
+	});
+	mBoard->ApplyPlantAshAttack(targets, [](Zombie* zombie) {
 			// C# 使用 TakeDamage(1800, 18U)：普通体量会走 bit4 的立即死亡，
 			// 只有本体耐久超过 1800 的重型目标才保留并承受伤害；bit1 同时穿透二类护盾。
 			if (zombie->mZombieType == ZombieType::ZOMBIE_REINFORCED_DOOR)
@@ -329,7 +334,6 @@ void Squash::ApplySquashDamage()
 				zombie->TakeDamage(kSquashDamage, DamageSource::PLANT_ASH, true,
 					false, false, PlantDamageOrigin::Ash());
 			}
-		}
 	});
 }
 

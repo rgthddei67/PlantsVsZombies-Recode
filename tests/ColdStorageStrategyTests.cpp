@@ -824,6 +824,57 @@ int main()
 		check(team.actions.size() == 2 && team.features[5] == 40 && team.features[4] > 40,
 			"affordable large-space samples retain profitable cooperation instead of buying only the first cohort");
 	}
+	// 新能力必须兑现真实护工、费用及离散控制，不修改来源快照。
+	{
+	using namespace ColdStorageSearch;
+	Snapshot s; s.houseX=-10000; s.searchVersion=2;
+	Unit worker; worker.body.x=900; worker.body.health=500; worker.body.economic=true;
+	worker.productionStopHealth=500.0f/3;
+	s.current={worker,worker,worker};
+	Counter blast; blast.blast.committed=true; blast.blast.ready=1;
+	blast.blast.x=900; blast.blast.reach.fill(-1); blast.blast.reach[0]=130; blast.blast.damage=1800;
+	s.counters={blast};
+	const auto exposed=Evaluate(s,{});
+	Unit engineer; engineer.engineer=true; engineer.body.x=920; engineer.body.health=1000;
+	s.current.push_back(engineer); ConstructionStats protectedStats;
+	const auto protectedIncome=Evaluate(s,{},&protectedStats);
+	check(protectedIncome[4]>exposed[4] && protectedStats.engineerBlocks==3,
+		"same blast may kill engineer while preserving its three nearby workers");
+	check(s.current.back().canisterFull && s.current[0].body.health==500,
+		"engineering forecast does not consume live canister or worker health");
+	s.budget=10; s.current.back().body.x=1010; s.counters[0].blast.reach[0]=30;
+	blast=s.counters[0]; blast.blast.ready=8; s.counters.push_back(blast);
+	ConstructionStats reload; Evaluate(s,{},&reload);
+	check(reload.engineerBlocks==6 && reload.engineerReloadIce>=20,
+		"surviving engineer can pay for six-second reload and protect a later separate blast");
+	s.budget=0;
+	for (size_t i=0;i<3;++i) s.current[i].body.stopped=600;
+	ConstructionStats broke; Evaluate(s,{},&broke);
+	check(broke.engineerBlocks==3 && broke.engineerReloadIce==0,
+		"empty wallet and stopped production cannot invent a replacement canister");
+	worker.body.stopped=600; engineer.body.x=1010;
+	s.current={worker,engineer,engineer}; s.counters[1].blast.ready=1.5f;
+	ConstructionStats overlap; Evaluate(s,{},&overlap);
+	check(overlap.engineerBlocks==2 && overlap.engineerReloadIce==0,
+		"overlapping engineers retain their second canister for the next separate ash event");
+	s.current.pop_back(); Evaluate(s,{},&overlap);
+	check(overlap.engineerBlocks==1,
+		"one broke engineer cannot repeat protection before completing a paid reload");
+	s.counters.clear(); s.current.clear();
+	Unit crowd; crowd.body.x=900; crowd.body.health=100000;
+	for (int i=0;i<9;++i) { crowd.id=i+1; s.current.push_back(crowd); }
+	Plant flower; flower.thunder=true; flower.x=200; flower.health=300; flower.dps=10; flower.edible=false; flower.thunderRemaining=2.0f;
+	s.plants={flower}; ConstructionStats single, multiple;
+	Evaluate(s,{},&single);
+	check(single.thunderStuns>0 && single.thunderStuns<=6*60,
+		"thunder control is discrete and capped at six successful recipients per attack");
+	s.current.resize(6); Evaluate(s,{},&single); s.plants.push_back(flower); Evaluate(s,{},&multiple);
+	check(multiple.thunderStuns==single.thunderStuns,
+		"synchronized flowers cannot refresh paralysis or stack their per-target resistance");
+	s.plants.clear(); s.thunderRays={{850,0,PlantDamageOrigin::FromPlant(PlantType::PLANT_THUNDERFLOWER)}};
+	ConstructionStats inFlight; Evaluate(s,{},&inFlight);
+	check(inFlight.thunderStuns==6,"an already-fired ray completes its capped control after its plant is gone");
+	}
 	// 已付款队列不属于新购物车：只能提前/改合法路线，不能再次扣费或修改在场实体。
 	ColdStorageSearch::Snapshot queued;
 	queued.searchVersion = 2;

@@ -113,12 +113,16 @@ void Jalapeno::IgniteRow()
 	}
 
 	// 原版 BurnRow 先解冻/解减速，再按灰烬入口烧毁本行；魅惑僵尸不属于植物武器目标。
-	mBoard->mEntityRegistry.ForEachZombieInRow(mRow, [this](Zombie* zombie) {
+	std::vector<int> targets;
+	mBoard->mEntityRegistry.ForEachZombieInRow(mRow, [this, &targets](Zombie* zombie) {
 		if (!zombie || zombie->IsMindControlled()
 			|| mBoard->MineBlocksSegment(GetPosition(), zombie->GetPosition())) return;
-		zombie->RemoveColdEffects();
-		zombie->TakePlantAshDamage(kJalapenoDamage);
+		targets.push_back(zombie->mZombieID);
 		});
+	mBoard->ApplyPlantAshAttack(targets, [](Zombie* z) {
+		z->RemoveColdEffects(); z->TakePlantAshDamage(kJalapenoDamage);
+	});
+
 	// 原版辣椒把本行冰道计时压到 20cs；本项目统一使用秒。
 	mBoard->ShortenIceTrail(mRow, 0.2f);
 	mBoard->RemoveLaddersInRow(mRow);

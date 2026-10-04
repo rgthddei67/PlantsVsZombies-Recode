@@ -29,6 +29,7 @@ namespace {
 		case BulletType::BULLET_MELT_SNOW:
 		case BulletType::BULLET_SALT_CRYSTAL:
 		case BulletType::BULLET_AURORA_PEA:
+		case BulletType::BULLET_THUNDER_SEED:
 		case BulletType::BULLET_THERMAL_PULSE:
 			return true;
 		case BulletType::BULLET_ZOMBIE_PEA:

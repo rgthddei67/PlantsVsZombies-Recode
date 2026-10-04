@@ -19,6 +19,10 @@
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
 #include "Game/Zombie/ColdChainGuardRules.h"
+#include "Game/Zombie/DisasterEngineerZombie.h"
+#include "Game/Zombie/DisasterEngineerRules.h"
+#include "Game/Plant/ThunderFlower.h"
+#include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Zombie/CrystalDrummerZombie.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/AdaptiveHelmetZombie.h"
@@ -302,6 +306,11 @@ namespace {
 		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
 		plant.eliteQuota = type == P::PLANT_ELITE_SCAREDYSHROOM;
 		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
+		plant.thunder = type == P::PLANT_THUNDERFLOWER;
+		if (plant.thunder) {
+			plant.hitDamage = ThunderFlowerRules::Damage; plant.stopDuty = 0;
+			plant.thunderRemaining = ThunderFlowerRules::Interval+ThunderFlowerRules::Windup;
+		}
 		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
 		if (plant.melon)
 			plant.hitDamage = static_cast<float>(Bullet::GetBaseDamage(type == P::PLANT_MELONPULT ? BulletType::BULLET_MELON : BulletType::BULLET_WINTERMELON));
@@ -454,6 +463,7 @@ namespace {
 			return {1500, 1, false, false, false};
 		case Z::ZOMBIE_DOOR: return {DoorZombie::InitialBodyHealth + DoorZombie::InitialShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_REINFORCED_DOOR: return {DoorZombie::InitialBodyHealth + ReinforcedDoorZombie::InitialShieldHealth, 1, false, false, false};
+		case Z::ZOMBIE_DISASTER_ENGINEER: return {DisasterEngineerRules::Health, 1, false, true, false};
 		case Z::ZOMBIE_ICE_WORKER: return {IceProduction::WorkerHealth, 1, false, true, false};
 		case Z::ZOMBIE_COLD_CHAIN_GUARD: return {ColdChainGuardRules::kBodyHealth+ColdChainGuardRules::kShieldHealth, 1, false, false, false};
 		case Z::ZOMBIE_BOILER: return {BoilerRules::kHealth, 1, false, false, false};
@@ -492,6 +502,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 	switch (type) {
 	case Z::ZOMBIE_COLD_CHAIN_GUARD: return 12; // 沿用原默认价，周期修复另付公共冰块
 	case Z::ZOMBIE_BOILER: return 15; // 另有成功超频时的5冰技能费
+	case Z::ZOMBIE_DISASTER_ENGINEER: return DisasterEngineerRules::Cost;
 	case Z::ZOMBIE_ICE_WORKER: return IceProduction::WorkerCost;
 	case Z::ZOMBIE_NORMAL: return 4; // 保留低库存收尾时可派出的基础兵
 	case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_NEWSPAPER: return 6;
@@ -1171,7 +1182,13 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			}
 			if (s.unlockProbe) search.allowWait = false;
 		}
+
 		search.rightEdge = SCENE_WIDTH;
+		for (const int id:mEntityRegistry.GetAllBulletIDs()) {
+			const auto* bullet=mEntityRegistry.GetBullet(id);
+			if (bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_THUNDER_SEED)
+				search.thunderRays.push_back({bullet->GetPosition().x,bullet->mRow,bullet->mPlantDamageOrigin});
+		}
 		// 清洁车是共同战斗规则，不能因候选搜索版本不同而从局面中消失。
 		for (int id : mEntityRegistry.GetAllMowerIDs()) {
 			const Mower* mower = mEntityRegistry.GetMower(id);
@@ -1393,6 +1410,12 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			ProjectShieldRules(unit, entity->mZombieType);
 			unit.biteDps = entity->GetMineSimulationAttackDps();
 			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
+			unit.thunderResistance = entity->GetThunderResistanceRemaining();
+			unit.paralysisRemaining = entity->GetParalysisTimeRemaining();
+			if (const auto* engineer = dynamic_cast<const DisasterEngineerZombie*>(entity)) {
+				unit.engineer = true; unit.canisterFull = engineer->HasFullCanister();
+				unit.reloadPaid = engineer->IsReloadPaid(); unit.reloadRemaining = engineer->GetReloadRemaining();
+			}
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
@@ -1466,6 +1489,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+				if (const auto* flower=dynamic_cast<const ThunderFlower*>(entity))
+					plant.thunderRemaining=flower->GetAttackRemaining();
 				plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,entity->GetSleepState());
 				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
 					plant.growth = growing->GetSimulationAttackGrowth();
@@ -1554,6 +1579,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.upperForecastMoveSpeed=motion.upperQuartile;
 			projectMovementCurve(unit,type);
 			unit.body.purchaseCost = static_cast<float>(cost);
+			unit.engineer = type == ZombieType::ZOMBIE_DISASTER_ENGINEER;
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
 			if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) ProjectDrum(unit);
@@ -2343,6 +2369,8 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchAbilityIce = result.construction.abilityIceSpent;
 	s.searchDrumOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.drum.enabled; }));
 	s.searchDeploymentSniperOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o) { return o.unit.sniper.enabled; }));
+	s.searchEngineerBlocks=result.construction.engineerBlocks; s.searchThunderStuns=result.construction.thunderStuns;
+	s.searchEngineerReloadIce=result.construction.engineerReloadIce;
 	s.searchDeploymentShots = result.construction.deploymentShots; s.searchDeploymentHits = result.construction.deploymentHits;
 	s.searchClockOptions = static_cast<int>(std::count_if(search.options.begin(),search.options.end(),[](const auto& o){return o.unit.clock.present;}));
 	s.searchClockAnchors = result.construction.clockAnchors; s.searchClockTargets = result.construction.clockTargets;

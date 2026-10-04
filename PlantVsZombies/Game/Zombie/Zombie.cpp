@@ -1,4 +1,5 @@
 #include "Zombie.h"
+#include "Game/Plant/ThunderFlowerRules.h"
 #include "GoldenIceRules.h"
 #include "ZombieCharred.h"
 #include "GildedZamboniZombie.h"
@@ -284,6 +285,7 @@ void Zombie::SaveProtectedData(nlohmann::json& j) const {
 	j["frozenTimer"] = mFrozenTimer;
 	j["butterTimer"] = mButterTimer;
 	j["paralysisTimer"] = mParalysisTimer;
+	j["thunderResistanceTimer"] = mThunderResistanceTimer;
 	j["controlImmunityTimers"] = mControlImmunityTimers;
 	j["roofMarshalAssaultTimer"] = GetRoofMarshalAssaultTimer();
 	j["roofMarshalAssaultMoveMultiplier"] = GetRoofMarshalAssaultMoveMultiplier();
@@ -381,6 +383,9 @@ void Zombie::LoadProtectedData(const nlohmann::json& j) {
 	}
 	mParalysisTimer = std::clamp(
 		j.value("paralysisTimer", 0.0f), 0.0f, kMaximumParalysisDuration);
+	const float thunderResistance = j.value("thunderResistanceTimer", 0.0f);
+	mThunderResistanceTimer = std::isfinite(thunderResistance) ? std::clamp(thunderResistance, 0.0f,
+		ThunderFlowerRules::Paralysis + ThunderFlowerRules::Resistance) : 0;
 	if (!CanBeParalyzed()) mParalysisTimer = 0.0f;
 	if (mParalysisTimer > 0.0f && mAnimator) {
 		UpdateAnimSpeed();
@@ -699,6 +704,7 @@ void Zombie::Update()
 			if (mButterTimer <= 0.0f) ClearButter();
 		}
 
+		mThunderResistanceTimer = std::max(0.0f, mThunderResistanceTimer - deltaTime);
 		// 通用麻痹与黄油一样使用游戏时间；倍速只改变现实等待，不改变玩法秒数。
 		if (mParalysisTimer > 0.0f)
 		{
@@ -1439,6 +1445,14 @@ bool Zombie::ApplyParalysis(float durationSeconds)
 		std::min(durationSeconds, kMaximumParalysisDuration));
 	UpdateAnimSpeed();
 	UpdateStatusOverlay();
+	return true;
+}
+
+/** 同一目标拒绝多株雷鸣花叠控，电荷等来源继续走通用麻痹入口。 */
+bool Zombie::ApplyThunderParalysis()
+{
+	if (mThunderResistanceTimer > 0 || IsParalyzed() || !ApplyParalysis(ThunderFlowerRules::Paralysis)) return false;
+	mThunderResistanceTimer = ThunderFlowerRules::Paralysis + ThunderFlowerRules::Resistance;
 	return true;
 }
 

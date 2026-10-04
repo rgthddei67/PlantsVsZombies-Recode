@@ -110,6 +110,7 @@ bool PotatoMine::HasTriggeringZombieInBlastRadius()
 
 void PotatoMine::KillZombiesInBlastRadius()
 {
+	std::vector<int> targets;
 	const Vector blastCenter = GetPosition() + Vector(kBlastCenterOffsetX, kBlastCenterOffsetY);
 	const float radiusSquared = kBlastRadius * kBlastRadius;
 
@@ -123,9 +124,10 @@ void PotatoMine::KillZombiesInBlastRadius()
 
 		if (CircleIntersectsBounds(blastCenter, radiusSquared, collider->GetBoundingBox())) {
 			// 土豆雷仍对普通目标一击化灰；特殊目标可拒绝直杀并承受受限灰烬伤害。
-			zombie->TakePlantAshDamage(1800);
+			targets.push_back(zombie->mZombieID);
 		}
 		});
+	mBoard->ApplyPlantAshAttack(targets, [](Zombie* z) { z->TakePlantAshDamage(1800); });
 }
 
 void PotatoMine::SaveExtraData(nlohmann::json& j) const

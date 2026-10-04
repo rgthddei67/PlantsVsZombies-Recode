@@ -97,6 +97,8 @@ struct Unit {
 	bool birthMovementKnown = false; // 零移速也可能是合法出生阶段，不能把静止品种当成普通行走
 	ZombieMovementRules::PositionCurve movementCurve;
 	float movementCurveBase=0, movementCurveReference=0; // 世界基准与采样位置；保持已采样速度倍率，按推进位置更新车速
+	bool engineer = false, canisterFull = true, reloadPaid = false;
+	float reloadRemaining = 0, thunderResistance = 0, paralysisRemaining = 0;
 	PaidBurst burst;
 	ArmorRepair repair;
 	Drum drum;
@@ -133,6 +135,8 @@ struct Unit {
 
 };
 struct Plant {
+	bool thunder = false;
+	float thunderRemaining = 0; // 下一次雷种发射的有效行动余秒
 	float shutdownUntil=0;
 	bool grounding=false, lightningPot=false, support=false, plantern=false;
 	int executionGroup=-1; bool countsExecution=false, diesExecution=false;
@@ -219,6 +223,8 @@ struct ConstructionStats {
 	int burstActivations = 0, auraActivations = 0, armorRepairs = 0, plantRepairs = 0;
 	float armorRepairIce = 0, plantRepairIce = 0;
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
+	int engineerBlocks = 0, thunderStuns = 0;
+	float engineerReloadIce = 0;
 	int deploymentShots = 0, deploymentHits = 0;
 	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
 	int interferences = 0; // 玩家实际可支付的时间干扰次数
@@ -265,7 +271,10 @@ struct TemporalAnchor {
 	float at = 0;
 	std::vector<TemporalTarget> targets;
 };
+/** 已发射雷种只有数值位置与来源；不借用弹丸或植物对象。 */
+struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
 struct Snapshot {
+	std::vector<ThunderRay> thunderRays;
 	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹
 	bool fuelAwarePlantern = true; // 仅诊断消融可关闭动态挡位应对，正式搜索始终启用
     bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数

@@ -25,6 +25,7 @@ enum class BulletType {
 	BULLET_SALT_CRYSTAL,	// 盐晶弹；20 点直击伤害并向冰层请求 200 点腐蚀
 	BULLET_AURORA_PEA,		// 极光豌豆；50 点伤害并依次穿透最多四只不同僵尸
 	BULLET_THERMAL_PULSE,	// 热感狙击僵尸的敌方水平直射弹；伤害与硬终点由瞄准快照提供
+	BULLET_THUNDER_SEED, // 雷鸣花普通伤害雷种；追加保持旧档整数身份
 	NUM_BULLETS,
 };
 

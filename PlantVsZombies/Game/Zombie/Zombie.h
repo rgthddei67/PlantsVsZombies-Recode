@@ -115,6 +115,7 @@ protected:
 	float mCooldownTimer = 0.0f;	// 僵尸减速倒计时时间
 	float mFrozenTimer = 0.0f;		// 冻结剩余秒数（寒冰菇完全定身），0=未冻结
 	float mButterTimer = 0.0f;		// 黄油定身剩余秒数，0=未被黄油固定
+	float mThunderResistanceTimer = 0; // 雷鸣花麻痹及结束抗性的总剩余游戏秒数
 	float mParalysisTimer = 0.0f;   // 通用麻痹剩余游戏秒；来源可以是天气、植物或其他机制
 	std::array<float, ZOMBIE_CONTROL_EFFECT_COUNT> mControlImmunityTimers{}; // 各控制类型独立的临时免疫游戏秒数
 	std::unique_ptr<RoofMarshalAssaultState> mRoofMarshalAssaultState; // 首次受突击令时分配，含计时、倍率和红旗表现
@@ -491,6 +492,9 @@ public:
 	 * @return 当前品种与阶段接受麻痹时返回 true。
 	 */
 	bool ApplyParalysis(float durationSeconds);
+	/** 雷鸣花命中不刷新已有麻痹；成功后建立所有雷鸣花共享的目标抗性。 */
+	bool ApplyThunderParalysis();
+	float GetThunderResistanceRemaining() const { return mThunderResistanceTimer; }
 	bool IsParalyzed() const { return mParalysisTimer > 0.0f; }
 	float GetParalysisTimeRemaining() const { return mParalysisTimer; }
 	/** 车辆等永久免疫麻痹的品种覆写此接口；伤害资格与它相互独立。 */

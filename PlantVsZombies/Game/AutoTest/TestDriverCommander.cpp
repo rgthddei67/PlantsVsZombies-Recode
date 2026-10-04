@@ -359,6 +359,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		attempt("PLANT_REPEATER", cells);
 	}
 	cells.clear(); for (int r : rows) cells.emplace_back(r,0);
+	attempt("PLANT_THUNDERFLOWER", cells);
 	attempt("PLANT_MELONPULT", cells);
 	if (opponent == "growth") { cells.clear(); for (int r : rows) cells.emplace_back(r,1); attempt("PLANT_MELONPULT", cells); }
 	attempt("PLANT_WINTERMELON", {{1,0},{3,0},{0,0},{4,0},{2,0}});

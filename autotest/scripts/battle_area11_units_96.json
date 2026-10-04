@@ -1,0 +1,87 @@
+{
+  "description": "Legal scripted defense with ThunderFlower against the adopted commander and newly unlocked DisasterEngineer.",
+  "backgroundCommander": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_THUNDERFLOWER",
+        "PLANT_MELONPULT",
+        "PLANT_WINTERMELON",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICESTORAGENUT",
+        "PLANT_ICEMINT",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_DOOMSHROOM",
+        "PLANT_PLANTERN"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 2
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker",
+      "seconds": 60,
+      "name": "opening",
+      "timeout": 180,
+      "timeScale": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "opening.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "opening_state.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker",
+      "seconds": 60,
+      "name": "middle",
+      "timeout": 180,
+      "timeScale": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "middle.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "middle_state.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker",
+      "seconds": 60,
+      "name": "late",
+      "timeout": 180,
+      "timeScale": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "late.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "late_state.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

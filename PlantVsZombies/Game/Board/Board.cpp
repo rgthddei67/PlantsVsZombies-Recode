@@ -1327,6 +1327,7 @@ void Board::InitializeCell(int rows, int cols)
 
 void Board::CreateBoom(const Vector& position, int plantRow, int damage)
 {
+	std::vector<int> targets;
 	g_particleSystem->EmitEffect("CherryBomb", position);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_CHERRYBOMB, 0.4f);
 	ShakeBoard(3.0f, -4.0f);   // 原版 ShakeBoard(3,-4)：0.12s 单次弹跳
@@ -1337,16 +1338,19 @@ void Board::CreateBoom(const Vector& position, int plantRow, int damage)
 			if (zombie->IsMindControlled() || MineBlocksSegment(position, zombie->GetPosition())) return;
 			if (std::abs(zombie->GetPosition().x - position.x) <= 130.0f) {
 				// 统一灰烬入口内部决定化灰或数值扣血；特殊僵尸可拒绝化灰并限制每次灰烬伤害。
-				zombie->TakePlantAshDamage(damage);
+				targets.push_back(zombie->mZombieID);
 			}
 		});
 	}
+	ApplyPlantAshAttack(targets, [damage](Zombie* z) { z->TakePlantAshDamage(damage); });
+
 	// 原版对僵尸使用圆形命中，但扶梯另按爆心格的 3x3 方形范围清除。
 	RemoveLaddersInBlastSquare(position, plantRow, 1);
 }
 
 void Board::CreateDoomBoom(const Vector& position, int plantRow, int damage)
 {
+	std::vector<int> targets;
 	g_particleSystem->EmitEffect("Doom", position);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_DOOMSHROOM, 0.5f);
 	// 比樱桃更剧烈：双倍振幅 + 0.5s 衰减正弦来回甩 5 个半周期（原版两者同为 3,-4，主人要求毁灭菇加强）
@@ -1365,12 +1369,14 @@ void Board::CreateDoomBoom(const Vector& position, int plantRow, int damage)
 			float dy = position.y - nearestY;
 			if (dx * dx + dy * dy <= 250.0f * 250.0f)
 			{
-				zombie->TakePlantAshDamage(damage);
+				targets.push_back(zombie->mZombieID);
 			}
 		}
 	}
 	// 毁灭菇沿用原版 rowRange=3，清除爆心格周围 7x7 方形范围内的扶梯。
 	RemoveLaddersInBlastSquare(position, plantRow, 3);
+	ApplyPlantAshAttack(targets, [damage](Zombie* z) { z->TakePlantAshDamage(damage); });
+
 }
 
 void Board::ShakeBoard(float amountX, float amountY, float durationSeconds, int oscillations)
@@ -1655,6 +1661,7 @@ void Board::CreateTrophy(const Vector& position)
 
 void Board::CreateCobCannonExplosion(const Vector& position, int targetRow, int damage)
 {
+	std::vector<int> targets;
 	constexpr float kCobBlastRadius = 115.0f; // 原版 CobBig 爆心半径，单位：px
 	if (g_particleSystem) {
 		g_particleSystem->EmitEffect("CobCannonBlastMark", position);
@@ -1683,10 +1690,12 @@ void Board::CreateCobCannonExplosion(const Vector& position, int targetRow, int 
 			const float dx = position.x - nearestX;
 			const float dy = position.y - nearestY;
 			if (dx * dx + dy * dy <= kCobBlastRadius * kCobBlastRadius) {
-				zombie->TakePlantAshDamage(damage);
+				targets.push_back(zombie->mZombieID);
 			}
 		});
 	}
+	ApplyPlantAshAttack(targets, [damage](Zombie* z) { z->TakePlantAshDamage(damage); });
+
 	// 原版玉米炮与樱桃炸弹相同：扶梯按爆心格周围 3x3 方形范围清除。
 	RemoveLaddersInBlastSquare(position, targetRow, 1);
 }

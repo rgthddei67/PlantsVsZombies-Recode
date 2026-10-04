@@ -74,6 +74,8 @@
 #include "FurnaceCoreFlower.h"
 #include "ListeningGrass.h"
 #include "IceMint.h"
+#include "ThunderFlower.h"
+#include "../Zombie/DisasterEngineerZombie.h"
 #include "IceStorageNut.h"
 #include "../Zombie/ColdChainGuardZombie.h"
 #include "ColdPineapple.h"
@@ -287,6 +289,10 @@ void GameDataManager::InitializeHardcodedData() {
 	voucher.skillCard = true;
 	mPlantInfo[voucher.type] = voucher;
 	mEnumNameToType[voucher.enumName] = voucher.type;
+	RegisterPlant(PlantType::PLANT_THUNDERFLOWER, "PLANT_THUNDERFLOWER", "IMAGE_THUNDERFLOWER",
+		AnimationType::ANIM_THUNDERFLOWER, "ThunderFlower", &MakePlant<ThunderFlower>);
+	RegisterZombie(ZombieType::ZOMBIE_DISASTER_ENGINEER, "ZOMBIE_DISASTER_ENGINEER",
+		AnimationType::ANIM_DISASTER_ENGINEER, "DisasterEngineerZombie", &MakeZombie<DisasterEngineerZombie>, &DisasterEngineerZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_ICEMINT, "PLANT_ICEMINT", "IMAGE_ICEMINT",
 		AnimationType::ANIM_ICEMINT, "IceMint", &MakePlant<IceMint>);
 	RegisterZombie(ZombieType::ZOMBIE_ICE_WORKER, "ZOMBIE_ICE_WORKER",

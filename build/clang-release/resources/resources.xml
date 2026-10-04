@@ -2,6 +2,8 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/ThunderFlower.png</Image>
+    <Image>./resources/image/Thunder_seed.png</Image>
     <Image>./resources/image/background_weather_station.png</Image>
     <Image>./resources/image/PlantImage/ColdPineapple.png</Image>
     <Image>./resources/image/PlantImage/IceStorageNut.png</Image>
@@ -635,6 +637,8 @@
 
   <!-- 动画资源 此处的name要与ResourceKey里面的一样-->
   <Reanimations>
+    <Reanimation name="ThunderFlower">./resources/reanim/ThunderFlower.reanim</Reanimation>
+    <Reanimation name="DisasterEngineerZombie">./resources/reanim/DisasterEngineerZombie.reanim</Reanimation>
     <Reanimation name="IceStorageNut">./resources/reanim/IceStorageNut.reanim</Reanimation>
     <Reanimation name="ColdChainGuardZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="ColdPineapple">./resources/reanim/ColdPineapple.reanim</Reanimation>

@@ -75,6 +75,8 @@
 #include "../Zombie/ColdChainGuardZombie.h"
 #include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
+#include "../Zombie/DisasterEngineerZombie.h"
+#include "../Plant/ThunderFlower.h"
 #include "../Plant/NorthStarFlower.h"
 #include "../Plant/IceMirrorGrass.h"
 #include "../Plant/BoundaryFlower.h"
@@ -408,7 +410,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -418,7 +420,7 @@ namespace {
 		BT(BULLET_TOXICPEA), BT(BULLET_TOXICFIREBALL),
 		BT(BULLET_MELT_SNOW), BT(BULLET_SALT_CRYSTAL),
 		BT(BULLET_AURORA_PEA),
-		BT(BULLET_THERMAL_PULSE),
+		BT(BULLET_THERMAL_PULSE), BT(BULLET_THUNDER_SEED),
 	};
 #undef BT
 #define ZT(n) { #n, ZombieType::n }
@@ -444,7 +446,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -2983,7 +2985,7 @@ bool TestDriver::ExecuteCurrent() {
 				&& z->mZombieType != desiredType) continue;
 			if (seen++ == index) {
 				// 走正式受伤链（来源词条/护盾/头盔/断肢断头/免伤），用于验证而非直接 Die。
-				if (op == "ash_damage_zombie") z->TakePlantAshDamage(damage);
+				if (op == "ash_damage_zombie") board->ApplyPlantAshAttack({id}, [damage](Zombie* target) { target->TakePlantAshDamage(damage); });
 				else {
 					PlantDamageOrigin origin;
 					if (cmd.contains("plantType")) {
@@ -3061,6 +3063,7 @@ bool TestDriver::ExecuteCurrent() {
 			else if (effect == "FROZEN") applied = zombie->StartFrozen();
 			else if (effect == "BUTTER") applied = zombie->ApplyButter();
 			else if (effect == "PARALYSIS") applied = zombie->ApplyParalysis(duration);
+			else if (effect == "THUNDER") applied = zombie->ApplyThunderParalysis();
 			else {
 				Fail("apply_zombie_control: effect 必须是 SLOW/FROZEN/BUTTER/PARALYSIS");
 				return false;
@@ -5038,6 +5041,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchRiftRedirects"] = board->mColdStorage.searchRiftRedirects;
 		ice["searchDrumOptions"] = board->mColdStorage.searchDrumOptions;
 		ice["searchDeploymentSniperOptions"] = board->mColdStorage.searchDeploymentSniperOptions;
+		ice["searchEngineerBlocks"] = board->mColdStorage.searchEngineerBlocks;
+		ice["searchThunderStuns"] = board->mColdStorage.searchThunderStuns;
+		ice["searchEngineerReloadIce"] = board->mColdStorage.searchEngineerReloadIce;
 		ice["searchDeploymentShots"] = board->mColdStorage.searchDeploymentShots;
 		ice["searchDeploymentHits"] = board->mColdStorage.searchDeploymentHits;
 		ice["searchClockOptions"] = board->mColdStorage.searchClockOptions;
@@ -7177,6 +7183,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED1", false)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED2", false);
 		}
+		zombieState["thunderResistanceMs"] = static_cast<int>(std::lround(z->GetThunderResistanceRemaining()*1000));
+		if (auto* engineer = dynamic_cast<DisasterEngineerZombie*>(z)) {
+			zombieState["engineerFull"] = engineer->HasFullCanister();
+			zombieState["engineerReloadPaid"] = engineer->IsReloadPaid();
+			zombieState["engineerReloadMs"] = static_cast<int>(std::lround(engineer->GetReloadRemaining()*1000));
+			zombieState["engineerProtectionUses"] = engineer->GetProtectionUses();
+			zombieState["engineerResourcesReady"] = ResourceManager::GetInstance().HasReanimation("DisasterEngineerZombie")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_DISASTER_CANISTER_4",false);
+		}
 		if (auto* worker = dynamic_cast<IceWorkerZombie*>(z)) {
 			zombieState["iceRemainingMs"] = static_cast<int>(std::lround(worker->GetIceRemaining() * 1000.0f));
 			zombieState["nextIceYieldOn1000"] = static_cast<int>(std::lround(worker->GetNextIceYield() * 1000.0f));
@@ -8247,7 +8262,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& std::abs(actualCenter.x - expectedCenter.x) < 0.01f
 				&& std::abs(actualCenter.y - expectedCenter.y) < 0.01f;
 		}
+
 		if (auto* shooter = dynamic_cast<Shooter*>(p)) {
+			if (p->mPlantType==PlantType::PLANT_THUNDERFLOWER) plantState["thunderResourcesReady"] =
+				ResourceManager::GetInstance().HasReanimation("ThunderFlower")
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_THUNDERFLOWER",false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_THUNDER_SEED",false);
 			if (const Animator* head = shooter->GetHeadAnimator()) {
 				plantState["headTrack"] = head->GetCurrentTrackName();
 				plantState["headAnimPlaying"] = head->IsPlaying();

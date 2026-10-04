@@ -1,5 +1,7 @@
 #include "Game/Board/NightRoofChargeRules.h"
 #include "ColdStorageSearch.h"
+#include "Game/Zombie/DisasterEngineerRules.h"
+#include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
@@ -714,7 +716,27 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			stats.counterTrace.push_back({time,it->blast.x,it->blast.damage,
 				source == plants.end() ? -1 : source->row,source == plants.end() ? -1 : source->column,it->clearsCell});
 		}
-		for (size_t i = 0; i < units.size(); ++i) if (CounterHits(it->blast, units[i], time)) {
+
+		std::vector<unsigned char> protectedWorkers(units.size());
+		for (auto& engineer:units) if (engineer.engineer && engineer.canisterFull
+			&& engineer.body.spawnAt<=time && engineer.body.health>DisasterEngineerRules::Health/3.0f) {
+			std::vector<std::pair<float,size_t>> nearby;
+			for (size_t i=0;i<units.size();++i) {
+				const auto& u=units[i]; const float distance=std::abs(u.body.x-engineer.body.x);
+				if (u.body.economic && u.body.health>u.productionStopHealth && u.body.spawnAt<=time
+					&& u.body.row==engineer.body.row && distance<=DisasterEngineerRules::RadiusCells*state.cellWidth)
+					nearby.emplace_back(distance,i);
+			}
+			std::sort(nearby.begin(),nearby.end()); bool used=false;
+			for (size_t n=0;n<nearby.size() && n<DisasterEngineerRules::Capacity;++n) {
+				const size_t i=nearby[n].second;
+				if (!protectedWorkers[i] && CounterHits(it->blast,units[i],time)) {
+					protectedWorkers[i]=1; used=true; ++stats.engineerBlocks;
+				}
+			}
+			if (used) { engineer.canisterFull=false; engineer.reloadPaid=false; engineer.reloadRemaining=DisasterEngineerRules::ReloadSeconds; }
+		}
+		for (size_t i = 0; i < units.size(); ++i) if (!protectedWorkers[i] && CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
 			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
 			const float credit = body.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
@@ -1767,7 +1789,14 @@ struct StationProjection {
                 && other.body.row==row && std::abs(other.body.x-u.body.x)<=s.cellWidth*1.5f
                 && (!protector || std::abs(other.body.x-u.body.x)<std::abs(protector->body.x-u.body.x))) protector=&other;
             if(protector) { const float absorbed=std::min(protector->helmHealth,kNightRoofZombieDamage*damageMultiplier); protector->helmHealth-=absorbed; protector->body.health-=absorbed; protector->overloadRemaining=15; }
-            else { ApplyDamage(u,kNightRoofZombieDamage*damageMultiplier); if(u.paralysisAllowed) u.body.stopped=std::max(u.body.stopped,kNightRoofZombieParalysisDuration); }
+            else {
+                ApplyDamage(u,kNightRoofZombieDamage*damageMultiplier);
+                if(u.paralysisAllowed) {
+                    u.body.stopped=std::max(u.body.stopped,kNightRoofZombieParalysisDuration);
+                    // 电荷麻痹与雷鸣花共享状态；雷鸣花不能延长正在生效的电荷麻痹。
+                    u.paralysisRemaining=std::max(u.paralysisRemaining,kNightRoofZombieParalysisDuration);
+                }
+            }
         }
         std::sort(grounding.begin(),grounding.end()); grounding.erase(std::unique(grounding.begin(),grounding.end()),grounding.end());
         for(const size_t i:grounding) DamagePlant(plants[i],100,true,f);
@@ -1994,6 +2023,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<bool> refunded(units.size()), breached(units.size());
 	std::vector<float> counterHoldUntil(counterReady.size(),-1);
 	std::vector<unsigned char> melonHits(units.size());
+	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
+
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	float pendingIce = static_cast<float>(s.incomingIce), arrival = s.incomingIceAt;
 	std::vector<float> exchangeReady;
@@ -2029,6 +2060,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	bool orderArrived = false;
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
+		for (auto& unit:units) {
+			unit.thunderResistance=std::max(0.0f,unit.thunderResistance-kStep);
+			unit.paralysisRemaining=std::max(0.0f,unit.paralysisRemaining-kStep);
+		}
 		const float previousKills = f[0];
 		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady,planternResponseGear);
 		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
@@ -2083,6 +2118,47 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
 		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats,preserveManualAuras);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
+
+		// 对平射雷种作同一逻辑步内的扫掠碰撞，避免把远处控制提前当成即时生效。
+		for (auto ray=thunderRays.begin();ray!=thunderRays.end();) {
+			const float toX=ray->x+ThunderFlowerRules::ProjectileSpeed*kStep;
+			int target=-1; float impactX=toX;
+			for (size_t i=0;i<units.size();++i) {
+				const auto& u=units[i].body;
+				if (u.health<=0 || u.spawnAt>t || u.row!=ray->row || !units[i].groundHazard
+					|| u.x+u.boundsOffset>toX+10 || u.x+u.boundsOffset+u.boundsWidth<ray->x-10) continue;
+				const float hitX=std::max(ray->x,u.x+u.boundsOffset-10);
+				if (target<0 || hitX<impactX) {target=static_cast<int>(i);impactX=hitX;}
+			}
+			if (target<0) {
+				ray->x=toX;
+				if (toX>s.rightEdge+40) ray=thunderRays.erase(ray); else ++ray;
+				continue;
+			}
+			std::vector<std::pair<float,size_t>> hits;
+			const float radius=ThunderFlowerRules::RadiusCells*s.cellWidth;
+			for (size_t i=0;i<units.size();++i) {
+				const auto& u=units[i].body;
+				if (u.health<=0 || u.spawnAt>t || !units[i].groundHazard || std::abs(u.row-ray->row)>1
+					|| u.x+u.boundsOffset>impactX+radius || u.x+u.boundsOffset+u.boundsWidth<impactX-radius) continue;
+				const float dx=u.x+u.boundsOffset+u.boundsWidth*.5f-impactX;
+				const float dy=(u.row-ray->row)*s.cellHeight;
+				hits.emplace_back(dx*dx+dy*dy,i);
+			}
+			std::sort(hits.begin(),hits.end()); int controlled=0;
+			for (const auto& hit:hits) {
+				auto& unit=units[hit.second];
+				ApplyDamage(unit,ThunderFlowerRules::Damage,false,false,false,ray->origin);
+				if (controlled<ThunderFlowerRules::ControlLimit && unit.body.health>0 && unit.paralysisAllowed
+					&& unit.chargeControlImmunity<=t && unit.paralysisRemaining<=0 && unit.thunderResistance<=0) {
+					unit.body.stopped=std::max(unit.body.stopped,ThunderFlowerRules::Paralysis);
+					unit.paralysisRemaining=ThunderFlowerRules::Paralysis;
+					unit.thunderResistance=ThunderFlowerRules::Paralysis+ThunderFlowerRules::Resistance;
+					++controlled; ++constructionStats.thunderStuns;
+				}
+			}
+			ray=thunderRays.erase(ray);
+		}
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0 && plants[pi].shutdownUntil<=t) {
 			auto& p = plants[pi];
 			const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1);
@@ -2104,6 +2180,16 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				p.hitDamage = p.growth.Damage();
 				p.dps = p.hitDamage/p.growth.Interval()*p.growthSpeed;
 				damageRate = damage/std::max(0.001f,p.dps*kStep);
+			}
+
+
+			if (p.thunder) {
+				p.thunderRemaining -= kStep*attackRate*std::max(.001f,p.dps*ThunderFlowerRules::Interval/ThunderFlowerRules::Damage);
+				if (p.thunderRemaining<=0) {
+					p.thunderRemaining+=ThunderFlowerRules::Interval;
+					thunderRays.push_back({p.x+30,p.row,p.damageOrigin});
+				}
+				continue;
 			}
 			const auto impact = units[target].body;
 			int secondaryCount = 0;
@@ -2179,6 +2265,19 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 					if (s.traceEconomy) constructionStats.workerTrace.push_back({worker.id,u.row,t,u.x,u.health,static_cast<float>(income)});
 					worker.productionRemaining += IceProduction::Interval;
 					worker.nextYield = std::min(IceProduction::MaximumYield, worker.nextYield * IceProduction::YieldGrowth);
+				}
+			}
+
+			if (worker.engineer && !worker.canisterFull && u.health>DisasterEngineerRules::Health/3.0f && active>0) {
+				if (!worker.reloadPaid) {
+					if (enemyIce>=DisasterEngineerRules::ReloadCost) {
+						enemyIce-=DisasterEngineerRules::ReloadCost; f[5]+=DisasterEngineerRules::ReloadCost;
+						constructionStats.engineerReloadIce+=DisasterEngineerRules::ReloadCost;
+						constructionStats.abilityIceSpent+=DisasterEngineerRules::ReloadCost; worker.reloadPaid=true;
+					}
+				} else {
+					worker.reloadRemaining=std::max(0.0f,worker.reloadRemaining-active);
+					if (worker.reloadRemaining<=0) {worker.canisterFull=true;worker.reloadPaid=false;}
 				}
 			}
 			AdvanceArmorRepair(worker,active,enemyIce,f,constructionStats);

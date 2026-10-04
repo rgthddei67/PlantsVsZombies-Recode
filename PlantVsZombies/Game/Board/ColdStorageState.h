@@ -71,6 +71,8 @@ struct ColdStorageState {
 	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒；旧 AI 使用，学习分支不据此强迫出兵
 	int spent = 0;
 	int supplied = 0;
+	int searchEngineerBlocks = 0, searchThunderStuns = 0;
+	float searchEngineerReloadIce = 0;
 	int workerIncome = 0; // 制冰工累计为敌方生产的冰块
 	std::deque<ColdStorageProductionEvent> productionEvents; // 最近 120 秒，上限 4096 条，仅 AutoTest 采集
 	int playerProductionIncome = 0; // 薄荷与魅惑制冰工累计生产的冰块
