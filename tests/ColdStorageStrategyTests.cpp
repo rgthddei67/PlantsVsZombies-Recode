@@ -2901,4 +2901,79 @@ int main()
     check(Search(s,income,42).actions.empty(),"weak-unit economy exploration still rejects a fully lethal field");
     }
 
+    {
+    using namespace ColdStorageSearch;
+    // 可见直射阵地与就绪灰烬共同存在；保护赚的钱必须来自实际生产，不能假定先骗光灰烬。
+    Snapshot field; field.houseX=-10000; field.searchVersion=2; field.netEconomy=true;
+    field.budget=300; field.capacity=16; field.playerSun=2000; field.playerIce=500;
+    Plant fire; fire.x=300; fire.health=100000; fire.dps=80; fire.edible=false; field.plants={fire};
+    Option worker; worker.type=3001; worker.cost=24; worker.unit.body.x=1000;
+    worker.unit.body.health=500; worker.unit.body.purchaseCost=24; worker.unit.body.economic=true;
+    Option engineer; engineer.type=4007; engineer.cost=35; engineer.unit.body.x=1020;
+    engineer.unit.body.health=1000; engineer.unit.body.purchaseCost=35; engineer.unit.engineer=true;
+    Option tank; tank.type=5009; tank.cost=32; tank.unit.body.x=850;
+    tank.unit.body.health=3000; tank.unit.body.purchaseCost=32;
+    Option clock; clock.type=6113; clock.cost=18; clock.unit.body.x=1050;
+    clock.unit.body.health=PolarClockRules::BodyHealth+PolarClockRules::ArmorHealth;
+    clock.unit.helmHealth=PolarClockRules::ArmorHealth; clock.unit.body.purchaseCost=18;
+    clock.unit.clock={true,true,false,PolarClockRules::Preparation,PolarClockRules::BodyHealth/3.0f};
+    field.options={worker,engineer,tank,clock};
+    Counter ash; ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
+    ash.blast.damage=1800; ash.sunCost=125; ash.recharge=1000; field.counters={ash};
+    const Weights profit{0,0,0,0,1,-1,0,0};
+    ConstructionStats knownStats;
+    std::vector<Action> defended{{2,0},{2,0},{0,0},{0,0},{0,0},{1,0}};
+    const auto known=Evaluate(field,defended,&knownStats);
+    check(known[4]>known[5] && knownStats.engineerBlocks==3 && knownStats.paidCounterCasts==1,
+        "frontline plus engineer protects profitable production despite an affordable ready row ash");
+    auto layered=defended; layered.push_back({3,6}); layered.push_back({3,12});
+    const auto supported=Evaluate(field,layered,&knownStats);
+    check(supported[4]>known[4] && knownStats.clockAnchors>=2 && knownStats.clockRewinds>0,
+        "multiple delayed clocks can sustain an engineer-protected factory under continuous straight fire");
+    check(Evaluate(field,{{0,0},{0,0},{0,0}})[4]==0,
+        "the same ready ash wipes exposed workers before the first production tick");
+    {
+        auto wide=field;
+        for(int i=0;i<12;++i) { auto weak=tank; weak.type=7000+i; weak.unit.body.health=270; wide.options.push_back(weak); }
+        Planner realtime;
+        check(realtime.Start(wide,profit,7,600),"ready-ash economic search uses the ordinary two-worker budget");
+        std::unique_ptr<Planner::Work> completed;
+        const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+        while(!completed && std::chrono::steady_clock::now()<until) {
+            completed=realtime.TakeReady();
+            if(!completed) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        check(completed && !completed->failed && completed->workerThreads==2 && completed->budgetMilliseconds==600,
+            "economic branches neither add threads nor expand the real-time deadline");
+        check(completed->result.features[4]>completed->result.features[5]
+            && completed->result.incomeEvaluated>0 && completed->result.pruningEvaluated>0,
+            "a wide live roster can find profitable guarded production while ash is ready");
+        std::cout << "live ready-ash income=" << completed->result.features[4] << " cost=" << completed->result.features[5]
+            << " branches=" << completed->result.incomeEvaluated << " pruning=" << completed->result.pruningEvaluated << '\n';
+    }
+    for(unsigned seed=1;seed<=4;++seed) {
+        const auto chosen=Search(field,profit,seed);
+        std::cout << "ready-ash investment seed=" << seed << " income=" << chosen.features[4]
+            << " cost=" << chosen.features[5] << " branches=" << chosen.incomeEvaluated
+            << " pruning=" << chosen.pruningEvaluated << '\n';
+        check(chosen.features[4]>chosen.features[5] && chosen.incomeEvaluated>0 && chosen.pruningEvaluated>0,
+            "free search finds a payable factory with ready ash and compares final member removals");
+        check(chosen.features[5]<=field.budget && chosen.actions.size()<=static_cast<size_t>(field.capacity),
+            "protected factory cannot borrow future production to buy its initial team");
+    }
+    auto renamed=field;
+    for(size_t i=0;i<renamed.options.size();++i) renamed.options[i].type=9000-static_cast<int>(i)*31;
+    const auto original=Search(field,profit,17), alternate=Search(renamed,profit,17);
+    check(original.features==alternate.features && original.actions.size()==alternate.actions.size(),
+        "protected economy exploration does not depend on named zombie ids or a fixed roster");
+    for(size_t i=0;i<original.actions.size();++i)
+        check(original.actions[i].option==alternate.actions[i].option && original.actions[i].delay==alternate.actions[i].delay,
+            "renaming a type does not change freely searched counts, routes or timing");
+    field.plants[0].multiTarget=true; field.plants[0].dps=100000;
+    check(Search(field,profit,19).actions.empty(),
+        "economic branches remain exploration only when all protection fails");
+    check(field.options[1].unit.canisterFull && field.options[3].unit.clock.remaining==PolarClockRules::Preparation,
+        "economic exploration and pruning do not consume live canisters or clock timers");
+    }
+
 }

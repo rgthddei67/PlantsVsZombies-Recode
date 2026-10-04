@@ -5015,6 +5015,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"duplicatesSkipped",board->mColdStorage.searchDuplicatesSkipped},
 			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
 			{"refinementEvaluated",board->mColdStorage.searchRefinementEvaluated},
+			{"incomeEvaluated",board->mColdStorage.searchIncomeEvaluated},
+			{"pruningEvaluated",board->mColdStorage.searchPruningEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach},
 			{"baseBreachSeconds",board->mColdStorage.searchCombinationBaseBreachSeconds},

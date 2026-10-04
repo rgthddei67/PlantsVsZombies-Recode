@@ -359,6 +359,7 @@ struct Result {
 	int unevenMixEvaluated = 0, duplicatesSkipped = 0; // 实际积分的非等量混编数、同次搜索复用的重复案数
 	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
 	int refinementEvaluated = 0; // 围绕完整优案替换少量成员的实际比较数，不按能力限定兵种
+	int incomeEvaluated = 0, pruningEvaluated = 0; // 经营分支和最终成员删除对照数，仅诊断，不增加采购或总时间预算
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
 	float combinationBaseBreachSeconds = -1, combinationBestBreachSeconds = -1; // 同为突破时先比较首次进屋游戏秒，-1 表示未突破

@@ -780,6 +780,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 	s.searchUnitCandidates.clear();
 	s.searchRouteEvaluated = s.searchCombinationEvaluated = s.searchReinforcementEvaluated = 0;
 	s.searchRefinementEvaluated = 0;
+	s.searchIncomeEvaluated = s.searchPruningEvaluated = 0;
 	s.searchCohortEvaluated = s.searchUnevenMixEvaluated = s.searchDuplicatesSkipped = s.searchPaidCounterCasts = 0;
 	s.searchPaidDefensesRetained = false;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
@@ -2400,6 +2401,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchPaidDefensesRetained=result.construction.paidDefensesRetained;
 	s.searchReinforcementEvaluated=result.reinforcementEvaluated;
 	s.searchRefinementEvaluated=result.refinementEvaluated;
+	s.searchIncomeEvaluated=result.incomeEvaluated; s.searchPruningEvaluated=result.pruningEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchCombinationBaseBreachSeconds = result.combinationBaseBreachSeconds;
