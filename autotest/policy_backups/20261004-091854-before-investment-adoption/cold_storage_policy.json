@@ -4,7 +4,7 @@
     1.5774634177318625,
     148.10468027431097,
     0.3184682968490281,
-    3.4046544411180744,
+    1.1348848137060248,
     0,
     -0.27128161922788274,
     1.769029414642204
@@ -506,29 +506,18 @@
   "netEconomy": true,
   "opponentWeight": 1,
   "anticipateEconomy": true,
-  "validated": false,
-  "leagueGatePassed": false,
+  "validated": true,
+  "leagueGatePassed": true,
   "validation": {
-    "pairedGames": 24,
-    "previousWins": 9,
-    "candidateWins": 10,
-    "previousLosses": 1,
-    "candidateLosses": 0,
-    "previousTimeouts": 2,
-    "candidateTimeouts": 2,
+    "pairedGames": 48,
+    "previousWins": 46,
+    "candidateWins": 48,
     "lostPreviousWins": 0,
-    "pairedOutcomeGatePassed": false,
-    "testedExecutableSha256": "f5c9cd986b761c8273869e5a3a2041a97852008a097a4b7e4ce3195929a8cb96",
-    "frozenCandidateSha256": "18b4890c0e4eabfe38dfa57836172b40e2c58ed92dc3c8b48211dd20841ef8b8",
-    "scope": [
-      "10-6",
-      "11-7"
-    ],
-    "timeScale": 2,
-    "backgroundCommander": true
+    "diagnosticGames": 5,
+    "diagnosticTimeouts": 0,
+    "testedExecutableSha256": "30392ab62b4ec3dc3535a705fc3c49982142e0081d47d577acde47759083cd40"
   },
-  "trainingSource": "autotest/training/stability24_20261004_080311/candidate.json",
-  "previousPolicyBackup": "autotest/policy_backups/20261004-091854-before-investment-adoption",
-  "note": "Adopted as the default at the user's explicit request after 24 paired games: one additional win, no lost baseline wins, and the same two timeouts. The automatic +2-win gate did not pass; validated/leagueGatePassed remain false. userRequestedTrial enables normal loading without changing that result.",
-  "userRequestedTrial": true
+  "trainingSource": "autotest/training/commander_blast_boundary/attrition_selection_result.json",
+  "previousPolicyBackup": "autotest/policy_backups/20260926-220901-before-counter-risk-policy",
+  "note": "Finite paired validation, not a claim of superiority against every human. Net ice accounting includes actual spending and opponent resource costs; player economy and both immediate and patient ash responses are forecast."
 }

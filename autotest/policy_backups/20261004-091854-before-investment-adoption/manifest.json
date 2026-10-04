@@ -1,0 +1,20 @@
+{
+  "previousPolicySha256": "12122b7821cbb4b09141baa752bb38c40e56427972ab579799b530c69ce3f48d",
+  "adoptedPolicySha256": "6095f5af810412a0a570dcdc8c498b96347cbe03657b5c682ab4c888b8437920",
+  "frozenCandidateSha256": "18b4890c0e4eabfe38dfa57836172b40e2c58ed92dc3c8b48211dd20841ef8b8",
+  "comparison": "build/clang-release/autotest/training/stability24_20261004_080311/evaluation.json",
+  "authorization": "User explicitly requested switching despite the one-win margin. Automatic gate remains failed.",
+  "restoreTarget": "build/clang-release/resources/ai/cold_storage_policy.json",
+  "normalLoadVerification": {
+    "script": "build/clang-release/autotest/session_inputs/adopt_investment_policy_20261004.json",
+    "levels": [
+      "10-6",
+      "11-7"
+    ],
+    "noExperimentOverride": true,
+    "backgroundPlannerApplied": true,
+    "effectiveWeightsMatchedAccountForIce": true,
+    "exitCode": 0,
+    "status": "passed"
+  }
+}
