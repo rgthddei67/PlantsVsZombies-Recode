@@ -22,7 +22,7 @@
 | 精准清除 | `CanUseColdStoragePrecisionStrike()` 开放原第十章后段、大混战和气象站；另有波次、库存、冷却和目标状态条件。只改章节资格仍不能绕开真实交易条件。 | [BoardColdStorageAbilities.cpp](../../../../PlantVsZombies/Game/Board/BoardColdStorageAbilities.cpp)；[ColdStorageSkillRules.h](../../../../PlantVsZombies/Game/Board/ColdStorageSkillRules.h) |
 | 正式章节登记 | 冒险已登记至第十一大关，气象站使用独立背景与无新植物奖励的章节登记。新增场景能被测试夹具打开不代表玩家流程已接入。 | [AdventureProgression.h](../../../../PlantVsZombies/Game/AdventureProgression.h)；[GameApp.cpp](../../../../PlantVsZombies/GameApp.cpp) 的 `GetBackgroundID`；[Board.cpp](../../../../PlantVsZombies/Game/Board/Board.cpp) 的 `LoadSpawnListFromJson` |
 | 经济与旧 AI 的章内分段 | `InitializeColdStorage()` 按章内第 1～9 关取现有开局冰块表；旧 AI 的早／后段预算也按章内关号分段。气象站开局冰块使用 `WeatherStationRules`，阳光仍由 `spawnlists.json` 唯一维护。 | [BoardColdStorage.cpp](../../../../PlantVsZombies/Game/Board/BoardColdStorage.cpp) 的 `kOpeningIce`、`InitializeColdStorage` 与旧策略分支 |
-| 训练场景名称解析 | `train_cold_storage.py` 只识别末尾 `_10_1`～`_10_9`；未匹配的名称默认使用内部关卡 82，直接写 `_11_1` 会测到错误地图。课程中的第十章留出场景也不覆盖新章节。 | [train_cold_storage.py](../../../../autotest/train_cold_storage.py) 的 `episode_commands`；[train_commander_league.py](../../../../autotest/train_commander_league.py) 的课程与留出构造 |
+| 训练场景名称解析 | `train_cold_storage.py` 的 `episode_commands` 已解析末尾 `_10_1`～`_10_9` 与 `_11_1`～`_11_9`；未匹配名称仍可能落到默认关卡。场景名被支持不等于课程已覆盖，应核对生成的 `goto_level`、实际背景及留出构造。 | [train_cold_storage.py](../../../../autotest/train_cold_storage.py) 的 `episode_commands`；[train_commander_league.py](../../../../autotest/train_commander_league.py) 的课程与留出构造 |
 
 ## 最小验证入口
 

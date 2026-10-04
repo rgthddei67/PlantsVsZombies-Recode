@@ -1,11 +1,11 @@
 ---
 name: improving-commander-ai
-description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in new maps or chapters, integrate unit or plant abilities into forecasts, investigate human play logs and decision stalls, and run controlled training or policy comparisons. Use for Area 10, Brawl, and maps reusing this commander; ordinary unit balance, art, or unrelated game AI alone does not require this workflow.
+description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in new maps or chapters, integrate unit or plant abilities into forecasts, investigate human play logs and decision stalls, and run controlled training or policy comparisons. Use for Area 10, Area 11, Brawl, and maps reusing this commander; ordinary unit balance, art, or unrelated game AI alone does not require this workflow.
 ---
 
 # 冷藏站指挥官 AI 改进
 
-服务复用冷藏站指挥官的地图，包括第十大关和大混战的出兵、经济、技能选点、预测、训练与真人反馈。遵循仓库 [AGENTS.md](../../../AGENTS.md)；改单位本身时再组合植物／僵尸技能。不要因为读取本技能就启动训练、改数值或扩大正式卡池。
+服务复用冷藏站指挥官的地图，包括第十／十一大关和大混战的出兵、经济、技能选点、预测、训练与真人反馈。遵循仓库 [AGENTS.md](../../../AGENTS.md)；改单位本身时再组合植物／僵尸技能。不要因为读取本技能就启动训练、改数值或扩大正式卡池。
 
 ## 新窗口从哪里开始
 
@@ -19,6 +19,7 @@ description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in
 | 症状或任务 | 先核对 | 后续路线 |
 |---|---|---|
 | 新地图／新章节复用指挥官 | 棋盘资格、章节注册、技能资格、经济配置与训练场景解析 | [地图接入限制与陷阱](references/map-integration.md) |
+| 新增僵尸需要接入 AI | 正式能力 → 新购／活体／付费队列画像 → 候选覆盖 → 反事实 → 必要的配对实战 | [新增单位的最小闭环](references/forecast-contracts.md#新增单位的最小闭环) |
 | 新兵不出、出现过早 | 正式卡池、解锁、地形、价格、剩余名额、策略加载 | 门槛小改通常不需要重训 |
 | 大兵池忽略工人／护卫／鼓手 | 能力是否被投影，候选是否有机会比较协同，再看边际收益 | [能力预测](references/forecast-contracts.md) |
 | 一次买很多兵被灰烬／小推车清掉 | 实际伤害链、卡槽资金与冷却、已承诺反制、进场时序和战损 | 先修预测，再决定是否训练 |
@@ -45,5 +46,7 @@ description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in
 ## 验证与交接
 
 选择本次能力的反事实单测和最小可见 `clang-release` 专项，再视风险做配对实战。测试路由见两个 reference；不把训练胜利代替交易、生命周期或线程验证，也不为文档整理重编游戏。
+
+新窗口无需继承聊天全文：先从正式策略的 `trainingSource`、`previousPolicyBackup`、`note` 和最近提交定位采用依据，再按本次新增能力读取对应 reference。现用权重、测试成绩和真人反馈不复制成 Skill 中的第二份配置；主人确认试玩无问题也不自动触发下一轮训练。
 
 交付说明：改的是哪一层、用了哪份正式配置、实际验证了什么、仍有哪些预测近似。跨窗口继续时给出当前提交、政策文件／备份、实验目录、尚未解决的问题即可。无需把每轮成绩和当前数值抄入技能；不自动创建新窗口或继续无期限训练。
