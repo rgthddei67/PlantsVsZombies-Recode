@@ -6,6 +6,8 @@
 #endif
 #include "GameRandom.h"
 #include "Game/AI/ColdStoragePolicy.h"
+#include "Game/AI/ColdStoragePlanner.h"
+#include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "TestDriver.h"
 #include "../../GameApp.h"
 #include "../../GameInfoSaver.h"
@@ -957,16 +959,28 @@ bool TestDriver::ExecuteCurrent() {
 		nlohmann::json report = {{"seed",probe.seed},{"weights",probe.weights},
 			{"budget",probe.snapshot.budget},{"capitalRiskAllowance",probe.snapshot.capitalRiskAllowance},
 			{"options",probe.snapshot.options.size()},{"branches",nlohmann::json::array()}};
-		for (const double milliseconds : {300.0,600.0,900.0,1800.0,0.0}) for (const bool relaxRisk : {false,true}) {
+		const bool compareWorkers=cmd.value("workerComparison",false);
+		const int repeats=compareWorkers ? std::clamp(cmd.value("repeats",5),1,10) : 1;
+		const std::vector<double> budgets=compareWorkers ? std::vector<double>{600} : std::vector<double>{300,600,900,1800,0};
+		const std::vector<bool> riskModes=compareWorkers ? std::vector<bool>{false} : std::vector<bool>{false,true};
+		// 相同快照/种子/截止比较计算量，交替运行顺序；不混入资本放宽或新旧胜率比较。
+		for (int repeat=0;repeat<repeats;++repeat) for (const double milliseconds : budgets)
+		for (const bool relaxRisk : riskModes) for (int order=0;order<(compareWorkers ? 2 : 1);++order) {
+			const int workers=compareWorkers ? (repeat%2 ? 2-order : 1+order) : 1;
+			const auto seed=probe.seed+static_cast<unsigned>(repeat)*31;
 			auto state = probe.snapshot;
 			if (relaxRisk) state.capitalRiskAllowance = (std::numeric_limits<float>::max)();
 			const auto begin = std::chrono::steady_clock::now();
 			const auto duration = std::chrono::microseconds(static_cast<long long>(milliseconds*1000));
 			state.timeLimitedSearch = milliseconds>0;
+			std::unique_ptr<ColdStorageSearch::PlanEvaluator> evaluator;
+			if (workers==2) evaluator=std::make_unique<ColdStorageSearch::PlanEvaluator>();
 			state.searchDeadline = begin+duration/6;
-			auto queue = ColdStorageSearch::ReplanCommitted(state,probe.weights,probe.seed ^ 0x91A7u);
+			auto queue = ColdStorageSearch::ReplanCommitted(state,probe.weights,seed ^ 0x91A7u);
 			state.searchDeadline = begin+duration;
-			const auto result = ColdStorageSearch::Search(state,probe.weights,probe.seed);
+			const auto result = ColdStorageSearch::Search(state,probe.weights,seed,evaluator.get());
+			const int parallelPlans=evaluator ? evaluator->Submitted() : 0;
+			evaluator.reset(); // 与正式后台一样先回收辅助线程，再记录完整任务耗时。
 			const double elapsed = std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
 			nlohmann::json actions = nlohmann::json::array();
 			for (const auto& action : result.actions) {
@@ -974,6 +988,7 @@ bool TestDriver::ExecuteCurrent() {
 				actions.push_back({{"type",option.type},{"row",option.row},{"cost",option.cost},{"delay",action.delay}});
 			}
 			report["branches"].push_back({{"budgetMs",milliseconds},{"relaxCumulativeRisk",relaxRisk},
+				{"workers",workers},{"repeat",repeat},{"seed",seed},{"parallelPlans",parallelPlans},
 				{"elapsedMs",elapsed},{"timeLimited",result.timeLimited},{"evaluated",result.evaluated},
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
@@ -3489,6 +3504,15 @@ bool TestDriver::ExecuteCurrent() {
 		return true;
 	}
 	if (op == "quit") {
+		// 关闭专项必须在真实任务尚未完成时退出，不能把“结果等领取”冒充计算中关闭。
+		if (cmd.value("requireCommanderComputing",false)) {
+			const auto* scene=CurrentGameScene();
+			const auto* board=scene ? scene->GetBoard() : nullptr;
+			if (!board || !board->mColdStoragePlanner || !board->mColdStoragePlanner->Computing()) {
+				Fail("quit: 指挥官已经算完或没有后台任务"); return false;
+			}
+			Log("quit with unfinished commander computation; normal shutdown will join both workers");
+		}
 		Log("done cmd#" + std::to_string(mIndex) + " (quit)");
 		Finish();
 		return false;   // Finish 已停机，不再推进
@@ -5107,6 +5131,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["planningLastDiscardMask"] = board->mColdStorage.planningLastDiscardMask;
 		ice["planningLastAgeMs"] = board->mColdStorage.planningLastAgeMs;
 		ice["planningWorkerMs"] = board->mColdStorage.planningWorkerMs;
+		ice["planningComputing"] = board->mColdStoragePlanner && board->mColdStoragePlanner->Computing();
 		ice["planningWorkerThreads"] = board->mColdStorage.planningWorkerThreads;
 		ice["planningParallelPlans"] = board->mColdStorage.planningParallelPlans;
         ice["planningBudgetMs"] = board->mColdStorage.planningBudgetMs;

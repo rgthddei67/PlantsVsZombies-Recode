@@ -33,6 +33,8 @@ public:
 	/** 非阻塞轮询；只领取完整结果，不发布被取消或尚未结束的半成品。 */
 	std::unique_ptr<Work> TakeReady();
 	bool Busy() const { return mWork != nullptr; }
+	/** 只读诊断：已领取前区分仍在计算与完整结果等待提交；只能由拥有 Planner 的线程调用。 */
+	bool Computing() const { return mWork && !mWork->ready.load(std::memory_order_acquire); }
 	/** 在积分步边界合作取消并回收线程；不得让任务或模型指针逃逸到下一张棋盘。 */
 	void Cancel();
 private:
