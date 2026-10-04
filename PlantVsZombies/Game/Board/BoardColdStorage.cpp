@@ -342,6 +342,10 @@ namespace {
 		if(!live) {
 			unit.body.blastAnchorOffset=-(GameDataManager::GetInstance().GetZombieOffset(type).x
 				+CatapultZombie::GetForecastColliderCenterFromVisualX());
+			// 通用出生 X 是车身原点；数值战斗使用碰撞中心，必须连同宽度一起换算。
+			unit.body.x-=unit.body.blastAnchorOffset;
+			unit.body.boundsWidth=CatapultRules::kColliderWidth;
+			unit.body.boundsOffset=-CatapultRules::kColliderWidth*.5f;
 			return;
 		}
 		using Phase=ColdStorageSearch::CatapultAttack::Phase;

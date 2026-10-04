@@ -1011,7 +1011,9 @@ bool TestDriver::ExecuteCurrent() {
 			report["legalOptions"]=nlohmann::json::array();
 			for(const auto& option:probe.snapshot.options) if(option.device<0)
 				report["legalOptions"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))},
-					{"row",option.row},{"cost",option.cost}});
+					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},
+					{"birthObjectX",option.unit.body.x+option.unit.body.blastAnchorOffset},
+					{"birthHealth",option.unit.body.health},{"boundsWidth",option.unit.body.boundsWidth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
 				auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
 				// 编队诊断默认明确采用完整时域；可显式选小队阶段，报告中保留阶段避免混比。

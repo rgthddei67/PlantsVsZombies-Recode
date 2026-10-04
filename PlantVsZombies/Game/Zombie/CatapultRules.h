@@ -4,6 +4,7 @@
 namespace CatapultRules {
 inline constexpr int kBodyHealth = 850; // 普通投篮车出生本体生命，实体与候选画像共用
 inline constexpr int kEliteBodyHealth = 1000; // 导流投篮车出生本体生命，其余射击规则沿用普通车
+inline constexpr float kColliderWidth = 150; // 两种投篮车的碰撞宽度，实体和出生画像共用，单位 px
 inline constexpr int kInitialBasketballs = 12; // 出生篮球库存，耗尽后恢复步行
 inline constexpr float kReloadSeconds = 3; // 每轮装填的内部行动秒，减速/硬控影响，不随射击 clip 加速
 inline constexpr float kShootStartInsideBoard = 150; // 车身原点进入逻辑棋盘右缘的此像素数后可投篮

@@ -10,6 +10,10 @@ def main():
     reports = {name: json.loads((folder / (name + ".json")).read_text(encoding="utf-8"))
                for name in ("birth", "committed", "protected")}
     assert all(report["boardUnchanged"] for report in reports.values())
+    cars = [o for o in reports["birth"]["legalOptions"] if o["type"] == "ZOMBIE_CATAPULT"]
+    assert len(cars) == 5
+    assert all(o["birthObjectX"] == 1140 and o["birthCenterX"] == 1203
+               and o["boundsWidth"] == 150 and o["birthHealth"] == 850 for o in cars)
     birth = {p["name"]: p for p in reports["birth"]["candidatePlans"]}
     assert birth["ranged"]["legal"] and birth["ranged"]["catapultShots"] == 12
     assert birth["ranged"]["catapultHits"] == 12 and birth["wait"]["catapultShots"] == 0
