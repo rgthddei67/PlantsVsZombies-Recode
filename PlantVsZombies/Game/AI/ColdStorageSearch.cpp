@@ -70,6 +70,8 @@ constexpr int kRouteTrials = 256; // 单阶段兵种/合法路线覆盖上限，
 constexpr int kCombinationTrials = 80; // 单阶段任意兵种配对和优案扩展预算，不预设技能搭配
 constexpr int kRefinementTrials = 20; // 实时组合预算预留给完整优案的小幅换兵，不增加总候选上限
 constexpr int kWinnerPruningTrials = 12; // 最终整案删除成员的比较上限，不扩大总墙钟预算
+constexpr int kInvestmentDiverseBranches = 12; // 单次搜索同时保留的不同构成中间态上限，只作探索，不代表采购
+constexpr int kInvestmentDiverseTypes = 4; // 未完成分支最多保留的类型数，限制中间态存储，不限制最终编队
 constexpr int kWinnerSearchBudgetPercent = 90; // 技能与编队探索只用九成总预算，余量核对胜出成员的边际作用
 constexpr int kRefinementMaxReplacements = 4; // 一次优案细化最多替换的成员数，所有兵种统一使用
 constexpr int kCombinationSearchBudgetPercent = 80; // 实时配对/成批探索累计用时上限，余量留给优案细化
@@ -334,7 +336,7 @@ std::vector<Action> SampleCombination(const Snapshot& s, const std::vector<std::
 	return plan;
 }
 
-/** 从大队中替换少量主要成员，保留其他搭档；容量已满时也能比较新的协同兵种。 */
+/** 普通细化替换少量成员；经营分支有预算/名额时追加搭档，满额后才腾位并保留主要成员。 */
 std::vector<Action> RefineCohort(const Snapshot& s,const std::vector<Action>& anchor,
 	const std::vector<int>& group,int count,float delay,bool keepAnchor=false) {
 	if(anchor.empty() || group.empty()) return {};
@@ -368,7 +370,8 @@ std::vector<Action> RefineCohort(const Snapshot& s,const std::vector<Action>& an
 		if(member==plan.rend()) return false;
 		plan.erase(std::next(member).base()); --dominantRemaining; return true;
 	};
-	for(int i=0;i<count;++i) if(!removeMember()) break;
+	// 不应在钱包和名额都充足时为了补前排先删工人，导致有利协同被降成少数工人的亏损案。
+	if(!keepAnchor) for(int i=0;i<count;++i) if(!removeMember()) break;
 	int cost=count*choice.cost, troops=choice.device<0 ? count : 0;
 	for(const auto& action:plan) { cost+=s.options[action.option].cost; troops+=s.options[action.option].device<0; }
 	// 保留引入的成员，先腾出真实费用/名额；不能靠 Repair 又把新搭档从队尾删掉。
@@ -387,17 +390,19 @@ std::vector<Action> RefineCohort(const Snapshot& s,const std::vector<Action>& an
 
 /** 围绕未购买的经营案试任意兵种；同时比较先行、同批和后援，不能只让肉盾晚于工人出生。 */
 std::vector<Action> RefineInvestment(const Snapshot& s,const std::vector<Action>& anchor,
-	const std::vector<int>& group,int trial) {
+	const std::vector<int>& group,int shape) {
 	auto staged=anchor;
-	const int timing=trial%3;
+	const int timing=shape/kRefinementMaxReplacements%3;
 	if(timing==0) for(auto& action:staged) action.delay=std::min(DelayLimit(s),action.delay+kReinforcementDelay);
-	return RefineCohort(s,staged,group,1+trial%kRefinementMaxReplacements,
+	return RefineCohort(s,staged,group,1+shape%kRefinementMaxReplacements,
 		timing==2 ? kReinforcementDelay : 0,true);
 }
 
-/** 保存各路大小两档经营分支；实际产冰优先、净现金资产次之，探索资格不代表允许付款。 */
+/** 同时保留各路优案与构成不同的中间态；两类方案都只作探索，最终仍统一评分与付款。 */
 class InvestmentFrontier {
 public:
+	/** 保护进展只比较相对等待基线的增量，不能拿现有部队的保护替新投入背书。 */
+	explicit InvestmentFrontier(float baselineProgress) : mBaselineProgress(baselineProgress) {}
 	/** 更新经营分支，不经过采购门禁，使暂时亏损的完整案仍能继续接入保护。 */
 	void Observe(const Snapshot& s,const Result& candidate) {
 		std::array<int,6> rows{}; int workers=0;
@@ -413,30 +418,96 @@ public:
 		if(candidate.actions.empty()) return;
 		const int row=static_cast<int>(std::max_element(rows.begin(),rows.end())-rows.begin());
 		const int index=row*2+(workers>3);
+		float purchase=0;
+		for(const auto& action:candidate.actions) purchase+=s.options[action.option].cost;
+		const float risk=std::clamp((candidate.features[6]-candidate.baselineFeatures[6])/std::max(1.0f,purchase),0.0f,1.0f);
+		const float progress=std::max(0.0f,candidate.construction.workerProtectionProgress-mBaselineProgress);
 		const auto cash=[](const Result& result) { return result.features[0]+result.features[3]+result.features[4]-result.features[5]; };
 		const auto& old=mPlans[index];
 		if(!mPresent[index] || candidate.features[4]>old.features[4]+.001f
 			|| (std::abs(candidate.features[4]-old.features[4])<=.001f && cash(candidate)>cash(old)+.001f)) {
 			mPlans[index]=candidate; mPresent[index]=true;
 		}
+		// 工人+某个搭档暂时都可能没有收入，不能让廉价裸工人抹掉所有第二层尝试。
+		// 构成仅用合法类型/价格标识，不读取工程师、钟匠等能力标签决定搭配。
+		std::set<std::pair<int,int>> types;
+		for(const auto& action:candidate.actions) {
+			const auto& option=s.options[action.option]; types.emplace(option.type,option.cost);
+		}
+		if(types.size()<2 || types.size()>kInvestmentDiverseTypes) return;
+		const auto found=std::find_if(mDiverse.begin(),mDiverse.end(),[&](const Branch& branch) {
+			return branch.index==index && branch.workers==workers && branch.types==types;
+		});
+		if(found!=mDiverse.end()) {
+			if(candidate.features[4]>found->plan.features[4]+.001f
+				|| (std::abs(candidate.features[4]-found->plan.features[4])<=.001f
+					&& (progress>found->progress+.001f || (std::abs(progress-found->progress)<=.001f && cash(candidate)>cash(found->plan)+.001f)))) {
+				found->plan=candidate; found->progress=progress; found->risk=risk;
+			}
+		} else {
+			Branch branch{index,workers,std::move(types),risk,progress,candidate};
+			if(mDiverse.size()<kInvestmentDiverseBranches) mDiverse.push_back(std::move(branch));
+			else {
+				// 遍历新构成时保留已兑现保护的最佳中间态，否则宽兵池会在第三类到来前把它冲掉。
+				const auto protectedBranch=std::max_element(mDiverse.begin(),mDiverse.end(),[](const Branch& a,const Branch& b) {
+					return a.progress<b.progress;
+				});
+				size_t victim=mInsertionCursor++%mDiverse.size();
+				if(mDiverse[victim].progress>0 && mDiverse.begin()+victim==protectedBranch) victim=mInsertionCursor++%mDiverse.size();
+				mDiverse[victim]=std::move(branch);
+			}
+		}
 	}
 	/** 轮转实际保存的分支，避免一条路或只买一只的低亏损案吞掉所有经营探索。 */
 	const Result* Next() {
+		mDiverseTurn=!mDiverseTurn;
+		const auto shield=std::min_element(mDiverse.begin(),mDiverse.end(),[](const Branch& a,const Branch& b) {
+			if(std::abs(a.progress-b.progress)>.001f) return a.progress>b.progress;
+			if(std::abs(a.risk-b.risk)>.001f) return a.risk<b.risk;
+			return a.plan.features[4]>b.plan.features[4];
+		});
 		for(size_t i=0;i<mPlans.size();++i) {
 			const size_t index=mCursor++%mPlans.size();
-			if(mPresent[index]) return &mPlans[index];
+			if(mPresent[index]) {
+				// 只因普通火力先杀光工人而未交灰烬，不是保护进展；须有推演中兑现的挡灰或恢复。
+				const auto& current=mPlans[index];
+				const float returnGain=current.features[0]-current.baselineFeatures[0]
+					+current.features[3]-current.baselineFeatures[3]+current.features[4]-current.baselineFeatures[4]
+					-current.features[5]+current.baselineFeatures[5];
+				if(current.features[2]<=0 && returnGain<=0) {
+					if(shield!=mDiverse.end() && shield->progress>.001f) return &shield->plan;
+					// 廉价的一只裸工人可能在首个生产周期前死亡，连支援效果也试不出来。
+					// 尚无保护进展时以已有小批分支起步；数量只影响探索，不设置最低购买数。
+					for(size_t offset=0;offset<mPlans.size()/2;++offset) {
+						const size_t cohort=((index/2+offset)%(mPlans.size()/2))*2+1;
+						if(mPresent[cohort]) return &mPlans[cohort];
+					}
+				}
+				if(mDiverseTurn && !mDiverse.empty()) return &mDiverse[mDiverseCursor++%mDiverse.size()].plan;
+				return &mPlans[index];
+			}
 		}
 		return nullptr;
 	}
 private:
+	struct Branch { int index,workers; std::set<std::pair<int,int>> types; float risk,progress; Result plan; };
+	std::vector<Branch> mDiverse;
+	size_t mDiverseCursor=0, mInsertionCursor=0;
+	bool mDiverseTurn=false;
 	std::array<Result,12> mPlans;
 	std::array<bool,12> mPresent{};
 	size_t mCursor=0;
+	float mBaselineProgress;
 };
 
-/** 删除整类或单个成员作同技能、同时间窗反事实；保留出生次序，不改变其他队员的时机。 */
+/** 删除等待、整类或单个成员作同技能反事实；同步到场仍保留原提交次序，不强制接受。 */
 std::vector<std::vector<Action>> MemberAblations(const Snapshot& s,const std::vector<Action>& plan) {
 	std::vector<std::vector<Action>> probes;
+	if(std::any_of(plan.begin(),plan.end(),[](const Action& action){return action.delay>0;})) {
+		auto simultaneous=plan;
+		for(auto& action:simultaneous) action.delay=0;
+		probes.push_back(std::move(simultaneous));
+	}
 	std::set<std::pair<int,int>> covered;
 	for(const auto& member:plan) {
 		const auto& option=s.options[member.option]; const auto key=std::make_pair(option.type,option.cost);
@@ -599,12 +670,12 @@ void PruneWinner(const Snapshot& s,Result& best) {
 		// 上一轮已经删掉的队员不能在下一反事实中悄悄加回；只接受当前整案的子序列。
 		size_t at=0; bool subset=true;
 		for(const auto& member:plan) {
-			while(at<best.actions.size() && (best.actions[at].option!=member.option || best.actions[at].delay!=member.delay)) ++at;
+			while(at<best.actions.size() && best.actions[at].option!=member.option) ++at;
 			if(at==best.actions.size()) { subset=false; break; }
 			++at;
 		}
 		if(!subset) continue;
-		if(plan.size()>=best.actions.size() || (!s.allowWait && plan.empty())) continue;
+		if(plan.size()>best.actions.size() || (!s.allowWait && plan.empty())) continue;
 		auto candidate=EvaluatePlan(s,best.effectiveWeights,std::move(plan),best.baselineFeatures,best.baselineOpponentAssets);
 		++trials;
 		if(s.precisionTargetID>0 && !s.netEconomy)
@@ -1051,6 +1122,9 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 				const size_t i=nearby[n].second;
 				if (!protectedWorkers[i] && CounterHits(it->blast,units[i],time)) {
 					protectedWorkers[i]=1; used=true; ++stats.engineerBlocks;
+					auto exposed=units[i];
+					stats.workerProtectionProgress+=units[i].body.purchaseCost
+						*ApplyDiscreteHit(exposed,it->blast.damage,true)/std::max(1.0f,initialHealth[i]);
 				}
 			}
 			if (used) { engineer.canisterFull=false; engineer.reloadPaid=false; engineer.reloadRemaining=DisasterEngineerRules::ReloadSeconds; }
@@ -1950,6 +2024,8 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			}
 			if (unit.clock.present && helm<=0) unit.clock.enabled=false;
 			const float restored=std::max(0.0f,unit.body.health-before);
+			if(unit.body.economic && unit.body.health>unit.productionStopHealth)
+				stats.workerProtectionProgress+=unit.body.purchaseCost*restored/std::max(1.0f,initialHealth[target.unit]);
 			const float recovered=std::min(std::max(0.0f,unit.blastCredit-saved.blastCredit),
 				unit.body.purchaseCost*restored/std::max(1.0f,initialHealth[target.unit]));
 			features[6]-=recovered; unit.blastCredit-=recovered;
@@ -2808,7 +2884,11 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	std::vector<int> incomeSeeds;
 	if(s.netEconomy && weights[4]>0 && ActionLimit(s)>=3) for(const auto& group:initialGroups)
 		for(int option:group) if(s.options[option].unit.body.economic) incomeSeeds.push_back(option);
-	InvestmentFrontier investments;
+	InvestmentFrontier investments(best.construction.workerProtectionProgress);
+	const auto incomeShape=[&](size_t index) {
+		// 各类型先比较一名同步搭档，后续遍历轮次再改变数量/先后；不把形状绑在类型序号上。
+		return kRefinementMaxReplacements+static_cast<int>(index/initialGroups.size());
+	};
 	size_t incomeSeedIndex=0, incomeGroupIndex=0;
 	int incomeEvaluated=0;
 	const auto pairs=CombinationPairs(s,initialGroups,rng);
@@ -2848,6 +2928,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
     size_t coverageIndex = 0;
 	// 排名、随机数和候选记账只由协调线程修改；辅助线程仅借用本作用域的只读快照。
 	const auto acceptCandidate=[&](Result candidate,bool cohort) {
+
 		investments.Observe(s,candidate);
 		if(cohort && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
 			cohortAnchor=candidate; hasCohortAnchor=true;
@@ -2909,7 +2990,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			} else {
 				const size_t index=incomeGroupIndex++;
 				plan=RefineInvestment(s,anchor->actions,initialGroups[index%initialGroups.size()],
-					static_cast<int>(index));
+					incomeShape(index));
 				refinementTrial=true;
 			}
 		}
@@ -3012,7 +3093,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	collect(true);
 	// 独立两兵案可以跨过“各自亏损、组合才盈利”的谷底；新能力不需要补搭配白名单。
 	phaseDeadline=s.timeLimitedSearch ? begin+(explorationDeadline-begin)*kCombinationSearchBudgetPercent/100 : explorationDeadline;
-	const int explorationCombinationLimit=s.timeLimitedSearch ? kCombinationTrials-kRefinementTrials : kCombinationTrials;
+	const bool deepenInvestment=!incomeSeeds.empty();
+	const int explorationCombinationLimit=s.timeLimitedSearch || deepenInvestment ? kCombinationTrials-kRefinementTrials : kCombinationTrials;
 	const int pairTrials = std::min(kCombinationTrials/3,std::max(0,explorationCombinationLimit-combinationEvaluated));
 	for (int trial=0; trial<pairTrials && !pairs.empty() && withinBudget(); ++trial) {
 		auto plan = samplePair(trial%2==0);
@@ -3078,16 +3160,18 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		}
 	}
 	collect(true);
-	// 完整优案无论何时找到，都留一段实时预算换入其他类型；不以单兵亏损淘汰协同候选。
-	if(s.timeLimitedSearch) {
+	// 完整优案和经营中间态都预留原组合预算继续接入其他类型；不以单兵亏损淘汰协同候选。
+	if(s.timeLimitedSearch || deepenInvestment) {
 		phaseDeadline=begin+(explorationDeadline-begin)*kRefinementSearchBudgetPercent/100;
 		for(int trial=0;trial<kRefinementTrials && combinationEvaluated<kCombinationTrials && !groups.empty() && withinBudget();++trial) {
 			collect(false);
-			const auto* investment=trial%2==0 ? investments.Next() : nullptr;
+			const auto* investment=deepenInvestment && (best.actions.empty() || trial%2==0) ? investments.Next() : nullptr;
 			const auto& anchor=investment ? investment->actions : !best.actions.empty() ? best.actions : cohortAnchor.actions;
 			if(anchor.size()<3) break;
-			const size_t index=investment ? incomeGroupIndex++ : static_cast<size_t>(trial);
-			auto plan=investment ? RefineInvestment(s,anchor,initialGroups[index%initialGroups.size()],static_cast<int>(index))
+			// 前段经营探索可能刚在最后一个类型上兑现保护；再从头扫描少量搭档，不能跳过排在它前面的类型。
+			const size_t index=static_cast<size_t>(trial);
+			const int shape=best.actions.empty() ? kRefinementMaxReplacements : 2*kRefinementMaxReplacements;
+			auto plan=investment ? RefineInvestment(s,anchor,initialGroups[index%initialGroups.size()],shape)
 				: RefineCohort(s,anchor,groups[trial%groups.size()],1+trial%kRefinementMaxReplacements,
 					trial%2==0 ? 0 : kReinforcementDelay);
 			if(compare(std::move(plan))) { ++combinationEvaluated; ++refinementEvaluated; }

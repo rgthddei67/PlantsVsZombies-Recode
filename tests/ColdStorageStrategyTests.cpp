@@ -2903,6 +2903,46 @@ int main()
 
     {
     using namespace ColdStorageSearch;
+    // 两两搭配都亏损，加入第三类后才能生产；单一产冰排名不能提前丢掉这些探索中间态。
+    Snapshot deep; deep.houseX=-10000; deep.searchVersion=2; deep.netEconomy=true;
+    deep.budget=180; deep.capacity=8; deep.playerSun=5000; deep.playerIce=500;
+    Plant fire; fire.x=300; fire.health=100000; fire.dps=400; fire.edible=false; deep.plants={fire};
+    Option worker; worker.type=21001; worker.cost=24; worker.unit.body.x=1000;
+    worker.unit.body.health=500; worker.unit.body.purchaseCost=24; worker.unit.body.economic=true;
+    Option engineer; engineer.type=21002; engineer.cost=35; engineer.unit.body.x=1020;
+    engineer.unit.body.health=1000; engineer.unit.body.purchaseCost=35; engineer.unit.engineer=true;
+    Option front; front.type=21003; front.cost=32; front.unit.body.x=850;
+    front.unit.body.health=12000; front.unit.body.purchaseCost=32;
+    deep.options={worker,engineer,front};
+    for(int i=0;i<13;++i) { auto fragile=engineer; fragile.type=23000+i; fragile.cost=12;
+        fragile.unit.engineer=false; fragile.unit.body.health=270; fragile.unit.body.purchaseCost=12;
+        deep.options.push_back(fragile); }
+    Counter ash; ash.blast.x=900; ash.blast.reach.fill(10000); ash.blast.damage=1800; ash.sunCost=125; ash.recharge=1000;
+    deep.counters={ash}; const Weights profit{0,0,0,0,1,-1,0,0};
+    check(Evaluate(deep,{{0,0},{1,0}})[4]==0 && Evaluate(deep,{{0,0},{2,0}})[4]==0,
+        "ash protection without frontline and frontline without ash protection both fail before income");
+    const auto known=Evaluate(deep,{{0,0},{0,0},{0,0},{1,0},{2,0}});
+    check(known[4]>known[5],"the three-type full plan repays its purchase under the exact same lethal threats");
+    ConstructionStats progress;
+    const auto unfinished=Evaluate(deep,{{0,0},{0,0},{0,0},{1,0}},&progress);
+    check(progress.workerProtectionProgress>0 && unfinished[4]<=unfinished[5],
+        "real protection progress preserves an unfinished branch without inventing ice income or profit");
+    int misses=0;
+    for(unsigned seed=1;seed<=16;++seed) {
+        const auto found=Search(deep,profit,seed);
+        if(found.features[4]<=found.features[5]) { ++misses; std::cout << "deep miss=" << seed << '\n'; }
+    }
+    std::cout << "three-type factory misses=" << misses << "/16\n";
+    check(misses==0,"diverse unprofitable intermediates must be able to reach profitable three-type cooperation");
+    auto renamed=deep;
+    for(size_t i=0;i<renamed.options.size();++i) renamed.options[i].type=31000-static_cast<int>(i)*47;
+    const auto before=Search(deep,profit,3), after=Search(renamed,profit,3);
+    check(before.features==after.features && before.actions.size()==after.actions.size(),
+        "multi-stage economy exploration retains the same outcome after all unit ids change");
+    }
+
+    {
+    using namespace ColdStorageSearch;
     // 可见直射阵地与就绪灰烬共同存在；保护赚的钱必须来自实际生产，不能假定先骗光灰烬。
     Snapshot field; field.houseX=-10000; field.searchVersion=2; field.netEconomy=true;
     field.budget=300; field.capacity=16; field.playerSun=2000; field.playerIce=500;
@@ -2945,11 +2985,11 @@ int main()
         }
         check(completed && !completed->failed && completed->workerThreads==2 && completed->budgetMilliseconds==600,
             "economic branches neither add threads nor expand the real-time deadline");
+        std::cout << "live ready-ash income=" << completed->result.features[4] << " cost=" << completed->result.features[5]
+            << " branches=" << completed->result.incomeEvaluated << " pruning=" << completed->result.pruningEvaluated << '\n';
         check(completed->result.features[4]>completed->result.features[5]
             && completed->result.incomeEvaluated>0 && completed->result.pruningEvaluated>0,
             "a wide live roster can find profitable guarded production while ash is ready");
-        std::cout << "live ready-ash income=" << completed->result.features[4] << " cost=" << completed->result.features[5]
-            << " branches=" << completed->result.incomeEvaluated << " pruning=" << completed->result.pruningEvaluated << '\n';
     }
     for(unsigned seed=1;seed<=4;++seed) {
         const auto chosen=Search(field,profit,seed);
@@ -2975,5 +3015,6 @@ int main()
     check(field.options[1].unit.canisterFull && field.options[3].unit.clock.remaining==PolarClockRules::Preparation,
         "economic exploration and pruning do not consume live canisters or clock timers");
     }
+
 
 }
