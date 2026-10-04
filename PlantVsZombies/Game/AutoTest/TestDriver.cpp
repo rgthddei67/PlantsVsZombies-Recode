@@ -32,6 +32,7 @@
 #include "../PlantAlmanacScene.h"
 #include "../ChooseCardUI.h"
 #include "Game/Board/Board.h"
+#include "Game/Board/ColdStorageDeploymentRules.h"
 #include "../Ladder.h"
 #include "../IceWall.h"
 #include "../GroundRift.h"
@@ -961,7 +962,11 @@ bool TestDriver::ExecuteCurrent() {
 			{"options",probe.snapshot.options.size()},{"branches",nlohmann::json::array()}};
 		const bool compareWorkers=cmd.value("workerComparison",false);
 		const int repeats=compareWorkers ? std::clamp(cmd.value("repeats",5),1,10) : 1;
-		const std::vector<double> budgets=compareWorkers ? std::vector<double>{600} : std::vector<double>{300,600,900,1800,0};
+		const std::vector<double> budgets=compareWorkers ? std::vector<double>{600}
+			: cmd.value("budgetsMs",std::vector<double>{300,600,900,1800,0});
+		if(std::any_of(budgets.begin(),budgets.end(),[](double value){return !std::isfinite(value) || value<0;})) {
+			Fail("compare_commander_search: invalid budget"); return false;
+		}
 		const std::vector<bool> riskModes=compareWorkers ? std::vector<bool>{false} : std::vector<bool>{false,true};
 		// 相同快照/种子/截止比较计算量，交替运行顺序；不混入资本放宽或新旧胜率比较。
 		for (int repeat=0;repeat<repeats;++repeat) for (const double milliseconds : budgets)
@@ -993,16 +998,72 @@ bool TestDriver::ExecuteCurrent() {
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
 				{"reinforcementEvaluated",result.reinforcementEvaluated},
+				{"spreadCohortEvaluated",result.spreadCohortEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
 				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 				{"expanded",result.expandedForecast},{"precisionEvaluated",result.precisionEvaluated},
 				{"queueEvaluated",queue.evaluated},{"actions",actions}});
 		}
+		// 显式购物车仅作同局面反事实，不加入正式搜索或改变真实采购。
+		if(cmd.contains("candidatePlans")) {
+			report["candidatePlans"]=nlohmann::json::array();
+			report["legalOptions"]=nlohmann::json::array();
+			for(const auto& option:probe.snapshot.options) if(option.device<0)
+				report["legalOptions"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))},
+					{"row",option.row},{"cost",option.cost}});
+			for(const auto& request:cmd.at("candidatePlans")) {
+				auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
+				// 编队诊断默认明确采用完整时域；可显式选小队阶段，报告中保留阶段避免混比。
+				state.searchVersion=request.value("searchVersion",2);
+				if(state.searchVersion!=1 && state.searchVersion!=2) {
+					Fail("compare_commander_search: invalid candidate searchVersion"); return false;
+				}
+				std::vector<ColdStorageSearch::Action> plan;
+				int cost=0; std::string unavailable;
+				for(const auto& member:request.at("actions")) {
+					const std::string type=member.at("type"); const int row=member.at("row");
+					const auto found=std::find_if(state.options.begin(),state.options.end(),[&](const auto& option) {
+						return option.row==row && option.device<0
+							&& GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))==type;
+					});
+					const int count=member.value("count",1); const float delay=member.value("delay",0.0f);
+					if(count<1 || count>ColdStorageDeploymentRules::MaximumCapacity || !std::isfinite(delay) || delay<0 || delay>60) {
+						Fail("compare_commander_search: illegal candidate member"); return false;
+					}
+					if(found==state.options.end()) { unavailable=type; break; }
+					for(int n=0;n<count;++n) plan.push_back({static_cast<int>(found-state.options.begin()),delay});
+					cost+=found->cost*count;
+				}
+				if(!unavailable.empty() || cost>state.budget || plan.size()>static_cast<size_t>(state.capacity)) {
+					report["candidatePlans"].push_back({{"name",request.value("name","")},{"legal",false},
+						{"unavailableType",unavailable},{"cost",cost},{"members",plan.size()}});
+					continue;
+				}
+				const auto result=ColdStorageSearch::EvaluateCandidate(state,probe.weights,plan);
+				nlohmann::json item={{"name",request.value("name","")},{"legal",true},{"expanded",result.expandedForecast},{"score",result.score},
+					{"searchVersion",result.expandedForecast ? 2 : state.searchVersion},
+					{"features",result.features},{"baselineFeatures",result.baselineFeatures},
+					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
+					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
+					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
+					{"protectionProgress",result.construction.workerProtectionProgress},
+					{"paidCounterCasts",result.construction.paidCounterCasts},{"rawProduction",result.rawProduction},
+					{"capitalRejected",ColdStorageSearch::ShouldConserveCapital(result,state.budget,state.recoveryReserve,state.capitalRiskAllowance)}};
+				item["workerTrace"]=nlohmann::json::array();
+				for(const auto& point:result.construction.workerTrace)
+					item["workerTrace"].push_back({{"id",point.id},{"row",point.row},{"time",point.at},{"x",point.x},{"health",point.health},{"income",point.income}});
+				report["candidatePlans"].push_back(std::move(item));
+			}
+		}
 		nlohmann::json after;
 		if (!BuildStateJson(op,after)) return false;
-		// 音乐后台预解码会按墙钟完成；它不属于棋盘，也不由数值搜索驱动。
+		// 音乐解码和已启动规划器均可按墙钟完成；这里只读就绪标志，不领取或提交结果。
+		// 对局冻结期间的自然完成不是数值探针改动，钱包/实体/队列仍须逐项相等。
+		report["backgroundComputingBefore"]=before["coldStorage"].value("planningComputing",false);
+		report["backgroundComputingAfter"]=after["coldStorage"].value("planningComputing",false);
 		before.erase("adaptiveMusic"); after.erase("adaptiveMusic");
+		before["coldStorage"].erase("planningComputing"); after["coldStorage"].erase("planningComputing");
 		if (before != after) {
 			std::ofstream changes(std::filesystem::path(mOutDir)/(name+"_state_diff.json"));
 			changes << nlohmann::json::diff(before,after).dump(2);

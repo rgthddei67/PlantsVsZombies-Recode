@@ -1,0 +1,31 @@
+{
+  "description": "Read-only legal candidate diagnosis shares full forecast and waiting baseline; unavailable types are reported without purchasing them.",
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_THUNDERFLOWER","PLANT_JALAPENO"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_sun","value":1000},
+    {"op":"plant","type":"PLANT_THUNDERFLOWER","row":2,"col":0},
+    {"op":"set_cold_storage","state":{"enemyIce":3000,"initialEnemyIce":3000,"playerIce":100,"decisions":20,"elapsed":300,"decisionRemaining":600}},
+    {"op":"compare_commander_search","name":"legal_plans","budgetsMs":[0],"candidatePlans":[
+      {"name":"wait","actions":[]},
+      {"name":"guarded","trace":true,"actions":[
+        {"type":"ZOMBIE_DOOR","row":2,"count":2},
+        {"type":"ZOMBIE_ICE_WORKER","row":2,"count":3,"delay":6},
+        {"type":"ZOMBIE_DISASTER_ENGINEER","row":2,"delay":6}
+      ]},
+      {"name":"unavailable","actions":[{"type":"ZOMBIE_DISASTER_ENGINEER","row":-1}]},
+      {"name":"too_expensive","actions":[{"type":"ZOMBIE_DISASTER_ENGINEER","row":2,"count":100}]}
+    ]},
+    {"op":"assert_state","path":"coldStorage.enemyIce","equals":3000},
+    {"op":"assert_state","path":"coldStorage.hostileCount","equals":0},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"compare_commander_search","name":"background_plans","budgetsMs":[0],"candidatePlans":[{"name":"wait","actions":[]}]},
+    {"op":"assert_state","path":"coldStorage.planning","equals":true},
+    {"op":"assert_state","path":"coldStorage.enemyIce","equals":3000},
+    {"op":"assert_state","path":"coldStorage.hostileCount","equals":0},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"quit"}
+  ]
+}

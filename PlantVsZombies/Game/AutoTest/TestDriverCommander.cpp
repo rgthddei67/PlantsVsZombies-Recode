@@ -395,6 +395,12 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 }
 }
 
+void TestDriver::RecordEngineerAshProtection(float elapsed,int row,int engineerID,const std::vector<int>& workerIDs) {
+	if(!mActive || mEpisodeTicks<0 || !mEpisodeTraceProtections || workerIDs.empty()) return;
+	// Board 的冻结名单和跳过伤害在同一主线程事务中完成；记录数值/稳定 ID，来源随后死亡也不丢证据。
+	mEpisodeEngineerProtections.push_back({{"elapsed",elapsed},{"row",row},{"engineerID",engineerID},{"workerIDs",workerIDs}});
+}
+
 /** 用正式玩家入口推进脚本对战，可选逐秒实体轨迹用于核对掩护及战损。 */
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
@@ -424,6 +430,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (mEpisodeTicks < 0) {
 		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
 		mEpisodePlantings = Json::object(); mEpisodeDecisions = Json::array(); mEpisodeSunRefills = Json::array();
+		mEpisodeTraceProtections=command.value("traceUnits",false); mEpisodeEngineerProtections=Json::array();
 		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
 		Log("commander episode started: " + opponent);
 	}
@@ -487,12 +494,13 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"playerActions",command.value("playerActions",true)},
 			{"shovelCounters",command.value("shovelCounters",false)},
 			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
+			{"engineerProtectionEvents",mEpisodeEngineerProtections},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
 		output << result.dump(2); output.flush();
 		if (!output) { Fail("cannot write episode result"); return false; }
 		Log("commander episode finished: " + result.at("outcome").get<std::string>());
-		mEpisodeTicks = -1; return true;
+		mEpisodeTicks = -1; mEpisodeTraceProtections=false; return true;
 	}
 	// 模拟主人用 CE 在低阳光时再次补满；仅测试命令显式启用，不把未来补款泄露给 AI。
 	// 记录每一笔注入，普通训练/真人观察缺省不会进入此分支，灰烬冷却和冰块仍走正式规则。

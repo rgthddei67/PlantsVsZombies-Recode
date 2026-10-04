@@ -9,6 +9,7 @@ def inspect(folder):
     episodes = []
     examples = []
     engineer_uses = {}
+    protection_events = []
     interference_uses = 0
     previous_cooldown = 0
     for name in ("opening", "middle", "late"):
@@ -21,6 +22,7 @@ def inspect(folder):
         episodes.append({"phase": name, "wave": data["final"]["wave"], "income": final["workerIncome"],
                          "ice": final["enemyIce"], "deployments": final["deploymentTypes"], "outcome": data["outcome"]})
         trace = data["trace"]
+        protection_events.extend({"phase": name, **event} for event in data.get("engineerProtectionEvents", []))
         for sample in trace:
             assert "units" in sample, "episode must enable traceUnits"
             cooldown = sample["ice"]["interferenceCooldownRemainingMs"]
@@ -59,6 +61,9 @@ def inspect(folder):
                                      "producingWorkers": workers})
     return {"episodes": episodes, "frontlineIntervals": len(examples), "examples": examples,
             "engineerProtectionUsesObserved": sum(engineer_uses.values()), "timeInterferencesObserved": interference_uses,
+            "engineerProtectionEvents": len(protection_events),
+            "workersProtectedFromAsh": sum(len(event["workerIDs"]) for event in protection_events),
+            "protectionExamples": protection_events[:5],
             "note": "These intervals show a damaged forward unit and unchanged-health workers completing production behind it; they are not a win-rate claim."}
 
 

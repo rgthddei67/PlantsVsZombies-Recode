@@ -362,6 +362,7 @@ struct Result {
 	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
 	int refinementEvaluated = 0; // 围绕完整优案替换少量成员的实际比较数，不按能力限定兵种
 	int incomeEvaluated = 0, pruningEvaluated = 0; // 经营分支和最终成员/等待删除对照数，仅诊断，不增加采购或总时间预算
+	int spreadCohortEvaluated = 0; // 完整协作复制到多路后实际积分的次数，不包含被去重/预算拒绝的提案
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
 	float combinationBaseBreachSeconds = -1, combinationBestBreachSeconds = -1; // 同为突破时先比较首次进屋游戏秒，-1 表示未突破
@@ -413,6 +414,8 @@ Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, Constru
 	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false,
 	bool interferenceBeforeAsh = false);
 class PlanEvaluator;
+/** 只读诊断已验证合法的购物车，复用正式条件权重、等待基线及完整玩家应对；不修案或提交采购。 */
+Result EvaluateCandidate(const Snapshot& state, const Weights& weights, const std::vector<Action>& plan);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。
  * evaluator 由后台任务独占，函数返回前领完其结果；缺省为空，离线搜索保持同步随机顺序。
  */

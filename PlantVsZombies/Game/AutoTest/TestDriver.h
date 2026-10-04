@@ -22,6 +22,8 @@ public:
 	bool BackgroundCommander() const { return mBackgroundCommander; }
 	/** 只在显式诊断脚本记录预测工人轨迹和灰烬时点，不改变搜索或交易。 */
 	bool CommanderForecastTrace() const { return mCommanderForecastTrace; }
+	/** Board 在主线程灰烬事务中记录实际免伤；只为显式逐秒对战取证，不借用实体或改变玩法。 */
+	void RecordEngineerAshProtection(float elapsed,int row,int engineerID,const std::vector<int>& workerIDs);
 	/** 仅供同一局面消融比较，普通脚本和正式对局保持动态挡位预测。 */
 	bool CommanderFuelAwareLamp() const { return mCommanderFuelAwareLamp; }
 	/** 同步诊断时保持已付款队列不重排，确保两种预测比较同一编队。 */
@@ -102,6 +104,8 @@ private:
 	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
 	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings, mEpisodeDecisions;
+	bool mEpisodeTraceProtections=false;
+	nlohmann::json mEpisodeEngineerProtections; // 事件当场记录，避免工程师同次死亡后被逐秒活体采样漏掉
 	nlohmann::json mEpisodeSunRefills; // 仅显式压力夹具的外部阳光注入记录，不能混入普通训练胜率
 
 	bool mActive = false;

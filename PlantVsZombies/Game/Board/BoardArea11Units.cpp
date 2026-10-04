@@ -2,6 +2,8 @@
 #include "Game/Zombie/DisasterEngineerZombie.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
+#include "Game/AutoTest/TestDriver.h"
+#include "GameApp.h"
 #include "Graphics.h"
 #include <algorithm>
 
@@ -44,6 +46,7 @@ void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::func
 		auto* engineer = dynamic_cast<DisasterEngineerZombie*>(mEntityRegistry.GetZombie(id));
 		if (!engineer || !engineer->IsActive() || engineer->IsDying() || !engineer->HasHead()
 			|| !engineer->HasFullCanister()) continue;
+		const size_t firstProtected=protectedIDs.size();
 		bool used = false;
 		for (const int worker : engineer->GetProtectedWorkerIDs()) {
 			if (std::find(targets.begin(),targets.end(),worker)==targets.end()
@@ -51,7 +54,12 @@ void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::func
 			protectedIDs.push_back(worker); used = true;
 			if (auto* z=mEntityRegistry.GetZombie(worker)) z->SetGlowingTimer(.3f);
 		}
-		if (used) engineer->ConsumeCanister();
+		if (used) {
+			engineer->ConsumeCanister();
+			// 免伤已经冻结，来源可能随后被这次灰烬杀死；测试在这里留事件，不能只靠下一秒活体计数。
+			if(GameAPP::mAutoTestMode) TestDriver::GetInstance().RecordEngineerAshProtection(mColdStorage.elapsed,
+				engineer->mRow,id,std::vector<int>(protectedIDs.begin()+firstProtected,protectedIDs.end()));
+		}
 	}
 	for (const int id : targets) {
 		if (std::find(protectedIDs.begin(),protectedIDs.end(),id)!=protectedIDs.end()) continue;

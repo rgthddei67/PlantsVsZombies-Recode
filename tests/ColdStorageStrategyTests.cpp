@@ -1005,6 +1005,32 @@ int main()
 	s.plants.clear(); s.thunderRays={{850,0,PlantDamageOrigin::FromPlant(PlantType::PLANT_THUNDERFLOWER)}};
 	ConstructionStats inFlight; Evaluate(s,{},&inFlight);
 	check(inFlight.thunderStuns==6,"an already-fired ray completes its capped control after its plant is gone");
+	// 邻行有敌人、本行尚未到场时不能预发雷种；真正到场后的首批生产仍可兑现。
+	Snapshot delayed; delayed.houseX=-10000; delayed.traceEconomy=true;
+	flower.rowRadius=1; flower.thunderRemaining=0; delayed.plants={flower};
+	crowd.body.row=1; crowd.body.x=1000; delayed.current={crowd};
+	worker.body.row=0; worker.body.x=1000; worker.body.health=20; worker.body.stopped=0;
+	worker.body.spawnAt=2; worker.productionRemaining=1; worker.productionStopHealth=0; worker.nextYield=4;
+	delayed.current.push_back(worker);
+	const auto arrival=Evaluate(delayed,{});
+	check(arrival[4]>=4,"neighboring targets cannot prelaunch a ray that kills a later own-row worker before production");
+	// 本行触发后的电弧仍可伤及邻行；修正的是发射资格而非电弧范围。
+	delayed.current.back().body.spawnAt=0; delayed.current.back().body.health=100000;
+	delayed.current.front().body.health=100000; delayed.current.front().body.row=1;
+	ConstructionStats arc; Evaluate(delayed,{},&arc);
+	check(arc.thunderStuns>0,"a legitimate own-row impact keeps adjacent-row arc control");
+	// 诊断购物车必须采用正式搜索会选择的长时域；第70秒清场不可藏在小队窗口外。
+	Snapshot funded; funded.houseX=-10000; funded.netEconomy=true; funded.budget=3000; funded.capacity=48;
+	Option purchase; purchase.cost=24; purchase.unit=worker;
+	purchase.unit.body.health=500; purchase.unit.body.spawnAt=0; purchase.unit.body.purchaseCost=24;
+	funded.options={purchase}; blast.blast.ready=70; blast.blast.reach.fill(10000); funded.counters={blast};
+	Weights value{}; value[3]=value[4]=1;
+	const auto diagnosed=EvaluateCandidate(funded,value,{{0,0}});
+	auto longWorld=funded; longWorld.searchVersion=2;
+	const auto explicitLong=EvaluateCandidate(longWorld,value,{{0,0}});
+	check(diagnosed.expandedForecast && diagnosed.features==explicitLong.features
+		&& diagnosed.score==explicitLong.score && diagnosed.features[3]==0 && funded.searchVersion==1,
+		"candidate diagnosis shares funded long forecast and cannot mutate the input or hide a late clearing");
 	}
 	// 已付款队列不属于新购物车：只能提前/改合法路线，不能再次扣费或修改在场实体。
 	ColdStorageSearch::Snapshot queued;
@@ -2982,6 +3008,92 @@ int main()
     }
     std::cout << "normal-birth staged factory misses=" << stagedMisses << "/8\n";
     check(stagedMisses==0,"wide free search covers lead-time protection without pre-positioned tanks");
+    // 四类共同起效的纯数值夹具；前排/费用为测试画像，不作为正式单位平衡或实战强度证据。
+    auto fourth=deep; fourth.budget=240; fourth.capacity=10;
+    fourth.options[2].unit.body.health=7000; fourth.options[2].cost=80; fourth.options[2].unit.body.purchaseCost=80;
+    fourth.counters[0].blast.x=1000; fourth.counters[0].blast.reach.fill(-1); fourth.counters[0].blast.reach[0]=130;
+    Option clock; clock.type=27008; clock.cost=18; clock.unit.body.x=1140; clock.unit.body.health=2200;
+    clock.unit.body.purchaseCost=18; clock.unit.helmHealth=1200; clock.unit.temporalStopHealth=333;
+    clock.unit.clock.present=clock.unit.clock.enabled=true; clock.unit.clock.remaining=2; clock.unit.clock.stopBodyHealth=333;
+    fourth.options.push_back(clock); const int c=static_cast<int>(fourth.options.size()-1);
+    const std::vector<Action> complete{{0,0},{0,0},{0,0},{1,0},{2,0},{c,0}};
+    const auto whole=EvaluateCandidate(fourth,profit,complete);
+    check(whole.score>0,"a legal four-type factory repays under the same common player response");
+    for(int omit:{1,2,c}) {
+        auto parts=complete;
+        parts.erase(std::remove_if(parts.begin(),parts.end(),[&](const auto& a){return a.option==omit;}),parts.end());
+        check(EvaluateCandidate(fourth,profit,parts).score<=0,
+            "the same four-type purchase cannot claim profitable income with a required partner absent");
+    }
+    int fourMisses=0;
+    for(unsigned seed=1;seed<=8;++seed) {
+        const auto searched=Search(fourth,profit,seed);
+        if(searched.features[4]<=searched.features[5]) {
+            ++fourMisses; std::cout<<"four miss seed="<<seed<<" anchor=";
+            for(const auto& a:searched.investmentPruningActions) std::cout<<a.option<<":"<<a.delay<<",";
+            for(const auto& candidate:searched.candidates) if(candidate.type==clock.type)
+                std::cout<<" clock="<<candidate.evaluated<<":"<<candidate.bestProduction<<":"<<candidate.bestCost;
+            std::cout<<'\n';
+        }
+    }
+    std::cout<<"four-type factory misses="<<fourMisses<<"/8\n";
+    check(fourMisses==0,"free exploration must retain a profitable four-type cooperation in a wide roster");
+    }
+
+    {
+    using namespace ColdStorageSearch;
+    // 同卡的各路落点共用冷却，比较完整协作分路；生命/价格只用于隔离搜索覆盖，非正式平衡。
+    Snapshot field; field.houseX=-10000; field.searchVersion=2; field.netEconomy=true;
+    field.budget=695; field.capacity=64; field.playerSun=5000; field.rows=5;
+    Option worker; worker.type=41001; worker.cost=24; worker.unit.body.x=1000;
+    worker.unit.body.health=500; worker.unit.body.purchaseCost=24; worker.unit.body.economic=true;
+    Option engineer; engineer.type=41002; engineer.cost=35; engineer.unit.body.x=1020;
+    engineer.unit.body.health=1000; engineer.unit.body.purchaseCost=35; engineer.unit.engineer=true;
+    Option front; front.type=41003; front.cost=32; front.unit.body.x=850;
+    front.unit.body.health=7000; front.unit.body.purchaseCost=32;
+    for(int row=0;row<5;++row) {
+        Plant fire; fire.row=row; fire.x=300; fire.health=100000; fire.dps=120; fire.edible=false;
+        field.plants.push_back(fire);
+        for(auto option:{worker,engineer,front}) { option.row=option.unit.body.row=row; field.options.push_back(option); }
+        Counter ash; ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[row]=10000;
+        ash.blast.damage=10000; ash.sunCost=125; ash.recharge=8; field.counters.push_back(ash);
+    }
+    const Weights profit{0,0,0,0,1,-1,0,0};
+    std::vector<Action> full;
+    for(int rows=1;rows<=5;++rows) {
+        std::vector<Action> plan;
+        for(int row=0;row<rows;++row) { for(int i=0;i<3;++i) plan.push_back({row*3,0});
+            plan.push_back({row*3+1,0}); plan.push_back({row*3+2,0}); }
+        const auto result=EvaluateCandidate(field,profit,plan);
+        std::cout<<"spread rows="<<rows<<" income="<<result.features[4]<<" cost="<<result.features[5]
+            <<" protection="<<result.construction.workerProtectionProgress<<'\n';
+        if(rows==1) check(result.score<=0,"one complete lane cannot repay against the same ready reusable ash");
+        if(rows==5) {
+            check(result.score>0,"multiple complete lanes can repay against a genuinely shared ash cooldown");
+            full=std::move(plan);
+        }
+    }
+    auto independent=field;
+    for(size_t row=0;row<independent.counters.size();++row) independent.counters[row].source=static_cast<int>(row);
+    check(EvaluateCandidate(independent,profit,full).score<=0,
+        "the same multi-lane purchase loses when the defenses really have independent ready cooldowns");
+    for(unsigned seed=1;seed<=8;++seed) {
+        const auto result=Search(field,profit,seed);
+        std::cout<<"spread seed="<<seed<<" income="<<result.features[4]<<" cost="<<result.features[5]
+            <<" expanded="<<result.spreadCohortEvaluated<<'\n';
+        check(result.features[4]>result.features[5] && result.spreadCohortEvaluated>0,
+            "free search can resize and spread its own partial cooperation under the existing candidate budget");
+        check(result.features[5]<=field.budget && result.actions.size()<=static_cast<size_t>(field.capacity)
+            && result.combinationEvaluated<=80,"replicated cohorts must share the same real cash, slots and combination quota");
+    }
+    auto renamed=field;
+    for(auto& option:renamed.options) option.type=51000-option.type;
+    const auto before=Search(field,profit,3), after=Search(renamed,profit,3);
+    check(before.features==after.features && before.actions.size()==after.actions.size(),
+        "spreading a discovered cooperation does not depend on fixed zombie identities");
+    auto small=field; small.budget=70;
+    check(Search(small,profit,6).actions.empty(),
+        "a wallet too small to retain each partner across routes must reject the proposal safely");
     }
 
     {
