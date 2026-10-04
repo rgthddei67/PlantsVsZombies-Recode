@@ -779,10 +779,12 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 	s.candidatesEvaluated = 0;
 	s.searchUnitCandidates.clear();
 	s.searchRouteEvaluated = s.searchCombinationEvaluated = s.searchReinforcementEvaluated = 0;
+	s.searchRefinementEvaluated = 0;
 	s.searchCohortEvaluated = s.searchUnevenMixEvaluated = s.searchDuplicatesSkipped = s.searchPaidCounterCasts = 0;
 	s.searchPaidDefensesRetained = false;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
 	s.searchCombinationBaseBreach = s.searchCombinationBestBreach = false;
+	s.searchCombinationBaseBreachSeconds = s.searchCombinationBestBreachSeconds = -1;
 	s.predictedProduction = 0.0f;
 	s.economyValue = 0.0f;
 	s.economyRow = -1;
@@ -2397,8 +2399,11 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchPaidCounterCasts=result.construction.paidCounterCasts;
 	s.searchPaidDefensesRetained=result.construction.paidDefensesRetained;
 	s.searchReinforcementEvaluated=result.reinforcementEvaluated;
+	s.searchRefinementEvaluated=result.refinementEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
+	s.searchCombinationBaseBreachSeconds = result.combinationBaseBreachSeconds;
+	s.searchCombinationBestBreachSeconds = result.combinationBestBreachSeconds;
 	s.searchProductionInputs = result.productionInputs;
 	s.formationBlastLoss = result.blastLoss;
 	s.predictedProduction = result.features[4]; s.predictedKillIncome = result.features[0];
@@ -2492,6 +2497,8 @@ void Board::PollColdStoragePlan()
 	auto& s = mColdStorage;
 	s.planning = false;
 	s.planningWorkerMs = work->milliseconds;
+	s.planningWorkerThreads = work->workerThreads;
+	s.planningParallelPlans = work->parallelPlans;
     s.planningBudgetMs=work->budgetMilliseconds;
     s.planningTimeLimited=work->result.timeLimited;
 	const float age = s.elapsed-mColdStoragePlanningAt;

@@ -47,6 +47,7 @@ struct ColdStorageState {
 	std::vector<ColdStorageSearch::CounterForecastTrace> searchCounterTrace; // 显式诊断轨迹，不入档
 	double planningWorkerMs = 0, planningMainMaxMs = 0; // 后台总耗时/主线程决策入口最大耗时，毫秒
     double planningBudgetMs = 0; // 本轮实时墙钟预算，毫秒，不入档
+	int planningWorkerThreads = 0, planningParallelPlans = 0; // 最近领取任务的计算线程数/辅助线程完整候选数，不入档
     bool planningTimeLimited = false; // 是否因预算停止扩展候选，不代表返回了不完整的预测
 	static constexpr int RecoveryReserveIce = 48; // 能重新组织护卫与制冰工的最低储备，冰块
 	int playerIce = 200; // 开局冷库可支撑完整五路基础阵型，后续依赖采购
@@ -97,8 +98,10 @@ struct ColdStorageState {
 	int searchPaidCounterCasts = 0; // 预测中实际提交的付费灰烬次数，仅诊断不入档
 	bool searchPaidDefensesRetained = false; // 选中的完整玩家应对保留付费手动工具，仅诊断不入档
 	int searchReinforcementEvaluated = 0; // 组合预算中的跟队增援候选数，仅诊断不入档
+	int searchRefinementEvaluated = 0; // 完整优案换入少量其他成员的候选数，仅诊断不入档
 	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
 	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益
+	float searchCombinationBaseBreachSeconds = -1, searchCombinationBestBreachSeconds = -1; // 比较前后首次进屋游戏秒，仅诊断不入档
 	float lastBestScore = 0.0f;
 	std::array<float, 8> searchFeatures{}, searchBaselineFeatures{}; // 同一推演时域的计划/不增援预测（产冰固定60秒），诊断不入档
 	float searchPreferenceScore = 0, searchRawPreferenceScore = 0; // 有界/原始兵种先验对评分的贡献，诊断不入档

@@ -4990,8 +4990,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"unevenMixEvaluated",board->mColdStorage.searchUnevenMixEvaluated},
 			{"duplicatesSkipped",board->mColdStorage.searchDuplicatesSkipped},
 			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
+			{"refinementEvaluated",board->mColdStorage.searchRefinementEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
-			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach}};
+			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach},
+			{"baseBreachSeconds",board->mColdStorage.searchCombinationBaseBreachSeconds},
+			{"bestBreachSeconds",board->mColdStorage.searchCombinationBestBreachSeconds}};
 		ice["productionRules"] = {{"intervalMs",static_cast<int>(IceProduction::Interval*1000)},
 			{"initialYield",IceProduction::InitialYield},{"maximumYield",IceProduction::MaximumYield},
 			{"growth",IceProduction::YieldGrowth},{"workerCost",IceProduction::WorkerCost}};
@@ -5104,6 +5107,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["planningLastDiscardMask"] = board->mColdStorage.planningLastDiscardMask;
 		ice["planningLastAgeMs"] = board->mColdStorage.planningLastAgeMs;
 		ice["planningWorkerMs"] = board->mColdStorage.planningWorkerMs;
+		ice["planningWorkerThreads"] = board->mColdStorage.planningWorkerThreads;
+		ice["planningParallelPlans"] = board->mColdStorage.planningParallelPlans;
         ice["planningBudgetMs"] = board->mColdStorage.planningBudgetMs;
         ice["planningTimeLimited"] = board->mColdStorage.planningTimeLimited;
 		ice["planningMainMaxMs"] = board->mColdStorage.planningMainMaxMs;

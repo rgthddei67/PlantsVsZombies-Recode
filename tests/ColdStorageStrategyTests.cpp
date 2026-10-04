@@ -7,6 +7,7 @@
 #include "Game/Zombie/AdaptiveHelmetRules.h"
 #include "Game/Zombie/PolarClockRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
+#include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include <chrono>
 #include <algorithm>
@@ -15,6 +16,7 @@
 #include "Game/AI/ColdStorageStrategy.h"
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
@@ -1142,6 +1144,69 @@ int main()
 	planner.Cancel();
 	check(!planner.Busy() && !planner.TakeReady(), "cancellation releases worker ownership and publishes no partial result");
 	std::cout << "Owned background snapshots, deterministic search and cancellation passed\n";
+	{
+		// 明确阻塞辅助线程，证明协调线程可继续独立计算；不靠睡眠猜测是否并行。
+		ColdStorageSearch::PlanEvaluator helper;
+		std::promise<void> entered, release;
+		auto unlocked=release.get_future();
+		const auto caller=std::this_thread::get_id();
+		auto candidate=helper.Submit(std::packaged_task<ColdStorageSearch::Result()>([&] {
+			const bool different=std::this_thread::get_id()!=caller;
+			entered.set_value(); unlocked.wait();
+			ColdStorageSearch::Result result; result.score=different ? 17 : -1; return result;
+		}));
+		entered.get_future().wait();
+		const auto independent=ColdStorageSearch::Evaluate(counterTiming,{});
+		check(independent==ColdStorageSearch::Evaluate(counterTiming,{})
+			&& candidate.wait_for(std::chrono::seconds(0))!=std::future_status::ready,
+			"coordinator can evaluate a whole world while the auxiliary thread is still occupied");
+		release.set_value();
+		check(candidate.get().score==17,"auxiliary computation runs on a different thread and delivers a whole result");
+		auto failure=helper.Submit(std::packaged_task<ColdStorageSearch::Result()>([]() -> ColdStorageSearch::Result {
+			throw std::runtime_error("candidate failed");
+		}));
+		bool propagated=false;
+		try { failure.get(); } catch(const std::runtime_error&) { propagated=true; }
+		check(propagated && helper.Submitted()==2,"candidate failure is delivered without killing the auxiliary worker");
+	}
+	{
+		using namespace ColdStorageSearch;
+		Snapshot live; live.houseX=-10000; live.searchVersion=2; live.netEconomy=true;
+		live.budget=600; live.capacity=24;
+		Option income; income.type=901; income.cost=24; income.unit.body.x=900;
+		income.unit.body.health=500; income.unit.body.economic=true; income.unit.body.value=24;
+		Option support; support.type=902; support.cost=35; support.unit.engineer=true;
+		support.unit.body.x=1010; support.unit.body.health=1000; support.unit.body.value=35;
+		live.options={income,support};
+		Counter blast; blast.blast.committed=true; blast.blast.x=900;
+		blast.blast.ready=10; blast.blast.reach.fill(40); blast.blast.damage=1800; live.counters={blast};
+		const Weights profit{0,0,0,0,1,-1,0,0};
+		Planner pair;
+		check(pair.Start(live,profit,7,600),"real-time planner starts a two-worker search under the existing budget");
+		std::unique_ptr<Planner::Work> result;
+		const auto limit=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+		while(!result && std::chrono::steady_clock::now()<limit) {
+			result=pair.TakeReady();
+			if(!result) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
+		check(result && !result->failed && result->workerThreads==2 && result->parallelPlans>0
+			&& result->budgetMilliseconds==600,"two cooperating workers retain one shared wall-clock budget and result");
+		check(result->result.refinementEvaluated>0 && result->result.largestPlan>=24,
+			"a full-capacity cohort receives generic small replacement comparisons");
+		int spent=0; bool incomeChosen=false, supportChosen=false;
+		for(const auto& action:result->result.actions) {
+			spent+=live.options[action.option].cost;
+			incomeChosen|=action.option==0; supportChosen|=action.option==1;
+		}
+		check(spent<=live.budget && result->result.actions.size()<=static_cast<size_t>(live.capacity)
+			&& incomeChosen && supportChosen,"parallel exploration finds payable cooperation without a fixed composition");
+		check(live.budget==600 && live.options[1].unit.canisterFull && live.options[1].unit.body.health==1000,
+			"parallel forecasts do not pay from or consume canisters in the caller snapshot");
+		check(pair.Start(live,profit,8,600),"two-worker task can restart");
+		pair.Cancel();
+		check(!pair.Busy() && !pair.TakeReady(),"cancel joins both workers and delivers no partial purchase");
+	}
+	std::cout << "Two-worker candidate delivery, exception propagation, refinement and cancellation passed\n";
 
 	{
 	// Same total health has different meaning for a shield and a helmet against lobbed splash.

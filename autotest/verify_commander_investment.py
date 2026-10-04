@@ -16,7 +16,12 @@ for name in ('wide', 'narrow'):
     assert 'searchRawPreferenceScore' in ice
     assert abs(ice['searchCapitalRiskAllowance'] - ice['commanderBudget'] * .35) < .01
     assert compare['bestBreach'] or not compare['baseBreach']
-    assert (compare['bestBreach'] and not compare['baseBreach']) or compare['bestScore'] + .002 >= compare['baseScore']
+    earlier = False
+    if compare['baseBreach']:
+        assert 0 <= compare['bestBreachSeconds'] <= compare['baseBreachSeconds']
+        earlier = compare['bestBreachSeconds'] < compare['baseBreachSeconds']
+    # 正式比较先看首次进屋时刻；更早胜利允许放弃拖时间获得的中间收益。
+    assert (compare['bestBreach'] and not compare['baseBreach']) or earlier or compare['bestScore'] + .002 >= compare['baseScore']
     assert ice['planningApplied'] == 1 and not ice['planning']
     assert ice['enemyIce'] == ice['initialEnemyIce'] + ice['supplied'] + ice['workerIncome'] + ice['killIncome'] - ice['spent']
     assert ice['commanderSpent'] <= ice['commanderBudget']

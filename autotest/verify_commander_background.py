@@ -23,6 +23,7 @@ states = {name: read(smoke, name) for name in
 ice = {name: state['coldStorage'] for name, state in states.items()}
 assert ice['started']['planning'] and ice['started']['spent'] == 24
 assert ice['committed']['planningApplied'] == 1 and ice['committed']['spent'] > 24
+assert ice['committed']['planningWorkerThreads'] == 2 and ice['committed']['planningParallelPlans'] > 0
 assert ice['once']['spent'] == ice['stale']['spent'] == ice['committed']['spent']
 assert ice['once']['decisions'] == ice['stale']['decisions'] == ice['committed']['decisions']
 assert ice['stale']['planningDiscarded'] == 1
@@ -37,12 +38,12 @@ assert not ice['resumed']['planning'] and ice['resumed']['planningApplied'] == 1
 sync = read(stress, 'synchronous')['coldStorage']
 background = read(stress, 'background')['coldStorage']
 assert background['planningApplied'] == 1 and background['planningDiscarded'] == 0
-if not background['planningTimeLimited']:
-    assert background['candidatesEvaluated'] == sync['candidatesEvaluated']
-else:
-    assert background['planningBudgetMs'] > 0 and background['candidatesEvaluated'] > 0
+assert background['planningWorkerThreads'] == 2 and background['planningParallelPlans'] > 0
+# 实时细化和完成次序会改变探索路径；同步离线仍走可复现的原顺序，不强求同一候选数。
+assert background['planningBudgetMs'] == 600 and background['candidatesEvaluated'] > 0
 assert background['planningMainMaxMs'] < sync['planningMainMaxMs'] * .4
 print('No early/duplicate payment; stale plans discarded; load/scene/pause boundaries passed.')
 print(f"Dense scenario main-thread decision: {sync['planningMainMaxMs']:.3f} ms sync -> "
       f"{background['planningMainMaxMs']:.3f} ms background; "
-      f"worker {background['planningWorkerMs']:.3f} ms. These are not whole-frame FPS measurements.")
+      f"worker {background['planningWorkerMs']:.3f} ms; "
+      f"{background['planningParallelPlans']} auxiliary candidates. These are not whole-frame FPS measurements.")

@@ -6,7 +6,7 @@
 #include <thread>
 
 namespace ColdStorageSearch {
-/** 独占快照的单工作线程；不接触 Board、资源单例或正式随机数，领取结果才回到主线程。 */
+/** 独占快照的协调/计算线程和一个辅助计算线程；不接触 Board、资源单例或正式随机数。 */
 class Planner {
 public:
 	struct Work {
@@ -16,6 +16,7 @@ public:
 		Result result;
 		double milliseconds = 0;
         double budgetMilliseconds = 0; // 本次实时搜索的墙钟预算，毫秒；零表示不设截止
+		int workerThreads = 1, parallelPlans = 0; // 实际计算线程数、辅助线程承担的完整候选数
 		bool failed = false;
 	private:
 		friend class Planner;

@@ -1,5 +1,6 @@
 #include "Game/Board/NightRoofChargeRules.h"
 #include "ColdStorageSearch.h"
+#include "ColdStoragePlanEvaluator.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Board/ColdStorageDeploymentRules.h"
@@ -15,6 +16,7 @@
 #include <algorithm>
 #include <bitset>
 #include <cmath>
+#include <iterator>
 #include <random>
 #include <set>
 #include <utility>
@@ -66,6 +68,10 @@ constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格�
 constexpr float kCounterShovelSeconds = .5f; // 玩家决定腾位后再铲种的近似操作耗时，游戏秒；不改变真实铲子
 constexpr int kRouteTrials = 256; // 单阶段兵种/合法路线覆盖上限，不区分攻击、经济或支援角色
 constexpr int kCombinationTrials = 80; // 单阶段任意兵种配对和优案扩展预算，不预设技能搭配
+constexpr int kRefinementTrials = 20; // 实时组合预算预留给完整优案的小幅换兵，不增加总候选上限
+constexpr int kRefinementMaxReplacements = 4; // 一次优案细化最多替换的成员数，所有兵种统一使用
+constexpr int kCombinationSearchBudgetPercent = 80; // 实时配对/成批探索累计用时上限，余量留给优案细化
+constexpr int kRefinementSearchBudgetPercent = 95; // 实时优案细化累计用时上限，末段仍可对照合法路线
 constexpr float kPreferenceIceFraction = .25f; // 净经济模式下单兵偏好最多相当于其冰价四分之一，不能压过明确回报
 constexpr int kPrecisionFollowupTrials = 16; // 每个清除目标的通用跟进探测预算，之后只为胜出目标重搜
 constexpr int kPrecisionTargets = 12; // 技能候选目标上限，每个比较原案、等待和通用跟进
@@ -323,6 +329,54 @@ std::vector<Action> SampleCombination(const Snapshot& s, const std::vector<std::
 			plan.push_back({route==2 ? options[i%options.size()] : side==0 ? a : b,
 				std::min(DelayLimit(s),(side==0 ? startA : startB)+i*spacing)});
 	}
+	return plan;
+}
+
+/** 从大队中替换少量主要成员，保留其他搭档；容量已满时也能比较新的协同兵种。 */
+std::vector<Action> RefineCohort(const Snapshot& s,const std::vector<Action>& anchor,
+	const std::vector<int>& group,int count,float delay) {
+	if(anchor.empty() || group.empty()) return {};
+	std::array<int,6> rows{};
+	std::vector<std::pair<std::pair<int,int>,int>> types;
+	for(const auto& action:anchor) {
+		const auto& option=s.options[action.option]; ++rows[option.row];
+		const auto type=std::make_pair(option.type,option.cost);
+		auto found=std::find_if(types.begin(),types.end(),[&](const auto& entry){return entry.first==type;});
+		if(found==types.end()) types.push_back({type,1}); else ++found->second;
+	}
+	const int row=static_cast<int>(std::max_element(rows.begin(),rows.end())-rows.begin());
+	const auto dominant=std::max_element(types.begin(),types.end(),[](const auto& a,const auto& b){return a.second<b.second;})->first;
+	const auto sameRow=std::find_if(group.begin(),group.end(),[&](int option){return s.options[option].row==row;});
+	const int option=sameRow==group.end() ? group.front() : *sameRow;
+	const auto& choice=s.options[option];
+	count=std::min(count,choice.device>=0 ? 1 : kRefinementMaxReplacements);
+	auto plan=anchor;
+	// 天气设置是独占槽位，换挡应替换已有设置，不能在修复时丢掉新设置。
+	if(choice.device>=0) plan.erase(std::remove_if(plan.begin(),plan.end(),[&](const Action& action) {
+		return s.options[action.option].device==choice.device;
+	}),plan.end());
+	const auto removeMember=[&]() {
+		const auto member=std::find_if(plan.rbegin(),plan.rend(),[&](const Action& action) {
+			const auto& original=s.options[action.option];
+			return std::make_pair(original.type,original.cost)==dominant;
+		});
+		if(member==plan.rend()) return false;
+		plan.erase(std::next(member).base()); return true;
+	};
+	for(int i=0;i<count;++i) if(!removeMember()) break;
+	int cost=count*choice.cost, troops=choice.device<0 ? count : 0;
+	for(const auto& action:plan) { cost+=s.options[action.option].cost; troops+=s.options[action.option].device<0; }
+	// 保留引入的成员，先腾出真实费用/名额；不能靠 Repair 又把新搭档从队尾删掉。
+	while(cost>PurchaseBudget(s) || static_cast<int>(plan.size())+count>ActionLimit(s) || troops>s.capacity) {
+		if(!removeMember()) return {};
+		cost-=dominant.second;
+		// 主要队员可能是设备；名额统计仍按实际行动种类区分。
+		const auto original=std::find_if(s.options.begin(),s.options.end(),[&](const auto& entry) {
+			return std::make_pair(entry.type,entry.cost)==dominant;
+		});
+		troops-=original->device<0;
+	}
+	for(int i=0;i<count;++i) plan.push_back({option,std::min(DelayLimit(s),delay)});
 	return plan;
 }
 
@@ -2568,7 +2622,7 @@ QueueRevision ReplanCommitted(Snapshot& s, const Weights& baseWeights, std::uint
 }
 
 /** 在给定技能意图下搜索编队；正式入口另外比较不施法的机会成本。 */
-static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed) {
+static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std::uint32_t seed, PlanEvaluator* evaluator) {
 	Result best;
     // 小队阶段最多占用剩余预算的一半，为必要的整队长时域重搜留下空间。
     const auto begin=std::chrono::steady_clock::now();
@@ -2642,12 +2696,54 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		})) ++unevenMixEvaluated;
 		return true;
 	};
-	int combinationEvaluated = 0, cohortEvaluated = 0, reinforcementEvaluated = 0;
+	int combinationEvaluated = 0, cohortEvaluated = 0, reinforcementEvaluated = 0, refinementEvaluated = 0;
 	Result cohortAnchor;
 	bool hasCohortAnchor=false;
     size_t reinforcementIndex=0;
 	int largestPlan = 0;
     size_t coverageIndex = 0;
+	// 排名、随机数和候选记账只由协调线程修改；辅助线程仅借用本作用域的只读快照。
+	const auto acceptCandidate=[&](Result candidate,bool cohort) {
+		if(cohort && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
+			cohortAnchor=candidate; hasCohortAnchor=true;
+		}
+		if(rejectInvestment(candidate)) { deferredInvestment=true; return; }
+		if((s.allowWait || !candidate.actions.empty()) && (!hasChoice || BetterOutcome(candidate,best))) {
+			best=candidate; hasChoice=true;
+		}
+		elite.push_back(std::move(candidate));
+		std::stable_sort(elite.begin(),elite.end(),[](const auto& a,const auto& b) {
+			if(const int victory=CompareVictory(a,b)) return victory>0;
+			return a.score>b.score;
+		});
+		if(elite.size()>8) elite.resize(8);
+	};
+	struct PendingEvaluation {
+		std::future<Result> result;
+		bool cohort=false;
+		~PendingEvaluation() { if(result.valid()) result.wait(); } // 异常展开也须先完成借用，再销毁快照/权重。
+	} pendingEvaluation;
+	const auto collect=[&](bool wait) {
+		if(!pendingEvaluation.result.valid()) return;
+		if(!wait && pendingEvaluation.result.wait_for(std::chrono::seconds(0))!=std::future_status::ready) return;
+		acceptCandidate(pendingEvaluation.result.get(),pendingEvaluation.cohort);
+	};
+	const Weights baselineFeatures=best.baselineFeatures;
+	const auto evaluatePrepared=[&](std::vector<Action> plan,bool cohort,bool synchronous=false) {
+		collect(false);
+		if(evaluator && !synchronous && !pendingEvaluation.result.valid()) {
+			pendingEvaluation.cohort=cohort;
+			pendingEvaluation.result=evaluator->Submit(std::packaged_task<Result()>(
+				[&s,weights,baselineFeatures,baselineOpponentAssets,plan=std::move(plan)]() mutable {
+					return EvaluatePlan(s,weights,std::move(plan),baselineFeatures,baselineOpponentAssets);
+				}));
+		} else {
+			// 辅助线程在算长案时，协调线程继续算其他候选；不等一批全完才更新优案。
+			acceptCandidate(EvaluatePlan(s,weights,std::move(plan),baselineFeatures,baselineOpponentAssets),cohort);
+			collect(false);
+		}
+	};
+
 	for (int trial = 1; trial < trials && withinBudget(); ++trial) {
 		auto plan = elite[rng() % elite.size()].actions;
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
@@ -2655,6 +2751,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
         const bool cooperationTrial = trial % 4 == 3 && !pairs.empty();
         const bool reinforcementTrial=cooperationTrial && trial%8==3
             && (hasCohortAnchor || !best.actions.empty());
+        bool refinementTrial=false;
         if(reinforcementTrial) {
             // 跟队增援不能等所有独立配对/批次搜完才尝试。保留未购买的大队作探索起点，
             // 即使它单独亏损也可试接任意类型；最终整案仍按同一收益和资本门禁决定。
@@ -2665,8 +2762,14 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
             for(const auto& action:anchor) ++rowCounts[s.options[action.option].row];
             const int row=static_cast<int>(std::max_element(rowCounts.begin(),rowCounts.end())-rowCounts.begin());
             const auto sameRow=std::find_if(group.begin(),group.end(),[&](int option){return s.options[option].row==row;});
-            plan=IntroduceOption(s,anchor,sameRow==group.end() ? group.front() : *sameRow,rng);
-            plan.back().delay=trial%16==3 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
+            const float delay=trial%16==3 ? std::min(kReinforcementDelay,DelayLimit(s)) : 0;
+            if(s.timeLimitedSearch && anchor.size()>=3) {
+                refinementTrial=true;
+                plan=RefineCohort(s,anchor,group,1+static_cast<int>(reinforcementIndex%kRefinementMaxReplacements),delay);
+            } else {
+                plan=IntroduceOption(s,anchor,sameRow==group.end() ? group.front() : *sameRow,rng);
+                plan.back().delay=delay;
+            }
         }
         else if(cooperationTrial) {
             // 协作探索不能排在全部单兵变异之后，否则实时预算先耗尽，经济与护卫永远碰不到一起。
@@ -2713,47 +2816,22 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		if (!s.allowWait && trial == 1 && coverage.empty()) plan = {{static_cast<int>(cheapest - s.options.begin()),0}};
 		if (!preparePlan(plan)) continue;
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
-		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
-        if(portfolioTrial && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
-            cohortAnchor=candidate; hasCohortAnchor=true;
-        }
-        if(reinforcementTrial) ++reinforcementEvaluated;
-        if(cooperationTrial) { ++combinationEvaluated; if(candidate.actions.size()>2) ++cohortEvaluated; }
-		// 在候选比较中排除亏损增援，不能选完后才丢弃第一名而漏掉其余可行方案。
-		if (rejectInvestment(candidate)) {
-			deferredInvestment = true;
-			continue;
-		}
-		if ((s.allowWait || !candidate.actions.empty()) && (!hasChoice || BetterOutcome(candidate,best))) {
-			best = candidate; hasChoice = true;
-		}
-		elite.push_back(std::move(candidate));
-		std::stable_sort(elite.begin(), elite.end(), [](const auto& a, const auto& b) {
-			if (const int victory = CompareVictory(a,b)) return victory > 0;
-			return a.score > b.score;
-		});
-		if (elite.size() > 8) elite.resize(8);
+		if(reinforcementTrial) ++reinforcementEvaluated;
+		if(refinementTrial) ++refinementEvaluated;
+		if(cooperationTrial) { ++combinationEvaluated; if(plan.size()>2) ++cohortEvaluated; }
+		// 首个完整编队先算完作为可细化起点，其余独立候选交给两个计算线程。
+		evaluatePrepared(std::move(plan),portfolioTrial,trial==1);
 	}
+	collect(true);
 	int routeEvaluated = 0;
 	const float combinationBaseScore = best.score;
 	const bool combinationBaseBreach = best.features[2] > 0;
+	const float combinationBaseBreachSeconds = best.construction.breachSeconds;
 	const auto groups = LegalOptionGroups(s,rng);
 	const auto compare = [&](std::vector<Action> plan, bool cohort=false) {
 		if (!preparePlan(plan)) return false;
 		largestPlan = std::max(largestPlan,static_cast<int>(plan.size()));
-		auto candidate = EvaluatePlan(s,weights,std::move(plan),best.baselineFeatures,baselineOpponentAssets);
-		// 批次自身可亏损，但接上另一类型后可能回本；只保留数值探索锚点，最终完整案仍过同一资本门禁。
-		if (cohort && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
-			cohortAnchor=candidate; hasCohortAnchor=true;
-		}
-		if (rejectInvestment(candidate)) { deferredInvestment = true; return true; }
-		if (BetterOutcome(candidate,best)) { best = candidate; hasChoice = true; }
-		elite.push_back(std::move(candidate));
-		std::stable_sort(elite.begin(),elite.end(),[](const auto& a,const auto& b) {
-			if (const int victory = CompareVictory(a,b)) return victory > 0;
-			return a.score > b.score;
-		});
-		if (elite.size() > 8) elite.resize(8);
+		evaluatePrepared(std::move(plan),cohort);
 		return true;
 	};
 	// 独立增援现有部队，避免把“有收益的单兵”绑定到新购物车中的亏损攻击；已有护卫仍在快照中。
@@ -2769,9 +2847,11 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		}
 		if (!found) break;
 	}
+	collect(true);
 	// 独立两兵案可以跨过“各自亏损、组合才盈利”的谷底；新能力不需要补搭配白名单。
-	phaseDeadline=explorationDeadline;
-	const int pairTrials = kCombinationTrials/3;
+	phaseDeadline=s.timeLimitedSearch ? begin+(explorationDeadline-begin)*kCombinationSearchBudgetPercent/100 : explorationDeadline;
+	const int explorationCombinationLimit=s.timeLimitedSearch ? kCombinationTrials-kRefinementTrials : kCombinationTrials;
+	const int pairTrials = std::min(kCombinationTrials/3,std::max(0,explorationCombinationLimit-combinationEvaluated));
 	for (int trial=0; trial<pairTrials && !pairs.empty() && withinBudget(); ++trial) {
 		auto plan = samplePair(trial%2==0);
 		// 后续把任意配对试入搜索中的优案，可生成三种以上兵种并继续优化出生次序。
@@ -2794,8 +2874,8 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	}
 	// 从同一组合预算中给各类型试成批规模，跨过“单只或两只被清掉，分路群体仍能回本”的谷底。
 	// 所有兵种使用相同集中/分路及错峰形状，既不按生产角色筛选，也不指定护卫组合。
-	for (int pass=0;pass<2 && cohortEvaluated<kCombinationTrials/3 && withinBudget();++pass) for (const auto& group:groups) {
-		if (cohortEvaluated>=kCombinationTrials/3 || !withinBudget()) break;
+	for (int pass=0;pass<2 && cohortEvaluated<kCombinationTrials/3 && combinationEvaluated<explorationCombinationLimit && withinBudget();++pass) for (const auto& group:groups) {
+		if (cohortEvaluated>=kCombinationTrials/3 || combinationEvaluated>=explorationCombinationLimit || !withinBudget()) break;
 		const int count=std::min({ActionLimit(s),PurchaseBudget(s)/s.options[group.front()].cost,pass==0 ? 4 : 8});
 		if (count<2) continue;
 		std::vector<Action> plan;
@@ -2805,9 +2885,9 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	}
 	// 独立单兵与随机配对不能保证试到“给本案的前排补后续支援”。分出原有组合预算，
 	// 轮流给各合法类型试入当前优案；同时/错峰、换兵/增兵都使用相同预测和门禁。
-	for (int pass=0; pass<2 && combinationEvaluated<kCombinationTrials && withinBudget(); ++pass) {
+	for (int pass=0; pass<2 && combinationEvaluated<explorationCombinationLimit && withinBudget(); ++pass) {
 		for (const auto& group : groups) {
-			if (combinationEvaluated >= kCombinationTrials || !withinBudget()) break;
+			if (combinationEvaluated >= explorationCombinationLimit || !withinBudget()) break;
 			// 有界先验不能靠夸大前排单独收益来打开组合搜索。等待暂优时，也从最好的非空探索案接支援。
 			const auto anchor=std::find_if(elite.begin(),elite.end(),[](const Result& candidate){return !candidate.actions.empty();});
 			if (best.actions.empty() && anchor==elite.end() && !hasCohortAnchor) break;
@@ -2835,8 +2915,24 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			}
 		}
 	}
+	collect(true);
+	// 完整优案无论何时找到，都留一段实时预算换入其他类型；不以单兵亏损淘汰协同候选。
+	if(s.timeLimitedSearch) {
+		phaseDeadline=begin+(explorationDeadline-begin)*kRefinementSearchBudgetPercent/100;
+		for(int trial=0;trial<kRefinementTrials && combinationEvaluated<kCombinationTrials && !groups.empty() && withinBudget();++trial) {
+			collect(false);
+			const auto& anchor=!best.actions.empty() ? best.actions : cohortAnchor.actions;
+			if(anchor.size()<3) break;
+			auto plan=RefineCohort(s,anchor,groups[trial%groups.size()],1+trial%kRefinementMaxReplacements,
+				trial%2==0 ? 0 : kReinforcementDelay);
+			if(compare(std::move(plan))) { ++combinationEvaluated; ++refinementEvaluated; }
+		}
+		collect(true);
+	}
+	phaseDeadline=explorationDeadline;
 	const float combinationBestScore = best.score;
 	const bool combinationBestBreach = best.features[2] > 0;
+	const float combinationBestBreachSeconds = best.construction.breachSeconds;
 	// 固定自由搜索选出的兵种、预算和时序，完整比较各合法行。已有部队仍留在原行参与推演，
 	// 因此可以发现继续支援巨人的收益，也能因灰烬、溅射或减速而保留分路方案。
 	const auto original = best.actions;
@@ -2859,8 +2955,10 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.cohortEvaluated=cohortEvaluated;
 	best.duplicatesSkipped=duplicatesSkipped; best.unevenMixEvaluated=unevenMixEvaluated;
 	best.reinforcementEvaluated=reinforcementEvaluated;
+	best.refinementEvaluated=refinementEvaluated;
 	best.combinationBaseScore = combinationBaseScore; best.combinationBestScore = combinationBestScore;
 	best.combinationBaseBreach = combinationBaseBreach; best.combinationBestBreach = combinationBestBreach;
+	best.combinationBaseBreachSeconds = combinationBaseBreachSeconds; best.combinationBestBreachSeconds = combinationBestBreachSeconds;
 	best.evaluated = evaluatedPlans;
 	best.capitalRejected = capitalRejected;
 	best.largestPlan = largestPlan;
@@ -2876,7 +2974,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		&& best.features[1] <= best.baselineFeatures[1] && best.features[4] <= best.baselineFeatures[4]) {
 		auto expanded = s;
 		expanded.searchVersion = 2;
-		auto result = SearchFormation(expanded,baseWeights,seed);
+		auto result = SearchFormation(expanded,baseWeights,seed,evaluator);
         result.timeLimited|=best.timeLimited;
 		result.expandedForecast = true;
 		result.evaluated += best.evaluated;
@@ -2886,13 +2984,14 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		result.cohortEvaluated += best.cohortEvaluated;
 		result.duplicatesSkipped += best.duplicatesSkipped; result.unevenMixEvaluated += best.unevenMixEvaluated;
 		result.reinforcementEvaluated += best.reinforcementEvaluated;
+		result.refinementEvaluated += best.refinementEvaluated;
 		result.largestPlan = std::max(result.largestPlan,best.largestPlan);
 		return result;
 	}
 	return best;
 }
 /** 技能与不施法优案同分制比较；先有限选靶，再只为胜出目标重搜一次可支付编队。 */
-Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed) {
+Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed, PlanEvaluator* evaluator) {
     auto state = input;
     const bool canUsePrecision=input.precisionReady && input.pendingPrecisionID<=0
         && input.budget>=ColdStorageSkillRules::StrikeIceCost;
@@ -2910,7 +3009,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
     const bool fundedPortfolio = state.searchVersion == 1 && canExploreLarger
         && (PaidSearchCapital(state) >= ColdStorageDeploymentRules::GrowthCapital || state.resumePortfolio);
     if (fundedPortfolio) state.searchVersion = 2;
-	auto best = SearchFormation(state,weights,seed);
+	auto best = SearchFormation(state,weights,seed,evaluator);
     state.searchDeadline=input.searchDeadline;
     best.expandedForecast |= fundedPortfolio;
 	if (SearchTimeExpired(input)) { best.timeLimited=true; return best; }
@@ -3020,7 +3119,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	}
 	if (best.precisionTargetID > 0 && !SearchTimeExpired(state)) {
 		state.precisionTargetID = best.precisionTargetID;
-		const auto joint = SearchFormation(state,weights,seed);
+		const auto joint = SearchFormation(state,weights,seed,evaluator);
 		evaluated += joint.evaluated;
 		largestPlan=std::max(largestPlan,joint.largestPlan);
 		consider(EvaluatePlan(state,incumbent.effectiveWeights,joint.actions,baseline.features,baseline.opponentAssets));
@@ -3037,8 +3136,11 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed)
 	best.cohortEvaluated=incumbent.cohortEvaluated;
 	best.duplicatesSkipped=incumbent.duplicatesSkipped; best.unevenMixEvaluated=incumbent.unevenMixEvaluated;
 	best.reinforcementEvaluated=incumbent.reinforcementEvaluated;
+	best.refinementEvaluated=incumbent.refinementEvaluated;
 	best.combinationBaseScore=incumbent.combinationBaseScore; best.combinationBestScore=incumbent.combinationBestScore;
 	best.combinationBaseBreach=incumbent.combinationBaseBreach; best.combinationBestBreach=incumbent.combinationBestBreach;
+	best.combinationBaseBreachSeconds=incumbent.combinationBaseBreachSeconds;
+	best.combinationBestBreachSeconds=incumbent.combinationBestBreachSeconds;
 	best.formationBaseScore=incumbent.formationBaseScore; best.formationScores=incumbent.formationScores;
 	best.formationTested=incumbent.formationTested; best.formationRejected=incumbent.formationRejected;
 	best.formationChosenRow=incumbent.formationChosenRow;

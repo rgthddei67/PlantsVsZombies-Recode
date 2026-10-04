@@ -1,4 +1,5 @@
 #include "ColdStoragePlanner.h"
+#include "ColdStoragePlanEvaluator.h"
 #include <chrono>
 #include <utility>
 
@@ -29,11 +30,19 @@ bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t see
             const auto duration=std::chrono::microseconds(static_cast<long long>(timeBudgetMs*1000));
             const auto deadline=begin+duration;
 			try {
+				std::unique_ptr<PlanEvaluator> evaluator;
+				// 同步无截止夹具保留原随机/比较顺序；正式后台最多两条计算线程共享同一截止。
+				if (timeBudgetMs>0) {
+					try { evaluator=std::make_unique<PlanEvaluator>(); }
+					catch (const std::system_error&) {} // 辅助线程无法创建时沿用单线程，仍保持同一预算。
+				}
+				job->workerThreads=evaluator ? 2 : 1;
                 // 旧队列仅用一小部分预算重排，把主要计算机会留给自由采购。
                 job->snapshot.searchDeadline=begin+duration/6;
 				job->revision = ReplanCommitted(job->snapshot,job->weights,seed ^ 0x91A7u);
                 job->snapshot.searchDeadline=deadline;
-				job->result = Search(job->snapshot,job->weights,seed);
+				job->result = Search(job->snapshot,job->weights,seed,evaluator.get());
+				job->parallelPlans=evaluator ? evaluator->Submitted() : 0;
 			} catch (...) {
 				// 取消和计算失败均不把半个方案提交给 Board。
 				job->failed = true;

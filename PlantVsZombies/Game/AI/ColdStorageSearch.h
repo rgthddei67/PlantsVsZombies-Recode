@@ -358,8 +358,10 @@ struct Result {
 	int cohortEvaluated = 0; // combinationEvaluated 中的通用成批规模对照数，不增加该阶段预算
 	int unevenMixEvaluated = 0, duplicatesSkipped = 0; // 实际积分的非等量混编数、同次搜索复用的重复案数
 	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
+	int refinementEvaluated = 0; // 围绕完整优案替换少量成员的实际比较数，不按能力限定兵种
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
+	float combinationBaseBreachSeconds = -1, combinationBestBreachSeconds = -1; // 同为突破时先比较首次进屋游戏秒，-1 表示未突破
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
@@ -405,8 +407,11 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
 	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false);
-/** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
-Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
+class PlanEvaluator;
+/** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。
+ * evaluator 由后台任务独占，函数返回前领完其结果；缺省为空，离线搜索保持同步随机顺序。
+ */
+Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed, PlanEvaluator* evaluator = nullptr);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */
 QueueRevision ReplanCommitted(Snapshot& state, const Weights& weights, std::uint32_t seed);
 }
