@@ -1046,6 +1046,8 @@ bool TestDriver::ExecuteCurrent() {
 					{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
+					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
+					{"catapultBlocks",result.construction.catapultBlocks},
 					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
 					{"protectionProgress",result.construction.workerProtectionProgress},
 					{"paidCounterCasts",result.construction.paidCounterCasts},{"rawProduction",result.rawProduction},

@@ -351,6 +351,8 @@ if(BUILD_TESTING)
     target_compile_options(ColdStorageStrategyTests PRIVATE /utf-8 /W3 /sdl /EHsc)
     target_link_libraries(ColdStorageStrategyTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)
     if(WIN32)
+        # 单一 main 保留多套反事实快照；与正式游戏相同的 4 MiB 栈，避免夹具在进入 main 前耗尽默认 1 MiB。
+        target_link_options(ColdStorageStrategyTests PRIVATE /STACK:4194304,65536)
         pvz_assert_win7_imports(ColdStorageStrategyTests)
     endif()
     add_test(NAME cold-storage-strategy COMMAND ColdStorageStrategyTests)

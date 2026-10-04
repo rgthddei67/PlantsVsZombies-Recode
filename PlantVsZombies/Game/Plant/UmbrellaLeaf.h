@@ -7,6 +7,7 @@
  */
 class UmbrellaLeaf final : public Plant {
 public:
+	static constexpr int ProtectionCells=1; // 自身与相邻逻辑格；实体资格与未来建设画像共用半径
 	using Plant::Plant;
 
 	/** 推进展开倒计时，并在阻挡轨结束后回到待机防御状态。 */

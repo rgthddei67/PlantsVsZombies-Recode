@@ -9,6 +9,7 @@ inline constexpr float BaseRootSpeed = 10; // _ground 每帧位移的基础换�
 inline constexpr int RootSpeedJitter = 3; // 出生时基础倍率的整数随机浮动，正负范围
 inline constexpr float MinimumAnimationSpeed = 1.1f; // 出生基础播放倍率下限
 inline constexpr float MaximumAnimationSpeed = 1.4f; // 出生基础播放倍率上限
+inline constexpr float NormalSlowAnimationFactor = 0.6f; // 普通减速的动画倍率；独立于内部逻辑计时的 0.5 倍
 inline constexpr float FootballRootMultiplier = 1.7f; // 普通橄榄球的独立根运动倍率
 inline constexpr float FootballAnimationMultiplier = 1.8f; // 普通橄榄球的常驻动画能力倍率
 inline constexpr float PinkFootballRootMultiplier = 1.85f; // 粉色橄榄球的独立根运动倍率

@@ -38,7 +38,8 @@
       "seconds": 60,
       "name": "opening",
       "timeout": 180,
-      "timeScale": 2
+      "timeScale": 2,
+      "traceUnits": true
     },
     {
       "op": "screenshot",
@@ -54,7 +55,8 @@
       "seconds": 60,
       "name": "middle",
       "timeout": 180,
-      "timeScale": 2
+      "timeScale": 2,
+      "traceUnits": true
     },
     {
       "op": "screenshot",
@@ -70,7 +72,8 @@
       "seconds": 60,
       "name": "late",
       "timeout": 180,
-      "timeScale": 2
+      "timeScale": 2,
+      "traceUnits": true
     },
     {
       "op": "screenshot",

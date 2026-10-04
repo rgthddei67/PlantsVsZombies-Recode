@@ -18,11 +18,13 @@
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
+#include "Game/Zombie/CatapultZombie.h"
 #include "Game/Zombie/ColdChainGuardRules.h"
 #include "Game/Zombie/DisasterEngineerZombie.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 #include "Game/Plant/ThunderFlower.h"
 #include "Game/Plant/ThunderFlowerRules.h"
+#include "Game/Plant/UmbrellaLeaf.h"
 #include "Game/Zombie/CrystalDrummerZombie.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/AdaptiveHelmetZombie.h"
@@ -303,6 +305,9 @@ namespace {
 	void ProjectPlantAttack(ColdStorageSearch::Plant& plant, PlantType type)
 	{
 		using P = PlantType;
+		plant.catapultTargetable=CatapultZombie::CanLobAtPlantType(type);
+		plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,false);
+		plant.airborneDefenseRadius=type==P::PLANT_UMBRELLA ? UmbrellaLeaf::ProtectionCells : -1;
 		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
 		plant.eliteQuota = type == P::PLANT_ELITE_SCAREDYSHROOM;
 		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
@@ -323,6 +328,35 @@ namespace {
 		}
 		plant.fume = type == P::PLANT_FUMESHROOM || type == P::PLANT_GLOOMSHROOM || type == P::PLANT_ICEFUMESHROOM;
 		if (type == P::PLANT_ICEFUMESHROOM) plant.hitDamage = 10; // 寒冰大喷每次喷射的实际基础伤害
+	}
+
+	/** 新购/活体/在途车共用正式弹药和资源片段；射击读冻结落点，后台不借用 Animator。 */
+	void ProjectCatapult(ColdStorageSearch::Unit& unit,ZombieType type,float gridLeft,float cellWidth,const CatapultZombie* live=nullptr)
+	{
+		auto& attack=unit.catapult; attack.present=true;
+		const auto timing=CatapultZombie::GetForecastShotTiming();
+		attack.release=timing.first; attack.duration=timing.second;
+		attack.damage=Bullet::GetBaseDamage(BulletType::BULLET_BASKETBALL);
+		attack.ammunition=live ? live->GetBasketballCount() : CatapultRules::kInitialBasketballs;
+		attack.animationBase=live ? live->GetForecastAnimationBase() : 1;
+		if(!live) {
+			unit.body.blastAnchorOffset=-(GameDataManager::GetInstance().GetZombieOffset(type).x
+				+CatapultZombie::GetForecastColliderCenterFromVisualX());
+			return;
+		}
+		using Phase=ColdStorageSearch::CatapultAttack::Phase;
+		switch(live->GetPhase()) {
+		case CatapultZombie::Phase::WALKING: attack.phase=Phase::WALKING; break;
+		case CatapultZombie::Phase::SHOOTING: {
+			attack.phase=Phase::SHOOTING; attack.launched=live->HasLaunchedBasketball();
+			const auto remaining=live->GetForecastShotRemaining();
+			attack.releaseRemaining=remaining.first; attack.remaining=remaining.second;
+			attack.targetColumn=static_cast<int>(std::floor((live->GetShotTargetPosition().x-gridLeft)/cellWidth));
+			break;
+		}
+		case CatapultZombie::Phase::RELOADING: attack.phase=Phase::RELOADING; attack.remaining=live->GetPhaseTimer(); break;
+		case CatapultZombie::Phase::CALTROP_DYING: attack.phase=Phase::PUNCTURED; attack.remaining=live->GetPhaseTimer(); break;
+		}
 	}
 
 	/** 将实体阶段投影为纯数值能力；未出生候选从待机开始，不提前扣技能费。 */
@@ -457,7 +491,8 @@ namespace {
 		case Z::ZOMBIE_POGO: case Z::ZOMBIE_ELITE_POGO: return {700, 1.8f, true, false, false};
 		case Z::ZOMBIE_JACK_IN_THE_BOX: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX: return {800, 1.4f, false, false, true};
 		case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI: return {1500, 1.2f, false, false, true};
-		case Z::ZOMBIE_CATAPULT: return {1200, 1, true, false, false};
+		case Z::ZOMBIE_CATAPULT: return {CatapultRules::kBodyHealth, 1, true, false, false};
+		case Z::ZOMBIE_ELITE_CATAPULT: return {CatapultRules::kEliteBodyHealth, 1, true, false, false};
 		case Z::ZOMBIE_ADAPTIVE_HELMET: return {AdaptiveHelmetRules::BodyHealth+AdaptiveHelmetRules::HelmetHealth, 1, false, false, false};
 		case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_FASTBUCKET:
 			return {1500, 1, false, false, false};
@@ -1193,6 +1228,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			const auto* bullet=mEntityRegistry.GetBullet(id);
 			if (bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_THUNDER_SEED)
 				search.thunderRays.push_back({bullet->GetPosition().x,bullet->mRow,bullet->mPlantDamageOrigin});
+			if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_BASKETBALL && bullet->IsLobbedMotion()) {
+				const int column=static_cast<int>(std::floor((bullet->GetLobTarget().x-search.gridLeft)/search.cellWidth));
+				if(column>=0 && column<search.columns) search.basketballs.push_back({bullet->mRow,column,
+					std::max(0.0f,bullet->GetLobDuration()-bullet->GetLobElapsed()),static_cast<float>(bullet->GetBulletDamage())});
+			}
 		}
 		// 清洁车是共同战斗规则，不能因候选搜索版本不同而从局面中消失。
 		for (int id : mEntityRegistry.GetAllMowerIDs()) {
@@ -1422,6 +1462,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.reloadPaid = engineer->IsReloadPaid(); unit.reloadRemaining = engineer->GetReloadRemaining();
 			}
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
+			if (const auto* catapult = dynamic_cast<const CatapultZombie*>(entity)) ProjectCatapult(unit,entity->mZombieType,search.gridLeft,search.cellWidth,catapult);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
 			if (const auto* clock = dynamic_cast<const PolarClockmakerZombie*>(entity)) {
@@ -1494,9 +1535,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+				if(plant.airborneDefenseRadius>=0 && !entity->ProtectsCellFromAirborneThreat(plant.row,plant.column)) plant.airborneDefenseRadius=-1;
 				if (const auto* flower=dynamic_cast<const ThunderFlower*>(entity))
 					plant.thunderRemaining=flower->GetAttackRemaining();
 				plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,entity->GetSleepState());
+				plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,entity->GetSleepState());
 				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
 					plant.growth = growing->GetSimulationAttackGrowth();
 					plant.growthSpeed = entity->GetSkillSpeedMultiplier();
@@ -1573,7 +1616,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.hijacker=type==ZombieType::ZOMBIE_HIJACKER; unit.grounding=type==ZombieType::ZOMBIE_GROUNDING; unit.insulator=type==ZombieType::ZOMBIE_INSULATOR;
 			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=4;
 			unit.groundHazard=type!=ZombieType::ZOMBIE_BALLOON && type!=ZombieType::ZOMBIE_BUNGEE;
-			unit.paralysisAllowed=type!=ZombieType::ZOMBIE_ZAMBONI && type!=ZombieType::ZOMBIE_GILDED_ZAMBONI && type!=ZombieType::ZOMBIE_CATAPULT;
+			unit.paralysisAllowed=type!=ZombieType::ZOMBIE_ZAMBONI && type!=ZombieType::ZOMBIE_GILDED_ZAMBONI
+				&& type!=ZombieType::ZOMBIE_CATAPULT && type!=ZombieType::ZOMBIE_ELITE_CATAPULT;
 			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
 			if(unit.grounding || unit.insulator) unit.helmHealth=1200;
 			const auto& motion = spawnMovement.at(type);
@@ -1587,6 +1631,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.engineer = type == ZombieType::ZOMBIE_DISASTER_ENGINEER;
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
+			if (type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT) ProjectCatapult(unit,type,search.gridLeft,search.cellWidth);
 			if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) ProjectDrum(unit);
 			if (type == ZombieType::ZOMBIE_ADAPTIVE_HELMET) ProjectAdaptation(unit);
 			if (type == ZombieType::ZOMBIE_THERMAL_SNIPER) ProjectDeploymentSniper(unit);

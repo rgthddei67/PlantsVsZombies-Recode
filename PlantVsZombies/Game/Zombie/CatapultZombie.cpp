@@ -15,24 +15,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
+
+using namespace CatapultRules;
 
 namespace {
-	constexpr int kCatapultHealth = 850;                    // 原版投篮车整车本体生命
 	constexpr float kDriveSpeedMin = 23.0f;                 // 出生随机基础车速下限，单位 px/s
 	constexpr float kDriveSpeedMax = 37.0f;                 // 出生随机基础车速上限，单位 px/s
 	constexpr float kWalkClipSpeed = 5.5f / 12.0f;          // 原版 anim_walk 5.5fps 相对资源 12fps 的倍率
-	constexpr float kShootClipSpeed = 2.0f;                 // 原版 anim_shoot 24fps 相对资源 12fps 的倍率
 	constexpr float kIdleClipSpeed = 1.0f;                  // 原版 anim_idle 12fps 相对资源 12fps 的倍率
 	constexpr float kBounceClipSpeed = 1.0f;                // 原版 anim_bounce 12fps 相对资源 12fps 的倍率
 	constexpr int kShootFrame = 46;                         // 主人提供的真实 AddFrameEvent 投篮帧
-	constexpr int kInitialBasketballs = 12;                 // 主人调高后的初始篮球库存
-	constexpr float kReloadSeconds = 3.0f;                  // 原版 mPhaseCounter=300，单位秒
-	constexpr float kShootStartInsideBoard = 150.0f;        // 进入逻辑棋盘右缘该距离后允许投篮，单位 px
-	constexpr float kMinimumTargetLead = 100.0f;            // 车辆至少位于植物右侧该距离才可锁定，单位 px
-	constexpr float kLobDuration = 1.2f;                    // 篮球固定飞行时间，单位秒
 	constexpr float kLobApexHeight = 210.0f;                // 篮球相对起终点连线的最高拱高，单位 px
 	constexpr float kColliderFromVisualX = -5.0f;          // 碰撞框左缘相对稳定视觉原点的 X，单位 px
 	constexpr float kColliderFromVisualY = 28.0f;           // 碰撞框上缘相对稳定视觉原点的 Y，单位 px
+	constexpr float kColliderWidth = 150.0f;               // 碰撞宽度，实体与未出生原点换算共用
 	constexpr float kAttackFromVisualX = -20.0f;            // 碾压攻击框左缘相对稳定视觉原点的 X，单位 px
 	constexpr float kAttackFromVisualY = 28.0f;             // 碾压攻击框上缘相对稳定视觉原点的 Y，单位 px
 	constexpr float kAttackWidth = 133.0f;                  // 原版车辆攻击矩形宽度，单位 px
@@ -65,10 +62,39 @@ namespace {
 	}
 }
 
+std::pair<float,float> CatapultZombie::GetForecastShotTiming()
+{
+	const auto reanim=ResourceManager::GetInstance().GetReanimation(ResourceKeys::Reanimations::REANIM_CATAPULT_ZOMBIE);
+	if(!reanim) throw std::runtime_error("missing catapult shot reanimation");
+	const auto range=reanim->GetTrackFrameRange("anim_shoot");
+	if(range.first<0 || range.second<=range.first || kShootFrame<range.first || kShootFrame>range.second || reanim->mFPS<=0)
+		throw std::runtime_error("invalid catapult shot frame range");
+	const float fps=reanim->mFPS*kShootClipSpeed;
+	return {(kShootFrame-range.first)/fps,(range.second-range.first)/fps};
+}
+
+std::pair<float,float> CatapultZombie::GetForecastShotRemaining() const
+{
+	const auto timing=GetForecastShotTiming();
+	if(mPhase!=Phase::SHOOTING || !mAnimator) return timing;
+	const auto reanim=ResourceManager::GetInstance().GetReanimation(ResourceKeys::Reanimations::REANIM_CATAPULT_ZOMBIE);
+	const auto range=reanim->GetTrackFrameRange("anim_shoot");
+	const float fps=reanim->mFPS*kShootClipSpeed;
+	return {std::max(0.0f,kShootFrame-mAnimator->GetCurrentFrame())/fps,
+		std::max(0.0f,range.second-mAnimator->GetCurrentFrame())/fps};
+}
+
+float CatapultZombie::GetForecastColliderCenterFromVisualX() { return kColliderFromVisualX+kColliderWidth*.5f; }
+
+bool CatapultZombie::CanLobAtPlantType(PlantType type)
+{
+	return type!=PlantType::PLANT_SPIKEWEED && type!=PlantType::PLANT_SPIKEROCK;
+}
+
 void CatapultZombie::SetupZombie()
 {
-	mBodyMaxHealth = kCatapultHealth;
-	mBodyHealth = kCatapultHealth;
+	mBodyMaxHealth = kBodyHealth;
+	mBodyHealth = kBodyHealth;
 	mNeedDropArm = false;
 	mNeedDropHead = false;
 	mHasArm = true;
@@ -77,7 +103,7 @@ void CatapultZombie::SetupZombie()
 	mBasketballCount = kInitialBasketballs;
 
 	if (mCollider) {
-		mCollider->size = Vector(150.0f, 140.0f);
+		mCollider->size = Vector(kColliderWidth, 140.0f);
 		mCollider->offset = mVisualOffset
 			+ Vector(kColliderFromVisualX, kColliderFromVisualY);
 		mCollider->SetTriggerEnterCallback([this](ColliderComponent* other) { StartEat(other); });
@@ -244,8 +270,7 @@ Plant* CatapultZombie::FindBasketballTarget() const
 	for (int col = 0; col < mBoard->mColumns; ++col) {
 		Plant* plant = mBoard->GetCatapultTargetPlantAt(mRow, col);
 		if (!plant) continue;
-		if (plant->mPlantType == PlantType::PLANT_SPIKEWEED
-			|| plant->mPlantType == PlantType::PLANT_SPIKEROCK) {
+		if (!CanLobAtPlantType(plant->mPlantType)) {
 			continue;
 		}
 		float targetX = plant->GetPosition().x;
@@ -258,10 +283,9 @@ Plant* CatapultZombie::FindBasketballTarget() const
 	return nullptr;
 }
 
-bool CatapultZombie::CanCrushPlant(const Plant* plant) const
+bool CatapultZombie::CanCrushPlantType(PlantType type,bool asleep)
 {
-	if (!plant || plant->IsSquished() || plant->mRow != mRow) return false;
-	switch (plant->mPlantType) {
+	switch (type) {
 	case PlantType::PLANT_CHERRYBOMB:
 	case PlantType::PLANT_JALAPENO:
 	case PlantType::PLANT_BLOVER:
@@ -269,13 +293,19 @@ bool CatapultZombie::CanCrushPlant(const Plant* plant) const
 		return false;
 	case PlantType::PLANT_ICESHROOM:
 	case PlantType::PLANT_DOOMSHROOM:
-		return plant->GetSleepState();
+		return asleep;
 	case PlantType::PLANT_SPIKEWEED:
 	case PlantType::PLANT_SPIKEROCK:
 		return false;
 	default:
 		return true;
 	}
+}
+
+bool CatapultZombie::CanCrushPlant(const Plant* plant) const
+{
+	return plant && !plant->IsSquished() && plant->mRow==mRow
+		&& CanCrushPlantType(plant->mPlantType,plant->GetSleepState());
 }
 
 void CatapultZombie::CrushPlants()

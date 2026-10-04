@@ -90,6 +90,15 @@ struct Clock {
 	bool present = false, enabled = false, winding = false;
 	float remaining = 0, stopBodyHealth = 0;
 };
+/** 投篮车停步投射的数值副本；存活回溯不恢复弹药，重新创建的复活单位用出生库存。 */
+struct CatapultAttack {
+	enum class Phase { WALKING, SHOOTING, RELOADING, PUNCTURED };
+	bool present=false, launched=false;
+	Phase phase=Phase::WALKING;
+	int ammunition=0, targetColumn=-1;
+	float release=0, duration=0, releaseRemaining=0, remaining=0, damage=0;
+	float animationBase=1; // 品种/词条固有动画倍率；天气、减速、黄金叠层在推演中独立派生
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
@@ -114,7 +123,7 @@ struct Unit {
 	float adaptiveHelmet = 0;
 	PlantDamageOrigin adaptedOrigin;
 	std::vector<std::pair<int,float>> inspiration; // 来源身份与剩余游戏秒，同源刷新
-	bool instantVehicleCrush=false; // 冰车压扁普通植物；投篮车射击阶段暂沿用原模型
+	bool instantVehicleCrush=false; // 冰车压扁普通植物；投篮车射击/装填停步独立预测
 	bool vehicleCrush = false; // 碰到抗碾压植物时使用承伤/推退契约，其他车战斗仍沿用原近似
 	float productionRemaining = IceProduction::Interval, nextYield = IceProduction::InitialYield, biteDps = 50;
 	float mistFuelReward = 0; // 活体已分配雾火；未来随机掉落不冒充确定收入
@@ -132,9 +141,13 @@ struct Unit {
 	bool hijacker=false, grounding=false, insulator=false, groundHazard=true, paralysisAllowed=true;
 	bool jammer=false; float jammerRemaining=0, overloadRemaining=0;
 	float rawRainMultiplier=1; // 快照中烘焙的雨势，环境推演逐步替换
+	CatapultAttack catapult;
 
 };
 struct Plant {
+	bool catapultTargetable=true; // 选靶跳过地刺，格内仍按正式 overlay/宿主/南瓜/承载层顺序
+	bool catapultCrushable=true; // 投篮车自有类型/睡眠资格，不把冰车的目标名单套到投篮车
+	int airborneDefenseRadius=-1; // 非负时按自有逻辑格半径拦截篮球；生命/格位由本候选维护
 	bool thunder = false;
 	float thunderRemaining = 0; // 下一次雷种发射的有效行动余秒
 	float shutdownUntil=0;
@@ -207,6 +220,7 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	int catapultShots=0, catapultHits=0, catapultBlocks=0;
 	std::vector<WorkerForecastTrace> workerTrace;
 	std::vector<CounterForecastTrace> counterTrace;
 	float breachSeconds = -1; // 首次有效进屋的预测游戏秒；-1 表示尚未突破
@@ -276,7 +290,10 @@ struct TemporalAnchor {
 };
 /** 已发射雷种只有数值位置与来源；不借用弹丸或植物对象。 */
 struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
+/** 已离膛篮球只保存落格与到达秒，来源死亡或下一轮重排不取消。 */
+struct BasketballFlight { int row=0, column=-1; float at=0, damage=0; };
 struct Snapshot {
+	std::vector<BasketballFlight> basketballs;
 	std::vector<ThunderRay> thunderRays;
 	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹
 	bool fuelAwarePlantern = true; // 仅诊断消融可关闭动态挡位应对，正式搜索始终启用

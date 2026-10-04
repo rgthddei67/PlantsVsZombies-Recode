@@ -3,7 +3,6 @@
 #include "../../ResourceKeys.h"
 
 namespace {
-	constexpr int kEliteCatapultHealth = 1000; // 导流投篮车本体生命；射击与基础车速完全沿用普通投篮车
 	constexpr float kEliteRoofRunoffDriftMultiplier = 5.0f / 3.0f; // 把 Board 的 -60 px/s 径流放大为自身 -100 px/s
 }
 
@@ -11,8 +10,8 @@ void EliteCatapultZombie::SetupZombie()
 {
 	// 父类保留十二发篮球、46 帧发射、装填、碾压、爆胎与存档状态机。
 	CatapultZombie::SetupZombie();
-	mBodyHealth = kEliteCatapultHealth;
-	mBodyMaxHealth = kEliteCatapultHealth;
+	mBodyHealth = CatapultRules::kEliteBodyHealth;
+	mBodyMaxHealth = CatapultRules::kEliteBodyHealth;
 }
 
 bool EliteCatapultZombie::CanGuideRoofRunoff() const

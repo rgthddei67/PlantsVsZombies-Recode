@@ -23,6 +23,8 @@
 
 诊断中的 `boardUnchanged` 对钱包、实体、队列及正式决策统计严格比较；音乐解码和原后台任务的只读 `planningComputing` 标志可按墙钟自然完成，后者另导出前后值，不领取或取消任务。
 
+`smoke_commander_catapult_forecast.json` 与 `verify_commander_catapult_forecast.py` 核对出生/活体投篮画像、已离膛篮球、宿主与南瓜层序以及叶子伞实际拦截。显式案报告 `catapultShots` / `catapultHits` / `catapultBlocks`；逐秒活体记录另含射击阶段、弹药与阶段余时。手动布置和隔离权重只验证能力契约，正常对战结论仍须来自正式资源与自由搜索。
+
 根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；统计收益特征时只汇总前 60 秒，扩展战斗时域中的后续产冰不属于该特征。普通对局和训练默认关闭轨迹。
 
 `commander_episode.traceUnits: true` 在对战结果的 `trace` 中逐游戏秒附加真实 `units`，用稳定 ID、同行相对位置、分层掉血与工人 `iceBatches` 核对前排是否实际掩护生产；默认仍每十秒只记录聚合状态。`python autotest/verify_commander_frontline.py <输出目录> --require-frontline` 检查账本并要求至少一段前排掉血、后方工人血量不变且完成生产的记录，结果不代表胜率。`ice_bunker_temporal` 是独立陪练，在可见工人群有钟匠且真实资金/冷却允许时先执行时间干扰再交灰烬，其他动作沿用 `ice_bunker`。比较真人与脚本时还须核对战前支援：快速卡槽恢复会缩短真实灰烬空窗，不能仅凭卡组或关卡相同判断威胁等价。`battle_commander_temporal_96.json` 使用正常资金与正式后台搜索，不强制僵尸组合。

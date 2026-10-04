@@ -635,7 +635,7 @@ protected:
 	/** 生存血量倍率对品种额外生命层的扩展点。 */
 	virtual void ApplyExtraHealthMultiplier(double) {}
 	// 减速时动画降速因子（快速铁桶 0.8 覆写；位移减半由 Update 的 scaledDelta 承担，与此正交）
-	virtual float GetSlowAnimFactor() const { return 0.6f; }
+	virtual float GetSlowAnimFactor() const { return ZombieMovementRules::NormalSlowAnimationFactor; }
 	/** 预测稳态运动共用实际能力、天气和移动增益；控制停步在推演时间线单独处理。 */
 	float ScaleSimulationMoveSpeed(float speed) const;
 	/** 用指定稳态轨道和实际 clip 速度读取根运动，不计控制停步。 */

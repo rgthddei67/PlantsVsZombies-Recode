@@ -49,8 +49,8 @@ bool UmbrellaLeaf::ProtectsCellFromAirborneThreat(int row, int column) const
 {
 	return IsActive() && !mIsPreview && !IsSquished() && !IsBungeeTargeted()
 		&& mPlantHealth > 0
-		&& std::abs(row - mRow) <= 1
-		&& std::abs(column - mColumn) <= 1;
+		&& std::abs(row - mRow) <= ProtectionCells
+		&& std::abs(column - mColumn) <= ProtectionCells;
 }
 
 AirborneDefenseState UmbrellaLeaf::ActivateAirborneDefense()

@@ -9,6 +9,7 @@
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/ThermalSniperRules.h"
 #include "Game/Zombie/PolarClockRules.h"
+#include "Game/Zombie/CatapultRules.h"
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Plant/BoundaryFlowerRules.h"
 #include "Game/Plant/DawnLotusRules.h"
@@ -1934,7 +1935,7 @@ static void AdvanceArmorRepair(Unit& unit, float active, float& ice, Weights& fe
 	}
 }
 
-/** 统一计入啃食与砸击的实际削血；回血会撤回已恢复的削血分，不能靠反复刷血赚分。 */
+/** 统一计入僵尸攻击的实际削血；回血会撤回已恢复的削血分，不能靠反复刷血赚分。 */
 static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& features, bool deploymentInterception = false) {
 	if (plant.health <= 0 || plant.immuneRemaining > 0 || plant.burstProtection.invulnerable > 0 || damage <= 0
 		|| (plant.deploymentInterceptionOnly && !deploymentInterception)) return false;
@@ -1945,6 +1946,127 @@ static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& feature
 	plant.health = std::max(0.0f,plant.health-damage);
 	if (plant.health <= 0) features[0] += plant.reward;
 	else if (plant.hasBurstProtection) plant.burstProtection.RecordDamage(before-plant.health);
+	return true;
+}
+
+/** 与正式投篮层序相同：宿主先于南瓜；已提交篮球按落格重新解析，不锁已消失的实体。 */
+int BasketballLayer(int layer) { return layer==3 ? 4 : layer==1 ? 3 : layer==2 ? 2 : layer==0 ? 1 : 0; }
+
+/** 只读一格最高投篮层，死亡/不可食层立即退出，不把南瓜冒充宿主的远程护盾。 */
+int BasketballTargetAt(const std::vector<Plant>& plants,int row,int column) {
+	int target=-1;
+	for(size_t i=0;i<plants.size();++i) {
+		const auto& p=plants[i]; if(p.health<=0 || !p.edible || p.row!=row || p.column!=column) continue;
+		if(target<0 || BasketballLayer(p.layer)>BasketballLayer(plants[target].layer)) target=static_cast<int>(i);
+	}
+	return target;
+}
+
+/** 按左到右格位选择正式目标；地刺占普通层时跳过整个格，不改为攻击其下方承载层。 */
+int FindBasketballTarget(const Snapshot& state,const Unit& unit,const std::vector<Plant>& plants) {
+	std::array<int,54> cells; cells.fill(-1);
+	for(size_t i=0;i<plants.size();++i) {
+		const auto& p=plants[i];
+		if(p.health<=0 || !p.edible || p.row!=unit.body.row || p.column<0 || p.column>=state.columns
+			|| p.column>=static_cast<int>(cells.size())) continue;
+		auto& selected=cells[p.column];
+		if(selected<0 || BasketballLayer(p.layer)>BasketballLayer(plants[selected].layer)) selected=static_cast<int>(i);
+	}
+	const float objectX=unit.body.x+unit.body.blastAnchorOffset;
+	for(int column=0;column<state.columns && column<static_cast<int>(cells.size());++column) {
+		const int target=cells[column];
+		if(target>=0 && plants[target].catapultTargetable && objectX>=plants[target].x+CatapultRules::kMinimumTargetLead) return target;
+	}
+	return -1;
+}
+
+/** 已离膛篮球独立到达；逐发重查落格和叶子伞，来源被灰烬杀死也不回滚。 */
+void AdvanceBasketballs(float time,std::vector<BasketballFlight>& flights,std::vector<Plant>& plants,
+	Weights& features,ConstructionStats& stats) {
+	for(auto it=flights.begin();it!=flights.end();) {
+		if(it->at>time) { ++it; continue; }
+		const int target=BasketballTargetAt(plants,it->row,it->column);
+		if(target>=0) {
+			const bool protectedCell=std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
+				return p.health>0 && p.airborneDefenseRadius>=0 && std::abs(p.row-it->row)<=p.airborneDefenseRadius
+					&& std::abs(p.column-it->column)<=p.airborneDefenseRadius;
+			});
+			if(protectedCell) ++stats.catapultBlocks;
+			else if(it->at<plants[target].counterBlastAt && DamagePlant(plants[target],it->damage,false,features)) ++stats.catapultHits;
+		}
+		it=flights.erase(it);
+	}
+}
+
+/** 投篮车停步也能碾压近身植物；位置沿用有限接触近似，类型和挡车承伤/推退仍走正式画像。 */
+void AdvanceCatapultCrush(Unit& unit,float active,std::vector<Plant>& plants,Weights& features) {
+	if(!unit.catapult.present || active<=0 || unit.catapult.phase==CatapultAttack::Phase::PUNCTURED) return;
+	std::vector<size_t> nearby;
+	for(size_t i=0;i<plants.size();++i) {
+		const auto& p=plants[i];
+		if(p.health>0 && p.catapultCrushable && p.row==unit.body.row && p.x<=unit.body.x+30
+			&& unit.body.x<=p.x+kContact) nearby.push_back(i);
+	}
+	std::stable_sort(nearby.begin(),nearby.end(),[&](size_t a,size_t b){return plants[a].x>plants[b].x;});
+	for(size_t i:nearby) {
+		auto& p=plants[i];
+		const bool damaged=DamagePlant(p,p.health,true,features);
+		if(p.crushDamage>0 && p.health>0) {
+			if(damaged) unit.body.x+=p.vehicleRetreat;
+			break; // 活着的挡车植物阻止继续压同格后方，无敌期也不赠送穿格。
+		}
+	}
+}
+
+/** 推进投篮车停步射击/装填，返回本步是否禁止移动啃食；新瞄准只读当前活体目标。 */
+bool AdvanceCatapult(const Snapshot& state,float time,Unit& unit,float active,bool slowed,float rainMultiplier,const std::vector<Plant>& plants,
+	std::vector<BasketballFlight>& flights,ConstructionStats& stats) {
+	auto& attack=unit.catapult;
+	if(!attack.present) return false;
+	using Phase=CatapultAttack::Phase;
+	if(active<=0) return attack.phase!=Phase::WALKING;
+	const float logicRate=slowed ? .5f : 1;
+	if(attack.phase==Phase::PUNCTURED) {
+		attack.remaining-=active*logicRate;
+		if(attack.remaining<=0) unit.body.health=0;
+		return true;
+	}
+	const auto beginShot=[&](int target) {
+		attack.phase=Phase::SHOOTING; attack.targetColumn=plants[target].column; attack.launched=false;
+		attack.releaseRemaining=attack.release; attack.remaining=attack.duration;
+	};
+	if(attack.phase==Phase::WALKING) {
+		if(attack.ammunition<=0 || unit.body.x+unit.body.blastAnchorOffset
+			>state.gridLeft+state.columns*state.cellWidth-CatapultRules::kShootStartInsideBoard) return false;
+		const int target=FindBasketballTarget(state,unit,plants);
+		if(target<0) return false;
+		beginShot(target); return true;
+	}
+	if(attack.phase==Phase::RELOADING) {
+		// 内部装填只受 scaledDelta 的减速/硬控影响；雨势和品种动画倍率不缩短这三秒。
+		attack.remaining-=active*logicRate;
+		if(attack.remaining<=0) {
+			const int target=attack.ammunition>0 ? FindBasketballTarget(state,unit,plants) : -1;
+			if(target>=0) beginShot(target); else attack.phase=Phase::WALKING;
+		}
+		return true;
+	}
+	const float animationRate=GoldenIceRules::Amplify(attack.animationBase,unit.goldenStacks)
+		*GoldenIceRules::Amplify(slowed ? ZombieMovementRules::NormalSlowAnimationFactor : 1,unit.goldenStacks)
+		*GoldenIceRules::Amplify(rainMultiplier,unit.goldenStacks);
+	const float beforeRelease=attack.releaseRemaining;
+	attack.releaseRemaining-=active*animationRate; attack.remaining-=active*animationRate;
+	if(!attack.launched && attack.ammunition>0 && attack.releaseRemaining<=0 && active>0) {
+		const float releaseAt=time+std::clamp(beforeRelease/std::max(.001f,animationRate),0.0f,kStep);
+		flights.push_back({unit.body.row,attack.targetColumn,releaseAt+CatapultRules::kLobDuration,attack.damage});
+		attack.launched=true; ++stats.catapultShots;
+	}
+	if(attack.remaining<=0) {
+		if(attack.launched) attack.ammunition=std::max(0,attack.ammunition-1);
+		attack.phase=attack.ammunition>0 && attack.launched ? Phase::RELOADING : Phase::WALKING;
+		attack.remaining=attack.phase==Phase::RELOADING ? CatapultRules::kReloadSeconds : 0;
+		attack.launched=false;
+	}
 	return true;
 }
 
@@ -2239,6 +2361,12 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			if (boundary) { --boundary->boundaryShards; ++stats.clockRedirects; }
 			// 首次死亡的返冰已经兑现，复活不重新登记；缺少能力快照的旧锚沿用出生状态。
 			if (revived) {
+				// 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
+				if(unit.catapult.present) {
+					unit.catapult.ammunition=CatapultRules::kInitialBasketballs;
+					unit.catapult.phase=CatapultAttack::Phase::WALKING;
+					unit.catapult.remaining=0; unit.catapult.launched=false; unit.catapult.targetColumn=-1;
+				}
 				unit.productionRemaining=IceProduction::Interval; unit.nextYield=IceProduction::InitialYield;
 				unit.inspiration.clear();
 				if (unit.sniper.enabled || saved.sniper.enabled) { unit.sniper=saved.sniper; unit.sniper.aiming=false; unit.sniper.remaining=ThermalSniperRules::Reload; }
@@ -2647,7 +2775,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			pending.back().invulnerableAt = counter.vulnerableSeconds;
 			pending.back().clearsCell = counter.clearsCell;
 			pending.back().craterSeconds = counter.craterSeconds;
-			for (auto& plant : plants) if (plant.id == counter.plantID) plant.counterBlastAt = counter.blast.ready;
+			// ID 0 表示没有植物来源，不能把纯数值夹具/未来画像的中性 ID 误标为爆炸宿主。
+			if(counter.plantID!=0) for (auto& plant : plants) if (plant.id == counter.plantID) plant.counterBlastAt = counter.blast.ready;
 		}
 		else {
 			if (counterReady.size() <= static_cast<size_t>(counter.source)) counterReady.resize(counter.source + 1);
@@ -2663,6 +2792,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<float> counterHoldUntil(counterReady.size(),-1);
 	std::vector<unsigned char> melonHits(units.size());
 	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
+	auto basketballs=s.basketballs;
 
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	float pendingIce = static_cast<float>(s.incomingIce), arrival = s.incomingIceAt;
@@ -2742,6 +2872,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
+		AdvanceBasketballs(t,basketballs,plants,f,constructionStats);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil,plantingBlocks,constructionStats,
 			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady,preservePaidDefenses,
@@ -2923,11 +3054,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				}
 			}
 			AdvanceArmorRepair(worker,active,enemyIce,f,constructionStats);
+			AdvanceCatapultCrush(worker,active,plants,f);
+			if(AdvanceCatapult(s,t,worker,active,speedFactor<1,s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier,
+				plants,basketballs,constructionStats)) continue;
 			int contact = -1;
 			for (size_t j = 0; j < plants.size(); ++j) {
 				const auto& p = plants[j];
 				if (p.health <= 0 || !p.edible || p.row != u.row || p.x > u.x + 30
-					|| (worker.instantVehicleCrush && !p.vehicleCrushable)) continue;
+					|| (worker.instantVehicleCrush && !p.vehicleCrushable)
+					|| (worker.catapult.present && !p.catapultCrushable)) continue;
 				if (contact < 0 || p.x > plants[contact].x
 					|| (p.x == plants[contact].x && p.layer > plants[contact].layer)) contact = static_cast<int>(j);
 			}
@@ -2948,7 +3083,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float acceleration=worker.goldenDrive.enabled ? GoldenIceRules::Acceleration(worker.goldenDrive.undamaged,worker.goldenStacks) : 1;
 			if (acceleration>1) ++constructionStats.goldenAccelerationSteps;
 			if (!worker.inspiration.empty() && worker.goldenStacks>0) ++constructionStats.goldenDrumSteps;
-			if (contact >= 0 && u.x <= plants[contact].x + kContact) {
+			// 投篮车已经统一结算碾压；空弹药步行也不能再次啃食或重复伤害挡车坚果。
+			if (contact >= 0 && u.x <= plants[contact].x + kContact && !worker.catapult.present) {
 				auto& p = plants[contact];
 				float damage = worker.biteDps * (worker.overloadRemaining>0 ? 2 : 1)
                     / (worker.sampledOverload>1 ? 2 : 1) * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? GoldenIceRules::Amplify(.5f,worker.goldenStacks) : 1);

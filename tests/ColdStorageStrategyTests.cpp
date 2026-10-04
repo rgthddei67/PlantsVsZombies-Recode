@@ -6,6 +6,7 @@
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Zombie/AdaptiveHelmetRules.h"
 #include "Game/Zombie/PolarClockRules.h"
+#include "Game/Zombie/CatapultRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "Game/Plant/IceStorageNutRules.h"
@@ -3172,4 +3173,77 @@ int main()
     }
 
 
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.gridLeft=0; s.cellWidth=100; s.rows=5; s.columns=9;
+    Unit car; car.body.x=740; car.body.health=850; car.body.purchaseCost=12;
+    car.catapult.present=true; car.catapult.ammunition=2; car.catapult.release=.5f; car.catapult.duration=1;
+    car.catapult.damage=75; s.current={car};
+    Plant rear; rear.x=100; rear.column=0; rear.health=150; rear.reward=10;
+    auto pumpkin=rear; pumpkin.layer=2; pumpkin.health=1000;
+    auto wall=rear; wall.x=650; wall.column=6; wall.health=1000;
+    s.plants={rear,pumpkin,wall}; ConstructionStats stats;
+    const auto lobbed=Evaluate(s,{},&stats);
+    check(lobbed[0]==10 && stats.catapultShots==2 && stats.catapultHits==2,
+        "finite basketball inventory shoots the rear host through its pumpkin without eating the front wall");
+    check(s.current[0].catapult.ammunition==2 && s.plants[0].health==150,
+        "catapult forecast cannot consume real ammunition or mutate a live plant");
+    auto close=s; close.plants[2].x=730;
+    check(Evaluate(close,{},&stats)[0]==20 && stats.catapultShots==2,
+        "a vehicle already overlapping a front plant may crush it while the same ranged cycle continues");
+    auto defended=s; auto umbrella=wall; umbrella.row=1; umbrella.column=1; umbrella.x=200;
+    umbrella.airborneDefenseRadius=1; defended.plants.push_back(umbrella);
+    check(Evaluate(defended,{},&stats)[0]==0 && stats.catapultBlocks==2 && stats.catapultHits==0,
+        "an adjacent living umbrella blocks lobbed attacks instead of letting the search invent rear kills");
+    auto unarmed=s; unarmed.current[0].catapult.ammunition=0;
+    check(Evaluate(unarmed,{},&stats)[1]==0 && stats.catapultShots==0,"empty ammunition cannot fire again");
+    Counter lethal; lethal.blast.committed=true; lethal.blast.x=740;
+    lethal.blast.reach.fill(-1); lethal.blast.reach[0]=10000; lethal.blast.damage=1800; lethal.blast.ready=.1f;
+    auto blocked=unarmed; blocked.plants={wall}; blocked.plants[0].x=740;
+    blocked.plants[0].initialHealth=blocked.plants[0].health;
+    blocked.plants[0].crushDamage=100; blocked.plants[0].vehicleRetreat=50;
+    blocked.counters={lethal}; // 第一逻辑步后死亡，仅检查同一步不能叠加旧通用啃食/碾压。
+    check(Evaluate(blocked,{})[1]==1,"empty catapult resolves one vehicle impact without a second generic bite or crush");
+    blocked.plants[0].catapultCrushable=false;
+    check(Evaluate(blocked,{})[1]==0,"an uncrushable target does not become edible after the last basketball");
+    auto before=s;
+    before.counters={lethal};
+    check(Evaluate(before,{},&stats)[1]==0 && stats.catapultShots==0,
+        "source death before release cancels an unfinished shot");
+    lethal.blast.ready=1.1f; before.counters={lethal};
+    const auto afterRelease=Evaluate(before,{},&stats);
+    check(afterRelease[1]==5 && stats.catapultShots==1 && stats.catapultHits==1,
+        "an already released basketball still hits after ash destroys its source");
+    auto paid=unarmed; paid.current[0].body.health=0; paid.basketballs={{0,0,1,75}};
+    check(Evaluate(paid,{},&stats)[1]==5 && stats.catapultHits==1 && stats.catapultShots==0,
+        "captured committed basketball survives independently without recreating a source or another shot");
+    auto fired=s; fired.current[0].catapult.phase=CatapultAttack::Phase::SHOOTING;
+    fired.current[0].catapult.ammunition=1; fired.current[0].catapult.launched=true;
+    fired.current[0].catapult.remaining=.25f; fired.current[0].catapult.targetColumn=0; fired.basketballs={{0,0,1,75}};
+    check(Evaluate(fired,{},&stats)[1]==5 && stats.catapultShots==0 && stats.catapultHits==1,
+        "a live post-release frame consumes its current round once and cannot duplicate the captured basketball");
+    auto reloading=s; reloading.current[0].catapult.phase=CatapultAttack::Phase::RELOADING;
+    reloading.current[0].catapult.remaining=3; lethal.blast.ready=5; reloading.counters={lethal};
+    const auto ordinary=Evaluate(reloading,{},&stats);
+    check(stats.catapultShots>0 && ordinary[1]>0,"completed reload may release a shot before a later lethal event");
+    reloading.current[0].body.slow=100;
+    check(Evaluate(reloading,{},&stats)[1]==0 && stats.catapultShots==0,
+        "slow internal action time delays reload instead of treating the vehicle as ready immediately");
+    auto clock=s; clock.plants[0].health=1000; clock.current[0].catapult.ammunition=1;
+    TemporalAnchor rewind; rewind.at=10; TemporalTarget target; target.unit=0; target.saved=car;
+    target.saved.catapult.ammunition=CatapultRules::kInitialBasketballs; rewind.targets={target}; clock.temporalAnchors={rewind};
+    Evaluate(clock,{},&stats);
+    check(stats.catapultShots==1,"a living clock rewind cannot refill irreversible basketball inventory");
+    clock.current[0].body.health=0; clock.current[0].catapult.ammunition=0; clock.temporalAnchors[0].at=1;
+    Evaluate(clock,{},&stats);
+    check(stats.clockRevivals==1 && stats.catapultShots==CatapultRules::kInitialBasketballs,
+        "a newly created resurrected catapult uses the formal birth inventory rather than an empty dead instance");
+    auto attack=s; attack.current.clear(); attack.budget=12; attack.capacity=1; attack.netEconomy=true;
+    attack.plants[0].reward=30; Option choice; choice.type=51007; choice.cost=12; choice.unit=car; attack.options={choice};
+    const Weights gain{1,0,0,0,1,-1,0,0};
+    check(!Search(attack,gain,42).actions.empty(),"free search can discover a payable rear attack through the real ranged ability");
+    attack.options[0].unit.catapult.present=false;
+    check(Search(attack,gain,42).actions.empty(),"the same immobile body without the ranged ability has no invented attack value");
+    std::cout<<"Catapult shots, host layers, umbrella, finite ammo, commitment and clock contracts passed\n";
+    }
 }

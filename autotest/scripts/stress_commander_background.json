@@ -79,6 +79,8 @@
     {"op": "spawn_zombie", "type": "ZOMBIE_CRYSTAL_DRUMMER", "row": 1, "x": 960, "stationary": true},
     {"op": "spawn_zombie", "type": "ZOMBIE_AURORA_PRIEST", "row": 2, "x": 960, "stationary": true},
     {"op": "spawn_zombie", "type": "ZOMBIE_ADAPTIVE_HELMET", "row": 3, "x": 960, "stationary": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_CATAPULT", "row": 0, "x": 960, "stationary": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_CATAPULT", "row": 4, "x": 960, "stationary": true},
     {"op": "wait_frames", "value": 15},
     {"op": "save_level_snapshot", "name": "perf_start"},
     {"op": "plan_ice_attack"},

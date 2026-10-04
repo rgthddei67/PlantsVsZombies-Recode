@@ -226,6 +226,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
 				"iceRemainingMs", "iceBatches", "nextIceYieldOn1000", "engineerFull", "engineerProtectionUses",
 				"engineerReloadMs", "clockPhase", "clockRemainingMs",
+				"catapultPhase", "catapultBasketballs", "catapultPhaseRemainingMs",
 				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
 				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
 				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",

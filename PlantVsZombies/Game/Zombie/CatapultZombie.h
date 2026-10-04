@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Zombie.h"
+#include "CatapultRules.h"
+#include <utility>
 
 class Caltrop;
 class Plant;
@@ -47,6 +49,19 @@ public:
 	float GetDriveSpeed() const { return mDriveSpeed; }
 	int GetDamageStage() const;
 	bool IsCaltropPunctured() const { return mPhase == Phase::CALTROP_DYING; }
+	/** 只读正式 anim_shoot 的离膛/片段完成行动秒，不生成播放实例；强制资源异常时拒绝画像。 */
+	static std::pair<float,float> GetForecastShotTiming();
+	/** 当前射击片段余秒，未乘状态/雨势倍率；已离膛标志另读，避免重复制造篮球。 */
+	std::pair<float,float> GetForecastShotRemaining() const;
+	bool HasLaunchedBasketball() const { return mShotFiredThisCycle; }
+	Vector GetShotTargetPosition() const { return mShotTarget; }
+	float GetForecastAnimationBase() const { return GetAbilityAnimSpeedMultiplier(); }
+	/** 碰撞中心相对稳定视觉原点的 X，供未出生画像换算回车身原点。 */
+	static float GetForecastColliderCenterFromVisualX();
+	/** 与正式选靶共用跳过地刺的资格，不包含格位/生命和层次选择。 */
+	static bool CanLobAtPlantType(PlantType type);
+	/** 与正式碾压共用植物类型/睡眠资格；位置和护体响应由当前场景另行判断。 */
+	static bool CanCrushPlantType(PlantType type,bool asleep);
 
 protected:
 	void SetupZombie() override;
@@ -80,7 +95,7 @@ private:
 
 	Phase mPhase = Phase::WALKING;
 	float mPhaseTimer = 0.0f;
-	int mBasketballCount = 12;
+	int mBasketballCount = CatapultRules::kInitialBasketballs;
 	float mDriveSpeed = 30.0f;
 	Vector mShotTarget;
 	bool mShotFiredThisCycle = false;

@@ -1,0 +1,39 @@
+{
+  "description":"Controlled ranged forecast: finite inventory, pumpkin host, committed live ball and umbrella; no forced unit purchase is treated as battle evidence.",
+  "commands":[
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER","PLANT_PUMPKINSHELL","PLANT_UMBRELLA","PLANT_WALLNUT"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"commander_experiment","weights":[1,0,0,0,1,-1,0,0],"netEconomy":true,"searchVersion":2},
+    {"op":"set_sun","value":2000},
+    {"op":"set_cold_storage","state":{"enemyIce":3000,"initialEnemyIce":3000,"playerIce":200,"decisions":20,"decisionRemaining":600}},
+    {"op":"assert_state","path":"catapultResources.reanimationLoaded","equals":true},
+    {"op":"assert_state","path":"catapultResources.basketballTextureLoaded","equals":true},
+    {"op":"plant","type":"PLANT_SUNFLOWER","row":2,"col":0},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":2,"col":0},
+    {"op":"plant","type":"PLANT_WALLNUT","row":2,"col":6},
+    {"op":"compare_commander_search","name":"birth","budgetsMs":[],"candidatePlans":[
+      {"name":"wait","actions":[]},
+      {"name":"ranged","actions":[{"type":"ZOMBIE_CATAPULT","row":2}]},
+      {"name":"elite_ranged","actions":[{"type":"ZOMBIE_ELITE_CATAPULT","row":2}]}
+    ]},
+    {"op":"spawn_zombie","type":"ZOMBIE_CATAPULT","row":2,"x":800},
+    {"op":"wait_seconds","value":1},
+    {"op":"assert_state","path":"zombiesByType.ZOMBIE_CATAPULT.bodyHealth","equals":850},
+    {"op":"assert_state","path":"basketballBulletCount","equals":1},
+    {"op":"dump_state","name":"committed_before.json"},
+    {"op":"compare_commander_search","name":"committed","budgetsMs":[],"candidatePlans":[{"name":"wait","actions":[]}]},
+    {"op":"wait_seconds","value":1.5},
+    {"op":"assert_state","path":"normalPlantsByCell.2_0.health","equals":225},
+    {"op":"assert_state","path":"zombiesByType.ZOMBIE_CATAPULT.catapultBasketballs","equals":11},
+    {"op":"dump_state","name":"reload_before.json"},
+    {"op":"plant","type":"PLANT_UMBRELLA","row":1,"col":0},
+    {"op":"compare_commander_search","name":"protected","budgetsMs":[],"candidatePlans":[{"name":"wait","actions":[]}]},
+    {"op":"wait_seconds","value":5},
+    {"op":"assert_state","path":"normalPlantsByCell.2_0.health","equals":225},
+    {"op":"assert_state","path":"coldStorage.spent","equals":0},
+    {"op":"dump_state","name":"protected_after.json"},
+    {"op":"quit"}
+  ]
+}
