@@ -85,3 +85,5 @@
 雷鸣花/防灾工程师入口：`ThunderFlowerRules`、`DisasterEngineerRules` 和 `BoardArea11Units.cpp`。雷鸣花是平射普通伤害，预测包含发射余时、已发射雷种和扫掠碰撞；来源死亡不取消在途攻击，目标抗性共享且不刷新已有麻痹。工程师对完整灰烬事件一次兑现最近工人的保护，装填从真实可兑现钱包扣费并受硬控暂停；满罐保护不因麻痹关闭。新购、活体、付费队列共用能力画像，不为新兵设置必买偏好。专项为 `smoke_area11_units` 与 `verify_area11_units.py`；正常对战仍使用合法卡牌、资金、冷却和正式后台指挥官。
 
 通用组合按合法类型/价格覆盖配对，并探索非等量数量、整类换路/错峰及候选间合并；不要用某个僵尸编号或能力标签决定搭配。`SearchFormation` 的重复案去重仅限本次同一快照和评分窗口，保留动作次序及精确延迟（同时出生的并列目标可能受提交顺序影响），不得跨世界复用。最终逐路集中对照仍完整评分并导出诊断；`routeEvaluated` 含先前已算案的复用覆盖，实际积分总数看 `evaluated`，非等量混编/重复提案看 `unevenMixEvaluated` / `duplicatesSkipped`。大量工人候选必须保留，灰烬长冷却且存在安全路的经营回归在 `ColdStorageStrategyTests.cpp`，不能把混编优化变成小队数量限制。
+
+付费反制的即时/延迟模型还必须比较保留工具的完整世界：玩家可依靠现有火力，未提交的付费灰烬、手动领域/维修与商店反制不必为无战果诱饵触发；既有事务和自动能力仍兑现，未使用的工具不得产生补给订单需求。等待基线也采用同一选择，不能只对新购物车保留工具。已有路灯需要有界比较高档照明与留灰烬格的联合响应，逐项贪心可能漏掉边路整行清场。诊断看 `searchPaidCounterCasts` / `searchPaidDefensesRetained`，纯数值反事实在 `ColdStorageStrategyTests.cpp`，默认资源接入专项为 `smoke_commander_optional_defense`；该选择不强制采购或禁止某种兵种。

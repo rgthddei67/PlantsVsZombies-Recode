@@ -5023,6 +5023,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				{"bestAllowedBreach",candidate.bestAllowedBreach}});
 		}
 		ice["searchUnitCandidatesScope"] = "final_formation_before_precision";
+		ice["searchPaidCounterCasts"] = board->mColdStorage.searchPaidCounterCasts;
+		ice["searchPaidDefensesRetained"] = board->mColdStorage.searchPaidDefensesRetained;
 		if (mCommanderForecastTrace) {
 			ice["searchWorkerTrace"] = nlohmann::json::array();
 			for (const auto& sample : board->mColdStorage.searchWorkerTrace)

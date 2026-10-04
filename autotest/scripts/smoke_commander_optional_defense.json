@@ -1,0 +1,29 @@
+{
+  "description": "The adopted player forecast can retain a paid ash card against stationary bait; prediction does not spend real money or cast the actual card.",
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_JALAPENO"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_sun","value":1000},
+    {"op":"set_cold_storage","state":{"enemyIce":0,"playerIce":100,"decisions":20,"decisionRemaining":60}},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":900,"stationary":true},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":30},
+    {"op":"assert_state","path":"coldStorage.commanderStrategy","equals":"learned_search"},
+    {"op":"assert_state","path":"coldStorage.searchPaidDefensesRetained","equals":true},
+    {"op":"assert_state","path":"coldStorage.searchPaidCounterCasts","equals":0},
+    {"op":"assert_state","path":"coldStorage.playerIce","equals":100},
+    {"op":"assert_state","path":"sun","equals":1000},
+    {"op":"assert_state","path":"coldStorage.hostileCount","equals":6},
+    {"op":"assert_state","path":"cards.0.cooldownRemainingMs","equals":0},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"quit"}
+  ]
+}

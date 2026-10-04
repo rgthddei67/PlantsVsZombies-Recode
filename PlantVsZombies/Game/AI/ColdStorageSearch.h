@@ -215,6 +215,8 @@ struct ConstructionStats {
 	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
 	int counterShovels = 0; // 为灰烬腾位而主动牺牲的普通层植物数，不计僵尸击杀奖励
 	float counterShovelAssets = 0; // 主动腾位损失的植物资产，冰价；用于诊断回本与反制代价
+	int paidCounterCasts = 0; // 玩家尚未提交的付费灰烬实际使用次数，已提交爆炸不重复计费
+	bool paidDefensesRetained = false; // 本完整玩家应对保留付费手动反制；既有事务和自动能力仍生效
 	int stationDischarges=0, stationJams=0, stationCounters=0, stationFogCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
 	int goldenAccelerationSteps = 0, goldenDrumSteps = 0, goldenResidualSteps = 0, goldenMaxStacks = 0; // 实际生效的无伤/鼓舞/残留冰道预测步数及最大来源层数
@@ -398,10 +400,11 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
  * 但显式照明响应仍可合法补灯，不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，
  * storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。
  * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。
- * shovelCounterSpace 允许付出单格普通层植物的资产与功能损失后腾位反制，不授予击杀奖励。 */
+ * shovelCounterSpace 允许付出单格普通层植物的资产与功能损失后腾位反制，不授予击杀奖励。
+ * preservePaidDefenses 保留付费手动灰烬、领域、维修及商店反制，既有事务和自动能力仍生效。 */
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
-	bool preserveManualAuras = false, bool shovelCounterSpace = false);
+	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。 */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed);
 /** 以原队列为保底比较合法重排；仅修改标记的未来单位，出生时间不晚于传入期限。 */

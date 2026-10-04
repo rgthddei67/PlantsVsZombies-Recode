@@ -725,9 +725,11 @@ int main()
 		"legacy scoring sees no immediate zombie income in a counter-consuming trade");
 	resourcePressure.opponentWeight = 1;
 	const auto pressured = ColdStorageSearch::Search(resourcePressure,costOnly,17);
-	check(pressured.actions.size() == 6 && pressured.features[0] == 0 && pressured.opponentScore > 60,
-		"optional terminal value recognizes paid counter depletion without forcing a formation");
-	check(std::abs(pressured.opponentAssets-18) < .001f,
+	check(pressured.actions.empty(),
+		"optional terminal value cannot assume a paid counter against harmless stationary troops");
+	ColdStorageSearch::ConstructionStats paidTrade;
+	ColdStorageSearch::Evaluate(resourcePressure,{{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}},&paidTrade);
+	check(std::abs(paidTrade.opponentAssets-18) < .001f,
 		"all dead paid zombies refund the player; attrition cannot ignore that returned currency");
 	resourcePressure.playerSun = 99;
 	check(ColdStorageSearch::Search(resourcePressure,costOnly,17).actions.empty(),
@@ -748,6 +750,61 @@ int main()
 	ColdStorageSearch::Evaluate(resourcePressure,{{0,0},{0,0},{0,0},{0,0},{0,0},{0,0}},&cappedRefund);
 	check(std::abs(cappedRefund.opponentAssets-(40+100*resourcePressure.sunIceValue)) < .001f,
 		"refunds and passive income respect the actual player resource capacities");
+	// 付费反制不是承诺：无战果单兵不能靠假定玩家一定交灰烬赚取消耗分。
+	{
+		using namespace ColdStorageSearch;
+		Snapshot bait; bait.houseX=-10000; bait.budget=24; bait.capacity=1; bait.netEconomy=true;
+		bait.playerSun=1000; bait.playerIce=100; bait.sunIceValue=100.0f/225; bait.opponentWeight=1;
+		Option unit; unit.type=701; unit.cost=24; unit.unit.body.x=900; unit.unit.body.health=500;
+		bait.options={unit};
+		Counter ash; ash.sunCost=125; ash.iceCost=20; ash.recharge=50;
+		ash.blast.x=900; ash.blast.reach[0]=10000; ash.blast.damage=1800; bait.counters={ash};
+		const Weights value{0,0,100,0,1,-1,0,0};
+		const auto idle=Search(bait,value,72);
+		check(idle.actions.empty(),"harmless bait cannot profit from a player forced to spend a paid counter");
+		ConstructionStats retained;
+		Evaluate(bait,{{0,0}},&retained,0,0,0,false,false,-1,false,false,true);
+		check(retained.paidCounterCasts==0 && retained.paidDefensesRetained
+			&& retained.opponentAssets==bait.playerIce+bait.playerSun*bait.sunIceValue,
+			"retained paid defenses preserve actual cash rather than inventing a mandatory cast");
+		bait.houseX=160; bait.budget=240; bait.options[0].unit.body.x=450; bait.options[0].unit.body.speed=40;
+		const auto stopped=Search(bait,value,72);
+		std::cout << "paid defense response: actions=" << stopped.actions.size() << " breach=" << stopped.features[2]
+			<< " casts=" << stopped.construction.paidCounterCasts << " retained=" << stopped.construction.paidDefensesRetained << " score=" << stopped.score << "\n";
+		check(!stopped.actions.empty() && stopped.features[2]==0 && stopped.construction.paidCounterCasts>0,
+			"genuine breach pressure can still force a paid counter and earn a valid resource exchange");
+		bait.current={bait.options[0].unit}; bait.counters[0].blast.committed=true; bait.counters[0].blast.ready=1;
+		const auto committed=Evaluate(bait,{},&retained,0,0,0,false,false,-1,false,false,true);
+		check(committed[2]==0 && retained.paidCounterCasts==0,
+			"holding future paid defenses does not cancel an already committed explosion or charge it twice");
+	}
+	// 单独高档照明会被后续补阵堵住灰烬格，单独留格则看不见边路；联合应对仍可清场。
+	{
+		using namespace ColdStorageSearch;
+		Snapshot lit; lit.houseX=-10000; lit.weatherStation=true; lit.searchVersion=2; lit.stationWave=79;
+		lit.playerSun=1000; lit.playerIce=100; lit.station.controls[WeatherStationRules::FOG].value=2;
+		lit.station.controls[WeatherStationRules::FOG].protection=30;
+		for(int row=0;row<lit.rows;++row) for(int col=4;col<lit.columns;++col) lit.stationFogAlpha[row*lit.columns+col]=255;
+		Unit worker; worker.body.row=4; worker.body.x=840; worker.body.health=500;
+		worker.body.value=worker.body.purchaseCost=24; worker.body.economic=true; lit.current.assign(7,worker);
+		Option profile; profile.type=702; profile.row=4; profile.cost=24; profile.unit=worker; lit.options={profile};
+		Plant lamp; lamp.id=1; lamp.row=2; lamp.column=4; lamp.x=520; lamp.health=300;
+		lamp.plantern=true; lamp.lightFuel=100; lit.plants={lamp};
+		Construction filler; filler.plant.row=4; filler.plant.column=7; filler.plant.x=760;
+		filler.plant.health=100000; filler.plant.layer=1; filler.plant.edible=false;
+		filler.sunCost=1; filler.recharge=1000; lit.construction={filler};
+		Counter ash; ash.cellRow=4; ash.cellColumn=7; ash.blast.x=760; ash.blast.reach[4]=10000;
+		ash.blast.damage=1800; ash.blast.ready=8; ash.windup=1; ash.sunCost=125; ash.iceCost=20; ash.recharge=50;
+		for(int row=0;row<lit.rows;++row) {
+			ash.cellRow=row; ash.blast.reach.fill(-1); ash.blast.reach[row]=10000; lit.counters.push_back(ash);
+		}
+		const Weights income{0,0,0,0,1,0,-1,0};
+		const auto joint=Search(lit,income,73);
+		check(joint.construction.counterSpaceReserved && joint.construction.planternResponseGear>=3
+			&& joint.construction.paidCounterCasts==1 && joint.features[4]<Evaluate(lit,{})[4],
+			"an existing high-gear lamp plus reserved counter space exposes and clears a hidden side-lane worker cohort");
+		std::cout << "joint high-light counter: production=" << joint.features[4] << " casts=" << joint.construction.paidCounterCasts << "\n";
+	}
 	ColdStorageSearch::Snapshot assetTransfer;
 	assetTransfer.playerSun = 100; assetTransfer.playerIce = 40; assetTransfer.sunIceValue = 100.0f/225;
 	ColdStorageSearch::Construction capital;

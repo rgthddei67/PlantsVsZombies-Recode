@@ -603,9 +603,12 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
             compareEnvironment(false,gear,candidate.construction.counterSpaceReserved);
         // 暗场中留空位与补满格子的收益可能暂时相同，前段择优未必选中留位姿态。
         // 额外保留一次“只补灯再反制”的协同，不能因前置单项不占优而漏掉整套合法应对。
-        if(canReserve && !candidate.construction.counterSpaceReserved
-            && std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c) { return c.plant.plantern; }))
-            compareEnvironment(false,s.fuelAwarePlantern ? FuelAwarePlanternResponse : 3,true);
+        if(canReserve && !candidate.construction.counterSpaceReserved && (hasLamp
+            || std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c) { return c.plant.plantern; }))) {
+            // 已有灯也能与留灰烬落点协同；逐项贪心会漏掉“高档照见边路，再用整行灰烬”。
+            compareEnvironment(false,3,true);
+            if(s.fuelAwarePlantern) compareEnvironment(false,FuelAwarePlanternResponse,true);
+        }
         compareEnvironment(true,candidate.construction.planternResponseGear,candidate.construction.counterSpaceReserved);
     }
     // 手动菠萝有目标不等于玩家一定会花冰。再比较保留技能的完整世界，
@@ -636,6 +639,25 @@ Result EvaluatePlan(const Snapshot& s, const Weights& weights, std::vector<Actio
         response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,selectedStoredHold,
             selectedStrikeHold,candidate.construction.counterSpaceReserved,candidate.construction.stationFogCounters>0,
             candidate.construction.planternResponseGear,selectedManualHold,true);
+        Calibrate(s,response);
+        response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
+        response.opponentAssets=response.construction.opponentAssets;
+        response.opponentScore=s.opponentWeight*(baselineOpponentAssets-response.opponentAssets);
+        response.score=Score(response.features,weights)+response.opponentScore;
+        response.counterHoldSeconds=candidate.counterHoldSeconds;
+        if(BetterOutcome(candidate,response)) candidate=std::move(response);
+    }
+    // “值得反制”只是启发式，玩家也可依靠既有火力，不为无战果的诱饵交付费工具。
+    // 另一完整世界保留同一阵地、钱包和已提交事务；强攻若确有威胁，仍由正常反制世界胜出。
+    const bool paidResponse=candidate.construction.paidCounterCasts>0 || candidate.construction.auraActivations>0
+        || candidate.construction.plantRepairs>0 || candidate.construction.interferences>0
+        || candidate.construction.stationCounters>0 || candidate.construction.stationFogCounters>0;
+    if(s.opponentWeight>0 && paidResponse) {
+        Result response;
+        response.actions=candidate.actions; response.precisionTargetID=s.precisionTargetID;
+        response.features=Evaluate(s,response.actions,&response.construction,selectedCounterHold,selectedStoredHold,
+            selectedStrikeHold,candidate.construction.counterSpaceReserved,false,
+            candidate.construction.planternResponseGear,true,false,true);
         Calibrate(s,response);
         response.baselineFeatures=baseline; response.baselineOpponentAssets=baselineOpponentAssets;
         response.opponentAssets=response.construction.opponentAssets;
@@ -794,7 +816,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 	std::vector<PendingCounter>& pending, float& sun, float& ice, Weights& features,
 	float holdSeconds, float storedHoldSeconds, std::vector<float>& holdUntil,
 	std::vector<PlantingBlock>& blocks, ConstructionStats& stats,
-    const std::array<float,54>* fogAlpha, bool allowShovel, std::vector<float>& shovelReady) {
+    const std::array<float,54>* fogAlpha, bool allowShovel, std::vector<float>& shovelReady, bool preservePaidDefenses) {
 	for (auto it = pending.begin(); it != pending.end();) {
 		if (it->plantID != 0) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
@@ -906,6 +928,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 		if (counter.blast.committed || time < ready[counter.source]
 			|| (counter.sharedSource >= 0 && time < ready[counter.sharedSource])
 			|| counter.sunCost > sun || PlayerIceCost(state,time,counter.iceCost) > ice) continue;
+		if(preservePaidDefenses && (counter.sunCost>0 || counter.iceCost>0)) continue;
 		if (counter.plantID > 0 && std::none_of(plants.begin(),plants.end(),[&](const auto& p) {
 			return p.id == counter.plantID && p.health > 0 && p.shutdownUntil<=time;
 		})) continue;
@@ -977,6 +1000,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 		}
 		shovelReady[selected]=-1;
 		sun -= counter.sunCost; ice -= PlayerIceCost(state,time,counter.iceCost);
+		if(counter.sunCost>0 || counter.iceCost>0) ++stats.paidCounterCasts;
 		ready[counter.source] = time + counter.recharge;
 		if (counter.sharedSource >= 0) ready[counter.sharedSource] = time + counter.sharedRecharge;
 		holdUntil[counter.source] = -1;
@@ -1137,7 +1161,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 	const std::vector<int>& constructionUses,
 	const std::vector<AttackAura>& auras, const std::vector<Unit>& units,
 	float& sun, float& ice, float& pendingIce, float& arrival, ConstructionStats& stats, bool reserveCounterSpace, bool preserveManualAuras,
-	const std::vector<PlantingBlock>& blocks, bool rebuildCounterLight) {
+	const std::vector<PlantingBlock>& blocks, bool rebuildCounterLight, bool preservePaidDefenses) {
 	occupied.erase(std::remove_if(occupied.begin(),occupied.end(),[&](const auto& p) { return p.second <= time; }),occupied.end());
 	float neededIce = 0;
 	float delivery = 0;
@@ -1161,6 +1185,7 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		}
 	}
 	for (const auto& card : state.counters) {
+		if(preservePaidDefenses && (card.sunCost>0 || card.iceCost>0)) continue;
 		if (PlantingBlocked(blocks,card.cellRow,card.cellColumn,time+delivery)) continue;
 		if (card.blast.committed || counterReady[card.source] > time+delivery
 			|| (card.sharedSource >= 0 && counterReady[card.sharedSource] > time+delivery)) continue;
@@ -1908,7 +1933,7 @@ struct StationProjection {
         for(const size_t i:grounding) DamagePlant(plants[i],100,true,f);
     }
     /** 只对真实存活单位推进充电/干扰；黑障内对手只能使用先前已观察的电量趋势。 */
-    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave,bool clearFogWhenReady,int planternResponseGear) {
+    void Step(const Snapshot& s,float t,std::vector<Plant>& plants,std::vector<Unit>& units,Weights& f,float& playerIce,ConstructionStats& stats,int wave,bool clearFogWhenReady,int planternResponseGear,bool preservePaidDefenses) {
         if(!s.weatherStation) return;
         for(auto& c:state.controls) WeatherStationRules::Advance(c,kStep);
         jammed=std::max(0.0f,jammed-kStep);
@@ -1969,7 +1994,7 @@ struct StationProjection {
           // 快照已经处于黑障且没有历史观测时，不能把真实隐藏电量当作玩家已知。
         const float expectedCharge=std::clamp(knownCharge+knownRate*(t-lastObservation),0.0f,100.0f);
         auto& device=state.controls[2];
-        if(phase==0 && expectedCharge>=35 && playerIce>=40 && WeatherStationRules::CanChange(device,2,0)) {
+        if(!preservePaidDefenses && phase==0 && expectedCharge>=35 && playerIce>=40 && WeatherStationRules::CanChange(device,2,0)) {
             // 没有可执行的停机反制时，没必要在每个积分步做植物×花盆的保护查询。
             float exposedValue=0;
             for(const auto& p:plants) if(p.health>0 && !HasPot(p,plants)) exposedValue+=p.assetValue;
@@ -2003,7 +2028,7 @@ struct StationProjection {
     }
 };
 
-Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras, bool shovelCounterSpace) {
+Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, ConstructionStats* construction, float counterHoldSeconds, float storedHoldSeconds, float rowStrikeHoldSeconds, bool reserveCounterSpace, bool clearFogWhenReady, int planternResponseGear, bool preserveManualAuras, bool shovelCounterSpace, bool preservePaidDefenses) {
 	Weights f{};
 	if (s.precisionTargetID > 0) f[5] = ColdStorageSkillRules::StrikeIceCost;
 	auto units = s.current;
@@ -2063,6 +2088,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	for (size_t i=0;i<units.size();++i) if (units[i].clock.present) clockSources.push_back(i);
 	ConstructionStats constructionStats;
 	constructionStats.counterSpaceReserved=reserveCounterSpace;
+	constructionStats.paidDefensesRetained=preservePaidDefenses;
 	constructionStats.planternResponseGear=planternResponseGear;
 	// 留空位放灰烬不等于拒绝补灯。照明响应世界允许只补灯再清场，-1 原姿态仍
 	// 保留完全不建设的对照；共享卡槽、费用和冷却，不强制僵尸搭配。
@@ -2171,9 +2197,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			unit.paralysisRemaining=std::max(0.0f,unit.paralysisRemaining-kStep);
 		}
 		const float previousKills = f[0];
-		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady,planternResponseGear);
+		environment.Step(s,t,plants,units,f,playerIce,constructionStats,projectedWave,clearFogWhenReady && !preservePaidDefenses,planternResponseGear,preservePaidDefenses);
 		// 只根据当前已受伤/死亡的锚目标择时，保留同一钱包和冷却；不读取真人未来输入。
-		if (s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
+		if (!preservePaidDefenses && s.interferenceAvailable && t >= interferenceReady && playerIce >= ColdStorageSkillRules::InterferenceIceCost) {
 			float restoredHealth=0;
 			for (const auto& anchor:temporalAnchors) if (anchor.at <= t+kStep)
 				for (const auto& target:anchor.targets) if (target.unit >= 0 && target.unit < static_cast<int>(units.size())
@@ -2211,18 +2237,19 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil,plantingBlocks,constructionStats,
-			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady);
+			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady,preservePaidDefenses);
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
-			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,preserveManualAuras,plantingBlocks,rebuildCounterLight);
+			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,
+			preserveManualAuras || preservePaidDefenses,plantingBlocks,rebuildCounterLight,preservePaidDefenses);
 		if ((!reserveCounterSpace || rebuildCounterLight) && !s.construction.empty() && t >= constructionAt) {
 			AdvanceConstruction(s,t,Horizon(s),units,plants,constructionReady,constructionUses,
 				strikes,rowStrikeReady,playerSun,playerIce,constructionStats,s.weatherStation ? &environment.fogAlpha : nullptr,plantingBlocks,reserveCounterSpace,planternResponseGear);
 			constructionAt = t+kConstructionInterval;
 		}
-		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
-		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats,preserveManualAuras);
+		if(!preservePaidDefenses) AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,false);
+		if (!auras.empty()) AdvanceAttackAuras(s,t,auras,plants,units,playerIce,attackRates,constructionStats,preserveManualAuras || preservePaidDefenses);
 		// 每株植物只对当前实际可见前锋开火。邻行没有引火目标时不凭空产生西瓜溅射。
 
 		// 对平射雷种作同一逻辑步内的扫掠碰撞，避免把远处控制提前当成即时生效。
