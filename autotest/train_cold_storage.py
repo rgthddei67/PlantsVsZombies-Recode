@@ -30,7 +30,7 @@ def save(path, value):
     temporary.replace(path)
 
 
-def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=False):
+def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=False, air_defense=False):
     """Build legal cards/rosters and explicit tactical fixtures before a real, resource-limited episode."""
     episode_opponent = opponent
     if opponent in ('ice_pine_hold', 'ice_bunker_hold'):
@@ -90,6 +90,11 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         if len(cards) >= 11:
             cards.remove(next(c for c in ('SQUASH','CHERRYBOMB','IMITATER') if c in cards))
         cards.append('PLANTERN')
+    if air_defense and 'BLOVER' not in cards:
+        # 正式气象站卡池也有气球。可显式保留真实对空，避免把卡组无解误计成 AI 经营能力。
+        if len(cards) >= 11:
+            cards.remove(next(c for c in ('IMITATER', 'SQUASH', 'CHERRYBOMB') if c in cards))
+        cards.append('BLOVER')
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
@@ -271,7 +276,8 @@ def battle_progress(result):
 
 
 def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=False,
-              wall_timeout_seconds=900, background_commander=False, time_scale=1, shovel_counters=False):
+              wall_timeout_seconds=900, background_commander=False, time_scale=1, shovel_counters=False,
+              air_defense=False):
     """Pair scenarios/seeds; wall timeout bounds the visible process, not game time or AI work."""
     if wall_timeout_seconds < 1:
         raise ValueError('Wall timeout must be positive')
@@ -284,7 +290,7 @@ def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=F
     for index, weights in enumerate(candidates):
         for case_index, (arena, opponent, seed, seconds) in enumerate(cases):
             result_name = f'candidate_{index}_case_{case_index}'
-            for command in episode_commands(weights, seed, arena, opponent, seconds, result_name, all_zombies):
+            for command in episode_commands(weights, seed, arena, opponent, seconds, result_name, all_zombies, air_defense):
                 if command['op'] == 'commander_episode' and shovel_counters:
                     command = dict(command, shovelCounters=True)
                 if command['op'] == 'commander_episode' and time_scale != 1:

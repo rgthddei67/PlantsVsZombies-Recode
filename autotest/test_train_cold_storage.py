@@ -8,6 +8,18 @@ import random
 
 
 class TrainerTests(unittest.TestCase):
+    def test_explicit_air_defense_preserves_legal_station_and_bunker_cards(self):
+        for stage in ('10_6', '11_7'):
+            for opponent in ('builder', 'ice_bunker_hold'):
+                commands = episode_commands(None, 137, 'normal:opening_'+stage, opponent, 600, 'case', air_defense=True)
+                cards = next(c['cards'] for c in commands if c['op'] == 'choose_cards')
+                self.assertEqual(cards.count('PLANT_BLOVER'), 1)
+                self.assertLessEqual(len(cards), 11)
+                self.assertIn('PLANT_JALAPENO', cards)
+                if stage == '11_7': self.assertIn('PLANT_PLANTERN', cards)
+                if opponent == 'ice_bunker_hold': self.assertIn('PLANT_DOOMSHROOM', cards)
+                self.assertFalse(any(c['op'] in ('plant','set_sun','set_cold_storage','set_no_cooldown') for c in commands))
+
     def test_release_compares_shipped_and_legacy_on_real_wins(self):
         def rows(wins):
             return [{'outcome':'commander_win' if i < wins else 'player_win','score':0} for i in range(18)]
