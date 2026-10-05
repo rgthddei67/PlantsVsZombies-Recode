@@ -354,7 +354,8 @@ if(BUILD_TESTING)
         tests/ColdStorageJackBalloonForecastTests.cpp
         tests/ColdStorageThunderTimingTests.cpp
         tests/ColdStorageDiggerForecastTests.cpp
-        tests/ColdStorageAssaultExplorationTests.cpp)
+        tests/ColdStorageAssaultExplorationTests.cpp
+        ${SRC_DIR}/Game/AI/ColdStorageFormationSeeds.cpp)
     target_include_directories(ColdStorageStrategyTests PRIVATE ${SRC_DIR})
     target_compile_options(ColdStorageStrategyTests PRIVATE /utf-8 /W3 /sdl /EHsc)
     target_link_libraries(ColdStorageStrategyTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)

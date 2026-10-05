@@ -102,6 +102,8 @@ struct ColdStorageState {
 	int searchRefinementEvaluated = 0; // 完整优案换入少量其他成员的候选数，仅诊断不入档
 	int searchIncomeEvaluated = 0, searchPruningEvaluated = 0; // 经营分支与最终删成员对照，仅诊断不入档
 	int searchProposalEvaluated = 0; // 未付款提案跨轮重新评价的次数，仅诊断不入档
+	int searchExperiencedEvaluated = 0; // 经验编队与自由搜索共享预算的实际积分次数，仅诊断不入档
+	bool searchExperiencedSelected = false; // 最终直接选中经验原案，自由变异后的案不标记为固定编队
 	int searchAssaultEvaluated = 0; // 通用攻城中间态深化次数，仅诊断不入档
 	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
 	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益

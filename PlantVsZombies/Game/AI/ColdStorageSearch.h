@@ -366,6 +366,7 @@ struct Snapshot {
 	const std::atomic<bool>* cancellation = nullptr; // 仅后台任务自有的取消令牌；同步训练缺省为空，不改变评估结果
 	int searchVersion = 1; // 1 小队无预测增量收益时升级到 2；2 直接使用整队搜索与长时域预测
 	bool netEconomy = false; // 新策略按统一冰价评价收入、残存投资和支出；旧配置保持原评分
+	bool experiencedFormations = true; // 混合候选默认开启；纯数值/只读诊断可消融，不改变正式卡池或付款规则
 	bool anticipateEconomy = false; // 显式考虑玩家循环经济卡与后续付费订冰，旧策略缺省关闭
 	float opponentWeight = 0, sunIceValue = 0; // 对方终点资产差的可训练价值、商店阳光折冰率；权重零保持旧评分
 	const ProductionCalibration* productionCalibration = nullptr;
@@ -424,6 +425,8 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	int experiencedEvaluated=0; // 经验编队在统一预测中实际积分的数量，不含被去重或资金不足的配方
+	bool experiencedSelected=false; // 最终直接选中经验原案；自由变异后的方案仍按自由搜索记录
 	CapitalUtilityInputs capitalUtilityInputs; // 实际评分使用的现金快照输入，仅诊断，不保存或预支资金
 	std::vector<Proposal> proposals; // 有界未付款中间态；可供下一轮探索，不属于可执行购物车
 	int proposalEvaluated=0; // 跨轮提案在当前局面真正重新评估的数量

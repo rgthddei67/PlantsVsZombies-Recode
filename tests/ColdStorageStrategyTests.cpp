@@ -1,5 +1,6 @@
 #include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/AI/ColdStorageFormationSeeds.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/ColdChainGuardRules.h"
@@ -3302,6 +3303,67 @@ int main()
     Counter ash; ash.blast.x=900; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
     ash.blast.damage=1800; ash.sunCost=125; ash.recharge=1000; field.counters={ash};
     const Weights profit{0,0,0,0,1,-1,0,0};
+    const auto recipes=BuildExperiencedFormations(field,field.capacity,field.budget);
+    bool profitableRecipe=false, guardedFollowup=false, protectedRecipe=false;
+    for(const auto& recipe:recipes) {
+        int bill=0; bool hasWorker=false, hasTank=false, hasEngineer=false;
+        for(const auto& action:recipe) {
+            bill+=field.options[action.option].cost;
+            hasWorker|=action.option==0; hasTank|=action.option==2; hasEngineer|=action.option==1;
+            if(action.option==0 && action.delay>=4) guardedFollowup=true;
+        }
+        check(bill<=field.budget && recipe.size()<=static_cast<size_t>(field.capacity),
+            "experienced recipes preserve the complete wallet and deployment capacity");
+        protectedRecipe|=hasWorker && hasTank && hasEngineer;
+        const auto result=EvaluateCandidate(field,profit,recipe);
+        profitableRecipe|=result.features[4]>result.features[5] && result.construction.paidCounterCasts>0;
+    }
+    check(guardedFollowup && protectedRecipe && profitableRecipe,
+        "history-based complete recipes offer profitable protected workers while player ash remains ready");
+    auto limited=field; limited.budget=50;
+    for(const auto& recipe:BuildExperiencedFormations(limited,2,limited.budget)) {
+        int bill=0; for(const auto& action:recipe) bill+=limited.options[action.option].cost;
+        check(bill<=50 && recipe.size()<=2,"small wallets cannot truncate a protected recipe into an invalid purchase");
+    }
+    auto renamedRecipes=field;
+    for(size_t i=0;i<renamedRecipes.options.size();++i) renamedRecipes.options[i].type=99000-static_cast<int>(i)*31;
+    const auto renamedPlans=BuildExperiencedFormations(renamedRecipes,field.capacity,field.budget);
+    check(recipes.size()==renamedPlans.size(),"experienced roles do not depend on hard-coded zombie identifiers");
+    for(size_t i=0;i<recipes.size();++i) for(size_t j=0;j<recipes[i].size();++j)
+        check(recipes[i][j].option==renamedPlans[i][j].option && recipes[i][j].delay==renamedPlans[i][j].delay,
+            "renaming types retains experienced recipe quantities, routes and timing");
+    auto freeOnly=field; freeOnly.experiencedFormations=false;
+    check(BuildExperiencedFormations(freeOnly,field.capacity,field.budget).empty(),
+        "disabling experience only removes its candidate source");
+    auto rejecting=field; rejecting.plants[0].multiTarget=true; rejecting.plants[0].dps=100000;
+    const auto rejectAll=Search(rejecting,profit,19);
+    check(rejectAll.actions.empty() && rejectAll.experiencedEvaluated>0,
+        "experienced recipes must still lose to waiting when their entire investment fails");
+    const auto hybrid=Search(field,profit,17), originalFree=Search(freeOnly,profit,17);
+    check(hybrid.experiencedEvaluated>0 && hybrid.combinationEvaluated>0 && hybrid.widestComposition>=3,
+        "hybrid search retains free cooperation and mixed composition alongside evaluated recipes");
+    check(originalFree.experiencedEvaluated==0 && originalFree.features[4]>originalFree.features[5],
+        "free combinations remain a functional independent candidate source");
+    check(field.options[1].unit.canisterFull && field.playerSun==2000 && field.playerIce==500,
+        "experience and free comparisons cannot consume real protection or opponent resources");
+    std::cout<<"Hybrid experienced recipes, ready-ash income, complete admission and free exploration passed\n";
+    auto attackRecipes=field; attackRecipes.options[0].unit.body.economic=false;
+    attackRecipes.options[2].unit.body.speed=20; attackRecipes.options[2].unit.body.smashSeconds=3;
+    auto runner=tank; runner.type=72001; runner.cost=12; runner.unit.body.health=2000;
+    runner.unit.body.speed=80; runner.unit.body.x=1100; runner.unit.body.purchaseCost=12;
+    attackRecipes.options.push_back(runner); const int runnerIndex=static_cast<int>(attackRecipes.options.size()-1);
+    bool rush=false, breachRush=false;
+    for(const auto& recipe:BuildExperiencedFormations(attackRecipes,field.capacity,field.budget)) {
+        bool opener=false, fast=false, worker=false;
+        for(const auto& action:recipe) {
+            opener|=action.option==2; fast|=action.option==runnerIndex;
+            worker|=attackRecipes.options[action.option].unit.body.economic;
+            check(action.delay>=0 && action.delay<=60,"legacy assault timing remains in the complete forecast domain");
+        }
+        rush|=fast && !opener && !worker;
+        breachRush|=fast && opener && !worker;
+    }
+    check(rush && breachRush,"experience also offers pure fast assault and breach-plus-rush without requiring workers");
     ConstructionStats knownStats;
     std::vector<Action> defended{{2,0},{2,0},{0,0},{0,0},{0,0},{1,0}};
     const auto known=Evaluate(field,defended,&knownStats);

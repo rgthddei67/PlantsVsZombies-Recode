@@ -761,6 +761,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
 	mCommanderFuelAwareLamp = j.value("commanderFuelAwareLamp",true);
+	mCommanderExperiencedFormations=j.value("commanderExperiencedFormations",true);
 	mCommanderPreservePaidQueue = j.value("commanderPreservePaidQueue",false);
 	if (mHumanObservation && !mInteractive) return false;
 	mBatchSteps = j.value("batchStepsPerFrame", 0);
@@ -1030,6 +1031,7 @@ bool TestDriver::ExecuteCurrent() {
 			const int workers=compareWorkers ? (repeat%2 ? 2-order : 1+order) : 1;
 			const auto seed=probe.seed+static_cast<unsigned>(repeat)*31;
 			auto state = probe.snapshot;
+			state.experiencedFormations=cmd.value("experiencedFormations",probe.snapshot.experiencedFormations);
 			if (relaxRisk) state.capitalRiskAllowance = (std::numeric_limits<float>::max)();
 			const auto begin = std::chrono::steady_clock::now();
 			const auto duration = std::chrono::microseconds(static_cast<long long>(milliseconds*1000));
@@ -1054,6 +1056,7 @@ bool TestDriver::ExecuteCurrent() {
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
 				{"assaultEvaluated",result.assaultEvaluated},{"proposalEvaluated",result.proposalEvaluated},
+				{"experiencedEvaluated",result.experiencedEvaluated},{"experiencedSelected",result.experiencedSelected},
 				{"reinforcementEvaluated",result.reinforcementEvaluated},
 				{"spreadCohortEvaluated",result.spreadCohortEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
@@ -5260,6 +5263,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
 		ice["searchCapitalInputs"] = CapitalInputsJson(board->mColdStorage.searchCapitalInputs);
 		ice["searchWidestComposition"]=board->mColdStorage.searchWidestComposition;
+		ice["searchExperiencedEvaluated"]=board->mColdStorage.searchExperiencedEvaluated;
+		ice["searchExperiencedSelected"]=board->mColdStorage.searchExperiencedSelected;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchCounterHoldSeconds"] = board->mColdStorage.searchCounterHoldSeconds;

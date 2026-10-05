@@ -1,0 +1,111 @@
+{
+  "description": "Final mixed candidate source with legacy assault and protected income; natural finite-wallet game-internal x5, up to1800 game seconds split into legal episodes. Timeout remains a separate outcome.",
+  "backgroundCommander": true,
+  "coldStorageBonusSelection": true,
+  "muteAudio": true,
+  "commanderExperiencedFormations": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "cold_storage_bonus_pick",
+      "choice": 1
+    },
+    {
+      "op": "cold_storage_bonus_pick",
+      "choice": 3
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_ELITE_SCAREDYSHROOM",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_DOOMSHROOM",
+        "PLANT_JALAPENO",
+        "PLANT_ICESTORAGENUT",
+        "PLANT_THUNDERFLOWER",
+        "PLANT_PLANTERN",
+        "PLANT_BLOVER"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "initial.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker_mixed",
+      "seconds": 120,
+      "timeScale": 5,
+      "name": "opening",
+      "traceUnits": true,
+      "shovelCounters": true,
+      "timeout": 360
+    },
+    {
+      "op": "dump_state",
+      "name": "opening_state.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker_mixed",
+      "seconds": 240,
+      "timeScale": 5,
+      "name": "middle",
+      "traceUnits": true,
+      "shovelCounters": true,
+      "timeout": 360
+    },
+    {
+      "op": "dump_state",
+      "name": "middle_state.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker_mixed",
+      "seconds": 720,
+      "timeScale": 5,
+      "name": "late",
+      "traceUnits": true,
+      "shovelCounters": true,
+      "timeout": 900
+    },
+    {
+      "op": "dump_state",
+      "name": "late_state.json"
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "ice_bunker_mixed",
+      "seconds": 720,
+      "timeScale": 5,
+      "name": "endgame",
+      "traceUnits": true,
+      "shovelCounters": true,
+      "timeout": 900
+    },
+    {
+      "op": "dump_state",
+      "name": "endgame_state.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

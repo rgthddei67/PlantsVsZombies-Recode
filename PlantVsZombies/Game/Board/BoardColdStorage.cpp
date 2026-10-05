@@ -882,6 +882,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 	s.searchRefinementEvaluated = 0;
 	s.searchIncomeEvaluated = s.searchPruningEvaluated = 0;
 	s.searchAssaultEvaluated = 0; s.searchProposalEvaluated = 0;
+	s.searchExperiencedEvaluated=0; s.searchExperiencedSelected=false;
 	s.searchCohortEvaluated = s.searchUnevenMixEvaluated = s.searchDuplicatesSkipped = s.searchPaidCounterCasts = 0;
 	s.searchPaidDefensesRetained = false;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
@@ -1260,6 +1261,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			search.sampledRainPlant=GetPlantRainActionSpeedMultiplier(); search.sampledRainZombie=GetZombieRainSpeedMultiplier();
 			for(int rain=0;rain<4;++rain) { search.rainZombie[rain]=ForecastZombieRainMultiplier(static_cast<RainIntensity>(rain)); search.rainPlant[rain]=ForecastPlantRainMultiplier(static_cast<RainIntensity>(rain)); }
 		}
+		search.experiencedFormations=!TestDriver::GetInstance().IsActive() || TestDriver::GetInstance().CommanderExperiencedFormations();
 		search.precisionReady = CanUseColdStoragePrecisionStrike();
 		search.precisionTargetLimit = ColdStorageSkillRules::StrikeTargetLimit;
 		// 兵种按下一波开放，技能却要求已真实推进到解锁波；只预测这一步的付费机会，仍允许等待。
@@ -2735,6 +2737,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchRefinementEvaluated=result.refinementEvaluated;
 	s.searchIncomeEvaluated=result.incomeEvaluated; s.searchPruningEvaluated=result.pruningEvaluated;
 	s.searchAssaultEvaluated=result.assaultEvaluated; s.searchProposalEvaluated=result.proposalEvaluated;
+	s.searchExperiencedEvaluated=result.experiencedEvaluated; s.searchExperiencedSelected=result.experiencedSelected;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchCombinationBaseBreachSeconds = result.combinationBaseBreachSeconds;

@@ -26,6 +26,8 @@ public:
 	void RecordEngineerAshProtection(float elapsed,int row,int engineerID,const std::vector<int>& workerIDs);
 	/** 仅供同一局面消融比较，普通脚本和正式对局保持动态挡位预测。 */
 	bool CommanderFuelAwareLamp() const { return mCommanderFuelAwareLamp; }
+	/** 同局面实战消融只关闭经验候选，正式游戏始终默认保留自由＋经验混合搜索。 */
+	bool CommanderExperiencedFormations() const { return mCommanderExperiencedFormations; }
 	/** 同步诊断时保持已付款队列不重排，确保两种预测比较同一编队。 */
 	bool CommanderPreservePaidQueue() const { return mCommanderPreservePaidQueue; }
 	/** 显式支援专项或真人观察显示正式战前窗口；训练缺省保持无增益。 */
@@ -48,6 +50,7 @@ public:
 private:
 	bool mCommanderForecastTrace = false;
 	bool mCommanderFuelAwareLamp = true;
+	bool mCommanderExperiencedFormations = true;
 	bool mCommanderPreservePaidQueue = false;
 	TestDriver() = default;
 
