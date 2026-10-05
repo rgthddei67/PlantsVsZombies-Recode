@@ -1,4 +1,5 @@
 #include "IceStatueExecutionerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -12,8 +13,8 @@
 
 namespace {
 	constexpr float kBirthWalkVelocity=.30f; // 初始步行速度，原版 px/tick
-	constexpr int kExecutionerBodyHealth = 300;            // 处刑者本体生命；与 2700 黑帽合计 3000
-	constexpr int kExecutionerHelmetHealth = 2700;         // 黑色橄榄球头盔生命
+	constexpr int kExecutionerBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER).body;            // 处刑者本体生命；与 2700 黑帽合计 3000
+	constexpr int kExecutionerHelmetHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER).helm;         // 黑色橄榄球头盔生命
 	constexpr int kStrikeDamage = 40;                      // 每次已提交锤击的普通僵尸伤害
 	constexpr int kDefaultRequiredExecutionProgress = 3;   // 普通植物达到此进度时立即处决
 	constexpr int kMaximumSerializedExecutionProgress = 255; // 防损坏读档上限；恢复后再按实际目标锤数钳制

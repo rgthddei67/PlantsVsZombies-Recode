@@ -1,4 +1,5 @@
 #include "EliteDiggerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -9,8 +10,8 @@
 #include <algorithm>
 
 namespace {
-	constexpr int kEliteBodyHealth = 250;              // 爆破工头本体生命值
-	constexpr int kEliteHardhatHealth = 100;           // 爆破工头安全帽生命值
+	constexpr int kEliteBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_DIGGER).body;              // 爆破工头本体生命值
+	constexpr int kEliteHardhatHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_DIGGER).helm;           // 爆破工头安全帽生命值
 	constexpr int kBlastDamage = 150;                  // 爆破对每个植物层造成的固定伤害
 	constexpr int kPumpkinBlastDamageMultiplier = 4;   // 爆破被九宫格南瓜保护拦截时的基础伤害倍率
 	constexpr int kBlastMinColumn = 0;                 // 爆区从房屋侧第 0 列开始

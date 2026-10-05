@@ -1,4 +1,5 @@
 #include "PinkFootballZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -6,10 +7,10 @@
 #include "../../ParticleSystem/ParticleSystem.h"
 
 namespace {
-	// 自定义夜晚变体；普通橄榄球僵尸当前为本体 270、头盔 1100、速度层 1.7/1.8。
-	constexpr int kBodyHealth = 220;
-	constexpr int kHelmetHealth = 900;
-	constexpr int kNormalBiteDamage = 40;
+	// 自定义夜晚变体；生命层与普通橄榄球分别从出生规则读取。
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_PINK_FOOTBALL).body; // 粉色变体出生本体生命
+	constexpr int kHelmetHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_PINK_FOOTBALL).helm; // 粉色变体出生头盔生命
+	constexpr int kNormalBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_PINK_FOOTBALL).bite; // 首株特击之外的基础单口伤害
 	constexpr int kFirstPlantStrikeDamage = 400;
 	constexpr int kHelmetBreakDamage = 50;
 	constexpr float kFootballMoveSpeedMultiplier = ZombieMovementRules::FootballRootMultiplier; // 父类已经应用的根运动倍率
@@ -186,5 +187,6 @@ ZombieMovementRules::BirthProfile PinkFootballZombie::GetBirthMovementProfile()
 	auto p=FootballZombie::GetBirthMovementProfile();
 	p.rootMinimum=p.rootMaximum=ZombieMovementRules::BaseRootSpeed*kMoveSpeedMultiplier;
 	p.abilityMinimum=p.abilityMaximum=kAnimationSpeedMultiplier;
+	p.slowAnimationFactor=ZombieMovementRules::PinkSlowAnimationFactor;
 	return p;
 }

@@ -1,4 +1,5 @@
 #include "PaperZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 #include "../Plant/Plant.h"
 
@@ -12,11 +13,11 @@ namespace {
 
 void PaperZombie::SetupZombie()
 {
-	this->mBodyHealth = 300;
-	this->mBodyMaxHealth = 300;
+	this->mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NEWSPAPER).body;
+	this->mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NEWSPAPER).body;
 	this->mShieldType = ShieldType::SHIELDTYPE_NEWSPAPER;
-	this->mShieldHealth = 500;
-	this->mShieldMaxHealth = 500;
+	this->mShieldHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NEWSPAPER).shield;
+	this->mShieldMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NEWSPAPER).shield;
 
 	if (!mIsPreview) {
 		PlayTrack("anim_walk");

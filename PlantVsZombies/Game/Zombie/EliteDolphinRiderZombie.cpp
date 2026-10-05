@@ -1,10 +1,11 @@
 #include "EliteDolphinRiderZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../Plant/Plant.h"
 #include "../../ResourceKeys.h"
 
 namespace {
-	constexpr int kEliteDolphinRiderHealth = 700;  // 精英海豚骑士本体基础生命
+	constexpr int kEliteDolphinRiderHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER).body;  // 精英海豚骑士本体基础生命
 	constexpr int kEliteDolphinJumpCapacity = 2;  // 普通植物最多连续越过次数
 	constexpr int kTallNutBlockDamage = 500;       // 被高坚果拦下后的基础碰撞伤害
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "ZombieBirthVitalsRules.h"
 #ifndef _ZOMBIE_H
 #define _ZOMBIE_H
 
@@ -75,7 +76,7 @@ public:
 
 	int mRow = -1;
 
-	int mAttackDamage = 50;
+	int mAttackDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).bite;
 	int mFreeHitsRemaining = 0;	// 词条：剩余免伤次数（出生时=4×层数，0=无效）
 
 	bool mNeedDropArm = true;
@@ -90,8 +91,8 @@ public:
 
 	int mSpawnWave = -1;	// 多少波刷新的
 
-	int mBodyHealth = 270;
-	int mBodyMaxHealth = 270;
+	int mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
+	int mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
 	HelmType mHelmType = HelmType::HELMTYPE_NONE;
 	int mHelmHealth = 0;
 	int mHelmMaxHealth = 0;

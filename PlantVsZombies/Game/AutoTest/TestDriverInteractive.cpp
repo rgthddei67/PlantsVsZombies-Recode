@@ -211,10 +211,10 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 	return true;
 }
 
-nlohmann::json TestDriver::BuildInteractiveState() {
+nlohmann::json TestDriver::BuildInteractiveState(bool fullState) {
 	nlohmann::json full;
 	if (!BuildStateJson("interactive", full)) return {};
-	if (mInteractiveFullState) return full;
+	if (fullState) return full;
 	auto compact = Pick(full, {"scene", "boardState", "level", "levelName", "rows", "columns", "sun",
 		"wave", "maxWave", "paused", "pauseMenuOpen", "cards", "suns", "weather", "trophy",
 		"coldStorage", "weatherStation", "fog", "plantern", "advancedPauseEnabled", "background",
@@ -223,6 +223,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
+				"hasHead", "dying", "dancePhase", "danceRemainingMs", "danceFollowers",
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
 				"iceRemainingMs", "iceBatches", "nextIceYieldOn1000", "engineerFull", "engineerProtectionUses",
 				"engineerReloadMs", "clockPhase", "clockRemainingMs",
@@ -260,7 +261,7 @@ nlohmann::json TestDriver::BuildInteractiveState() {
 }
 
 void TestDriver::PublishInteractiveReply() {
-	const auto state = BuildInteractiveState();
+	const auto state = BuildInteractiveState(mInteractiveFullState);
 	if (!mActive) return;
 	const nlohmann::json response = {
 		{"session", mSession}, {"id", mRequestId}, {"simulationSteps", mSimulationSteps},

@@ -1,4 +1,5 @@
 #include "JackInTheBoxZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -12,7 +13,7 @@
 
 namespace {
 	constexpr float kRunVelocityMinimum=.66f, kRunVelocityMaximum=.68f; // 普通小丑出生手摇步速随机范围，原版 px/tick
-	constexpr int kBodyHealth = 500;                    // C# 小丑僵尸本体生命值
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_JACK_IN_THE_BOX).body;                    // C# 小丑僵尸本体生命值
 	constexpr float kGroundRootMotionRate = 12.0f;     // _ground 根运动资源帧率换算基准
 	constexpr float kAbilityAnimMultiplier = 1.8f;     // 全局动画倍率，使基类死亡轨约为原版 28 FPS
 	constexpr float kReferenceVelocity = 0.67f;        // C# mVelX=0.66～0.68 的中值

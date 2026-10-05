@@ -1,6 +1,7 @@
 #include "GildedZamboniZombie.h"
 #include "GoldenIceRules.h"
 
+#include "ZombieBirthVitalsRules.h"
 #include "../../DeltaTime.h"
 #include "../../GameRandom.h"
 #include "Game/Board/Board.h"
@@ -8,7 +9,7 @@
 #include <algorithm>
 
 namespace {
-	constexpr int kGildedZamboniHealth = 2200;             // 鎏金冰车本体血量
+	constexpr int kGildedZamboniHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_GILDED_ZAMBONI).body;             // 鎏金冰车本体血量
 	constexpr float kGildedBaseDriveMultiplier = 0.72f;   // 相对普通冰车速度曲线的基础移速倍率
 	constexpr int kCaltropHitDamage = 100;                 // 地刺每次扎中鎏金冰车造成的固定基础伤害
 	constexpr int kChomperBiteDamage = 50;                 // 鎏金冰车拒吞时保留的特殊基础伤害

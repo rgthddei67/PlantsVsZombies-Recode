@@ -1,4 +1,5 @@
 #include "GargantuarZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../GameApp.h"
 
 #include "GargantuarCharred.h"
@@ -20,7 +21,7 @@
 namespace {
 	constexpr int kRootSpeedJitter=2; // 巨人出生根运动倍率的整数浮动范围
 	const std::string kDefaultTrackTextureKey = "DEFAULT";
-	constexpr int kBodyHealth = 3000;                         // 原版经典巨人本体生命
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_GARGANTUAR).body;                         // 原版经典巨人本体生命
 	constexpr int kSmashFrame = 93;                           // 主人指定的砸击结算全局帧
 	constexpr int kThrowReleaseFrame = 131;                   // 主人确认的小鬼脱手全局帧
 	constexpr int kDeathFrame = 196;                          // 主人指定的普通死亡回收全局帧
@@ -60,7 +61,7 @@ void GargantuarZombie::SetupZombie()
 	mBodyHealth = kBodyHealth;
 	mBodyMaxHealth = kBodyHealth;
 	mNeedDropArm = false;
-	mNeedDropHead = false;
+	mNeedDropHead = ZombieBirthVitalsRules::DropsHeadAtBirth(mZombieType);
 	mHasArm = true;
 	mHasHead = true;
 	mHasTongue = false;

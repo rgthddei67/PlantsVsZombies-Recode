@@ -1,4 +1,5 @@
 #include "FootballZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 #include "../AudioSystem.h"
 
@@ -12,8 +13,8 @@ namespace {
 
 void FootballZombie::SetupZombie()
 {
-	this->mHelmHealth = 1400;
-	this->mHelmMaxHealth = 1400;
+	this->mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FOOTBALL).helm;
+	this->mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FOOTBALL).helm;
 	this->mHelmType = HelmType::HELMTYPE_FOOTBALL;
 
 	if (!mIsPreview) {

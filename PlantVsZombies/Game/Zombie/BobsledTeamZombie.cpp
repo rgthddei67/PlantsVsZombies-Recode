@@ -1,4 +1,5 @@
 #include "BobsledTeamZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../../ResourceKeys.h"
 #include "../../ResourceManager.h"
@@ -12,9 +13,9 @@
 #include <cmath>
 
 namespace {
-	constexpr int kRiderHealth = 270;                    // 每名雪橇队员的原版本体生命
-	constexpr int kSledHealth = 300;                     // 仅队长持有的原版雪橇耐久
-	constexpr int kBiteDamage = 50;                      // 每名队员落地后的单次啃食伤害
+	constexpr int kRiderHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BOBSLED_TEAM).body;                    // 每名雪橇队员的原版本体生命
+	constexpr int kSledHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BOBSLED_TEAM).helm;                     // 仅队长持有的原版雪橇耐久
+	constexpr int kBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BOBSLED_TEAM).bite;                      // 每名队员落地后的单次啃食伤害
 	constexpr int kCollisionDamage = 1200;               // 撞上植物时由车队结算的僵尸来源伤害
 	constexpr float kRideSpeed = 60.0f;                  // 原版 mVelX=0.6 换算后的世界速度，单位 px/s
 	constexpr float kLandingDuration = 1.5f;             // 原版 BOBSLED_CRASH_TIME=150cs

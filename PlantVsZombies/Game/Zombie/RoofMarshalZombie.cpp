@@ -1,4 +1,5 @@
 #include "RoofMarshalZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../GameApp.h"
 
 #include "../AudioSystem.h"
@@ -11,8 +12,7 @@
 #include <array>
 
 namespace {
-	constexpr int kBodyHealth = 15000;                    // 主人确认的首领本体生命值
-	constexpr int kBiteDamageMultiplier = 5;              // 督军每口啃食伤害相对普通僵尸的倍率
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ROOF_MARSHAL).body;                    // 主人确认的首领本体生命值
 	constexpr int kPlantAshDamageCap = 1800;              // 灰烬与土豆雷的单次基础伤害上限
 	constexpr float kBossVisualScale = 1.2f;              // 须与 gamedata.json 的督军 scale 同改；影子按此倍率同步放大
 	constexpr int kHighThreatHealthThreshold = 11000;      // 低于此本体生命后，高威胁原版池开始参与抽取
@@ -114,7 +114,7 @@ void RoofMarshalZombie::SetupZombie()
 	Zombie::SetupZombie();
 	mBodyHealth = kBodyHealth;
 	mBodyMaxHealth = kBodyHealth;
-	mAttackDamage *= kBiteDamageMultiplier;
+	mAttackDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ROOF_MARSHAL).bite;
 	mCommandPhase = CommandPhase::ADVANCING;
 	mSummonTimer = kFirstSummonDelay;
 	mCommandPoseTimer = 0.0f;

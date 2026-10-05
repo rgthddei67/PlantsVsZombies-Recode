@@ -1,4 +1,5 @@
 #include "DolphinRiderZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "Game/Board/Board.h"
 #include "../Plant/Plant.h"
@@ -96,8 +97,8 @@ Vector DolphinRiderZombie::GetDolphinVisualCompensation() const
 
 void DolphinRiderZombie::SetupZombie()
 {
-	mBodyMaxHealth = 500;
-	mBodyHealth = 500;
+	mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DOLPHIN_RIDER).body;
+	mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DOLPHIN_RIDER).body;
 	mSpeed = kGroundRootMotionRate;
 	mNeedDropArm = false;
 	SetAnimationSpeed(1.0f);

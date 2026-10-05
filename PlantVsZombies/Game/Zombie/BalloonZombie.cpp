@@ -1,4 +1,5 @@
 #include "BalloonZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../GameApp.h"
 
 #include "../AudioSystem.h"
@@ -12,7 +13,7 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 270;                    // C# 气球僵尸落地后的本体生命值
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BALLOON).body;                    // C# 气球僵尸落地后的本体生命值
 	constexpr int kBalloonHealth = 20;                  // C# mFlyingHealth：气球额外生命层
 	constexpr float kFlightVelocityMin = 23.0f;         // C# 0.23 px/tick 换算到秒的飞行速度下界
 	constexpr float kFlightVelocityMax = 37.0f;         // C# 0.37 px/tick 换算到秒的飞行速度上界
@@ -42,7 +43,7 @@ void BalloonZombie::SetupZombie()
 		: GameRandom::Range(kFlightVelocityMin, kFlightVelocityMax);
 	mPhase = Phase::FLYING;
 	mNeedDropArm = false;
-	mNeedDropHead = false;
+	mNeedDropHead = ZombieBirthVitalsRules::DropsHeadAtBirth(mZombieType);
 
 	if (mCollider) {
 		mGroundColliderOffsetY = mCollider->offset.y;

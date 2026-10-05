@@ -73,8 +73,8 @@ private:
 	void CompleteInteractive();
 	/** 执行允许的玩家操作或安排有限步进；操作拒绝作为结果返回。 */
 	bool ExecuteInteractive(const nlohmann::json& command);
-	/** 复用现有投影生成完整或精简局面，附带实际卡槽与地形资格。 */
-	nlohmann::json BuildInteractiveState();
+	/** 默认生成精简观测；完整投影仅供单次交互响应，不改变后续真人日志或陪练采样。 */
+	nlohmann::json BuildInteractiveState(bool fullState = false);
 	/** 先写临时文件再发布唯一序号的响应，避免读取半份状态。 */
 	void PublishInteractiveReply();
 	bool mHumanObservation = false;

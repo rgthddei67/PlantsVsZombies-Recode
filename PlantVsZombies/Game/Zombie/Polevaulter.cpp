@@ -1,4 +1,5 @@
 #include "Polevaulter.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 #include "Game/Board/Board.h"
 #include "../ShadowComponent.h"
@@ -70,8 +71,8 @@ void Polevaulter::SetupZombie()
 	}
 	this->mSpeed = GameRandom::Range(kRunRootMinimum, kRunRootMaximum);
 
-	this->mBodyMaxHealth = 500;
-	this->mBodyHealth = 500;
+	this->mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POLEVAULTER).body;
+	this->mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POLEVAULTER).body;
 
 	if (auto shadowComponent = GetShadow()) {
 		shadowComponent->SetOffset(Vector(4, 42));

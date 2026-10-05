@@ -1,4 +1,5 @@
 #include "SunThiefZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "DeltaTime.h"
 #include "ResourceKeys.h"
 #include "Game/Board/Board.h"
@@ -10,7 +11,7 @@
 #include <cmath>
 
 namespace {
-	constexpr int kHealth = 1500; // 本体生命，储光罐不提供护甲
+	constexpr int kHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_SUN_THIEF).body; // 本体生命，储光罐不提供护甲
 	constexpr int kTheftAmount = 125; // 单次抽取上限，阳光
 	constexpr int kCapacity = Board::kSunTheftCapacity; // 满载撤退使用 Board 账本上限，仍需三次完整抽取
 	constexpr float kWindupSeconds = 1.0f; // 可被打断的抽取前摇，游戏秒

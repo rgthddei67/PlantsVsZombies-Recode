@@ -3,6 +3,7 @@
 #define _BACKUPDANCERZOMBIE_H_
 
 #include "Zombie.h"
+#include "DancerRules.h"
 
 // 伴舞僵尸：只能被舞王召唤（gamedata weight=0）。出土升起 → 随 Board 全局节拍齐舞。
 // 领队关系：mLeaderID 指向舞王；领队死亡/自己被魅惑后即为无主（照常跳舞前进，原版行为）。
@@ -12,6 +13,10 @@ public:
 	float GetMineSimulationMoveSpeed() const override;
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
 	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
+	/** 升起后恢复的稳态步态，与出生阶段的零速度分别投影。 */
+	static ZombieMovementRules::BirthProfile GetDancingMovementProfile();
+	/** 采样升起余时和独立行走速度，不改变正式阶段。 */
+	DancerRules::Forecast GetDanceForecast() const;
 	using Zombie::Zombie;
 
 	enum class BackupPhase {

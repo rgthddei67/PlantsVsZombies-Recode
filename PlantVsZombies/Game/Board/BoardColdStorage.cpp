@@ -15,6 +15,10 @@
 #include "Game/Plant/GameDataManager.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Zombie/Zombie.h"
+#include "Game/Zombie/DancerRules.h"
+#include "Game/Zombie/ZombieBirthVitalsRules.h"
+#include "Game/Zombie/DancerZombie.h"
+#include "Game/Zombie/BackupDancerZombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
@@ -368,7 +372,7 @@ namespace {
 	{
 		auto& b = unit.burst;
 		b.range = BoilerRules::kTriggerCells*CELL_COLLIDER_SIZE_X;
-		b.cost = BoilerRules::kOverdriveCost; b.stopHealth = BoilerRules::kHealth/3;
+		b.cost = BoilerRules::kOverdriveCost; b.stopHealth = static_cast<int>(unit.body.health-unit.helmHealth-unit.shieldHealth)/3;
 		b.windup = BoilerRules::kPreheat; b.duration = BoilerRules::kOverdrive;
 		b.recovery = BoilerRules::kVenting; b.retry = BoilerRules::kRetry;
 		b.moveMultiplier = BoilerRules::kOverdriveSpeed;
@@ -394,10 +398,11 @@ namespace {
 	{
 		using namespace ColdChainGuardRules;
 		auto& r = unit.repair;
-		r.health = live && !live->HasIceShield() ? 0 : live ? live->mHelmHealth : kShieldHealth;
-		r.maximum = live ? live->mHelmMaxHealth : kShieldHealth;
-		r.totalMaximum = r.maximum+(live ? live->mBodyMaxHealth : kBodyHealth);
-		r.stopBodyHealth = (live ? live->mBodyMaxHealth : kBodyHealth)/3;
+		r.health = live && !live->HasIceShield() ? 0 : live ? live->mHelmHealth : unit.helmHealth;
+		r.maximum = live ? live->mHelmMaxHealth : unit.helmHealth;
+		const int bodyMaximum=live ? live->mBodyMaxHealth : static_cast<int>(unit.body.health-unit.helmHealth-unit.shieldHealth);
+		r.totalMaximum = r.maximum+bodyMaximum;
+		r.stopBodyHealth = bodyMaximum/3;
 		r.remaining = live ? live->GetRepairRemaining() : kRepairInterval;
 		r.interval = kRepairInterval; r.amount = kRepairHealth; r.cost = kRepairIce;
 	}
@@ -415,13 +420,13 @@ namespace {
 		unit.drum.enabled = !drummer || (!drummer->IsDrumDisabled() && drummer->HasHead());
 		unit.drum.winding = drummer && drummer->IsDrumWindingUp();
 		unit.drum.remaining = drummer ? drummer->GetDrumRemaining() : CrystalDrummerRules::FirstWait;
-		unit.drum.stopHealth = (drummer ? drummer->mBodyMaxHealth : CrystalDrummerRules::Health)/3;
+		unit.drum.stopHealth = (drummer ? drummer->mBodyMaxHealth : static_cast<int>(unit.body.health-unit.helmHealth-unit.shieldHealth))/3;
 	}
 
 	/** 适应只能由首次击穿的合法来源提交；活体已记录的免疫不会被新快照重置。 */
 	void ProjectAdaptation(ColdStorageSearch::Unit& unit, const AdaptiveHelmetZombie* live = nullptr)
 	{
-		unit.adaptiveHelmet = live ? live->mHelmHealth : AdaptiveHelmetRules::HelmetHealth;
+		unit.adaptiveHelmet = live ? live->mHelmHealth : unit.helmHealth;
 		unit.adaptedOrigin = live ? live->GetAdaptedOrigin() : PlantDamageOrigin{};
 	}
 
@@ -447,8 +452,8 @@ namespace {
 	void ProjectRitual(ColdStorageSearch::Unit& unit, const AuroraPriestZombie* live = nullptr)
 	{
 		auto& r = unit.ritual; r.present = true;
-		r.armor = live ? live->mHelmHealth : AuroraPriestRules::DeviceHealth;
-		r.stopHealth = (live ? live->mBodyMaxHealth : AuroraPriestRules::BodyHealth)/3;
+		r.armor = live ? live->mHelmHealth : unit.helmHealth;
+		r.stopHealth = (live ? live->mBodyMaxHealth : static_cast<int>(unit.body.health-unit.helmHealth-unit.shieldHealth))/3;
 		r.releases = live ? live->GetRitualReleaseCount() : 0;
 		r.remaining = live ? live->GetRitualRemaining() : AuroraPriestRules::Preparation;
 		r.winding = live && live->GetRitualPhase() == AuroraPriestZombie::RitualPhase::WINDUP;
@@ -473,42 +478,46 @@ namespace {
 		if (live->IsIceSealed()) plant.immuneRemaining = 10000; // 当前封存不能被砸伤；解封边沿重新采样
 	}
 
-	/** 候选战术画像只服务排序；实体出生仍使用原品种生命、技能和动作。 */
+	/** 提供候选出生承伤及排序画像；召唤能力不能用虚增本体生命替代。 */
 	AssaultProfile Assault(ZombieType type)
 	{
 		using Z = ZombieType;
+		const auto vitals=ZombieBirthVitalsRules::Get(type);
+		const float health=static_cast<float>(vitals.Total()); // 生命只能来自实体共用入口，角色标签仍只服务候选排序
 		switch (type) {
-		case Z::ZOMBIE_REDEYE_GARGANTUAR: return {6000, 1, false, false, true, 4.0f};
-		case Z::ZOMBIE_GARGANTUAR: return {3000, 1, false, false, true, 4.0f};
-		case Z::ZOMBIE_PINK_FOOTBALL: return {2600, 2, false, false, false};
-		case Z::ZOMBIE_FOOTBALL: return {1700, 2, false, false, false};
-		case Z::ZOMBIE_BUNGEE: return {450, 0, false, false, false};
-		case Z::ZOMBIE_HIJACKER: return {1000, 1, false, true, false};
-		case Z::ZOMBIE_GROUNDING: return {1470, 1, false, true, false};
-		case Z::ZOMBIE_INSULATOR: return {1500, 1, false, true, false};
-		case Z::ZOMBIE_HEALER: return {800, 1, false, true, false};
-		case Z::ZOMBIE_DANCER: case Z::ZOMBIE_ELITE_DANCER: return {1500, 1, false, true, false};
-		case Z::ZOMBIE_AURORA_PRIEST: return {AuroraPriestRules::BodyHealth+AuroraPriestRules::DeviceHealth, 1, true, true, false};
-		case Z::ZOMBIE_POLAR_CLOCKMAKER: return {1500, 1, false, true, false};
-		case Z::ZOMBIE_DIGGER: case Z::ZOMBIE_ELITE_DIGGER: return {900, 1.5f, true, false, true};
+		case Z::ZOMBIE_REDEYE_GARGANTUAR: return {health, 1, false, false, true, 4.0f};
+		case Z::ZOMBIE_GARGANTUAR: return {health, 1, false, false, true, 4.0f};
+		case Z::ZOMBIE_PINK_FOOTBALL: return {health, 2, false, false, false};
+		case Z::ZOMBIE_FOOTBALL: return {health, 2, false, false, false};
+		case Z::ZOMBIE_BUNGEE: return {health, 0, false, false, false};
+		case Z::ZOMBIE_HIJACKER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_GROUNDING: return {health, 1, false, true, false};
+		case Z::ZOMBIE_INSULATOR: return {health, 1, false, true, false};
+		case Z::ZOMBIE_HEALER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_DANCER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_ELITE_DANCER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_BACKUP_DANCER: return {health, 1, false, false, false};
+		case Z::ZOMBIE_AURORA_PRIEST: return {health, 1, true, true, false};
+		case Z::ZOMBIE_POLAR_CLOCKMAKER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_DIGGER: case Z::ZOMBIE_ELITE_DIGGER: return {health, 1.5f, true, false, true};
 		case Z::ZOMBIE_POLEVAULTER: case Z::ZOMBIE_ELITE_POLEVAULTER:
-		case Z::ZOMBIE_POGO: case Z::ZOMBIE_ELITE_POGO: return {700, 1.8f, true, false, false};
-		case Z::ZOMBIE_JACK_IN_THE_BOX: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX: return {800, 1.4f, false, false, true};
-		case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI: return {1500, 1.2f, false, false, true};
-		case Z::ZOMBIE_CATAPULT: return {CatapultRules::kBodyHealth, 1, true, false, false};
-		case Z::ZOMBIE_ELITE_CATAPULT: return {CatapultRules::kEliteBodyHealth, 1, true, false, false};
-		case Z::ZOMBIE_ADAPTIVE_HELMET: return {AdaptiveHelmetRules::BodyHealth+AdaptiveHelmetRules::HelmetHealth, 1, false, false, false};
+		case Z::ZOMBIE_POGO: case Z::ZOMBIE_ELITE_POGO: return {health, 1.8f, true, false, false};
+		case Z::ZOMBIE_JACK_IN_THE_BOX: case Z::ZOMBIE_ELITE_JACK_IN_THE_BOX: return {health, 1.4f, false, false, true};
+		case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI: return {health, 1.2f, false, false, true};
+		case Z::ZOMBIE_CATAPULT: return {health, 1, true, false, false};
+		case Z::ZOMBIE_ELITE_CATAPULT: return {health, 1, true, false, false};
+		case Z::ZOMBIE_ADAPTIVE_HELMET: return {health, 1, false, false, false};
 		case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_FASTBUCKET:
-			return {1500, 1, false, false, false};
-		case Z::ZOMBIE_DOOR: return {DoorZombie::InitialBodyHealth + DoorZombie::InitialShieldHealth, 1, false, false, false};
-		case Z::ZOMBIE_REINFORCED_DOOR: return {DoorZombie::InitialBodyHealth + ReinforcedDoorZombie::InitialShieldHealth, 1, false, false, false};
-		case Z::ZOMBIE_DISASTER_ENGINEER: return {DisasterEngineerRules::Health, 1, false, true, false};
-		case Z::ZOMBIE_ICE_WORKER: return {IceProduction::WorkerHealth, 1, false, true, false};
-		case Z::ZOMBIE_COLD_CHAIN_GUARD: return {ColdChainGuardRules::kBodyHealth+ColdChainGuardRules::kShieldHealth, 1, false, false, false};
-		case Z::ZOMBIE_BOILER: return {BoilerRules::kHealth, 1, false, false, false};
-		case Z::ZOMBIE_CRYSTAL_DRUMMER: return {CrystalDrummerRules::Health, 1, false, true, false};
-		case Z::ZOMBIE_NORMAL: return {270, 1, false, false, false};
-		default: return {700, 1.2f, false, false, false};
+			return {health, 1, false, false, false};
+		case Z::ZOMBIE_DOOR: return {health, 1, false, false, false};
+		case Z::ZOMBIE_REINFORCED_DOOR: return {health, 1, false, false, false};
+		case Z::ZOMBIE_DISASTER_ENGINEER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_ICE_WORKER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_COLD_CHAIN_GUARD: return {health, 1, false, false, false};
+		case Z::ZOMBIE_BOILER: return {health, 1, false, false, false};
+		case Z::ZOMBIE_CRYSTAL_DRUMMER: return {health, 1, false, true, false};
+		case Z::ZOMBIE_NORMAL: return {health, 1, false, false, false};
+		default: return {health, 1.2f, false, false, false};
 		}
 	}
 }
@@ -1105,7 +1114,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		u.canBeChilled = z.canBeChilled; u.slowImmunity = z.slowImmunityRemaining;
 		u.value = static_cast<float>(GetZombieIceCost(entity->mZombieType));
 		u.purchaseCost = u.value;
-		u.smashSeconds = Assault(entity->mZombieType).smashSeconds;
+		u.smashSeconds = entity->GetMineSimulationSmashSeconds();
 		u.blastAnchorOffset = entity->GetPosition().x - z.x;
 		u.economic = entity->mZombieType == ZombieType::ZOMBIE_ICE_WORKER;
 		if (const auto* worker = dynamic_cast<const IceWorkerZombie*>(entity))
@@ -1129,7 +1138,9 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		auto motion = spawnMovement.find(type);
 		if (motion == spawnMovement.end()) motion = spawnMovement.emplace(type,GameDataManager::GetInstance().GetZombieBirthMoveSpeeds(type)).first;
 		if (motion->second.valid) u.speed = motion->second.speed[1]; // 已含品种自身倍率，不能再乘旧 Assault 近似。
-		u.health = Assault(type).health; u.value = static_cast<float>(GetZombieIceCost(type));
+		const auto vitals=ZombieBirthVitalsRules::Scaled(ZombieBirthVitalsRules::Get(type),GetZombieHpMultiplier(),
+			mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
+		u.health = static_cast<float>(vitals.Total()); u.value = static_cast<float>(GetZombieIceCost(type));
 		u.purchaseCost = u.value;
 		u.smashSeconds = Assault(type).smashSeconds;
 		u.economic = type == ZombieType::ZOMBIE_ICE_WORKER;
@@ -1228,6 +1239,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		}
 
 		search.rightEdge = SCENE_WIDTH;
+		search.danceBeatSeconds=(mBoardFrame%(12*23))/60.0f;
 		for (const int id:mEntityRegistry.GetAllBulletIDs()) {
 			const auto* bullet=mEntityRegistry.GetBullet(id);
 			if (bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_THUNDER_SEED)
@@ -1451,7 +1463,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.jammer=jammer->GetJammerPhase()!=WeatherJammerZombie::JammerPhase::SPENT;
 				unit.jammerRemaining=jammer->GetJammerPhase()==WeatherJammerZombie::JammerPhase::CHANNELING ? jammer->GetChannelRemaining() : 4.0f+jammer->GetRebootRemaining();
 			}
-			unit.helmHealth = static_cast<float>(z.helmHealth); unit.temporalStopHealth = entity->mBodyMaxHealth/3.0f;
+			unit.helmHealth = static_cast<float>(z.helmHealth);
+			unit.temporalStopHealth = entity->mNeedDropHead && entity->mZombieType!=ZombieType::ZOMBIE_ROOF_MARSHAL ? entity->mBodyMaxHealth/3 : 0;
 			unit.temporalEligible = entity->mZombieType != ZombieType::ZOMBIE_BOBSLED_TEAM
 				&& entity->mZombieType != ZombieType::ZOMBIE_ROOF_MARSHAL && entity->mZombieType != ZombieType::ZOMBIE_BOSS;
 			projectMovementCurve(unit,entity->mZombieType);
@@ -1463,6 +1476,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.paralysisRemaining = entity->GetParalysisTimeRemaining();
 			if (const auto* engineer = dynamic_cast<const DisasterEngineerZombie*>(entity)) {
 				unit.engineer = true; unit.canisterFull = engineer->HasFullCanister();
+				unit.engineerStopHealth=engineer->mBodyMaxHealth/3;
 				unit.reloadPaid = engineer->IsReloadPaid(); unit.reloadRemaining = engineer->GetReloadRemaining();
 			}
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
@@ -1472,9 +1486,12 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			if (const auto* clock = dynamic_cast<const PolarClockmakerZombie*>(entity)) {
 				const auto phase = clock->GetClockPhase();
 				unit.clock = {true,phase != PolarClockmakerZombie::ClockPhase::DISABLED && phase != PolarClockmakerZombie::ClockPhase::COMMITTED,
-					phase == PolarClockmakerZombie::ClockPhase::WINDUP,clock->GetClockRemaining(),entity->mBodyMaxHealth/3.0f};
+					phase == PolarClockmakerZombie::ClockPhase::WINDUP,clock->GetClockRemaining(),static_cast<float>(entity->mBodyMaxHealth/3)};
 			}
 			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(entity)) ProjectRitual(unit,priest);
+			if(entity->mZombieType==ZombieType::ZOMBIE_DANCER)
+				unit.dance=static_cast<const DancerZombie*>(entity)->GetDanceForecast();
+			if(const auto* backup=dynamic_cast<const BackupDancerZombie*>(entity)) unit.dance=backup->GetDanceForecast();
 			ProjectDrum(unit,entity);
 			const auto* gilded=dynamic_cast<const GildedZamboniZombie*>(entity);
 			unit.goldenMoveRatios=entity->GetSimulationGoldenMoveRatios(gilded!=nullptr || unit.burst.range>0 || unit.ritual.present);
@@ -1614,16 +1631,22 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             search.plants.push_back(plant);
 		}
 		// 新购与已付款单位共用能力投影；已有队列的成交价不能被当前价格覆盖。
+		auto danceProfile=DancerZombie::GetBirthMovementProfile();
+		danceProfile.clip="anim_walk";
+		danceProfile.animationMinimum=danceProfile.animationMaximum=DancerRules::DanceSpeed;
+		const auto danceWalk=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_DANCER,danceProfile);
+		const auto backupWalk=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_BACKUP_DANCER,BackupDancerZombie::GetDancingMovementProfile());
+		const float snapSeconds=DancerZombie::GetForecastSnapSeconds();
 		auto purchaseUnit = [&](ZombieType type, int row, int cost, float delay) {
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
+			const auto vitals=ZombieBirthVitalsRules::Scaled(ZombieBirthVitalsRules::Get(type),GetZombieHpMultiplier(),
+				mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
+			unit.helmHealth=vitals.helm; unit.shieldHealth=vitals.shield; unit.biteDps=vitals.bite;
 			unit.hijacker=type==ZombieType::ZOMBIE_HIJACKER; unit.grounding=type==ZombieType::ZOMBIE_GROUNDING; unit.insulator=type==ZombieType::ZOMBIE_INSULATOR;
 			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=4;
 			unit.groundHazard=type!=ZombieType::ZOMBIE_BALLOON && type!=ZombieType::ZOMBIE_BUNGEE;
-			unit.paralysisAllowed=type!=ZombieType::ZOMBIE_ZAMBONI && type!=ZombieType::ZOMBIE_GILDED_ZAMBONI
-				&& type!=ZombieType::ZOMBIE_CATAPULT && type!=ZombieType::ZOMBIE_ELITE_CATAPULT;
 			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
-			if(unit.grounding || unit.insulator) unit.helmHealth=1200;
 			const auto& motion = spawnMovement.at(type);
 			unit.minimumMoveSpeed = motion.speed[0];
 			unit.maximumMoveSpeed = motion.speed[2];
@@ -1632,7 +1655,16 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.upperForecastMoveSpeed=motion.upperQuartile;
 			projectMovementCurve(unit,type);
 			unit.body.purchaseCost = static_cast<float>(cost);
+			if(type==ZombieType::ZOMBIE_DANCER) {
+				unit.dance.leader=true; unit.dance.remaining=DancerRules::EntrySeconds;
+				unit.dance.snapSeconds=snapSeconds; unit.dance.walkSpeed=danceWalk.lowerQuartile;
+				unit.dance.entrySpeed=unit.body.speed; unit.dance.stopHealth=vitals.body/3;
+			} else if(type==ZombieType::ZOMBIE_BACKUP_DANCER) {
+				unit.dance.backup=true; unit.dance.phase=DancerRules::Forecast::Phase::HOLD;
+				unit.dance.remaining=DancerRules::HoldSeconds; unit.dance.walkSpeed=backupWalk.lowerQuartile;
+			}
 			unit.engineer = type == ZombieType::ZOMBIE_DISASTER_ENGINEER;
+			unit.engineerStopHealth=vitals.body/3;
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
 			if (type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT) ProjectCatapult(unit,type,search.gridLeft,search.cellWidth);
@@ -1641,11 +1673,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			if (type == ZombieType::ZOMBIE_THERMAL_SNIPER) ProjectDeploymentSniper(unit);
 			if (type == ZombieType::ZOMBIE_AURORA_PRIEST) ProjectRitual(unit);
 			if (type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER) {
-				unit.body.health = PolarClockRules::BodyHealth+PolarClockRules::ArmorHealth;
-				unit.clock = {true,true,false,PolarClockRules::Preparation,PolarClockRules::BodyHealth/3.0f};
-				unit.helmHealth = PolarClockRules::ArmorHealth;
+				unit.clock = {true,true,false,PolarClockRules::Preparation,static_cast<float>(vitals.body/3)};
 			}
 			const auto profile=GameDataManager::GetInstance().GetZombieBirthMovement(type);
+			unit.body.slowFactor=.5f*profile.slowAnimationFactor;
+			unit.body.canBeChilled=profile.canBeChilled; unit.paralysisAllowed=profile.canBeParalyzed;
 			const float ability=(profile.abilityMinimum+profile.abilityMaximum)*.5f;
 			for (int stacks=0;stacks<=GoldenIceRules::MaxStacks;++stacks)
 				unit.goldenMoveRatios[stacks]=GoldenIceRules::Amplify(ability,stacks)/std::max(.001f,ability)
@@ -1656,11 +1688,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.instantVehicleCrush=type==ZombieType::ZOMBIE_ZAMBONI || type==ZombieType::ZOMBIE_GILDED_ZAMBONI;
 			unit.vehicleCrush = type == ZombieType::ZOMBIE_ZAMBONI || type == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT;
-			if (type == ZombieType::ZOMBIE_DOOR) unit.shieldHealth = DoorZombie::InitialShieldHealth;
-			else if (type == ZombieType::ZOMBIE_REINFORCED_DOOR) unit.shieldHealth = ReinforcedDoorZombie::InitialShieldHealth;
 			ProjectShieldRules(unit, type);
 			unit.helmHealth = std::max({unit.helmHealth,unit.adaptiveHelmet,unit.ritual.armor,unit.repair.health});
-			unit.temporalStopHealth = (unit.body.health-unit.helmHealth-unit.shieldHealth)/3;
+			unit.temporalStopHealth = ZombieBirthVitalsRules::DropsHeadAtBirth(type) ? vitals.body/3 : 0;
+			if(unit.body.economic) unit.productionStopHealth=vitals.body/3;
 			unit.temporalEligible = type != ZombieType::ZOMBIE_BOBSLED_TEAM && type != ZombieType::ZOMBIE_ROOF_MARSHAL && type != ZombieType::ZOMBIE_BOSS;
 			unit.playerRefund = static_cast<float>(cost * 3 / 4);
 			unit.mowerImmune = type == ZombieType::ZOMBIE_ROOF_MARSHAL;
@@ -1671,6 +1702,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			}
 			return unit;
 		};
+		search.dancerBackup=purchaseUnit(ZombieType::ZOMBIE_BACKUP_DANCER,0,0,0);
 		for (size_t i=0; i<search.ritualSummons.size(); ++i) {
 			search.ritualSummons[i] = purchaseUnit(AuroraPriestRules::SummonTypes[i],0,0,0);
 			search.ritualSummons[i].body.value = static_cast<float>(GetZombieIceCost(AuroraPriestRules::SummonTypes[i]));
@@ -1711,7 +1743,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				}
 				if (recorded.type == ZombieType::ZOMBIE_POLAR_CLOCKMAKER && target.restoreAbility)
 					saved.clock = {true,recorded.abilityPhase != 3 && recorded.abilityPhase != 4,recorded.abilityPhase == 1,
-						recorded.abilityRemaining,PolarClockRules::BodyHealth/3.0f};
+						recorded.abilityRemaining,saved.clock.stopBodyHealth};
 				if (recorded.type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER && target.restoreAbility)
 					saved.drum = {recorded.abilityPhase != 2,recorded.abilityPhase == 1,recorded.abilityRemaining,saved.drum.stopHealth};
 				// 使用锚中记录的本地能力，不能从锚后活体或死亡替身的出生默认值猜测。

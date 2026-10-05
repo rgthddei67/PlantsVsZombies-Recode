@@ -1,4 +1,5 @@
 #include "InsulatorZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -10,8 +11,8 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 300;                    // 绝缘僵尸本体生命
-	constexpr int kArmorHealth = 1200;                  // 单层陶瓷绝缘胸甲生命
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_INSULATOR).body;                    // 绝缘僵尸本体生命
+	constexpr int kArmorHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_INSULATOR).helm;                  // 单层陶瓷绝缘胸甲生命
 	constexpr int kFirstCrackThreshold = 800;           // 进入轻裂纹阶段的剩余生命阈值
 	constexpr int kHeavyCrackThreshold = 400;           // 进入重裂纹阶段的剩余生命阈值
 	constexpr float kWetLingeringSeconds = 6.0f;        // 离开冲刷坡面后的持续湿润时间

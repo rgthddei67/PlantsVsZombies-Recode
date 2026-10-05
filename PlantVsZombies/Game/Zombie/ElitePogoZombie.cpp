@@ -1,10 +1,11 @@
 #include "ElitePogoZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../Plant/Plant.h"
 #include "../../ResourceKeys.h"
 
 namespace {
-	constexpr int kElitePogoHealth = 850;               // 精英跳跳本体生命值
+	constexpr int kElitePogoHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_POGO).body;               // 精英跳跳本体生命值
 	constexpr float kElitePogoSpeedMultiplier = 1.15f;  // 持杆推进与动画的品种能力倍率
 	constexpr int kElitePogoImpactDamage = 600;         // 第一次高坚果阻拦时造成的僵尸来源伤害
 }

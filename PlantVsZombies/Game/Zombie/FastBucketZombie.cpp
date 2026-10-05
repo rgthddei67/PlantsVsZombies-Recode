@@ -1,4 +1,5 @@
 #include "FastBucketZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 
 namespace
@@ -28,12 +29,11 @@ void FastBucketZombie::SetupZombie()
 		GetTexture("IMAGE_FASTZOMBIE_BUCKET1"));
 
 	if (mIsPreview) return;
-	this->mHelmHealth = 600;
-	this->mHelmMaxHealth = 600;
+	this->mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTBUCKET).helm;
+	this->mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTBUCKET).helm;
 	this->mHelmType = HelmType::HELMTYPE_BUCKET;
 	this->mSpeed *= GameRandom::Range(kFastBucketMoveSpeedMin, kFastBucketMoveSpeedMax);
-	int damage = static_cast<int>(this->mAttackDamage * 1.5f);
-	this->mAttackDamage = damage;
+	this->mAttackDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTBUCKET).bite;
 	mAbilityAnimSpeedMultiplier =
 		GameRandom::Range(kFastBucketAnimSpeedMin, kFastBucketAnimSpeedMax);
 }
@@ -116,5 +116,6 @@ ZombieMovementRules::BirthProfile FastBucketZombie::GetBirthMovementProfile()
 	p.rootMultiplierMaximum=kFastBucketMoveSpeedMax;
 	p.abilityMinimum=kFastBucketAnimSpeedMin;
 	p.abilityMaximum=kFastBucketAnimSpeedMax;
+	p.slowAnimationFactor=ZombieMovementRules::FastSlowAnimationFactor;
 	return p;
 }

@@ -1,12 +1,13 @@
 #include "PoolConeZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 
 /** 初始化路障耐久，同时保留泳池僵尸的事件与稳态轨道设置。 */
 void PoolConeZombie::SetupZombie()
 {
 	PoolNormalZombie::SetupZombie();
-	mHelmHealth = 370;
-	mHelmMaxHealth = 370;
+	mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POOL_CONE).helm;
+	mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POOL_CONE).helm;
 	mHelmType = HelmType::HELMTYPE_TRAFFIC_CONE;
 }
 

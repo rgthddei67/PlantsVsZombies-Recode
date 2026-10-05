@@ -16,11 +16,12 @@ namespace {
 	}
 }
 
+#include "ZombieBirthVitalsRules.h"
 void BucketZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
-	this->mHelmHealth = 1100;
-	this->mHelmMaxHealth = 1100;
+	this->mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BUCKET).helm;
+	this->mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BUCKET).helm;
 	this->mHelmType = HelmType::HELMTYPE_BUCKET;
 }
 

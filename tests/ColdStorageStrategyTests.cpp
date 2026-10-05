@@ -7,6 +7,7 @@
 #include "Game/Zombie/AdaptiveHelmetRules.h"
 #include "Game/Zombie/PolarClockRules.h"
 #include "Game/Zombie/CatapultRules.h"
+#include "Game/Zombie/ZombieBirthVitalsRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "Game/Plant/IceStorageNutRules.h"
@@ -22,6 +23,55 @@
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
 {
+	auto check = [](bool condition, const char* name) {
+		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
+	};
+	for(int type=0;type<static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES);++type) {
+		const auto value=ZombieBirthVitalsRules::Get(static_cast<ZombieType>(type));
+		check(value.known && value.body>0 && value.helm>=0 && value.shield>=0,
+			"every implemented type must explicitly declare its actual birth layers");
+	}
+	const auto scaledBirth=ZombieBirthVitalsRules::Scaled(ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_PINK_FOOTBALL),1.1,.75);
+	check(scaledBirth.body==242 && scaledBirth.helm==743 && scaledBirth.bite==40,
+		"birth scaling rounds body and armor separately without changing attack damage");
+	check(ZombieBirthVitalsRules::ScaleHealth(15000,1e20)==std::numeric_limits<int>::max(),
+		"shared entity and forecast health scaling saturates before narrowing to integer");
+	{
+	using namespace ColdStorageSearch;
+	Snapshot dance; dance.houseX=-10000;
+	Unit leader; leader.id=1; leader.body.row=2; leader.body.x=900; leader.body.health=DancerRules::BodyHealth;
+	leader.dance.leader=true; leader.dance.remaining=1; leader.dance.snapSeconds=1;
+	leader.dance.stopHealth=DancerRules::BodyHealth/3.0f;
+	dance.current={leader};
+	dance.dancerBackup.body.health=DancerRules::BackupBodyHealth;
+	dance.dancerBackup.dance.backup=true; dance.dancerBackup.dance.phase=DancerRules::Forecast::Phase::HOLD;
+	dance.dancerBackup.dance.remaining=DancerRules::HoldSeconds;
+	ConstructionStats stats;
+	check(Evaluate(dance,{},&stats)[5]==0 && stats.dancerSummons==4,
+		"dancer creates four independent free followers without inventing purchase costs");
+	check(dance.current[0].dance.remaining==1 && dance.current[0].dance.followers[0]==0,
+		"numeric summoning cannot mutate the live portrait or its follower identities");
+	auto edge=dance; edge.current[0].body.row=4; Evaluate(edge,{},&stats);
+	check(stats.dancerSummons==3,"last-row dancer cannot summon into an absent sixth lane");
+	auto headless=dance; headless.current[0].body.health=160; Evaluate(headless,{},&stats);
+	check(stats.dancerSummons==0,"headless dancer cannot start or complete another summon");
+	Counter fatal; fatal.blast.committed=true; fatal.blast.ready=1; fatal.blast.damage=1800;
+	fatal.blast.x=900; fatal.blast.reach.fill(-1); fatal.blast.reach[2]=0;
+	auto before=dance; before.counters={fatal}; Evaluate(before,{},&stats);
+	check(stats.dancerSummons==0,"leader death before snap completion cancels the uncommitted summon");
+	auto after=before; after.current[0].dance.phase=DancerRules::Forecast::Phase::SNAP;
+	after.current[0].dance.remaining=0;
+	Plant target; target.id=10; target.row=1; target.x=900; target.health=100; target.reward=10;
+	after.plants={target};
+	check(Evaluate(after,{},&stats)[0]==10 && stats.dancerSummons==4,
+		"already committed free followers continue attacking after their leader dies");
+	Snapshot rising; rising.houseX=-10000; rising.current={dance.dancerBackup};
+	rising.current[0].body.x=900; rising.current[0].dance.walkSpeed=100;
+	target.row=0; target.x=500; rising.plants={target};
+	check(Evaluate(rising,{})[0]==10,"purchased backup resumes walking after its rise instead of remaining stationary forever");
+	rising.current[0].dance.backup=false;
+	check(Evaluate(rising,{})[0]==0,"stationary body alone cannot invent the later attack");
+	}
 	using namespace ColdStorageStrategy;
 	SplashField field;
 	field.directDps[1] = field.melonDps[1] = 27;
@@ -32,9 +82,7 @@ int main()
 	worker.x = 1120; worker.health = 500; worker.value = 150;
 	SplashUnit bucket = guard;
 	bucket.row = 1; bucket.x = 1140; bucket.health = 1500; bucket.value = 8; bucket.spawnAt = 1;
-	auto check = [](bool condition, const char* name) {
-		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
-	};
+
 	{
 		using namespace IceStorageNutRules;
 		Protection protection;

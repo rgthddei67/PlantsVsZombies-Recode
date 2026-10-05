@@ -1,4 +1,5 @@
 #include "HealerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -13,7 +14,7 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 800;                       // 急救员本体生命
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_HEALER).body;                       // 急救员本体生命
 	constexpr float kFullHealCooldown = 5.0f;             // 成功治疗后的完整冷却，单位游戏秒
 	constexpr float kCastDuration = 1.0f;                 // 两种治疗共同的施法前摇，单位游戏秒
 	constexpr float kRetryDelay = 0.5f;                   // 目标失效或无伤员时的重试间隔，单位游戏秒

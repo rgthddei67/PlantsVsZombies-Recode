@@ -1,11 +1,11 @@
 #include "EliteDancerZombie.h"
+#include "DancerRules.h"
 #include "BackupDancerZombie.h"
 #include "Game/Board/Board.h"
 
 #include <algorithm>
 
 namespace {
-	constexpr int kEliteDancerHealth = 720;                 // 精英舞王本体血量。
 	constexpr int kMaxActiveBackupDancers = 36;              // 同时维持的直属伴舞上限。
 	constexpr float kEliteDancerSpeed = 1.25f;              // 精英舞王基础移动倍率。
 	constexpr float kBackupSummonInterval = 0.2f;           // 每次补充一只伴舞的游戏时间间隔（秒）。
@@ -30,8 +30,8 @@ namespace {
 void EliteDancerZombie::SetupZombie()
 {
 	DancerZombie::SetupZombie();
-	mBodyHealth = kEliteDancerHealth;
-	mBodyMaxHealth = kEliteDancerHealth;
+	mBodyHealth = DancerRules::EliteBodyHealth;
+	mBodyMaxHealth = DancerRules::EliteBodyHealth;
 	mFollowerIDs.clear();
 	mSummonTimer = kBackupSummonInterval;
 	mNextFormationSlot = 0;
@@ -188,5 +188,6 @@ ZombieMovementRules::BirthProfile EliteDancerZombie::GetBirthMovementProfile()
 {
 	auto p=DancerZombie::GetBirthMovementProfile();
 	p.abilityMinimum=p.abilityMaximum=kEliteDancerSpeed;
+	p.slowAnimationFactor=ZombieMovementRules::FastSlowAnimationFactor;
 	return p;
 }

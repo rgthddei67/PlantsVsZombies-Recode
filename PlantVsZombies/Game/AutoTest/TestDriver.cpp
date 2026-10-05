@@ -115,6 +115,7 @@
 #include "../Zombie/AuroraPriestZombie.h"
 #include "../Zombie/PolarClockmakerZombie.h"
 #include "../Zombie/EliteDancerZombie.h"
+#include "../Zombie/BackupDancerZombie.h"
 #include "../Zombie/Polevaulter.h"
 #include "../Zombie/DolphinRiderZombie.h"
 #include "../Zombie/CrystalHornMinerZombie.h"
@@ -1013,7 +1014,12 @@ bool TestDriver::ExecuteCurrent() {
 				report["legalOptions"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))},
 					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},
 					{"birthObjectX",option.unit.body.x+option.unit.body.blastAnchorOffset},
-					{"birthHealth",option.unit.body.health},{"boundsWidth",option.unit.body.boundsWidth}});
+					{"birthHealth",option.unit.body.health},{"boundsWidth",option.unit.body.boundsWidth},
+					{"birthBodyHealth",option.unit.body.health-option.unit.helmHealth-option.unit.shieldHealth},
+					{"birthHelmHealth",option.unit.helmHealth},{"birthShieldHealth",option.unit.shieldHealth},
+					{"birthBiteDps",option.unit.biteDps},{"birthSlowFactor",option.unit.body.slowFactor},
+					{"birthCanChill",option.unit.body.canBeChilled},{"birthCanParalyze",option.unit.paralysisAllowed},
+					{"birthHeadThreshold",option.unit.temporalStopHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
 				auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
 				// 编队诊断默认明确采用完整时域；可显式选小队阶段，报告中保留阶段避免混比。
@@ -1048,6 +1054,7 @@ bool TestDriver::ExecuteCurrent() {
 					{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
+					{"dancerSummons",result.construction.dancerSummons},
 					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
 					{"catapultBlocks",result.construction.catapultBlocks},
 					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
@@ -5703,6 +5710,17 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		board->mZombieCountDown * 1000.0f));
 	out["waveZombiePoints"] = board->GetCurrentWaveZombiePoints();
 	out["boardHxyModeEnabled"] = board->mHxyModeEnabled;
+	// 显式出生诊断可同时核对实例与新购画像；常规真人日志不会复制这张完整表。
+	if(opName=="dump_state") {
+		out["zombieBirthVitals"]=nlohmann::json::object();
+		for(int type=0;type<static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES);++type) {
+			const auto kind=static_cast<ZombieType>(type);
+			const auto value=ZombieBirthVitalsRules::Scaled(ZombieBirthVitalsRules::Get(kind),board->GetZombieHpMultiplier(),
+				board->mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
+			out["zombieBirthVitals"][GameDataManager::GetInstance().ZombieTypeToEnumName(kind)]={
+				{"known",value.known},{"body",value.body},{"helm",value.helm},{"shield",value.shield},{"bite",value.bite}};
+		}
+	}
 	out["zombieNumber"] = board->mZombieNumber;
 	out["hostileZombieCountForMusic"] = board->GetHostileZombieCountForMusic();
 	out["mowerCount"] = static_cast<int>(board->mEntityRegistry.GetAllMowerIDs().size());
@@ -7225,6 +7243,13 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				ResourceKeys::Particles::PARTICLE_TEMPORALCLOCKHOURHAND, false) != nullptr;
 			zombieState["clockMinuteHandTextureLoaded"] = ResourceManager::GetInstance().GetTexture(
 				ResourceKeys::Particles::PARTICLE_TEMPORALCLOCKMINUTEHAND, false) != nullptr;
+		}
+		if(z->mZombieType==ZombieType::ZOMBIE_DANCER || z->mZombieType==ZombieType::ZOMBIE_BACKUP_DANCER) {
+			const auto dance=z->mZombieType==ZombieType::ZOMBIE_DANCER
+				? static_cast<const DancerZombie*>(z)->GetDanceForecast() : static_cast<const BackupDancerZombie*>(z)->GetDanceForecast();
+			zombieState["dancePhase"]=static_cast<int>(dance.phase);
+			zombieState["danceRemainingMs"]=static_cast<int>(std::lround(dance.remaining*1000));
+			zombieState["danceFollowers"]=dance.followers;
 		}
 		if (auto* elite = dynamic_cast<EliteDancerZombie*>(z)) {
 			zombieState["eliteBackupCount"] = elite->GetActiveBackupCount();

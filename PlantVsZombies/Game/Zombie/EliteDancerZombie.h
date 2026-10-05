@@ -31,7 +31,7 @@ protected:
 	float GetAbilityAnimSpeedMultiplier() const override;
 
 	// 保留80%动画速度
-	float GetSlowAnimFactor() const override { return 0.80f; }
+	float GetSlowAnimFactor() const override { return ZombieMovementRules::FastSlowAnimationFactor; }
 
 private:
 	void CleanupFollowers();

@@ -44,7 +44,7 @@ public:
 
 protected:
 	// 减速动画只降到 0.8x（快速僵尸减速后仍偏快的手感）；其余逻辑沿用基类 SetCooldown/UpdateAnimSpeed
-	float GetSlowAnimFactor() const override { return 0.8f; }
+	float GetSlowAnimFactor() const override { return ZombieMovementRules::FastSlowAnimationFactor; }
 	float GetAbilityAnimSpeedMultiplier() const override;
 	void RestoreLegacyAbilityAnimSpeedMultiplier(float multiplier) override;
 

@@ -14,7 +14,7 @@ protected:
 		bool bypassShield = false) const override;
 
 public:
-	static constexpr int InitialShieldHealth = 1030; // 加固门生命，出生与候选投影共用
+	static constexpr int InitialShieldHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_REINFORCED_DOOR).shield; // 加固门生命，出生与候选投影共用
 	static constexpr int ShieldedHitCap = 10; // 持门时植物普通伤害的每击上限
 	static constexpr int ShieldedAshCap = 320; // 持门时灰烬伤害的每击上限
 	static constexpr int FumeMultiplier = 2; // 大喷家族对本变体的伤害倍率

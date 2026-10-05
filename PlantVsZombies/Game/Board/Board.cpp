@@ -53,7 +53,7 @@
 namespace {
 	constexpr float kHxyWaveBudgetMultiplier = 0.7f; // HXY专属出怪预算相对难度1的倍率
 	constexpr int kHxyStartingSunBonus = 300; // HXY专属每次新开局额外阳光，续局与生存换轮不重复发放
-	constexpr double kHxyArmorHealthMultiplier = 0.75; // HXY专属所有防具当前及最大生命倍率，本体不变
+	constexpr double kHxyArmorHealthMultiplier = ZombieBirthVitalsRules::HxyArmorHealthMultiplier; // HXY出生防具倍率与预测共用
 	/** 返回当前地形唯一的关卡音乐资源键，供预构建与正式播放共用。 */
 	const std::string& BackgroundMusicKey(Background background)
 	{

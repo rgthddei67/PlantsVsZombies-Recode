@@ -30,9 +30,11 @@ public:
 	void SetCooldown(float /*timer*/, bool /*bypassShield*/ = false) override {}
 
 	bool CanBeCharmed() const override { return false; }
-	bool CanBeChilled() const override { return false; }
+	static constexpr bool SupportsChill = false; // 冰车常规寒冰资格，特殊减速入口另由品种处理
+	static constexpr bool SupportsParalysis = false; // 车辆不接受麻痹
+	bool CanBeChilled() const override { return SupportsChill; }
 	bool CanBeFrozen() const override { return false; }
-	bool CanBeParalyzed() const override { return false; }
+	bool CanBeParalyzed() const override { return SupportsParalysis; }
 	bool CanBeGrabbedByTangleKelp() const override { return false; }
 
 	/**

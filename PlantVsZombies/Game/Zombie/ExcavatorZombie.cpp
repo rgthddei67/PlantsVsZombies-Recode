@@ -1,4 +1,5 @@
 #include "ExcavatorZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "Game/Board/Board.h"
 #include "ResourceManager.h"
 #include "ResourceKeys.h"
@@ -6,7 +7,7 @@
 #include <cmath>
 
 namespace {
-	constexpr int kHealth = 1800; // 本体生命，保证工兵有接近关键石块的耐久；帽子不提供护甲
+	constexpr int kHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_EXCAVATOR).body; // 本体生命，保证工兵有接近关键石块的耐久；帽子不提供护甲
 	constexpr float kWorkSeconds = 4.0f; // 无减速时施工所需游戏秒
 	constexpr float kRetrySeconds = 3.0f; // 取消或结束啃食后的重试游戏秒
 	constexpr float kApproachMultiplier = 3.0f; // 锁定工地后赶路的动画与根运动倍率，施工和啃食不加速

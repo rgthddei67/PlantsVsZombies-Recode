@@ -1,4 +1,5 @@
 #include "IceWallEngineerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "Game/Board/Board.h"
 #include "../IceWall.h"
@@ -9,7 +10,7 @@
 #include <algorithm>
 
 namespace {
-	constexpr int kEngineerBodyHealth = 800;              // 工程师本体生命；威胁主体仍是施工而非纯耐久
+	constexpr int kEngineerBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ICE_WALL_ENGINEER).body;              // 工程师本体生命；威胁主体仍是施工而非纯耐久
 	constexpr float kConstructionDuration = 4.0f;         // 从停步到冰墙原子提交的施工游戏秒数
 	constexpr float kConstructionWallGap = 58.0f;         // 墙与 collider 前缘错开以露出施工装饰，单位 px
 	constexpr float kBuildParticleInterval = 0.45f;       // 施工碎冰反馈间隔，单位游戏秒

@@ -1,4 +1,5 @@
 #include "PogoZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -33,8 +34,8 @@ namespace {
 
 void PogoZombie::SetupZombie()
 {
-	mBodyMaxHealth = 500;
-	mBodyHealth = 500;
+	mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POGO).body;
+	mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POGO).body;
 	mSpeed = kGroundRootMotionRate;
 	mNeedDropArm = true;
 	mNeedDropHead = true;
@@ -542,6 +543,7 @@ ZombieMovementRules::BirthProfile PogoZombie::GetBirthMovementProfile()
 	p.linear=true;
 	p.velocityMinimum=p.velocityMaximum=kPogoWalkSpeed;
 	p.phaseDependent=true;
+	p.slowAnimationFactor=ZombieMovementRules::PogoSlowAnimationFactor;
 	return p;
 }
 

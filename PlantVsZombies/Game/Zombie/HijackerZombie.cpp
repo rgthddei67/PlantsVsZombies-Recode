@@ -1,4 +1,5 @@
 #include "HijackerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -9,7 +10,7 @@
 #include <algorithm>
 
 namespace {
-	constexpr int kBodyHealth = 1000;                    // 劫持者基础本体生命
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_HIJACKER).body;                    // 劫持者基础本体生命
 	constexpr int kLockHealthBoost = 1000;               // 首次被雷荷锁定时同时增加的当前与最大本体生命
 	constexpr float kGroundRootMotionRate = 12.0f;       // 小丑 _ground 时间线的根运动换算基准
 	constexpr float kWalkClip = 1.0f;                    // 把小丑快跑时间线压回普通僵尸中值步速

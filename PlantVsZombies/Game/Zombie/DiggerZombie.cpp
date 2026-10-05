@@ -1,4 +1,5 @@
 #include "DiggerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -15,8 +16,8 @@
 #include <string>
 
 namespace {
-	constexpr int kBodyHealth = 270;                         // 原版矿工本体生命值
-	constexpr int kHardhatHealth = 100;                      // 原版矿工安全帽生命值
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DIGGER).body;                         // 原版矿工本体生命值
+	constexpr int kHardhatHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DIGGER).helm;                      // 原版矿工安全帽生命值
 	constexpr float kResourceFps = 16.0f;                    // Zombie_digger.reanim 资源帧率
 	constexpr float kCSharpTicksPerSecond = 100.0f;          // 原版 mVelX 每厘秒位移换算基准
 	constexpr float kTunnelVelocityMin = 0.66f;              // 原版地下速度随机下界，单位 px/tick

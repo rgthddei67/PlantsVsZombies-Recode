@@ -1313,7 +1313,11 @@ ZombieMovementRules::BirthProfile GameDataManager::GetZombieBirthMovement(Zombie
 
 ZombieMovementRules::SpeedRange GameDataManager::GetZombieBirthMoveSpeeds(ZombieType type) const
 {
-	const auto profile = GetZombieBirthMovement(type);
+	return GetZombieMoveSpeeds(type,GetZombieBirthMovement(type));
+}
+
+ZombieMovementRules::SpeedRange GameDataManager::GetZombieMoveSpeeds(ZombieType type, const ZombieMovementRules::BirthProfile& profile) const
+{
 	if (profile.linear) {
 		const float width=profile.velocityMaximum-profile.velocityMinimum;
 		return {{profile.velocityMinimum,profile.velocityMinimum+width*.5f,profile.velocityMaximum},true,profile.phaseDependent,

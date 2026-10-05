@@ -216,6 +216,8 @@ public:
 	ZombieMovementRules::BirthProfile GetZombieBirthMovement(ZombieType zombieType) const;
 	/** 只读资源步幅和品种参数，返回出生速度范围；不创建实体/Animator，不消费 RNG。 */
 	ZombieMovementRules::SpeedRange GetZombieBirthMoveSpeeds(ZombieType zombieType) const;
+	/** 只读推导明确阶段的运动分布；允许品种的静止出生与后续行走分开采样。 */
+	ZombieMovementRules::SpeedRange GetZombieMoveSpeeds(ZombieType type, const ZombieMovementRules::BirthProfile& profile) const;
 
 	/**
 	 * @brief 获取僵尸对应的动画资源名

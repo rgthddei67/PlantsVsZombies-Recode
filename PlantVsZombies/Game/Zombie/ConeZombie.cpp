@@ -3,11 +3,12 @@
 
 #include "../../ResourceKeys.h"
 
+#include "ZombieBirthVitalsRules.h"
 void ConeZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
-	this->mHelmHealth = 370;
-	this->mHelmMaxHealth = 370;
+	this->mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_TRAFFIC_CONE).helm;
+	this->mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_TRAFFIC_CONE).helm;
 	this->mHelmType = HelmType::HELMTYPE_TRAFFIC_CONE;
 }
 

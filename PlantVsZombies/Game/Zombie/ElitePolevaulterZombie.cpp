@@ -1,4 +1,5 @@
 #include "ElitePolevaulterZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -6,7 +7,7 @@
 #include "../../ParticleSystem/ParticleSystem.h"
 
 namespace {
-	constexpr int kElitePolevaulterHealth = 450;  // 精英撑杆本体基础血量
+	constexpr int kElitePolevaulterHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_POLEVAULTER).body;  // 精英撑杆本体基础血量
 	constexpr int kTallNutBlockDamage = 500;  // 精英撑杆被挡时对高坚果造成的基础碰撞伤害
 	constexpr float kEliteVaultDistance = 250.0f;  // 精英撑杆每次落地的逻辑推进距离，单位 px
 	constexpr float kEliteAnimationSpeedMultiplier = 1.1f;  // 相对普通撑杆的统一动画速度倍率

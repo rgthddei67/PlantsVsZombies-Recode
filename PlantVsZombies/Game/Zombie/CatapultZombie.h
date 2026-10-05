@@ -40,7 +40,8 @@ public:
 	Vector GetIceTrapBottomAnchor() const override;
 
 	bool CanBeCharmed() const override { return false; }
-	bool CanBeParalyzed() const override { return false; }
+	static constexpr bool SupportsParalysis = false; // 投篮车可寒冰减速，但不接受麻痹
+	bool CanBeParalyzed() const override { return SupportsParalysis; }
 	bool CanBeGrabbedByTangleKelp() const override { return false; }
 
 	Phase GetPhase() const { return mPhase; }

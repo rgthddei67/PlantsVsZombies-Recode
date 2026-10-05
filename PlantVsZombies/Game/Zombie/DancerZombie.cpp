@@ -1,26 +1,29 @@
 #include "DancerZombie.h"
+#include "DancerRules.h"
 #include "BackupDancerZombie.h"
 #include "Game/Board/Board.h"
 #include "../Plant/Plant.h"
 #include "../../ParticleSystem/ParticleSystem.h"
+#include "../../ResourceManager.h"
+#include <stdexcept>
 
 namespace {
 	constexpr float kDancingInDuration = 2.0f;	// 入场月球漫步基础时长（原版 200cs），另加 0~0.12s 随机
-	constexpr float kHoldDuration = 1.2f;		// 响指后保持举手姿势的时长——**须同改**：与伴舞 kRiseDuration 一致（举手定格到伴舞出土完成）
-	constexpr float kDanceLimitX = 700.0f;		// 越过此 x 不再补充召唤（原版 dance limit）
+	constexpr float kHoldDuration = DancerRules::HoldSeconds;		// 响指后保持举手姿势的时长——**须同改**：与伴舞 kRiseDuration 一致（举手定格到伴舞出土完成）
+	constexpr float kDanceLimitX = DancerRules::RefillLimitX;		// 越过此 x 不再补充召唤（原版 dance limit）
 	constexpr float kMoonwalkClip = 2.0f;		// 原版 rate24（12fps 的 2 倍）；截图手感可微调
-	constexpr float kPointClip = 2.0f;
+	constexpr float kPointClip = DancerRules::PointClip;
 	constexpr float kArmraiseClip = 1.8f;		// 与伴舞 kArmraiseClip 保持一致，否则举手段散拍
-	constexpr float kDanceAnimSpeed = 1.2f;		// 与伴舞 kDanceAnimSpeed 保持一致
-	constexpr float kSummonFrontMinX = 130.0f;	// 舞王 x<130 时不放前方位（原版防出左屏）
-	constexpr float kSummonSideDist = 100.0f;	// 同行前/后伴舞与舞王的 x 距离
+	constexpr float kDanceAnimSpeed = DancerRules::DanceSpeed;		// 与伴舞 kDanceAnimSpeed 保持一致
+	constexpr float kSummonFrontMinX = DancerRules::FrontMinimumX;	// 舞王 x<130 时不放前方位（原版防出左屏）
+	constexpr float kSummonSideDist = DancerRules::SideDistance;	// 同行前/后伴舞与舞王的 x 距离
 	constexpr float kDancerFlipPivotX = 45.0f;	// C# UpdateReanim 翻面时补 90px，等价于绕局部 x=45 翻转
 }
 
 void DancerZombie::SetupZombie()
 {
-	mBodyHealth = 500;
-	mBodyMaxHealth = 500;
+	mBodyHealth = DancerRules::BodyHealth;
+	mBodyMaxHealth = DancerRules::BodyHealth;
 	SetAnimationSpeed(kDanceAnimSpeed);
 
 	if (mIsPreview) { PlayTrack("anim_moonwalk", kMoonwalkClip); return; }
@@ -300,4 +303,32 @@ ZombieMovementRules::BirthProfile DancerZombie::GetBirthMovementProfile()
 	p.animationMinimum=p.animationMaximum=kMoonwalkClip;
 	p.phaseDependent=true;
 	return p;
+}
+
+float DancerZombie::GetForecastSnapSeconds()
+{
+	const auto reanim=ResourceManager::GetInstance().GetReanimation("ZombieJackson");
+	if (!reanim) throw std::runtime_error("missing dancer snap reanimation");
+	const auto range=reanim->GetTrackFrameRange("anim_point");
+	if(range.first<0 || range.second<=range.first || reanim->mFPS<=0)
+		throw std::runtime_error("invalid dancer snap frame range");
+	return (range.second-range.first)/(reanim->mFPS*DancerRules::PointClip);
+}
+
+DancerRules::Forecast DancerZombie::GetDanceForecast() const
+{
+	DancerRules::Forecast result;
+	result.leader=true; result.phase=static_cast<DancerRules::Forecast::Phase>(mPhase);
+	result.remaining=mPhaseTimer; result.snapSeconds=GetForecastSnapSeconds();
+	result.walkSpeed=GetSimulationRootMoveSpeed("anim_walk",DancerRules::DanceSpeed);
+	result.entrySpeed=GetSimulationRootMoveSpeed("anim_moonwalk",kMoonwalkClip);
+	result.stopHealth=mBodyMaxHealth/3;
+	for(size_t i=0;i<result.followers.size();++i)
+		result.followers[i]=mFollowerID[i]==NULL_ZOMBIE_ID ? 0 : mFollowerID[i];
+	if(mPhase==DancerPhase::SNAPPING && mAnimator) {
+		const auto reanim=mAnimator->GetReanimation();
+		const auto range=reanim->GetTrackFrameRange("anim_point");
+		result.remaining=std::max(0.0f,range.second-mAnimator->GetCurrentFrame())/(reanim->mFPS*DancerRules::PointClip);
+	}
+	return result;
 }

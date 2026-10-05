@@ -1,4 +1,5 @@
 #include "FastPaperZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 namespace {
 	constexpr float kFastPaperBaseAnimSpeedMultiplier = 1.5f;	// 加强读报相对普通读报能力倍率的固定增幅
@@ -14,16 +15,16 @@ void FastPaperZombie::SetupZombie()
 		GetTexture("IMAGE_FASTZOMBIE_PAPER_PAPER1"));
 
 	// 加强版数值：更厚的报纸 + 更肉的本体（破碎阈值仍是 2/3、1/3，逻辑沿用基类 CheckShieldImage）
-	this->mBodyHealth = 350;
-	this->mBodyMaxHealth = 350;
-	this->mShieldHealth = 700;
-	this->mShieldMaxHealth = 700;
+	this->mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTPAPER).body;
+	this->mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTPAPER).body;
+	this->mShieldHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTPAPER).shield;
+	this->mShieldMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTPAPER).shield;
 
 	if (mIsPreview) return;
 
 	// 攻击更疼；整体动画能力倍率由虚函数在普通读报状态倍率外再乘 1.5。
 	// 狂暴后最终能力倍率为 1.5×1.4=2.1，腿部动画与地面位移一起缩放，不脱节。
-	this->mAttackDamage = static_cast<int>(this->mAttackDamage * 1.5f);
+	this->mAttackDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_FASTPAPER).bite;
 }
 
 float FastPaperZombie::GetAbilityAnimSpeedMultiplier() const

@@ -1,4 +1,5 @@
 #include "ThermalSniperZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "ThermalSniperRules.h"
 
 #include "../../DeltaTime.h"
@@ -14,8 +15,8 @@
 #include <algorithm>
 
 namespace {
-constexpr int kBodyHealth = 1200; // 热感狙击僵尸本体生命
-constexpr int kBiteDamage = 50; // 单次啃咬基础伤害
+constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_THERMAL_SNIPER).body; // 热感狙击僵尸本体生命
+constexpr int kBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_THERMAL_SNIPER).bite; // 单次啃咬基础伤害
 constexpr float kReloadSeconds = ThermalSniperRules::Reload; // 共用独立装填周期，游戏秒
 constexpr float kAimSeconds = ThermalSniperRules::Aim; // 共用落种预警时长，游戏秒
 constexpr float kPulseSpeed = ThermalSniperRules::PulseSpeed; // 共用热脉冲速度，px/游戏秒

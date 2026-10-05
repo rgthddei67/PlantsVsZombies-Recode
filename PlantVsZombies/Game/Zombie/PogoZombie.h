@@ -66,7 +66,7 @@ protected:
 	void LoadExtraData(const nlohmann::json& j) override;
 	/** 持杆弹跳动画不受寒冰降速；弃杆步行恢复普通僵尸的减速动画倍率。 */
 	float GetSlowAnimFactor() const override {
-		return mHasPogo ? 1.0f : Zombie::GetSlowAnimFactor();
+		return mHasPogo ? ZombieMovementRules::PogoSlowAnimationFactor : Zombie::GetSlowAnimFactor();
 	}
 	bool CanUseGroundPoolState() const override { return !mHasPogo; }
 	/** 处理高坚果等植物的跳跃阻拦；返回 true 表示本次阻拦已终止前跳。 */

@@ -1,4 +1,5 @@
 #include "ZamboniZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../../GameRandom.h"
 #include "../../ResourceKeys.h"
@@ -17,7 +18,7 @@
 #include <cmath>
 
 namespace {
-	constexpr int kZamboniHealth = 1350;                 // 原版冰车本体血量
+	constexpr int kZamboniHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ZAMBONI).body;                 // 原版冰车本体血量
 	constexpr float kFastDriveSpeed = 28.0f;             // 出生区冰车最高前进速度，单位 px/s
 	constexpr float kSlowDriveSpeed = 10.0f;              // 速度曲线在地图基准后 300px 处的理论下限，单位 px/s
 	constexpr float kInnerDriveSpeed = 15.0f;            // 进入地图基准后 x<=400 区域的固定速度，单位 px/s
@@ -64,7 +65,7 @@ void ZamboniZombie::SetupZombie()
 	mBodyMaxHealth = kZamboniHealth;
 	mBodyHealth = kZamboniHealth;
 	mNeedDropArm = false;
-	mNeedDropHead = false;
+	mNeedDropHead = ZombieBirthVitalsRules::DropsHeadAtBirth(mZombieType);
 	mHasArm = true;
 	mHasHead = true;
 
@@ -408,6 +409,7 @@ void ZamboniZombie::LoadExtraData(const nlohmann::json& j)
 ZombieMovementRules::BirthProfile ZamboniZombie::GetBirthMovementProfile()
 {
 	auto p=Zombie::GetBirthMovementProfile();
+	p.canBeChilled=SupportsChill; p.canBeParalyzed=SupportsParalysis;
 	p.linear=true;
 	p.velocityMinimum=p.velocityMaximum=kFastDriveSpeed;
 	p.positionCurve={kDriveCurveLeftFromBaseX,kDriveCurveRightFromBaseX,kDriveCurveStopFromBaseX,kSlowDriveSpeed/kFastDriveSpeed,kInnerDriveSpeed/kFastDriveSpeed};

@@ -3,6 +3,7 @@
 #define _DANCERZOMBIE_H_
 
 #include "Zombie.h"
+#include "DancerRules.h"
 
 // 舞王僵尸(MJ版)：月球漫步入场 → 打响指(anim_point)召唤十字 4 伴舞 → 定身跳舞 2s →
 // 随全局节拍齐舞前进；伴舞阵亡后在节拍==12 时重新打响指补位（有头且未越过 kDanceLimitX 才补）。
@@ -10,6 +11,10 @@ class DancerZombie : public Zombie {
 public:
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
 	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
+	/** 读取已注册响指轨道时长；主线程调用，不新增动画事件。 */
+	static float GetForecastSnapSeconds();
+	/** 采样真实阶段、余时及伴舞身份；返回值不借用实体或动画器。 */
+	DancerRules::Forecast GetDanceForecast() const;
 	using Zombie::Zombie;
 
 	enum class DancerPhase {

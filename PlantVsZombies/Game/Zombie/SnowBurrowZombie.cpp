@@ -1,4 +1,5 @@
 #include "SnowBurrowZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -13,8 +14,8 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 700;                       // 潜雪僵尸本体生命值
-	constexpr int kBiteDamage = 50;                        // 单次啃咬基础伤害
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_SNOW_BURROW).body;                       // 潜雪僵尸本体生命值
+	constexpr int kBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_SNOW_BURROW).bite;                        // 单次啃咬基础伤害
 	constexpr int kEmergenceImpactDamage = 150;            // 自然出雪对锁定格战斗顶层的伤害
 	constexpr float kReburrowHealthThreshold = 350.0f;      // 首次触发第二次潜雪的本体生命阈值
 	constexpr float kReburrowWindupSeconds = 0.8f;          // 第二次入雪的可中断前摇秒数

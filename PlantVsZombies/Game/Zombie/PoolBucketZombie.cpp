@@ -1,4 +1,5 @@
 #include "PoolBucketZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 
 namespace {
@@ -20,8 +21,8 @@ namespace {
 void PoolBucketZombie::SetupZombie()
 {
 	PoolNormalZombie::SetupZombie();
-	mHelmHealth = 1100;
-	mHelmMaxHealth = 1100;
+	mHelmHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POOL_BUCKET).helm;
+	mHelmMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POOL_BUCKET).helm;
 	mHelmType = HelmType::HELMTYPE_BUCKET;
 }
 

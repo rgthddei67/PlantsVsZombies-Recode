@@ -1,4 +1,5 @@
 #include "EliteJackInTheBoxZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -17,8 +18,8 @@
 #include <vector>
 
 namespace {
-	constexpr int kEliteBodyHealth = 900;              // 精英小丑本体基础生命
-	constexpr int kEliteBiteDamage = 65;               // 每次啃咬的基础伤害
+	constexpr int kEliteBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX).body;              // 精英小丑本体基础生命
+	constexpr int kEliteBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX).bite;               // 每次啃咬的基础伤害
 	constexpr float kEliteRunVelocity = 0.61f;         // C# 小丑速度口径；略慢于普通小丑
 	constexpr float kThrowIntervalMin = 5.0f;          // 两次投盒之间的最短游戏秒
 	constexpr float kThrowIntervalMax = 7.0f;          // 两次投盒之间的最长游戏秒

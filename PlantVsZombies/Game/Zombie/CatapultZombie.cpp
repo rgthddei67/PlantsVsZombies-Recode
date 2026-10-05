@@ -95,7 +95,7 @@ void CatapultZombie::SetupZombie()
 	mBodyMaxHealth = kBodyHealth;
 	mBodyHealth = kBodyHealth;
 	mNeedDropArm = false;
-	mNeedDropHead = false;
+	mNeedDropHead = ZombieBirthVitalsRules::DropsHeadAtBirth(mZombieType);
 	mHasArm = true;
 	mHasHead = true;
 	mDriveSpeed = GameRandom::Range(kDriveSpeedMin, kDriveSpeedMax);
@@ -529,6 +529,7 @@ void CatapultZombie::LoadExtraData(const nlohmann::json& j)
 ZombieMovementRules::BirthProfile CatapultZombie::GetBirthMovementProfile()
 {
 	auto p=Zombie::GetBirthMovementProfile();
+	p.canBeParalyzed=SupportsParalysis;
 	p.linear=true;
 	p.velocityMinimum=kDriveSpeedMin;
 	p.velocityMaximum=kDriveSpeedMax;

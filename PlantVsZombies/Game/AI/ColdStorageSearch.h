@@ -2,6 +2,8 @@
 #include "Game/Board/WeatherStationRules.h"
 #include "Game/Zombie/ZombieMovementRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
+#include "Game/Zombie/DancerRules.h"
+#include "Game/Zombie/DisasterEngineerRules.h"
 
 #include "ColdStorageStrategy.h"
 #include "ColdStorageDiagnostics.h"
@@ -107,6 +109,7 @@ struct Unit {
 	ZombieMovementRules::PositionCurve movementCurve;
 	float movementCurveBase=0, movementCurveReference=0; // 世界基准与采样位置；保持已采样速度倍率，按推进位置更新车速
 	bool engineer = false, canisterFull = true, reloadPaid = false;
+	float engineerStopHealth = DisasterEngineerRules::Health/3; // 工程师掉头后的停用阈值，实例/新购按缩放后本体最大生命采样
 	float reloadRemaining = 0, thunderResistance = 0, paralysisRemaining = 0;
 	PaidBurst burst;
 	ArmorRepair repair;
@@ -115,6 +118,7 @@ struct Unit {
 	Ritual ritual;
 	GoldenDrive goldenDrive;
 	Clock clock;
+	DancerRules::Forecast dance;
 	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和可锚定的本体掉头阈值；已有实体由 Board 精确采样
 	bool temporalEligible = true, temporalIrreversible = false; // 复合编队/首领及清洁车等不可逆清除不参与回溯
 	float blastCredit = 0; // 本单位已计入爆区损失的冰价，回溯恢复生命时撤回对应部分
@@ -240,6 +244,7 @@ struct ConstructionStats {
 	float armorRepairIce = 0, plantRepairIce = 0;
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
 	int engineerBlocks = 0, thunderStuns = 0;
+	int dancerSummons = 0; // 推演中实际提交的免费伴舞，不计采购资产和玩家死亡返冰
 	float workerProtectionProgress = 0; // 实际挡灰/回溯恢复的工人生命折冰值，仅供探索中间态，不计收入或最终评分
 	float engineerReloadIce = 0;
 	int deploymentShots = 0, deploymentHits = 0;
@@ -293,6 +298,8 @@ struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
 /** 已离膛篮球只保存落格与到达秒，来源死亡或下一轮重排不取消。 */
 struct BasketballFlight { int row=0, column=-1; float at=0, damage=0; };
 struct Snapshot {
+	Unit dancerBackup; // 已采样的普通伴舞出生画像；无实体或资源引用
+	float danceBeatSeconds = 0; // Board 当前全局舞拍在一圈内的位置，游戏秒
 	std::vector<BasketballFlight> basketballs;
 	std::vector<ThunderRay> thunderRays;
 	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹

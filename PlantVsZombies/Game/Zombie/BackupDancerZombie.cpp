@@ -1,13 +1,14 @@
 #include "BackupDancerZombie.h"
+#include "DancerRules.h"
 #include "../../GameApp.h"
 #include "Game/Board/Board.h"
 #include "../ShadowComponent.h"
 #include "../../ParticleSystem/ParticleSystem.h"
 
 namespace {
-	constexpr float kRiseDuration = 1.2f;    // 出土升起耗时（原版 150cs）与DancerZombie kHoldDuration相同
+	constexpr float kRiseDuration = DancerRules::HoldSeconds;    // 出土升起耗时（原版 150cs）与DancerZombie kHoldDuration相同
 	constexpr float kRiseDepth = 145.0f;     // 出生下沉深度（原版 altitude -145）
-	constexpr float kDanceAnimSpeed = 1.2f;  // 全队统一动画速度：覆盖 Start() 的随机 1.1~1.4，否则齐舞散拍
+	constexpr float kDanceAnimSpeed = DancerRules::DanceSpeed;  // 全队统一动画速度：覆盖 Start() 的随机 1.1~1.4，否则齐舞散拍
 	constexpr float kArmraiseClip = 1.8f;    // 举手段 clip（原版 rate18；按截图手感可微调）
 	constexpr int   kGroundClipMargin = 38;   // 地面线裁剪底边 = 逻辑位置 y + 此余量（截图目验微调）
 	constexpr float kDancerFlipPivotX = 45.0f; // C# UpdateReanim 翻面时补 90px，等价于绕局部 x=45 翻转
@@ -15,8 +16,8 @@ namespace {
 
 void BackupDancerZombie::SetupZombie()
 {
-	mBodyHealth = 270;
-	mBodyMaxHealth = 270;
+	mBodyHealth = DancerRules::BackupBodyHealth;
+	mBodyMaxHealth = DancerRules::BackupBodyHealth;
 	SetAnimationSpeed(kDanceAnimSpeed);
 
 	if (mIsPreview) { PlayTrack("anim_walk"); return; }
@@ -203,6 +204,7 @@ void BackupDancerZombie::LoadExtraData(const nlohmann::json& j)
 ZombieMovementRules::BirthProfile BackupDancerZombie::GetBirthMovementProfile()
 {
 	auto p=Zombie::GetBirthMovementProfile();
+	p.canBeChilled=false; // 仅升起出生阶段，落地后在能力时间线上恢复
 	p.linear=true;
 	p.velocityMinimum=p.velocityMaximum=0;
 	p.phaseDependent=true;
@@ -212,4 +214,22 @@ ZombieMovementRules::BirthProfile BackupDancerZombie::GetBirthMovementProfile()
 float BackupDancerZombie::GetMineSimulationMoveSpeed() const
 {
 	return mPhase==BackupPhase::RISING ? 0 : Zombie::GetMineSimulationMoveSpeed();
+}
+
+ZombieMovementRules::BirthProfile BackupDancerZombie::GetDancingMovementProfile()
+{
+	auto profile=Zombie::GetBirthMovementProfile();
+	profile.alternative=nullptr;
+	profile.animationMinimum=profile.animationMaximum=DancerRules::DanceSpeed;
+	return profile;
+}
+
+DancerRules::Forecast BackupDancerZombie::GetDanceForecast() const
+{
+	DancerRules::Forecast result;
+	result.backup=true;
+	result.phase=mPhase==BackupPhase::RISING ? DancerRules::Forecast::Phase::HOLD : DancerRules::Forecast::Phase::DANCE;
+	result.remaining=std::max(0.0f,DancerRules::HoldSeconds-mRiseTimer);
+	result.walkSpeed=GetSimulationRootMoveSpeed("anim_walk",DancerRules::DanceSpeed);
+	return result;
 }

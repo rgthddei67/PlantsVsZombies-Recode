@@ -1,4 +1,5 @@
 #include "BungeeZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -14,7 +15,7 @@
 #include <unordered_set>
 
 namespace {
-	constexpr int kBungeeBodyHealth = 450;                  // 原版蹦极僵尸本体生命
+	constexpr int kBungeeBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BUNGEE).body;                  // 原版蹦极僵尸本体生命
 	constexpr float kInitialAltitudeBase = SCENE_HEIGHT + 180.0f; // 初始离地高度，按当前场景高派生，单位 px
 	constexpr float kInitialAltitudeJitter = 150.0f;        // 同批蹦极下落起点随机差，单位 px
 	constexpr float kDiveSpeed = 600.0f;                    // 下落速度，单位 px/s
@@ -49,7 +50,7 @@ void BungeeZombie::SetupZombie()
 	mBodyHealth = kBungeeBodyHealth;
 	mSpeed = 0.0f;
 	mNeedDropArm = false;
-	mNeedDropHead = false;
+	mNeedDropHead = ZombieBirthVitalsRules::DropsHeadAtBirth(mZombieType);
 	mHasArm = true;
 	mHasHead = true;
 	mPhase = Phase::DIVING;

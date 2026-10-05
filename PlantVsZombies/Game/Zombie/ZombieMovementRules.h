@@ -10,6 +10,9 @@ inline constexpr int RootSpeedJitter = 3; // 出生时基础倍率的整数随�
 inline constexpr float MinimumAnimationSpeed = 1.1f; // 出生基础播放倍率下限
 inline constexpr float MaximumAnimationSpeed = 1.4f; // 出生基础播放倍率上限
 inline constexpr float NormalSlowAnimationFactor = 0.6f; // 普通减速的动画倍率；独立于内部逻辑计时的 0.5 倍
+inline constexpr float FastSlowAnimationFactor = 0.8f; // 快桶及精英舞王减速时保留的动画倍率
+inline constexpr float PinkSlowAnimationFactor = 0.75f; // 粉橄榄减速时保留的动画倍率
+inline constexpr float PogoSlowAnimationFactor = 1.0f; // 持杆跳跳的动画不减速，内部位移仍按半速
 inline constexpr float FootballRootMultiplier = 1.7f; // 普通橄榄球的独立根运动倍率
 inline constexpr float FootballAnimationMultiplier = 1.8f; // 普通橄榄球的常驻动画能力倍率
 inline constexpr float PinkFootballRootMultiplier = 1.85f; // 粉色橄榄球的独立根运动倍率
@@ -38,6 +41,8 @@ struct BirthProfile {
 	float velocityMinimum = 0, velocityMaximum = 0; // linear 时直接使用世界 px/游戏秒，不读取 _ground
 	PositionCurve positionCurve; // 独立车速曲线；场地基准由 Board 提供
 	bool phaseDependent = false; // 后续换阶段/装备会改变运动；不把出生画像冒充完整行为模拟
+	float slowAnimationFactor = NormalSlowAnimationFactor; // 出生阶段寒冰动画倍率，位移还乘内部0.5
+	bool canBeChilled = true, canBeParalyzed = true; // 仅出生阶段/品种稳定资格，后续阶段转换独立投影
 };
 
 /** 出生速度的数值快照；valid=false 表示资源/登记缺失，禁止伪装成固定普通移速。 */

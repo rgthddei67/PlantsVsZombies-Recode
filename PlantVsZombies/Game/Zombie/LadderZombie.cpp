@@ -1,4 +1,5 @@
 #include "LadderZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -44,11 +45,11 @@ const char* LadderZombie::GetPhaseName() const
 
 void LadderZombie::SetupZombie()
 {
-	mBodyHealth = 500;
-	mBodyMaxHealth = 500;
+	mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_LADDER).body;
+	mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_LADDER).body;
 	mShieldType = ShieldType::SHIELDTYPE_LADDER;
-	mShieldHealth = 500;
-	mShieldMaxHealth = 500;
+	mShieldHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_LADDER).shield;
+	mShieldMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_LADDER).shield;
 	mShieldStage = ArmorBrokenState::NO_BROKEN;
 	mPhase = Phase::CARRYING;
 	mWalkVelocity = GameRandom::Range(kCarryingVelocityMin, kCarryingVelocityMax);

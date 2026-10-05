@@ -1,4 +1,5 @@
 #include "EliteLadderZombie.h"
+#include "ZombieBirthVitalsRules.h"
 
 #include "Game/Board/Board.h"
 #include "../GameObjectManager.h"
@@ -8,7 +9,7 @@
 #include "../../ResourceKeys.h"
 
 namespace {
-	constexpr int kEliteLadderBodyHealth = 650; // 精英扶梯本体初始生命；保留普通扶梯的 500 点扶梯防具
+	constexpr int kEliteLadderBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_LADDER).body; // 精英扶梯本体初始生命；保留普通扶梯的 500 点扶梯防具
 	constexpr float kRowScanDelaySeconds = 5.0f; // 出场后一次性整行扫描的游戏时间，单位：秒
 	constexpr int64_t kInfiniteLadderHealthThreshold = 6000; // 严格高于此当前总血量时保留无限搭梯
 	constexpr int kBodyHealthBonus = 500; // 投手数量较多时增加的本体当前/最大生命

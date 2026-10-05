@@ -33,8 +33,8 @@ protected:
 	void ShowBrokenArm() const;
 
 public:
-	static constexpr int InitialBodyHealth = 270; // 普通门本体生命，供出生和候选投影共用
-	static constexpr int InitialShieldHealth = 1100; // 普通铁门生命，不能替本体抵挡穿透伤害
+	static constexpr int InitialBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DOOR).body; // 普通门本体生命，供出生和候选投影共用
+	static constexpr int InitialShieldHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DOOR).shield; // 普通铁门生命，不能替本体抵挡穿透伤害
 	using Zombie::Zombie;
 	bool HasMagneticItem() const override;
 	bool ExtractMagneticItem(MagneticItem& item) override;

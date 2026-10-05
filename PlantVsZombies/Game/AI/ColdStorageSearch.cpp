@@ -21,6 +21,7 @@
 #include <random>
 #include <set>
 #include <utility>
+#include <unordered_map>
 
 namespace ColdStorageSearch {
 namespace {
@@ -62,7 +63,7 @@ constexpr int kRouteSearchBudgetPercent = 65; // 独立路线比较累计用时�
 constexpr int kFormationSearchBudgetPercent = 65; // 技能可用时编队搜索占总剩余预算比例，余量比较清除与跟进
 constexpr float kPortfolioDelay = 60; // 第二版允许跨过一轮反制冷却的出生时域，游戏秒
 constexpr float kPortfolioHorizon = 120; // 最晚队员也有完整交战窗口，游戏秒；产冰仍只计前 60 秒
-constexpr int kForecastSummonLimit = 64; // 一次推演新增小鬼数量上限，不改变正式召唤上限
+constexpr int kForecastSummonLimit = 64; // 每类召唤的一次推演新增实体上限，不改变正式召唤上限
 constexpr float kForecastImpLanding = .5f; // 落地动作阻止攻击/行走的近似时长，游戏秒
 constexpr float kUnpricedCounterStake = 1; // 免费召唤的最低反制威胁，仅用于选灰烬落点，不计购买资产/返冰
 constexpr float kEconomyClearSeconds = 2; // 返阳光卡铲除腾出周转格的保守预测耗时，游戏秒
@@ -1208,6 +1209,65 @@ void ReactToDeployment(float time, const Plant& plant, std::vector<Unit>& units)
 	}
 }
 
+/** 推进舞王动作及独立伴舞：定身期间不能形成虚构的高速屏障，邻行召唤也会引来电弧。 */
+void AdvanceDances(const Snapshot& state,float time,std::vector<Unit>& units,
+	const std::unordered_map<int,size_t>& indices,size_t& nextSlot,size_t slotEnd,
+	std::vector<float>& initialHealth,std::vector<float>& initialX,std::vector<bool>& blocked,ConstructionStats& stats) {
+	using Phase=DancerRules::Forecast::Phase;
+	std::fill(blocked.begin(),blocked.end(),false);
+	const auto followerAlive=[&](int id) {
+		const auto found=indices.find(id);
+		return id!=0 && found!=indices.end() && units[found->second].body.health>0;
+	};
+	for(size_t i=0;i<units.size();++i) {
+		auto& unit=units[i]; auto& dance=unit.dance; auto& body=unit.body;
+		if((!dance.leader && !dance.backup) || body.health<=0 || body.spawnAt>time) continue;
+		const float active=std::max(0.0f,kStep-body.stopped)*(body.slow>0 ? .5f : 1);
+		blocked[i]=dance.phase==Phase::SNAP || dance.phase==Phase::HOLD;
+		if(active<=0 || (dance.leader && body.health<=dance.stopHealth)) continue;
+		if(dance.phase==Phase::ENTRY) {
+			dance.remaining-=active;
+			if(dance.remaining<=0) { dance.phase=Phase::SNAP; dance.remaining=dance.snapSeconds; }
+		} else if(dance.phase==Phase::SNAP) {
+			// 响指由动画推进；寒冰的动画倍率与入场/保持的内部半速计时不同。
+			dance.remaining-=std::max(0.0f,kStep-body.stopped)*DancerRules::DanceSpeed
+				*(body.slow>0 ? ZombieMovementRules::NormalSlowAnimationFactor : 1);
+			if(dance.remaining>0) continue;
+			const float x=body.x+body.blastAnchorOffset;
+			const int rows[4]={body.row-1,body.row+1,body.row,body.row};
+			const float offsets[4]={0,0,-DancerRules::SideDistance,DancerRules::SideDistance};
+			for(int slot=0;slot<4 && nextSlot<slotEnd;++slot) {
+				if(rows[slot]<0 || rows[slot]>=state.rows
+					|| (slot==2 && x<DancerRules::FrontMinimumX) || followerAlive(dance.followers[slot])) continue;
+				const size_t index=nextSlot++;
+				const int id=units[index].id;
+				units[index]=state.dancerBackup;
+				auto& child=units[index]; child.id=id;
+				child.body.row=rows[slot]; child.body.x=x+offsets[slot]-child.body.blastAnchorOffset;
+				child.body.spawnAt=time; child.body.purchaseCost=0; child.playerRefund=0;
+				initialHealth[index]=child.body.health; initialX[index]=child.body.x;
+				dance.followers[slot]=id; ++stats.dancerSummons;
+			}
+			dance.phase=Phase::HOLD; dance.remaining=DancerRules::HoldSeconds;
+		} else if(dance.phase==Phase::HOLD) {
+			dance.remaining-=active;
+			if(dance.remaining<=0) { dance.phase=Phase::DANCE; body.speed=dance.walkSpeed; body.canBeChilled=true; }
+		} else if(dance.leader && body.x+body.blastAnchorOffset>=DancerRules::RefillLimitX) {
+			// 半秒积分可能跨过只有0.2秒的第12拍；按跨拍边沿补召，不凭空每步刷新伴舞。
+			const float beat=state.danceBeatSeconds+time-DancerRules::RefillBeatSeconds;
+			const bool refillBeat=std::floor((beat+kStep)/DancerRules::BeatSeconds)>std::floor(beat/DancerRules::BeatSeconds)
+				|| (std::fmod(beat+DancerRules::BeatSeconds,DancerRules::BeatSeconds)<.2f);
+			if(!refillBeat) continue;
+			bool missing=false;
+			for(int slot=0;slot<4;++slot) {
+				if((slot==0 && body.row==0) || (slot==1 && body.row+1>=state.rows)) continue;
+				missing=missing || !followerAlive(dance.followers[slot]);
+			}
+			if(missing) { dance.phase=Phase::SNAP; dance.remaining=dance.snapSeconds; }
+		}
+	}
+}
+
 /** 按共享充能与择时释放模拟逐行打击；前排位置本身不能替工人挡主伤害。 */
 void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& strikes, float time, const std::vector<Plant>& plants,
 	std::vector<Unit>& units, const std::vector<float>& initialHealth, std::vector<float>& ready,
@@ -1335,7 +1395,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 
 		std::vector<unsigned char> protectedWorkers(units.size());
 		for (auto& engineer:units) if (engineer.engineer && engineer.canisterFull
-			&& engineer.body.spawnAt<=time && engineer.body.health>DisasterEngineerRules::Health/3.0f) {
+			&& engineer.body.spawnAt<=time && engineer.body.health>engineer.engineerStopHealth) {
 			std::vector<std::pair<float,size_t>> nearby;
 			for (size_t i=0;i<units.size();++i) {
 				const auto& u=units[i]; const float distance=std::abs(u.body.x-engineer.body.x);
@@ -2361,6 +2421,14 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			if (boundary) { --boundary->boundaryShards; ++stats.clockRedirects; }
 			// 首次死亡的返冰已经兑现，复活不重新登记；缺少能力快照的旧锚沿用出生状态。
 			if (revived) {
+				// 死亡后重新创建的舞王没有旧伴舞关联；存活回溯则不倒退未纳入正式锚的舞步。
+				if(unit.dance.leader) {
+					unit.dance.phase=DancerRules::Forecast::Phase::ENTRY;
+					unit.dance.remaining=DancerRules::EntrySeconds; unit.dance.followers.fill(0);
+					unit.body.speed=unit.dance.entrySpeed;
+				} else if(unit.dance.backup) {
+					unit.dance.phase=DancerRules::Forecast::Phase::HOLD; unit.dance.remaining=DancerRules::HoldSeconds;
+				}
 				// 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
 				if(unit.catapult.present) {
 					unit.catapult.ammunition=CatapultRules::kInitialBasketballs;
@@ -2695,6 +2763,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		thrownChild[i] = static_cast<int>(units.size());
 		units.push_back(child); // 免费召唤既不增加付款资产，也不向玩家凭空返冰
 	}
+	// 伴舞与裂隙各自预留有界、永不复用的出生槽；旧时间锚不能误恢复后来补召的新实体。
+	size_t nextDanceSlot=units.size();
+	const size_t danceSlotEnd=nextDanceSlot+(std::any_of(units.begin(),units.end(),[](const Unit& u){return u.dance.leader;}) ? kForecastSummonLimit : 0);
+	units.resize(danceSlotEnd);
+	for(size_t i=nextDanceSlot;i<danceSlotEnd;++i) units[i].body.spawnAt=Horizon(s)+1;
 	size_t nextRiftSlot = units.size();
 	if (std::any_of(units.begin(),units.end(),[](const Unit& u) { return u.ritual.enabled; })) {
 		int slots = 0;
@@ -2742,6 +2815,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	int precisionID = s.precisionTargetID > 0 ? s.precisionTargetID : s.pendingPrecisionID;
 	const float precisionAt = s.precisionTargetID > 0 ? ColdStorageSkillRules::StrikeAimDuration : s.pendingPrecisionRemaining;
 	for (size_t i=0; i<units.size(); ++i) if (units[i].id <= 0) units[i].id = -1-static_cast<int>(i);
+	std::unordered_map<int,size_t> danceIndices;
+	if(danceSlotEnd>nextDanceSlot) for(size_t i=0;i<units.size();++i) danceIndices.emplace(units[i].id,i);
+	std::vector<bool> danceBlocked(units.size());
+	const bool hasDance=!danceIndices.empty() || std::any_of(units.begin(),units.end(),[](const Unit& u){return u.dance.backup;});
 	std::vector<float> drumActivity;
 	std::vector<float> constructionReady;
 	std::vector<int> constructionUses;
@@ -2871,6 +2948,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		for (const auto& p : plants) if (p.health > 0 && p.shutdownUntil<=t && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
+		if(hasDance)
+			AdvanceDances(s,t,units,danceIndices,nextDanceSlot,danceSlotEnd,initialHealth,initialX,danceBlocked,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceBasketballs(t,basketballs,plants,f,constructionStats);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
@@ -3008,6 +3087,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,riftColumns,initialHealth,initialX,constructionStats);
 			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
+			if(danceBlocked[i]) continue;
 			if (smashTarget[i] >= 0) {
 				advanceSmash(i,active,speedFactor);
 				continue; // 动作完成后下一步才恢复投掷/移动，与既有正常砸击的步进顺序一致。
@@ -3041,7 +3121,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				}
 			}
 
-			if (worker.engineer && !worker.canisterFull && u.health>DisasterEngineerRules::Health/3.0f && active>0) {
+			if (worker.engineer && !worker.canisterFull && u.health>worker.engineerStopHealth && active>0) {
 				if (!worker.reloadPaid) {
 					if (enemyIce>=DisasterEngineerRules::ReloadCost) {
 						enemyIce-=DisasterEngineerRules::ReloadCost; f[5]+=DisasterEngineerRules::ReloadCost;

@@ -1,4 +1,5 @@
 #include "CrystalHornMinerZombie.h"
+#include "ZombieBirthVitalsRules.h"
 #include "Game/Board/Board.h"
 #include "Game/Plant/Plant.h"
 #include "ResourceManager.h"
@@ -7,8 +8,8 @@
 #include <cmath>
 
 namespace {
-	constexpr int kBodyHealth = 1500; // 本体生命
-	constexpr int kHelmetHealth = 2500; // 非磁性一类晶角头盔生命，优先保护冲撞资格
+	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER).body; // 本体生命
+	constexpr int kHelmetHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER).helm; // 非磁性一类晶角头盔生命，优先保护冲撞资格
 	constexpr int kImpactDamage = 500; // 首株植物战斗顶层的一次冲撞伤害
 	constexpr float kWindupSeconds = 1.0f; // 蓄力游戏秒，受普通减速影响
 	constexpr float kCooldownSeconds = 4.0f; // 完整冲撞冷却，游戏秒
@@ -25,7 +26,7 @@ void CrystalHornMinerZombie::SetupZombie()
 	mBodyHealth = mBodyMaxHealth = kBodyHealth;
 	mHelmHealth = mHelmMaxHealth = kHelmetHealth;
 	mHelmType = HelmType::HELMTYPE_CRYSTAL_HORN;
-	mAttackDamage *= 2;
+	mAttackDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER).bite;
 	SyncEquipment();
 }
 
