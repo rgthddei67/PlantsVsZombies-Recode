@@ -20,9 +20,17 @@ void ThunderFlower::ShootBullet()
 
 float ThunderFlower::GetAttackRemaining() const
 {
-	float remaining=std::max(0.0f,mShootTime-mShootTimer)+ThunderFlowerRules::Windup;
-	// 复用既有第64帧事件；头部正在发射但未出膛时，先兑现这一次待提交攻击。
-	if (mHeadAnim && mHeadAnim->GetCurrentTrackName()=="anim_shooting" && mHeadAnim->GetCurrentFrame()<=64)
-		remaining=std::min(remaining,std::max(0.0f,64-mHeadAnim->GetCurrentFrame())/18.0f);
-	return remaining;
+	return GetAttackForecast().NominalRemaining();
+}
+
+ThunderFlowerRules::AttackForecast ThunderFlower::GetAttackForecast() const
+{
+	ThunderFlowerRules::AttackForecast forecast;
+	forecast.cooldownRemaining = std::max(0.0f,mShootTime-mShootTimer);
+	forecast.checkRemaining = std::max(0.0f,ShooterRules::TargetCheckSeconds-GetTargetCheckElapsed());
+	forecast.sampledRate = GetAttackSpeedMultiplier();
+	// 已过吐弹帧不再补发；正在前摇的雷种即使场上目标离开，也会按正式帧事件兑现。
+	if (mHeadAnim && mHeadAnim->GetCurrentTrackName() == "anim_shooting" && mHeadAnim->GetCurrentFrame() < 64)
+		forecast.pendingRemaining = std::max(0.0f,64-mHeadAnim->GetCurrentFrame())/18.0f;
+	return forecast;
 }

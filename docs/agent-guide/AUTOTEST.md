@@ -29,6 +29,8 @@
 
 `commander_episode.traceUnits: true` 在对战结果的 `trace` 中逐游戏秒附加真实 `units`，用稳定 ID、同行相对位置、分层掉血与工人 `iceBatches` 核对前排是否实际掩护生产；默认仍每十秒只记录聚合状态。`python autotest/verify_commander_frontline.py <输出目录> --require-frontline` 检查账本并要求至少一段前排掉血、后方工人血量不变且完成生产的记录，结果不代表胜率。`ice_bunker_temporal` 是独立陪练，在可见工人群有钟匠且真实资金/冷却允许时先执行时间干扰再交灰烬，其他动作沿用 `ice_bunker`。比较真人与脚本时还须核对战前支援：快速卡槽恢复会缩短真实灰烬空窗，不能仅凭卡组或关卡相同判断威胁等价。`battle_commander_temporal_96.json` 使用正常资金与正式后台搜索，不强制僵尸组合。
 
+`ice_bunker_mixed` 为精英胆小菇与雷鸣花同时建设的独立陪练，仍通过正式卡槽、资金、累计配额和冷却逐步成阵，并保留坚果修复、灰烬与时间干扰。精英菇累计配额耗尽后，空出的后排用雷鸣花按真实费用/冷却补种，专项为 `smoke_commander_mixed_replacement` 及同名 verifier。入口为 `battle_commander_mixed_96.json`，`verify_commander_mixed.py` 核对两种真实输出同场存在及资源账本；旧陪练不受影响。
+
 逐秒取证另记录 `engineerProtectionEvents`：Board 在同次灰烬冻结免伤名单时保存来源和工人的稳定 ID，即使工程师随后被该次爆炸杀死也保留证据。活体 `engineerProtectionUses` 的观测和不代表全部使用次数。`smoke_commander_protection_trace.json` 与同名 verifier 检查同次来源死亡及重叠保护去重；其手动布置只证明取证契约，不是自由经营或胜率证据。
 
 根字段 `commanderFuelAwareLamp: false` 仅供关闭随燃料切挡响应的消融；正式 AI 默认启用。`commander_forecast_options` 可在不推进时间时修改 `fuelAwareLamp` 和 `preservePaidQueue`；后者也支持根字段 `commanderPreservePaidQueue`，只用于同步 `plan_ice_attack`，跳过已付款队列的重排，不冻结真实出场。做同局面对照时须同时核对活体、资源与待出兵队列一致，避免把重新选路误当预测差异；冻结钱包或暂停决策的隔离夹具不能用作正常对局强度结论。

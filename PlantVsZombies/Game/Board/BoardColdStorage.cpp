@@ -23,6 +23,7 @@
 #include "Game/Zombie/EliteJackInTheBoxZombie.h"
 #include "Game/Zombie/HealerZombie.h"
 #include "Game/Zombie/BalloonZombie.h"
+#include "Game/Zombie/DiggerZombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
@@ -340,7 +341,7 @@ namespace {
 		plant.thunder = type == P::PLANT_THUNDERFLOWER;
 		if (plant.thunder) {
 			plant.hitDamage = ThunderFlowerRules::Damage; plant.stopDuty = 0;
-			plant.thunderRemaining = ThunderFlowerRules::Interval+ThunderFlowerRules::Windup;
+			plant.thunderAttack = {};
 		}
 		plant.melon = type == P::PLANT_MELONPULT || type == P::PLANT_WINTERMELON;
 		if (plant.melon)
@@ -851,6 +852,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 	s.searchRouteEvaluated = s.searchCombinationEvaluated = s.searchReinforcementEvaluated = 0;
 	s.searchRefinementEvaluated = 0;
 	s.searchIncomeEvaluated = s.searchPruningEvaluated = 0;
+	s.searchAssaultEvaluated = 0;
 	s.searchCohortEvaluated = s.searchUnevenMixEvaluated = s.searchDuplicatesSkipped = s.searchPaidCounterCasts = 0;
 	s.searchPaidDefensesRetained = false;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
@@ -1318,6 +1320,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			counter.blast.x = blast.x; counter.blast.ready = blast.ready; counter.blast.damage = blast.damage;
 			counter.blast.committed = blast.committed;
 			counter.blast.usesObjectX = true;
+			counter.blast.requiresGroundTarget = targeted || blast.type == PlantType::PLANT_POTATOMINE;
 			counter.blast.reach.fill(-1);
 			for (int row = 0; row < mRows; ++row) counter.blast.reach[row] = blastReach(blast,row);
 			if (blast.type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee && !blast.committed) {
@@ -1413,6 +1416,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 					p.around = profile.mineAttackShape == 2;
 					p.range = CELL_COLLIDER_SIZE_X*(p.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 					ProjectPlantAttack(p, type);
+					if(p.thunder) p.thunderAttack.sampledRate=GetPlantRainActionSpeedMultiplier()
+						*static_cast<float>(mPerkManager.GetPlantAttackSpeedMultiplier());
 					if (type == PlantType::PLANT_ELITE_SCAREDYSHROOM) {
 						p.growth = EliteScaredyShroom::InitialSimulationAttackGrowth(GameAPP::GetInstance().GetBackgroundIsNight(mBackGround));
 						p.hitDamage = p.growth.Damage(); p.dps = p.hitDamage/p.growth.Interval();
@@ -1528,6 +1533,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 
             }
             if(const auto* healer=dynamic_cast<const HealerZombie*>(entity)) unit.healer=healer->GetTreatmentForecast();
+            if(const auto* digger=dynamic_cast<const DiggerZombie*>(entity)) {
+                unit.digger=digger->GetDiggerForecast();
+                // 出生时的地下资格不能封死出土后的充电伤害，动态阶段由预测核心过滤。
+                unit.groundHazard=true;
+            }
             if(const auto* balloon=dynamic_cast<const BalloonZombie*>(entity)) {
                 unit.balloon=balloon->GetBalloonForecast();
                 unit.balloon.walkSpeed/=(unit.inspiration.empty() ? 1 : entity->GetDrumSpeedAmplifier()*entity->GetDrumMoveMultiplier());
@@ -1642,8 +1652,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
                 }
                 if(entity->GetSleepState()) plant.magnetRadius=0;
 				if(plant.airborneDefenseRadius>=0 && !entity->ProtectsCellFromAirborneThreat(plant.row,plant.column)) plant.airborneDefenseRadius=-1;
-				if (const auto* flower=dynamic_cast<const ThunderFlower*>(entity))
-					plant.thunderRemaining=flower->GetAttackRemaining();
+				if (const auto* flower=dynamic_cast<const ThunderFlower*>(entity)) {
+					plant.thunderAttack=flower->GetAttackForecast();
+					// 当前领域在 sampledRate 中已生效，后台须剥离后独立重放其剩余阶段。
+					plant.thunderAttack.sampledRate/=std::max(.001f,1+GetAreaPlantAttackSpeedBonus(entity));
+				}
 				plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,entity->GetSleepState());
 				plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,entity->GetSleepState());
 				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
@@ -1749,6 +1762,15 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
                 balloon.poolRow=IsPoolRow(row); balloon.health=balloon.maximumHealth=ZombieBirthVitalsRules::ScaleHealth(BalloonRules::Health,GetZombieHpMultiplier()); unit.body.health+=balloon.health;
             }
             if(type==ZombieType::ZOMBIE_INSULATOR) unit.magneticBacklash=InsulatorZombie::MagneticBacklashDamage;
+            if(type==ZombieType::ZOMBIE_DIGGER || type==ZombieType::ZOMBIE_ELITE_DIGGER) {
+                unit.digger=DiggerZombie::GetBirthDiggerForecast();
+                unit.digger.rightWindMultiplier=GetZombieWindMoveMultiplier(true);
+                unit.digger.leftWindMultiplier=GetZombieWindMoveMultiplier(false);
+                if(type==ZombieType::ZOMBIE_ELITE_DIGGER) {
+                    unit.digger.losePickaxeImmediatelyWhenStunned=true;
+                    unit.digger.rightWalkSpeed*=1.25f;
+                }
+            }
             unit.boundsY=GetZombieSpawnY(row,unit.body.x)-GetCellCenterPosition(row,mColumns-1).y-65-(type==ZombieType::ZOMBIE_BALLOON ? BalloonRules::ColliderRise : 0); unit.boundsHeight=100;
             if(type==ZombieType::ZOMBIE_JACK_IN_THE_BOX || type==ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX) {
                 auto& jack=unit.jack; jack.present=true; jack.elite=type==ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX;
@@ -2602,6 +2624,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchReinforcementEvaluated=result.reinforcementEvaluated;
 	s.searchRefinementEvaluated=result.refinementEvaluated;
 	s.searchIncomeEvaluated=result.incomeEvaluated; s.searchPruningEvaluated=result.pruningEvaluated;
+	s.searchAssaultEvaluated=result.assaultEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchCombinationBaseBreachSeconds = result.combinationBaseBreachSeconds;

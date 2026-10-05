@@ -38,6 +38,7 @@ struct BlastThreat {
 	std::array<float, 6> reach{};
 	bool committed = false;
 	bool usesObjectX = true;
+	bool requiresGroundTarget = false; // 土豆雷/窝瓜须经过地面目标资格，樱桃/毁灭/辣椒可打地下
 };
 
 struct BlastRisk {

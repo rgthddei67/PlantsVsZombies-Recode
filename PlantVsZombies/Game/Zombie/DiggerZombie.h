@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zombie.h"
+#include "DiggerRules.h"
 
 /**
  * @brief 经典矿工僵尸：地下穿行至房屋前出土，眩晕后向前线折返；丢镐时走独立出土分支。
@@ -11,18 +12,16 @@ public:
 	float GetMineSimulationMoveSpeed() const override;
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
 	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
+	/** 冻结阶段和中性速度：步行剥离能力/雨/风/鼓舞，地下剥离鼓舞；后台独立重算这些倍率。
+	 * 活体突击令与琥珀保留当前采样近似，破甲狂潮记入 abilityMultiplier，不倒计时重现。
+	 */
+	DiggerRules::Forecast GetDiggerForecast() const;
+	/** 普通矿工新购/付费中性画像；使用正式首格坐标与能力倍率，无 RNG 或资源读取。 */
+	static DiggerRules::Forecast GetBirthDiggerForecast();
 	using Zombie::Zombie;
 	~DiggerZombie() override;
 
-	enum class Phase {
-		TUNNELING,
-		RISING,
-		STUNNED,
-		WALKING_WITH_PICKAXE,
-		TUNNELING_PAUSE_WITHOUT_PICKAXE,
-		RISING_WITHOUT_PICKAXE,
-		WALKING_WITHOUT_PICKAXE,
-	};
+	using Phase = DiggerRules::Phase;
 
 	Phase GetPhase() const { return mPhase; }
 	float GetPhaseRemaining() const { return mPhaseRemaining; }

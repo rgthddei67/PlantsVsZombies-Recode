@@ -19,7 +19,8 @@ constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
-	const bool temporalBunker=opponent=="ice_bunker_temporal";
+	const bool mixedElite=opponent=="ice_bunker_mixed";
+	const bool temporalBunker=opponent=="ice_bunker_temporal" || mixedElite;
 	const bool holdPineapple = opponent == "ice_pine_hold" || opponent == "ice_bunker_hold";
 	const bool bunker = opponent == "ice_bunker" || opponent == "ice_bunker_hold" || temporalBunker;
 	const bool storageDefense = opponent == "ice_fortifier" || opponent == "ice_pine" || holdPineapple || bunker;
@@ -319,7 +320,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		if (it == plants.end() || shells.count({r,c})) continue;
 		const auto kind = it->second.at("type").get<std::string>();
 		if (kind == "PLANT_MELONPULT" || kind == "PLANT_WINTERMELON" || kind == "PLANT_CACTUS"
-			|| kind == "PLANT_ELITE_SCAREDYSHROOM" || kind == "PLANT_REPEATER") cells.emplace_back(r,c);
+			|| kind == "PLANT_ELITE_SCAREDYSHROOM" || kind == "PLANT_REPEATER"
+			|| (mixedElite && kind=="PLANT_THUNDERFLOWER")) cells.emplace_back(r,c);
 	}
 	const auto protectionCells = cells;
 	if (!adaptive) attempt("PLANT_PUMPKINSHELL", cells);
@@ -370,12 +372,20 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	}
 	// 陌生阵型沿用正式累计配额和冷却；不能在精英菇死亡后免费重建四株。
 	if (eliteDefense) {
-		cells.clear(); for (int r : rows) { cells.emplace_back(r,0); cells.emplace_back(r,pineElite ? 2 : 1); }
+		cells.clear(); for (int r : rows) { cells.emplace_back(r,0); cells.emplace_back(r,mixedElite ? 1 : pineElite ? 2 : 1); }
 		attempt("PLANT_ELITE_SCAREDYSHROOM", cells);
 		cells.clear(); for (int r : rows) { cells.emplace_back(r,2); cells.emplace_back(r,1); }
 		attempt("PLANT_REPEATER", cells);
 	}
-	cells.clear(); for (int r : rows) cells.emplace_back(r,0);
+	// 独立混合陪练保留前侧格给雷鸣花；精英菇在后排成长，两种输出可同时存在。
+	// 仍按实际卡槽、累计配额、钱包与冷却种植，不预建阵型或改变指挥官购买。
+	cells.clear();
+	const int eliteTotalLimit=state.value("eliteScaredyShroomTotalPlantLimit",-1);
+	if(mixedElite && eliteTotalLimit>=0 && state.value("eliteScaredyShroomsPlanted",0)>=eliteTotalLimit) {
+		// 累计配额耗尽后，原后排被打空的格子优先补雷鸣花；仍由 legalCells 检查南瓜下的真实空位。
+		for(int r:rows) for(int c:{0,1}) if(!plants.count({r,c})) cells.emplace_back(r,c);
+	}
+	for (int r : rows) cells.emplace_back(r,mixedElite ? 2 : 0);
 	attempt("PLANT_THUNDERFLOWER", cells);
 	attempt("PLANT_MELONPULT", cells);
 	if (opponent == "growth") { cells.clear(); for (int r : rows) cells.emplace_back(r,1); attempt("PLANT_MELONPULT", cells); }
@@ -416,7 +426,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal" && opponent != "ice_bunker_mixed")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());

@@ -998,6 +998,7 @@ bool TestDriver::ExecuteCurrent() {
 				{"elapsedMs",elapsed},{"timeLimited",result.timeLimited},{"evaluated",result.evaluated},
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
+				{"assaultEvaluated",result.assaultEvaluated},
 				{"reinforcementEvaluated",result.reinforcementEvaluated},
 				{"spreadCohortEvaluated",result.spreadCohortEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
@@ -5092,6 +5093,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
 			{"refinementEvaluated",board->mColdStorage.searchRefinementEvaluated},
 			{"incomeEvaluated",board->mColdStorage.searchIncomeEvaluated},
+			{"assaultEvaluated",board->mColdStorage.searchAssaultEvaluated},
 			{"pruningEvaluated",board->mColdStorage.searchPruningEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach},
@@ -8394,6 +8396,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		}
 
 		if (auto* shooter = dynamic_cast<Shooter*>(p)) {
+			if (const auto* flower=dynamic_cast<const ThunderFlower*>(p)) {
+				const auto timing=flower->GetAttackForecast();
+				plantState["thunderForecast"]={{"cooldownRemaining",timing.cooldownRemaining},
+					{"checkRemaining",timing.checkRemaining},{"pendingRemaining",timing.pendingRemaining},{"sampledRate",timing.sampledRate}};
+			}
 			if (p->mPlantType==PlantType::PLANT_THUNDERFLOWER) plantState["thunderResourcesReady"] =
 				ResourceManager::GetInstance().HasReanimation("ThunderFlower")
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_THUNDERFLOWER",false)

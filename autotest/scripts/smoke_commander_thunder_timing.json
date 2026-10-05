@@ -1,0 +1,82 @@
+{
+  "description": "Real shooter cooldown, target poll and pending head timing; controlled stationary target, no strength claim.",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_THUNDERFLOWER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 1000
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "initialEnemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THUNDERFLOWER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "dump_state",
+      "name": "birth.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "dump_state",
+      "name": "polling.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "dump_state",
+      "name": "windup.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.1
+    },
+    {
+      "op": "dump_state",
+      "name": "after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

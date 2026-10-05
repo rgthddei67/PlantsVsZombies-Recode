@@ -6,6 +6,8 @@
 #include "Game/Zombie/JackBoxRules.h"
 #include "Game/Zombie/HealerRules.h"
 #include "Game/Zombie/BalloonRules.h"
+#include "Game/Zombie/DiggerRules.h"
+#include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 
 #include "ColdStorageStrategy.h"
@@ -152,6 +154,7 @@ struct Unit {
 	JackBoxRules::Forecast jack;
 	HealerRules::Forecast healer;
 	BalloonRules::Forecast balloon;
+	DiggerRules::Forecast digger; // 地下、出土与折返独立于通用移动；速度由主线程去掉临时叠层后提供
 	float maximumBody=0, maximumHelm=0, maximumShield=0; // 正式层生命上限；装备被永久移除后其层不再治疗
 
 	float magneticBacklash=0; // 目标卸甲反噬磁力菇本体，生命点
@@ -171,7 +174,7 @@ struct Plant {
 	bool catapultCrushable=true; // 投篮车自有类型/睡眠资格，不把冰车的目标名单套到投篮车
 	int airborneDefenseRadius=-1; // 非负时按自有逻辑格半径拦截篮球；生命/格位由本候选维护
 	bool thunder = false;
-	float thunderRemaining = 0; // 下一次雷种发射的有效行动余秒
+	ThunderFlowerRules::AttackForecast thunderAttack; // 射击冷却、索敌等待与已起播头部吐弹分开推进
 	float shutdownUntil=0;
 	bool grounding=false, lightningPot=false, support=false, plantern=false;
 	int executionGroup=-1; bool countsExecution=false, diesExecution=false;
@@ -418,6 +421,7 @@ struct Result {
 	int reinforcementEvaluated = 0; // 组合比较中向已有候选编队加入任意类型的次数，不代表实际购买
 	int refinementEvaluated = 0; // 围绕完整优案替换少量成员的实际比较数，不按能力限定兵种
 	int incomeEvaluated = 0, pruningEvaluated = 0; // 经营分支和最终成员/等待删除对照数，仅诊断，不增加采购或总时间预算
+	int assaultEvaluated = 0; // 未付款攻城中间态的实际深化数，与经济分支共享原预算，不授予购买偏好
 	int spreadCohortEvaluated = 0; // 完整协作复制到多路后实际积分的次数，不包含被去重/预算拒绝的提案
 	float combinationBaseScore = 0, combinationBestScore = 0; // 最终阶段的组合探索前后评分
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
@@ -446,15 +450,19 @@ struct Probe {
 };
 /** 在固定数值域内计算当前局势的评分权重；无模型时原样返回基础权重。 */
 Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const StateModel* model);
-/** 将经济项换成同一冰价的净收益；支出系数不可独立变异为奖励，残存投资至多按原价计。 */
-Weights AccountForIce(const Weights& conditioned);
+/** 将经济项换成同一冰价的净收益；utilityScale 同时缩放现金增减及残存投资的价值。
+ * 保留击杀的战术成分；支出系数不可独立变异为奖励，残存投资至多按原价计。
+ */
+Weights AccountForIce(const Weights& conditioned,float utilityScale=1);
+/** 钱包超过两次完整合法投入后降低现金的边际评分；只读库存，不借预计收入或改变付款资格。 */
+float CapitalUtilityScale(const Snapshot& state);
 /** 护盾能减少的本体火力比例；Board 用它修正持盾单位的火力偏好上下文，保留无盾单位原语义。 */
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
 /** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 用已注入资本及当前现金/付费兵力资产计算剩余试错额度，不把对方损失当作己方资本。 */
 float RemainingCapitalRisk(float fundedCapital, float currentCapital);
-/** 大额采购须保留可续战资本；小额有利交换可用对方相对等待的额外资产损失抵扣本案风险，不能补钱包。 */
+/** 大额采购须保留可续战资本；实际有利交换可用对方相对等待的额外资产损失抵扣本案风险，不能补钱包。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
 /** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3固定挡位，4随燃料切挡，无雾关灯。

@@ -3,6 +3,7 @@
 #define SHOOTER_H
 
 #include "Plant.h"
+#include "ShooterRules.h"
 #include "../../DeltaTime.h"
 
 class Shooter : public Plant {
@@ -29,6 +30,8 @@ protected:
 public:
 	using Plant::Plant;
 	const Animator* GetHeadAnimator() const { return mHeadAnim.get(); }
+	/** 已累计的冷却就绪后索敌游戏秒，供主线程冻结当前攻击阶段。 */
+	float GetTargetCheckElapsed() const { return mCheckZombieTimer; }
 
 	/** 保存射击计时器及头部 Animator 的完整播放状态机。 */
 	void SaveExtraData(nlohmann::json& j) const override;

@@ -151,7 +151,7 @@ bool Shooter::HasZombieInRow()
 	if (mBoard)
 	{
 		mCheckZombieTimer += DeltaTime::GetDeltaTime();
-		if (mCheckZombieTimer >= 0.6f)
+		if (mCheckZombieTimer >= ShooterRules::TargetCheckSeconds)
 		{
 			mCheckZombieTimer = 0.0f;
 			// 按行索引：只遍历本行僵尸，mRow 过滤已由桶保证。

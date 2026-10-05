@@ -19,12 +19,12 @@ namespace {
 	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DIGGER).body;                         // 原版矿工本体生命值
 	constexpr int kHardhatHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_DIGGER).helm;                      // 原版矿工安全帽生命值
 	constexpr float kResourceFps = 16.0f;                    // Zombie_digger.reanim 资源帧率
-	constexpr float kCSharpTicksPerSecond = 100.0f;          // 原版 mVelX 每厘秒位移换算基准
-	constexpr float kTunnelVelocityMin = 0.66f;              // 原版地下速度随机下界，单位 px/tick
-	constexpr float kTunnelVelocityMax = 0.68f;              // 原版地下速度随机上界，单位 px/tick
-	constexpr float kBackwardWalkVelocity = 0.12f;           // 原版持镐折返速度，单位 px/tick
-	constexpr float kNormalWalkVelocityMin = 0.23f;          // 原版无镐步行速度随机下界，单位 px/tick
-	constexpr float kNormalWalkVelocityMax = 0.37f;          // 原版无镐步行速度随机上界，单位 px/tick
+	constexpr float kCSharpTicksPerSecond = DiggerRules::TicksPerSecond; // 原版 mVelX 每厘秒位移换算基准
+	constexpr float kTunnelVelocityMin = DiggerRules::TunnelVelocityMinimum; // 地下速度随机下界，px/tick
+	constexpr float kTunnelVelocityMax = DiggerRules::TunnelVelocityMaximum; // 地下速度随机上界，px/tick
+	constexpr float kBackwardWalkVelocity = DiggerRules::RightWalkVelocity; // 普通持镐折返速度，px/tick
+	constexpr float kNormalWalkVelocityMin = DiggerRules::LeftWalkVelocityMinimum; // 无镐步行随机下界，px/tick
+	constexpr float kNormalWalkVelocityMax = DiggerRules::LeftWalkVelocityMaximum; // 无镐步行随机上界，px/tick
 	constexpr float kGroundTrackDistance = 72.5f;            // anim_walk 的 _ground 总水平位移，单位 px
 	constexpr float kGroundTrackIntervals = 36.0f;           // anim_walk 从 18 到 54 的根运动间隔数
 	constexpr float kDeathBaseClip = 1.3f;                   // 基类播放死亡轨道的 clip 速度
@@ -39,15 +39,15 @@ namespace {
 		(12.0f / kResourceFps) / kAbilityAnimMultiplier;      // 原版 anim_landing/anim_dizzy 12 FPS
 	constexpr float kEatClip =
 		(20.0f / kResourceFps) / kAbilityAnimMultiplier;      // 原版 anim_eat 20 FPS
-	constexpr float kRiseDuration = 1.30f;                  // 原版出土阶段 130cs
+	constexpr float kRiseDuration = DiggerRules::RiseSeconds; // 原版出土阶段 130cs
 	constexpr float kRiseCurveSwitch = 0.40f;               // 原版剩余 40cs 时切换回落曲线
 	constexpr float kLandingStartRemaining = 0.30f;         // 原版剩余 30cs 时开始落地动画
 	constexpr float kRiseDepth = -120.0f;                   // 原版初始 altitude，负值表示地下
 	constexpr float kRiseOvershoot = 20.0f;                 // 原版出土后向上越过地面高度
-	constexpr float kPauseWithoutPickaxeDuration = 2.0f;    // 原版丢镐地下停顿 200cs
+	constexpr float kPauseWithoutPickaxeDuration = DiggerRules::PauseWithoutPickaxeSeconds; // 原版丢镐地下停顿 200cs
 	constexpr float kSurpriseDelay = 0.5f;                  // 原版停顿 50cs 后显示问号
-	constexpr float kDizzyDuration = 3.5f;                  // anim_dizzy 12 FPS 播放两轮
-	constexpr float kEmergenceOffsetFromFirstCell = 30.0f;  // 原版出土线位于首格起点右侧约 30px
+	constexpr float kDizzyDuration = DiggerRules::StunnedSeconds; // anim_dizzy 12 FPS 播放两轮
+	constexpr float kEmergenceOffsetFromFirstCell = DiggerRules::SurfaceOffset; // 出土线相对首格对象X的偏移
 	constexpr float kTunnelDustInterval = 0.12f;            // 移动尘土短爆发间隔，单位秒
 	constexpr float kDiggerFlipPivotX = 45.0f;              // 原版反向绘制约 90px 补偿的镜像轴
 	constexpr float kGroundClipMargin = 38.0f;              // 地下出土裁剪底边相对逻辑行 Y，单位 px
@@ -762,4 +762,44 @@ float DiggerZombie::GetMineSimulationMoveSpeed() const
 	if (mPhase!=Phase::TUNNELING) return Zombie::GetMineSimulationMoveSpeed();
 	// 地下钻行不消费动画/雨/风倍率，只有通用位移阶段增益。
 	return mTunnelVelocity*kCSharpTicksPerSecond*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())*GetAmberMovementMultiplier();
+}
+
+DiggerRules::Forecast DiggerZombie::GetBirthDiggerForecast()
+{
+	DiggerRules::Forecast forecast;
+	forecast.present=true;
+	forecast.surfaceX=CELL_INITALIZE_POS_X+DiggerRules::SurfaceOffset;
+	forecast.abilityMultiplier=kAbilityAnimMultiplier;
+	// 正式 GetWalkClipSpeed 已抵消基础能力倍率；后台须先保存中性根速再按未来金冰重组。
+	forecast.rightWalkSpeed/=forecast.abilityMultiplier;
+	forecast.leftWalkSpeed/=forecast.abilityMultiplier;
+	return forecast;
+}
+
+DiggerRules::Forecast DiggerZombie::GetDiggerForecast() const
+{
+	auto forecast=GetBirthDiggerForecast();
+	forecast.phase=mPhase;
+	forecast.remaining=mPhaseRemaining;
+	forecast.hasPickaxe=mHasPickaxe;
+	forecast.losePickaxeImmediatelyWhenStunned=mZombieType==ZombieType::ZOMBIE_ELITE_DIGGER;
+	forecast.tunnelSpeed=mTunnelVelocity*kCSharpTicksPerSecond*GetAmberMovementMultiplier();
+	forecast.rightWindMultiplier=mBoard ? mBoard->GetZombieWindMoveMultiplier(true) : 1;
+	forecast.leftWindMultiplier=mBoard ? mBoard->GetZombieWindMoveMultiplier(false) : 1;
+	const float amplifiedAbility=GetAmplifiedAbilitySpeedMultiplier();
+	// 金冰不改变倍率在1两侧的归属；逆向缩放取出当前能力（包含现有破甲狂潮），避免复制其常量。
+	const int stacks=GetGoldenIceEffectStacks();
+	forecast.abilityMultiplier=amplifiedAbility>1 ? std::ldexp(amplifiedAbility,-stacks)
+		: amplifiedAbility<1 ? std::ldexp(amplifiedAbility,stacks) : 1;
+	const float rain=mBoard ? mBoard->GetZombieRainSpeedMultiplier() : 1;
+	const float wind=mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
+	const float sampledFactors=amplifiedAbility*AmplifySpeedMultiplierForGoldenIce(rain)
+		*AmplifySpeedMultiplierForGoldenIce(wind)*AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier());
+	const float divisor=sampledFactors>0 ? sampledFactors : 1;
+	// 出土/眩晕时也读未来行走轨；剥离同一采样方向倍率后，左右中性速均不残留雨风或鼓舞。
+	forecast.rightWalkSpeed=GetSimulationRootMoveSpeed("anim_walk",GetWalkClipSpeed(GetPickaxeWalkVelocity()))
+		/divisor;
+	forecast.leftWalkSpeed=GetSimulationRootMoveSpeed("anim_walk",GetWalkClipSpeed(mWalkVelocity))
+		/divisor;
+	return forecast;
 }

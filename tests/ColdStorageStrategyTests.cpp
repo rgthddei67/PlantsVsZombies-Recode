@@ -22,12 +22,22 @@
 
 void RunColdStorageHealerForecastTests();
 void RunColdStorageJackBalloonForecastTests();
+void RunColdStorageThunderTimingTests();
+void RunColdStorageDiggerForecastTests();
+void RunColdStorageDiggerIntegrationTests();
+void RunColdStorageCapitalUtilityTests();
+void RunColdStorageAssaultExplorationTests();
 
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
 {
 	RunColdStorageHealerForecastTests();
 	RunColdStorageJackBalloonForecastTests();
+	RunColdStorageThunderTimingTests();
+	RunColdStorageDiggerForecastTests();
+	RunColdStorageDiggerIntegrationTests();
+	RunColdStorageCapitalUtilityTests();
+	RunColdStorageAssaultExplorationTests();
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
 	};
@@ -1048,7 +1058,7 @@ int main()
 	s.counters.clear(); s.current.clear();
 	Unit crowd; crowd.body.x=900; crowd.body.health=100000;
 	for (int i=0;i<9;++i) { crowd.id=i+1; s.current.push_back(crowd); }
-	Plant flower; flower.thunder=true; flower.x=200; flower.health=300; flower.dps=10; flower.edible=false; flower.thunderRemaining=2.0f;
+	Plant flower; flower.thunder=true; flower.x=200; flower.health=300; flower.dps=10; flower.edible=false;
 	s.plants={flower}; ConstructionStats single, multiple;
 	Evaluate(s,{},&single);
 	check(single.thunderStuns>0 && single.thunderStuns<=6*60,
@@ -1061,7 +1071,7 @@ int main()
 	check(inFlight.thunderStuns==6,"an already-fired ray completes its capped control after its plant is gone");
 	// 邻行有敌人、本行尚未到场时不能预发雷种；真正到场后的首批生产仍可兑现。
 	Snapshot delayed; delayed.houseX=-10000; delayed.traceEconomy=true;
-	flower.rowRadius=1; flower.thunderRemaining=0; delayed.plants={flower};
+	flower.rowRadius=1; flower.thunderAttack.cooldownRemaining=flower.thunderAttack.checkRemaining=0; delayed.plants={flower};
 	crowd.body.row=1; crowd.body.x=1000; delayed.current={crowd};
 	worker.body.row=0; worker.body.x=1000; worker.body.health=20; worker.body.stopped=0;
 	worker.body.spawnAt=2; worker.productionRemaining=1; worker.productionStopHealth=0; worker.nextYield=4;
@@ -1539,7 +1549,10 @@ int main()
 	attrition.opponentAssets=attrition.baselineOpponentAssets;
 	check(ShouldConserveCapital(attrition,353,48,0),"no extra opponent loss cannot justify repeated cash-losing probes");
 	attrition.opponentAssets=9735; attrition.features[5]=220;
-	check(ShouldConserveCapital(attrition,353,48,0),"opponent attrition does not waive a large cash-losing investment check");
+	check(!ShouldConserveCapital(attrition,353,48,0),"a large cash-losing attack may trade for greater actual opponent losses");
+	attrition.opponentAssets=9780;
+	check(ShouldConserveCapital(attrition,353,48,0),"a large losing attack without sufficient opponent losses remains blocked");
+	attrition.opponentAssets=9735;
 	attrition.features[5]=84; attrition.opponentScore=0;
 	check(ShouldConserveCapital(attrition,353,48,0),"disabled opponent valuation cannot invent attrition credit");
 	check(RemainingCapitalRisk(1000,1200)>RemainingCapitalRisk(1000,1000),"earned cash and surviving paid assets replenish risk capacity");
@@ -1555,23 +1568,29 @@ int main()
 	check(ShouldConserveCapital(capital,200,48),"depleting the treasury needs incremental return even without ash");
 	capital.features[0] = 180;
 	check(!ShouldConserveCapital(capital,200,48),"paid plant kills can finance an otherwise large attack");
-	// 真人第13波记录的完整预测；新增爆区损失低于钱包35%，却高于本次采购35%。
+	// 真人第13波的历史预测：交换回报可放行现金亏损，只有削血而没有资产损耗仍拦截。
 	Result humanBurst; humanBurst.actions.assign(40,{0,0});
 	humanBurst.features={222,227.3515625f,0,0,18,480,430.414795f,0};
 	humanBurst.baselineFeatures={0,0,0,0,18,0,179.664764f,0};
 	humanBurst.opponentScore=668.683838f; humanBurst.baselineOpponentAssets=3881.985107f; humanBurst.opponentAssets=3213.30127f;
-	check(ShouldConserveCapital(humanBurst,762,48),"logged 480-ice burst cannot mask a cash deficit with a wealthy wallet and opponent paper loss");
+	check(!ShouldConserveCapital(humanBurst,762,48),"large assault may trade its cash deficit for greater opponent asset losses");
+	humanBurst.opponentAssets=humanBurst.baselineOpponentAssets;
+	check(ShouldConserveCapital(humanBurst,762,48),"a wealthy wallet and partial damage alone cannot justify losing the whole large assault");
+	humanBurst.opponentAssets=3213.30127f;
 	humanBurst.features[4]+=480;
 	check(!ShouldConserveCapital(humanBurst,762,48),"the same high-risk investment is allowed when incremental cash actually covers it");
 	humanBurst.features[4]=18; humanBurst.features[2]=1;
 	check(!ShouldConserveCapital(humanBurst,762,48),"a real breakthrough remains exempt from the cash-risk gate");
-	// 第二局头盔团的普通火力损失较低于灰烬门槛，但本金无法续战；纸面削血不能兜底。
+	// 普通火力同样结算本金；对方真实资产损耗与单纯削血应区别处理。
 	Result helmetBurst; helmetBurst.actions.assign(34,{0,0});
 	helmetBurst.features={159,161.1876068f,0,0,0,492,100.5600357f,0};
 	helmetBurst.baselineFeatures={12,13.015625f,0,0,0,0,45.7583313f,0};
 	helmetBurst.opponentScore=1015.5070801f;
 	helmetBurst.baselineOpponentAssets=4274.7001953f; helmetBurst.opponentAssets=3259.1931152f;
-	check(ShouldConserveCapital(helmetBurst,789,48),"logged helmet burst cannot finance ordinary-fire capital loss with opponent attrition");
+	check(!ShouldConserveCapital(helmetBurst,789,48),"ordinary-fire losses may be justified by greater actual opponent attrition");
+	helmetBurst.opponentAssets=helmetBurst.baselineOpponentAssets;
+	check(ShouldConserveCapital(helmetBurst,789,48),"ordinary-fire capital loss without sufficient opponent loss remains blocked");
+	helmetBurst.opponentAssets=3259.1931152f;
 	helmetBurst.features[3]=200;
 	check(!ShouldConserveCapital(helmetBurst,789,48),"surviving frontline can justify the same investment without forcing immediate cash payback");
 	helmetBurst.features[3]=0; helmetBurst.features[4]=492;
