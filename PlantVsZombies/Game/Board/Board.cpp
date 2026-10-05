@@ -1790,7 +1790,24 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	if (type == PlantType::PLANT_CARRYVINE || GameDataManager::GetInstance().IsSkillCard(type)) return false;
 	if (!MiniGame::AllowsPlant(mLevel, type)) return false;
 	// 补阵预测允许腾出原株的位置，但正式落种仍必须同时满足两个名额门禁。
-	if (!HasPlantingQuota(type) && !(vacatedPlantID != NULL_PLANT_ID
+	bool replacingUnique=false;
+	if(vacatedPlantID!=NULL_PLANT_ID) {
+		const Plant* vacated=mEntityRegistry.GetPlant(vacatedPlantID);
+		if(vacated && vacated->IsActive() && vacated->GetPlacementType()==type) {
+			if(type==PlantType::PLANT_PLANTERN) replacingUnique=mActivePlanternID==vacatedPlantID;
+			else if(type==PlantType::PLANT_DAWNLOTUS) {
+				replacingUnique=true;
+				for(int identity:mEntityRegistry.GetAllPlantIDs()) {
+					const Plant* other=mEntityRegistry.GetPlant(identity);
+					if(identity!=vacatedPlantID && other && other->IsActive() && other->GetPlacementType()==type) {
+						replacingUnique=false; break;
+					}
+				}
+			}
+		}
+	}
+	// 只读腾位预测可忽略原株自己的同时唯一名额；正常落种不传vacatedID，仍拒绝第二株。
+	if (!HasPlantingQuota(type) && !replacingUnique && !(vacatedPlantID != NULL_PLANT_ID
 		&& type == PlantType::PLANT_ELITE_SCAREDYSHROOM
 		&& mEliteScaredyShroomsPlanted < GetEliteScaredyShroomTotalPlantLimit()
 		&& GetActiveEliteScaredyShroomCount() <= GetEliteScaredyShroomPlantLimit())) return false;

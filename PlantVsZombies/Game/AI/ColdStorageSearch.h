@@ -366,6 +366,7 @@ struct Snapshot {
 	std::int64_t deploymentCapital = -1; // 实际库存+活体/在途原成交价；-1表示纯夹具使用固定capacity
 	int deploymentOccupied = 0; // 实际敌对活体和已付款队列数；技能/设备扣资本后重新核对剩余名额
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
+	int fundableUnlockTroopCost = 0; // 当前钱包可支付解锁路径的后续兵种最高单价，只参与现金估值，不开放采购
 	float capitalRiskAllowance = (std::numeric_limits<float>::max)(); // 累计净亏损后的剩余风险额度，冰；未提供实际账本的夹具不启用
 	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
@@ -414,6 +415,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	CapitalUtilityInputs capitalUtilityInputs; // 实际评分使用的现金快照输入，仅诊断，不保存或预支资金
 	std::vector<Proposal> proposals; // 有界未付款中间态；可供下一轮探索，不属于可执行购物车
 	int proposalEvaluated=0; // 跨轮提案在当前局面真正重新评估的数量
 
@@ -475,7 +477,9 @@ Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const
  * 保留击杀的战术成分；支出系数不可独立变异为奖励，残存投资至多按原价计。
  */
 Weights AccountForIce(const Weights& conditioned,float utilityScale=1);
-/** 钱包超过两次完整合法投入后降低现金的边际评分；只读库存，不借预计收入或改变付款资格。 */
+/** 投影当前合法兵价及已资金覆盖的解锁兵价；只读现金，不读取预计收入，不改变兵种资格。 */
+CapitalUtilityInputs DescribeCapitalUtility(const Snapshot& state);
+/** 钱包超过两次完整投入后降低现金边际评分；包括现钱包可走到的解锁兵价，不预支收入或开放采购。 */
 float CapitalUtilityScale(const Snapshot& state);
 /** 护盾能减少的本体火力比例；Board 用它修正持盾单位的火力偏好上下文，保留无盾单位原语义。 */
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);

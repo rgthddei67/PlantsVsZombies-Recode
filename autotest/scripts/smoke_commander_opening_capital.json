@@ -1,0 +1,20 @@
+{
+  "description": "Controlled startup-capital projection and paid unlock transaction, not a strength match: normal 11-6 opening funds retain the affordable future troop reference, while wave advancement purchases currently unlocked troops.",
+  "backgroundCommander": true,
+  "coldStorageBonusSelection": true,
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"cold_storage_bonus_pick","choice":1},
+    {"op":"cold_storage_bonus_pick","choice":3},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM","PLANT_ELITE_SCAREDYSHROOM","PLANT_THUNDERFLOWER","PLANT_DAWNLOTUS","PLANT_DOOMSHROOM","PLANT_JALAPENO","PLANT_MARIGOLD","PLANT_PUMPKINSHELL","PLANT_ICESTORAGENUT","PLANT_PLANTERN","PLANT_BLOVER"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_timescale","value":5},
+    {"op":"set_cold_storage","state":{"elapsed":45,"decisionRemaining":30}},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"plan_ice_attack","background":true},
+    {"op":"await_ice_attack","timeout":40},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"quit"}
+  ]
+}

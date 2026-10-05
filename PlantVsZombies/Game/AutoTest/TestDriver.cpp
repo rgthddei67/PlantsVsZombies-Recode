@@ -156,6 +156,12 @@
 #include <SDL2/SDL.h>
 
 namespace {
+	/** 导出实际现金估值输入，供脚本独立复算；不把算法自行报告的倍率当成验证依据。 */
+	nlohmann::json CapitalInputsJson(const ColdStorageSearch::CapitalUtilityInputs& inputs) {
+		return {{"budget",inputs.budget},{"capacity",inputs.capacity},{"recoveryReserve",inputs.recoveryReserve},
+			{"highestAffordableTroopCost",inputs.highestAffordableTroopCost},
+			{"fundableUnlockTroopCost",inputs.fundableUnlockTroopCost},{"weatherStation",inputs.weatherStation}};
+	}
 	const char* ObjectTypeName(ObjectType type)
 	{
 		switch (type) {
@@ -989,6 +995,27 @@ bool TestDriver::ExecuteCurrent() {
 		nlohmann::json report = {{"seed",probe.seed},{"weights",probe.weights},
 			{"budget",probe.snapshot.budget},{"capitalRiskAllowance",probe.snapshot.capitalRiskAllowance},
 			{"options",probe.snapshot.options.size()},{"branches",nlohmann::json::array()}};
+		// 暴露本次数值快照的反制时序与生产边界，用于重载真实局面后定位预测误差。
+		report["playerResources"]={{"sun",probe.snapshot.playerSun},{"ice",probe.snapshot.playerIce},
+			{"incomingIce",probe.snapshot.incomingIce},{"incomingIceAt",probe.snapshot.incomingIceAt}};
+		report["counterSources"]=nlohmann::json::array();
+		std::vector<int> reportedCounterSources;
+		for(const auto& counter:probe.snapshot.counters) if(std::find(reportedCounterSources.begin(),reportedCounterSources.end(),counter.source)==reportedCounterSources.end()) {
+			reportedCounterSources.push_back(counter.source);
+			report["counterSources"].push_back({{"source",counter.source},{"ready",counter.blast.ready},{"recharge",counter.recharge},
+				{"windup",counter.windup},{"sunCost",counter.sunCost},{"iceCost",counter.iceCost},{"committed",counter.blast.committed},{"clearsCell",counter.clearsCell}});
+		}
+		report["rowStrikes"]=nlohmann::json::array();
+		report["futureRowStrikeCells"]=std::count_if(probe.snapshot.construction.begin(),probe.snapshot.construction.end(),
+			[](const auto& c){return c.strike.damage>0;});
+		report["futurePlanternCells"]=std::count_if(probe.snapshot.construction.begin(),probe.snapshot.construction.end(),
+			[](const auto& c){return c.plant.plantern;});
+		for(const auto& strike:probe.snapshot.rowStrikes) report["rowStrikes"].push_back({{"source",strike.plantID},
+			{"ready",strike.ready},{"recharge",strike.recharge},{"damage",strike.damage},{"splashDamage",strike.splashDamage}});
+		report["economicUnits"]=nlohmann::json::array();
+		for(const auto& unit:probe.snapshot.current) if(unit.body.economic) report["economicUnits"].push_back({{"id",unit.id},
+			{"row",unit.body.row},{"health",unit.body.health},{"spawnAt",unit.body.spawnAt},{"productionStopHealth",unit.productionStopHealth},
+			{"remaining",unit.productionRemaining},{"yield",unit.nextYield}});
 		const bool compareWorkers=cmd.value("workerComparison",false);
 		const int repeats=compareWorkers ? std::clamp(cmd.value("repeats",5),1,10) : 1;
 		const std::vector<double> budgets=compareWorkers ? std::vector<double>{600}
@@ -1102,6 +1129,10 @@ bool TestDriver::ExecuteCurrent() {
 				item["workerTrace"]=nlohmann::json::array();
 				for(const auto& point:result.construction.workerTrace)
 					item["workerTrace"].push_back({{"id",point.id},{"row",point.row},{"time",point.at},{"x",point.x},{"health",point.health},{"income",point.income}});
+				item["counterTrace"]=nlohmann::json::array();
+				for(const auto& point:result.construction.counterTrace)
+					item["counterTrace"].push_back({{"time",point.at},{"x",point.x},{"damage",point.damage},
+						{"row",point.row},{"column",point.column},{"clearsCell",point.clearsCell}});
 				report["candidatePlans"].push_back(std::move(item));
 			}
 		}
@@ -5222,6 +5253,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"weight",board->mColdStorage.searchOpponentWeight},{"score",board->mColdStorage.searchOpponentScore}};
 		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;
 		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
+		ice["searchCapitalInputs"] = CapitalInputsJson(board->mColdStorage.searchCapitalInputs);
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchCounterHoldSeconds"] = board->mColdStorage.searchCounterHoldSeconds;

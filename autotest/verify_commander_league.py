@@ -29,7 +29,9 @@ def capital_utility_scale(inputs):
     budget=inputs['budget']
     capacity=max(0,min(inputs['capacity']+(3 if inputs['weatherStation'] else 0),
                        MAXIMUM_DEPLOYMENT+(3 if inputs['weatherStation'] else 0)))
-    highest=inputs['highestAffordableTroopCost']
+    future=inputs.get('fundableUnlockTroopCost',0)
+    assert 0<=future<=budget
+    highest=max(inputs['highestAffordableTroopCost'],future)
     if budget<=0 or highest<=0 or capacity<=0:
         return 1.0
     reserve=highest*capacity*2+max(0,inputs['recoveryReserve'])

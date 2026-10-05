@@ -1287,16 +1287,25 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		// 波次由付费派兵推进。只评当前卡池会在弱兵被克制时永久观望，错失下一档能力。
 		// 解锁可能相隔不止一波；把到下一档的最低出兵成本算全，避免开局停在空白解锁波。
 		s.unlockProbe = false;
-		if (!allUnitsUnlocked && s.pending.empty() && GetColdStorageHostileCount() == 0) {
+		if (!allUnitsUnlocked) {
+			// 后续兵价只用于保留现在已能资助的资本；空场探路仍须提交真实付费兵，不靠设备刷波次。
 			int probeCost = kMaxIce;
-			for (auto type : mSpawnZombieList)
-				if (GetColdStorageUnlockWave(type) <= s.decisions + 1)
+			for (auto type : mSpawnZombieList) {
+				bool compatible=false;
+				for(int row=0;row<mRows;++row) compatible|=IsSpawnRowCompatible(type,row);
+				if (compatible && GetColdStorageUnlockWave(type) <= s.decisions + 1)
 					probeCost = std::min(probeCost,GetZombieIceCost(type));
-			if (probeCost > 0) for (auto type : mSpawnZombieList) {
+			}
+			if (probeCost > 0 && probeCost<kMaxIce) for (auto type : mSpawnZombieList) {
 				const int wavesNeeded = GetColdStorageUnlockWave(type) - (s.decisions + 1);
 				if (wavesNeeded > 0 && static_cast<long long>(wavesNeeded)*probeCost + GetZombieIceCost(type)
-					+ ColdStorageState::RecoveryReserveIce <= s.enemyIce) s.unlockProbe = true;
+					+ ColdStorageState::RecoveryReserveIce <= s.enemyIce) {
+					bool compatible=false;
+					for(int row=0;row<mRows;++row) compatible|=IsSpawnRowCompatible(type,row);
+					if(compatible) search.fundableUnlockTroopCost=std::max(search.fundableUnlockTroopCost,GetZombieIceCost(type));
+				}
 			}
+			s.unlockProbe=search.fundableUnlockTroopCost>0 && s.pending.empty() && GetColdStorageHostileCount()==0;
 			if (s.unlockProbe) search.allowWait = false;
 		}
 
@@ -2575,6 +2584,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	// 买兵只转移资本，技能/设备会消耗资本并缩减名额；付款前验证最小容量，避免只排入半队。
 	const int occupied=GetColdStorageHostileCount()+static_cast<int>(mColdStorage.pending.size());
 	const int slots=std::max(0,ColdStorageDeploymentRules::Capacity(GetColdStorageDeploymentCapital()-abilityCost)-occupied);
+	if(!search.allowWait && newTroops==0) { mColdStorage.decisionRemaining=0; return; }
 	if(newTroops>slots) { mColdStorage.decisionRemaining=0; return; }
 	if (!strikeTargets.empty() && !TryStartColdStoragePrecisionStrike(strikeTargets)) {
 		mColdStorage.decisionRemaining = 0;
@@ -2609,6 +2619,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchOrderSun = result.construction.orderSun; s.searchOrderIce = result.construction.orderIce;
 	s.searchPendingIce = result.construction.pendingIce;
 	s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
+	s.searchCapitalInputs=result.capitalUtilityInputs;
 	s.searchVersion = requestedVersion; s.searchLargestPlan = result.largestPlan;
 	s.searchAdaptive = search.stateModel != nullptr;
 	s.searchExpandedForecast = result.expandedForecast;

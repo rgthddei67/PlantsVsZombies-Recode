@@ -116,6 +116,13 @@ int PrecisionCost(const Snapshot& s) {
 	return static_cast<int>(PrecisionIDs(s.precisionTargetID,s.precisionAdditionalTargetIDs,s.precisionTargetLimit).size())
 		*ColdStorageSkillRules::StrikeIceCost;
 }
+/** 付费波次只能由真实士兵推进；纯设备或纯技能不会实现要求的解锁路径。 */
+bool HasPaidTroops(const Snapshot& s,const std::vector<Action>& plan) {
+	return std::any_of(plan.begin(),plan.end(),[&](const Action& action) {
+		return action.option>=0 && action.option<static_cast<int>(s.options.size())
+			&& s.options[action.option].device<0 && s.options[action.option].cost>0;
+	});
+}
 /** 完整世界切换时一起保留所有付费目标，不能只复制首目标却仍计算三株费用/战果。 */
 void CopyPrecisionIntent(Result& result,const Snapshot& s) {
 	const auto ids=PrecisionIDs(s.precisionTargetID,s.precisionAdditionalTargetIDs,s.precisionTargetLimit);
@@ -1049,6 +1056,7 @@ void PruneWinner(const Snapshot& s,Result& best) {
 		}
 		if(!subset) continue;
 		if(plan.size()>current.size() || (!s.allowWait && plan.empty())) continue;
+		if(!s.allowWait && !HasPaidTroops(s,plan)) continue;
 		if(s.precisionUnlockAfterPurchase && s.precisionTargetID>0 && !FuturePrecisionPlanPayable(s,plan)) continue;
 		auto candidate=EvaluatePlan(s,best.effectiveWeights,std::move(plan),best.baselineFeatures,best.baselineOpponentAssets);
 		++trials;
@@ -2072,9 +2080,26 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		&& p.repairRemaining <= delivery && p.repairBlockedUntil <= time+delivery)
 		neededIce = std::max(neededIce,PlayerIceCost(state,time,p.repairCost));
 	if (pendingIce > 0 || ice >= neededIce || ice >= state.playerIceLimit) return;
+	// 留灰烬落点的独立应对也要留得住其阳光；不能先为别的高冰价工具订货，
+	// 再把原本可支付的灰烬误判成没钱。只保留一张当前就绪且阳光够用的牌，
+	// 冷却/来源死亡/落点封锁仍按同一世界检查；使用后下一步自然解除这笔预留。
+	float reservedSun=0, cheapestCounter=std::numeric_limits<float>::max();
+	if (reserveCounterSpace && !preservePaidDefenses) for (const auto& card : state.counters) {
+		if (card.blast.committed || card.sunCost<=0 || card.sunCost>sun || counterReady[card.source]>time
+			|| (card.sharedSource>=0 && counterReady[card.sharedSource]>time)
+			|| PlantingBlocked(blocks,card.cellRow,card.cellColumn,time)) continue;
+		if (card.plantID>0 && std::none_of(plants.begin(),plants.end(),[&](const Plant& p) {
+			return p.id==card.plantID && p.health>0 && p.shutdownUntil<=time;
+		})) continue;
+		if (card.plantID==0 && std::any_of(plants.begin(),plants.end(),[&](const Plant& p) {
+			return p.health>0 && p.layer==1 && p.row==card.cellRow && p.column==card.cellColumn;
+		})) continue;
+		const float price=card.sunCost*state.sunIceValue+PlayerIceCost(state,time,card.iceCost);
+		if(price<cheapestCounter) { cheapestCounter=price; reservedSun=static_cast<float>(card.sunCost); }
+	}
 	const ShopOrder* selected = nullptr;
 	for (const auto& order : state.shop) {
-		if (order.sunCost <= 0 || order.iceGain <= 0 || order.delivery < 0 || sun < order.sunCost
+		if (order.sunCost <= 0 || order.iceGain <= 0 || order.delivery < 0 || sun-reservedSun < order.sunCost
 			|| time+order.delivery >= Horizon(state)) continue;
 		if (!selected || order.sunCost/static_cast<float>(order.iceGain) < selected->sunCost/static_cast<float>(selected->iceGain)) selected = &order;
 	}
@@ -2114,14 +2139,25 @@ Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const
 	return result;
 }
 
+CapitalUtilityInputs DescribeCapitalUtility(const Snapshot& state) {
+	CapitalUtilityInputs inputs;
+	inputs.budget=state.budget; inputs.capacity=state.capacity; inputs.recoveryReserve=state.recoveryReserve;
+	inputs.weatherStation=state.weatherStation;
+	for(const auto& option:state.options) if(option.device<0 && option.cost>0 && option.cost<=PurchaseBudget(state))
+		inputs.highestAffordableTroopCost=std::max(inputs.highestAffordableTroopCost,option.cost);
+	if(state.fundableUnlockTroopCost>0 && state.fundableUnlockTroopCost<=state.budget)
+		inputs.fundableUnlockTroopCost=state.fundableUnlockTroopCost;
+	return inputs;
+}
+
 float CapitalUtilityScale(const Snapshot& state) {
 	if(!state.netEconomy || state.budget<=0) return 1;
-	int highestCost=0;
-	for(const auto& option:state.options) if(option.device<0 && option.cost>0 && option.cost<=PurchaseBudget(state))
-		highestCost=std::max(highestCost,option.cost);
+	const auto inputs=DescribeCapitalUtility(state);
+	const int highestCost=std::max(inputs.highestAffordableTroopCost,inputs.fundableUnlockTroopCost);
 	const int fullCapacity=std::max(0,std::min(state.capacity+(state.weatherStation ? 3 : 0),kPortfolioActions+(state.weatherStation ? 3 : 0)));
 	if(highestCost<=0 || fullCapacity<=0) return 1;
-	// 只用已经持有的现金和当前合法最大投入，不借用尚未产出的冰；不会因便宜工人多而提高囤积目标。
+	// 廉价开局不等于长期资本充裕：已经能支付解锁路径时，后续可投入的兵价也进入储备尺度。
+	// 这只改变估值；当前可购名单、付款钱包及解锁条件仍分别校验，不能借尚未兑现的收入。
 	// 完整容量不随本轮小队/整队搜索阶段变化，队列重排和新采购因此使用同一现金尺度。
 	const float reserve=highestCost*static_cast<float>(fullCapacity)*kCapitalUtilityWaves+std::max(0,state.recoveryReserve);
 	return std::clamp(std::pow(std::min(1.0f,reserve/state.budget),kCapitalUtilityExponent),kMinimumCashUtility,1.0f);
@@ -3926,6 +3962,7 @@ Result EvaluateCandidate(const Snapshot& input,const Weights& baseWeights,const 
 	if(state.deploymentCapital>=0) Repair(state,payable); // 正式动态资本诊断与自由搜索共用整案修复；固定夹具仍直接评分。
 	auto result=EvaluatePlan(state,weights,std::move(payable),baseline.features,baseline.opponentAssets);
 	result.stateInputs=inputs; result.effectiveWeights=weights;
+	result.capitalUtilityInputs=DescribeCapitalUtility(state);
 	result.expandedForecast=expanded;
 	ExportFuturePrecision(state,result);
 	return result;
@@ -3955,6 +3992,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const float baselineOpponentAssets = best.opponentAssets;
 	best.baselineOpponentAssets = baselineOpponentAssets; best.opponentScore = 0;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
+	best.capitalUtilityInputs=DescribeCapitalUtility(s);
 	best.baselineFeatures = best.features; best.score = Score(best.features, weights); best.evaluated = 1;
 	if (s.options.empty() || (DeploymentCapacity(s) <= 0 && !s.weatherStation) || PurchaseBudget(s) <= 0) return best;
 	const auto cheapest = std::min_element(s.options.begin(),s.options.end(),[](const auto& a,const auto& b) { return a.cost < b.cost; });
@@ -4006,6 +4044,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	seenPlans.insert(std::vector<std::pair<int,float>>{}); // 等待基线已经完整算过，空案不再反复积分。
 	const auto preparePlan=[&](std::vector<Action>& plan) {
 		Repair(s,plan);
+		if(!s.allowWait && !HasPaidTroops(s,plan)) return false;
 		if (!s.allowWait && !plan.empty()) plan.front().delay=0;
 		std::vector<std::pair<int,float>> key;
 		for (const auto& action:plan) key.emplace_back(action.option,action.delay);
@@ -4357,6 +4396,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	if (!original.empty()) for (int row = 0; row < static_cast<int>(s.context.size()) && withinBudget(); ++row) {
 		auto plan = original;
 		if (!Concentrate(s, plan, row)) continue;
+		if(!s.allowWait && !HasPaidTroops(s,plan)) continue;
 		// 最终至多六次逐行对照保留完整评分/拒绝诊断；此前的重复提案已去重。
 		++evaluatedPlans;
 		auto candidate = EvaluatePlan(s, weights, std::move(plan), best.baselineFeatures, baselineOpponentAssets);
@@ -4390,6 +4430,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.largestPlan = largestPlan;
 	best.candidates = std::move(candidateStats);
 	best.stateInputs = inputs; best.effectiveWeights = weights;
+	best.capitalUtilityInputs=DescribeCapitalUtility(s);
 	best.regrouping = best.actions.empty() && deferredInvestment;
     best.timeLimited=timeLimited;
 	// 小队没有预测到增量击杀、削血或生产时，才升级搜索范围与预测时域。
@@ -4514,6 +4555,8 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed,
 	const auto consider = [&](Result candidate) {
 		++evaluated;
 		largestPlan=std::max(largestPlan,static_cast<int>(candidate.actions.size()));
+		if(!state.allowWait && !HasPaidTroops(state,candidate.actions)) return;
+		candidate.capitalUtilityInputs=incumbent.capitalUtilityInputs;
 		if(futurePrecision && (candidate.precisionTargetID<=0 || !FuturePrecisionPlanPayable(state,candidate.actions))) return;
 		// 即使旧参数没有成本惩罚，也不能免费使用新技能；正式净冰模型已经计费，不重复惩罚。
 		if (!state.netEconomy) candidate.score -= std::max(0.0f,1+incumbent.effectiveWeights[5])*PrecisionCost(state);

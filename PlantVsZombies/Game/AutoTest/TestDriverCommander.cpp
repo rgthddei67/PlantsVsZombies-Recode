@@ -555,6 +555,10 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int refillTo = command.value("sunRefillTo",MAX_SUN);
 	const auto snapshotName=command.value("snapshotName",std::string{});
 	const double snapshotAt=command.value("snapshotAtSeconds",0.0);
+	const double snapshotProductionThreshold=command.value("snapshotProductionThreshold",0.0);
+	if(!std::isfinite(snapshotProductionThreshold) || snapshotProductionThreshold<0) {
+		Fail("commander_episode: invalid snapshot production threshold"); return false;
+	}
 	if(!snapshotName.empty() && (!std::isfinite(snapshotAt) || snapshotAt<0 || snapshotAt*60>=ticks)) {
 		Fail("commander_episode: invalid snapshot time"); return false;
 	}
@@ -594,6 +598,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		|| mEpisodeDecisions.back().at("serial") != ice.at("searchSerial"))) {
 		mEpisodeDecisions.push_back({{"seconds",mEpisodeTicks/60.0},{"serial",ice.at("searchSerial")},
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
+			{"cashScaleInputs",ice.at("searchCapitalInputs")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
 			{"rowStrikes",ice.at("searchRowStrikeCount")},
 			{"specialAbilities",{{"precisionTarget",ice.at("searchPrecisionTargetID")},{"precisionAdditionalTargets",ice.at("searchPrecisionAdditionalTargetIDs")},{"precisionGain",ice.at("searchPrecisionGain")},
@@ -627,7 +632,11 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	}
 	const bool ended = full.at("boardState") != "GAME" || ice.value("trophySpawned", false);
 	// 长局保留可复用的真实局面；先判终局，不因提前获胜而尝试保存已关闭的对局。
-	if(!ended && !mEpisodeSnapshotSaved && !snapshotName.empty() && mEpisodeTicks>=snapshotAt*60) {
+	const bool snapshotDue=snapshotProductionThreshold>0
+		? ice.value("searchRawProduction",0.0)>=snapshotProductionThreshold
+		: mEpisodeTicks>=snapshotAt*60;
+	// 可按高估的产冰预测留下一次真实局面，保存发生在本次陪练动作之前；不干预采购或胜负。
+	if(!ended && !mEpisodeSnapshotSaved && !snapshotName.empty() && snapshotDue) {
 		if(!SaveLevelSnapshot(snapshotName)) return false;
 		mEpisodeSnapshotSaved=true;
 	}

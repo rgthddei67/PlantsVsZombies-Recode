@@ -567,12 +567,93 @@ ColdStorageSearch::Snapshot CapitalArena(int budget)
 }
 }
 
+/** 订冰不能在留灰烬的完整应对中挪用其阳光；未就绪卡牌不凭空冻结商店预算。 */
+void RunColdStorageCounterBudgetTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.rows=2; state.houseX=-10000; state.searchVersion=2;
+    state.anticipateEconomy=true; state.playerSun=150; state.playerIce=20;
+    Unit worker;
+    worker.body.row=0; worker.body.x=900; worker.body.health=500;
+    worker.body.economic=true; worker.body.purchaseCost=24; worker.body.spawnAt=1;
+    worker.productionRemaining=4; worker.nextYield=20;
+    state.current={worker};
+    Counter ash;
+    ash.source=0; ash.cellRow=0; ash.cellColumn=0;
+    ash.sunCost=125; ash.iceCost=20; ash.windup=1; ash.recharge=1000;
+    ash.blast.x=400; ash.blast.damage=1800; ash.blast.reach.fill(-1); ash.blast.reach[0]=10000;
+    auto expensive=ash;
+    expensive.source=1; expensive.sunCost=1000; expensive.iceCost=80;
+    expensive.cellRow=1; expensive.blast.reach.fill(-1); expensive.blast.reach[1]=10000;
+    state.counters={ash,expensive};
+    state.shop={{50,40,3},{100,100,3}};
+    ConstructionStats ordinary,reserved;
+    const auto spent=Evaluate(state,{},&ordinary);
+    const auto protectedBudget=Evaluate(state,{},&reserved,0,0,0,true);
+    Check(spent[4]>0 && ordinary.orders>0 && ordinary.paidCounterCasts==0,
+        "the ordinary purchase posture really spends ash sun before the delayed worker arrives");
+    Check(protectedBudget[4]==0 && reserved.orders==0 && reserved.paidCounterCasts==1,
+        "one ready ash retains its actual sun and clears the worker before any production");
+    Construction future;
+    future.source=0; future.ready=1000; future.plant.health=100;
+    state.construction={future};
+    const auto selected=EvaluateCandidate(state,Weights{0,0,0,0,1,-1,0,0},{});
+    Check(selected.rawProduction==0 && selected.construction.counterSpaceReserved,
+        "the actual whole-plan comparison retains the legal reserved-wallet response");
+    state.playerSun=200;
+    Evaluate(state,{},&reserved,0,0,0,true);
+    Check(reserved.paidCounterCasts==1 && reserved.orderSun==50,
+        "a smaller affordable ice order remains legal without draining the reserved ash sun");
+    state.playerSun=150; state.counters[0].blast.ready=1000;
+    Evaluate(state,{},&reserved,0,0,0,true);
+    Check(reserved.orders>0 && reserved.orderSun==100 && reserved.paidCounterCasts==0,
+        "a cooling ash and an unaffordable alternative do not invent a reservation or a free cast");
+    std::cout<<"Shared ash sun and paid ice order counterfactuals passed\n";
+}
+
 /** 现金边际效用只改变同窗评分，不改变真实钱、产能、退款或自由搜索的可支付边界。 */
 void RunColdStorageCapitalUtilityTests()
 {
     using namespace ColdStorageSearch;
     const auto near=[](float left,float right) {return std::abs(left-right)<.0001f;};
     auto poor=CapitalArena(200), rich=CapitalArena(10000);
+    {
+        Snapshot opening;
+        opening.netEconomy=true; opening.weatherStation=true;
+        opening.budget=1875; opening.capacity=64; opening.recoveryReserve=48;
+        Option basic; basic.cost=4; opening.options={basic};
+        const float cheapOnly=CapitalUtilityScale(opening);
+        opening.fundableUnlockTroopCost=35;
+        Check(cheapOnly<.05f && near(CapitalUtilityScale(opening),1),
+            "an affordable future unlock prevents a cheap opening pool from devaluing startup capital");
+        const auto projection=DescribeCapitalUtility(opening);
+        Check(projection.highestAffordableTroopCost==4 && projection.fundableUnlockTroopCost==35,
+            "future capital reference does not add a locked unit to currently purchasable options");
+        opening.fundableUnlockTroopCost=2000;
+        Check(near(CapitalUtilityScale(opening),cheapOnly),"unaffordable future prices cannot inflate the cash reference");
+        opening.fundableUnlockTroopCost=0; opening.incomingIce=1000000; opening.supplyIce=1000000;
+        Check(near(CapitalUtilityScale(opening),cheapOnly),"unearned future income cannot finance an unlock capital reference");
+    }
+    {
+        Snapshot probe;
+        probe.budget=20; probe.capacity=1; probe.weatherStation=true;
+        Option troop; troop.type=82001; troop.cost=4;
+        troop.unit.body.health=100; troop.unit.body.x=1000;
+        Option device; device.type=0; device.device=0; device.setting=1; device.cost=20; device.preference[0]=500;
+        probe.options={troop,device};
+        const Weights values{0,0,0,0,0,-1,0,0};
+        const auto normal=Search(probe,values,42);
+        Check(!normal.actions.empty() && std::all_of(normal.actions.begin(),normal.actions.end(),[&](const Action& action) {
+            return probe.options[action.option].device>=0;
+        }),"ordinary search may still choose a useful device-only transaction");
+        probe.allowWait=false;
+        const auto advancing=Search(probe,values,42);
+        Check(std::any_of(advancing.actions.begin(),advancing.actions.end(),[&](const Action& action) {
+            return probe.options[action.option].device<0;
+        }),"unlock-path search must advance a paid troop wave instead of repeatedly buying only devices");
+        Check(advancing.features[5]<=probe.budget,"wave advancement does not borrow future income");
+    }
     Check(near(CapitalUtilityScale(poor),1) && near(CapitalUtilityScale(rich),.01f),
         "cash covering two complete legal highest-cost teams has decreasing utility only beyond that coverage");
     auto reserve=rich;

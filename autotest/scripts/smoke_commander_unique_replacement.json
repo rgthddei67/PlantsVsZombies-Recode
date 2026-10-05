@@ -1,0 +1,25 @@
+{
+  "description": "Controlled unique-support forecast: a living DawnLotus/Plantern forbids a second real plant but retains a same-cell future replacement option. Forecast sampling does not mutate the board.",
+  "backgroundCommander": true,
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_DAWNLOTUS","PLANT_PLANTERN"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_timescale","value":0},
+    {"op":"plant","type":"PLANT_DAWNLOTUS","row":2,"col":3},
+    {"op":"plant","type":"PLANT_PLANTERN","row":2,"col":4},
+    {"op":"wait_frames","value":2},
+    {"op":"assert_can_plant","type":"PLANT_DAWNLOTUS","row":0,"col":0,"expected":false},
+    {"op":"assert_can_plant","type":"PLANT_PLANTERN","row":0,"col":1,"expected":false},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"compare_commander_search","name":"alive","budgetsMs":[]},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"damage_plant","type":"PLANT_DAWNLOTUS","row":2,"col":3,"damage":9999},
+    {"op":"wait_frames","value":2},
+    {"op":"assert_can_plant","type":"PLANT_DAWNLOTUS","row":2,"col":3,"expected":true},
+    {"op":"assert_can_plant","type":"PLANT_PLANTERN","row":0,"col":1,"expected":false},
+    {"op":"compare_commander_search","name":"dead","budgetsMs":[]},
+    {"op":"quit"}
+  ]
+}

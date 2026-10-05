@@ -1,6 +1,12 @@
 #pragma once
 
 namespace ColdStorageSearch {
+/** 现金边际估值的实际快照输入，单位为冰块/名额；未来兵价仅描述现钱包可走到的解锁路径。 */
+struct CapitalUtilityInputs {
+	int budget=0, capacity=0, recoveryReserve=0;
+	int highestAffordableTroopCost=0, fundableUnlockTroopCost=0;
+	bool weatherStation=false;
+};
 /** 显式诊断用工人轨迹；income 非零表示本步兑现的一批产冰，其余为两秒状态采样。 */
 struct WorkerForecastTrace {
 	int id = 0, row = 0;
