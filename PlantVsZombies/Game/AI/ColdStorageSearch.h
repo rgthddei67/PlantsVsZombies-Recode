@@ -479,11 +479,11 @@ Weights AccountForIce(const Weights& conditioned,float utilityScale=1);
 float CapitalUtilityScale(const Snapshot& state);
 /** 护盾能减少的本体火力比例；Board 用它修正持盾单位的火力偏好上下文，保留无盾单位原语义。 */
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);
-/** 低于重组储备且增援没有足够增量收益时暂缓付款；已有部队的收益不能为新支出背书。 */
+/** 低于重组储备且兵力/技能投资没有足够增量收益时暂缓付款；已有部队收益不能为新支出背书。 */
 bool ShouldRegroup(const Result& result, int budget, int reserve);
 /** 用已注入资本及当前现金/付费兵力资产计算剩余试错额度，不把对方损失当作己方资本。 */
 float RemainingCapitalRisk(float fundedCapital, float currentCapital);
-/** 大额采购须保留可续战资本；实际有利交换可用对方相对等待的额外资产损失抵扣本案风险，不能补钱包。 */
+/** 兵力与纯技能采购共用资本检查；对方相对等待的额外资产损失可抵扣本案风险，不能补钱包。 */
 bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 	float riskAllowance = (std::numeric_limits<float>::max)());
 /** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3固定挡位，4随燃料切挡，无雾关灯。

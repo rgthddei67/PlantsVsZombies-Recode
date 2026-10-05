@@ -20,8 +20,12 @@ card = next(card for card in before["cards"] if card["gameplayType"] == "PLANT_D
 assert before["sun"] - after["sun"] == card["sunCost"]
 assert before["coldStorage"]["playerIce"] - after["coldStorage"]["playerIce"] == before["coldStorage"]["plantCosts"]["PLANT_DOOMSHROOM"]
 assert after["cards"][0]["cooldownRemainingMs"] > 0
-planted = next(plant for plant in after["plants"] if plant["type"] == "PLANT_DOOMSHROOM")
-assert before["fog"]["cellAlpha"][planted["row"]][planted["col"]] > 0
+# 半秒观察后毁灭可能已经起爆，不能要求取证时仍存活；正式新弹坑保留实际落点。
+locations = [(plant["row"], plant["col"]) for plant in after["plants"] if plant["type"] == "PLANT_DOOMSHROOM"]
+old_craters = {(crater["row"], crater["col"]) for crater in before["craters"]}
+locations += [(crater["row"], crater["col"]) for crater in after["craters"]
+              if (crater["row"], crater["col"]) not in old_craters]
+assert len(locations) == 1 and before["fog"]["cellAlpha"][locations[0][0]][locations[0][1]] > 0
 before, after = read("before_clear"), read("after_clear")
 clear = read("clear")
 assert clear["sparringFogClears"] == 1 and clear["sparringBlindDoomCasts"] == 0

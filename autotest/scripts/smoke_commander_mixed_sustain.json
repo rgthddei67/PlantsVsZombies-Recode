@@ -1,0 +1,31 @@
+{
+  "description": "Controlled sparring fixture: normal opening resources build a sustainable mixed defense, reserve a Lotus replacement cell, and replant it after death. Commander decisions are deferred between short stages; this is not battle strength evidence.",
+  "backgroundCommander": true,
+  "coldStorageBonusSelection": true,
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"cold_storage_bonus_pick","choice":1},
+    {"op":"cold_storage_bonus_pick","choice":3},
+    {"op":"choose_cards","cards":["PLANT_SUNSHROOM","PLANT_MARIGOLD","PLANT_DAWNLOTUS","PLANT_THUNDERFLOWER","PLANT_ICESTORAGENUT","PLANT_PUMPKINSHELL"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_timescale","value":5},
+    {"op":"dump_state","name":"initial.json"},
+    {"op":"set_cold_storage","state":{"decisionRemaining":45}},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":30,"timeScale":5,"name":"stage1","timeout":60},
+    {"op":"set_cold_storage","state":{"decisionRemaining":45}},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":30,"timeScale":5,"name":"stage2","timeout":60},
+    {"op":"set_cold_storage","state":{"decisionRemaining":45}},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":30,"timeScale":5,"name":"stage3","timeout":60},
+    {"op":"dump_state","name":"developed.json"},
+    {"op":"assert_state","path":"normalPlantsByCell.2_3.type","equals":"PLANT_DAWNLOTUS"},
+    {"op":"damage_plant","type":"PLANT_DAWNLOTUS","row":2,"col":3,"damage":9999},
+    {"op":"wait_frames","value":2},
+    {"op":"set_cold_storage","state":{"decisionRemaining":45}},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":5,"timeScale":5,"name":"rebuild","timeout":30},
+    {"op":"assert_state","path":"normalPlantsByCell.2_3.type","equals":"PLANT_DAWNLOTUS"},
+    {"op":"dump_state","name":"rebuilt.json"},
+    {"op":"screenshot","name":"rebuilt.png"},
+    {"op":"quit"}
+  ]
+}

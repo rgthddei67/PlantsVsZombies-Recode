@@ -1554,6 +1554,24 @@ int main()
 	check(std::abs(RemainingCapitalRisk(1000,1000)-350)<.01f,"fresh treasury has bounded experimental loss capacity");
 	check(std::abs(RemainingCapitalRisk(1000,700)-50)<.01f,"realized loss consumes the cumulative allowance");
 	check(RemainingCapitalRisk(1000,600)==0,"successive small losses can exhaust the allowance before the wallet is empty");
+	Result precisionOnly;
+	precisionOnly.precisionTargetID=1;
+	precisionOnly.features[5]=180; precisionOnly.features[0]=74;
+	check(ShouldConserveCapital(precisionOnly,400,48,0),
+		"a skill-only purchase consumes the same exhausted capital allowance as troops");
+	check(ShouldRegroup(precisionOnly,200,240),
+		"an empty troop cart does not bypass low-stock recovery for a paid precision strike");
+	precisionOnly.baselineOpponentAssets=200; precisionOnly.opponentScore=200;
+	check(!ShouldConserveCapital(precisionOnly,400,48,0),
+		"a skill-only attack may still trade cash for independently forecast opponent attrition");
+	precisionOnly.opponentScore=0; precisionOnly.features[0]=180;
+	check(!ShouldConserveCapital(precisionOnly,400,48,0),
+		"a fully repaid skill-only attack remains legal without remaining loss allowance");
+	precisionOnly.features[0]=0; precisionOnly.features[2]=1;
+	check(!ShouldConserveCapital(precisionOnly,400,48,0),
+		"a real skill-only house breach remains ahead of capital conservation");
+	Result freeWait;
+	check(!ShouldConserveCapital(freeWait,400,48,0),"a zero-cost empty wait remains exempt");
 	Result attrition; attrition.actions={{0,0}}; attrition.features[5]=84; attrition.features[0]=49;
 	attrition.opponentScore=172; attrition.baselineOpponentAssets=9907; attrition.opponentAssets=9735;
 	check(!ShouldConserveCapital(attrition,353,48,0),

@@ -326,7 +326,7 @@
       "op": "commander_episode",
       "opponent": "ice_bunker_mixed",
       "seconds": 1,
-      "name": "last_elite",
+      "name": "last_elite_episode",
       "traceUnits": true,
       "timeout": 30
     },
@@ -360,10 +360,19 @@
       "name": "vacant.json"
     },
     {
+      "op": "wait_seconds",
+      "value": 8,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "replacement_ready.json"
+    },
+    {
       "op": "commander_episode",
       "opponent": "ice_bunker_mixed",
       "seconds": 1,
-      "name": "replacement",
+      "name": "replacement_episode",
       "traceUnits": true,
       "timeout": 30
     },

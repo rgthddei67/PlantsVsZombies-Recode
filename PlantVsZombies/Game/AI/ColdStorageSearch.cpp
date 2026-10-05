@@ -2170,7 +2170,8 @@ float ShieldProtectionFraction(const Unit& unit, const Plant& plant) {
 }
 
 bool ShouldRegroup(const Result& result, int budget, int reserve) {
-	if (budget >= reserve || result.actions.empty()) return false;
+	// 纯狙击也会消耗本金；空购物车只有没有新增技能支出时才代表免费等待。
+	if (budget >= reserve || (result.actions.empty() && result.features[5]<=result.baselineFeatures[5])) return false;
 	const auto& plan = result.features;
 	const auto& baseline = result.baselineFeatures;
 	if (plan[2] > baseline[2]) return false;
@@ -2186,7 +2187,8 @@ float RemainingCapitalRisk(float fundedCapital, float currentCapital) {
 }
 
 bool ShouldConserveCapital(const Result& result, int budget, int reserve, float riskAllowance) {
-	if (result.actions.empty()) return false;
+	// 采购列表不含狙击目标，不能以没有士兵跳过同一钱包的累计亏损检查。
+	if (result.actions.empty() && result.features[5]<=result.baselineFeatures[5]) return false;
 	const auto& plan = result.features;
 	const auto& baseline = result.baselineFeatures;
 	if (plan[2] > baseline[2]) return false;

@@ -16,6 +16,27 @@ namespace {
 using Json = nlohmann::json;
 constexpr float kStoredWakeStake=4200; // 蓄爆陪练愿意唤醒毁灭的可见威胁总值，生命及猎工优先值
 constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像素；实际爆炸仍由正式实体结算
+constexpr int kMixedProducerLimit=20; // 混合陪练的同时经济株建设目标，不免费补种或重置卡槽
+constexpr int kMixedDecisionTicks=30; // 混合陪练每半个游戏秒观察并提交合法输入，60 ticks为1秒
+constexpr int kMixedLotusColumn=3; // 混合陪练为唯一曙光莲保留的列，避免补射手占掉补种位置
+constexpr int kReservedAshWorkerCount=2; // 同一合法爆区内至少两只可生产工人时，允许交保留的灰烬
+/** 最后一张灰烬只应对公开工人集中、后排救险或无油产冰警报，不从雾内位置选靶。 */
+bool ReservedAshCanRelease(const Json& state,const std::vector<Json>& visible,const std::string& kind,
+    int row,int column,bool blindProductionAlarm) {
+    if(kind=="PLANT_DOOMSHROOM" && blindProductionAlarm) return true;
+    const int x=state.at("cells").at(row).at(column).at("centerXInt");
+    int workers=0;
+    for(const auto& z:visible) {
+        const int targetRow=z.at("row"),targetX=z.at("xInt");
+        const bool covered=kind=="PLANT_JALAPENO" ? targetRow==row
+            : std::abs(targetRow-row)<=(kind=="PLANT_DOOMSHROOM" ? 2 : 1)
+              && std::abs(targetX-x)<=(kind=="PLANT_DOOMSHROOM" ? kStoredWakeReach : 130);
+        if(!covered) continue;
+        if(targetX<=state.at("cells").at(targetRow).at(std::min(2,state.at("columns").get<int>()-1)).at("centerXInt").get<int>()) return true;
+        if(z.at("type")=="ZOMBIE_ICE_WORKER" && z.value("hasHead",true)) ++workers;
+    }
+    return workers>=kReservedAshWorkerCount;
+}
 /** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters, bool recentIceRise) {
 	std::vector<Json> actions;
@@ -37,6 +58,16 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	const bool eliteDefense = std::any_of(state.at("cards").begin(), state.at("cards").end(),
 		[](const auto& card) { return card.at("gameplayType") == "PLANT_ELITE_SCAREDYSHROOM"; });
 	int sun = state.at("sun"), stock = ice.at("playerIce");
+	// 保留一个真实就绪卡槽，优先单路辣椒；模仿者与原卡也按各自slot而非同名一起扣住。
+	int heldAshSlot=-1,heldAshSun=0,heldAshIce=0;
+	if(mixedElite) for(const auto* kind:{"PLANT_JALAPENO","PLANT_DOOMSHROOM","PLANT_CHERRYBOMB"}) {
+		for(const auto& card:state.at("cards")) if(card.at("gameplayType")==kind && card.at("ready").get<bool>()) {
+			heldAshSlot=card.at("slot"); heldAshSun=card.at("sunCost"); heldAshIce=ice.at("plantCosts").at(kind);
+			break;
+		}
+		if(heldAshSlot>=0) break;
+	}
+	bool constructionReserveApplied=false;
 	std::map<std::pair<int,int>, Json> plants;
 	std::set<std::pair<int,int>> shells;
 	for (const auto& p : state.at("plants")) if (!p.value("squished", false) && p.value("health", 0) > 0) {
@@ -46,19 +77,24 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	}
     const bool station=state.value("background",std::string())=="WEATHER_STATION";
     const auto& lamp=state.at("plantern");
-    WeatherStationRules::Control fogControl;
+    WeatherStationRules::Control fogControl,chargeControl;
     if(station) {
         const auto& control=state.at("weatherStation").at("controls").at(WeatherStationRules::FOG);
         fogControl={control.at("value").get<int>(),control.at("pending").get<int>(),
             control.at("warning").get<float>(),control.at("protection").get<float>(),control.at("player").get<bool>()};
+        const auto& charge=state.at("weatherStation").at("controls").at(WeatherStationRules::CHARGE);
+        chargeControl={charge.at("value").get<int>(),charge.at("pending").get<int>(),
+            charge.at("warning").get<float>(),charge.at("protection").get<float>(),charge.at("player").get<bool>()};
     }
-    // 混合陪练立刻购买可用的关雾事务；付款后8秒才切换，期间照明仍按真实雾势耗油。
-    if(mixedElite && station && WeatherStationRules::CanChange(
-        fogControl,
-        WeatherStationRules::FOG,0) && stock>=WeatherStationRules::Cost(WeatherStationRules::FOG,0)) {
-        actions.push_back({{"op","player_station_control"},{"device",WeatherStationRules::FOG},{"value",0}});
-        stock-=WeatherStationRules::Cost(WeatherStationRules::FOG,0);
-    }
+    // 关雷荷保护经营，再关雾节油；两笔都付款、等待8秒并遵守保护期，保留灰烬费用。
+    const auto purchaseOff=[&](int device,const WeatherStationRules::Control& control) {
+        const int cost=WeatherStationRules::Cost(device,0);
+        if(mixedElite && station && WeatherStationRules::CanChange(control,device,0) && stock>=cost+heldAshIce) {
+            actions.push_back({{"op","player_station_control"},{"device",device},{"value",0}}); stock-=cost;
+        }
+    };
+    purchaseOff(WeatherStationRules::CHARGE,chargeControl);
+    purchaseOff(WeatherStationRules::FOG,fogControl);
 
     // 气象站陪练按公开雾势开灯，无雾关灯；不从雾中实体的隐藏坐标选择挡位。
     if(station && lamp.value("active",false)) {
@@ -70,6 +106,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	for (const auto& z : state.at("zombies")) if (z.value("bodyHealth", 0) > 0 && (!station || !z.value("fogObscured",false))) zombies.push_back(z);
 	std::stable_sort(zombies.begin(), zombies.end(), [](const auto& a, const auto& b) { return a.at("xInt") < b.at("xInt"); });
 	int defenseReserve = 0, defenseIceReserve = 0;
+	defenseReserve=heldAshSun; defenseIceReserve=heldAshIce;
 	// 威胁已经接近时，为十秒内转好的灰烬预留真实阳光；空场及长期冷却时释放这笔预算发展经济。
 	if (planner && !zombies.empty() && zombies.front().at("xInt").get<int>() < 950)
 		for (const auto& card : state.at("cards")) {
@@ -133,10 +170,11 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	}
 	// 建设型陪练只在种植储备不足时补冰，避免尚有可用冰时反复花掉筹建输出的阳光。
 	// 缺少反制所需冰时仍须先订货，否则预留阳光也无法救险。
-	const int purchaseReserve = stock >= defenseIceReserve ? defenseReserve : 0;
+	// 缺冰不能把已留着的灰烬阳光也订走；大单买不起时允许小单恢复救险，而不是花空现金。
+	const int purchaseReserve = std::max(heldAshSun,stock >= defenseIceReserve ? defenseReserve : 0);
 	if (ice.at("orderIce") == 0 && stock < (planner ? 40 : 100) && sun >= 225+purchaseReserve) {
 		actions.push_back({{"op","buy_ice"},{"large",true}}); sun -= 225;
-	} else if (ice.at("orderIce") == 0 && stock < 30 && sun >= 100+purchaseReserve) {
+	} else if (ice.at("orderIce") == 0 && stock < (mixedElite ? 40 : 30) && sun >= 100+purchaseReserve) {
 		actions.push_back({{"op","buy_ice"},{"large",false}}); sun -= 100;
 	}
 	// 打击即时结算，下一次观察后再选灰烬，避免按释放前快照重复炸已经死亡的目标。
@@ -147,15 +185,26 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		for (const auto& card : state.at("cards")) {
 			if (card.at("gameplayType") != kind || !card.at("ready").get<bool>()
 				|| card.at("sunCost").get<int>() > sun || ice.at("plantCosts").at(kind).get<int>() > stock) continue;
+			const bool reserved=card.at("slot").get<int>()==heldAshSlot;
+			const bool urgentAir=mixedElite && kind=="PLANT_BLOVER" && std::any_of(zombies.begin(),zombies.end(),[&](const Json& z) {
+				return z.at("type")=="ZOMBIE_BALLOON" && z.at("xInt").get<int>()
+					<=state.at("cells").at(z.at("row").get<int>()).at(std::min(3,state.at("columns").get<int>()-1)).at("centerXInt").get<int>();
+			});
+			// 其他灰烬、建设和经济卡不能把留着的那张变成买不起；阳光建设预算只预留一次。
+			// 后排空中救险可优先付款，保留灰烬卡的冷却；不能为预留资金放任无法拦截的气球过线。
+			if(!reserved && !urgentAir && heldAshSlot>=0 && (ice.at("plantCosts").at(kind).get<int>()>stock-heldAshIce
+				|| (!constructionReserveApplied && card.at("sunCost").get<int>()>0 && card.at("sunCost").get<int>()>sun-heldAshSun))) continue;
 			for (const auto& [r,c] : cells) {
 				const int targetRow=r,targetColumn=c;
+				if(reserved && !ReservedAshCanRelease(state,zombies,kind,r,c,
+					recentIceRise && station && fogControl.value>0 && lamp.value("fuelTenths",0)==0)) continue;
 				const Json cell = Json::array({r,c});
 				if (std::find(card.at("legalCells").begin(), card.at("legalCells").end(), cell) == card.at("legalCells").end()) continue;
 				// 独立陪练在可见工人群有钟匠掩护时先付时间干扰，再按原门槛交灰烬。
 				// 仅使用公开单位及真实钱包/冷却，不改变原 ice_bunker 基线，也不替僵尸出兵。
 				if(temporalBunker && (kind=="PLANT_JALAPENO" || kind=="PLANT_CHERRYBOMB" || kind=="PLANT_DOOMSHROOM")
 					&& ice.value("interferenceReady",false)
-					&& stock>=ColdStorageSkillRules::InterferenceIceCost+ice.at("plantCosts").at(kind).get<int>()
+					&& stock>=ColdStorageSkillRules::InterferenceIceCost+ice.at("plantCosts").at(kind).get<int>()+(reserved ? 0 : heldAshIce)
 					&& std::any_of(zombies.begin(),zombies.end(),[](const Json& z){return z.at("type")=="ZOMBIE_POLAR_CLOCKMAKER";})
 					&& std::count_if(zombies.begin(),zombies.end(),[&](const Json& z){
 						if(z.at("type")!="ZOMBIE_ICE_WORKER") return false;
@@ -166,7 +215,7 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 					})>=3) {
 					actions.push_back({{"op","temporal_interference"}}); stock-=ColdStorageSkillRules::InterferenceIceCost;
 				}
-				actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",r},{"col",c}});
+				actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",r},{"col",c},{"reservedAshRelease",reserved}});
 				planted = true; return;
 			}
 			// 独立陪练选项：没有空位才考虑牺牲一株。只读取本方合法格及可见威胁，
@@ -175,6 +224,8 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 				|| (station && kind == "PLANT_DOOMSHROOM"))) {
 				std::pair<int,int> selected{-1,-1}; int lowestCost = 100000;
 				for (const auto& [r,c] : cells) {
+					if(reserved && !ReservedAshCanRelease(state,zombies,kind,r,c,
+						recentIceRise && station && fogControl.value>0 && lamp.value("fuelTenths",0)==0)) continue;
 					const Json cell = Json::array({r,c});
 					const auto& vacant = card.at("counterVacantCells");
 					if (std::find(vacant.begin(),vacant.end(),cell) == vacant.end()) continue;
@@ -232,7 +283,11 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	// 全兵种训练配备实际对空卡，避免把“陪练根本不能打气球”误学成通用最优策略。
 	if (std::any_of(zombies.begin(), zombies.end(), [](const auto& z) { return z.at("type") == "ZOMBIE_BALLOON"; })) {
 		std::vector<std::pair<int,int>> antiAir;
-		for (int r = 0; r < 5; ++r) for (int c = 7; c >= 2; --c) antiAir.emplace_back(r,c);
+		if(mixedElite) {
+			// 经济扩建会占掉旧的前侧候选；三叶草全场吹飞，后排合法空格同样能救险。
+			for(const auto& card:state.at("cards")) if(card.at("gameplayType")=="PLANT_BLOVER")
+				for(const auto& cell:card.at("legalCells")) antiAir.emplace_back(cell.at(0).get<int>(),cell.at(1).get<int>());
+		} else for (int r = 0; r < 5; ++r) for (int c = 7; c >= 2; --c) antiAir.emplace_back(r,c);
 		attempt("PLANT_BLOVER", antiAir);
 		attempt("PLANT_CACTUS", antiAir);
 	}
@@ -290,6 +345,18 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
         attempt("PLANT_DOOMSHROOM",targets);
         if(planted) return actions;
     }
+	// 先让其他灰烬正常比较（包括消耗工程师罐子），再用留着的辣椒处理可见单路工人群。
+	if(mixedElite) {
+		std::vector<std::pair<int,int>> workerRows;
+		for(int r=0;r<state.at("rows").get<int>();++r) {
+			const int workers=static_cast<int>(std::count_if(zombies.begin(),zombies.end(),[&](const Json& z) {
+				return z.at("row")==r && z.at("type")=="ZOMBIE_ICE_WORKER" && z.value("hasHead",true) && remainingHealth(z)>0;
+			}));
+			if(workers>=kReservedAshWorkerCount) for(int c=state.at("columns").get<int>()-1;c>=0;--c) workerRows.emplace_back(r,c);
+		}
+		attempt("PLANT_JALAPENO",workerRows);
+		if(planted) return actions;
+	}
 	// 蓄爆陪练用可见聚团择时唤醒预存毁灭；正在唤醒的同一株不会再次提交咖啡。
 	if (bunker) {
 		std::vector<std::pair<float,std::pair<int,int>>> wakeCells;
@@ -337,6 +404,12 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		cells.clear();
 		for (const auto& z : zombies) for (int c = 6; c >= 2; --c) {
 			const int r = z.at("row"), x = state.at("cells").at(r).at(c).at("centerXInt");
+			// 已有坚果仍在该敌人前方时，不沿着同一路每次观察再买一堵墙。
+			// 敌人已越过旧墙时仍可在后方合法空格补救，不设置全局坚果数量硬上限。
+			if(mixedElite && std::any_of(plants.begin(),plants.end(),[&](const auto& entry) {
+				return entry.first.first==r && entry.second.at("type")==wall
+					&& state.at("cells").at(r).at(entry.first.second).at("centerXInt").template get<int>()<z.at("xInt").template get<int>();
+			})) break;
 			if (x < z.at("xInt").get<int>()-20 && !plants.count({r,c})) { cells.emplace_back(r,c); break; }
 		}
 		attempt(wall,cells);
@@ -344,9 +417,14 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
 	// 上面的救险正常使用全部现金；仅后续可延后的建设受预留预算约束，不改玩家真实余额。
 	sun = std::max(0,sun-defenseReserve);
+	constructionReserveApplied=true;
 	if (lotusPlayer && std::none_of(plants.begin(),plants.end(),[](const auto& entry) {
 		return entry.second.at("type") == "PLANT_DAWNLOTUS";
-	})) attempt("PLANT_DAWNLOTUS",{{2,2},{1,2},{3,2}});
+	})) {
+		// 雷鸣花使用第2列，莲不能和它竞争同一批固定补种格；经济扩建也保留这一个格。
+		if(mixedElite) attempt("PLANT_DAWNLOTUS",{{state.at("rows").get<int>()/2,kMixedLotusColumn}});
+		else attempt("PLANT_DAWNLOTUS",{{2,2},{1,2},{3,2}});
+	}
 	std::vector<int> rows{2,0,4,1,3};
 	if (!zombies.empty()) std::stable_sort(rows.begin(), rows.end(), [&](int a, int b) {
 		auto nearest = [&](int r) { for (const auto& z : zombies) if (z.at("row") == r) return z.at("xInt").get<int>(); return 2000; };
@@ -399,12 +477,20 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		attempt("PLANT_WINTERMELON",{{1,0},{3,0},{0,0},{4,0},{2,0}});
 	}
 	// 扩建陪练保留两格金盏花周转，其余中排逐步发展；只维持七株会低估真人的后期反制资源。
-	if (producers < (builder ? 18 : 7)) {
+	if (producers < (mixedElite ? kMixedProducerLimit : builder ? 18 : 7)) {
 		cells.clear(); for (int r : rows) {
-			cells.emplace_back(r,3); cells.emplace_back(r,5);
-			if (builder) {
-				if (r != 0 && r != 4) cells.emplace_back(r,4);
-				if (!pineElite) cells.emplace_back(r,2);
+			if(mixedElite) {
+				// 原中排候选在雷鸣花/坚果成阵后不足以达到经济目标；使用真实空格扩建，
+				// 同时给两格金盏花周转和唯一莲留位，不挤掉后排输出、前墙或支援。
+				for(int c:{3,4,6,7,8}) if(c<state.at("columns").get<int>()
+					&& !(r==state.at("rows").get<int>()/2 && c==kMixedLotusColumn)
+					&& !(c==4 && (r==0 || r+1==state.at("rows").get<int>()))) cells.emplace_back(r,c);
+			} else {
+				cells.emplace_back(r,3); cells.emplace_back(r,5);
+				if (builder) {
+					if (r != 0 && r != 4) cells.emplace_back(r,4);
+					if (!pineElite) cells.emplace_back(r,2);
+				}
 			}
 		}
 		attempt(station ? "PLANT_SUNSHROOM" : "PLANT_SUNFLOWER", cells);
@@ -438,7 +524,12 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		if (!stored) for (int r:rows) cells.emplace_back(r,7);
 		attempt("PLANT_DOOMSHROOM",cells);
 	}
-	cells.clear(); for (int r : rows) cells.emplace_back(r,6);
+	cells.clear(); for (int r : rows) {
+		if(mixedElite && std::any_of(plants.begin(),plants.end(),[&](const auto& entry) {
+			return entry.first.first==r && entry.second.at("type")==wall;
+		})) continue;
+		cells.emplace_back(r,mixedElite ? 5 : 6);
+	}
 	attempt(wall, cells);
 	return actions;
 }
@@ -490,9 +581,11 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
 		Log("commander episode started: " + opponent);
 	}
-	// 普通观测每秒一次，正式胜负在每个逻辑步立即收尾。
+	// 混合陪练半秒观察一次以正常使用不同卡槽，避免每秒至多一株拖慢开局；其他陪练不变。
+	// 轨迹仍按下方独立的采样间隔输出，正式胜负在每个逻辑步立即收尾。
+	const int observationTicks=opponent=="ice_bunker_mixed" ? kMixedDecisionTicks : 60;
 	Json full;
-	if (terminal || mEpisodeTicks % 60 == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
+	if (terminal || mEpisodeTicks % observationTicks == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
 	else { mEpisodeTicks += timeScale; return false; }
 	if (!full.contains("coldStorage")) { Fail("commander_episode requires cold storage"); return false; }
 	const auto& ice = full.at("coldStorage");
@@ -583,7 +676,11 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent, command.value("shovelCounters",false), observedAt<mEpisodeBlindIceUntil)) {
 		ExecuteInteractive(action);
         if(!mInteractiveResults.empty() && mInteractiveResults.back().value("ok",false)) {
-            if(action.at("op")=="player_station_control") { ++mEpisodeFogClears; Log("player purchased clear fog"); }
+            if(action.at("op")=="player_station_control") {
+                if(action.at("device")==WeatherStationRules::FOG) { ++mEpisodeFogClears; Log("player purchased clear fog"); }
+                else if(action.at("device")==WeatherStationRules::CHARGE) Log("player purchased charge off");
+            }
+            if(action.at("op")=="player_plant" && action.value("reservedAshRelease",false)) Log("player used reserved ash");
             if(action.at("op")=="player_plant" && action.value("blindFogResponse",false)) {
                 ++mEpisodeBlindDoomCasts; mEpisodeBlindIceUntil=0; Log("player blind-cast doom from public ice rise");
             }

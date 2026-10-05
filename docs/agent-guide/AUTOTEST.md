@@ -31,6 +31,8 @@
 
 `ice_bunker_mixed` 为精英胆小菇与雷鸣花同时建设的独立陪练，仍通过正式卡槽、资金、累计配额和冷却逐步成阵，并保留坚果修复、灰烬与时间干扰。精英菇累计配额耗尽后，空出的后排用雷鸣花按真实费用/冷却补种，专项为 `smoke_commander_mixed_replacement` 及同名 verifier。入口为 `battle_commander_mixed_96.json`，`verify_commander_mixed.py` 核对两种真实输出同场存在及资源账本；旧陪练不受影响。
 
+混合陪练每半个游戏秒通过正式卡槽提交一次种植，保留支援补种格与金盏花周转格，并在已有坚果仍能拦截时避免逐次观察重复筑墙。`smoke_commander_mixed_sustain.json` 与 `verify_commander_mixed_sustain.py` 用正常开局资金验证经济扩建、输出位和曙光莲死亡后的补种；其中推迟指挥官决策的夹具只证明陪练合法性，不证明对战强度。混合陪练还按真实就绪卡槽与费用保留一张灰烬，遇可见工人集中、后排救险或公开无油产冰警报才释放；其余购买与时间干扰不能花掉该牌的费用。关雷荷走正式付款、预警和保护期。`smoke_commander_reserved_ash.json` 与同名 verifier 核对关雷荷、保留/释放以及干扰共用钱包，不代表胜率。陪练修正前的胜局仍是旧课程成绩，新旧课程不能合并成同一胜率。
+
 长局 `commander_episode` 可显式指定 `snapshotName` 和相对本段的 `snapshotAtSeconds`，在仍正常对战时调用正式序列化保存一次 `snapshots/<name>.json`；提前终局不强行保存，结果的 `snapshotSaved` 表示是否实际完成。默认不保存，不改变资金、搜索或胜负。超时只表示观察窗口结束，不能作为正式败局。
 
 逐秒取证另记录 `engineerProtectionEvents`：Board 在同次灰烬冻结免伤名单时保存来源和工人的稳定 ID，即使工程师随后被该次爆炸杀死也保留证据。活体 `engineerProtectionUses` 的观测和不代表全部使用次数。`smoke_commander_protection_trace.json` 与同名 verifier 检查同次来源死亡及重叠保护去重；其手动布置只证明取证契约，不是自由经营或胜率证据。
