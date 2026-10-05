@@ -2,17 +2,27 @@
 
 跨窗口接续、能力接入与训练决策先读 [指挥官 AI 专项技能](../.agents/skills/improving-commander-ai/SKILL.md)；本页保留具体训练器与诊断入口，按当前任务查阅对应段落。
 
-第十一章正常开局可用 `normal:opening_11_1` 至 `normal:opening_11_9`，沿用正式逐关卡池与波次解锁。气象站陪练携带阳光菇、路灯花，按公开雾势开关灯，只对实际可见目标精确选点；它不等同于真人，尚不主动操作天气控制台。气象站的 `ice_bunker` 组使用夜晚即时毁灭菇，按可见威胁选合法落点，不空场存菇，也不携带仅用于白天唤醒的咖啡。第十章陪练行为保持原样。自定义配对可调用 `train_cold_storage.episode_commands` / `run_batch`，同一批保持脚本、陪练、推进速度与种子一致。降低 `steps` 会减少每次绘制前的逻辑批量推进；同步 `commander_episode` 的时间倍率仍须为 1，不混用中途改变条件的成绩。
+第十一章正常开局可用 `normal:opening_11_1` 至 `normal:opening_11_9`，沿用正式逐关卡池与波次解锁。气象站陪练携带阳光菇、路灯花，按公开雾势开关灯，只对实际可见目标精确选点；它不等同于真人。混合冰堡陪练会走正式交易关雾，缺油时也可能依据公开库存上涨盲炸；其他陪练保留原有应对。气象站的 `ice_bunker` 组使用夜晚即时毁灭菇，按可见威胁选合法落点，不空场存菇，也不携带仅用于白天唤醒的咖啡。第十章陪练行为保持原样。自定义配对可调用 `train_cold_storage.episode_commands` / `run_batch`，同一批保持脚本、陪练、推进速度与种子一致。降低 `steps` 会减少每次绘制前的逻辑批量推进；同步 `commander_episode` 的时间倍率仍须为 1，不混用中途改变条件的成绩。
 
 较重的自定义批次可向 `run_batch` 传入 `wall_timeout_seconds`，转交可见启动器的 `-TimeoutSeconds`；默认仍为 900 秒。它限制整个批次进程的现实等待时间，与每局 `seconds` 的游戏时间不同，不改变推进倍率、搜索次数或胜负规则。长局须预先给足墙钟时间，不能把启动器超时终止当成游戏内败北。
 
-真人路径验收可另用 `run_batch(..., steps=0, background_commander=True)`，保留实时渲染推进和正式后台时间预算；不改变加速训练的设置。后台模式禁止搭配批量逻辑步，否则游戏时间会在一次搜索期间过快流逝，产生真人路径没有的过期重算。可再传 `time_scale=2` 运行正式游戏 ×2：每步按两个游戏时钟刻度累计，陪练操作/日志仍按游戏秒采样，结果记录 `timeScale`；比赛中改变倍速仍拒绝混算。此类结果受机器负载影响，须单列，不能与不限墙钟的同步成绩或 ×1 验收混算。`compare_commander_search` 只采样一次棋盘，在同一命令内比较不同时间预算和累计风险额度，不提交动作；输出到 `name` 指定的短名 JSON，并核对棋盘未改变。复原真人阵地时须注明未恢复的成长、冷却或在途状态，不能称为完整回放。
+真人路径验收可另用 `run_batch(..., steps=0, background_commander=True)`，保留实时渲染推进和正式后台时间预算；不改变加速训练的设置。后台模式禁止搭配批量逻辑步，否则游戏时间会在一次搜索期间过快流逝，产生真人路径没有的过期重算。可再传 `time_scale=2` 或 `time_scale=5` 运行游戏内 DeltaTime ×2/×5：每步按对应游戏时钟刻度累计，陪练操作/日志仍按游戏秒采样，结果记录 `timeScale`；比赛中改变倍速仍拒绝混算。此类结果受机器负载影响，须单列，不能与不限墙钟的同步成绩或 ×1 验收混算。`compare_commander_search` 只采样一次棋盘，在同一命令内比较不同时间预算和累计风险额度，不提交动作；输出到 `name` 指定的短名 JSON，并核对棋盘未改变。复原真人阵地时须注明未恢复的成长、冷却或在途状态，不能称为完整回放。
 
 ## 混合卡池与实战收益校准
 
 `ice_pine_hold` / `ice_bunker_hold` 与对应原陪练使用完全相同的卡组、补阵、灰烬和修复规则，但保留手动菠萝、不主动支付加速费用，用于核对省冰玩家下的经营。它们是明确的对手变体，不代表所有真人策略；对比须同时保留会主动开启菠萝的原组。
 
 当前继续训练入口：
+
+当前强混合阵型的局部课程为 `--curriculum mixed`：选优使用两个独立种子的正式11-6正常开局；冻结后另抽三个11-6混合陪练种子及一个10-6菠萝精英阵迁移种子。重复模板不会合并，两局种子不同，留出种子与选优/采集互斥。混合陪练携带已验证的11张正式卡、名额与准备支援（1+3），保留三叶草、真实铲位灰烬及公开信息的天气应对；不预摆阵地或额外补阳光。
+
+```powershell
+python autotest/train_commander_league.py --output build/clang-release/autotest/training/mixed_new --curriculum mixed --calibration keep --generations 1 --population 3 --seconds 600 --long-seconds 1200 --holdout-background-commander --time-scale 2
+```
+
+该配置以原有同步32步推进选优，冻结留出走桌面可见窗口、正式后台搜索、游戏×2。`--background-commander` 可改为全阶段后台；同步阶段始终×1，默认执行方式不变。`identity.json.execution` 分别记录选优和留出条件，长批次的进程超时按总局数/游戏时长/倍率留裕量，不能将墙钟终止当作败北。`--calibration keep` 不采集重拟合、不移除起始策略的生产校准，普通变异仍复制它；`fit` 才运行按9局拟合/3局验证分组的独立采集。
+
+此课程的 `focusedGatePassed` 仍要求至少两场新增真实胜利、不丢旧胜局，且有三个独立混合留出和迁移证据；它只覆盖这两个正常卡池场景。缺席全陆地/删减卡池时 `leagueGatePassed` 保持失败，候选仍为 `validated:false`，不能称为全章发布验收。选优仍选中原策略时，沿用原训练器的 `unchanged_policy` 结果，跳过重复留出，不把空留出称为升级。
 
 ```powershell
 python autotest/train_commander_league.py --output build/clang-release/autotest/training/league_run --curriculum openings --long-seconds 900 --calibration off --generations 1
@@ -202,3 +212,6 @@ python autotest/train_cold_storage_all.py --from-checkpoint build/clang-release/
 锅炉与蓄冷菠萝通过 `PaidBurst` / `AttackAura` 数值能力接入；常量分别由实体与 Board 投影共享，预测中的技能费只在预测提交时消耗同一方钱包，不直接扣真实冰库。`smoke_commander_paid_abilities` 和对应 verifier 检查正式加载、能力采集和付款边界；纯预测的阶段、控制、资源竞争与来源失效由 `ColdStorageStrategyTests` 覆盖。新能力先补齐这种可比较的收益与成本，再决定是否需要训练偏好；本次保留原策略权重。
 
 冷链护卫用 `ArmorRepair` 表达一类冰盾的剩余生命、修复余时与共享冰费；与二类铁门盾分开，西瓜先扣一类防具。冰仓坚果的抗砸、无敌、付费修复及预测新建在 `ColdStorageSearch::Plant` 表达；回血撤回已恢复的削血分。普通冰车和鎏金冰车通过实体共用的 `CanCrushPlantType` 判断压扁资格，普通目标即时移除，冰仓坚果保留有限承伤及推退；投石车阶段和其他复杂车辆行为仍是既有近似。`searchInstantCrushTypes` 导出本次搜索候选中接入压扁的品种；`smoke_commander_ice_convoy` / verifier 同时核对双车投影与实际压扁/挡车，数值单测另比较啃食、碾压和不可碾压目标。`smoke_commander_defense_abilities` 核对正式资格和修复预测不污染真实状态；沿用发布权重，以专项和实战评估验收，未重训。
+
+`--include-candidate <文件>` 可重复用于 mixed 课程，将已有冻结候选与当前策略放入同一选优批次；所有参数重新实测，旧分数不继承。候选去重后必须全部放得下 `--population`，不会悄悄丢掉文件或改变正式资源。外部 CE 加速改变后台可用墙钟计算条件，混入此类加速的批次只作诊断；新的选优/留出统一使用约定的游戏内倍速。
+`--reuse-paid-probes <旧批次的new_unit_probes.json>` 仅供已确认本次未修改单位出生行为时复用付费出场事实。训练器仍核对当前注册表、单位配置哈希、真实出场数量、正价格和账本；只记录证据引用，不继承旧引擎输赢或评分。改过出生逻辑时必须重新做探针，不能仅凭配置哈希相同跳过。

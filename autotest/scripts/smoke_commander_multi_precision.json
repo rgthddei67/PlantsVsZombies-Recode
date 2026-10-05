@@ -1,0 +1,1261 @@
+{
+  "description": "Formal simultaneous three-target precision: atomic fees, shared warning/cooldown, pause, moving IDs, missing primary, save/load and existing map eligibility.",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 88,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 179,
+        "initialEnemyIce": 179,
+        "decisions": 10,
+        "elapsed": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICESTORAGENUT",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 5
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 179
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 200,
+        "initialEnemyIce": 200
+      }
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "plantID": 999999
+        },
+        {
+          "row": 1,
+          "col": 3
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        },
+        {
+          "row": 4,
+          "col": 5
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [],
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 200
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeCooldownRemainingMs",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "before.json"
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 180
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeCooldownRemainingMs",
+      "atLeast": 29000,
+      "atMost": 30000
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "screenshot",
+      "name": "three_aim.png"
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 40
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeAimRemainingMs",
+      "atLeast": 1600,
+      "atMost": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 6
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "relocate_plant_group",
+      "fromRow": 1,
+      "fromCol": 3,
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "three_pending"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "three_pending"
+    },
+    {
+      "op": "dump_state",
+      "name": "loaded.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "three_aim_moved_loaded.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_1.type",
+      "equals": "PLANT_PUMPKINSHELL"
+    },
+    {
+      "op": "assert_state",
+      "path": "underPlantsByCell.0_1.type",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.4_5.type",
+      "equals": "PLANT_PEASHOOTER"
+    },
+    {
+      "op": "dump_state",
+      "name": "done.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "three_done"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "three_done"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "dump_state",
+      "name": "done_loaded.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 88,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 200,
+        "initialEnemyIce": 200,
+        "decisions": 10,
+        "elapsed": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "missing_before.json"
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ]
+    },
+    {
+      "op": "shovel_plant_at",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "missing_primary"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "missing_primary"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 180
+    },
+    {
+      "op": "dump_state",
+      "name": "missing_loaded.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "missing_primary_aim.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.0_1.type",
+      "equals": "PLANT_SUNFLOWER"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 180
+    },
+    {
+      "op": "dump_state",
+      "name": "missing_done.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 180,
+        "initialEnemyIce": 180,
+        "decisions": 10,
+        "elapsed": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 9
+      }
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 10
+      }
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 180
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "map_96.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 2001,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 180,
+        "initialEnemyIce": 180,
+        "decisions": 10,
+        "elapsed": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 9
+      }
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 10
+      }
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 180
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trophySpawned",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "map_2001.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 88,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "difficulty": 1,
+        "enemyIce": 2100,
+        "initialEnemyIce": 2100,
+        "decisions": 10,
+        "elapsed": 0,
+        "decisionRemaining": 60,
+        "supplyRemaining": 30
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.deploymentLimit",
+      "equals": 66
+    },
+    {
+      "op": "dump_state",
+      "name": "capacity_before.json"
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 1
+        },
+        {
+          "row": 1,
+          "col": 3
+        },
+        {
+          "row": 4,
+          "col": 2
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.deploymentLimit",
+      "equals": 64
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "delay": 60
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "delay": 60,
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.deploymentLimit",
+      "equals": 64
+    },
+    {
+      "op": "dump_state",
+      "name": "capacity_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -149,6 +149,11 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 		else if (op == "quit") mInteractiveQuit = true;
 		else if (!manager || !manager->CanAcceptGameplayInput()
 			|| scene->GetUIManager().GetActiveMessageBoxCount() != 0) reason = "gameplay_input_blocked";
+        else if (op == "player_station_control") {
+            // 使用玩家输入资格及正式原子设备事务，不改冷却、保护期或钱包。
+            if(!scene->GetBoard()->TryChangeStationControl(command.at("device").get<int>(),command.at("value").get<int>(),true))
+                reason="station_control_unavailable";
+        }
         else if (op == "player_set_plantern_gear") {
             const int gear=command.at("gear").get<int>();
             if(gear<0 || gear>3 || !scene->GetBoard()->GetActivePlantern()) reason="plantern_unavailable";

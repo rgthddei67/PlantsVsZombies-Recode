@@ -53,6 +53,8 @@ private:
 
 	// 执行当前命令。返回 true = 已完成可推进下一条；false = 等待中（下帧重试）。
 	bool ExecuteCurrent();
+	/** 导出正式关卡快照到本脚本输出目录；仅取证，不修改当前棋盘或后台规划。 */
+	bool SaveLevelSnapshot(const std::string& name);
 
 	void Fail(const std::string& reason);   // 记日志、退出码=1、结束游戏循环
 	/** 恢复会跨场景保留的 AutoTest/开发者覆盖状态。 */
@@ -103,6 +105,9 @@ private:
 	int mBatchSteps = 0;
 	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
+	bool mEpisodeSnapshotSaved=false; // 单段自然对战最多保存一次诊断快照，胜负已结束时不强行保存
+	int mEpisodeLastEnemyIce=-1, mEpisodeFogClears=0, mEpisodeBlindDoomCasts=0; // 陪练仅记公开库存及真实成功事务
+	float mEpisodeBlindIceUntil=0; // 最近公开上涨信号到期的游戏秒，支持先铲后种
 	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings, mEpisodeDecisions;
 	bool mEpisodeTraceProtections=false;
 	nlohmann::json mEpisodeEngineerProtections; // 事件当场记录，避免工程师同次死亡后被逐秒活体采样漏掉

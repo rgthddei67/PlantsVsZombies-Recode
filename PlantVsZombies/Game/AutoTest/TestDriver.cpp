@@ -33,6 +33,7 @@
 #include "../ChooseCardUI.h"
 #include "Game/Board/Board.h"
 #include "Game/Board/ColdStorageDeploymentRules.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "../Ladder.h"
 #include "../IceWall.h"
 #include "../GroundRift.h"
@@ -924,6 +925,33 @@ void TestDriver::Update() {
 	}
 }
 
+/** 使用正式序列化导出测试局面；只读棋盘，不取消规划或改变资金。 */
+bool TestDriver::SaveLevelSnapshot(const std::string& name) {
+	if (!IsSafeSnapshotName(name)) {
+		Fail("save_level_snapshot: name 只允许 ASCII 字母、数字、_、-，且不能为空");
+		return false;
+	}
+	GameScene* gs = CurrentGameScene();
+	if (!gs || !gs->GetBoard() || !gs->GetCardSlotManager()) {
+		Fail("save_level_snapshot: GameScene、Board 或 CardSlotManager 无效");
+		return false;
+	}
+	const std::string path = (std::filesystem::path(mOutDir) / "snapshots"
+		/ (name + ".json")).string();
+	auto& saver = GameAPP::GetInstance().mGameInfoSaver;
+	if (!saver.SaveAutoTestLevelSnapshot(
+		gs->GetBoard(), gs->GetCardSlotManager(), path)) {
+		Fail("save_level_snapshot: 正式序列化或写盘失败");
+		return false;
+	}
+	if (!IsNonEmptyRegularFile(std::filesystem::u8path(path))) {
+		Fail("save_level_snapshot: 快照不存在或为空");
+		return false;
+	}
+	Log("snapshot saved: " + path);
+	return true;
+}
+
 bool TestDriver::ExecuteCurrent() {
 	const auto& cmd = mCommands[mIndex];
 	const std::string op = cmd.value("op", "");
@@ -998,10 +1026,15 @@ bool TestDriver::ExecuteCurrent() {
 				{"elapsedMs",elapsed},{"timeLimited",result.timeLimited},{"evaluated",result.evaluated},
 				{"capitalRejected",result.capitalRejected},{"largestPlan",result.largestPlan},
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
-				{"assaultEvaluated",result.assaultEvaluated},
+				{"assaultEvaluated",result.assaultEvaluated},{"proposalEvaluated",result.proposalEvaluated},
 				{"reinforcementEvaluated",result.reinforcementEvaluated},
 				{"spreadCohortEvaluated",result.spreadCohortEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
+				{"precisionAdditionalTargetIDs",result.precisionAdditionalTargetIDs},
+				{"forecastPrecisionTargetID",result.forecastPrecisionTargetID},
+				{"forecastPrecisionAdditionalTargetIDs",result.forecastPrecisionAdditionalTargetIDs},
+				{"forecastPrecisionIce",result.forecastPrecisionIce},
+				{"forecastPrecisionAimStartSeconds",result.forecastPrecisionAimStartSeconds},
 				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 				{"expanded",result.expandedForecast},{"precisionEvaluated",result.precisionEvaluated},
@@ -1278,10 +1311,18 @@ bool TestDriver::ExecuteCurrent() {
 			if (manager && slot >= 0 && slot < static_cast<int>(manager->GetCards().size()))
 				success = manager->TryUseSkillCard(manager->GetCards()[slot]);
 		} else {
-			Plant* target = cmd.value("layer", std::string("NORMAL")) == "TOP"
-				? board->GetTopPlantAt(cmd.value("row",0),cmd.value("col",0))
-				: board->GetNormalPlantAt(cmd.value("row",0),cmd.value("col",0));
-			success = board->TryStartColdStoragePrecisionStrike(cmd.value("plantID",target ? target->mPlantID : -1));
+			const auto resolveTarget=[&](const nlohmann::json& member) {
+				Plant* target = member.value("layer", std::string("NORMAL")) == "TOP"
+					? board->GetTopPlantAt(member.value("row",0),member.value("col",0))
+					: board->GetNormalPlantAt(member.value("row",0),member.value("col",0));
+				return member.value("plantID",target ? target->mPlantID : -1);
+			};
+			if(cmd.contains("targets")) {
+				if(!cmd["targets"].is_array()) { Fail("precision targets must be an array"); return false; }
+				std::vector<int> identities;
+				for(const auto& member:cmd["targets"]) identities.push_back(resolveTarget(member));
+				success=board->TryStartColdStoragePrecisionStrike(identities);
+			} else success=board->TryStartColdStoragePrecisionStrike(resolveTarget(cmd));
 		}
 		if (success != cmd.value("expectedSuccess",true)) { Fail("skill result mismatch: " + op); return false; }
 		return true;
@@ -3359,32 +3400,7 @@ bool TestDriver::ExecuteCurrent() {
 		Fail("charm_zombie: 未找到目标僵尸 (row=" + std::to_string(row) + ", index=" + std::to_string(index) + ")");
 		return false;
 	}
-	if (op == "save_level_snapshot") {
-		const std::string name = cmd.value("name", "");
-		if (!IsSafeSnapshotName(name)) {
-			Fail("save_level_snapshot: name 只允许 ASCII 字母、数字、_、-，且不能为空");
-			return false;
-		}
-		GameScene* gs = CurrentGameScene();
-		if (!gs || !gs->GetBoard() || !gs->GetCardSlotManager()) {
-			Fail("save_level_snapshot: GameScene、Board 或 CardSlotManager 无效");
-			return false;
-		}
-		const std::string path = (std::filesystem::path(mOutDir) / "snapshots"
-			/ (name + ".json")).string();
-		auto& saver = GameAPP::GetInstance().mGameInfoSaver;
-		if (!saver.SaveAutoTestLevelSnapshot(
-			gs->GetBoard(), gs->GetCardSlotManager(), path)) {
-			Fail("save_level_snapshot: 正式序列化或写盘失败");
-			return false;
-		}
-		if (!IsNonEmptyRegularFile(std::filesystem::u8path(path))) {
-			Fail("save_level_snapshot: 快照不存在或为空");
-			return false;
-		}
-		Log("snapshot saved: " + path);
-		return true;
-	}
+	if (op == "save_level_snapshot") return SaveLevelSnapshot(cmd.value("name",std::string{}));
 	if (op == "reload_level_snapshot") {
 		const std::string name = cmd.value("name", "");
 		if (!IsSafeSnapshotName(name)) {
@@ -5079,7 +5095,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["deploymentLimit"] = board->GetColdStorageDeploymentLimit();
 		ice["trainingAllUnits"] = ColdStoragePolicy::AllUnits();
 		ice["availableUnits"] = nlohmann::json::array();
-		for (auto type : board->GetSpawnZombieList()) ice["availableUnits"].push_back(GameDataManager::GetInstance().ZombieTypeToEnumName(type));
+		ice["zombieCosts"] = nlohmann::json::object();
+		for (auto type : board->GetSpawnZombieList()) {
+			const auto name=GameDataManager::GetInstance().ZombieTypeToEnumName(type);
+			ice["availableUnits"].push_back(name);
+			ice["zombieCosts"][name]=board->GetZombieIceCost(type); // 经营验收按正式价格核对投资，不在脚本复制数值。
+		}
+		for(auto& paid:ice["pending"])
+			paid["typeName"]=GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(paid.at("type").get<int>()));
 		ice["deploymentTypes"] = nlohmann::json::object();
 		for (const auto& [type,count] : board->mColdStorage.deploymentTypes)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
@@ -5093,7 +5116,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{"reinforcementEvaluated",board->mColdStorage.searchReinforcementEvaluated},
 			{"refinementEvaluated",board->mColdStorage.searchRefinementEvaluated},
 			{"incomeEvaluated",board->mColdStorage.searchIncomeEvaluated},
-			{"assaultEvaluated",board->mColdStorage.searchAssaultEvaluated},
+			{"assaultEvaluated",board->mColdStorage.searchAssaultEvaluated},{"proposalEvaluated",board->mColdStorage.searchProposalEvaluated},
 			{"pruningEvaluated",board->mColdStorage.searchPruningEvaluated},
 			{"baseScore",board->mColdStorage.searchCombinationBaseScore},{"bestScore",board->mColdStorage.searchCombinationBestScore},
 			{"baseBreach",board->mColdStorage.searchCombinationBaseBreach},{"bestBreach",board->mColdStorage.searchCombinationBestBreach},
@@ -5169,6 +5192,13 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchDrumRecipients"] = board->mColdStorage.searchDrumRecipients;
 		ice["searchPrecisionEvaluated"] = board->mColdStorage.searchPrecisionEvaluated;
 		ice["searchPrecisionTargetID"] = board->mColdStorage.searchPrecisionTargetID;
+		ice["searchPrecisionAdditionalTargetIDs"] = board->mColdStorage.searchPrecisionAdditionalTargetIDs;
+		ice["searchForecastPrecisionTargetID"] = board->mColdStorage.searchForecastPrecisionTargetID;
+		ice["searchForecastPrecisionAdditionalTargetIDs"] = board->mColdStorage.searchForecastPrecisionAdditionalTargetIDs;
+		ice["searchForecastPrecisionIce"] = board->mColdStorage.searchForecastPrecisionIce;
+		ice["searchForecastPrecisionAimStartSeconds"] = board->mColdStorage.searchForecastPrecisionAimStartSeconds;
+		ice["strikeTargetLimit"] = ColdStorageSkillRules::StrikeTargetLimit;
+		ice["strikeTargetCount"] = board->mColdStorage.strikeTargetID>=0 ? 1+board->mColdStorage.strikeAdditionalTargetIDs.size() : 0;
 		ice["searchPrecisionGain"] = board->mColdStorage.searchPrecisionGain;
 		ice["searchArmorRepairs"] = board->mColdStorage.searchArmorRepairs;
 		ice["searchPlantRepairs"] = board->mColdStorage.searchPlantRepairs;

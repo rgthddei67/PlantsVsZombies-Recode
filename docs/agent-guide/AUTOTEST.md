@@ -25,15 +25,21 @@
 
 `smoke_commander_catapult_forecast.json` 与 `verify_commander_catapult_forecast.py` 核对出生/活体投篮画像、已离膛篮球、宿主与南瓜层序以及叶子伞实际拦截。显式案报告 `catapultShots` / `catapultHits` / `catapultBlocks`；逐秒活体记录另含射击阶段、弹药与阶段余时。手动布置和隔离权重只验证能力契约，正常对战结论仍须来自正式资源与自由搜索。
 
-根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；统计收益特征时只汇总前 60 秒，扩展战斗时域中的后续产冰不属于该特征。普通对局和训练默认关闭轨迹。
+根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；生产校准输入与 `rawProduction` 只汇总前 60 秒；扩展战斗时域内真正完成的后续产冰另记并加入最终评分，同样应用保守校准，不能用于初始采购。普通对局和训练默认关闭轨迹。
 
 `commander_episode.traceUnits: true` 在对战结果的 `trace` 中逐游戏秒附加真实 `units`，用稳定 ID、同行相对位置、分层掉血与工人 `iceBatches` 核对前排是否实际掩护生产；默认仍每十秒只记录聚合状态。`python autotest/verify_commander_frontline.py <输出目录> --require-frontline` 检查账本并要求至少一段前排掉血、后方工人血量不变且完成生产的记录，结果不代表胜率。`ice_bunker_temporal` 是独立陪练，在可见工人群有钟匠且真实资金/冷却允许时先执行时间干扰再交灰烬，其他动作沿用 `ice_bunker`。比较真人与脚本时还须核对战前支援：快速卡槽恢复会缩短真实灰烬空窗，不能仅凭卡组或关卡相同判断威胁等价。`battle_commander_temporal_96.json` 使用正常资金与正式后台搜索，不强制僵尸组合。
 
 `ice_bunker_mixed` 为精英胆小菇与雷鸣花同时建设的独立陪练，仍通过正式卡槽、资金、累计配额和冷却逐步成阵，并保留坚果修复、灰烬与时间干扰。精英菇累计配额耗尽后，空出的后排用雷鸣花按真实费用/冷却补种，专项为 `smoke_commander_mixed_replacement` 及同名 verifier。入口为 `battle_commander_mixed_96.json`，`verify_commander_mixed.py` 核对两种真实输出同场存在及资源账本；旧陪练不受影响。
 
+长局 `commander_episode` 可显式指定 `snapshotName` 和相对本段的 `snapshotAtSeconds`，在仍正常对战时调用正式序列化保存一次 `snapshots/<name>.json`；提前终局不强行保存，结果的 `snapshotSaved` 表示是否实际完成。默认不保存，不改变资金、搜索或胜负。超时只表示观察窗口结束，不能作为正式败局。
+
 逐秒取证另记录 `engineerProtectionEvents`：Board 在同次灰烬冻结免伤名单时保存来源和工人的稳定 ID，即使工程师随后被该次爆炸杀死也保留证据。活体 `engineerProtectionUses` 的观测和不代表全部使用次数。`smoke_commander_protection_trace.json` 与同名 verifier 检查同次来源死亡及重叠保护去重；其手动布置只证明取证契约，不是自由经营或胜率证据。
 
 根字段 `commanderFuelAwareLamp: false` 仅供关闭随燃料切挡响应的消融；正式 AI 默认启用。`commander_forecast_options` 可在不推进时间时修改 `fuelAwareLamp` 和 `preservePaidQueue`；后者也支持根字段 `commanderPreservePaidQueue`，只用于同步 `plan_ice_attack`，跳过已付款队列的重排，不冻结真实出场。做同局面对照时须同时核对活体、资源与待出兵队列一致，避免把重新选路误当预测差异；冻结钱包或暂停决策的隔离夹具不能用作正常对局强度结论。
+
+`start_precision_strike` 保留单目标写法，并支持 `targets` 数组（每项用稳定 `plantID` 或 `row/col/layer`），走正式完整名单校验和原子付款。`smoke_commander_multi_precision` 及同名 verifier 验证费用、共用瞄准/冷却、移动与丢失目标后的保存加载、旧单目标兼容及技能消耗资本后的部署容量；该隔离夹具不代表正常对战胜率。
+
+`smoke_commander_precision_unlock` 与同名 verifier 检查解锁前的付费买兵反事实：预测的未来狙击费用只进入评分，当前钱包只支付真实兵力；下一轮重新搜索并按实际目标收费。夹具使用有限卡池和预摆阵地，验证交易与时间单位，不作为正常经营或胜率证据。后台预算是1倍速基准除以实际倍速；预测换回游戏秒时倍率抵消，不能再乘一次。
 
 ### 交互试玩信箱
 

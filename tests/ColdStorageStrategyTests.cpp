@@ -26,6 +26,12 @@ void RunColdStorageThunderTimingTests();
 void RunColdStorageDiggerForecastTests();
 void RunColdStorageDiggerIntegrationTests();
 void RunColdStorageCapitalUtilityTests();
+void RunColdStorageExtendedIncomeTests();
+void RunColdStorageSiegePreparationTests();
+void RunColdStorageMultiPrecisionTests();
+void RunColdStorageDeploymentTransactionTests();
+void RunColdStoragePrecisionUnlockForecastTests();
+void RunColdStorageDeepCompositionTests();
 void RunColdStorageAssaultExplorationTests();
 
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
@@ -37,6 +43,12 @@ int main()
 	RunColdStorageDiggerForecastTests();
 	RunColdStorageDiggerIntegrationTests();
 	RunColdStorageCapitalUtilityTests();
+	RunColdStorageExtendedIncomeTests();
+	RunColdStorageSiegePreparationTests();
+	RunColdStorageMultiPrecisionTests();
+	RunColdStorageDeploymentTransactionTests();
+	RunColdStoragePrecisionUnlockForecastTests();
+	RunColdStorageDeepCompositionTests();
 	RunColdStorageAssaultExplorationTests();
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
@@ -1817,6 +1829,45 @@ int main()
 	}
 	{
 	using namespace ColdStorageSearch;
+	// 清除主火力仍留下持续后备火力：少量跟兵不是完整进攻案，须比较同钱包可支付的大队。
+	Snapshot s; s.rows=1; s.houseX=0; s.budget=220; s.capacity=16;
+	s.searchVersion=2; s.precisionReady=true; s.netEconomy=true; s.opponentWeight=1;
+	Plant key; key.id=401; key.x=400; key.health=100000; key.dps=1000; key.assetValue=1000;
+	Plant reserve; reserve.id=402; reserve.x=500; reserve.health=400; reserve.dps=100;
+	reserve.reward=10; reserve.assetValue=100;
+	s.plants={key,reserve};
+	Option troop; troop.type=731; troop.cost=10;
+	troop.unit.body.x=900; troop.unit.body.health=200; troop.unit.body.speed=40;
+	troop.unit.body.purchaseCost=10; troop.unit.biteDps=50;
+	s.options={troop};
+	std::vector<Action> full(16,{0,3});
+	check(Evaluate(s,full)[2]==0,"an affordable full formation cannot cross both continuous firing sources without precision");
+	auto cleared=s; cleared.precisionTargetID=key.id;
+	const auto small=Evaluate(cleared,{{0,3},{0,3}});
+	check(small[2]==0 && small[0]==0 && small[3]==0,
+		"clearing the key source with two arbitrary troops still loses to the surviving backup fire");
+	const auto funded=Evaluate(cleared,full);
+	check(funded[2]>0 && funded[5]==s.budget,
+		"precision and the whole affordable formation can breach while paying both transactions from one wallet");
+	// 走实时调度分支，但截止放得足够远，仅由有限候选次数结束；不依赖机器快慢判断性能。
+	s.timeLimitedSearch=true;
+	for(unsigned seed : {17u,29u,91u}) {
+		s.searchDeadline=std::chrono::steady_clock::now()+std::chrono::hours(1);
+		const auto joint=Search(s,InitialWeights,seed);
+		check(joint.precisionTargetID==key.id && joint.features[2]>0 && joint.actions.size()>2,
+			"realtime precision exploration retains a winning complete followup instead of stopping at pure skill or a doomed pair");
+		check(60+static_cast<int>(joint.actions.size())*troop.cost<=s.budget && joint.actions.size()<=static_cast<size_t>(s.capacity),
+			"complete precision followup keeps the original wallet and real deployment capacity");
+	}
+	s.budget=79; s.searchDeadline=std::chrono::steady_clock::now()+std::chrono::hours(1);
+	check(Search(s,InitialWeights,91).features[2]==0,
+		"the same firing defense cannot be labelled a joint victory when the wallet cannot fund enough followup");
+	check(s.plants[0].health==key.health && s.plants[1].health==reserve.health && s.options[0].unit.body.health==200,
+		"precision and followup counterfactuals do not mutate the sampled defenders or troop option");
+	std::cout << "Precision complete-followup, backup fire and common-wallet counterfactuals passed\n";
+	}
+	{
+	using namespace ColdStorageSearch;
 	Snapshot s; s.houseX=-10000; s.gridLeft=0; s.cellWidth=100; s.columns=12;
 	Unit drum; drum.id=10; drum.body.x=800; drum.body.health=1600; drum.drum.enabled=true;
 	drum.drum.remaining=.5f; drum.drum.stopHealth=533;
@@ -3111,6 +3162,22 @@ int main()
     }
     std::cout<<"four-type factory misses="<<fourMisses<<"/8\n";
     check(fourMisses==0,"free exploration must retain a profitable four-type cooperation in a wide roster");
+    // 检查实时调度形状，但不给墙钟制造硬件依赖；一小时截止只让有限候选自行跑完。
+    fourth.timeLimitedSearch=true;
+    for(unsigned seed:{1u,3u,7u,11u}) {
+        auto continuing=fourth;
+        Result realtime;
+        // 更深构成共享有限名额；验证未付款起点能跨少量决策继续深化，而非要求一轮随机搜索必胜。
+        for(unsigned round=0;round<3;++round) {
+            continuing.searchDeadline=std::chrono::steady_clock::now()+std::chrono::hours(1);
+            realtime=Search(continuing,profit,seed+round*31);
+            if(realtime.features[4]>realtime.features[5]) break;
+            continuing.proposals=realtime.proposals;
+        }
+        std::cout<<"realtime four seed="<<seed<<" production="<<realtime.features[4]<<" cost="<<realtime.features[5]<<'\n';
+        check(realtime.features[4]>realtime.features[5],
+            "bounded realtime continuation must deepen incomplete multi-type income plans before repayment, without deadline luck");
+    }
     }
 
     {
@@ -3226,8 +3293,10 @@ int main()
             << " pruning=" << chosen.pruningEvaluated << '\n';
         check(chosen.features[4]>chosen.features[5] && chosen.incomeEvaluated>0 && chosen.pruningEvaluated>0,
             "free search finds a payable factory with ready ash and compares final member removals");
-        check(chosen.features[5]<=field.budget && chosen.actions.size()<=static_cast<size_t>(field.capacity),
-            "protected factory cannot borrow future production to buy its initial team");
+        float upfront=0;
+        for(const auto& action:chosen.actions) upfront+=field.options[action.option].cost;
+        check(upfront<=field.budget && chosen.actions.size()<=static_cast<size_t>(field.capacity),
+            "protected factory cannot borrow future production to buy its initial team; later reloads use only already credited income");
     }
     auto renamed=field;
     for(size_t i=0;i<renamed.options.size();++i) renamed.options[i].type=9000-static_cast<int>(i)*31;

@@ -458,6 +458,12 @@ namespace {
 					for (auto& zombie : upgraded["zombies"]) if (zombie.is_object()) zombie["thunderResistanceTimer"] = 0.0f;
 				version = 25; upgraded["schemaVersion"] = version;
 				break;
+			case 25:
+				// v26 标记同批多目标已付款打击；旧档保留主目标与余时，不制造额外枪或收费。
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty())
+					upgraded["coldStorage"]["strikeAdditionalTargetIDs"]=nlohmann::json::array();
+				version=26; upgraded["schemaVersion"]=version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

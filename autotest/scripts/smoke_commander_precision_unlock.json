@@ -1,0 +1,203 @@
+{
+  "description": "Controlled paid unlock forecast: wave9 buys real troops without early strike payment; wave10 reselects and pays the actual strike. Not a natural battle.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 88,
+      "resetTestState": true
+    },
+    {
+      "op": "cold_storage_bonus_pick",
+      "choice": 1
+    },
+    {
+      "op": "cold_storage_bonus_pick",
+      "choice": 3
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ELITE_SCAREDYSHROOM",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_REPEATER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "commander_roster",
+      "workers": false,
+      "units": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "playerIce": 1000
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "before_planting.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ELITE_SCAREDYSHROOM",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 4
+    },
+    {
+      "op": "set_timescale",
+      "value": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 65,
+      "timeout": 70
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 300,
+        "initialEnemyIce": 300,
+        "supplied": 0,
+        "workerIncome": 0,
+        "killIncome": 0,
+        "spent": 0,
+        "decisions": 9,
+        "elapsed": 300,
+        "decisionRemaining": 0,
+        "dispatchQuietSeconds": 30
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "before.json"
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 40
+    },
+    {
+      "op": "dump_state",
+      "name": "forecast.json"
+    },
+    {
+      "op": "plan_ice_attack",
+      "background": true
+    },
+    {
+      "op": "await_ice_attack",
+      "timeout": 40
+    },
+    {
+      "op": "dump_state",
+      "name": "paid.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2,
+      "timeout": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "resolved.json"
+    },
+    {
+      "op": "quit"
+    }
+  ],
+  "coldStorageBonusSelection": true
+}

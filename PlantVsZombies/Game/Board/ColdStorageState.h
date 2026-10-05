@@ -64,6 +64,7 @@ struct ColdStorageState {
 	float interferenceCooldownRemaining = 0.0f; // 商店技能独立冷却；入档，暂停不推进
 	float strikeCooldownRemaining = 0.0f; // 敌方指挥官全局冷却，游戏秒；不属于任何僵尸实体
 	int strikeTargetID = -1; // 已付费瞄准的稳定植物 ID；-1 表示无在途打击
+	std::vector<int> strikeAdditionalTargetIDs; // 同批另0-2株已付款目标；主ID保留旧档兼容，不因目标消失重选
 	float strikeAimRemaining = 0.0f; // 不可打断的瞄准提示剩余游戏秒；随目标移动，不换靶
 	float incomeIdleSeconds = 0.0f; // 连续没有实际制冰/击杀收入的游戏秒；定时补给和派兵不重置，入档
 	float plantKillIdleSeconds = 0.0f; // 连续没有消灭植物的游戏秒；新局/无历史旧档从零计时，入档
@@ -100,6 +101,7 @@ struct ColdStorageState {
 	int searchReinforcementEvaluated = 0; // 组合预算中的跟队增援候选数，仅诊断不入档
 	int searchRefinementEvaluated = 0; // 完整优案换入少量其他成员的候选数，仅诊断不入档
 	int searchIncomeEvaluated = 0, searchPruningEvaluated = 0; // 经营分支与最终删成员对照，仅诊断不入档
+	int searchProposalEvaluated = 0; // 未付款提案跨轮重新评价的次数，仅诊断不入档
 	int searchAssaultEvaluated = 0; // 通用攻城中间态深化次数，仅诊断不入档
 	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
 	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益
@@ -149,6 +151,10 @@ struct ColdStorageState {
 	int searchClockRewinds = 0, searchClockRevivals = 0, searchClockRedirects = 0; // 预测回溯、复活与界碑拒入，仅诊断
 	int searchEliteReplacementOptions = 0, searchEliteRemainingUses = 0; // 共享累计名额的补菇画像，仅诊断
 	int searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次精准清除搜索
+	std::vector<int> searchPrecisionAdditionalTargetIDs; // 完整胜出名单的附加目标，仅诊断，不入档
+	int searchForecastPrecisionTargetID = 0, searchForecastPrecisionIce = 0; // 解锁后尚未付款的狙击反事实，仅诊断
+	std::vector<int> searchForecastPrecisionAdditionalTargetIDs; // 未来目标不锁定实体、不入档，下轮按真实局面重选
+	float searchForecastPrecisionAimStartSeconds = 0; // 相对本次搜索的预计未来瞄准开始时刻，游戏秒
 	float searchPrecisionGain = 0; // 相对不施法优案的收益，仅诊断
 	int searchRowStrikeCount = 0; // 本次推演纳入的逐行主动打击来源数，仅诊断
 	float searchFormationBaseScore = 0; // 逐行集中增援比较前的评分，仅诊断不入档

@@ -1,6 +1,7 @@
 #include "ColdStoragePlanner.h"
 #include "ColdStoragePlanEvaluator.h"
 #include <chrono>
+#include <algorithm>
 #include <utility>
 
 namespace ColdStorageSearch {
@@ -10,6 +11,7 @@ bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t see
 	if (Busy()) return false;
 	auto work = std::make_unique<Work>();
 	work->snapshot = std::move(snapshot);
+	work->snapshot.proposals=mProposals; // 仅数值动作副本，每轮重新验证并评分；不允许旧结果直接付款。
 	work->weights = weights;
 	// 策略可被测试覆盖/重载，后台不能借用策略单例中的指针。
 	if (work->snapshot.productionCalibration) {
@@ -57,10 +59,18 @@ bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t see
 std::unique_ptr<Planner::Work> Planner::TakeReady() {
 	if (!mWork || !mWork->ready.load(std::memory_order_acquire)) return {};
 	mThread.join();
+	if(!mWork->failed) {
+		mProposals=mWork->result.proposals;
+		if(!mProposals.empty()) {
+			mProposalCursor=(mProposalCursor+5)%mProposals.size();
+			std::rotate(mProposals.begin(),mProposals.begin()+mProposalCursor,mProposals.end());
+		}
+	}
 	return std::move(mWork);
 }
 
 void Planner::Cancel() {
+	mProposals.clear(); mProposalCursor=0;
 	if (!mWork) return;
 	mWork->cancel.store(true,std::memory_order_relaxed);
 	if (mThread.joinable()) mThread.join();

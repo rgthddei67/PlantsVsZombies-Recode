@@ -52,6 +52,7 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     match = re.search(r'_(10|11)_([1-9])$', arena)
     level = (81 if match.group(1) == '10' else 90) + int(match.group(2)) if match else 82
     station = 91 <= level <= 99
+    mixed = opponent == 'ice_bunker_mixed'
     storage_defense = opponent in ('ice_fortifier', 'ice_pine', 'ice_bunker')
     pine_elite = opponent in ('pine_elite', 'ice_pine', 'ice_bunker')
     cards = CARDS + (["BLOVER", "CACTUS"] if all_zombies else [])
@@ -95,6 +96,15 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         if len(cards) >= 11:
             cards.remove(next(c for c in ('IMITATER', 'SQUASH', 'CHERRYBOMB') if c in cards))
         cards.append('BLOVER')
+    if mixed:
+        if not station:
+            raise ValueError('ice_bunker_mixed requires a normal Area 11 weather-station arena')
+        # 与已验证混合实战相同的11个正式卡槽：真实补精英、配额耗尽后补雷鸣花，
+        # 对空、灰烬和照明各自保留，不借旧西瓜卡组冒充当前强阵型。
+        cards = ['SUNSHROOM', 'ELITE_SCAREDYSHROOM', 'PUMPKINSHELL', 'MARIGOLD',
+                 'DOOMSHROOM', 'JALAPENO', 'ICESTORAGENUT', 'DAWNLOTUS',
+                 'THUNDERFLOWER', 'PLANTERN', 'BLOVER']
+    opening_bonus = (pine_elite or mixed) and level >= 87
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
@@ -103,16 +113,16 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
          'netEconomy': policy.get('netEconomy',False), 'anticipateBuilding': policy.get('anticipateBuilding',False),
          'searchVersion': policy.get('searchVersion',1),'opponentWeight':policy.get('opponentWeight',0),
          'anticipateEconomy':policy.get('anticipateEconomy',False)},
-        {'op': 'goto_level', 'level': level, 'coldStorageBonusSelection': pine_elite and level >= 87},
+        {'op': 'goto_level', 'level': level, 'coldStorageBonusSelection': opening_bonus},
         {'op': 'choose_cards', 'cards': ['PLANT_' + c for c in cards],
          'imitaterTarget': 'PLANT_MARIGOLD'},
         {'op': 'wait_state', 'state': 'GAME', 'timeout': 25},
     ]
-    if pine_elite and level >= 87:
+    if opening_bonus:
         # 复用正式三选二：名额搭配卡速或准备时间，随配对种子变化，不向AI泄露玩家未来操作。
         commands[3:3] = [{'op':'wait_frames','value':3},
                          {'op':'cold_storage_bonus_pick','choice':1},
-                         {'op':'cold_storage_bonus_pick','choice':3 if seed % 2 else 2}]
+                         {'op':'cold_storage_bonus_pick','choice':3 if mixed or seed % 2 else 2}]
     if all_zombies or policy.get('noWorkers'):
         commands.append({'op': 'commander_roster', 'workers': not policy.get('noWorkers', False)})
         if roster is not None:
@@ -239,6 +249,8 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     commands.append({'op': 'wait_frames', 'value': 2})
     commands.append({'op': 'commander_episode', 'opponent': episode_opponent, 'seconds': seconds,
                      'name': name, 'timeout': seconds + 30})
+    if mixed:
+        commands[-1].update(shovelCounters=True, traceUnits=True)
     return commands
 
 
@@ -283,8 +295,8 @@ def run_batch(game_dir, output, name, candidates, cases, steps=32, all_zombies=F
         raise ValueError('Wall timeout must be positive')
     if background_commander and steps != 0:
         raise ValueError('Realtime commander validation requires steps=0; keep accelerated training synchronous')
-    if time_scale not in (1, 2) or (time_scale != 1 and not background_commander):
-        raise ValueError('2x game speed requires explicit realtime background validation')
+    if time_scale not in (1, 2, 5) or (time_scale != 1 and not background_commander):
+        raise ValueError('Accelerated game speed requires explicit realtime background validation (1x/2x/5x)')
     script = output / (name + '.json')
     commands, jobs = [], []
     for index, weights in enumerate(candidates):

@@ -266,11 +266,13 @@ public:
 	bool CanUseTemporalInterference() const;
 	/** 原子扣款、清除全部已提交锚（包括死者记录），并启动短暂禁锚和冷却。 */
 	bool TryActivateTemporalInterference();
-	/** 指挥官只读就绪查询；包含第15波、60冰、全局冷却和无在途打击。 */
+	/** 指挥官只读就绪查询；包含解锁波次、单株最低冰费、全局冷却和无在途打击。 */
 	bool CanUseColdStoragePrecisionStrike() const;
-	/** 由策略传入稳定植物ID；成功原子扣60冰、启动30秒冷却与2秒瞄准。失败不改余额，不自行选目标。 */
+	/** 单目标兼容入口；沿用同批校验、付款和冷却规则。 */
 	bool TryStartColdStoragePrecisionStrike(int plantID);
-	/** 推进减费、技能冷却与已付款瞄准；目标消失不退款、不换靶，到期无视防御消灭单株。 */
+	/** 原子校验最多3个不同目标并按每株收费；一份全局冷却和同时瞄准，失败整批不扣款、不换目标。 */
+	bool TryStartColdStoragePrecisionStrike(const std::vector<int>& plantIDs);
+	/** 推进冷却及同批瞄准；各目标独立结算，消失者不退款、不换靶，到期无视防御结束生命周期。 */
 	void UpdateColdStorageSkills(float deltaTime);
 	/** 世界层绘制已付款目标的瞄准环、十字和倒计时；只读取状态。 */
 	void DrawColdStoragePrecisionStrike(Graphics* g) const;
@@ -315,6 +317,8 @@ public:
 	int GetColdStorageHostileCount() const;
 	/** 按库存及仍存活/在途的付费资产计算同时部署上限；召唤自身的数量规则不变。 */
 	int GetColdStorageDeploymentLimit() const;
+	/** 库存加敌对活体/在途兵力原成交价，用于按技能费用消耗后的资本预检整案名额。 */
+	std::int64_t GetColdStorageDeploymentCapital() const;
 	/** 保存/恢复完整经济事务，旧地形保持无效果。 */
 	nlohmann::json SaveColdStorage() const;
 	void LoadColdStorage(const nlohmann::json& value);

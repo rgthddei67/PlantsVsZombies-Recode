@@ -1,4 +1,7 @@
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/AI/ColdStoragePlanner.h"
+#include <chrono>
+#include <thread>
 #include "Game/Zombie/DiggerRules.h"
 #include "Game/Plant/IceStorageNutRules.h"
 
@@ -136,7 +139,133 @@ void RunColdStorageAssaultExplorationTests()
     underfunded.budget=50;
     Check(Search(underfunded,values,3).features[2]==0,
         "an exploratory attack frontier cannot buy the complete breakthrough with insufficient real funds");
+    // 未付款提案只携带类型/路线/延迟；变换选项下标仍能正确重算，局势改变不得复用胜利。
+    auto continued=AssaultArena();
+    Proposal known;
+    for(int i:{0,1,2}) known.push_back({continued.options[i].type,0,-1,0,0});
+    continued.proposals={known};
+    std::reverse(continued.options.begin(),continued.options.end());
+    const auto restored=Search(continued,values,6);
+    Check(restored.proposalEvaluated>0 && restored.features[2]>0,
+        "an unpaid proposal is remapped by legal identity after option indices change and fully rescored");
+    continued.options[0].unit.healer.present=false;
+    for(auto& option:continued.options) option.unit.healer.present=false;
+    Check(Search(continued,values,6).features[2]==0,
+        "a previous breakthrough proposal cannot reuse old support or old victory after the ability disappears");
+    continued.budget=1;
+    Check(Search(continued,values,6).actions.empty(),"cross-round proposals do not retain old purchasing funds");
+    const auto awaitResult=[](Planner& planner) {
+        std::unique_ptr<Planner::Work> work;
+        const auto end=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+        while(!work && std::chrono::steady_clock::now()<end) {
+            work=planner.TakeReady();
+            if(!work) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        return work;
+    };
+    Planner planner;
+    auto arena=AssaultArena();
+    Check(planner.Start(arena,values,1),"a planner can start the first independent frontier search");
+    auto first=awaitResult(planner);
+    Check(first && !first->failed && !first->result.proposals.empty() && first->result.proposals.size()<=24,
+        "only bounded state-free unfinished proposals leave a complete worker result");
+    arena.options.clear();
+    Check(planner.Start(arena,values,2),"the same planner can resample a changed legal roster");
+    auto changed=awaitResult(planner);
+    Check(changed && !changed->snapshot.proposals.empty() && changed->result.actions.empty(),
+        "retained proposals cannot buy units no longer present in the current legal roster");
+    planner.Cancel();
+    Check(planner.Start(AssaultArena(),values,3),"cancellation leaves the planner reusable for a new scene");
+    auto fresh=awaitResult(planner);
+    Check(fresh && fresh->snapshot.proposals.empty(),"cancel clears all cross-scene proposal history");
     std::cout<<"Assault exploration counterfactuals passed\n";
+}
+
+/** 五类型提案的保存、重映射与反事实；不将随队类型冒充五个不可缺少的能力。 */
+void RunColdStorageDeepCompositionTests()
+{
+    using namespace ColdStorageSearch;
+    auto state=AssaultArena();
+    state.budget=62;
+    state.capacity=5;
+    // 沿用已有真实三方攻城夹具，再加两类无攻击/治疗/生产的付费成员。
+    // 本用例隔离超过四类型的搜索起点流转，不声称这两名成员必须购买。
+    for(int type:{76004,76005}) {
+        Option passive;
+        passive.type=type;
+        passive.cost=1;
+        passive.unit.body.x=650;
+        passive.unit.body.health=1;
+        passive.unit.body.speed=0;
+        passive.unit.maximumBody=1;
+        passive.unit.body.purchaseCost=1;
+        passive.unit.biteDps=0;
+        state.options.push_back(passive);
+    }
+    const Weights values{0,0,500,0,1,-1,0,0};
+    const std::vector<Action> complete{{0,0},{1,0},{2,0},{4,0},{5,0}};
+    const auto actual=EvaluateCandidate(state,values,complete);
+    Check(actual.features[2]>0 && actual.features[5]==state.budget
+        && actual.construction.healerCasts>1,
+        "a five-type proposal is completely evaluated with the same real attack, healing and sixty-two ice payment");
+    for(const auto& action:complete) {
+        const auto& option=state.options[action.option];
+        state.proposals.resize(1);
+        state.proposals.front().push_back({option.type,option.row,option.device,option.setting,action.delay});
+    }
+    // 无用合法类型扩大兵池，避免仅有五个选项时完整抽样碰巧等于已知提案。
+    for(int index=0;index<8;++index) {
+        auto passive=state.options.back();
+        passive.type=77000+index;
+        state.options.push_back(passive);
+    }
+    const auto distinct=[](const Proposal& proposal) {
+        std::set<int> types;
+        for(const auto& member:proposal) types.insert(member.type);
+        return types.size();
+    };
+    int retained=0;
+    for(unsigned seed:{2u,6u,11u}) {
+        const auto searched=Search(state,values,seed);
+        Check(searched.proposalEvaluated>0 && searched.features[2]>0,
+            "a legal five-type continuation receives full current-scene scoring instead of trusting its old outcome");
+        Check(searched.features[5]<=state.budget && searched.actions.size()<=static_cast<size_t>(state.capacity),
+            "deep proposal exploration and final pruning retain the same actual wallet and deployment slots");
+        retained+=std::any_of(searched.proposals.begin(),searched.proposals.end(),
+            [&](const Proposal& proposal){return distinct(proposal)>=5;});
+    }
+    Check(retained>0,
+        "more-than-four-type attack intermediates can survive the frontier and leave bounded cross-round proposals");
+    auto reordered=state;
+    std::reverse(reordered.options.begin(),reordered.options.end());
+    const auto remapped=Search(reordered,values,6);
+    Check(remapped.proposalEvaluated>0 && remapped.features[2]>0 && remapped.features[5]<=reordered.budget,
+        "five-type continuation identities remap after every option index changes without carrying old prices or scores");
+    auto disabled=reordered;
+    for(auto& option:disabled.options) option.unit.healer.present=false;
+    const auto noHealing=Search(disabled,values,6);
+    Check(noHealing.features[2]==0 && noHealing.actions.empty(),
+        "losing the actual required support ability invalidates the old deep proposal and authorizes no historical purchase");
+    auto missing=reordered;
+    missing.options.erase(std::remove_if(missing.options.begin(),missing.options.end(),
+        [](const Option& option){return option.unit.healer.present;}),missing.options.end());
+    Check(Search(missing,values,6).features[2]==0,
+        "a missing legal member cannot be silently replaced by an old deep-proposal option index");
+    auto repriced=reordered;
+    for(auto& option:repriced.options) if(option.type==71001) {
+        option.cost=1000;
+        option.unit.body.purchaseCost=1000;
+    }
+    const auto expensive=Search(repriced,values,6);
+    Check(expensive.features[2]==0 && expensive.features[5]<=repriced.budget,
+        "a new unaffordable front price cannot be paid from the price stored in a previous five-type proposal");
+    reordered.budget=1;
+    Check(Search(reordered,values,6).actions.empty(),
+        "deep continuation does not preserve the previous treasury after actual available money disappears");
+    Check(state.budget==62 && state.options[2].unit.healer.present
+        && state.proposals.front().size()==5,
+        "searching, pruning and stale-proposal counterfactuals do not mutate captured resources or source proposal members");
+    std::cout<<"Deep composition proposal continuity and current-payment contracts passed\n";
 }
 
 namespace {
@@ -444,11 +573,11 @@ void RunColdStorageCapitalUtilityTests()
     using namespace ColdStorageSearch;
     const auto near=[](float left,float right) {return std::abs(left-right)<.0001f;};
     auto poor=CapitalArena(200), rich=CapitalArena(10000);
-    Check(near(CapitalUtilityScale(poor),1) && near(CapitalUtilityScale(rich),.02f),
+    Check(near(CapitalUtilityScale(poor),1) && near(CapitalUtilityScale(rich),.01f),
         "cash covering two complete legal highest-cost teams has decreasing utility only beyond that coverage");
     auto reserve=rich;
     reserve.recoveryReserve=50;
-    Check(near(CapitalUtilityScale(reserve),.025f),
+    Check(near(CapitalUtilityScale(reserve),.01f),
         "the real recovery reserve joins full-team coverage before wealth utility decreases");
     auto excessive=rich;
     excessive.budget=1000000;
@@ -547,4 +676,423 @@ void RunColdStorageCapitalUtilityTests()
             "wealth utility and exhausted risk allowance do not reject a real cash-profitable combined attack");
     }
     std::cout<<"Capital utility and opportunity-cost counterfactuals passed\n";
+}
+
+/** 长编队的经营与费用共用终点，训练输入保持60秒，不把尚未兑现的冰用于初始付款。 */
+void RunColdStorageExtendedIncomeTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.searchVersion=2; state.netEconomy=true;
+    state.houseX=-10000; state.budget=24; state.capacity=1;
+    Option worker;
+    worker.type=95001; worker.cost=24; worker.unit.body.x=1000;
+    worker.unit.body.health=500; worker.unit.body.economic=true; worker.unit.body.purchaseCost=24;
+    state.options={worker};
+    ConstructionStats trace;
+    const auto legacy=Evaluate(state,{{0,60}},&trace);
+    Check(legacy[4]==0 && trace.productionAfterWindow>worker.cost,
+        "the legacy calibrated window remains 60 seconds while actual later production is separately recorded");
+    const Weights income{0,0,0,0,1,-1,0,0};
+    const auto payable=EvaluateCandidate(state,income,{{0,60}});
+    Check(payable.features[4]==trace.productionAfterWindow && payable.rawProduction==0 && payable.productionInputs[0]==0
+        && payable.score>0 && !ShouldConserveCapital(payable,24,0,0),
+        "late protected income repays within the same combat window without altering trained 60-second inputs");
+    ProductionCalibration calibration;
+    calibration.nodes={{-1,-1,-1,0,.25f}}; state.productionCalibration=&calibration;
+    Check(EvaluateCandidate(state,income,{{0,60}}).features[4]==trace.productionAfterWindow*.25f,
+        "one conservative calibration factor applies to both income windows, rather than adding uncalibrated future money");
+    state.productionCalibration=nullptr;
+    Counter ash; ash.blast.x=1000; ash.blast.reach.fill(1000); ash.blast.damage=1800;
+    ash.blast.committed=true; ash.blast.ready=64; state.counters={ash};
+    const auto killed=EvaluateCandidate(state,income,{{0,60}});
+    Check(killed.features[4]<=4 && killed.score<0,
+        "a worker killed shortly after entry receives only completed batches rather than an assumed full future window");
+    state.budget=23;
+    Check(Search(state,income,42).actions.empty(),"later production cannot fund an initially unaffordable worker");
+    std::cout<<"Extended income and fixed calibration-window contracts passed\n";
+}
+
+/** 两株高输出互相兜底时，主动清除允许走出第一步；收益须来自真实受击和有利资产交换。 */
+void RunColdStorageSiegePreparationTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.rows=1; state.netEconomy=true; state.searchVersion=2;
+    state.precisionReady=true; state.budget=100; state.capacity=4;
+    state.opponentWeight=1; state.houseX=-10000;
+    Plant first;
+    first.id=101; first.x=500; first.column=3; first.health=500;
+    first.dps=100; first.assetValue=200; first.reward=20;
+    Plant second=first; second.id=102; second.x=400; second.column=2;
+    state.plants={first,second};
+    Option fragile;
+    fragile.type=94001; fragile.cost=10;
+    fragile.unit.body.x=1000; fragile.unit.body.health=50; fragile.unit.body.purchaseCost=10;
+    fragile.unit.body.speed=10; fragile.unit.biteDps=50;
+    state.options={fragile};
+    const Weights values{1,1,120,0,1,-1,0,0};
+    const auto prepared=Search(state,values,42);
+    Check(prepared.precisionTargetID>0 && prepared.construction.precisionHits==1
+        && prepared.features[2]==0 && prepared.features[0]==20
+        && prepared.opponentAssets<prepared.baselineOpponentAssets,
+        "proactive fire removal is an actual favorable asset exchange even while another shooter prevents immediate breakthrough");
+    for(auto& plant:state.plants) plant.dps=0;
+    state.options.clear();
+    Check(Search(state,values,42).precisionTargetID==0,
+        "valuable harmless plants do not authorize preparing a nonexistent attack through reward farming");
+    state.plants[0].dps=100; state.plants[1].dps=100;
+    for(auto& plant:state.plants) {plant.assetValue=1;plant.reward=1;}
+    Check(Search(state,values,42).precisionTargetID==0,
+        "having an attack does not waive the real exchange cost for a low-value target");
+    // 超过选靶名额时，周期全场来源不能因只算一发而被逐行射手挤出候选名单。
+    Snapshot repeated;
+    repeated.rows=5; repeated.netEconomy=true; repeated.searchVersion=2;
+    repeated.precisionReady=true; repeated.budget=100; repeated.opponentWeight=1;
+    for(int i=0;i<12;++i) {
+        Plant shooter; shooter.id=200+i; shooter.row=i%5; shooter.x=500;
+        shooter.health=500; shooter.dps=30; shooter.assetValue=500; shooter.reward=20;
+        repeated.plants.push_back(shooter);
+    }
+    Plant source; source.id=1000; source.row=2; source.x=400;
+    source.health=300; source.assetValue=2000; source.reward=20;
+    repeated.plants.push_back(source);
+    repeated.rowStrikes.push_back({source.id,0,20,240,0,0});
+    Check(Search(repeated,values,42).precisionTargetID==source.id,
+        "a repeatedly charged all-lane strike remains in the bounded target list ahead of weaker sustained shooters");
+    std::cout<<"Proactive siege preparation and real exchange contracts passed\n";
+}
+
+/** 多目标同次技能：身份/收费/已付款与自主目标基数，另隔离完整部队共用钱包的突破。 */
+void RunColdStorageMultiPrecisionTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.rows=3; state.searchVersion=2; state.netEconomy=true;
+    state.houseX=-10000; state.budget=180; state.capacity=0;
+    state.precisionTargetLimit=3;
+    for(int index=0;index<3;++index) {
+        Plant plant;
+        plant.id=87001+index; plant.row=index; plant.x=500;
+        plant.health=300; plant.immuneRemaining=1000; plant.reward=10;
+        state.plants.push_back(plant);
+    }
+    state.precisionTargetID=state.plants[0].id;
+    state.precisionAdditionalTargetIDs={state.plants[1].id,state.plants[2].id};
+    ConstructionStats stats;
+    const auto three=Evaluate(state,{},&stats);
+    Check(three[5]==180 && three[0]==30 && stats.precisionHits==3 && stats.abilityIceSpent==180,
+        "three cross-row identities resolve once at their shared aim deadline and each charge sixty actual ice");
+    auto legacy=state;
+    legacy.precisionTargetLimit=1;
+    Check(Evaluate(legacy,{},&stats)[5]==60 && stats.precisionHits==1,
+        "the default single-target interface preserves old forecast fixtures instead of silently opening three targets");
+    auto duplicate=state;
+    duplicate.precisionAdditionalTargetIDs={state.precisionTargetID,state.plants[1].id,state.plants[1].id,state.plants[2].id,99999};
+    Check(Evaluate(duplicate,{},&stats)[5]==180 && stats.precisionHits==3,
+        "duplicate identities cannot create repeated hits and no forecast intent exceeds three distinct identities");
+    auto pending=state;
+    pending.precisionReady=false; pending.precisionTargetID=0; pending.precisionAdditionalTargetIDs.clear();
+    pending.pendingPrecisionID=state.precisionTargetID;
+    pending.pendingPrecisionAdditionalIDs=state.precisionAdditionalTargetIDs;
+    pending.pendingPrecisionRemaining=2; pending.budget=0; pending.precisionTargetLimit=1;
+    const auto paid=Evaluate(pending,{},&stats);
+    Check(paid[5]==0 && paid[0]==30 && stats.precisionHits==3 && stats.abilityIceSpent==0,
+        "all already-paid targets resolve without new fees even when the caller's new-purchase limit differs");
+    pending.pendingPrecisionAdditionalIDs[0]=99999;
+    Plant replacement=state.plants[1]; replacement.id=88002;
+    pending.plants[1]=replacement;
+    Check(Evaluate(pending,{},&stats)[0]==20 && stats.precisionHits==2,
+        "a missing secondary identity does not retarget the replacement at its previous row and cell");
+    auto died=state;
+    for(auto& plant:died.plants) plant.immuneRemaining=0;
+    Unit killer;
+    killer.body.row=1; killer.body.x=550; killer.body.health=500;
+    killer.body.speed=0; killer.biteDps=1000;
+    died.current={killer};
+    const auto gone=Evaluate(died,{},&stats);
+    Check(gone[5]==180 && gone[0]==30 && stats.precisionHits==2,
+        "a target killed during aim remains paid but earns no second kill reward when the other two shots resolve");
+    Check(state.plants[0].health==300 && state.precisionAdditionalTargetIDs.size()==2,
+        "parallel-target forecasting does not consume captured plants, wallet or intent members");
+
+    // 储存灰烬的较晚释放会选中另一完整玩家应对；该结果也必须携带全部已计费的目标。
+    auto counterWorld=state;
+    counterWorld.playerSun=500; counterWorld.playerIce=50;
+    Plant stored;
+    stored.id=88010; stored.x=800; stored.health=300; stored.edible=false;
+    counterWorld.plants.push_back(stored);
+    for(float arrival:{0.0f,12.0f,30.0f}) {
+        Unit worker;
+        worker.body.x=900; worker.body.health=500; worker.body.economic=true;
+        worker.body.purchaseCost=24; worker.body.spawnAt=arrival; worker.biteDps=0;
+        counterWorld.current.push_back(worker);
+    }
+    Counter ash;
+    ash.plantID=stored.id; ash.stored=true; ash.sunCost=75; ash.iceCost=5;
+    ash.windup=0; ash.recharge=10000; ash.blast.x=900; ash.blast.damage=1800;
+    ash.blast.reach.fill(1000); counterWorld.counters={ash};
+    const Weights income{0,0,0,0,1,-1,0,0};
+    const auto responded=EvaluateCandidate(counterWorld,income,{});
+    Check(responded.counterHoldSeconds>0 && responded.precisionTargetID==state.precisionTargetID
+        && responded.precisionAdditionalTargetIDs==state.precisionAdditionalTargetIDs
+        && responded.features[5]==180 && responded.construction.precisionHits==3,
+        "a selected delayed-counter world preserves every target, full skill fee and actual independent hit");
+
+    // 同一合法交易比较1/2/3；不用军队或人为收益迫使一定三连。
+    const Weights values{1,1,120,0,1,-1,0,0};
+    auto selectable=state;
+    selectable.precisionTargetID=0; selectable.precisionAdditionalTargetIDs.clear();
+    selectable.precisionReady=true; selectable.opponentWeight=1;
+    for(auto& plant:selectable.plants) {plant.dps=100;plant.assetValue=200;plant.reward=20;}
+    const auto all=Search(selectable,values,42);
+    Check(all.precisionTargetID>0 && all.precisionAdditionalTargetIDs.size()==2
+        && all.features[5]==180 && all.construction.precisionHits==3,
+        "free bounded search can choose a favorable three-target exchange across rows without troop purchase");
+    selectable.plants[2].dps=0; selectable.plants[2].assetValue=0; selectable.plants[2].reward=0;
+    const auto two=Search(selectable,values,42);
+    Check(two.precisionTargetID>0 && two.precisionAdditionalTargetIDs.size()==1 && two.features[5]==120,
+        "an unnecessary third shot loses to the actual favorable two-target transaction");
+    selectable.plants[1].dps=0; selectable.plants[1].assetValue=0; selectable.plants[1].reward=0;
+    const auto one=Search(selectable,values,42);
+    Check(one.precisionTargetID==selectable.plants[0].id && one.precisionAdditionalTargetIDs.empty()
+        && one.features[5]==60,
+        "one useful source removal beats adding two harmless targets even when all three are affordable");
+    selectable.budget=59;
+    Check(Search(selectable,values,42).precisionTargetID==0,
+        "a multi-target option cannot bypass the price of the first shot when the actual wallet is fifty-nine");
+
+    // 三株互相兜底的火力先清除，再由任意普通可购画像进入；技能和队员没有分离的钱包。
+    Snapshot joint;
+    joint.rows=1; joint.searchVersion=2; joint.netEconomy=true; joint.precisionReady=true;
+    joint.precisionTargetLimit=3; joint.budget=181; joint.capacity=1; joint.houseX=0;
+    for(int index=0;index<3;++index) {
+        Plant fire;
+        fire.id=89001+index; fire.x=400+index*80; fire.health=100000; fire.dps=1000;
+        joint.plants.push_back(fire);
+    }
+    Option troop;
+    troop.type=89900; troop.cost=1; troop.unit.body.x=1000;
+    troop.unit.body.health=20; troop.unit.body.speed=50; troop.unit.body.purchaseCost=1;
+    troop.unit.biteDps=10; joint.options={troop};
+    auto known=joint;
+    known.precisionTargetID=joint.plants[0].id;
+    known.precisionAdditionalTargetIDs={joint.plants[1].id,joint.plants[2].id};
+    const auto complete=Evaluate(known,{{0,3}},&stats);
+    Check(complete[2]>0 && complete[5]==181 && stats.precisionHits==3,
+        "three removals and delayed ordinary entry have a real jointly affordable breakthrough");
+    known.precisionAdditionalTargetIDs.pop_back();
+    Check(Evaluate(known,{{0,3}})[2]==0,
+        "the surviving third firing source prevents the same ordinary followup from claiming breakthrough");
+    const auto chosen=Search(joint,values,17);
+    Check(chosen.features[2]>0 && chosen.precisionAdditionalTargetIDs.size()==2
+        && chosen.actions.size()==1 && chosen.features[5]==181,
+        "free search jointly funds all three original targets and its actual followup from one wallet");
+    joint.budget=180;
+    const auto shortWallet=Search(joint,values,17);
+    Check(shortWallet.features[2]==0 && shortWallet.features[5]<=180,
+        "paying three shots leaves no borrowed ice for the initially unaffordable followup");
+    joint.precisionReady=false; joint.budget=1;
+    joint.pendingPrecisionID=joint.plants[0].id;
+    joint.pendingPrecisionAdditionalIDs={joint.plants[1].id,joint.plants[2].id};
+    joint.pendingPrecisionRemaining=2;
+    const auto pendingFollow=Search(joint,values,17);
+    Check(pendingFollow.features[2]>0 && pendingFollow.features[5]==1
+        && pendingFollow.precisionTargetID==0 && pendingFollow.precisionAdditionalTargetIDs.empty(),
+        "an already-paid multi-shot can help a new payable troop without being charged or submitted again");
+    std::cout<<"Multi-target precision identities, cardinality and shared-wallet contracts passed\n";
+}
+
+/** 一波后的技能只凭有成本、延迟生效的完整反事实竞争；不提前施法、不把等待变成强制采购。 */
+void RunColdStoragePrecisionUnlockForecastTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot future;
+    future.rows=1; future.searchVersion=2; future.netEconomy=true;
+    future.precisionUnlockAfterPurchase=true; future.precisionUnlockAimStartSeconds=3;
+    future.precisionTargetLimit=3; future.budget=181; future.capacity=1; future.houseX=0;
+    for(int index=0;index<3;++index) {
+        Plant source;
+        source.id=91101+index; source.x=400+index*80; source.health=100000; source.dps=1000;
+        future.plants.push_back(source);
+    }
+    Option troop;
+    troop.type=91231; troop.cost=1; troop.unit.body.x=1000;
+    troop.unit.body.health=20; troop.unit.body.speed=50; troop.unit.body.purchaseCost=1;
+    troop.unit.biteDps=10; future.options={troop};
+    auto known=future;
+    known.precisionTargetID=future.plants[0].id;
+    known.precisionAdditionalTargetIDs={future.plants[1].id,future.plants[2].id};
+    ConstructionStats stats;
+    const auto delayed=Evaluate(known,{{0,6}},&stats);
+    Check(delayed[2]>0 && delayed[5]==181 && stats.precisionHits==3 && stats.abilityIceSpent==180,
+        "a paid purchase followed by next-decision aiming can jointly fund three removals and a real later entry");
+    Check(Evaluate(known,{{0,0}},&stats)[2]==0 && stats.precisionHits==3,
+        "the troop entering before future aim finishes dies to the still-living sources instead of borrowing immediate clearance");
+    Check(Evaluate(known,{},&stats)[0]==0 && stats.precisionHits==0 && stats.abilityIceSpent==0,
+        "empty waiting cannot obtain next-wave precision without a real paid troop");
+    auto deviceOnly=known;
+    deviceOnly.options[0].device=0;
+    Evaluate(deviceOnly,{{0,0}},&stats);
+    Check(stats.precisionHits==0 && stats.abilityIceSpent==0,
+        "a weather-device transaction does not advance the paid troop wave or authorize future aiming");
+    // 使用失败候选的全局评分和两个实际训练随机种子；画像/ID独立于正式僵尸，不硬编码突破组合。
+    const Weights candidateOne{4.26112446f,1.31421143f,112.454357f,.33995646f,3.49586196f,0,-.27357251f,1.758715f};
+    for(unsigned seed:{982268721u,172588331u}) {
+        auto locked=future; locked.precisionUnlockAfterPurchase=false;
+        Check(Search(locked,candidateOne,seed).actions.empty(),
+            "the same legal bodies under the failed candidate weights have no invented breakthrough before skill unlock");
+        const auto unlocked=Search(future,candidateOne,seed);
+        Check(unlocked.features[2]>0 && unlocked.actions.size()==1 && unlocked.features[5]==181
+            && unlocked.precisionTargetID==0 && unlocked.precisionAdditionalTargetIDs.empty()
+            && unlocked.forecastPrecisionTargetID>0 && unlocked.forecastPrecisionAdditionalTargetIDs.size()==2
+            && unlocked.forecastPrecisionIce==180 && unlocked.forecastPrecisionAimStartSeconds==3,
+            "free search can choose a paid next-wave opportunity while exporting no immediately payable strike intent");
+    }
+    auto realtime=future;
+    realtime.timeLimitedSearch=true;
+    realtime.searchDeadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(300);
+    const auto boundedRealtime=Search(realtime,candidateOne,172588331u);
+    Check(boundedRealtime.forecastPrecisionTargetID>0 && boundedRealtime.features[2]>0
+        && boundedRealtime.precisionTargetID==0 && boundedRealtime.features[5]<=realtime.budget,
+        "the same real-time deadline keeps next-wave skill comparison inside the normal bounded search budget");
+    const auto diagnostic=EvaluateCandidate(known,candidateOne,{{0,6}});
+    Check(diagnostic.precisionTargetID==0 && diagnostic.forecastPrecisionIce==180 && diagnostic.features[5]==181,
+        "direct diagnostics keep all predicted fees but cannot turn the future shot into a current Board transaction");
+    auto shortWallet=future;
+    shortWallet.budget=180; shortWallet.supplyIce=10000; shortWallet.supplyInterval=1;
+    const auto poor=Search(shortWallet,candidateOne,172588331u);
+    Check(poor.features[2]==0 && poor.forecastPrecisionTargetID==0 && poor.precisionTargetID==0,
+        "future supply and kill proceeds cannot prepay the initially unaffordable troop plus three shots");
+    auto missing=known;
+    missing.precisionAdditionalTargetIDs[0]=999999;
+    Evaluate(missing,{{0,6}},&stats);
+    Check(stats.precisionHits==2 && stats.abilityIceSpent==180,
+        "a disappeared future identity receives no replacement while the other two original targets remain independent");
+    auto diesBeforeAim=known;
+    Unit killer;
+    killer.body.x=520; killer.body.health=1000000000; killer.body.speed=0; killer.biteDps=1000000;
+    diesBeforeAim.current={killer};
+    Evaluate(diesBeforeAim,{{0,6}},&stats);
+    Check(stats.precisionHits==2 && stats.abilityIceSpent==180,
+        "a source destroyed before the next decision is not hit twice or replaced by a newly chosen forecast identity");
+    auto tooLate=known;
+    tooLate.precisionUnlockAimStartSeconds=1000;
+    Check(Evaluate(tooLate,{{0,6}},&stats)[2]==0 && stats.precisionHits==0,
+        "a future shot outside the forecast window cannot masquerade as an immediately cleared front");
+    auto capacity=known;
+    capacity.capacity=4; capacity.deploymentCapital=2100; capacity.deploymentOccupied=62; capacity.budget=2100;
+    const auto bounded=EvaluateCandidate(capacity,candidateOne,{{0,6},{0,6},{0,6},{0,6}});
+    Check(bounded.actions.size()==2 && bounded.features[5]==182 && bounded.forecastPrecisionIce==180,
+        "future skill capital reserves reduce the whole paid team to two slots without paying the prediction now");
+    auto harmless=future;
+    harmless.houseX=-10000;
+    for(auto& plant:harmless.plants) {plant.dps=0; plant.reward=0; plant.assetValue=0;}
+    harmless.options[0].unit.body.speed=0; harmless.options[0].unit.biteDps=0;
+    const auto wait=Search(harmless,candidateOne,172588331u);
+    Check(wait.actions.empty() && wait.forecastPrecisionTargetID==0 && wait.features[5]==0,
+        "a one-wave unlock alone gives no purchase reward and leaves true no-return waiting available");
+    auto preparation=future;
+    preparation.houseX=-10000; preparation.opponentWeight=1;
+    preparation.options[0].unit.body.speed=0; preparation.options[0].unit.biteDps=0;
+    for(auto& plant:preparation.plants) {plant.dps=100; plant.reward=20; plant.assetValue=200;}
+    const auto three=Search(preparation,candidateOne,172588331u);
+    Check(three.forecastPrecisionAdditionalTargetIDs.size()==2 && three.forecastPrecisionIce==180,
+        "next-wave preparation can freely compare a favorable cross-target three-shot exchange plus its real advancing purchase");
+    preparation.plants[2].dps=0; preparation.plants[2].assetValue=0; preparation.plants[2].reward=0;
+    const auto two=Search(preparation,candidateOne,172588331u);
+    Check(two.forecastPrecisionTargetID>0 && two.forecastPrecisionAdditionalTargetIDs.size()==1
+        && two.forecastPrecisionIce==120 && two.features[5]==121,
+        "two useful future shots beat paying for a third harmless identity even before actual skill unlock");
+    preparation.plants[1].dps=0; preparation.plants[1].assetValue=0; preparation.plants[1].reward=0;
+    const auto one=Search(preparation,candidateOne,172588331u);
+    Check(one.forecastPrecisionTargetID>0 && one.forecastPrecisionAdditionalTargetIDs.empty()
+        && one.forecastPrecisionIce==60 && one.features[5]==61,
+        "a single useful future shot retains the cheaper cardinality instead of forcing the three-target limit");
+    Check(future.allowWait && !future.precisionReady && future.budget==181 && future.plants[0].health==100000,
+        "the lookahead does not mutate live qualification, force purchase, consume the wallet or damage captured targets");
+    std::cout<<"Paid next-wave precision opportunity, timing and shared-wallet counterfactuals passed\n";
+}
+
+/** 技能/设备花掉资本会缩容量，兵种购买仍转成资产；整案修复须先限制数量再评分。 */
+void RunColdStorageDeploymentTransactionTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.rows=1; state.searchVersion=2; state.netEconomy=true; state.houseX=-10000;
+    state.budget=400; state.capacity=4; state.deploymentCapital=2100; state.deploymentOccupied=62;
+    state.precisionTargetLimit=3; state.precisionTargetID=91001;
+    state.precisionAdditionalTargetIDs={91002,91003};
+    for(int index=0;index<3;++index) {
+        Plant fire;
+        fire.id=91001+index; fire.x=400+index*80; fire.health=100000; fire.dps=1000;
+        fire.assetValue=200; fire.edible=false;
+        state.plants.push_back(fire);
+    }
+    Option worker;
+    worker.type=91900; worker.cost=24; worker.unit.body.x=1000;
+    worker.unit.body.health=500; worker.unit.body.purchaseCost=24;
+    worker.unit.body.economic=true; worker.unit.body.speed=0; worker.unit.biteDps=0;
+    state.options={worker};
+    const Weights profit{0,0,0,0,1,-1,0,0};
+    const std::vector<Action> four(4,{0,3});
+    const auto repaired=EvaluateCandidate(state,profit,four);
+    Check(repaired.actions.size()==2 && repaired.features[5]==228
+        && repaired.features[4]>repaired.features[5] && repaired.construction.precisionHits==3,
+        "capital 2100 and sixty-two occupied slots allow only two new workers after the complete 180-ice skill fee");
+    const auto two=EvaluateCandidate(state,profit,{{0,3},{0,3}});
+    Check(two.actions.size()==2 && two.features==repaired.features,
+        "the valid two-member transaction receives the same full evaluation instead of paying a partial four-member plan");
+    auto fixed=state;
+    fixed.deploymentCapital=-1;
+    Check(EvaluateCandidate(fixed,profit,four).actions.size()==4,
+        "old pure fixtures keep their explicitly fixed capacity when no authoritative deployment capital is supplied");
+    auto capped=state;
+    capped.capacity=1;
+    Check(EvaluateCandidate(capped,profit,four).actions.size()==1,
+        "recomputed capital capacity cannot increase the caller's already-smaller available slot limit");
+    auto future=state;
+    future.supplyRemaining=0; future.supplyInterval=1; future.supplyIce=10000;
+    Check(EvaluateCandidate(future,profit,four).actions.size()==2,
+        "future actual supply inside the forecast cannot prepay the initial transaction's deployment capacity");
+    auto searched=state;
+    searched.precisionTargetID=0; searched.precisionAdditionalTargetIDs.clear(); searched.precisionReady=true;
+    const auto discovered=Search(searched,profit,17);
+    Check(discovered.precisionAdditionalTargetIDs.size()==2 && discovered.actions.size()==2
+        && discovered.features[5]==228 && discovered.features[4]>discovered.features[5],
+        "free multi-shot and production exploration respects the skill-reduced live capacity before choosing a payable full plan");
+
+    auto device=state;
+    device.precisionTargetID=0; device.precisionAdditionalTargetIDs.clear(); device.plants.clear();
+    device.weatherStation=true;
+    device.station.controls[WeatherStationRules::FOG].value=1;
+    Option clear;
+    clear.type=-910; clear.device=WeatherStationRules::FOG; clear.setting=0;
+    clear.cost=WeatherStationRules::Cost(clear.device,clear.setting);
+    device.options.push_back(clear);
+    auto withDevice=four; withDevice.push_back({1,0});
+    const auto closed=EvaluateCandidate(device,profit,withDevice);
+    const auto troops=[&](const Result& result) {
+        return std::count_if(result.actions.begin(),result.actions.end(),[&](const Action& action){return device.options[action.option].device<0;});
+    };
+    Check(troops(closed)==3 && closed.actions.size()==4 && closed.features[5]==112,
+        "a forty-ice device at the end of the cart reduces capital-derived troop slots before any member is purchased");
+    auto ahead=withDevice;
+    std::rotate(ahead.begin(),ahead.end()-1,ahead.end());
+    const auto earlyDevice=EvaluateCandidate(device,profit,ahead);
+    Check(troops(earlyDevice)==3 && earlyDevice.features[5]==closed.features[5],
+        "reordering the same device payment cannot regain troop slots by temporarily buying the army first");
+    withDevice.push_back({1,0});
+    const auto duplicated=EvaluateCandidate(device,profit,withDevice);
+    Check(troops(duplicated)==3 && duplicated.features[5]==112,
+        "a repeated setting is removed and does not charge a second fee or shrink capital twice");
+    device.precisionTargetID=state.precisionTargetID;
+    device.precisionAdditionalTargetIDs=state.precisionAdditionalTargetIDs;
+    device.plants=state.plants;
+    const auto combined=EvaluateCandidate(device,profit,withDevice);
+    Check(troops(combined)==2 && combined.actions.size()==3 && combined.features[5]==268,
+        "all three skill fees and the retained device payment jointly determine the same remaining troop capacity");
+    Check(state.deploymentCapital==2100 && state.deploymentOccupied==62 && state.budget==400,
+        "capacity admission and complete forecast cannot consume or invent the captured capital, occupied slots or actual wallet");
+    std::cout<<"Complete deployment capital, device and skill transaction contracts passed\n";
 }

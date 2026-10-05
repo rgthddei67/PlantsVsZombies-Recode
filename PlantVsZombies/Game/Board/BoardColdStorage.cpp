@@ -753,7 +753,7 @@ int Board::GetColdStorageHostileCount() const
 	return count;
 }
 
-int Board::GetColdStorageDeploymentLimit() const
+std::int64_t Board::GetColdStorageDeploymentCapital() const
 {
 	std::int64_t capital = mColdStorage.enemyIce;
 	for (const auto& paid : mColdStorage.pending) capital += paid.cost;
@@ -762,7 +762,12 @@ int Board::GetColdStorageDeploymentLimit() const
 		if (zombie && zombie->IsActive() && !zombie->IsPreview() && !zombie->IsDying()
 			&& !zombie->IsMindControlled()) capital += cost;
 	}
-	return ColdStorageDeploymentRules::Capacity(capital);
+	return capital;
+}
+
+int Board::GetColdStorageDeploymentLimit() const
+{
+	return ColdStorageDeploymentRules::Capacity(GetColdStorageDeploymentCapital());
 }
 
 /** 清场且无在途援军时判定破产或长期无破阵且经营不盈利的低库存败局，不中断仍在作战的部队。 */
@@ -852,7 +857,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 	s.searchRouteEvaluated = s.searchCombinationEvaluated = s.searchReinforcementEvaluated = 0;
 	s.searchRefinementEvaluated = 0;
 	s.searchIncomeEvaluated = s.searchPruningEvaluated = 0;
-	s.searchAssaultEvaluated = 0;
+	s.searchAssaultEvaluated = 0; s.searchProposalEvaluated = 0;
 	s.searchCohortEvaluated = s.searchUnevenMixEvaluated = s.searchDuplicatesSkipped = s.searchPaidCounterCasts = 0;
 	s.searchPaidDefensesRetained = false;
 	s.searchCombinationBaseScore = s.searchCombinationBestScore = 0;
@@ -1232,7 +1237,30 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			for(int rain=0;rain<4;++rain) { search.rainZombie[rain]=ForecastZombieRainMultiplier(static_cast<RainIntensity>(rain)); search.rainPlant[rain]=ForecastPlantRainMultiplier(static_cast<RainIntensity>(rain)); }
 		}
 		search.precisionReady = CanUseColdStoragePrecisionStrike();
+		search.precisionTargetLimit = ColdStorageSkillRules::StrikeTargetLimit;
+		// 兵种按下一波开放，技能却要求已真实推进到解锁波；只预测这一步的付费机会，仍允许等待。
+		// 不授予提前施法资格，也不要求购买某种兵；整支队伍和未来技能费用由搜索共用钱包比较。
+		search.precisionUnlockAfterPurchase = !search.precisionReady
+			&& (MiniGame::IsBrawl(mLevel) || IsWeatherStation() || (mLevel>=ColdStorageSkillRules::StrikeUnlockLevel && mLevel<=90))
+			&& s.decisions+1==ColdStorageSkillRules::StrikeUnlockWave
+			&& s.strikeCooldownRemaining<=0 && s.strikeTargetID<0
+			&& std::any_of(mSpawnZombieList.begin(),mSpawnZombieList.end(),[&](ZombieType type) {
+				const int cost=GetZombieIceCost(type);
+				return isUnlocked(type) && cost>0 && cost<=s.enemyIce-ColdStorageSkillRules::StrikeIceCost;
+			});
+		if(search.precisionUnlockAfterPurchase) {
+			// 后台从当前采样到采购仍有计算等待；采购后正式复查再启动下一轮计算，最后才开始2秒瞄准。
+			// 新兵在场/在途后下一轮恢复常规预算，不把当前空场恢复预算误当作未来每轮的固定成本。
+			// 这里使用1倍速预算基准；实际提交会除以倍速，换回游戏秒时倍率抵消，不能再乘一次。
+			double currentBaseBudgetMs=kPlanningWallBudgetMs;
+			const double scale=std::max(1.0f,DeltaTime::GetTimeScale());
+			if(background && resumePortfolio && s.planningTimeLimited && GetColdStorageHostileCount()==0 && s.pending.empty())
+				currentBaseBudgetMs=std::min(kPlanningRecoveryBudgetMs,std::max(kPlanningWallBudgetMs,s.planningBudgetMs*scale)*2);
+			search.precisionUnlockAimStartSeconds=std::max(kStagingRecheck,s.decisionRemaining)
+				+static_cast<float>(background ? (currentBaseBudgetMs+kPlanningWallBudgetMs)/1000 : 0);
+		}
 		search.pendingPrecisionID = std::max(0,s.strikeTargetID);
+		search.pendingPrecisionAdditionalIDs = s.strikeAdditionalTargetIDs;
 		search.pendingPrecisionRemaining = s.strikeAimRemaining;
 		search.discountRemaining = s.discountRemaining;
 		search.interferenceAvailable = SupportsTemporalInterference();
@@ -1250,7 +1278,9 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
         }
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
-		search.capacity = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
+		search.deploymentCapital=GetColdStorageDeploymentCapital();
+		search.deploymentOccupied=GetColdStorageHostileCount()+static_cast<int>(s.pending.size());
+		search.capacity = std::max(0,ColdStorageDeploymentRules::Capacity(search.deploymentCapital)-search.deploymentOccupied);
 		// 观望时长不能把负收益方案变成必选项，否则成型防线会诱发周期性单兵送死。
 		// 唯一例外是下方确有后续兵种可解锁、且能支付整条解锁路径的合法小额探路。
 		search.allowWait = true;
@@ -2517,13 +2547,36 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	PROFILE_SCOPE("Commander.Commit");
 	const int beforeSkill = mColdStorage.enemyIce;
 	// 环境与出兵先共同验证，失效时整案重采，不支付失去配合的半个方案。
-	int jointCost=result.precisionTargetID>0 ? ColdStorageSkillRules::StrikeIceCost : 0;
+	std::vector<int> strikeTargets;
+	if(result.precisionTargetID>0) {
+		strikeTargets.push_back(result.precisionTargetID);
+		strikeTargets.insert(strikeTargets.end(),result.precisionAdditionalTargetIDs.begin(),result.precisionAdditionalTargetIDs.end());
+	}
+	int jointCost=ColdStorageSkillRules::StrikeIceCost*static_cast<int>(strikeTargets.size());
+	int abilityCost=jointCost, newTroops=0;
 	for(const auto& action:result.actions) {
+		if(action.option<0 || action.option>=static_cast<int>(search.options.size()) || !std::isfinite(action.delay)) {
+			mColdStorage.decisionRemaining=0; return;
+		}
 		const auto& option=search.options[action.option]; jointCost+=option.cost;
 		if(option.device>=0 && !CanChangeStationControl(option.device,option.setting,false)) { mColdStorage.decisionRemaining=0; return; }
+		if(option.device>=0) abilityCost+=option.cost;
+		else {
+			const auto type=static_cast<ZombieType>(option.type);
+			if(option.row<0 || option.row>=mRows || !IsSpawnRowCompatible(type,option.row)
+				|| GetZombieIceCost(type)!=option.cost || std::find(mSpawnZombieList.begin(),mSpawnZombieList.end(),type)==mSpawnZombieList.end()
+				|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits()) && GetColdStorageUnlockWave(type)>mColdStorage.decisions+1)) {
+				mColdStorage.decisionRemaining=0; return;
+			}
+			++newTroops;
+		}
 	}
 	if(jointCost>mColdStorage.enemyIce) { mColdStorage.decisionRemaining=0; return; }
-	if (result.precisionTargetID > 0 && !TryStartColdStoragePrecisionStrike(result.precisionTargetID)) {
+	// 买兵只转移资本，技能/设备会消耗资本并缩减名额；付款前验证最小容量，避免只排入半队。
+	const int occupied=GetColdStorageHostileCount()+static_cast<int>(mColdStorage.pending.size());
+	const int slots=std::max(0,ColdStorageDeploymentRules::Capacity(GetColdStorageDeploymentCapital()-abilityCost)-occupied);
+	if(newTroops>slots) { mColdStorage.decisionRemaining=0; return; }
+	if (!strikeTargets.empty() && !TryStartColdStoragePrecisionStrike(strikeTargets)) {
 		mColdStorage.decisionRemaining = 0;
 		return; // 目标或钱包变动时重算整案，不提交失去技能掩护的后续采购。
 	}
@@ -2611,7 +2664,12 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchRiftRedirects = result.construction.riftRedirects;
 	s.searchDrumBeats = result.construction.drumBeats; s.searchDrumRecipients = result.construction.drumRecipients;
 	s.searchPrecisionTargetID = result.precisionTargetID; s.searchPrecisionEvaluated = result.precisionEvaluated;
+	s.searchPrecisionAdditionalTargetIDs=result.precisionAdditionalTargetIDs;
 	s.searchPrecisionGain = result.precisionGain;
+	s.searchForecastPrecisionTargetID=result.forecastPrecisionTargetID;
+	s.searchForecastPrecisionAdditionalTargetIDs=result.forecastPrecisionAdditionalTargetIDs;
+	s.searchForecastPrecisionIce=result.forecastPrecisionIce;
+	s.searchForecastPrecisionAimStartSeconds=result.forecastPrecisionAimStartSeconds;
 	s.searchBurstActivations = result.construction.burstActivations; s.searchAuraActivations = result.construction.auraActivations;
 	s.searchFormationBaseScore = result.formationBaseScore; s.searchFormationScores = result.formationScores;
 	s.searchFormationTested = result.formationTested; s.searchFormationRejected = result.formationRejected;
@@ -2624,7 +2682,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchReinforcementEvaluated=result.reinforcementEvaluated;
 	s.searchRefinementEvaluated=result.refinementEvaluated;
 	s.searchIncomeEvaluated=result.incomeEvaluated; s.searchPruningEvaluated=result.pruningEvaluated;
-	s.searchAssaultEvaluated=result.assaultEvaluated;
+	s.searchAssaultEvaluated=result.assaultEvaluated; s.searchProposalEvaluated=result.proposalEvaluated;
 	s.searchCombinationBaseScore = result.combinationBaseScore; s.searchCombinationBestScore = result.combinationBestScore;
 	s.searchCombinationBaseBreach = result.combinationBaseBreach; s.searchCombinationBestBreach = result.combinationBestBreach;
 	s.searchCombinationBaseBreachSeconds = result.combinationBaseBreachSeconds;
@@ -2673,6 +2731,8 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	mix(mColdStorage.strikeCooldownRemaining <= 0);
 	for (const auto& rift : mPendingAuroraRifts) mix(rift.transactionID);
 	mix(static_cast<std::uint64_t>(mColdStorage.strikeTargetID) + 1ULL);
+	mix(mColdStorage.strikeAdditionalTargetIDs.size());
+	for(int identity:mColdStorage.strikeAdditionalTargetIDs) mix(static_cast<std::uint64_t>(identity)+1ULL);
 	for (int id : mEntityRegistry.GetAllPlantIDs()) {
 		const Plant* plant = mEntityRegistry.GetPlant(id);
 		if (!plant || !plant->IsActive()) continue;
@@ -2832,7 +2892,7 @@ nlohmann::json Board::SaveColdStorage() const
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
 		{"interferenceRemaining",s.interferenceRemaining},{"interferenceCooldownRemaining",s.interferenceCooldownRemaining},
 		{"discountRemaining",s.discountRemaining},{"strikeCooldownRemaining",s.strikeCooldownRemaining},
-		{"strikeTargetID",s.strikeTargetID},{"strikeAimRemaining",s.strikeAimRemaining},
+		{"strikeTargetID",s.strikeTargetID},{"strikeAdditionalTargetIDs",s.strikeAdditionalTargetIDs},{"strikeAimRemaining",s.strikeAimRemaining},
 		{"incomeIdleSeconds",s.incomeIdleSeconds},
 		{"plantKillIdleSeconds",s.plantKillIdleSeconds},
 		{"workerIncome",s.workerIncome},{"playerProductionIncome",s.playerProductionIncome},
@@ -2891,6 +2951,19 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.interferenceCooldownRemaining = SupportsTemporalInterference() ? seconds("interferenceCooldownRemaining", 0, ColdStorageSkillRules::InterferenceCooldown) : 0;
 	s.strikeCooldownRemaining = seconds("strikeCooldownRemaining", 0, ColdStorageSkillRules::StrikeCooldown);
 	s.strikeTargetID = integer("strikeTargetID", -1, -1, std::numeric_limits<int>::max());
+	s.strikeAdditionalTargetIDs.clear();
+	// 此时植物尚未恢复，保留稳定ID；只做结构约束，不用空注册表误取消已付款的枪。
+	if(s.strikeTargetID>=0 && j.contains("strikeAdditionalTargetIDs") && j["strikeAdditionalTargetIDs"].is_array()) {
+		for(const auto& entry:j["strikeAdditionalTargetIDs"]) {
+			if(s.strikeAdditionalTargetIDs.size()>=ColdStorageSkillRules::StrikeTargetLimit-1) break;
+			if(!entry.is_number_integer()) continue;
+			const auto value=entry.get<long long>();
+			if(value<0 || value>std::numeric_limits<int>::max() || value==s.strikeTargetID) continue;
+			const int identity=static_cast<int>(value);
+			if(std::find(s.strikeAdditionalTargetIDs.begin(),s.strikeAdditionalTargetIDs.end(),identity)==s.strikeAdditionalTargetIDs.end())
+				s.strikeAdditionalTargetIDs.push_back(identity);
+		}
+	}
 	s.strikeAimRemaining = s.strikeTargetID >= 0
 		? seconds("strikeAimRemaining", 0, ColdStorageSkillRules::StrikeAimDuration) : 0.0f;
 	// 旧档没有可核实的收入时间，给予完整恢复窗口，不能用总对局时间追溯判负。

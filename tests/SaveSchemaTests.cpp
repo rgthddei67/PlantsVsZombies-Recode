@@ -731,6 +731,17 @@ int main() {
 	}
 
 	{
+		nlohmann::json previous={{"schemaVersion",25},{"coldStorage",{{"strikeTargetID",123},{"strikeAimRemaining",1.5f},
+			{"strikeCooldownRemaining",29.5f},{"enemyIce",17},{"spent",60}}}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error),"v25单目标已付款技能能迁移到多目标版本");
+		const auto& ice=previous["coldStorage"];
+		Expect(ice["strikeTargetID"]==123 && ice["strikeAimRemaining"]==1.5f && ice["strikeCooldownRemaining"]==29.5f
+			&& ice["enemyIce"]==17 && ice["spent"]==60 && ice["strikeAdditionalTargetIDs"].is_array() && ice["strikeAdditionalTargetIDs"].empty(),
+			"迁移保留单枪身份、余时和实际账本，不补枪、不再收费");
+	}
+
+	{
 		std::string error;
 		nlohmann::json previous={{"schemaVersion",7},{"adventureLevel",96},{"havecards",{0,1}}};
 		Expect(SaveSchema::UpgradePlayerDocument(previous,error),"已通关11-2的旧玩家补领雷鸣花");

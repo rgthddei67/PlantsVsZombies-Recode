@@ -245,6 +245,8 @@ struct AttackAura {
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
 struct ConstructionStats {
+	float productionAfterWindow=0; // 60秒校准窗口之后、同一战斗时域内真实兑现的预测产冰，不预支采购
+
 	int catapultShots=0, catapultHits=0, catapultBlocks=0;
 	std::vector<WorkerForecastTrace> workerTrace;
 	std::vector<CounterForecastTrace> counterTrace;
@@ -281,6 +283,9 @@ struct ConstructionStats {
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; float y=0,height=0; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; int device=-1, setting=0; };
 struct Action { int option = 0; float delay = 0; };
+/** 未付款的跨轮探索提案；仅保存兵种、路线、时序，不携带旧实体、评分、价格或收益。 */
+struct ProposalMember { int type=0, row=0, device=-1, setting=0; float delay=0; };
+using Proposal = std::vector<ProposalMember>;
 /** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
 struct CommittedUnit { int unit = 0; std::array<bool, 6> legalRows{}; };
 struct QueueRevision {
@@ -326,6 +331,8 @@ struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; 
 /** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
 struct WindCounter { Plant deployment; std::vector<std::array<int,2>> cells; bool committed=false; int source=0, plantID=0, row=-1, column=-1, sunCost=0, iceCost=0; float ready=0,recharge=0,windup=0,nextReady=0; bool house=false; };
 struct Snapshot {
+	std::vector<Proposal> proposals; // 同一Planner的未完成探索，必须按当前资格/钱包重新映射并完整评价
+
     std::vector<WindCounter> windCounters;
 	std::vector<JackBoxFlight> jackBoxes;
 	std::array<float,6> rowY{}; // Board采样的各出生行Y；纯数值夹具可用行高兜底
@@ -356,6 +363,8 @@ struct Snapshot {
 	const StateModel* stateModel = nullptr;
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
 	int budget = 0, capacity = 0;
+	std::int64_t deploymentCapital = -1; // 实际库存+活体/在途原成交价；-1表示纯夹具使用固定capacity
+	int deploymentOccupied = 0; // 实际敌对活体和已付款队列数；技能/设备扣资本后重新核对剩余名额
 	int recoveryReserve = 0; // 正式 Board 指定的低库存重组门槛，零表示不启用
 	float capitalRiskAllowance = (std::numeric_limits<float>::max)(); // 累计净亏损后的剩余风险额度，冰；未提供实际账本的夹具不启用
 	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
@@ -377,8 +386,13 @@ struct Snapshot {
 	bool interferenceAvailable = false; // 商店资格，不假定玩家已按按钮
 	float interferenceRemaining = 0, interferenceReady = 0; // 已生效禁锚余时和独立冷却余时，秒
 	bool precisionReady = false;
+	bool precisionUnlockAfterPurchase = false; // Board确认距技能解锁一波；只预测付费出兵后下一决策的技能，不提前提交
+	float precisionUnlockAimStartSeconds = 0; // 下一正式决策与后台计算等待后的预计瞄准开始时刻，游戏秒；不含正式2秒瞄准
 	int precisionTargetID = 0; // 本候选立即购买的技能；零表示保留资金
+	std::vector<int> precisionAdditionalTargetIDs; // 同次付费的其余独立目标，最多两株，与首目标共用瞄准/冷却
+	int precisionTargetLimit = 1; // 调用方开放的目标数，1..3；旧数值夹具默认保持单株行为
 	int pendingPrecisionID = 0; // 已支付技能只结算原目标，不再次收费
+	std::vector<int> pendingPrecisionAdditionalIDs; // 已付款的其余目标，按原身份同时结算，不另找替补
 	float pendingPrecisionRemaining = 0;
 	float impWalkSpeed=20; // Board 从小鬼实际出生画像采样，纯数值夹具保留缺省值
 	std::array<Unit,5> ritualSummons{};
@@ -400,11 +414,18 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	std::vector<Proposal> proposals; // 有界未付款中间态；可供下一轮探索，不属于可执行购物车
+	int proposalEvaluated=0; // 跨轮提案在当前局面真正重新评估的数量
+
 	std::vector<Action> investmentPruningActions; // 未购买的经营中间态，只供同预算删冗员对照，不提交或存档
     bool timeLimited=false; // 搜索停止继续扩展，已返回的候选仍经过完整时间线和反制对照
 	std::vector<CandidateStats> candidates; // 最终编队搜索阶段的候选统计；不含精准清除探测
 	int precisionTargetID = 0, precisionEvaluated = 0;
+	std::vector<int> precisionAdditionalTargetIDs; // 必须与首目标、完整付款及同编队反事实一起提交
 	float precisionGain = 0; // 相对保留技能资金的增量评分；突破优先时可为负，以 features[2] 判断胜利
+	int forecastPrecisionTargetID = 0, forecastPrecisionIce = 0; // 未付款的解锁后预测；当下提交目标必须为零，费用只留在预测账本
+	std::vector<int> forecastPrecisionAdditionalTargetIDs;
+	float forecastPrecisionAimStartSeconds = 0; // 仅供预测诊断，下一轮仍重新选靶，不保存承诺
 	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
@@ -429,7 +450,7 @@ struct Result {
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
-	float rawProduction = 0; // 未校准的产冰预期，供实际回报拟合
+	float rawProduction = 0; // 前60秒未校准的产冰预期，供实际回报拟合；不含评分用的后续兑现
 	float counterHoldSeconds = 0; // 本次保守评估采用的玩家清场/主动打击等待习惯，游戏秒；不是僵尸出兵间隔
 	ProductionFeatures productionInputs{};
 	float formationBaseScore = 0; // 逐行对比前的最优自由编队评分
@@ -478,9 +499,11 @@ Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, Constru
 	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false,
 	bool interferenceBeforeAsh = false);
 class PlanEvaluator;
-/** 只读诊断已验证合法的购物车，复用正式条件权重、等待基线及完整玩家应对；不修案或提交采购。 */
+/** 只读诊断购物车，复用条件权重、等待基线及玩家应对；动态资本快照按整案费用修案。
+ * 解锁后技能仅导出forecast诊断，不生成当下可提交的打击；不消费真实钱包或修改快照。 */
 Result EvaluateCandidate(const Snapshot& state, const Weights& weights, const std::vector<Action>& plan);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。
+ * 仅差一波解锁的技能可以比较付费出兵后的未来收益，返回当下购物车和未付款forecast，不提前施法。
  * evaluator 由后台任务独占，函数返回前领完其结果；缺省为空，离线搜索保持同步随机顺序。
  */
 Result Search(const Snapshot& state, const Weights& weights, std::uint32_t seed, PlanEvaluator* evaluator = nullptr);

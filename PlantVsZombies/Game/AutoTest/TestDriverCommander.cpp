@@ -5,6 +5,7 @@
 #include "Game/Plant/ColdPineappleRules.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include "Game/Board/ColdStorageSkillRules.h"
+#include "Game/Board/WeatherStationRules.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -16,7 +17,7 @@ using Json = nlohmann::json;
 constexpr float kStoredWakeStake=4200; // 蓄爆陪练愿意唤醒毁灭的可见威胁总值，生命及猎工优先值
 constexpr float kStoredWakeReach=200; // 蓄爆择时的保守水平覆盖，像素；实际爆炸仍由正式实体结算
 /** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
-std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters) {
+std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters, bool recentIceRise) {
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
 	const bool mixedElite=opponent=="ice_bunker_mixed";
@@ -45,6 +46,20 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 	}
     const bool station=state.value("background",std::string())=="WEATHER_STATION";
     const auto& lamp=state.at("plantern");
+    WeatherStationRules::Control fogControl;
+    if(station) {
+        const auto& control=state.at("weatherStation").at("controls").at(WeatherStationRules::FOG);
+        fogControl={control.at("value").get<int>(),control.at("pending").get<int>(),
+            control.at("warning").get<float>(),control.at("protection").get<float>(),control.at("player").get<bool>()};
+    }
+    // 混合陪练立刻购买可用的关雾事务；付款后8秒才切换，期间照明仍按真实雾势耗油。
+    if(mixedElite && station && WeatherStationRules::CanChange(
+        fogControl,
+        WeatherStationRules::FOG,0) && stock>=WeatherStationRules::Cost(WeatherStationRules::FOG,0)) {
+        actions.push_back({{"op","player_station_control"},{"device",WeatherStationRules::FOG},{"value",0}});
+        stock-=WeatherStationRules::Cost(WeatherStationRules::FOG,0);
+    }
+
     // 气象站陪练按公开雾势开灯，无雾关灯；不从雾中实体的隐藏坐标选择挡位。
     if(station && lamp.value("active",false)) {
         const int fog=state.at("weatherStation").at("controls").at(1).at("value");
@@ -182,6 +197,30 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 			}
 		}
 	};
+
+    // 无油且仍有雾时，只根据公开库存最近上涨盲炸前侧中央；不读取隐藏僵尸数量、坐标或兵种。
+    // 沿用合法空格/铲种、钱包和卡槽冷却，铲格后保留短暂公开信号供下一次观察正常落种。
+    if(mixedElite && station && fogControl.value>0
+        && lamp.value("fuelTenths",0)==0 && recentIceRise) {
+        std::vector<std::pair<int,int>> blindCells;
+        const int middle=state.at("rows").get<int>()/2;
+        const auto addFogCell=[&](int row,int col) {
+            if(row>=0 && row<state.at("rows").get<int>()
+                && state.at("fog").at("cellAlpha").at(row).at(col).get<int>()>0)
+                blindCells.emplace_back(row,col);
+        };
+        for(int col=state.at("columns").get<int>()-1;col>=4;--col) {
+            addFogCell(middle,col);
+            for(int offset=1;offset<state.at("rows").get<int>();++offset)
+                for(int row:{middle-offset,middle+offset}) addFogCell(row,col);
+        }
+        const size_t before=actions.size();
+        attempt("PLANT_DOOMSHROOM",blindCells);
+        if(planted) {
+            for(size_t i=before;i<actions.size();++i) actions[i]["blindFogResponse"]=true;
+            return actions;
+        }
+    }
     if(station && !lamp.value("active",false)) attempt("PLANT_PLANTERN",{{2,4},{2,3},{1,4},{3,4}});
 	// 反制陪练优先堵住将要接触防线的路线，让快僵尸实际经历坚果前聚团。
 	if (counterplay && !adaptive) {
@@ -415,14 +454,19 @@ void TestDriver::RecordEngineerAshProtection(float elapsed,int row,int engineerI
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
 	const int timeScale = command.value("timeScale",1);
-	// 同步训练仍固定 1 倍；显式实时验收可用正式 2 倍物理步和对应后台预算，结果必须标记。
-	if ((timeScale != 1 && timeScale != 2)
+	// 同步训练仍固定1倍；后台对战可显式使用DeltaTime的2/5倍，整场保持一致并记录实际倍率。
+	if ((timeScale != 1 && timeScale != 2 && timeScale != 5)
 		|| (timeScale != 1 && (!BackgroundCommander() || BatchStepsPerFrame() != 0))) {
-		Fail("commander_episode: 2x requires realtime background validation"); return false;
+		Fail("commander_episode: accelerated speed requires realtime background validation (1x/2x/5x)"); return false;
 	}
 	const auto opponent = command.value("opponent", std::string("bomb"));
 	const int refillBelow = command.value("sunRefillBelow",-1);
 	const int refillTo = command.value("sunRefillTo",MAX_SUN);
+	const auto snapshotName=command.value("snapshotName",std::string{});
+	const double snapshotAt=command.value("snapshotAtSeconds",0.0);
+	if(!snapshotName.empty() && (!std::isfinite(snapshotAt) || snapshotAt<0 || snapshotAt*60>=ticks)) {
+		Fail("commander_episode: invalid snapshot time"); return false;
+	}
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
@@ -441,6 +485,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
 		mEpisodePlantings = Json::object(); mEpisodeDecisions = Json::array(); mEpisodeSunRefills = Json::array();
 		mEpisodeTraceProtections=command.value("traceUnits",false); mEpisodeEngineerProtections=Json::array();
+		mEpisodeLastEnemyIce=-1; mEpisodeBlindIceUntil=0; mEpisodeFogClears=mEpisodeBlindDoomCasts=0;
+		mEpisodeSnapshotSaved=false;
 		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
 		Log("commander episode started: " + opponent);
 	}
@@ -457,8 +503,12 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
 			{"rowStrikes",ice.at("searchRowStrikeCount")},
-			{"specialAbilities",{{"precisionTarget",ice.at("searchPrecisionTargetID")},{"precisionGain",ice.at("searchPrecisionGain")},
+			{"specialAbilities",{{"precisionTarget",ice.at("searchPrecisionTargetID")},{"precisionAdditionalTargets",ice.at("searchPrecisionAdditionalTargetIDs")},{"precisionGain",ice.at("searchPrecisionGain")},
 				{"precisionEvaluated",ice.at("searchPrecisionEvaluated")},
+				{"forecastPrecisionTarget",ice.at("searchForecastPrecisionTargetID")},
+				{"forecastPrecisionAdditionalTargets",ice.at("searchForecastPrecisionAdditionalTargetIDs")},
+				{"forecastPrecisionIce",ice.at("searchForecastPrecisionIce")},
+				{"forecastPrecisionAimStartSeconds",ice.at("searchForecastPrecisionAimStartSeconds")},
 				{"armorRepairs",ice.at("searchArmorRepairs")},{"repairIce",ice.at("searchArmorRepairIce")},
 				{"drumBeats",ice.at("searchDrumBeats")},{"drumRecipients",ice.at("searchDrumRecipients")},
 				{"ritualReleases",ice.at("searchRitualReleases")},{"riftSummons",ice.at("searchRiftSummons")},
@@ -483,6 +533,11 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"enemyIce",ice.at("enemyIce")},{"pending",ice.at("pending")}});
 	}
 	const bool ended = full.at("boardState") != "GAME" || ice.value("trophySpawned", false);
+	// 长局保留可复用的真实局面；先判终局，不因提前获胜而尝试保存已关闭的对局。
+	if(!ended && !mEpisodeSnapshotSaved && !snapshotName.empty() && mEpisodeTicks>=snapshotAt*60) {
+		if(!SaveLevelSnapshot(snapshotName)) return false;
+		mEpisodeSnapshotSaved=true;
+	}
 	const bool traceUnits=command.value("traceUnits",false);
 	if (mEpisodeTicks % (traceUnits ? 60 : 600) == 0 || ended || mEpisodeTicks >= ticks) {
 		Json plantTypes = Json::object();
@@ -503,8 +558,9 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
 			{"playerActions",command.value("playerActions",true)},
 			{"shovelCounters",command.value("shovelCounters",false)},
+			{"snapshotSaved",mEpisodeSnapshotSaved},{"snapshotName",snapshotName},
 			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
-			{"engineerProtectionEvents",mEpisodeEngineerProtections},
+			{"engineerProtectionEvents",mEpisodeEngineerProtections},{"sparringFogClears",mEpisodeFogClears},{"sparringBlindDoomCasts",mEpisodeBlindDoomCasts},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
 		output << result.dump(2); output.flush();
@@ -518,9 +574,20 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		mEpisodeSunRefills.push_back({{"seconds",mEpisodeTicks/60.0},{"before",board->mSun},{"after",refillTo},{"added",refillTo-board->mSun}});
 		board->mSun = refillTo; full["sun"] = refillTo;
 	}
+	// 盲炸信号来自公开钱包最近上涨；短暂保留便于先铲后种，不跨关卡或从隐身实体推断落点。
+    const int observedIce=ice.at("enemyIce");
+    const float observedAt=ice.at("elapsed");
+    if(mEpisodeLastEnemyIce>=0 && observedIce>mEpisodeLastEnemyIce) mEpisodeBlindIceUntil=observedAt+4;
+    mEpisodeLastEnemyIce=observedIce;
 	// 静态诊断保留正式战斗，只关闭陪练输入，不能把结果混入实战胜率。
-	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent, command.value("shovelCounters",false))) {
+	if (command.value("playerActions",true)) for (const auto& action : PlayerActions(full, opponent, command.value("shovelCounters",false), observedAt<mEpisodeBlindIceUntil)) {
 		ExecuteInteractive(action);
+        if(!mInteractiveResults.empty() && mInteractiveResults.back().value("ok",false)) {
+            if(action.at("op")=="player_station_control") { ++mEpisodeFogClears; Log("player purchased clear fog"); }
+            if(action.at("op")=="player_plant" && action.value("blindFogResponse",false)) {
+                ++mEpisodeBlindDoomCasts; mEpisodeBlindIceUntil=0; Log("player blind-cast doom from public ice rise");
+            }
+        }
 		if (action.at("op") == "player_plant" && !mInteractiveResults.empty() && mInteractiveResults.back().value("ok",false))
 			for (const auto& card : full.at("cards")) if (card.at("slot") == action.at("slot")) {
 				const auto type = card.at("gameplayType").get<std::string>();
