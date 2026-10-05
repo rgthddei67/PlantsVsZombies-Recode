@@ -7,6 +7,7 @@
 #include "Game/Zombie/HealerRules.h"
 #include "Game/Zombie/BalloonRules.h"
 #include "Game/Zombie/DiggerRules.h"
+#include "Game/Zombie/LadderRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 
@@ -155,6 +156,8 @@ struct Unit {
 	HealerRules::Forecast healer;
 	BalloonRules::Forecast balloon;
 	DiggerRules::Forecast digger; // 地下、出土与折返独立于通用移动；速度由主线程去掉临时叠层后提供
+	LadderRules::Builder ladder; // 携梯/放置/卸梯独立状态；活体余帧只在主线程读取
+	LadderRules::Climb ladderClimb; // 共享攀梯的资格、阶段和已使用列，不复制建造者收益
 	float maximumBody=0, maximumHelm=0, maximumShield=0; // 正式层生命上限；装备被永久移除后其层不再治疗
 
 	float magneticBacklash=0; // 目标卸甲反噬磁力菇本体，生命点
@@ -199,6 +202,7 @@ struct Plant {
 	float range = 10000;
 	bool vehicleCrushable=true; // 活体与未来株均由冰车自身的目标资格采样
 	bool multiTarget = false, around = false;
+	bool ladderTarget=false; // 植物自有SupportsLadderPlacement；放梯完成按当前同格层重取目标
 	bool melon = false, edible = true;
 	bool deploymentInterceptionOnly = false; // 灰烬充能无敌只放行命中原触发实体的狙击脉冲，不放行普通误伤
 	float counterBlastAt = (std::numeric_limits<float>::max)(); // 一次性来源的引爆时刻，游戏秒；晚到弹体不能撤销已发生爆炸
@@ -267,6 +271,8 @@ struct ConstructionStats {
 	float armorRepairIce = 0, plantRepairIce = 0;
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
 	int engineerBlocks = 0, thunderStuns = 0;
+	int ladderPlaced=0,ladderClimbs=0,ladderRemoved=0; // 已提交共享梯、真实启动攀爬和实际拆梯次数
+	int siegeAccessProgress=0; // 终点仍存在的新共享通路数，仅深化未付款攻城案，不计资源或最终评分
 	int healerCasts=0, healerRecipients=0; // 已兑现治疗及受益单位数
 	float healerAmount=0, healerRecoveryCredit=0; // 真实恢复生命与撤回的爆区损失折冰
 	int jackExplosions=0, jackThrows=0, jackBoxHits=0, magneticExtractions=0; // 已兑现小丑及磁吸事务次数
@@ -307,6 +313,7 @@ struct Counter {
 	bool stored = false; // 预存反制额外比较长期蓄爆，不假设小股诱饵一定能骗掉它
 	float deploymentHealth = 0, deploymentReward = 0, deploymentAssetValue = 0; // 新种灰烬的实体画像；零生命保持无落种事件的能力
 	bool clearsCell = false; // 毁灭引爆会清除同格各层；樱桃/辣椒只消耗自身
+	int ladderClearRow=-1,ladderClearRadius=-1; bool clearsLadderRow=false; // 正式灰烬额外拆梯形状；不依赖命中僵尸
 	float craterSeconds = 0; // 爆炸后禁止该格新种植的游戏秒数，由正式弹坑寿命提供
 };
 /** 已提交的裂隙，即使来源死亡也必须进入预测。 */
@@ -331,6 +338,7 @@ struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; 
 /** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
 struct WindCounter { Plant deployment; std::vector<std::array<int,2>> cells; bool committed=false; int source=0, plantID=0, row=-1, column=-1, sunCost=0, iceCost=0; float ready=0,recharge=0,windup=0,nextReady=0; bool house=false; };
 struct Snapshot {
+	std::vector<LadderRules::Cell> ladders; // Board已存在的共享梯，与来源死亡及未付款方案无关
 	std::vector<Proposal> proposals; // 同一Planner的未完成探索，必须按当前资格/钱包重新映射并完整评价
 
     std::vector<WindCounter> windCounters;
@@ -431,6 +439,7 @@ struct Result {
 	bool expandedForecast = false; // 小队无增量收益后是否采用完整 v2 预测；避免混比两个时域的分数
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
+	float baselineBreachSeconds=-1; // 同一完整等待世界的首次进屋秒，仅供本次搜索复用，不跨快照或存档
 	Weights effectiveWeights{};
 	StateFeatures stateInputs{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;
@@ -450,6 +459,7 @@ struct Result {
 	bool combinationBaseBreach = false, combinationBestBreach = false; // 突破优先，因此胜出案评分可能下降
 	float combinationBaseBreachSeconds = -1, combinationBestBreachSeconds = -1; // 同为突破时先比较首次进屋游戏秒，-1 表示未突破
 	int largestPlan = 0; // 实际评估过的最大付费编队，不是强制出兵数量
+	int widestComposition=0; // 实际评估的新购案最大兵种数，不包含设备或既有部队
 	bool regrouping = false; // 没有可接受的低库存增援；继续积累恢复资本
 	ConstructionStats construction;
 	float rawProduction = 0; // 前60秒未校准的产冰预期，供实际回报拟合；不含评分用的后续兑现
@@ -479,7 +489,7 @@ Weights ConditionWeights(const Weights& base, const StateFeatures& inputs, const
 Weights AccountForIce(const Weights& conditioned,float utilityScale=1);
 /** 投影当前合法兵价及已资金覆盖的解锁兵价；只读现金，不读取预计收入，不改变兵种资格。 */
 CapitalUtilityInputs DescribeCapitalUtility(const Snapshot& state);
-/** 钱包超过两次完整投入后降低现金边际评分；包括现钱包可走到的解锁兵价，不预支收入或开放采购。 */
+/** 钱包覆盖一次完整投入和恢复储备后降低现金边际评分；包括已资金覆盖的解锁兵价，不预支收入。 */
 float CapitalUtilityScale(const Snapshot& state);
 /** 护盾能减少的本体火力比例；Board 用它修正持盾单位的火力偏好上下文，保留无盾单位原语义。 */
 float ShieldProtectionFraction(const Unit& unit, const Plant& plant);

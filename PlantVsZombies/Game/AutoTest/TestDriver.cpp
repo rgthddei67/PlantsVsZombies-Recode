@@ -1065,6 +1065,7 @@ bool TestDriver::ExecuteCurrent() {
 				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 				{"expanded",result.expandedForecast},{"precisionEvaluated",result.precisionEvaluated},
+				{"widestComposition",result.widestComposition},
 				{"queueEvaluated",queue.evaluated},{"actions",actions}});
 		}
 		// 显式购物车仅作同局面反事实，不加入正式搜索或改变真实采购。
@@ -1080,6 +1081,8 @@ bool TestDriver::ExecuteCurrent() {
 					{"birthHelmHealth",option.unit.helmHealth},{"birthShieldHealth",option.unit.shieldHealth},
 					{"birthBiteDps",option.unit.biteDps},{"birthBalloonHealth",option.unit.balloon.present ? option.unit.balloon.health : 0},{"birthSlowFactor",option.unit.body.slowFactor},
 					{"birthCanChill",option.unit.body.canBeChilled},{"birthCanParalyze",option.unit.paralysisAllowed},
+					{"birthLadder",option.unit.ladder.present},{"birthLadderPlacementSeconds",option.unit.ladder.placementSeconds},
+					{"birthCanClimb",option.unit.ladderClimb.eligible},
 					{"birthHeadThreshold",option.unit.temporalStopHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
 				auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
@@ -1116,6 +1119,8 @@ bool TestDriver::ExecuteCurrent() {
 					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
 					{"dancerSummons",result.construction.dancerSummons},
+					{"ladderPlaced",result.construction.ladderPlaced},{"ladderClimbs",result.construction.ladderClimbs},
+					{"ladderRemoved",result.construction.ladderRemoved},{"siegeAccessProgress",result.construction.siegeAccessProgress},
                     {"jackExplosions",result.construction.jackExplosions},{"jackThrows",result.construction.jackThrows},
                     {"jackBoxHits",result.construction.jackBoxHits},{"magneticExtractions",result.construction.magneticExtractions},
                     {"healerCasts",result.construction.healerCasts},{"healerRecipients",result.construction.healerRecipients},
@@ -5254,6 +5259,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchStateInputs"] = board->mColdStorage.searchStateInputs;
 		ice["searchEffectiveWeights"] = board->mColdStorage.searchEffectiveWeights;
 		ice["searchCapitalInputs"] = CapitalInputsJson(board->mColdStorage.searchCapitalInputs);
+		ice["searchWidestComposition"]=board->mColdStorage.searchWidestComposition;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchCounterHoldSeconds"] = board->mColdStorage.searchCounterHoldSeconds;

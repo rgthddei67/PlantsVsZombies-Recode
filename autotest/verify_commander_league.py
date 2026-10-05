@@ -34,7 +34,7 @@ def capital_utility_scale(inputs):
     highest=max(inputs['highestAffordableTroopCost'],future)
     if budget<=0 or highest<=0 or capacity<=0:
         return 1.0
-    reserve=highest*capacity*2+max(0,inputs['recoveryReserve'])
+    reserve=highest*capacity+max(0,inputs['recoveryReserve'])
     return max(.01,min(1.0,min(1.0,reserve/budget)**3))
 
 

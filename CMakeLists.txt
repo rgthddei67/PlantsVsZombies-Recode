@@ -348,6 +348,8 @@ if(BUILD_TESTING)
         PlantVsZombies/Game/AI/ColdStorageStrategy.cpp
         PlantVsZombies/Game/AI/ColdStorageSearch.cpp
         PlantVsZombies/Game/AI/ColdStorageHealerForecast.cpp
+        PlantVsZombies/Game/AI/ColdStorageLadderForecast.cpp
+        tests/ColdStorageLadderForecastTests.cpp
         tests/ColdStorageHealerForecastTests.cpp
         tests/ColdStorageJackBalloonForecastTests.cpp
         tests/ColdStorageThunderTimingTests.cpp

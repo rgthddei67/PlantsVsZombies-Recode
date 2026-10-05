@@ -45,6 +45,12 @@
 
 `smoke_commander_precision_unlock` 与同名 verifier 检查解锁前的付费买兵反事实：预测的未来狙击费用只进入评分，当前钱包只支付真实兵力；下一轮重新搜索并按实际目标收费。夹具使用有限卡池和预摆阵地，验证交易与时间单位，不作为正常经营或胜率证据。后台预算是1倍速基准除以实际倍速；预测换回游戏秒时倍率抵消，不能再乘一次。
 
+`searchWidestComposition` 与对战决策 `widestComposition` 记录实际评估过的单次新购物车最大兵种数，设备与既有部队不计；需和 `largestPlan`、真实付款及防线损害一起看，不能用大队人数代替混编覆盖。`compare_commander_search` 同样导出该字段。
+
+`smoke_commander_ladder_forecast` 与同名 verifier 验证当前资源的出生放梯时长、实际共享攀爬绕过仍完好的南瓜/冰坚果，以及正常付费辣椒整行拆梯。显式候选另导出 `ladderPlaced` / `ladderClimbs` / `ladderRemoved` 和只用于中间态探索的 `siegeAccessProgress`，不计收入或最终评分。该夹具不证明自主破阵；用真人布局复建的高库存残局也须注明准备期、预算、倍速、卡组与状态近似，不能与正常开局胜率混计。
+
+混合陪练金盏周转先尝试原首选格，已被阵型占用时再使用卡槽报告的其他合法空格；普通卡和模仿者各自冷却/付款，不能因固定格位堵塞而意外停掉双金盏经济。专项为 `smoke_commander_mixed_exchange_space` 与同名 verifier，检查原首选株未被铲、两个实际槽位使用及灰烬资金保留。修正前残局作为旧课程诊断保留，不与修正后成绩混计。
+
 ### 交互试玩信箱
 
 真人游玩可用 `human_cold_storage_10_1.json`：`interactive: true` 配合 `humanObservation: true` 让场景正常连续推进，停在选卡页交给主人操作。信箱只接受观察、截图和退出，拒绝 `advance` 与代玩操作；每秒及决策/胜负变化时，向该会话的 `observations.jsonl` 追加局面、收支、卡牌和预测记录。普通步进信箱行为不变。记录写盘失败会标记 `humanRecordingFailed` 并停止采样，不关闭主人的游戏。真人运行不指定启动种子，音效沿用普通 AutoTest 默认值；玩家存档仍不写入。

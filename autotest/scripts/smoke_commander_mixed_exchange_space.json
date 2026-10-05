@@ -1,0 +1,25 @@
+{
+  "description":"Controlled legal sparring economy: blocked preferred gold cells must not disable ordinary/imitater gold conversion. No battle-strength claim.",
+  "backgroundCommander":true,
+  "coldStorageBonusSelection":true,
+  "commands":[
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"cold_storage_bonus_pick","choice":1},
+    {"op":"cold_storage_bonus_pick","choice":3},
+    {"op":"choose_cards","cards":["PLANT_MARIGOLD","PLANT_IMITATER","PLANT_JALAPENO"],"imitaterTarget":"PLANT_MARIGOLD"},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"enemyIce":1200,"initialEnemyIce":1200,"playerIce":100,"decisionRemaining":1000}},
+    {"op":"set_sun","value":125},
+    {"op":"plant","type":"PLANT_SUNSHROOM","row":0,"col":4},
+    {"op":"plant","type":"PLANT_SUNSHROOM","row":4,"col":4},
+    {"op":"wait_frames","value":2},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"set_timescale","value":2},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":1,"name":"first","timeScale":2,"timeout":60},
+    {"op":"dump_state","name":"first_state.json"},
+    {"op":"commander_episode","opponent":"ice_bunker_mixed","seconds":6,"name":"mature","timeScale":2,"timeout":60},
+    {"op":"dump_state","name":"mature_state.json"},
+    {"op":"quit"}
+  ]
+}

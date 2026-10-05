@@ -414,7 +414,15 @@ std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, 
 		}
 		attempt(wall,cells);
 	}
-	attempt("PLANT_MARIGOLD", {{0,4},{4,4}});
+	std::vector<std::pair<int,int>> exchangeCells{{0,4},{4,4}};
+	// 真人双金盏可以在其他空格周转；已有阵型堵住两个首选格时，陪练也应
+	// 使用真实合法空格，不能因固定布局意外停掉经济。仍由同一卡槽/钱包正常付款。
+	if(mixedElite) for(const auto& card:state.at("cards")) if(card.at("gameplayType")=="PLANT_MARIGOLD")
+		for(const auto& cell:card.at("legalCells")) {
+			const std::pair<int,int> position{cell.at(0).get<int>(),cell.at(1).get<int>()};
+			if(std::find(exchangeCells.begin(),exchangeCells.end(),position)==exchangeCells.end()) exchangeCells.push_back(position);
+		}
+	attempt("PLANT_MARIGOLD",exchangeCells);
 	// 上面的救险正常使用全部现金；仅后续可延后的建设受预留预算约束，不改玩家真实余额。
 	sun = std::max(0,sun-defenseReserve);
 	constructionReserveApplied=true;
@@ -620,6 +628,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"counterHoldSeconds",ice.at("searchCounterHoldSeconds")},
 			{"queueRevision",ice.at("searchQueue")},
 			{"searchVersion",ice.at("searchVersion")},{"largestPlan",ice.at("searchLargestPlan")},
+			{"widestComposition",ice.at("searchWidestComposition")},
 			{"netEconomy",ice.at("searchNetEconomy")},
 			{"anticipateBuilding",ice.at("searchAnticipateBuilding")},
 			{"playerEconomy",ice.at("searchPlayerEconomy")},

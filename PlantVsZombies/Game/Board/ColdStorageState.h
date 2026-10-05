@@ -119,6 +119,7 @@ struct ColdStorageState {
 	float searchQueueBeforeScore = 0, searchQueueAfterScore = 0; // 相同权重/时域下重排前后评分，仅诊断
 	bool searchQueueBeforeBreach = false, searchQueueAfterBreach = false; // 突破排序不能由评分大小代替
 	int searchVersion = 1, searchLargestPlan = 0; // 实际搜索版本和最大已评估编队，诊断不入档
+	int searchWidestComposition=0; // 已实际比较的新购混编最大兵种数，既有部队和设备不计，诊断不入档
 	bool searchNetEconomy = false; // 是否按净冰收益评分，诊断不入档
 	bool searchAnticipateBuilding = false; // 实际启用的未来建设预测版本，诊断不入档
 	bool searchAnticipateEconomy = false; // 玩家循环经济及后续订货预测是否启用，诊断不入档

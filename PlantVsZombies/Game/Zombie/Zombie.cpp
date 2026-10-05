@@ -1262,6 +1262,18 @@ void Zombie::BeginLadderClimb(int column)
 	mUseLadderColumn = column;
 }
 
+LadderRules::Climb Zombie::GetLadderClimbForecast() const
+{
+	LadderRules::Climb result;
+	result.eligible=!mIsMindControlled && CanUseGroundPoolState() && !IsFlying()
+		&& LadderRules::HasOrdinaryPlantContact(mZombieType)
+		&& mZombieType!=ZombieType::ZOMBIE_DOLPHIN_RIDER && mZombieType!=ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER;
+	result.phase=static_cast<LadderRules::Climb::Phase>(mLadderClimbPhase);
+	result.altitude=mLadderAltitude; result.usedColumn=mUseLadderColumn;
+	result.horizontalBoost=mSpeed<LadderRules::SlowRootThreshold ? LadderRules::HorizontalBoost : 0;
+	return result;
+}
+
 bool Zombie::TryStartLadderClimb(Plant* plant)
 {
 	if (!plant || !mBoard || mIsMindControlled || !CanUseGroundPoolState()
@@ -1288,11 +1300,11 @@ bool Zombie::TryStartLadderClimb(Plant* plant)
 void Zombie::UpdateLadderClimb(float scaledDelta, Transform* transform)
 {
 	if (scaledDelta <= 0.0f || !transform) return;
-	constexpr float kLadderClimbSpeed = 80.0f; // C# 每厘秒上升 0.8px，折算为 px/s
-	constexpr float kLadderFallSpeed = 100.0f; // C# 每厘秒下落 1px，折算为 px/s
-	constexpr float kLadderSlowZombieBoost = 50.0f; // 慢速僵尸攀爬时的额外水平速度，单位 px/s
-	constexpr float kLadderTargetAltitude = 90.0f; // 原版扶梯顶端离地高度，单位 px
-	constexpr float kSlowZombieSpeedThreshold = 16.0f; // 适配本项目根运动倍率的 mVelX<0.5 分界
+	constexpr float kLadderClimbSpeed = LadderRules::ClimbSpeed; // C# 每厘秒上升 0.8px，折算为 px/s
+	constexpr float kLadderFallSpeed = LadderRules::FallSpeed; // C# 每厘秒下落 1px，折算为 px/s
+	constexpr float kLadderSlowZombieBoost = LadderRules::HorizontalBoost; // 慢速僵尸攀爬时的额外水平速度，单位 px/s
+	constexpr float kLadderTargetAltitude = LadderRules::Height; // 原版扶梯顶端离地高度，单位 px
+	constexpr float kSlowZombieSpeedThreshold = LadderRules::SlowRootThreshold; // 适配本项目根运动倍率的 mVelX<0.5 分界
 
 	if (mIsDying && mLadderClimbPhase == LadderClimbPhase::CLIMBING) {
 		mLadderClimbPhase = LadderClimbPhase::FALLING;

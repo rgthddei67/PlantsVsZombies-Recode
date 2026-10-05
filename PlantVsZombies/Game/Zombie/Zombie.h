@@ -5,6 +5,7 @@
 
 #include "ZombieType.h"
 #include "ZombieMovementRules.h"
+#include "LadderRules.h"
 #include "MagneticItem.h"
 #include "../AnimatedObject.h"
 #include "../Plant/PlantType.h"
@@ -409,6 +410,8 @@ public:
 	LadderClimbPhase GetLadderClimbPhase() const { return mLadderClimbPhase; }
 	float GetLadderAltitude() const { return mLadderAltitude; }
 	int GetUseLadderColumn() const { return mUseLadderColumn; }
+	/** 只读共享攀梯资格/高度与慢根横移，不修改碰撞、动画或场景梯。 */
+	LadderRules::Climb GetLadderClimbForecast() const;
 	/** 当前实体是否满足磁力菇通用目标门禁且仍持有可吸取装备。 */
 	bool CanBeTargetedByMagnetShroom() const;
 	/** 品种是否仍持有可被磁力菇吸取的装备；派生类只声明装备状态。 */

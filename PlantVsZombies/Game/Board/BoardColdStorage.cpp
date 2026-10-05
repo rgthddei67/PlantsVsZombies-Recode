@@ -24,6 +24,7 @@
 #include "Game/Zombie/HealerZombie.h"
 #include "Game/Zombie/BalloonZombie.h"
 #include "Game/Zombie/DiggerZombie.h"
+#include "Game/Zombie/LadderZombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
@@ -315,6 +316,8 @@ namespace {
 	/** 当前和未来植物共用正式弹丸伤害；防具上限按每击结算，不能直接截断持续 DPS。 */
 	void ProjectPlantAttack(ColdStorageSearch::Plant& plant, PlantType type)
 	{
+		plant.ladderTarget=type==PlantType::PLANT_WALLNUT || type==PlantType::PLANT_TALLNUT
+			|| type==PlantType::PLANT_PUMPKINSHELL || type==PlantType::PLANT_ICESTORAGENUT;
 		using P = PlantType;
 		plant.catapultTargetable=CatapultZombie::CanLobAtPlantType(type);
 		plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,false);
@@ -355,6 +358,24 @@ namespace {
 		}
 		plant.fume = type == P::PLANT_FUMESHROOM || type == P::PLANT_GLOOMSHROOM || type == P::PLANT_ICEFUMESHROOM;
 		if (type == P::PLANT_ICEFUMESHROOM) plant.hitDamage = 10; // 寒冰大喷每次喷射的实际基础伤害
+	}
+
+	/** 携梯与卸梯运动均从实际轨道采样；精英只投影已经兑现的无限搭梯能力。 */
+	void ProjectLadder(ColdStorageSearch::Unit& unit,ZombieType type,const LadderZombie* live=nullptr)
+	{
+		if(type!=ZombieType::ZOMBIE_LADDER && type!=ZombieType::ZOMBIE_ELITE_LADDER) return;
+		if(live) {
+			unit.ladder=live->GetLadderForecast();
+			unit.ladder.normalSpeed/=(unit.inspiration.empty() ? 1 : live->GetDrumSpeedAmplifier()*live->GetDrumMoveMultiplier());
+			unit.ladder.carryingSpeed/=(unit.inspiration.empty() ? 1 : live->GetDrumSpeedAmplifier()*live->GetDrumMoveMultiplier());
+		} else {
+			unit.ladder.present=true;
+			unit.ladder.carryingSpeed=unit.body.speed;
+			unit.ladder.placementSeconds=LadderZombie::GetForecastPlacementSeconds();
+			unit.ladder.normalSpeed=GameDataManager::GetInstance().GetZombieMoveSpeeds(type,
+				LadderZombie::GetUnloadedMovementProfile()).lowerQuartile;
+		}
+		if(!live) unit.ladder.stopHealth=unit.temporalStopHealth;
 	}
 
 	/** 新购/活体/在途车共用正式弹药和资源片段；射击读冻结落点，后台不借用 Animator。 */
@@ -1276,6 +1297,9 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             search.rowY[row]=GetCellCenterPosition(row,0).y;
             for(int col=0;col<mColumns;++col) search.cellY[row*mColumns+col]=GetCellCenterPosition(row,col).y;
         }
+		for(const auto& weak:mLadders) if(const auto ladder=weak.lock()) {
+			if(ladder->IsActive()) search.ladders.push_back({ladder->mRow,ladder->mColumn});
+		}
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.deploymentCapital=GetColdStorageDeploymentCapital();
@@ -1360,6 +1384,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			counter.blast.committed = blast.committed;
 			counter.blast.usesObjectX = true;
 			counter.blast.requiresGroundTarget = targeted || blast.type == PlantType::PLANT_POTATOMINE;
+			counter.ladderClearRow=blast.row;
+			counter.ladderClearRadius=blast.type==PlantType::PLANT_DOOMSHROOM ? 3
+				: blast.type==PlantType::PLANT_CHERRYBOMB || blast.type==PlantType::PLANT_COBCANNON ? 1 : -1;
+			counter.clearsLadderRow=blast.type==PlantType::PLANT_JALAPENO;
 			counter.blast.reach.fill(-1);
 			for (int row = 0; row < mRows; ++row) counter.blast.reach[row] = blastReach(blast,row);
 			if (blast.type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee && !blast.committed) {
@@ -1561,6 +1589,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.maximumBody=z.bodyMaxHealth; unit.maximumHelm=z.helmMaxHealth; unit.maximumShield=z.shieldMaxHealth;
             unit.boundsY=z.bounds.y-GetCellCenterPosition(z.row,std::clamp(static_cast<int>((z.x-search.gridLeft)/search.cellWidth),0,mColumns-1)).y; unit.boundsHeight=z.bounds.height;
             unit.magneticLayer=!z.magneticItemAvailable ? 0 : z.magneticRemovesHelm ? 1 : z.magneticRemovesShield ? 2 : 3;
+			unit.ladderClimb=entity->GetLadderClimbForecast();
             if(entity->mZombieType==ZombieType::ZOMBIE_JACK_IN_THE_BOX) {
                 unit.jack=static_cast<const JackInTheBoxZombie*>(entity)->GetBoxForecast();
                 unit.jack.disarmedSpeed=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_JACK_IN_THE_BOX,JackInTheBoxZombie::GetDisarmedMovementProfile()).lowerQuartile;
@@ -1579,6 +1608,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             }
             if(const auto* balloon=dynamic_cast<const BalloonZombie*>(entity)) {
                 unit.balloon=balloon->GetBalloonForecast();
+				unit.ladderClimb.eligible=true; // 未来落地时由balloon阶段门禁放开，不能沿用采样时的飞行禁用。
                 unit.balloon.walkSpeed/=(unit.inspiration.empty() ? 1 : entity->GetDrumSpeedAmplifier()*entity->GetDrumMoveMultiplier());
                 unit.body.health+=unit.balloon.health;
                 unit.temporalStopHealth=0;
@@ -1614,6 +1644,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.dance=static_cast<const DancerZombie*>(entity)->GetDanceForecast();
 			if(const auto* backup=dynamic_cast<const BackupDancerZombie*>(entity)) unit.dance=backup->GetDanceForecast();
 			ProjectDrum(unit,entity);
+			if(const auto* ladder=dynamic_cast<const LadderZombie*>(entity)) ProjectLadder(unit,entity->mZombieType,ladder);
 			const auto* gilded=dynamic_cast<const GildedZamboniZombie*>(entity);
 			unit.goldenMoveRatios=entity->GetSimulationGoldenMoveRatios(gilded!=nullptr || unit.burst.range>0 || unit.ritual.present);
 			// 去掉当前烘焙的减速放大与无伤能力，后续随覆盖/承伤逐步重算，不能重复乘。
@@ -1679,6 +1710,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+				plant.ladderTarget=entity->SupportsLadderPlacement();
                 plant.magnetRemaining=p.abilityCooldownRemaining;
                 if(const auto* magnet=dynamic_cast<const MagnetShroom*>(entity))
                     plant.magnetRemaining=magnet->GetRechargeTimeRemaining()/std::max(.01f,entity->GetSkillSpeedMultiplier());
@@ -1856,6 +1888,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.clock = {true,true,false,PolarClockRules::Preparation,static_cast<float>(vitals.body/3)};
 			}
 			const auto profile=GameDataManager::GetInstance().GetZombieBirthMovement(type);
+			unit.ladderClimb.eligible=LadderRules::CanClimbAtBirth(type);
+			const float root=(profile.rootMinimum+profile.rootMaximum)*.5f
+				*(profile.rootMultiplierMinimum+profile.rootMultiplierMaximum)*.5f;
+			unit.ladderClimb.horizontalBoost=root<LadderRules::SlowRootThreshold ? LadderRules::HorizontalBoost : 0;
 			unit.body.slowFactor=.5f*profile.slowAnimationFactor;
 			unit.body.canBeChilled=profile.canBeChilled; unit.paralysisAllowed=profile.canBeParalyzed;
 			const float ability=(profile.abilityMinimum+profile.abilityMaximum)*.5f;
@@ -1871,6 +1907,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			ProjectShieldRules(unit, type);
 			unit.helmHealth = std::max({unit.helmHealth,unit.adaptiveHelmet,unit.ritual.armor,unit.repair.health});
 			unit.temporalStopHealth = ZombieBirthVitalsRules::DropsHeadAtBirth(type) ? vitals.body/3 : 0;
+			ProjectLadder(unit,type);
 			if(unit.body.economic) unit.productionStopHealth=vitals.body/3;
 			unit.temporalEligible = type != ZombieType::ZOMBIE_BOBSLED_TEAM && type != ZombieType::ZOMBIE_ROOF_MARSHAL && type != ZombieType::ZOMBIE_BOSS;
 			unit.playerRefund = static_cast<float>(cost * 3 / 4);
@@ -2621,6 +2658,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchStateInputs = result.stateInputs; s.searchEffectiveWeights = result.effectiveWeights;
 	s.searchCapitalInputs=result.capitalUtilityInputs;
 	s.searchVersion = requestedVersion; s.searchLargestPlan = result.largestPlan;
+	s.searchWidestComposition=result.widestComposition;
 	s.searchAdaptive = search.stateModel != nullptr;
 	s.searchExpandedForecast = result.expandedForecast;
 	s.searchNetEconomy = search.netEconomy;

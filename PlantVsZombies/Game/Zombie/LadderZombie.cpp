@@ -7,6 +7,8 @@
 #include "../../ParticleSystem/ParticleSystem.h"
 #include "../../ResourceKeys.h"
 #include "../../ResourceManager.h"
+#include <cmath>
+#include <stdexcept>
 
 namespace {
 	constexpr float kResourceFps = 12.0f; // Zombie_ladder.reanim 的资源帧率
@@ -19,7 +21,7 @@ namespace {
 	constexpr float kNormalVelocityMin = 0.23f; // C# 卸梯普通 mVelX 随机下界，单位 px/tick
 	constexpr float kNormalVelocityMax = 0.37f; // C# 卸梯普通 mVelX 随机上界，单位 px/tick
 	constexpr float kEatClipSpeed = 3.0f; // C# 扶梯僵尸啃食 36FPS 相对资源 12FPS 的倍率
-	constexpr float kPlacementClipSpeed = 2.0f; // C# 24FPS 相对资源 12FPS 的轨道倍率
+	constexpr float kPlacementClipSpeed = LadderRules::PlacementClipSpeed; // C# 24FPS 相对资源 12FPS 的轨道倍率
 	constexpr float kMagnetDestinationX = 30.0f; // 携带扶梯吸附到磁力菇的局部 X
 	constexpr float kMagnetDestinationY = 0.0f; // 携带扶梯吸附到磁力菇的局部 Y
 	constexpr float kMagnetDestinationJitter = 10.0f; // 离体扶梯落点随机扰动，单位 px
@@ -367,4 +369,49 @@ ZombieMovementRules::BirthProfile LadderZombie::GetBirthMovementProfile()
 float LadderZombie::GetMineSimulationMoveSpeed() const
 {
 	return GetSimulationRootMoveSpeed(mShieldType==ShieldType::SHIELDTYPE_LADDER ? "anim_ladderwalk" : "anim_walk",WalkClipFromVelocity(mWalkVelocity));
+}
+
+ZombieMovementRules::BirthProfile LadderZombie::GetUnloadedMovementProfile()
+{
+	auto profile=GetBirthMovementProfile();
+	profile.clip="anim_walk";
+	profile.animationMinimum=WalkClipFromVelocity(kNormalVelocityMin);
+	profile.animationMaximum=WalkClipFromVelocity(kNormalVelocityMax);
+	return profile;
+}
+
+float LadderZombie::GetForecastPlacementSeconds()
+{
+	const auto animation=ResourceManager::GetInstance().GetReanimation(ResourceKeys::Reanimations::REANIM_LADDER_ZOMBIE);
+	if(!animation) throw std::runtime_error("missing ladder placement reanimation");
+	const auto range=animation->GetTrackFrameRange("anim_placeladder");
+	if(range.first<0 || range.second<=range.first || animation->mFPS<=0)
+		throw std::runtime_error("invalid ladder placement frame range");
+	return (range.second-range.first)/(animation->mFPS*LadderRules::PlacementClipSpeed);
+}
+
+LadderRules::Builder LadderZombie::GetLadderForecast() const
+{
+	LadderRules::Builder result;
+	result.present=true; result.phase=static_cast<LadderRules::Builder::Phase>(mPhase);
+	result.canPlace=mHasHead && !mIsDying && !mIsDead && !mIsMindControlled;
+	result.retain=RetainsLadderAfterPlacement();
+	result.row=mPlacementRow; result.column=mPlacementColumn;
+	result.placementSeconds=GetForecastPlacementSeconds(); result.remaining=result.placementSeconds;
+	result.stopHealth=mBodyMaxHealth/3;
+	result.normalSpeed=GetSimulationRootMoveSpeed("anim_walk",WalkClipFromVelocity(
+		mPhase==Phase::NORMAL ? mWalkVelocity : (kNormalVelocityMin+kNormalVelocityMax)*.5f));
+	result.carryingSpeed=GetSimulationRootMoveSpeed("anim_ladderwalk",WalkClipFromVelocity(
+		mPhase!=Phase::NORMAL ? mWalkVelocity : (kCarryingVelocityMin+kCarryingVelocityMax)*.5f));
+	const float amplified=GetAmplifiedAbilitySpeedMultiplier();
+	const int stacks=GetGoldenIceEffectStacks();
+	result.abilityRate=amplified>1 ? std::ldexp(amplified,-stacks)
+		: amplified<1 ? std::ldexp(amplified,stacks) : 1;
+	if(mPhase==Phase::PLACING && mAnimator && mAnimator->GetReanimation()) {
+		const auto animation=mAnimator->GetReanimation();
+		const auto range=animation->GetTrackFrameRange("anim_placeladder");
+		result.remaining=std::max(0.0f,range.second-mAnimator->GetCurrentFrame())
+			/(animation->mFPS*LadderRules::PlacementClipSpeed);
+	}
+	return result;
 }

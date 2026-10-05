@@ -21,6 +21,7 @@
 #include <stdexcept>
 
 void RunColdStorageHealerForecastTests();
+void RunColdStorageLadderForecastTests();
 void RunColdStorageJackBalloonForecastTests();
 void RunColdStorageThunderTimingTests();
 void RunColdStorageDiggerForecastTests();
@@ -39,6 +40,7 @@ void RunColdStorageAssaultExplorationTests();
 int main()
 {
 	RunColdStorageHealerForecastTests();
+	RunColdStorageLadderForecastTests();
 	RunColdStorageJackBalloonForecastTests();
 	RunColdStorageThunderTimingTests();
 	RunColdStorageDiggerForecastTests();

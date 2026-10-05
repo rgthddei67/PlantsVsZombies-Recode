@@ -1,0 +1,27 @@
+{
+  "description": "Controlled existing-ladder portrait and live shared climb; no normal-opening strength claim. Shared path bypasses the front pumpkin/nut while both survive; paid jalapeno removes the same row's world ladder.",
+  "commands": [
+    {"op":"goto_level","level":96,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_JALAPENO"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_cold_storage","state":{"decisions":30,"decisionRemaining":1000,"playerIce":100}},
+    {"op":"set_sun","value":1000},
+    {"op":"plant","type":"PLANT_ICESTORAGENUT","row":2,"col":5},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":2,"col":5},
+    {"op":"plant","type":"PLANT_ICESTORAGENUT","row":2,"col":1},
+    {"op":"plant","type":"PLANT_PUMPKINSHELL","row":2,"col":1},
+    {"op":"spawn_zombie","type":"ZOMBIE_LADDER","row":2,"x":750},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":2,"x":820},
+    {"op":"wait_frames","value":2},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"compare_commander_search","name":"portrait","budgetsMs":[],"candidatePlans":[{"name":"existing_pair","trace":true,"actions":[]}]},
+    {"op":"set_timescale","value":2},
+    {"op":"wait_seconds","value":40,"timeout":120},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"player_plant","slot":0,"row":2,"col":7},
+    {"op":"wait_seconds","value":2,"timeout":30},
+    {"op":"dump_state","name":"cleared.json"},
+    {"op":"quit"}
+  ]
+}

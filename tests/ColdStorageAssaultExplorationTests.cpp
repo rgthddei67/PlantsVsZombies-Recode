@@ -139,6 +139,17 @@ void RunColdStorageAssaultExplorationTests()
     underfunded.budget=50;
     Check(Search(underfunded,values,3).features[2]==0,
         "an exploratory attack frontier cannot buy the complete breakthrough with insufficient real funds");
+    {
+        auto alreadyWon=AssaultArena();
+        alreadyWon.budget=1000; alreadyWon.precisionReady=true;
+        alreadyWon.current={alreadyWon.options[0].unit};
+        alreadyWon.current[0].body.x=alreadyWon.houseX-1;
+        alreadyWon.current[0].body.speed=0;
+        const auto result=Search(alreadyWon,values,3);
+        Check(result.features[2]==1 && result.baselineBreachSeconds==0
+            && result.actions.empty() && result.precisionTargetID==0,
+            "reused precision baseline retains the actual immediate house time and cannot invent a later paid improvement");
+    }
     // 未付款提案只携带类型/路线/延迟；变换选项下标仍能正确重算，局势改变不得复用胜利。
     auto continued=AssaultArena();
     Proposal known;
@@ -617,7 +628,19 @@ void RunColdStorageCapitalUtilityTests()
 {
     using namespace ColdStorageSearch;
     const auto near=[](float left,float right) {return std::abs(left-right)<.0001f;};
-    auto poor=CapitalArena(200), rich=CapitalArena(10000);
+    // 贫困夹具刚够一次完整高价采购；富裕夹具仍能支付同一支队伍，不修改真实攻防画像。
+    auto poor=CapitalArena(100), rich=CapitalArena(10000);
+    {
+        Snapshot late;
+        late.netEconomy=true; late.weatherStation=true;
+        late.budget=18387; late.capacity=169; late.recoveryReserve=48;
+        Option troop; troop.cost=35; late.options={troop};
+        Check(CapitalUtilityScale(late)<.05f,
+            "the observed large human-match wallet discounts marginal income while retaining one expensive complete army");
+        late.budget=5000;
+        Check(near(CapitalUtilityScale(late),1),
+            "the same real deployment capacity still preserves full cash value below one complete high-price wave");
+    }
     {
         Snapshot opening;
         opening.netEconomy=true; opening.weatherStation=true;
@@ -655,7 +678,7 @@ void RunColdStorageCapitalUtilityTests()
         Check(advancing.features[5]<=probe.budget,"wave advancement does not borrow future income");
     }
     Check(near(CapitalUtilityScale(poor),1) && near(CapitalUtilityScale(rich),.01f),
-        "cash covering two complete legal highest-cost teams has decreasing utility only beyond that coverage");
+        "cash covering one complete legal highest-cost team has decreasing utility only beyond that coverage");
     auto reserve=rich;
     reserve.recoveryReserve=50;
     Check(near(CapitalUtilityScale(reserve),.01f),
@@ -735,7 +758,7 @@ void RunColdStorageCapitalUtilityTests()
             Check(destructive.features[0]==20 && destructive.features[4]==0 && destructive.features[5]<=rich.budget,
                 "an already wealthy treasury can prefer actual destruction instead of indefinitely maximizing more cash");
         }
-        Check(poor.budget==200 && rich.budget==10000 && poor.options[1].unit.catapult.ammunition==2,
+        Check(poor.budget==100 && rich.budget==10000 && poor.options[1].unit.catapult.ammunition==2,
             "utility calculation and exploration cannot consume the real captured wallet or ammunition");
         auto renamed=rich;
         for(auto& option:renamed.options) option.type=99000-option.type;
@@ -757,6 +780,27 @@ void RunColdStorageCapitalUtilityTests()
             "wealth utility and exhausted risk allowance do not reject a real cash-profitable combined attack");
     }
     std::cout<<"Capital utility and opportunity-cost counterfactuals passed\n";
+    {
+        Snapshot covered;
+        covered.searchVersion=2; covered.netEconomy=true;
+        covered.budget=10000; covered.capacity=32; covered.houseX=-10000;
+        for(int type=0;type<9;++type) {
+            Option option;
+            option.type=101000+type*137; option.cost=10;
+            option.unit.body.x=1000; option.unit.body.health=500; option.unit.body.purchaseCost=10;
+            option.unit.biteDps=0;
+            covered.options.push_back(option);
+        }
+        int widest=0;
+        for(unsigned seed=1;seed<=4;++seed) {
+            covered.timeLimitedSearch=true;
+            covered.searchDeadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(600);
+            const auto sampled=Search(covered,Weights{0,0,100,0,1,-1,0,0},seed);
+            widest=std::max(widest,sampled.widestComposition);
+            Check(sampled.actions.empty(),"wide rich sampling cannot force purchases when every whole plan has no benefit");
+        }
+        Check(widest>3,"the same affordable arbitrary-type roster is actually compared beyond the old three-type sampling range");
+    }
 }
 
 /** 长编队的经营与费用共用终点，训练输入保持60秒，不把尚未兑现的冰用于初始付款。 */

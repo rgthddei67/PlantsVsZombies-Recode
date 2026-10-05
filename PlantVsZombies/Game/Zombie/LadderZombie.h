@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zombie.h"
+#include "LadderRules.h"
 #include "../Ladder.h"
 
 class Plant;
@@ -14,6 +15,12 @@ public:
 	float GetMineSimulationMoveSpeed() const override;
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
 	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
+	/** 卸梯后的随机稳态运动画像；不生成实体或消费正式随机数。 */
+	static ZombieMovementRules::BirthProfile GetUnloadedMovementProfile();
+	/** 当前资源放梯轨在中性倍率下的完整时长，游戏秒。 */
+	static float GetForecastPlacementSeconds();
+	/** 只读携梯/放置状态，能力倍率不烘焙控制或天气，已获得无限搭梯才保留载体。 */
+	LadderRules::Builder GetLadderForecast() const;
 	using Zombie::Zombie;
 
 	enum class Phase {
