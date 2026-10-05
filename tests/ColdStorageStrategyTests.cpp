@@ -11,6 +11,7 @@
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "Game/Plant/IceStorageNutRules.h"
+#include "Game/Plant/EchoWaveRules.h"
 #include <chrono>
 #include <algorithm>
 #include <thread>
@@ -1368,6 +1369,29 @@ int main()
 		"gloom's surrounding cloud is not stopped by a reinforced shield in another direction");
 	std::cout << "Shield layers, melon parallel damage and reinforced door resistance passed\n";
 
+	}
+	{
+	using namespace ColdStorageSearch;
+	Snapshot echoCase; echoCase.houseX=-10000; echoCase.gridLeft=0; echoCase.cellWidth=100;
+	Plant echo; echo.x=550; echo.column=5; echo.health=300; echo.dps=50;
+	echo.multiTarget=echo.echo=true; echo.range=600; echo.hitDamage=EchoWaveRules::Damage;
+	echoCase.plants={echo};
+	Unit inside; inside.body.x=850; inside.body.health=1000; inside.body.purchaseCost=10;
+	Unit outside=inside; outside.body.x=880; outside.body.blastAnchorOffset=30;
+	echoCase.current={inside,outside};
+	check(Evaluate(echoCase,{})[3]==10,
+		"Echo hits the board target but cannot apply collateral to an object outside the last column");
+	echoCase.current={outside};
+	check(Evaluate(echoCase,{})[3]==10,"an outside object cannot trigger Echo damage by its collider anchor");
+	echoCase.current[0].body.x=905; echoCase.current[0].body.blastAnchorOffset=-10;
+	check(Evaluate(echoCase,{})[3]==0,"Echo uses object position when its collider anchor remains outside");
+	echoCase.current[0].body.x=540; echoCase.current[0].body.blastAnchorOffset=0;
+	check(Evaluate(echoCase,{})[3]==10,"Echo cannot damage an object behind its launch cell center");
+	echoCase.current={inside}; echoCase.current[0].body.health=5000;
+	echoCase.current[0].shieldHealth=3000; echoCase.current[0].shieldedHitCap=10;
+	check(std::abs(Evaluate(echoCase,{})[3]-9.4f)<.001f,
+		"Echo's 100 damage per hit yields five capped DPS and does not bypass a shield");
+	std::cout<<"Echo board entry, object anchors, collateral and single-hit caps passed\n";
 	}
 	{
 	ColdStorageSearch::Snapshot broad;

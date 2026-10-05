@@ -3,6 +3,7 @@
 #include "ColdStoragePlanEvaluator.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
+#include "Game/Plant/EchoWaveRules.h"
 #include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
@@ -51,6 +52,13 @@ constexpr int kAdaptiveActions = 32; // 新模型可比较的最大编队，能�
 constexpr float kAdaptiveDelay = 30; // 新模型可搜索的分批出生时域，游戏秒
 constexpr float kAdaptiveHorizon = 90; // 新模型多观察一个后续交战窗口，游戏秒；产冰校准输入固定前60秒，评分计同窗总产冰
 constexpr float kContact = 55; // 接触植物的预测距离，像素
+/** 非矿场声波按正式对象位置和网格边界判定；碰撞锚点不能让场外工人提前承伤。 */
+bool EchoContains(const Snapshot& s, const Plant& p, const Unit& unit) {
+    const float x=unit.body.x+unit.body.blastAnchorOffset;
+    const int column=static_cast<int>(std::floor((x-s.gridLeft)/s.cellWidth));
+    return unit.body.row==p.row && column>=0 && column<s.columns && x>=p.x
+        && x-p.x<=EchoWaveRules::RangeCells*s.cellWidth;
+}
 constexpr float kAreaCounterStake = 24; // 玩家倾向对至少此冰价的集中兵力使用大范围清场；危及房屋时不等待
 constexpr float kTargetCounterStake = 8; // 窄范围反制允许用于较小目标，冰价
 constexpr float kSquashTriggerRange = 125; // 倭瓜候选种植点可触发近邻目标的预测距离，像素
@@ -3735,7 +3743,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				const auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t || u.x > s.rightEdge
 					|| (!CanTargetProjectile(units[i],false) && !(p.targetsAir && CanTargetProjectile(units[i],true)))
-                    || (p.around ? std::abs(u.x - p.x) > p.range : u.x < p.x - 30 || u.x > p.x + p.range)) continue;
+                    || (p.echo ? !EchoContains(s,p,units[i])
+                        : (p.around ? std::abs(u.x - p.x) > p.range : u.x < p.x - 30 || u.x > p.x + p.range))) continue;
 				// 雷鸣花先在本行发射，命中后才向邻行放电；邻行单位不能提前触发虚构雷种。
 				if (u.row != p.row && (p.melon || p.thunder || std::abs(u.row - p.row) > p.rowRadius)) continue;
 				if(s.weatherStation && !environment.CanTarget(s,p,units[i])) continue;
@@ -3786,7 +3795,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
                 if(!CanTargetProjectile(units[i],airShot)) continue;
                 const bool splash = p.melon && melonHits[i];
 				const bool area = !p.melon && p.multiTarget && std::abs(u.row - p.row) <= p.rowRadius
-					&& (p.around ? std::abs(u.x - p.x) <= p.range : u.x >= p.x - 30 && u.x <= p.x + p.range);
+					&& (p.echo ? EchoContains(s,p,units[i])
+                        : (p.around ? std::abs(u.x - p.x) <= p.range : u.x >= p.x - 30 && u.x <= p.x + p.range));
 				if (static_cast<int>(i) != target && !splash && !area) continue;
 				if (p.fume && !p.around && u.x > fumeEnd) continue;
 				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);

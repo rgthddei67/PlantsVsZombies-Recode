@@ -202,6 +202,7 @@ struct Plant {
 	float range = 10000;
 	bool vehicleCrushable=true; // 活体与未来株均由冰车自身的目标资格采样
 	bool multiTarget = false, around = false;
+	bool echo = false; // 非矿场声波只攻击棋盘内、发射格前方的对象逻辑位置；伤害仍用连续 DPS 近似
 	bool ladderTarget=false; // 植物自有SupportsLadderPlacement；放梯完成按当前同格层重取目标
 	bool melon = false, edible = true;
 	bool deploymentInterceptionOnly = false; // 灰烬充能无敌只放行命中原触发实体的狙击脉冲，不放行普通误伤

@@ -34,6 +34,7 @@
 #include "Game/Zombie/DisasterEngineerRules.h"
 #include "Game/Plant/ThunderFlower.h"
 #include "Game/Plant/ThunderFlowerRules.h"
+#include "Game/Plant/EchoWaveRules.h"
 #include "Game/Plant/UmbrellaLeaf.h"
 #include "Game/Plant/MagnetShroom.h"
 #include "Game/Plant/Blover.h"
@@ -358,6 +359,8 @@ namespace {
 		}
 		plant.fume = type == P::PLANT_FUMESHROOM || type == P::PLANT_GLOOMSHROOM || type == P::PLANT_ICEFUMESHROOM;
 		if (type == P::PLANT_ICEFUMESHROOM) plant.hitDamage = 10; // 寒冰大喷每次喷射的实际基础伤害
+		plant.echo = type == P::PLANT_ECHOSHROOM;
+		if (plant.echo) plant.hitDamage = EchoWaveRules::Damage;
 	}
 
 	/** 携梯与卸梯运动均从实际轨道采样；精英只投影已经兑现的无限搭梯能力。 */

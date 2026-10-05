@@ -1,13 +1,14 @@
 #include "Game/Board/Board.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/IceWall.h"
+#include "Game/Plant/EchoWaveRules.h"
 #include "Graphics.h"
 #include <algorithm>
 #include <cmath>
 
 namespace {
-	constexpr int kRange = 6; // 最短通路射程，格数
-	constexpr int kDamage = 100; // 每轮对每个目标的完整基础伤害
+	constexpr int kRange = EchoWaveRules::RangeCells; // 最短通路射程，格数
+	constexpr int kDamage = EchoWaveRules::Damage; // 每轮对每个目标的完整基础伤害
 	constexpr float kSpeed = 4.0f; // 声波传播速度，格/游戏秒
 	constexpr float kHalfWidth = 0.18f; // 声波前沿半宽，格
 
