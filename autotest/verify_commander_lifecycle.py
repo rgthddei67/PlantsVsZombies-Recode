@@ -1,6 +1,6 @@
 """Generate focused lifecycle fixtures (--generate), then verify visible runs and normal AI recovery.
 
-Reuse the dense background fixture's setup; generated scripts live in the build directory.
+Reuse the dense background fixture's setup; scripts live in autotest/generated/lifecycle below the build directory.
 Run quit_computing with seeds 42, 7 and 111, preserving status/run/closing under seed suffixes.
 """
 import argparse
@@ -11,6 +11,7 @@ from pathlib import Path
 repo = Path(__file__).resolve().parents[1]
 build = repo / 'build/clang-release'
 out = build / 'autotest/out'
+generated = build / 'autotest/generated/lifecycle'
 cases = ('quit_computing', 'world_change', 'budget_change', 'escort_loss')
 
 
@@ -21,6 +22,7 @@ def assertion(path, **expected):
 
 def generate():
     """Reuse the dense setup and stop before its synchronous timing comparison."""
+    generated.mkdir(parents=True, exist_ok=True)
     source = json.loads((repo / 'autotest/scripts/stress_commander_background.json').read_text(encoding='utf-8'))
     commands = source['commands']
     end = next(i for i, cmd in enumerate(commands) if cmd['op'] == 'save_level_snapshot')
@@ -63,12 +65,12 @@ def generate():
             ]
         script = {'description': f'Commander lifecycle: {case}; require unfinished computation before intervention.',
                   'backgroundCommander': True, 'commands': setup + start + finish}
-        (build / f'smoke_commander_{case}.json').write_text(json.dumps(script, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        (generated / f'smoke_commander_{case}.json').write_text(json.dumps(script, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     benchmark = {'description': 'Same snapshot, paired seeds and 600 ms budget; compare one and two computation threads.',
                  'commands': setup + [{'op': 'compare_commander_search', 'name': 'throughput',
                                        'workerComparison': True, 'repeats': 5}, {'op': 'quit'}]}
-    (build / 'smoke_commander_worker_throughput.json').write_text(json.dumps(benchmark, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print('Generated four lifecycle fixtures and one throughput fixture in build/clang-release.')
+    (generated / 'smoke_commander_worker_throughput.json').write_text(json.dumps(benchmark, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    print(f'Generated four lifecycle fixtures and one throughput fixture in {generated}.')
 
 
 def read(folder, name):
