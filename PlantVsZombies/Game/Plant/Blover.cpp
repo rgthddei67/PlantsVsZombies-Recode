@@ -3,8 +3,11 @@
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
 #include "../Zombie/BalloonZombie.h"
+#include "../../ResourceManager.h"
+#include "../../ResourceKeys.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace {
 	constexpr int kBlowEventFrame = 44;               // 主人指定的全局吹风结算帧，已是代码口径
@@ -12,6 +15,28 @@ namespace {
 	constexpr float kBloverClipSpeed = 1.6f;          // 主人调整的两段动画统一播放倍率
 	constexpr float kFlipPivotX = 40.0f;              // 三叶草局部视觉中线，用于朝屋后时水平翻转
 	constexpr float kBloverSoundVolume = 0.5f;        // 原版 blover.ogg 单次播放音量
+}
+
+float Blover::GetForecastBlowDelay()
+{
+	const auto reanim = ResourceManager::GetInstance().GetReanimation(ResourceKeys::Reanimations::REANIM_BLOVER);
+	if (!reanim) throw std::runtime_error("missing blover blow reanimation");
+	const auto range = reanim->GetTrackFrameRange("anim_blow");
+	if (range.first < 0 || range.second <= range.first || kBlowEventFrame < range.first
+		|| kBlowEventFrame > range.second || reanim->mFPS <= 0)
+		throw std::runtime_error("invalid blover blow frame range");
+	return (kBlowEventFrame-range.first)/(reanim->mFPS*kBloverClipSpeed);
+}
+
+float Blover::GetForecastBlowRemaining() const
+{
+	if (mBlowTriggered) return 0;
+	// 复用相同资源校验，避免缺失 clip 时静默构造一段虚假的吹风等待。
+	const float duration = GetForecastBlowDelay();
+	if (!mAnimator || GetCurrentTrackName() != "anim_blow") return 0;
+	const auto reanim = mAnimator->GetReanimation();
+	if (!reanim) throw std::runtime_error("missing live blover blow reanimation");
+	return std::clamp((kBlowEventFrame-mAnimator->GetCurrentFrame())/(reanim->mFPS*kBloverClipSpeed),0.0f,duration);
 }
 
 void Blover::SetupPlant()

@@ -37,6 +37,11 @@ def verify(output):
             expected = [vitals[k] for k in ('body', 'helm', 'shield', 'bite')]
             assert actual == expected, (report_name, kind, actual, expected)
             covered.add(kind)
+            if kind=='ZOMBIE_BALLOON':
+                formal=scaled if state is scaled else base
+                balloon=next(z for z in formal['zombies'] if z['type']==kind and (state is not scaled or z['id'] not in old_ids))
+                assert option['birthBalloonHealth']==balloon['balloonMaxHealth']
+                assert option['birthHealth']==sum(expected[:3])+balloon['balloonMaxHealth']
             if kind in ('ZOMBIE_ZAMBONI', 'ZOMBIE_GILDED_ZAMBONI'):
                 assert not option['birthCanChill'] and not option['birthCanParalyze']
             if kind in ('ZOMBIE_CATAPULT', 'ZOMBIE_ELITE_CATAPULT'):

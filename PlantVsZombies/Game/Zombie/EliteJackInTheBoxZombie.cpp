@@ -21,18 +21,18 @@ namespace {
 	constexpr int kEliteBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX).body;              // 精英小丑本体基础生命
 	constexpr int kEliteBiteDamage = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX).bite;               // 每次啃咬的基础伤害
 	constexpr float kEliteRunVelocity = 0.61f;         // C# 小丑速度口径；略慢于普通小丑
-	constexpr float kThrowIntervalMin = 5.0f;          // 两次投盒之间的最短游戏秒
-	constexpr float kThrowIntervalMax = 7.0f;          // 两次投盒之间的最长游戏秒
-	constexpr float kBoxFlightDuration = 0.75f;        // 盒子从手中飞到落点的游戏秒
+	constexpr float kThrowIntervalMin = JackBoxRules::ThrowMin;          // 两次投盒之间的最短游戏秒
+	constexpr float kThrowIntervalMax = JackBoxRules::ThrowMax;          // 两次投盒之间的最长游戏秒
+	constexpr float kBoxFlightDuration = JackBoxRules::Flight;        // 盒子从手中飞到落点的游戏秒
 	constexpr float kBoxArcHeight = 120.0f;            // 抛物线中点相对直线抬升的像素
 	constexpr float kBoxDrawScale = 0.72f;             // 飞行盒相对原贴图的战场绘制倍率
 	constexpr float kBoxSpinDegrees = 540.0f;          // 单次飞行累计旋转角度
-	constexpr int kBoxExplosionDamage = 50;            // 落地爆炸的基础植物/僵尸伤害
-	constexpr float kBoxExplosionRadius = 100.0f;       // 落地爆炸半径，单位 px
+	constexpr int kBoxExplosionDamage = JackBoxRules::BoxDamage;            // 落地爆炸的基础植物/僵尸伤害
+	constexpr float kBoxExplosionRadius = JackBoxRules::BoxRadius;       // 落地爆炸半径，单位 px
 	constexpr float kExplosionVolume = 0.42f;          // 小型盒子爆炸的一次性音量
-	constexpr float kBacklinePlantSunMultiplier = 1.2f; // 靠房屋侧半场植物计入贪心损失分数的倍率
-	constexpr float kSunProducerFutureValue = 300.0f;  // 每株产阳光植物计入的预期后续经济损失，单位：阳光分
-	constexpr float kNoTargetRetryDelay = 0.5f;         // 倒计时到点却没有合法目标时再次搜索的游戏秒
+	constexpr float kBacklinePlantSunMultiplier = JackBoxRules::BacklineValue; // 靠房屋侧半场植物计入贪心损失分数的倍率
+	constexpr float kSunProducerFutureValue = JackBoxRules::ProducerValue;  // 每株产阳光植物计入的预期后续经济损失，单位：阳光分
+	constexpr float kNoTargetRetryDelay = JackBoxRules::Retry;         // 倒计时到点却没有合法目标时再次搜索的游戏秒
 	constexpr float kTargetScoreTieEpsilon = 0.001f;    // 浮点损失分数判定并列时的容差
 
 	/** 当前会持续提供战斗内阳光经济的植物类型。 */

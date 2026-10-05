@@ -15,6 +15,10 @@ public:
 	void SetBlowDirection(WindDirection direction);
 	WindDirection GetBlowDirection() const { return mBlowDirection; }
 	bool HasTriggeredBlow() const { return mBlowTriggered; }
+	/** 新生三叶草到既有吹风结算帧的动画秒，尚未应用雨势或植物行动倍率。 */
+	static float GetForecastBlowDelay();
+	/** 活体到既有吹风帧的剩余动画秒；已提交时返回零，调用方须先检查 HasTriggeredBlow。 */
+	float GetForecastBlowRemaining() const;
 
 protected:
 	void SetupPlant() override;

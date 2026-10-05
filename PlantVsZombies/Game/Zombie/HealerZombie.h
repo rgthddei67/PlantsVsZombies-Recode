@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zombie.h"
+#include "HealerRules.h"
 
 #include <vector>
 
@@ -41,6 +42,8 @@ public:
 	void LoadExtraData(const nlohmann::json& j) override;
 
 	TreatmentState GetTreatmentState() const { return mTreatmentState; }
+	/** 采样当前治疗阶段和不可逆禁疗资格；后台不借用实体或重新选择已锁定的单疗目标。 */
+	HealerRules::Forecast GetTreatmentForecast() const;
 	float GetHealCooldownRemaining() const { return mHealCooldown; }
 	float GetRetryRemaining() const { return mRetryTimer; }
 	float GetCastRemaining() const { return mCastRemaining; }

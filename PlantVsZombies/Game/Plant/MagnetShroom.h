@@ -11,6 +11,10 @@
 class MagnetShroom : public Shroom {
 public:
 	using Shroom::Shroom;
+    static constexpr float ForecastRecharge=15; // 普通磁力菇吸取后总充能游戏秒
+    static constexpr float ForecastRadiusCells=3.375f, ForecastEatingRadiusCells=4; // 普通/啃食目标搜索格宽
+    static constexpr int ForecastRowRadius=2; // 磁吸最多跨越的行数
+    static constexpr float ForecastRowPenaltyCells=1; // 每跨一行增加的选靶格宽代价
 
 	enum class Phase {
 		READY,

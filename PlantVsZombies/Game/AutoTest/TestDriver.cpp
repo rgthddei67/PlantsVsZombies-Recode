@@ -1015,9 +1015,9 @@ bool TestDriver::ExecuteCurrent() {
 					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},
 					{"birthObjectX",option.unit.body.x+option.unit.body.blastAnchorOffset},
 					{"birthHealth",option.unit.body.health},{"boundsWidth",option.unit.body.boundsWidth},
-					{"birthBodyHealth",option.unit.body.health-option.unit.helmHealth-option.unit.shieldHealth},
+					{"birthBodyHealth",option.unit.body.health-option.unit.helmHealth-option.unit.shieldHealth-(option.unit.balloon.present ? option.unit.balloon.health : 0)},
 					{"birthHelmHealth",option.unit.helmHealth},{"birthShieldHealth",option.unit.shieldHealth},
-					{"birthBiteDps",option.unit.biteDps},{"birthSlowFactor",option.unit.body.slowFactor},
+					{"birthBiteDps",option.unit.biteDps},{"birthBalloonHealth",option.unit.balloon.present ? option.unit.balloon.health : 0},{"birthSlowFactor",option.unit.body.slowFactor},
 					{"birthCanChill",option.unit.body.canBeChilled},{"birthCanParalyze",option.unit.paralysisAllowed},
 					{"birthHeadThreshold",option.unit.temporalStopHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
@@ -1055,6 +1055,10 @@ bool TestDriver::ExecuteCurrent() {
 					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
 					{"dancerSummons",result.construction.dancerSummons},
+                    {"jackExplosions",result.construction.jackExplosions},{"jackThrows",result.construction.jackThrows},
+                    {"jackBoxHits",result.construction.jackBoxHits},{"magneticExtractions",result.construction.magneticExtractions},
+                    {"healerCasts",result.construction.healerCasts},{"healerRecipients",result.construction.healerRecipients},
+                    {"healerAmount",result.construction.healerAmount},
 					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
 					{"catapultBlocks",result.construction.catapultBlocks},
 					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},

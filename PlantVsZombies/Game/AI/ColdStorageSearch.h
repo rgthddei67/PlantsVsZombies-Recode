@@ -3,6 +3,9 @@
 #include "Game/Zombie/ZombieMovementRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
 #include "Game/Zombie/DancerRules.h"
+#include "Game/Zombie/JackBoxRules.h"
+#include "Game/Zombie/HealerRules.h"
+#include "Game/Zombie/BalloonRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 
 #include "ColdStorageStrategy.h"
@@ -146,10 +149,25 @@ struct Unit {
 	bool jammer=false; float jammerRemaining=0, overloadRemaining=0;
 	float rawRainMultiplier=1; // 快照中烘焙的雨势，环境推演逐步替换
 	CatapultAttack catapult;
+	JackBoxRules::Forecast jack;
+	HealerRules::Forecast healer;
+	BalloonRules::Forecast balloon;
+	float maximumBody=0, maximumHelm=0, maximumShield=0; // 正式层生命上限；装备被永久移除后其层不再治疗
+
+	float magneticBacklash=0; // 目标卸甲反噬磁力菇本体，生命点
+	int magneticLayer=0; // 可吸取的当前层：0无、1头甲、2门盾、3工具；小丑失盒另推进
+	float boundsY=0, boundsHeight=100; // 碰撞框相对本行中心的垂直偏移与高度，像素
+
 
 };
 struct Plant {
-	bool catapultTargetable=true; // 选靶跳过地刺，格内仍按正式 overlay/宿主/南瓜/承载层顺序
+	float y=0, boundsX=-40, boundsY=-50, boundsWidth=80, boundsHeight=100; // 实体逻辑位置与实际爆区判定矩形相对量
+    float targetValue=0; // 精英盒贪心选点的阳光及产能价值，不计入僵尸资源账本
+    bool pumpkin=false, targetsAir=false;
+    float magneticPulseRadius=0, magneticPulseParalysis=0; // 金磁消耗装备后的独立脉冲范围及麻痹秒数
+    float magnetRemaining=0, magnetRecharge=0, magnetRadius=0, magnetEatingRadius=0, magnetRowPenalty=0;
+    int magnetRows=0; // 零半径禁用；充能与搜索均采样正式能力参数
+    bool catapultTargetable=true; // 选靶跳过地刺，格内仍按正式 overlay/宿主/南瓜/承载层顺序
 	bool catapultCrushable=true; // 投篮车自有类型/睡眠资格，不把冰车的目标名单套到投篮车
 	int airborneDefenseRadius=-1; // 非负时按自有逻辑格半径拦截篮球；生命/格位由本候选维护
 	bool thunder = false;
@@ -244,8 +262,11 @@ struct ConstructionStats {
 	float armorRepairIce = 0, plantRepairIce = 0;
 	int drumBeats = 0, drumRecipients = 0, precisionHits = 0;
 	int engineerBlocks = 0, thunderStuns = 0;
+	int healerCasts=0, healerRecipients=0; // 已兑现治疗及受益单位数
+	float healerAmount=0, healerRecoveryCredit=0; // 真实恢复生命与撤回的爆区损失折冰
+	int jackExplosions=0, jackThrows=0, jackBoxHits=0, magneticExtractions=0; // 已兑现小丑及磁吸事务次数
 	int dancerSummons = 0; // 推演中实际提交的免费伴舞，不计采购资产和玩家死亡返冰
-	float workerProtectionProgress = 0; // 实际挡灰/回溯恢复的工人生命折冰值，仅供探索中间态，不计收入或最终评分
+	float workerProtectionProgress = 0; // 实际挡灰/回溯/治疗恢复的工人生命折冰值，仅供探索中间态，不计收入或最终评分
 	float engineerReloadIce = 0;
 	int deploymentShots = 0, deploymentHits = 0;
 	int ritualReleases = 0, riftSummons = 0, riftRedirects = 0;
@@ -254,7 +275,7 @@ struct ConstructionStats {
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
-struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; };
+struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; float y=0,height=0; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; int device=-1, setting=0; };
 struct Action { int option = 0; float delay = 0; };
 /** 已付款但未出生的 current 下标与合法行；只允许改路或提前，不换兵、不退冰。 */
@@ -297,7 +318,16 @@ struct TemporalAnchor {
 struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
 /** 已离膛篮球只保存落格与到达秒，来源死亡或下一轮重排不取消。 */
 struct BasketballFlight { int row=0, column=-1; float at=0, damage=0; };
+/** 已离手精英盒冻结落点和阵营；死亡动画仍飞行，但载体被灰烬直接移除会取消，回溯不复制。 */
+struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; };
+/** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
+struct WindCounter { Plant deployment; std::vector<std::array<int,2>> cells; bool committed=false; int source=0, plantID=0, row=-1, column=-1, sunCost=0, iceCost=0; float ready=0,recharge=0,windup=0,nextReady=0; bool house=false; };
 struct Snapshot {
+    std::vector<WindCounter> windCounters;
+	std::vector<JackBoxFlight> jackBoxes;
+	std::array<float,6> rowY{}; // Board采样的各出生行Y；纯数值夹具可用行高兜底
+	std::array<float,54> cellY{}; // 当前网格中心Y，含屋顶坡度
+
 	Unit dancerBackup; // 已采样的普通伴舞出生画像；无实体或资源引用
 	float danceBeatSeconds = 0; // Board 当前全局舞拍在一圈内的位置，游戏秒
 	std::vector<BasketballFlight> basketballs;
@@ -330,6 +360,8 @@ struct Snapshot {
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
 	float supplyRemaining = 0, supplyInterval = 0, supplyIce = 0; // 技能钱包的真实补给时序；不作为经营得分
+	int pumpkinProtectionCells=1; // 正式范围爆炸的南瓜保护格半径
+	float pumpkinDamageMultiplier=5; // 南瓜拦截范围伤害的基础伤害倍率
 	float houseX = 160, rightEdge = 1100;
 	float goldenRightX = 1100, goldenLeftLimit = GoldenIceRules::LeftLimit;
 	std::array<bool,6> goldenAllowedRows{true,true,true,true,true,true}; // Board 排除水路，屋顶左缘由当前几何采样

@@ -19,11 +19,11 @@ namespace {
 	constexpr float kIdleMaxFps = 15.0f;                      // C# 待机随机帧率上界
 	constexpr float kShootingFps = 12.0f;                     // C# anim_shooting 播放帧率
 	constexpr float kChargingFps = 2.0f;                      // C# anim_nonactive_idle2 充能帧率
-	constexpr float kBaseRechargeSeconds = 15.0f;             // C# mStateCountdown=1500cs，从吸取当帧开始计时
-	constexpr int kTargetRowRadius = 2;                       // 原版最多搜索上下各两行
-	constexpr float kNormalRadiusInCells = 3.375f;            // 原版 270px / 80px 格宽
-	constexpr float kEatingRadiusInCells = 4.0f;              // 原版啃食目标 320px / 80px 格宽
-	constexpr float kRowDistancePenaltyInCells = 1.0f;        // 每跨一行额外增加一格宽的选靶代价
+	constexpr float kBaseRechargeSeconds = MagnetShroom::ForecastRecharge;             // C# mStateCountdown=1500cs，从吸取当帧开始计时
+	constexpr int kTargetRowRadius = MagnetShroom::ForecastRowRadius;                       // 原版最多搜索上下各两行
+	constexpr float kNormalRadiusInCells = MagnetShroom::ForecastRadiusCells;            // 原版 270px / 80px 格宽
+	constexpr float kEatingRadiusInCells = MagnetShroom::ForecastEatingRadiusCells;              // 原版啃食目标 320px / 80px 格宽
+	constexpr float kRowDistancePenaltyInCells = MagnetShroom::ForecastRowPenaltyCells;        // 每跨一行额外增加一格宽的选靶代价
 	constexpr float kArrivalDistance = 20.0f;                 // 离体物进入磁力菇周围后停止插值的距离
 	constexpr float kAttractionPerFixedStep = 0.05f;          // C# 每逻辑步移动剩余距离的 5%
 	constexpr float kShadowScale = 0.72f;                     // 磁力菇脚底影子相对默认贴图的缩放

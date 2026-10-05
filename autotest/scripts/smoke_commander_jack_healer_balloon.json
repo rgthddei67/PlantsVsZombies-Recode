@@ -1,0 +1,533 @@
+{
+  "description": "Controlled paid portraits and real basic abilities: ordinary/elite jack, healer and flying balloon. These fixtures are not autonomous battle evidence.",
+  "batchStepsPerFrame": 16,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 620
+    },
+    {
+      "op": "set_jack_pop_countdown",
+      "row": 2,
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "jack_before.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "jack_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "jack_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 2001,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "elite_before.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "elite_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "dump_state",
+      "name": "elite_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 2001,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25
+    },
+    {
+      "op": "dump_state",
+      "name": "elite_flight.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "elite_flight_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "ash_damage_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "damage": 1800
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "elite_cancelled.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "x": 720
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEALER",
+      "row": 2,
+      "x": 800
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "damage": 250
+    },
+    {
+      "op": "make_healer_ready",
+      "row": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "healer_before.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "healer_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "healer_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THUNDERFLOWER",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BALLOON",
+      "row": 2,
+      "x": 800
+    },
+    {
+      "op": "dump_state",
+      "name": "balloon_before.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "balloon_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "dump_state",
+      "name": "balloon_after.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_CACTUS",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "balloon_ground.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_BLOVER",
+        "PLANT_MAGNETSHROOM"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "playerIce": 100,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 1000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BALLOON",
+      "row": 2,
+      "x": 800
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "blover_card_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_BLOVER",
+      "row": 2,
+      "col": 4,
+      "bloverDirection": "FRONT"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "blover_live_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "blover_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_BLOVER",
+        "PLANT_MAGNETSHROOM"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 0,
+        "initialEnemyIce": 0,
+        "playerIce": 100,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 1000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MAGNETSHROOM",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 620
+    },
+    {
+      "op": "set_jack_pop_countdown",
+      "row": 2,
+      "value": 60
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "magnet_forecast",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "magnet_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

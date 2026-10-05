@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zombie.h"
+#include "JackBoxRules.h"
 
 #include <string>
 
@@ -22,6 +23,12 @@ public:
 		DISARMED,
 	};
 
+	/** 主线程只读已注册开盒片段，返回有效动画秒；不注册新帧事件。 */
+	static float GetForecastExplosionSeconds();
+	/** 活体动作/倒计时副本，动画基准剥离天气与控制倍率。 */
+	JackBoxRules::Forecast GetBoxForecast() const;
+	/** 失盒后的普通行走画像，不消费正式随机数。 */
+	static ZombieMovementRules::BirthProfile GetDisarmedMovementProfile();
 	Phase GetPhase() const { return mPhase; }
 	float GetPopCountdown() const { return mPopCountdown; }
 	bool HasPlayedSurprise() const { return mSurprisePlayed; }

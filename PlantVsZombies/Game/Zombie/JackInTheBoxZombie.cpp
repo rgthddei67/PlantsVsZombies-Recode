@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <stdexcept>
 
 namespace {
 	constexpr float kRunVelocityMinimum=.66f, kRunVelocityMaximum=.68f; // 普通小丑出生手摇步速随机范围，原版 px/tick
@@ -19,16 +20,16 @@ namespace {
 	constexpr float kReferenceVelocity = 0.67f;        // C# mVelX=0.66～0.68 的中值
 	constexpr float kRunEffectiveClip = 2.25f;         // 约为普通僵尸 0.3 px/tick 的 2.23 倍
 	constexpr float kEatEffectiveClip = 20.0f / 12.0f; // C# anim_eat 20 FPS 相对资源 12 FPS
-	constexpr float kPopEffectiveClip = 28.0f / 12.0f; // C# anim_pop 28 FPS 相对资源 12 FPS
-	constexpr int kPopTicksMin = 450;                  // C# 常规开盒随机倒计时下界，单位厘秒 tick
-	constexpr int kPopTicksMax = 749;                  // C# 常规开盒随机倒计时上界，单位厘秒 tick
-	constexpr int kFastPopRollMax = 19;                // 1/20 概率把开盒倒计时缩短为三分之一
+	constexpr float kPopEffectiveClip = JackBoxRules::PopClip; // C# anim_pop 28 FPS 相对资源 12 FPS
+	constexpr int kPopTicksMin = JackBoxRules::PopTicksMin;                  // C# 常规开盒随机倒计时下界，单位厘秒 tick
+	constexpr int kPopTicksMax = JackBoxRules::PopTicksMax;                  // C# 常规开盒随机倒计时上界，单位厘秒 tick
+	constexpr int kFastPopRollMax = JackBoxRules::FastPopRollMax;                // 1/20 概率把开盒倒计时缩短为三分之一
 	constexpr float kCSharpTicksPerSecond = 100.0f;    // C# phaseCounter 的厘秒换算
 	constexpr float kLimpSpeedFactor = 2.0f;           // C# ZOMBIE_LIMP_SPEED_FACTOR
 	constexpr float kSurpriseDelay = 0.3f;             // 开盒 30cs 后播放 surprise 音效
-	constexpr int kExplosionDamage = 1800;             // C# ApplyBurn 的小丑爆炸伤害
-	constexpr float kZombieBlastRadius = 115.0f;       // 原版桌面版小丑对僵尸圆形爆区半径，单位 px
-	constexpr float kPlantBlastRadius = 90.0f;         // 原版桌面版小丑对植物圆形爆区半径，单位 px
+	constexpr int kExplosionDamage = JackBoxRules::ZombieDamage;             // C# ApplyBurn 的小丑爆炸伤害
+	constexpr float kZombieBlastRadius = JackBoxRules::ZombieRadius;       // 原版桌面版小丑对僵尸圆形爆区半径，单位 px
+	constexpr float kPlantBlastRadius = JackBoxRules::PlantRadius;         // 原版桌面版小丑对植物圆形爆区半径，单位 px
 	constexpr float kLoopVolume = 0.42f;               // 手摇盒循环声的独立音量
 	constexpr float kOneShotVolume = 0.55f;            // 开盒、惊吓与爆炸一次性音效音量
 	constexpr float kLimbVolume = 0.35f;               // 断肢断头音效音量
@@ -84,7 +85,7 @@ void JackInTheBoxZombie::SetupZombie()
 void JackInTheBoxZombie::RegisterFrameEvents()
 {
 	RegisterSharedFrameEvents();
-	mAnimator->AddFrameEvent(66, [this]() { Explode(); });
+	mAnimator->AddFrameEvent(JackBoxRules::ExplosionFrame, [this]() { Explode(); });
 }
 
 void JackInTheBoxZombie::RegisterSharedFrameEvents()
@@ -433,4 +434,34 @@ ZombieMovementRules::BirthProfile JackInTheBoxZombie::GetRunMovementProfile(floa
 float JackInTheBoxZombie::GetMineSimulationMoveSpeed() const
 {
 	return GetSimulationRootMoveSpeed("anim_walk",kRunEffectiveClip/GetAbilityAnimSpeedMultiplier()*mRunVelocity/kReferenceVelocity);
+}
+
+float JackInTheBoxZombie::GetForecastExplosionSeconds()
+{
+    const auto reanim=ResourceManager::GetInstance().GetReanimation("ZombieJackBox");
+    if(!reanim) throw std::runtime_error("missing jackbox pop reanimation");
+    const auto range=reanim->GetTrackFrameRange("anim_pop");
+    if(range.first<0 || JackBoxRules::ExplosionFrame<range.first || JackBoxRules::ExplosionFrame>range.second || reanim->mFPS<=0)
+        throw std::runtime_error("invalid jackbox pop frame range");
+    return (JackBoxRules::ExplosionFrame-range.first)/(reanim->mFPS*JackBoxRules::PopClip);
+}
+
+JackBoxRules::Forecast JackInTheBoxZombie::GetBoxForecast() const
+{
+    JackBoxRules::Forecast result;
+    result.present=true; result.phase=static_cast<JackBoxRules::Forecast::Phase>(mPhase);
+    result.remaining=mPopCountdown; result.release=result.releaseRemaining=GetForecastExplosionSeconds();
+    result.stopHealth=mBodyMaxHealth/3;
+    // 开盒片段已除去品种1.8倍；这里只保留本体动画随机/词条基准，不重复天气和寒冰。
+    result.animationBase=GetAnimationSpeed();
+    if(mPhase==Phase::POPPING && mAnimator) {
+        const auto reanim=mAnimator->GetReanimation();
+        result.releaseRemaining=std::max(0.0f,JackBoxRules::ExplosionFrame-mAnimator->GetCurrentFrame())/(reanim->mFPS*JackBoxRules::PopClip);
+    }
+    return result;
+}
+
+ZombieMovementRules::BirthProfile JackInTheBoxZombie::GetDisarmedMovementProfile()
+{
+    return GetRunMovementProfile(kDisarmedVelocityMin,kDisarmedVelocityMax);
 }

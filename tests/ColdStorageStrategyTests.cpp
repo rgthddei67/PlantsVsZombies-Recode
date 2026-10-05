@@ -20,9 +20,14 @@
 #include <iostream>
 #include <stdexcept>
 
+void RunColdStorageHealerForecastTests();
+void RunColdStorageJackBalloonForecastTests();
+
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
 {
+	RunColdStorageHealerForecastTests();
+	RunColdStorageJackBalloonForecastTests();
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
 	};

@@ -12,20 +12,21 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace {
 	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_HEALER).body;                       // 急救员本体生命
-	constexpr float kFullHealCooldown = 5.0f;             // 成功治疗后的完整冷却，单位游戏秒
-	constexpr float kCastDuration = 1.0f;                 // 两种治疗共同的施法前摇，单位游戏秒
-	constexpr float kRetryDelay = 0.5f;                   // 目标失效或无伤员时的重试间隔，单位游戏秒
-	constexpr float kStrategicWaitStep = 0.5f;            // 蒙特卡洛一次等待候选延后的游戏秒
-	constexpr float kStrategicWaitMaximum = 2.0f;         // 单次治疗机会允许累计等待的上限游戏秒
-	constexpr float kAreaRadius = 140.0f;                 // 群疗判定与结算半径，单位像素
-	constexpr float kFocusedRadius = 280.0f;              // 单疗锁定与结算半径，单位像素
-	constexpr int kAreaWoundedThreshold = 3;              // 选择群疗所需的最少伤员数，包含施法者
-	constexpr int kAreaHealAmount = 100;                  // 群疗对每个现存生命层的恢复量
-	constexpr int kFocusedHealAmount = 400;               // 单疗对每个现存生命层的恢复量
-	constexpr int kArmDisableDifficulty = 2;              // 难度不高于此值时断臂永久禁疗
+	constexpr float kFullHealCooldown = HealerRules::Cooldown; // 成功治疗后的完整冷却，单位游戏秒
+	constexpr float kCastDuration = HealerRules::CastDuration; // 两种治疗共同的施法前摇，单位游戏秒
+	constexpr float kRetryDelay = HealerRules::RetryDelay; // 目标失效或无伤员时的重试间隔，单位游戏秒
+	constexpr float kStrategicWaitStep = HealerRules::StrategicWaitStep; // 蒙特卡洛一次等待候选延后的游戏秒
+	constexpr float kStrategicWaitMaximum = HealerRules::StrategicWaitMaximum; // 单次治疗机会允许累计等待的上限游戏秒
+	constexpr float kAreaRadius = HealerRules::AreaRadius; // 群疗判定与结算半径，单位像素
+	constexpr float kFocusedRadius = HealerRules::FocusedRadius; // 单疗锁定与结算半径，单位像素
+	constexpr int kAreaWoundedThreshold = HealerRules::AreaWoundedThreshold; // 选择群疗所需的最少伤员数，包含施法者
+	constexpr int kAreaHealAmount = HealerRules::AreaHealAmount; // 群疗对每个现存生命层的恢复量
+	constexpr int kFocusedHealAmount = HealerRules::FocusedHealAmount; // 单疗对每个现存生命层的恢复量
+	constexpr int kArmDisableDifficulty = HealerRules::ArmDisableDifficulty; // 难度不高于此值时断臂永久禁疗
 	constexpr float kBiteRetentionGap = 6.0f;             // 治疗后恢复原啃食目标允许的最大碰撞箱间隙，单位像素
 	constexpr float kGearFollowerOffsetX = 34.0f;         // 急救包/标志相对身体轨道的局部水平偏移
 	constexpr float kGearFollowerOffsetY = -24.0f;        // 急救包/标志相对身体轨道的局部垂直偏移
@@ -73,6 +74,23 @@ void HealerZombie::SetupZombie()
 	ConfigureTreatmentPresentation();
 	ApplyTreatmentPresentation();
 	if (mIsPreview) PlayTrack("anim_idle");
+}
+
+HealerRules::Forecast HealerZombie::GetTreatmentForecast() const
+{
+	HealerRules::Forecast forecast;
+	forecast.present = true;
+	forecast.enabled = !mHealingPermanentlyDisabled && mHasHead && !mIsDead && !mIsDying;
+	forecast.cooldown = mHealCooldown;
+	forecast.retry = mRetryTimer;
+	forecast.remaining = mCastRemaining;
+	forecast.focusedTargetID = mFocusedTargetID == NULL_ZOMBIE_ID ? 0 : mFocusedTargetID;
+	// 实体断臂门禁使用基类的先乘后除整数阈值；难度低时比掉头更早永久禁疗。
+	forecast.disableBodyHealth = GameAPP::GetInstance().Difficulty <= HealerRules::ArmDisableDifficulty
+		? static_cast<int>(static_cast<int64_t>(mBodyMaxHealth)*2/3) : mBodyMaxHealth/3;
+	if (mTreatmentState == TreatmentState::AREA) forecast.phase = HealerRules::Forecast::Phase::AREA;
+	else if (mTreatmentState == TreatmentState::FOCUSED) forecast.phase = HealerRules::Forecast::Phase::FOCUSED;
+	return forecast;
 }
 
 void HealerZombie::ConfigureTreatmentPresentation()

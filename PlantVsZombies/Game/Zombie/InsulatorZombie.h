@@ -20,6 +20,7 @@ public:
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 
+	static constexpr int MagneticBacklashDamage=150; // 卸下绝缘胸甲对磁力菇本体的反噬生命点
 	bool HasMagneticItem() const override;
 	bool ExtractMagneticItem(MagneticItem& item) override;
 	bool CanBeCharred() const override;

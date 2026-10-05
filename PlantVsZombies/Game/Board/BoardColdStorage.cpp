@@ -19,6 +19,10 @@
 #include "Game/Zombie/ZombieBirthVitalsRules.h"
 #include "Game/Zombie/DancerZombie.h"
 #include "Game/Zombie/BackupDancerZombie.h"
+#include "Game/Zombie/JackInTheBoxZombie.h"
+#include "Game/Zombie/EliteJackInTheBoxZombie.h"
+#include "Game/Zombie/HealerZombie.h"
+#include "Game/Zombie/BalloonZombie.h"
 #include "Game/Zombie/IceWorkerZombie.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
@@ -29,6 +33,8 @@
 #include "Game/Plant/ThunderFlower.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Plant/UmbrellaLeaf.h"
+#include "Game/Plant/MagnetShroom.h"
+#include "Game/Plant/Blover.h"
 #include "Game/Zombie/CrystalDrummerZombie.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/AdaptiveHelmetZombie.h"
@@ -314,6 +320,22 @@ namespace {
 		plant.airborneDefenseRadius=type==P::PLANT_UMBRELLA ? UmbrellaLeaf::ProtectionCells : -1;
 		plant.damageOrigin = PlantDamageOrigin::FromPlant(type);
 		plant.eliteQuota = type == P::PLANT_ELITE_SCAREDYSHROOM;
+        plant.pumpkin=type==P::PLANT_PUMPKINSHELL;
+        const auto& profile=GameDataManager::GetInstance().GetPlantSimulationProfile(type);
+        plant.targetValue=std::max(0,GameDataManager::GetInstance().GetPlantSunCost(type))
+            +(profile.sunPerSecond>0 ? JackBoxRules::ProducerValue : 0);
+        plant.magnetRecharge=profile.magneticPulseCooldown;
+        plant.magnetRadius=profile.magneticSearchRadiusInCells*CELL_COLLIDER_SIZE_X;
+        plant.magnetEatingRadius=profile.magneticEatingSearchRadiusInCells*CELL_COLLIDER_SIZE_X;
+        plant.magnetRows=profile.magneticSearchRowRadius; plant.magnetRowPenalty=CELL_COLLIDER_SIZE_X;
+        plant.magneticPulseRadius=profile.magneticPulseRadius; plant.magneticPulseParalysis=profile.magneticPulseParalysisDuration;
+        plant.targetsAir=type==P::PLANT_CACTUS || type==P::PLANT_PRISMFLOWER;
+        if(type==P::PLANT_MAGNETSHROOM) {
+            plant.magnetRecharge=MagnetShroom::ForecastRecharge;
+            plant.magnetRadius=MagnetShroom::ForecastRadiusCells*CELL_COLLIDER_SIZE_X;
+            plant.magnetEatingRadius=MagnetShroom::ForecastEatingRadiusCells*CELL_COLLIDER_SIZE_X;
+            plant.magnetRows=MagnetShroom::ForecastRowRadius;
+        }
 		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
 		plant.thunder = type == P::PLANT_THUNDERFLOWER;
 		if (plant.thunder) {
@@ -1216,6 +1238,14 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		search.interferenceReady = s.interferenceCooldownRemaining;
 		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X; search.cellHeight = CELL_COLLIDER_SIZE_Y;
 		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
+        PlantDefenseMonteCarlo::Config impactConfig;
+        ConfigureMonteCarloPlantImpactConfig(impactConfig,1,1,JackBoxRules::BoxDamage,JackBoxRules::BoxRadius);
+        search.pumpkinProtectionCells=impactConfig.pumpkinProtectionCellRadius;
+        search.pumpkinDamageMultiplier=impactConfig.pumpkinImpactDamageMultiplier;
+        for(int row=0;row<mRows;++row) {
+            search.rowY[row]=GetCellCenterPosition(row,0).y;
+            for(int col=0;col<mColumns;++col) search.cellY[row*mColumns+col]=GetCellCenterPosition(row,col).y;
+        }
 		search.supplyRemaining = s.supplyRemaining; search.supplyInterval = kSupplySeconds; search.supplyIce = kSupplyIce;
 		search.recoveryReserve = ColdStorageState::RecoveryReserveIce;
 		search.capacity = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
@@ -1255,7 +1285,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			const Mower* mower = mEntityRegistry.GetMower(id);
 			if (!mower || !mower->IsActive()) continue;
 			const auto bounds = mower->GetColliderComponent()->GetBoundingBox();
-			search.mowers.push_back({mower->mRow,bounds.x,bounds.w,mower->mSpeed,mower->mState == MowerState::MOVING});
+			search.mowers.push_back({mower->mRow,bounds.x,bounds.w,mower->mSpeed,mower->mState == MowerState::MOVING,true,bounds.y,bounds.h});
 		}
 		search.houseX = GetCellCenterPosition(0, 0).x - 120;
 		search.playerSun = mSun; search.playerIce = s.playerIce;
@@ -1298,7 +1328,23 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		if (mCardSlotManager) for (const Card* card : mCardSlotManager->GetCards()) {
 			if (!card) continue;
 			const auto type = card->GetGameplayPlantType();
-			if (!IsInstantBlast(type) && type != PlantType::PLANT_SQUASH) continue;
+			if(type==PlantType::PLANT_BLOVER) {
+                ColdStorageSearch::WindCounter wind;
+                wind.source=source++; wind.sunCost=card->GetSunCost(); wind.iceCost=GetPlantIceCost(type);
+                wind.ready=card->GetCooldownTimer()/cardRecharge; wind.recharge=card->GetCooldownTime()/cardRecharge;
+                wind.windup=Blover::GetForecastBlowDelay(); wind.house=card->GetBloverDirection()==WindDirection::TOWARD_HOUSE;
+                // 后台只选一个当前合法空格；真实占位和付款在每次释放前复核。
+                for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col)
+                    if(CanPlantAt(type,row,col)) wind.cells.push_back({row,col});
+                wind.deployment.health=GameDataManager::GetInstance().GetPlantSimulationProfile(type).baseHealth;
+                wind.deployment.maximumHealth=wind.deployment.initialHealth=wind.deployment.health;
+                wind.deployment.reward=PlantKillIce(GetPlantIceCost(type),s.difficulty);
+                wind.deployment.assetValue=wind.iceCost+wind.sunCost*search.sunIceValue;
+                wind.deployment.boundsX=wind.deployment.boundsY=-30; wind.deployment.boundsWidth=wind.deployment.boundsHeight=65;
+                if(!wind.cells.empty()) search.windCounters.push_back(wind);
+                continue;
+            }
+            if (!IsInstantBlast(type) && type != PlantType::PLANT_SQUASH) continue;
 			const bool doom = type == PlantType::PLANT_DOOMSHROOM && doomNeedsCoffee;
 			if (doom && !hasCoffee) continue;
 			const int id = source++;
@@ -1333,7 +1379,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 					|| card->GetSunCost() < 0 || (profile.daytimeDormant && !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround))) continue;
 				const bool lotus = type == PlantType::PLANT_DAWNLOTUS;
 				const bool lamp = IsWeatherStation() && type == PlantType::PLANT_PLANTERN;
-				if (!lotus && !lamp && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
+				if (!lotus && !lamp && profile.magneticSearchRadiusInCells<=0 && type!=PlantType::PLANT_MAGNETSHROOM && profile.attackDps <= 0 && profile.sunPerSecond <= 0 && profile.baseHealth < 1000) continue;
 				const int id = source++;
 				for (int row = 0; row < mRows; ++row) for (int col = 0; col < mColumns; ++col)
 					if (CanPlantAt(type,row,col) || CanForecastReplacementAt(type,row,col)) {
@@ -1348,6 +1394,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 					}
 					auto& p = future.plant;
 					p.row = row; p.column = col; p.x = GetCellCenterPosition(row,col).x;
+                    p.y=GetCellCenterPosition(row,col).y; p.boundsX=p.boundsY=-30; p.boundsWidth=p.boundsHeight=65;
 					p.layer = type == PlantType::PLANT_PUMPKINSHELL ? 2 : 1;
 					p.maximumHealth = static_cast<float>(profile.baseHealth);
 					p.health = static_cast<float>(profile.baseHealth); p.dps = profile.attackDps; p.sunPerSecond = profile.sunPerSecond;
@@ -1445,7 +1492,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		size_t index = 0;
 		for (const auto& z : snapshot.zombies) {
 			const Zombie* entity = mEntityRegistry.GetZombie(z.id);
-			if (z.mindControlled || !entity || !entity->HasHead()) continue;
+			if(const auto* elite=dynamic_cast<const EliteJackInTheBoxZombie*>(entity); elite && elite->IsActive() && elite->IsBoxInFlight()) {
+                const auto target=elite->GetThrowTargetPosition();
+                search.jackBoxes.push_back({target.x,target.y,JackBoxRules::Flight*(1-elite->GetBoxFlightProgress()),elite->WasThrownByMindControlledZombie(),elite->mZombieID});
+            }
+            if (z.mindControlled || !entity || !entity->HasHead()) continue;
 			auto& unit = search.current[index++];
 			unit.id = z.id;
 			unit.mistFuelReward=entity->GetMistFuelReward()*mPerkManager.GetMistFuelMultiplier();
@@ -1463,7 +1514,28 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.jammer=jammer->GetJammerPhase()!=WeatherJammerZombie::JammerPhase::SPENT;
 				unit.jammerRemaining=jammer->GetJammerPhase()==WeatherJammerZombie::JammerPhase::CHANNELING ? jammer->GetChannelRemaining() : 4.0f+jammer->GetRebootRemaining();
 			}
-			unit.helmHealth = static_cast<float>(z.helmHealth);
+			unit.maximumBody=z.bodyMaxHealth; unit.maximumHelm=z.helmMaxHealth; unit.maximumShield=z.shieldMaxHealth;
+            unit.boundsY=z.bounds.y-GetCellCenterPosition(z.row,std::clamp(static_cast<int>((z.x-search.gridLeft)/search.cellWidth),0,mColumns-1)).y; unit.boundsHeight=z.bounds.height;
+            unit.magneticLayer=!z.magneticItemAvailable ? 0 : z.magneticRemovesHelm ? 1 : z.magneticRemovesShield ? 2 : 3;
+            if(entity->mZombieType==ZombieType::ZOMBIE_JACK_IN_THE_BOX) {
+                unit.jack=static_cast<const JackInTheBoxZombie*>(entity)->GetBoxForecast();
+                unit.jack.disarmedSpeed=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_JACK_IN_THE_BOX,JackInTheBoxZombie::GetDisarmedMovementProfile()).lowerQuartile;
+            }
+            if(const auto* elite=dynamic_cast<const EliteJackInTheBoxZombie*>(entity)) {
+                unit.jack.present=unit.jack.elite=true;
+                unit.jack.remaining=elite->IsBoxInFlight() ? -1 : elite->GetThrowCountdown();
+                unit.jack.stopHealth=elite->mBodyMaxHealth/3;
+
+            }
+            if(const auto* healer=dynamic_cast<const HealerZombie*>(entity)) unit.healer=healer->GetTreatmentForecast();
+            if(const auto* balloon=dynamic_cast<const BalloonZombie*>(entity)) {
+                unit.balloon=balloon->GetBalloonForecast();
+                unit.balloon.walkSpeed/=(unit.inspiration.empty() ? 1 : entity->GetDrumSpeedAmplifier()*entity->GetDrumMoveMultiplier());
+                unit.body.health+=unit.balloon.health;
+                unit.temporalStopHealth=0;
+            }
+            if(entity->mZombieType==ZombieType::ZOMBIE_INSULATOR) unit.magneticBacklash=InsulatorZombie::MagneticBacklashDamage;
+            unit.helmHealth = static_cast<float>(z.helmHealth);
 			unit.temporalStopHealth = entity->mNeedDropHead && entity->mZombieType!=ZombieType::ZOMBIE_ROOF_MARSHAL ? entity->mBodyMaxHealth/3 : 0;
 			unit.temporalEligible = entity->mZombieType != ZombieType::ZOMBIE_BOBSLED_TEAM
 				&& entity->mZombieType != ZombieType::ZOMBIE_ROOF_MARSHAL && entity->mZombieType != ZombieType::ZOMBIE_BOSS;
@@ -1526,6 +1598,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			plant.row = p.row; plant.column = p.column; plant.layer = p.eatingLayerPriority;
 			plant.id = p.id;
 			plant.x = p.x; plant.health = p.health; plant.dps = p.attackDps;
+            plant.y=p.y; plant.boundsX=p.bounds.x-p.x; plant.boundsY=p.bounds.y-p.y;
+            plant.boundsWidth=p.bounds.width; plant.boundsHeight=p.bounds.height;
 			plant.sunPerSecond = p.sunPerSecond;
 			plant.rowRadius = p.attackRowRadius; plant.edible = p.canBeEaten;
 			plant.slowRate = p.slowApplicationsPerSecond; plant.slowDuration = p.slowDuration;
@@ -1556,6 +1630,17 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+                plant.magnetRemaining=p.abilityCooldownRemaining;
+                if(const auto* magnet=dynamic_cast<const MagnetShroom*>(entity))
+                    plant.magnetRemaining=magnet->GetRechargeTimeRemaining()/std::max(.01f,entity->GetSkillSpeedMultiplier());
+                plant.magnetRecharge/=std::max(.01f,entity->GetSkillSpeedMultiplier());
+                if(const auto* blover=dynamic_cast<const Blover*>(entity); blover && !blover->HasTriggeredBlow()) {
+                    ColdStorageSearch::WindCounter wind;
+                    wind.committed=true; wind.plantID=entity->mPlantID; wind.ready=blover->GetForecastBlowRemaining()/std::max(.01f,entity->GetSkillSpeedMultiplier());
+                    wind.house=blover->GetBlowDirection()==WindDirection::TOWARD_HOUSE;
+                    search.windCounters.push_back(wind);
+                }
+                if(entity->GetSleepState()) plant.magnetRadius=0;
 				if(plant.airborneDefenseRadius>=0 && !entity->ProtectsCellFromAirborneThreat(plant.row,plant.column)) plant.airborneDefenseRadius=-1;
 				if (const auto* flower=dynamic_cast<const ThunderFlower*>(entity))
 					plant.thunderRemaining=flower->GetAttackRemaining();
@@ -1597,6 +1682,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			ColdStorageSearch::Plant plant;
 			plant.row = p.row; plant.column = p.column; plant.layer = 0;
 			plant.x = p.x; plant.health = p.health; plant.edible = p.canBeEaten;
+            plant.y=GetCellCenterPosition(p.row,p.column).y; plant.id=p.id;
+            if(const auto* entity=mEntityRegistry.GetPlant(p.id)) if(const auto* collider=entity->GetColliderComponent()) {
+                const auto bounds=collider->GetBoundingBox(); plant.boundsX=bounds.x-plant.x; plant.boundsY=bounds.y-plant.y;
+                plant.boundsWidth=bounds.w; plant.boundsHeight=bounds.h;
+            }
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(entity->GetPlacementType()), s.difficulty));
 				plant.assetValue = plantCapital(entity);
@@ -1637,12 +1727,41 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		const auto danceWalk=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_DANCER,danceProfile);
 		const auto backupWalk=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_BACKUP_DANCER,BackupDancerZombie::GetDancingMovementProfile());
 		const float snapSeconds=DancerZombie::GetForecastSnapSeconds();
+        const float popSeconds=JackInTheBoxZombie::GetForecastExplosionSeconds();
+        const float balloonPop=BalloonZombie::GetForecastPopDuration();
+        const auto balloonWalk=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_BALLOON,BalloonZombie::GetWalkingMovementProfile());
+        const auto disarmed=GameDataManager::GetInstance().GetZombieMoveSpeeds(ZombieType::ZOMBIE_JACK_IN_THE_BOX,JackInTheBoxZombie::GetDisarmedMovementProfile());
 		auto purchaseUnit = [&](ZombieType type, int row, int cost, float delay) {
 			ColdStorageSearch::Unit unit;
 			unit.body = newSplashUnit(type,row,delay);
 			const auto vitals=ZombieBirthVitalsRules::Scaled(ZombieBirthVitalsRules::Get(type),GetZombieHpMultiplier(),
 				mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
 			unit.helmHealth=vitals.helm; unit.shieldHealth=vitals.shield; unit.biteDps=vitals.bite;
+            unit.maximumBody=vitals.body; unit.maximumHelm=vitals.helm; unit.maximumShield=vitals.shield;
+            if(type==ZombieType::ZOMBIE_HEALER) {
+                unit.healer.present=true;
+                unit.healer.disableBodyHealth=s.difficulty<=HealerRules::ArmDisableDifficulty ? static_cast<std::int64_t>(vitals.body)*2/3 : vitals.body/3;
+            }
+            if(type==ZombieType::ZOMBIE_BALLOON) {
+                auto& balloon=unit.balloon; balloon.present=true; balloon.popDuration=balloonPop;
+                balloon.walkSpeed=balloonWalk.lowerQuartile;
+                balloon.flightSpeed=unit.body.speed; balloon.windMultiplier=GetZombieWindMoveMultiplier(false);
+                balloon.poolRow=IsPoolRow(row); balloon.health=balloon.maximumHealth=ZombieBirthVitalsRules::ScaleHealth(BalloonRules::Health,GetZombieHpMultiplier()); unit.body.health+=balloon.health;
+            }
+            if(type==ZombieType::ZOMBIE_INSULATOR) unit.magneticBacklash=InsulatorZombie::MagneticBacklashDamage;
+            unit.boundsY=GetZombieSpawnY(row,unit.body.x)-GetCellCenterPosition(row,mColumns-1).y-65-(type==ZombieType::ZOMBIE_BALLOON ? BalloonRules::ColliderRise : 0); unit.boundsHeight=100;
+            if(type==ZombieType::ZOMBIE_JACK_IN_THE_BOX || type==ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX) {
+                auto& jack=unit.jack; jack.present=true; jack.elite=type==ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX;
+                jack.remaining=jack.elite ? (JackBoxRules::ThrowMin+JackBoxRules::ThrowMax)*.5f : JackBoxRules::BirthPopSeconds(.67f);
+                jack.release=jack.releaseRemaining=popSeconds; jack.stopHealth=vitals.body/3;
+                jack.disarmedSpeed=disarmed.lowerQuartile;
+                if(!jack.elite) unit.magneticLayer=3;
+            }
+            using Z=ZombieType;
+            if(type==Z::ZOMBIE_BUCKET || type==Z::ZOMBIE_POOL_BUCKET || type==Z::ZOMBIE_FASTBUCKET || type==Z::ZOMBIE_WEATHER_JAMMER
+                || type==Z::ZOMBIE_FOOTBALL || type==Z::ZOMBIE_INSULATOR || type==Z::ZOMBIE_ICE_STATUE_EXECUTIONER) unit.magneticLayer=1;
+            if(type==Z::ZOMBIE_DOOR || type==Z::ZOMBIE_REINFORCED_DOOR || type==Z::ZOMBIE_LADDER || type==Z::ZOMBIE_ELITE_LADDER) unit.magneticLayer=2;
+            if(type==Z::ZOMBIE_DIGGER || type==Z::ZOMBIE_POGO) unit.magneticLayer=3;
 			unit.hijacker=type==ZombieType::ZOMBIE_HIJACKER; unit.grounding=type==ZombieType::ZOMBIE_GROUNDING; unit.insulator=type==ZombieType::ZOMBIE_INSULATOR;
 			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=4;
 			unit.groundHazard=type!=ZombieType::ZOMBIE_BALLOON && type!=ZombieType::ZOMBIE_BUNGEE;
@@ -1732,7 +1851,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				auto& saved = target.saved;
 				saved.body.row = recorded.row; saved.body.x = recorded.x-saved.body.blastAnchorOffset;
 				saved.helmHealth = static_cast<float>(recorded.helmHealth); saved.shieldHealth = static_cast<float>(recorded.shieldHealth);
-				saved.body.health = static_cast<float>(recorded.bodyHealth+recorded.helmHealth+recorded.shieldHealth);
+				saved.body.health = static_cast<float>(recorded.bodyHealth+recorded.helmHealth+recorded.shieldHealth)+(saved.balloon.present ? saved.balloon.health : 0);
 				saved.body.slow = recorded.slowTimer; saved.body.stopped = std::max({recorded.frozenTimer,recorded.butterTimer,recorded.paralysisTimer});
 				target.restoreHelm = recorded.restoreHelm; target.restoreShield = recorded.restoreShield;
 				target.restoreAbility = recorded.abilityStateValid && recorded.zombieID != liveAnchor.ownerZombieID;
@@ -2538,6 +2657,8 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 		mix(plant->GetSimulationAbilityCooldownRemaining() <= 0);
 		if (const auto* lamp = dynamic_cast<const Plantern*>(plant)) { mix(static_cast<unsigned>(lamp->GetGear())); mix(lamp->HasUsableLight()); }
 		if (const auto* lotus = dynamic_cast<const DawnLotus*>(plant)) mix(lotus->IsReadyToActivate());
+        if(const auto* magnet=dynamic_cast<const MagnetShroom*>(plant)) mix(magnet->GetRechargeTimeRemaining()<=0);
+        if(const auto* blover=dynamic_cast<const Blover*>(plant)) {mix(blover->HasTriggeredBlow());mix(static_cast<unsigned>(blover->GetBlowDirection()));}
 		if (const auto* nut = dynamic_cast<const IceStorageNut*>(plant)) { mix(nut->IsDamageImmune()); mix(nut->IsReadyToActivate()); mix(nut->IsAutomatic()); mix(nut->IsIceSealed()); }
 		if (const auto* pineapple = dynamic_cast<const ColdPineapple*>(plant)) {
 			mix(pineapple->GetActiveRemaining() > 0); mix(pineapple->IsReadyToActivate()); mix(pineapple->IsAutomatic());
@@ -2546,8 +2667,17 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	for (int id : mEntityRegistry.GetAllZombieIDs()) {
 		const Zombie* zombie = mEntityRegistry.GetZombie(id);
 		if (zombie && zombie->IsActive() && !zombie->IsDying()) {
-			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(zombie)) {
-				mix(id); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().kind)); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().lineage));
+			// 新能力只记录事务阶段边沿，不按每帧余时变化丢弃仍可用的完整候选。
+            if(const auto* jack=dynamic_cast<const JackInTheBoxZombie*>(zombie)) {
+                mix(id); mix(static_cast<unsigned>(jack->GetPhase()));
+                if(const auto* elite=dynamic_cast<const EliteJackInTheBoxZombie*>(jack)) mix(elite->IsBoxInFlight());
+            }
+            if(const auto* healer=dynamic_cast<const HealerZombie*>(zombie)) {
+                mix(id);mix(static_cast<unsigned>(healer->GetTreatmentState()));mix(static_cast<std::uint64_t>(healer->GetFocusedTargetID()));
+            }
+            if(const auto* balloon=dynamic_cast<const BalloonZombie*>(zombie)) {mix(id);mix(static_cast<unsigned>(balloon->GetPhase()));}
+            if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(zombie)) {
+                mix(id); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().kind)); mix(static_cast<unsigned>(adaptive->GetAdaptedOrigin().lineage));
 			}
 			if (const auto* priest = dynamic_cast<const AuroraPriestZombie*>(zombie)) {
 				mix(id); mix(static_cast<unsigned>(priest->GetRitualPhase())); mix(priest->GetRitualReleaseCount()); mix(priest->IsOverloaded());

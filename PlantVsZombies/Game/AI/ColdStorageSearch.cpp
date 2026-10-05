@@ -21,6 +21,8 @@
 #include <random>
 #include <set>
 #include <utility>
+#include <tuple>
+#include "ColdStorageHealerForecast.h"
 #include <unordered_map>
 
 namespace ColdStorageSearch {
@@ -39,6 +41,7 @@ float PaidSearchCapital(const Snapshot& s) {
 }
 constexpr float kHorizon = 60; // 推演覆盖的游戏秒，实际对局评测负责检验更长期收益
 constexpr float kStep = 0.5f; // 仅候选预测的积分步长；真实比赛仍使用正式固定步
+static_assert(kStep==HealerForecastStep,"healer and formation forecast must share a step");
 constexpr float kResponseHighLightFuel = 20; // 一种玩家应对的III挡储油门槛，雾火；不改变真人操作和植物规则
 constexpr int kTrials = 96; // 自由搜索的评估数，之后最多补六次同编队逐行比较
 constexpr int kMaxActions = 8; // 小队搜索阶段的单位上限；升级后的完整编队搜索使用正式容量
@@ -99,6 +102,7 @@ float PlayerIceCost(const Snapshot& s, float time, float cost) {
 
 /** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
 float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false, PlantDamageOrigin origin = {}) {
+	if(unit.jack.present && !unit.jack.elite && unit.jack.phase==JackBoxRules::Forecast::Phase::POPPING) return 0;
 	if (origin.IsValid() && unit.adaptedOrigin.IsValid() && origin == unit.adaptedOrigin) return 0;
 	if (unit.adaptiveHelmet > 0 && origin.IsValid() && damage >= unit.adaptiveHelmet) {
 		const float lost = unit.adaptiveHelmet;
@@ -107,7 +111,11 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
 		return lost; // 首次击穿整击只提交适应，不允许溢入本体。
 	}
 	auto& health = unit.body.health;
-	const float before = health;
+    const float before = health;
+    const auto balloonHit=unit.balloon.AbsorbDamage(damage);
+    health-=balloonHit.absorbed; damage=balloonHit.remainder;
+    if(balloonHit.drowned) {health=0;return before;}
+    if(damage<=0) return before-health;
 	const float shield = std::clamp(unit.shieldHealth,0.0f,std::max(0.0f,health));
 	const float shieldLoss = bypass ? 0 : std::min(shield,damage);
 	const float vitalLoss = bypass || penetrate ? damage : discardOverflow && shield > 0 ? 0 : damage-shieldLoss;
@@ -136,8 +144,13 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 }
 /** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
 float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
-	// 祭司与钟匠沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
-	const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
+	if(ash && unit.jack.elite && damage>=unit.body.health-unit.helmHealth-unit.shieldHealth) unit.jack.flightsCancelled=true;
+    // 祭司与钟匠沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
+	if(ash && unit.jack.present && !unit.jack.elite && unit.jack.phase==JackBoxRules::Forecast::Phase::POPPING) {
+        if(damage<unit.body.health-unit.helmHealth-unit.shieldHealth) return 0;
+        const float lost=unit.body.health; unit.body.health=0; return lost;
+    }
+    const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
 	if (ash && (unit.ritual.present || unit.clock.present) && damage >= unit.body.health-armor-unit.shieldHealth) {
 		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; unit.helmHealth = 0; return lost;
 	}
@@ -166,8 +179,20 @@ bool ExpandFundedPortfolio(Snapshot& state) {
 	return expanded;
 }
 
+/** 根据同帧网格高度投影爆区Y；屋顶使用采样坡度，纯数值夹具保留行高默认值。 */
+float ForecastRowY(const Snapshot& state,int row,float x) {
+    if(row<0 || row>=state.rows) return 0;
+    const int first=row*state.columns;
+    if(first>=0 && first<54 && state.cellY[first]!=0) {
+        const float column=std::clamp((x-state.gridLeft)/state.cellWidth-.5f,0.0f,static_cast<float>(state.columns-1));
+        const int left=static_cast<int>(column),right=std::min(left+1,state.columns-1);
+        return state.cellY[first+left]+(state.cellY[first+right]-state.cellY[first+left])*(column-left);
+    }
+    return state.rowY[row]!=0 ? state.rowY[row] : (row+.5f)*state.cellHeight;
+}
+
 /** 先提交清洁车触发和扫过区间，再判断进屋；未出生部队不能被提前清掉，也不能重复使用同一辆车。 */
-void AdvanceMowers(std::vector<Mower>& mowers, std::vector<Unit>& units, float time, float rightEdge) {
+void AdvanceMowers(const Snapshot& state,std::vector<Mower>& mowers, std::vector<Unit>& units, float time, float rightEdge) {
 	for (auto& mower : mowers) {
 		if (!mower.active) continue;
 		const float left = mower.x;
@@ -176,7 +201,9 @@ void AdvanceMowers(std::vector<Mower>& mowers, std::vector<Unit>& units, float t
 		for (auto& unit : units) {
 			auto& u = unit.body;
 			if (u.health <= 0 || u.spawnAt > time || u.row != mower.row
-				|| u.x+u.boundsOffset+u.boundsWidth < left || u.x+u.boundsOffset > right) continue;
+				|| (mower.height>0 && (ForecastRowY(state,u.row,u.x)+unit.boundsY+unit.boundsHeight<mower.y
+                    || ForecastRowY(state,u.row,u.x)+unit.boundsY>mower.y+mower.height))
+                || u.x+u.boundsOffset+u.boundsWidth < left || u.x+u.boundsOffset > right) continue;
 			mower.moving = true;
 			if (unit.consumesOtherMowers) for (auto& other : mowers) if (&other != &mower) other.active = false;
 			if (!unit.mowerImmune) { u.health = 0; unit.temporalIrreversible = true; }
@@ -1760,8 +1787,11 @@ static void AdvancePlayerEconomy(const Snapshot& state, float time, const std::v
 		})) continue;
 		neededIce = std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,card.iceCost)));
 	}
-	for (const auto& card : state.construction) {
-		if (reserveCounterSpace && (!rebuildCounterLight || !card.plant.plantern)) continue;
+	for(const auto& wind:state.windCounters) if(!wind.committed && wind.iceCost>0 && wind.ready<=time+delivery
+        && std::any_of(units.begin(),units.end(),[&](const Unit& u){return u.body.health>0 && u.body.spawnAt<=time && u.balloon.present && u.balloon.phase==BalloonRules::Phase::FLYING;}))
+        neededIce=std::max(neededIce,static_cast<float>(PlayerIceCost(state,time,wind.iceCost)));
+    for (const auto& card : state.construction) {
+        if (reserveCounterSpace && (!rebuildCounterLight || !card.plant.plantern)) continue;
 		if (card.plant.plantern && std::any_of(plants.begin(),plants.end(),[](const Plant& p) {
 			return p.plantern && p.health>0;
 		})) continue;
@@ -2137,6 +2167,224 @@ static void ExecutePlant(Plant& plant, Weights& features) {
 	features[0] += plant.reward; plant.health = 0;
 }
 
+/** 圆形爆区使用实际矩形最近点，不能把相邻行一律当成命中或漏掉边缘层。 */
+bool BoxOverlapsPlant(const Plant& plant,float x,float y,float radius) {
+    const float dx=x-std::clamp(x,plant.x+plant.boundsX,plant.x+plant.boundsX+plant.boundsWidth);
+    const float dy=y-std::clamp(y,plant.y+plant.boundsY,plant.y+plant.boundsY+plant.boundsHeight);
+    return dx*dx+dy*dy<=radius*radius;
+}
+
+/** 与正式九宫格保护者保持同样的格距和稳定择优；死亡壳不能继续替宿主吸收。 */
+int BoxPumpkinProtector(const Snapshot& state,const std::vector<Plant>& plants,size_t target) {
+    const auto& p=plants[target];
+    int best=-1,distance=100000;
+    for(size_t i=0;i<plants.size();++i) {
+        const auto& shell=plants[i];
+        if(!shell.pumpkin || shell.health<=0 || std::abs(p.row-shell.row)>state.pumpkinProtectionCells
+            || std::abs(p.column-shell.column)>state.pumpkinProtectionCells || (p.pumpkin && i!=target)) continue;
+        const int dr=p.row-shell.row,dc=p.column-shell.column,d=dr*dr+dc*dc;
+        if(best<0 || d<distance || (d==distance && std::tie(shell.row,shell.column,shell.id)
+            <std::tie(plants[best].row,plants[best].column,plants[best].id))) {best=static_cast<int>(i);distance=d;}
+    }
+    return best;
+}
+
+/** 先锁定承伤集合再扣血，保证同次范围伤害只扣每个保护壳一次，不溢给宿主。 */
+std::vector<int> BoxPlantRecipients(const Snapshot& state,const std::vector<Plant>& plants,float x,float y) {
+    std::vector<int> targets;
+    for(size_t i=0;i<plants.size();++i) {
+        const auto& p=plants[i];
+        if(p.health<=0 || !BoxOverlapsPlant(p,x,y,JackBoxRules::BoxRadius)) continue;
+        const int shell=BoxPumpkinProtector(state,plants,i);
+        const int target=shell>=0 ? shell : static_cast<int>(i);
+        if(std::find(targets.begin(),targets.end(),target)==targets.end()) targets.push_back(target);
+    }
+    return targets;
+}
+
+/** 有界贪心选点复用正式后排/产能估值；不在后台嵌套实体自己的Monte Carlo或消费游戏RNG。 */
+int FindJackBoxTarget(const Snapshot& state,const Unit& unit,const std::vector<Plant>& plants) {
+    std::array<bool,54> seen{};
+    float best=-1; int cell=-1;
+    for(const auto& p:plants) {
+        const int key=p.row*state.columns+p.column;
+        if(p.health<=0 || std::abs(p.row-unit.body.row)>1 || key<0 || key>=54 || p.column<0 || p.column>=state.columns || seen[key]) continue;
+        seen[key]=true;
+        const float x=state.gridLeft+(p.column+.5f)*state.cellWidth;
+        const float y=ForecastRowY(state,p.row,x);
+        float value=0;
+        for(int target:BoxPlantRecipients(state,plants,x,y)) {
+            const auto& affected=plants[target];
+            value+=affected.targetValue*(affected.column<(state.columns+1)/2 ? JackBoxRules::BacklineValue : 1);
+        }
+        if(value>best || (value==best && (cell<0 || key<cell))) { best=value; cell=key; }
+    }
+    return cell;
+}
+
+/** 已离手的盒子独立计时；控场/死亡动画不暂停，灰烬真正移除载体会取消，回溯不复制。 */
+void AdvanceJackBoxes(const Snapshot& state,float time,std::vector<JackBoxFlight>& boxes,
+    std::vector<Unit>& units,std::vector<Plant>& plants,Weights& features,ConstructionStats& stats) {
+    for(auto it=boxes.begin();it!=boxes.end();) {
+        if(std::any_of(units.begin(),units.end(),[&](const Unit& owner){return owner.id==it->ownerID && owner.jack.flightsCancelled;})) {
+            it=boxes.erase(it); continue;
+        }
+        if(it->at>time) {++it;continue;}
+        if(it->charmed) {
+            for(auto& target:units) {
+                const auto& body=target.body;
+                if(body.health<=0 || body.spawnAt>time || target.id==it->ownerID) continue;
+                const float dy=it->y-std::clamp(it->y,ForecastRowY(state,body.row,body.x)+target.boundsY,
+                    ForecastRowY(state,body.row,body.x)+target.boundsY+target.boundsHeight);
+                const float dx=it->x-std::clamp(it->x,body.x+body.boundsOffset,body.x+body.boundsOffset+body.boundsWidth);
+                if(dx*dx+dy*dy<=JackBoxRules::BoxRadius*JackBoxRules::BoxRadius)
+                    ApplyDamage(target,JackBoxRules::BoxDamage);
+            }
+        } else {
+            for(int index:BoxPlantRecipients(state,plants,it->x,it->y)) {
+                auto& p=plants[index];
+                if(it->at<p.counterBlastAt && DamagePlant(p,JackBoxRules::BoxDamage*(p.pumpkin ? state.pumpkinDamageMultiplier : 1),false,features))
+                    ++stats.jackBoxHits;
+            }
+        }
+        for(auto& owner:units) if(owner.id==it->ownerID && owner.body.health>0 && owner.jack.elite && owner.jack.remaining<0)
+            owner.jack.remaining=(JackBoxRules::ThrowMin+JackBoxRules::ThrowMax)*.5f;
+        it=boxes.erase(it);
+    }
+}
+
+/** 普通开盒计时按游戏秒而非冰减速；开盒动作按动画推进。返回是否停步禁啃。 */
+bool AdvanceJack(const Snapshot& state,float time,Unit& unit,float active,bool slowed,float rain,
+    std::vector<Plant>& plants,std::vector<JackBoxFlight>& boxes,Weights& features,ConstructionStats& stats) {
+    auto& jack=unit.jack;
+    if(!jack.present || jack.phase==JackBoxRules::Forecast::Phase::DISARMED) return false;
+    if(jack.elite) {
+        if(unit.body.health-unit.helmHealth-unit.shieldHealth<=jack.stopHealth || active<=0 || jack.remaining<0) return false;
+        jack.remaining-=active;
+        if(jack.remaining>0) return false;
+        const int cell=FindJackBoxTarget(state,unit,plants);
+        if(cell<0) { jack.remaining=JackBoxRules::Retry; return false; }
+        const float x=state.gridLeft+(cell%state.columns+.5f)*state.cellWidth;
+        boxes.push_back({x,ForecastRowY(state,cell/state.columns,x),time+active+JackBoxRules::Flight,false,unit.id});
+        jack.remaining=-1; // 飞行期间不启动下一轮计时；落地后由独立队列恢复持盒。
+        ++stats.jackThrows;
+        return false;
+    }
+    using Phase=JackBoxRules::Forecast::Phase;
+    if(jack.phase==Phase::RUNNING) {
+        if(unit.body.health-unit.helmHealth-unit.shieldHealth<=jack.stopHealth) return false;
+        jack.remaining-=active;
+        if(jack.remaining>0 || active<=0) return false;
+        jack.phase=Phase::POPPING; jack.releaseRemaining=jack.release;
+        return true;
+    }
+    const float rate=GoldenIceRules::Amplify(jack.animationBase,unit.goldenStacks)
+        *GoldenIceRules::Amplify(slowed ? ZombieMovementRules::NormalSlowAnimationFactor : 1,unit.goldenStacks)
+        *GoldenIceRules::Amplify(rain,unit.goldenStacks);
+    jack.releaseRemaining-=active*rate;
+    if(jack.releaseRemaining<=0 && active>0) {
+        const float x=unit.body.x+unit.body.boundsOffset+unit.body.boundsWidth*.5f;
+        const float y=ForecastRowY(state,unit.body.row,unit.body.x)+unit.boundsY+unit.boundsHeight*.5f;
+        for(auto& p:plants) if(p.health>0 && p.immuneRemaining<=0 && p.burstProtection.invulnerable<=0
+            && !p.deploymentInterceptionOnly && BoxOverlapsPlant(p,x,y,JackBoxRules::PlantRadius)) ExecutePlant(p,features);
+        unit.body.health=0; ++stats.jackExplosions;
+    }
+    return true;
+}
+
+/** 磁力按最近合法金属竞争，不凭空优先废除小丑；每株充能和已提交锚的剥离标记独立。 */
+void AdvanceMagnets(const Snapshot& state,float time,std::vector<Plant>& plants,std::vector<Unit>& units,
+    std::vector<TemporalAnchor>& anchors,ConstructionStats& stats) {
+    for(auto& p:plants) {
+        if(p.health<=0 || p.magnetRadius<=0 || p.shutdownUntil>time) continue;
+        p.magnetRemaining=std::max(0.0f,p.magnetRemaining-kStep);
+        if(p.magnetRemaining>0) continue;
+        int best=-1; float bestScore=(std::numeric_limits<float>::max)();
+        for(size_t i=0;i<units.size();++i) {
+            const auto& u=units[i]; const auto& b=u.body;
+            if(b.health<=0 || b.spawnAt>time || u.magneticLayer==0 || std::abs(b.row-p.row)>p.magnetRows
+                || b.health-u.helmHealth-u.shieldHealth-(u.balloon.present ? u.balloon.health : 0)<=u.temporalStopHealth
+                || b.x+b.boundsOffset>state.rightEdge || (u.magneticLayer==1 && u.helmHealth<=0)
+                || (u.magneticLayer==2 && u.shieldHealth<=0)
+                || (u.jack.present && u.jack.phase!=JackBoxRules::Forecast::Phase::RUNNING)) continue;
+            const float y=ForecastRowY(state,b.row,b.x)+u.boundsY;
+            const float dx=p.x-std::clamp(p.x,b.x+b.boundsOffset,b.x+b.boundsOffset+b.boundsWidth);
+            const float dy=p.y-std::clamp(p.y,y,y+u.boundsHeight);
+            const bool eating=std::any_of(plants.begin(),plants.end(),[&](const Plant& target) {
+                return target.health>0 && target.edible && target.row==b.row && std::abs(target.x-b.x)<=kContact;
+            });
+            const float radius=eating ? p.magnetEatingRadius : p.magnetRadius;
+            if(dx*dx+dy*dy>radius*radius) continue;
+            const float centerX=b.x+b.boundsOffset+b.boundsWidth*.5f,centerY=y+u.boundsHeight*.5f;
+            const float score=std::hypot(centerX-p.x,centerY-p.y)+std::abs(b.row-p.row)*p.magnetRowPenalty;
+            if(score<bestScore) {best=static_cast<int>(i);bestScore=score;}
+        }
+        if(best<0) continue;
+        auto& u=units[best]; const int layer=u.magneticLayer;
+        if(layer==1) {u.body.health-=u.helmHealth;u.helmHealth=u.maximumHelm=u.adaptiveHelmet=u.ritual.armor=0;}
+        if(layer==2) {u.body.health-=u.shieldHealth;u.shieldHealth=u.maximumShield=0;}
+        if(u.jack.present && !u.jack.elite) {
+            u.jack.phase=JackBoxRules::Forecast::Phase::DISARMED; u.jack.remaining=0;
+            u.body.speed=u.jack.disarmedSpeed;
+        }
+        u.magneticLayer=0; p.magnetRemaining=p.magnetRecharge; ++stats.magneticExtractions;
+        for(auto& anchor:anchors) for(auto& target:anchor.targets) if(target.unit==best) {
+            if(layer==2) target.restoreShield=false;
+            else {target.restoreHelm=false;target.restoreAbility=false;}
+        }
+        // 绝缘胸甲反噬绕过南瓜及护体；它不是僵尸击杀奖励。
+        p.health=std::max(0.0f,p.health-u.magneticBacklash);
+        if(p.magneticPulseRadius>0) for(auto& target:units) {
+            if(target.body.health<=0 || target.body.spawnAt>time || !target.paralysisAllowed) continue;
+            const float dx=target.body.x-u.body.x,dy=ForecastRowY(state,target.body.row,target.body.x)-ForecastRowY(state,u.body.row,u.body.x);
+            if(dx*dx+dy*dy<=p.magneticPulseRadius*p.magneticPulseRadius)
+                target.body.stopped=std::max(target.body.stopped,p.magneticPulseParalysis);
+        }
+    }
+}
+
+/** 三叶草沿真实卡槽付款并延迟吹风；既有演出依赖来源，吹飞不触发工程师灰烬保护。 */
+void AdvanceWindCounters(const Snapshot& state,float time,std::vector<WindCounter>& winds,
+    std::vector<Plant>& plants,std::vector<Unit>& units,float& sun,float& ice,ConstructionStats& stats) {
+    for(auto& wind:winds) {
+        if(wind.committed || wind.plantID>0) {
+            const auto source=std::find_if(plants.begin(),plants.end(),[&](const Plant& p){return p.id==wind.plantID && p.health>0;});
+            if(source==plants.end()) {
+                if(wind.plantID>0) wind.ready=Horizon(state)+1;
+                else {wind.plantID=0;wind.committed=false;wind.ready=std::max(time,wind.nextReady);}
+                continue;
+            }
+            // 停机暂停动画事件，必须保存剩余前摇，不能在恢复当刻补发过期吹风。
+            if(source->shutdownUntil>time) {
+                wind.ready+=std::min(kStep,source->shutdownUntil-time); continue;
+            }
+        }
+        if(wind.ready>time) continue;
+        if(!wind.committed && wind.plantID==0) {
+            const bool target=std::any_of(units.begin(),units.end(),[&](const Unit& u){return u.body.health>0 && u.body.spawnAt<=time
+                && u.balloon.present && u.balloon.phase==BalloonRules::Phase::FLYING && u.body.x<=state.rightEdge;});
+            if(!target || sun<wind.sunCost || ice<PlayerIceCost(state,time,wind.iceCost)
+                 ) continue;
+            const auto cell=std::find_if(wind.cells.begin(),wind.cells.end(),[&](const auto& cell) {
+                return std::none_of(plants.begin(),plants.end(),[&](const Plant& p){return p.health>0 && p.layer==1 && p.row==cell[0] && p.column==cell[1];});
+            });
+            if(cell==wind.cells.end()) continue;
+            auto plant=wind.deployment;
+            plant.row=(*cell)[0]; plant.column=(*cell)[1]; plant.x=state.gridLeft+(plant.column+.5f)*state.cellWidth;
+            plant.y=ForecastRowY(state,plant.row,plant.x); plant.id=-300000-static_cast<int>(plants.size());
+            wind.plantID=plant.id; wind.committed=true; plants.push_back(plant);
+            sun-=wind.sunCost; const float cost=PlayerIceCost(state,time,wind.iceCost); ice-=cost;
+            stats.sunSpent+=wind.sunCost; stats.iceSpent+=cost;
+            wind.nextReady=time+wind.recharge; wind.ready=time+wind.windup;
+            continue;
+        }
+        for(auto& u:units) if(u.body.health>0 && u.body.spawnAt<=time) u.balloon.BeginBlow(wind.house);
+        for(auto& p:plants) if(p.id==wind.plantID) p.health=0;
+        if(wind.plantID>0) wind.ready=Horizon(state)+1;
+        else {wind.committed=false; wind.plantID=0; wind.ready=std::max(time,wind.nextReady);}
+    }
+}
+
 /** 推进装填/停步瞄准与已出膛弹道；按沿途最近格及南瓜优先结算，不穿透前墙。 */
 static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vector<Unit>& units,
 	std::vector<Plant>& plants, std::vector<DeploymentPulse>& pulses, std::vector<float>& activity,
@@ -2429,7 +2677,18 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 				} else if(unit.dance.backup) {
 					unit.dance.phase=DancerRules::Forecast::Phase::HOLD; unit.dance.remaining=DancerRules::HoldSeconds;
 				}
-				// 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
+				if(unit.jack.present) {
+                    unit.jack.flightsCancelled=false; unit.jack.phase=JackBoxRules::Forecast::Phase::RUNNING;
+                    unit.jack.remaining=unit.jack.elite ? (JackBoxRules::ThrowMin+JackBoxRules::ThrowMax)*.5f : JackBoxRules::BirthPopSeconds(.67f);
+                    if(!target.restoreAbility && saved.jack.phase==JackBoxRules::Forecast::Phase::DISARMED) unit.jack.phase=JackBoxRules::Forecast::Phase::DISARMED;
+                }
+                if(unit.balloon.present) {
+                    if(unit.balloon.phase==BalloonRules::Phase::WALKING) unit.boundsY-=BalloonRules::ColliderRise;
+                    unit.balloon.phase=BalloonRules::Phase::FLYING; unit.balloon.health=unit.balloon.maximumHealth;
+                    unit.balloon.blowing=false;unit.balloon.blowRemaining=0;unit.groundHazard=false;unit.temporalStopHealth=0;
+                }
+                if(unit.healer.present) { unit.healer=HealerRules::Forecast{}; unit.healer.present=unit.healer.enabled=true; unit.healer.disableBodyHealth=saved.healer.disableBodyHealth; }
+                // 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
 				if(unit.catapult.present) {
 					unit.catapult.ammunition=CatapultRules::kInitialBasketballs;
 					unit.catapult.phase=CatapultAttack::Phase::WALKING;
@@ -2446,7 +2705,8 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			}
 			const float helm=target.restoreHelm ? saved.helmHealth : revived ? 0 : unit.helmHealth;
 			const float shield=target.restoreShield ? saved.shieldHealth : revived ? 0 : unit.shieldHealth;
-			unit.body.health=saved.body.health-saved.helmHealth-saved.shieldHealth+helm+shield;
+			unit.body.health=saved.body.health-saved.helmHealth-saved.shieldHealth+helm+shield
+                +(unit.balloon.present ? unit.balloon.health-saved.balloon.health : 0);
 			unit.helmHealth=helm; unit.shieldHealth=shield;
 			unit.body.slow=saved.body.slow; unit.body.stopped=saved.body.stopped;
 			unit.adaptiveHelmet=target.restoreHelm ? saved.adaptiveHelmet : 0;
@@ -2456,6 +2716,7 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 				unit.ritual.armor=std::min(saved.ritual.armor,helm);
 				// 本地成熟度、付费阶段和修盾余时可回溯；已产出的冰与已扣技能费仍保留。
 				unit.productionRemaining=saved.productionRemaining; unit.nextYield=saved.nextYield;
+				// 正式急救员没有本地能力回溯覆写；活体治疗冷却/永久禁疗不能倒放。
 				unit.burst=saved.burst; unit.repair.remaining=saved.repair.remaining;
 			}
 			if (unit.clock.present && helm<=0) unit.clock.enabled=false;
@@ -2713,7 +2974,7 @@ struct StationProjection {
                 for(size_t i=0;i<units.size();++i) if(units[i].hijacker && units[i].body.spawnAt<=t && units[i].body.health>units[i].temporalStopHealth
                     && (hijacker<0 || units[i].body.health>units[hijacker].body.health)) hijacker=static_cast<int>(i);
                 if(hijacker>=0 && !units[hijacker].hijackerBoosted) {
-                    units[hijacker].body.health+=1000; units[hijacker].temporalStopHealth+=1000.0f/3;
+                    units[hijacker].body.health+=1000; units[hijacker].maximumBody+=1000; units[hijacker].temporalStopHealth+=1000.0f/3;
                     units[hijacker].hijackerBoosted=true;
                 }
             }
@@ -2819,7 +3080,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	if(danceSlotEnd>nextDanceSlot) for(size_t i=0;i<units.size();++i) danceIndices.emplace(units[i].id,i);
 	std::vector<bool> danceBlocked(units.size());
 	const bool hasDance=!danceIndices.empty() || std::any_of(units.begin(),units.end(),[](const Unit& u){return u.dance.backup;});
-	std::vector<float> drumActivity;
+	const bool hasHealer=std::any_of(units.begin(),units.end(),[](const Unit& u){return u.healer.present;});
+    const bool hasMagnets=std::any_of(s.plants.begin(),s.plants.end(),[](const Plant& p){return p.magnetRadius>0;})
+        || std::any_of(s.construction.begin(),s.construction.end(),[](const Construction& c){return c.plant.magnetRadius>0;});
+    std::vector<float> drumActivity;
 	std::vector<float> constructionReady;
 	std::vector<int> constructionUses;
 	std::vector<DeploymentPulse> deploymentPulses;
@@ -2870,6 +3134,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<unsigned char> melonHits(units.size());
 	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
 	auto basketballs=s.basketballs;
+	auto jackBoxes=s.jackBoxes;
+	auto windCounters=s.windCounters;
 
 	float playerSun = static_cast<float>(s.playerSun), playerIce = static_cast<float>(s.playerIce);
 	float pendingIce = static_cast<float>(s.incomingIce), arrival = s.incomingIceAt;
@@ -2928,6 +3194,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				interferenceUntil=t+ColdStorageSkillRules::InterferenceDuration;
 			}
 		}
+		// 灰烬移除来源时盒子事务已结束；先清理，避免本步钟匠复活来源后让旧盒子重新生效。
+		jackBoxes.erase(std::remove_if(jackBoxes.begin(),jackBoxes.end(),[&](const JackBoxFlight& flight) {
+			return std::any_of(units.begin(),units.end(),[&](const Unit& owner) {
+				return owner.id==flight.ownerID && owner.jack.flightsCancelled;
+			});
+		}),jackBoxes.end());
 		if (!temporalAnchors.empty()) ResolveTemporalAnchors(s,t,temporalAnchors,units,plants,initialHealth,f,constructionStats);
 		AdvanceGoldenIce(s,t,units,goldenSources,goldenTrails,constructionStats);
 		if (precisionID > 0 && t >= precisionAt) {
@@ -2952,6 +3224,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			AdvanceDances(s,t,units,danceIndices,nextDanceSlot,danceSlotEnd,initialHealth,initialX,danceBlocked,constructionStats);
 		AdvancePlantRepairs(s,t,plants,units,playerIce,f,constructionStats,true);
 		AdvanceBasketballs(t,basketballs,plants,f,constructionStats);
+		AdvanceJackBoxes(s,t,jackBoxes,units,plants,f,constructionStats);
+        AdvanceWindCounters(s,t,windCounters,plants,units,playerSun,playerIce,constructionStats);
+        if(hasMagnets) AdvanceMagnets(s,t,plants,units,temporalAnchors,constructionStats);
 		AdvanceRowStrikes(s,strikes,t,plants,units,initialHealth,rowStrikeReady,rowStrikeHoldSeconds,rowStrikeHoldUntil,f);
 		AdvanceCounters(s,t,plants,units,initialHealth,counterReady,pending,playerSun,playerIce,f,counterHoldSeconds,storedHoldSeconds,counterHoldUntil,plantingBlocks,constructionStats,
 			 s.weatherStation ? &environment.fogAlpha : nullptr,shovelCounterSpace,shovelReady,preservePaidDefenses,
@@ -2976,7 +3251,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			int target=-1; float impactX=toX;
 			for (size_t i=0;i<units.size();++i) {
 				const auto& u=units[i].body;
-				if (u.health<=0 || u.spawnAt>t || u.row!=ray->row || !units[i].groundHazard
+				if (u.health<=0 || u.spawnAt>t || u.row!=ray->row || !units[i].balloon.CanTargetProjectile(false)
 					|| u.x+u.boundsOffset>toX+10 || u.x+u.boundsOffset+u.boundsWidth<ray->x-10) continue;
 				const float hitX=std::max(ray->x,u.x+u.boundsOffset-10);
 				if (target<0 || hitX<impactX) {target=static_cast<int>(i);impactX=hitX;}
@@ -2990,7 +3265,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float radius=ThunderFlowerRules::RadiusCells*s.cellWidth;
 			for (size_t i=0;i<units.size();++i) {
 				const auto& u=units[i].body;
-				if (u.health<=0 || u.spawnAt>t || !units[i].groundHazard || std::abs(u.row-ray->row)>1
+				if (u.health<=0 || u.spawnAt>t || !units[i].balloon.CanTargetProjectile(false) || std::abs(u.row-ray->row)>1
 					|| u.x+u.boundsOffset>impactX+radius || u.x+u.boundsOffset+u.boundsWidth<impactX-radius) continue;
 				const float dx=u.x+u.boundsOffset+u.boundsWidth*.5f-impactX;
 				const float dy=(u.row-ray->row)*s.cellHeight;
@@ -3017,11 +3292,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			for (size_t i = 0; i < units.size(); ++i) {
 				const auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t || u.x > s.rightEdge
-					|| (p.around ? std::abs(u.x - p.x) > p.range : u.x < p.x - 30 || u.x > p.x + p.range)) continue;
+					|| (!units[i].balloon.CanTargetProjectile(false) && !(p.targetsAir && units[i].balloon.CanTargetProjectile(true)))
+                    || (p.around ? std::abs(u.x - p.x) > p.range : u.x < p.x - 30 || u.x > p.x + p.range)) continue;
 				// 雷鸣花先在本行发射，命中后才向邻行放电；邻行单位不能提前触发虚构雷种。
 				if (u.row != p.row && (p.melon || p.thunder || std::abs(u.row - p.row) > p.rowRadius)) continue;
 				if(s.weatherStation && !environment.CanTarget(s,p,units[i])) continue;
-				if (target < 0 || u.x < units[target].body.x) target = static_cast<int>(i);
+				const bool air=p.targetsAir && units[i].balloon.CanTargetProjectile(true);
+                const bool selectedAir=target>=0 && p.targetsAir && units[target].balloon.CanTargetProjectile(true);
+                if(target<0 || (air && !selectedAir) || (air==selectedAir && u.x<units[target].body.x)) target=static_cast<int>(i);
 			}
 			if (target < 0) continue;
 			// 只在存在可攻击目标时成长。领域不仅提高本步伤害，也让后续阶段更快到来；
@@ -3050,6 +3328,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				for (size_t i = 0; i < units.size(); ++i) {
 					const auto& u = units[i].body;
 					melonHits[i] = static_cast<int>(i) != target && u.health > 0 && u.spawnAt <= t
+                        && units[i].balloon.CanTargetProjectile(false)
 						&& ColdStorageStrategy::MelonSplashContains(impact,u);
 					secondaryCount += melonHits[i];
 				}
@@ -3064,7 +3343,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			for (size_t i = 0; i < units.size(); ++i) {
 				auto& u = units[i].body;
 				if (u.health <= 0 || u.spawnAt > t) continue;
-				const bool splash = p.melon && melonHits[i];
+                const bool airShot=p.targetsAir && units[target].balloon.CanTargetProjectile(true);
+                if(!units[i].balloon.CanTargetProjectile(airShot)) continue;
+                const bool splash = p.melon && melonHits[i];
 				const bool area = !p.melon && p.multiTarget && std::abs(u.row - p.row) <= p.rowRadius
 					&& (p.around ? std::abs(u.x - p.x) <= p.range : u.x >= p.x - 30 && u.x <= p.x + p.range);
 				if (static_cast<int>(i) != target && !splash && !area) continue;
@@ -3077,17 +3358,43 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if(units[i].chargeControlImmunity<=t) u.stopped = std::max(u.stopped, std::min(kStep * 0.9f, p.stopDuty * kStep * attackRate));
 			}
 		}
-		AdvanceDrums(s,t,units,constructionStats,drumActivity);
+		const float healingCredit=constructionStats.healerRecoveryCredit;
+        if(hasHealer) AdvanceHealers(s,t,units,initialHealth,constructionStats);
+        f[6]-=constructionStats.healerRecoveryCredit-healingCredit;
+        AdvanceDrums(s,t,units,constructionStats,drumActivity);
 		if (!clockSources.empty()) AdvanceClocks(s,t,units,clockSources,temporalAnchors,clockActivity,constructionStats,interferenceUntil);
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;
-			const float active = std::max(0.0f, kStep - u.stopped);
+			const float active = std::max(0.0f, kStep - u.stopped)*worker.healer.movementActivity;
 			u.stopped = std::max(0.0f, u.stopped - kStep);
 			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,riftColumns,initialHealth,initialX,constructionStats);
 			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
 			if(danceBlocked[i]) continue;
+            if(worker.balloon.present && worker.balloon.phase!=BalloonRules::Phase::WALKING) {
+                auto& balloon=worker.balloon;
+                if(balloon.phase==BalloonRules::Phase::POPPING) {
+                    const float rain=s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier;
+                    if(balloon.AdvanceLanding(active*rain*(speedFactor<1 ? ZombieMovementRules::NormalSlowAnimationFactor : 1))) {
+                        u.speed=balloon.walkSpeed; u.slowFactor=.3f; worker.boundsY+=BalloonRules::ColliderRise; worker.groundHazard=true;
+                        worker.temporalStopHealth=static_cast<int>(worker.maximumBody)/3;
+                    }
+                } else {
+                    const bool blowing=balloon.blowing;
+                    const float slow=speedFactor<1 ? .5f : 1;
+                    if(blowing) {
+                        if(balloon.AdvanceBlow(active*slow,u.x,s.rightEdge)) {u.health=0;}
+                    } else {
+                        const float fog=s.weatherStation && environment.Obscured(s,worker) ? WeatherStationRules::FogMoveMultiplier : 1;
+                        u.x-=balloon.flightSpeed*GoldenIceRules::Amplify(balloon.windMultiplier,worker.goldenStacks)
+                            *GoldenIceRules::Amplify(1+CrystalDrummerRules::MoveBonus*worker.inspiration.size(),worker.goldenStacks)*fog*slow*active;
+                    }
+                }
+                continue;
+            }
+            if(AdvanceJack(s,t,worker,active,speedFactor<1,s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier,
+                plants,jackBoxes,f,constructionStats)) continue;
 			if (smashTarget[i] >= 0) {
 				advanceSmash(i,active,speedFactor);
 				continue; // 动作完成后下一步才恢复投掷/移动，与既有正常砸击的步进顺序一致。
@@ -3194,7 +3501,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
 		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。
-		AdvanceMowers(mowers,units,t,s.rightEdge);
+		AdvanceMowers(s,mowers,units,t,s.rightEdge);
 		for (size_t i = 0; i < units.size(); ++i) if (units[i].body.health > 0 && units[i].body.spawnAt <= t
 			&& units[i].body.x < s.houseX) {
 				// 进屋只触发一次胜利；重复穿过同一已失守防线不能按人数制造额外胜利收益。

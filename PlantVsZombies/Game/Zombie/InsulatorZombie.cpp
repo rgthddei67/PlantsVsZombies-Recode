@@ -22,7 +22,7 @@ namespace {
 	constexpr float kProtectionRadiusCells = 1.5f;      // 同排放电掩护的水平格距
 	constexpr float kWetArmorPlantMultiplier = 1.5f;    // 湿润胸甲受到的植物伤害倍率
 	constexpr int kWetSlopeDischargeDamage = 360;       // 湿坡放电对绝缘胸甲的固定伤害
-	constexpr int kMagnetBacklashDamage = 150;          // 磁力菇成功吸走胸甲后的本体反噬
+	constexpr int kMagnetBacklashDamage = InsulatorZombie::MagneticBacklashDamage;          // 磁力菇成功吸走胸甲后的本体反噬
 	constexpr float kMagnetDestinationX = 20.0f;        // 胸甲吸到磁力菇附近的局部 X
 	constexpr float kMagnetDestinationY = 14.0f;        // 胸甲吸到磁力菇附近的局部 Y
 	constexpr float kMagnetDestinationJitter = 8.0f;    // 离体胸甲终点的随机扰动，单位 px

@@ -11,14 +11,15 @@
 #include <cstdint>
 #include <climits>
 #include <cmath>
+#include <stdexcept>
 
 namespace {
 	constexpr int kBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_BALLOON).body;                    // C# 气球僵尸落地后的本体生命值
-	constexpr int kBalloonHealth = 20;                  // C# mFlyingHealth：气球额外生命层
-	constexpr float kFlightVelocityMin = 23.0f;         // C# 0.23 px/tick 换算到秒的飞行速度下界
-	constexpr float kFlightVelocityMax = 37.0f;         // C# 0.37 px/tick 换算到秒的飞行速度上界
-	constexpr float kFlyingColliderRise = 60.0f;        // 空中碰撞框相对地面抬高量，单位：像素
-	constexpr float kPopClipSpeed = 24.0f / 12.0f;      // C# anim_pop 24 FPS 相对资源 12 FPS
+	constexpr int kBalloonHealth = BalloonRules::Health; // C# mFlyingHealth：气球额外生命层
+	constexpr float kFlightVelocityMin = BalloonRules::FlightVelocityMinimum; // 出生飞行速度下界，像素/游戏秒
+	constexpr float kFlightVelocityMax = BalloonRules::FlightVelocityMaximum; // 出生飞行速度上界，像素/游戏秒
+	constexpr float kFlyingColliderRise = BalloonRules::ColliderRise;        // 空中碰撞框相对地面抬高量，单位：像素
+	constexpr float kPopClipSpeed = BalloonRules::PopClipSpeed; // C# anim_pop 24 FPS 相对资源 12 FPS
 	constexpr float kEatClipSpeed = 20.0f / 12.0f;      // C# anim_eat 20 FPS 相对资源 12 FPS
 	constexpr float kDeathClipSpeed = 24.0f / 12.0f;    // C# anim_death 24 FPS 相对资源 12 FPS
 	constexpr float kPropellerAnchorInverseX = 1.875f;  // hat 首帧 x=-1.5、sx=0.8 的逆锚点 X
@@ -27,9 +28,9 @@ namespace {
 	constexpr int kEatEventFrameTwo = 80;               // 主人给定的第二处啃食伤害全局帧
 	constexpr int kDeathEventFrame = 152;               // 主人给定的死亡回收全局帧
 	constexpr float kOneShotVolume = 0.4f;              // 气球充气、爆裂与断肢音效音量
-	constexpr float kBloverHouseDisplacement = 400.0f;  // 三叶草吹向屋后时每次累计滑行距离，单位：像素
-	constexpr float kBloverBlowSpeed = 600.0f;          // 三叶草吹飞的连续横移速度，单位：像素/秒
-	constexpr float kBloverFrontExitPadding = 80.0f;    // 向前线吹飞后的画面外死亡安全余量，单位：像素
+	constexpr float kBloverHouseDisplacement = BalloonRules::BlowHouseDistance; // 每株朝屋后追加距离，像素
+	constexpr float kBloverBlowSpeed = BalloonRules::BlowSpeed; // 连续吹飞横移速度，像素/内部行动秒
+	constexpr float kBloverFrontExitPadding = BalloonRules::BlowFrontPadding; // 前线侧离屏清除余量，像素
 }
 
 void BalloonZombie::SetupZombie()
@@ -442,6 +443,49 @@ ZombieMovementRules::BirthProfile BalloonZombie::GetBirthMovementProfile()
 	p.velocityMaximum=kFlightVelocityMax;
 	p.phaseDependent=true;
 	return p;
+}
+
+ZombieMovementRules::BirthProfile BalloonZombie::GetWalkingMovementProfile()
+{
+	auto profile = Zombie::GetBirthMovementProfile();
+	profile.alternative = nullptr;
+	// 气球 Setup 没有调用普通 Zombie::SetupZombie，落地保留固定根倍率而非普通出生抖动。
+	profile.rootMinimum = profile.rootMaximum = ZombieMovementRules::BaseRootSpeed;
+	return profile;
+}
+
+float BalloonZombie::GetForecastPopDuration()
+{
+	const auto reanim = ResourceManager::GetInstance().GetReanimation(ResourceKeys::Reanimations::REANIM_BALLOON_ZOMBIE);
+	if (!reanim) throw std::runtime_error("missing balloon pop reanimation");
+	const auto range = reanim->GetTrackFrameRange("anim_pop");
+	if (range.first < 0 || range.second <= range.first || reanim->mFPS <= 0)
+		throw std::runtime_error("invalid balloon pop frame range");
+	return (range.second-range.first)/(reanim->mFPS*kPopClipSpeed);
+}
+
+BalloonRules::Forecast BalloonZombie::GetBalloonForecast() const
+{
+	BalloonRules::Forecast result;
+	result.present = true; result.phase = mPhase;
+	result.health = mPhase == Phase::FLYING ? static_cast<float>(mBalloonHealth) : 0;
+	result.maximumHealth=mBalloonMaxHealth;
+	result.popDuration = GetForecastPopDuration();
+	if (mPhase == Phase::POPPING) {
+		const auto reanim = mAnimator ? mAnimator->GetReanimation() : nullptr;
+		if (!reanim) throw std::runtime_error("missing live balloon pop reanimation");
+		const auto range = reanim->GetTrackFrameRange("anim_pop");
+		// anim_pop 已经返回行走轨但尚未经过 ZombieUpdate 时，下一步即可提交落地。
+		result.popRemaining = GetCurrentTrackName() == "anim_pop"
+			? std::max(0.0f,range.second-mAnimator->GetCurrentFrame())/(reanim->mFPS*kPopClipSpeed) : 0;
+	}
+	result.walkSpeed = mAnimator ? GetSimulationRootMoveSpeed("anim_walk",mAnimator->GetSpeed()) : 0;
+	result.flightSpeed = mFlightVelocity;
+	result.windMultiplier = mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
+	result.poolRow = mBoard && mBoard->IsPoolRow(mRow);
+	result.blowing = mBloverBlowing; result.towardHouse = mBloverBlowDirection == WindDirection::TOWARD_HOUSE;
+	result.blowRemaining = mBloverBlowRemaining;
+	return result;
 }
 
 float BalloonZombie::GetMineSimulationMoveSpeed() const

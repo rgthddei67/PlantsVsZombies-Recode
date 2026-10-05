@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Zombie.h"
+#include "BalloonRules.h"
 #include "../WeatherTypes.h"
 
 /**
@@ -12,13 +13,15 @@ public:
 	float GetMineSimulationMoveSpeed() const override;
 	/** 只读出生运动画像；参数与本品种实际 Setup 共用，不生成实体或消费 RNG。 */
 	static ZombieMovementRules::BirthProfile GetBirthMovementProfile();
+	/** 落地后的普通行走出生分布；飞行的线性速度不能延续到地面阶段。 */
+	static ZombieMovementRules::BirthProfile GetWalkingMovementProfile();
+	/** 从正式 anim_pop 范围读取完整爆裂动画秒，尚未应用减速、雨势或鼓舞。 */
+	static float GetForecastPopDuration();
+	/** 读取额外生命、爆裂余时、吹飞位移及落地稳态速度，不改变动画或正式随机数。 */
+	BalloonRules::Forecast GetBalloonForecast() const;
 	using Zombie::Zombie;
 
-	enum class Phase {
-		FLYING,
-		POPPING,
-		WALKING,
-	};
+	using Phase = BalloonRules::Phase;
 
 	Phase GetPhase() const { return mPhase; }
 	int GetBalloonHealth() const { return mBalloonHealth; }
@@ -82,8 +85,8 @@ private:
 	void ResolveDeferredBodyParts();
 
 	Phase mPhase = Phase::FLYING;
-	int mBalloonHealth = 20;
-	int mBalloonMaxHealth = 20;
+	int mBalloonHealth = BalloonRules::Health;
+	int mBalloonMaxHealth = BalloonRules::Health;
 	float mFlightVelocity = 30.0f;
 	float mGroundColliderOffsetY = -65.0f;
 	std::shared_ptr<Animator> mPropellerAnimator;
