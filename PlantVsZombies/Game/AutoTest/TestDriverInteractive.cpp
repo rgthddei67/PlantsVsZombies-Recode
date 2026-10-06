@@ -164,6 +164,16 @@ bool TestDriver::ExecuteInteractive(const nlohmann::json& command) {
 				reason = "dawn_lotus_unavailable";
 			else Log("player activated dawn lotus");
 		}
+		else if (op == "player_fire_cob_cannon") {
+			// 与手动点炮/选落点共用输入门禁；陪练不能跳过装填或直接创建爆炸。
+			Board* board=scene->GetBoard();
+			if (!board->BeginCobCannonTargeting(command.at("row").get<int>(),command.at("col").get<int>()))
+				reason="cob_cannon_unavailable";
+			else if (!board->FireTargetedCobCannonAt(Vector(command.at("x").get<float>(),command.at("y").get<float>()))) {
+				board->CancelCobCannonTargeting(board->GetTargetingCobCannonID());
+				reason="cob_target_unavailable";
+			} else Log("player fired cob cannon");
+		}
 		else if (op == "player_activate_cold_pineapple") {
 			auto* plant = dynamic_cast<ColdPineapple*>(scene->GetBoard()->GetNormalPlantAt(
 				command.at("row").get<int>(),command.at("col").get<int>()));
@@ -224,7 +234,8 @@ nlohmann::json TestDriver::BuildInteractiveState(bool fullState) {
 		"wave", "maxWave", "paused", "pauseMenuOpen", "cards", "suns", "weather", "trophy",
 		"coldStorage", "weatherStation", "fog", "plantern", "advancedPauseEnabled", "background",
 		"eliteScaredyShroomsPlanted", "eliteScaredyShroomTotalPlantLimit",
-		"plantCount", "zombieCount", "mowerCount", "mowers", "movingMowerCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells", "testAudio"});
+		"plantCount", "zombieCount", "mowerCount", "mowers", "movingMowerCount", "skySunCountdownMs", "nextWaveCountdownMs", "cells", "testAudio",
+		"cobLaunchSoundRequestCount"});
 	for (const char* key : {"plants", "zombies"}) {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {
@@ -237,9 +248,14 @@ nlohmann::json TestDriver::BuildInteractiveState(bool fullState) {
 				"dawnEnergyOn1000", "dawnFullyCharged", "dawnCanActivate",
 				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
 				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",
-				"growthShots", "puffDamage", "shootIntervalMs", "fogObscured", "mistFuelReward"}));
+				"growthShots", "puffDamage", "shootIntervalMs", "fogObscured", "mistFuelReward",
+				"cobPhase", "cobShotLaunched", "cobTargetRow", "cobTargetXInt", "cobTargetYInt", "cobBlastTargetable"}));
 		}
 	}
+	// 已提交炮弹的公开落点让陪练避免连续把多门炮交在同一群即将死亡的目标上。
+	compact["cobFlights"]=nlohmann::json::array();
+	for(const auto& bullet:full.at("bullets")) if(bullet.value("cobCannonMotion",false))
+		compact["cobFlights"].push_back(Pick(bullet,{"cobTargetRow","cobTargetXInt","cobTargetYInt"}));
 	// 冷却与资金由卡本身导出；legalCells 只说明当前地形/占位资格，不能代替交易时复核。
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
 	if (scene && scene->GetCardSlotManager() && compact.contains("cards")) {

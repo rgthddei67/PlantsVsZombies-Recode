@@ -1,0 +1,105 @@
+{
+  "description": "Controlled full-card cannon sparring: Cherry/Jalapeno cooling, real Doom placement plus daytime Coffee payment/wake; no free cooldowns or damage shortcuts.",
+  "muteAudio": true,
+  "batchStepsPerFrame": 8,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT",
+        "PLANT_DOOMSHROOM",
+        "PLANT_INSTANT_COFFEE",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_BLOVER"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 1500
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "playerIce": 2000,
+        "decisions": 20,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "player_plant",
+      "slot": 8,
+      "row": 0,
+      "col": 7
+    },
+    {
+      "op": "player_plant",
+      "slot": 9,
+      "row": 4,
+      "col": 8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 1,
+      "x": 1020,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 2,
+      "x": 1020,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 3,
+      "x": 1020,
+      "stationary": true
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 6,
+      "name": "doom_coffee",
+      "timeout": 20,
+      "traceUnits": true
+    },
+    {
+      "op": "screenshot",
+      "name": "ash_after.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

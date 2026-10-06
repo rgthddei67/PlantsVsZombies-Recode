@@ -1105,7 +1105,10 @@ bool PrecisionWorthwhile(const Snapshot& s,const Result& candidate,const Result&
 		if(target==s.plants.end()) {armed=false; continue;}
 		reward+=target->reward;
 		armed&=target->dps>0 || std::any_of(s.rowStrikes.begin(),s.rowStrikes.end(),
-			[&](const RowStrike& strike){return strike.plantID==id && strike.damage>0;});
+			[&](const RowStrike& strike){return strike.plantID==id && strike.damage>0;})
+			|| std::any_of(s.counters.begin(),s.counters.end(),[&](const Counter& counter) {
+				return counter.plantID==id && !counter.consumesPlant && !counter.blast.committed && counter.blast.damage>0;
+			});
 	}
 	// 能真实清掉输出/控场源并形成有利资产交换时，也允许主动削弱阵地；
     // 不能要求本次单击同时突破，否则两株强输出互相兜底会永久封住第一步。
@@ -1565,6 +1568,9 @@ struct PendingCounter {
 	bool targetLocked = false;
 	int plantID = 0;
 	float invulnerableAt = 0;
+	bool consumesPlant = true;
+	float releaseAt = 0;
+	bool released = false;
 	bool clearsCell = false;
 	float craterSeconds = 0;
 	int ladderClearRow=-1,ladderClearRadius=-1; bool clearsLadderRow=false;
@@ -1747,11 +1753,13 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 	bool interferenceBeforeAsh,std::vector<TemporalAnchor>& anchors,float& interferenceReady,float& interferenceUntil,
 	std::vector<LadderRules::Cell>& ladders) {
 	for (auto it = pending.begin(); it != pending.end();) {
-		if (it->plantID != 0) {
+		if (it->plantID != 0 && (it->consumesPlant || !it->released)) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
 			// 咖啡已经放下仍不等于爆炸已脱离宿主；睡眠/唤醒等待阶段被吃掉就不能引爆。
 			if (source == plants.end() || source->health <= 0) { it = pending.erase(it); continue; }
-			if (time >= it->invulnerableAt) {
+			// 离膛当步先复核来源，再冻结独立飞行；浮点步长不能让同一步先落地的狙击被跳过。
+			if (!it->consumesPlant && time >= it->releaseAt) it->released=true;
+			if (it->consumesPlant && time >= it->invulnerableAt) {
 				source->edible = false; source->deploymentInterceptionOnly = true;
 			}
 		}
@@ -1805,7 +1813,7 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			const float credit = body.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
 			features[6] += credit; units[i].blastCredit += credit;
 		}
-		if (it->plantID != 0) {
+		if (it->plantID != 0 && it->consumesPlant) {
 			const auto source = std::find_if(plants.begin(),plants.end(),[&](const auto& p) { return p.id == it->plantID; });
 			if (it->clearsCell) {
 				// 来源被提前消灭时已在上方取消，只有真正引爆才产生弹坑。
@@ -1947,6 +1955,8 @@ void AdvanceCounters(const Snapshot& state, float time, std::vector<Plant>& plan
 			selectedTarget >= 0 ? units[selectedTarget].body.x : 0});
 		pending.back().plantID = counter.plantID;
 		pending.back().invulnerableAt = time + counter.vulnerableSeconds;
+		pending.back().consumesPlant = counter.consumesPlant;
+		pending.back().releaseAt = pending.back().at-std::max(0.0f,counter.flightSeconds);
 		pending.back().clearsCell = counter.clearsCell;
 		pending.back().craterSeconds = counter.craterSeconds;
 		pending.back().ladderClearRow=counter.ladderClearRow;
@@ -3665,13 +3675,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			pending.push_back({counter.blast,counter.blast.ready});
 			pending.back().plantID = counter.plantID;
 			pending.back().invulnerableAt = counter.vulnerableSeconds;
+			pending.back().consumesPlant = counter.consumesPlant;
+			pending.back().releaseAt = counter.blast.ready-std::max(0.0f,counter.flightSeconds);
 			pending.back().clearsCell = counter.clearsCell;
 			pending.back().craterSeconds = counter.craterSeconds;
 			pending.back().ladderClearRow=counter.ladderClearRow;
 			pending.back().ladderClearRadius=counter.ladderClearRadius;
 			pending.back().clearsLadderRow=counter.clearsLadderRow;
 			// ID 0 表示没有植物来源，不能把纯数值夹具/未来画像的中性 ID 误标为爆炸宿主。
-			if(counter.plantID!=0) for (auto& plant : plants) if (plant.id == counter.plantID) plant.counterBlastAt = counter.blast.ready;
+			if(counter.plantID!=0 && counter.consumesPlant) for (auto& plant : plants) if (plant.id == counter.plantID) plant.counterBlastAt = counter.blast.ready;
 		}
 		else {
 			if (counterReady.size() <= static_cast<size_t>(counter.source)) counterReady.resize(counter.source + 1);
@@ -4324,11 +4336,11 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const auto fallbackMerit=[&](const Result& r) {
 		float health=0; for(const auto& a:r.actions) if(combat(s.options[a.option])) health+=s.options[a.option].unit.body.health;
 		return std::make_pair(r.features[0]-r.baselineFeatures[0]+r.features[1]-r.baselineFeatures[1]
-			+r.features[7]-r.baselineFeatures[7],health);
+			+r.features[3]-r.baselineFeatures[3]+r.features[7]-r.baselineFeatures[7],health);
 	};
 	const auto observeFallback=[&](const Result& r) {
 		if(s.fallbackProbeBudget<=0 && !s.fallbackAllIn) return;
-		if(r.precisionTargetID>0 || r.actions.empty()) return;
+		if(r.actions.empty()) return;
 		int bill=0, fighters=0;
 		for(const auto& a:r.actions) {
 			const auto& o=s.options[a.option]; if(o.device>=0) return;
@@ -4350,7 +4362,22 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		const auto& o=s.options[option]; if(o.device>=0 || o.cost<=0 || (s.fallbackAllIn && !combat(o))) continue;
 		const int count=s.fallbackAllIn ? std::min({ActionLimit(s),DeploymentCapacity(s),PurchaseBudget(s)/o.cost})
 			: std::min({kTrialSeedTroops,DeploymentCapacity(s),s.fallbackProbeBudget/o.cost});
-		if(count>0) fallbackSeeds.emplace_back(count,Action{option,0});
+		if(count>0) {
+			fallbackSeeds.emplace_back(count,Action{option,0});
+			if(s.fallbackAllIn && group.size()>1) {
+				// 全力也比较同种合法兵的分路/错峰；不要只把满队同步聚进一个灰烬爆区。
+				auto spread=fallbackSeeds.back();
+				float windup=0;
+				for(const auto& counter:s.counters) if(!counter.blast.committed && !counter.consumesPlant)
+					windup=std::max(windup,counter.windup);
+				for(size_t i=0;i<spread.size();++i) spread[i].option=group[i%group.size()];
+				fallbackSeeds.push_back(spread);
+				if(windup>0) {
+					for(size_t i=0;i<spread.size();++i) spread[i].delay=std::min(DelayLimit(s),windup*static_cast<float>(i%3));
+					fallbackSeeds.push_back(std::move(spread));
+				}
+			}
+		}
 	}
 	if(s.fallbackAllIn) std::stable_sort(fallbackSeeds.begin(),fallbackSeeds.end(),[&](const auto& a,const auto& b) {
 		// 短预算先评一组真实战斗生命较厚的合法整队；仍让所有有益方案按原分数竞争。
@@ -4869,7 +4896,14 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed,
 		for (const auto& aura : state.attackAuras) if (aura.plantID == p.id)
 			for (const auto& ally : state.plants) if (ally.health > 0 && std::abs(ally.row-p.row)<=1 && std::abs(ally.column-p.column)<=1)
 				priority += ally.dps*Horizon(state)*aura.bonus;
-		for (const auto& counter : state.counters) if (counter.plantID == p.id) priority += counter.blast.damage;
+		// 同一炮的所有可选爆点共用一次装填；按实际来源/周期计威胁，不能把落点数当炮数。
+		std::set<int> countedCounters;
+		for (const auto& counter : state.counters) if (counter.plantID == p.id && !counter.blast.committed
+			&& countedCounters.insert(counter.source).second) {
+			const int rows=static_cast<int>(std::count_if(counter.blast.reach.begin(),counter.blast.reach.end(),[](float reach){return reach>=0;}));
+			priority += counter.blast.damage*std::max(1,rows)*std::max(1.0f,
+				std::ceil(std::max(0.0f,Horizon(state)-counter.blast.ready)/std::max(.001f,counter.recharge)));
+		}
 		for (const auto& unit : state.current) if (unit.body.health > 0 && unit.body.row == p.row && unit.body.x > p.x)
 			priority += std::min(p.health,unit.body.health)/(1+std::abs(unit.body.x-p.x)/state.cellWidth);
 		targets.emplace_back(priority,p.id);

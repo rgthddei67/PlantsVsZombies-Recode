@@ -1,0 +1,383 @@
+{
+  "description": "Controlled cannon-source removal, legal double-kernel upgrades, front tallnuts and actual player-triggered shells; fixture resources are not a normal battle.",
+  "muteAudio": true,
+  "batchStepsPerFrame": 8,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 3000
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "playerIce": 2000,
+        "decisions": 20,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "cobCannonResources.reanimationLoaded",
+      "equals": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COBCANNON",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "op": "set_cob_cannon_arming",
+      "row": 0,
+      "col": 0,
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COBCANNON",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "set_cob_cannon_arming",
+      "row": 2,
+      "col": 0,
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 4,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COBCANNON",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "set_cob_cannon_arming",
+      "row": 4,
+      "col": 0,
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 2,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 3,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TALLNUT",
+      "row": 4,
+      "col": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.6
+    },
+    {
+      "op": "dump_state",
+      "name": "ready_state.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "cob_formation.png"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "ready",
+      "budgetsMs": [
+        600
+      ],
+      "candidatePlans": [
+        {
+          "name": "army",
+          "trace": true,
+          "actions": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 2,
+              "count": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "start_precision_strike",
+      "targets": [
+        {
+          "row": 0,
+          "col": 0
+        },
+        {
+          "row": 2,
+          "col": 0
+        },
+        {
+          "row": 4,
+          "col": 0
+        }
+      ]
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "aiming",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "army",
+          "trace": true,
+          "actions": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 2,
+              "count": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "dump_state",
+      "name": "removed_state.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "removed",
+      "budgetsMs": [],
+      "candidatePlans": [
+        {
+          "name": "army",
+          "trace": true,
+          "actions": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 2,
+              "count": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 6000
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "playerIce": 2000,
+        "decisions": 20,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 1,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 3,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 3,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 4,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 4,
+      "col": 5
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 75,
+      "name": "builder",
+      "timeout": 100,
+      "traceUnits": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 6,
+      "name": "firing",
+      "timeout": 20,
+      "traceUnits": true
+    },
+    {
+      "op": "dump_state",
+      "name": "firing_state.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "built_cob_formation.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

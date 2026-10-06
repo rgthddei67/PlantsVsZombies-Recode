@@ -888,6 +888,84 @@ void RunColdStorageSiegePreparationTests()
     std::cout<<"Proactive siege preparation and real exchange contracts passed\n";
 }
 
+/** 玉米炮是可重复、可拆除的输出来源；离膛前取消、离膛后保留，不给予灰烬无敌。 */
+void RunColdStorageCobForecastTests()
+{
+    using namespace ColdStorageSearch;
+    Snapshot state;
+    state.rows=1; state.searchVersion=2; state.netEconomy=true; state.houseX=-10000;
+    state.traceEconomy=true; state.budget=180; state.precisionTargetLimit=3;
+    Plant cannon; cannon.id=91001; cannon.x=300; cannon.health=300; cannon.assetValue=600; cannon.reward=40;
+    state.plants={cannon};
+    Counter shot; shot.plantID=cannon.id; shot.consumesPlant=false; shot.flightSeconds=2;
+    shot.windup=4; shot.recharge=10; shot.blast.x=900; shot.blast.reach.fill(-1); shot.blast.reach[0]=115; shot.blast.damage=1800;
+    state.counters={shot};
+    Unit target; target.body.x=900; target.body.health=100000; target.body.purchaseCost=10000;
+    target.body.speed=0; target.biteDps=0; state.current={target};
+    ConstructionStats stats;
+    Evaluate(state,{},&stats);
+    Check(stats.counterTrace.size()>1 && stats.opponentAssets==600,
+        "a reusable cannon fires repeatedly without consuming its source or granting it ash immunity");
+    auto eaten=state;
+    auto biter=target; biter.body.x=cannon.x; biter.biteDps=1000;
+    eaten.current.push_back(biter);
+    const auto eatenFeatures=Evaluate(eaten,{},&stats);
+    Check(stats.counterTrace.empty() && eatenFeatures[0]>0,
+        "a cannon remains edible throughout its firing windup instead of inheriting instant-ash invulnerability");
+    auto beforeLaunch=state; beforeLaunch.precisionTargetID=cannon.id;
+    beforeLaunch.counters[0].windup=5;
+    Evaluate(beforeLaunch,{},&stats);
+    Check(stats.precisionHits==1 && stats.counterTrace.empty(),
+        "destroying a cannon before launch cancels its queued shot and all future reloads");
+    beforeLaunch.counters[0].windup=4;
+    Evaluate(beforeLaunch,{},&stats);
+    Check(stats.counterTrace.empty(),"source removal resolved on the launch step cannot be bypassed by floating-point time drift");
+    auto afterLaunch=state; afterLaunch.precisionTargetID=cannon.id;
+    afterLaunch.counters[0].windup=3;
+    Evaluate(afterLaunch,{},&stats);
+    Check(stats.precisionHits==1 && stats.counterTrace.size()==1,
+        "destroying a cannon after launch preserves exactly its independent in-flight shot");
+    auto committed=state; committed.counters[0].blast.committed=true; committed.counters[0].blast.ready=4;
+    committed.pendingPrecisionID=cannon.id; committed.pendingPrecisionRemaining=1;
+    Evaluate(committed,{},&stats);
+    Check(stats.counterTrace.empty(),"captured pre-launch shots retain their living source dependency");
+    committed.pendingPrecisionRemaining=3;
+    Evaluate(committed,{},&stats);
+    Check(stats.counterTrace.size()==1,"captured shots detach at launch rather than remaining source-bound until impact");
+    committed.counters[0].plantID=0; committed.pendingPrecisionRemaining=1;
+    Evaluate(committed,{},&stats);
+    Check(stats.counterTrace.size()==1,"already airborne captured shells are independent of a destroyed source");
+    auto preparation=state; preparation.current.clear(); preparation.precisionReady=true; preparation.opponentWeight=1;
+    for(int i=1;i<4;++i) {
+        auto extra=cannon; extra.id+=i; extra.x-=i*30; preparation.plants.push_back(extra);
+        auto counter=shot; counter.plantID=extra.id; counter.source=i; preparation.counters.push_back(counter);
+    }
+    const Weights values{1,1,120,0,1,-1,0,0};
+    const auto result=Search(preparation,values,42);
+    Check(result.precisionTargetID>0 && result.construction.precisionHits>0 && result.features[2]==0,
+        "free search may remove valuable repeatable cannon fire before any army can immediately breach");
+    preparation.counters.clear();
+    Check(Search(preparation,values,42).precisionTargetID==0,"harmless former cannon assets do not authorize reward farming");
+    auto lastChance=state; lastChance.current.clear(); lastChance.rows=5; lastChance.budget=150;
+    lastChance.capacity=15; lastChance.fallbackAllIn=true;
+    lastChance.counters.clear();
+    for(int row=0;row<5;++row) {
+        auto counter=shot; counter.recharge=1000; counter.blast.reach.fill(-1);
+        for(int r=0;r<5;++r) if(std::abs(r-row)<=1) counter.blast.reach[r]=115;
+        lastChance.counters.push_back(counter);
+        Option soldier; soldier.type=99001; soldier.row=soldier.unit.body.row=row; soldier.cost=10;
+        soldier.unit.body.x=900; soldier.unit.body.health=100; soldier.unit.body.purchaseCost=10;
+        soldier.unit.body.speed=0; soldier.unit.biteDps=0; lastChance.options.push_back(soldier);
+    }
+    const auto dispersed=Search(lastChance,InitialWeights,7);
+    std::set<int> routes;
+    for(const auto& action:dispersed.actions) routes.insert(lastChance.options[action.option].row);
+    const bool delayed=std::any_of(dispersed.actions.begin(),dispersed.actions.end(),[](const Action& a){return a.delay>0;});
+    Check(dispersed.fallbackMode==2 && dispersed.features[3]>0 && (routes.size()>1 || delayed),
+        "last-chance comparisons preserve survivors through actual spread or timing rather than synchronizing every troop under one shell");
+    std::cout<<"Cob source, launch commitment, repeated fire and proactive removal contracts passed\n";
+}
+
 /** 多目标同次技能：身份/收费/已付款与自主目标基数，另隔离完整部队共用钱包的突破。 */
 void RunColdStorageMultiPrecisionTests()
 {

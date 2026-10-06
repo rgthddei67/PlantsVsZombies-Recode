@@ -132,3 +132,5 @@
 `Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。
 
 穿雨竹与蓄洪僵尸入口为 RainBambooRules、FloodMortarRules、BoardFloodMortar 和 ColdStorageRainForecast：实际雨势、首装/装填、贯穿目标历史、在途弹与攻击减速必须进入预测；水弹的本格南瓜在扣壳前同时拦截本次伤害和状态，破壳不补结算。经验编队把炮手作为独立 specialist，不能因高血量误当护卫，也不能让投篮车或直射兵的低价排挤其候选；前排时序按停步射程，快兵跟进按首弹落地，错峰只给搜索起点，不强制付款。字段和配方以 ColdStorageFormationSeeds 为准。
+
+玉米炮使用 `Counter::plantID/consumesPlant/flightSeconds` 区分可重复来源与一次性灰烬。本体余时是到爆炸的总时间，采样时扣除 `CobCannon::GetSimulationShotWindup()` 后再推进前摇，不能重复加延迟；前摇可受击，离膛后按独立弹丸保留已锁定落点。已发射快照不重新收费、不消耗炮体，死亡只停止尚未离膛和未来装填。`CobForecastAimPoints` 必须包含格中心以外的可见场景边缘；玩家能在那里提前炮击，漏掉它会把密集鼓舞冲锋误判成抢先突破。选靶按同一来源去重备选爆点，重复火力纳入先削弱输出的资格；专项是 `smoke_commander_cob_cannon` 与对应 verifier。10-6 正常开局陪练入口为 `train_cold_storage.episode_commands` 的 `cob`，无支援、真实双玉米升级及前排高坚果；满卡槽携带毁灭/咖啡、樱桃、辣椒与对空，灰烬只按真实可见威胁和费用提交。其他命名战术夹具保持独立。

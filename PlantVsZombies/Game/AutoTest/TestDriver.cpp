@@ -1006,11 +1006,16 @@ bool TestDriver::ExecuteCurrent() {
 		report["playerResources"]={{"sun",probe.snapshot.playerSun},{"ice",probe.snapshot.playerIce},
 			{"incomingIce",probe.snapshot.incomingIce},{"incomingIceAt",probe.snapshot.incomingIceAt}};
 		report["counterSources"]=nlohmann::json::array();
+		float cannonAimRight=0;
+		for(const auto& counter:probe.snapshot.counters) if(!counter.consumesPlant && !counter.blast.committed)
+			cannonAimRight=std::max(cannonAimRight,counter.blast.x);
+		report["cannonAimRight"]=cannonAimRight;
 		std::vector<int> reportedCounterSources;
 		for(const auto& counter:probe.snapshot.counters) if(std::find(reportedCounterSources.begin(),reportedCounterSources.end(),counter.source)==reportedCounterSources.end()) {
 			reportedCounterSources.push_back(counter.source);
 			report["counterSources"].push_back({{"source",counter.source},{"ready",counter.blast.ready},{"recharge",counter.recharge},
-				{"windup",counter.windup},{"sunCost",counter.sunCost},{"iceCost",counter.iceCost},{"committed",counter.blast.committed},{"clearsCell",counter.clearsCell}});
+				{"windup",counter.windup},{"sunCost",counter.sunCost},{"iceCost",counter.iceCost},{"committed",counter.blast.committed},{"clearsCell",counter.clearsCell},
+				{"plantID",counter.plantID},{"consumesPlant",counter.consumesPlant},{"flightSeconds",counter.flightSeconds}});
 		}
 		report["rowStrikes"]=nlohmann::json::array();
 		report["futureRowStrikeCells"]=std::count_if(probe.snapshot.construction.begin(),probe.snapshot.construction.end(),
@@ -7202,6 +7207,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "roofMarshalAssaultFlagVisible", z->IsRoofMarshalAssaultFlagVisible() },
 			{ "helmType", ZombieHelmTypeName(z->mHelmType) },
 			{ "helmHealth", z->mHelmHealth }, { "shieldHealth", z->mShieldHealth },
+			{ "cobBlastTargetable", z->CanBeAffectedByCobCannonExplosion() && !z->IsMindControlled() && !z->IsDying() },
 			{ "helmMaxHealth", z->mHelmMaxHealth }, { "shieldMaxHealth", z->mShieldMaxHealth },
 			{ "fireResistant", z->IsFireResistant() },
 			{ "mindControlled", z->IsMindControlled() },

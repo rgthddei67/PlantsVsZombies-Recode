@@ -52,6 +52,10 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
     match = re.search(r'_(10|11)_([1-9])$', arena)
     level = (81 if match.group(1) == '10' else 90) + int(match.group(2)) if match else 82
     station = 91 <= level <= 99
+    # 10-6正常开局改用无增益纯炮陪练；已命名的战术夹具继续保留原来的诊断身份。
+    if level == 87 and arena.startswith('opening'):
+        opponent = episode_opponent = 'cob'
+    cob = opponent == 'cob'
     mixed = opponent == 'ice_bunker_mixed'
     storage_defense = opponent in ('ice_fortifier', 'ice_pine', 'ice_bunker')
     pine_elite = opponent in ('pine_elite', 'ice_pine', 'ice_bunker')
@@ -104,7 +108,12 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
         cards = ['SUNSHROOM', 'ELITE_SCAREDYSHROOM', 'PUMPKINSHELL', 'MARIGOLD',
                  'DOOMSHROOM', 'JALAPENO', 'ICESTORAGENUT', 'DAWNLOTUS',
                  'THUNDERFLOWER', 'PLANTERN', 'BLOVER']
-    opening_bonus = (pine_elite or mixed) and level >= 87
+    if cob:
+        # 满11张正常卡槽：双玉米升级、高坚果、经济和三种灰烬；白天毁灭正常用咖啡唤醒。
+        cards = ['SUNSHROOM' if station else 'SUNFLOWER', 'MARIGOLD', 'IMITATER',
+                 'KERNELPULT', 'COBCANNON', 'TALLNUT', 'DOOMSHROOM',
+                 'PLANTERN' if station else 'INSTANT_COFFEE', 'CHERRYBOMB', 'JALAPENO', 'BLOVER']
+    opening_bonus = not cob and (pine_elite or mixed) and level >= 87
     commands = [
         {'op': 'reset_test_state'},
         {'op': 'commander_experiment', 'weights': policy['weights'], 'seed': seed,
@@ -251,6 +260,8 @@ def episode_commands(weights, seed, arena, opponent, seconds, name, all_zombies=
                      'name': name, 'timeout': seconds + 30})
     if mixed:
         commands[-1].update(shovelCounters=True, traceUnits=True)
+    if cob:
+        commands[-1].update(traceUnits=True)
     return commands
 
 

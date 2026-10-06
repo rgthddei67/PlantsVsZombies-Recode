@@ -44,7 +44,8 @@ for level in (96,2001):
     assert state["coldStorage"]["spent"]==180 and not ids(state) and state["plantCount"]==0
 for name in ("three_pending","missing_primary"):
     snapshot=json.loads((folder/"snapshots"/(name+".json")).read_text(encoding="utf-8-sig"))
-    assert snapshot["schemaVersion"]==26 and len(snapshot["coldStorage"]["strikeAdditionalTargetIDs"])==2
+    # v26开始保存完整目标名单；后续关卡schema升级仍必须保留这些已付款身份。
+    assert snapshot["schemaVersion"]>=26 and len(snapshot["coldStorage"]["strikeAdditionalTargetIDs"])==2
 capacityBefore,capacityAfter=read("capacity_before"),read("capacity_after")
 for state in (capacityBefore,capacityAfter):ledger(state)
 b=capacityBefore["coldStorage"];a=capacityAfter["coldStorage"]

@@ -32,6 +32,7 @@ void RunColdStorageCapitalUtilityTests();
 void RunColdStorageCounterBudgetTests();
 void RunColdStorageExtendedIncomeTests();
 void RunColdStorageSiegePreparationTests();
+void RunColdStorageCobForecastTests();
 void RunColdStorageMultiPrecisionTests();
 void RunColdStorageDeploymentTransactionTests();
 void RunColdStoragePrecisionUnlockForecastTests();
@@ -51,6 +52,7 @@ int main()
 	RunColdStorageCounterBudgetTests();
 	RunColdStorageExtendedIncomeTests();
 	RunColdStorageSiegePreparationTests();
+	RunColdStorageCobForecastTests();
 	RunColdStorageMultiPrecisionTests();
 	RunColdStorageDeploymentTransactionTests();
 	RunColdStoragePrecisionUnlockForecastTests();

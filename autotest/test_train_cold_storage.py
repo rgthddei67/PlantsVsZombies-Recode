@@ -15,9 +15,17 @@ class TrainerTests(unittest.TestCase):
                 cards = next(c['cards'] for c in commands if c['op'] == 'choose_cards')
                 self.assertEqual(cards.count('PLANT_BLOVER'), 1)
                 self.assertLessEqual(len(cards), 11)
-                self.assertIn('PLANT_JALAPENO', cards)
-                if stage == '11_7': self.assertIn('PLANT_PLANTERN', cards)
-                if opponent == 'ice_bunker_hold': self.assertIn('PLANT_DOOMSHROOM', cards)
+                if stage == '10_6':
+                    self.assertEqual(commands[-1]['opponent'], 'cob')
+                    self.assertTrue({'PLANT_KERNELPULT','PLANT_COBCANNON','PLANT_TALLNUT'} <= set(cards))
+                    self.assertEqual(len(cards),11)
+                    self.assertTrue({'PLANT_JALAPENO','PLANT_DOOMSHROOM','PLANT_INSTANT_COFFEE','PLANT_CHERRYBOMB'} <= set(cards))
+                    self.assertFalse({'PLANT_MELONPULT','PLANT_WINTERMELON'} & set(cards))
+                    self.assertFalse(next(c for c in commands if c['op']=='goto_level')['coldStorageBonusSelection'])
+                else:
+                    self.assertIn('PLANT_JALAPENO', cards)
+                    self.assertIn('PLANT_PLANTERN', cards)
+                    if opponent == 'ice_bunker_hold': self.assertIn('PLANT_DOOMSHROOM', cards)
                 self.assertFalse(any(c['op'] in ('plant','set_sun','set_cold_storage','set_no_cooldown') for c in commands))
 
     def test_release_compares_shipped_and_legacy_on_real_wins(self):

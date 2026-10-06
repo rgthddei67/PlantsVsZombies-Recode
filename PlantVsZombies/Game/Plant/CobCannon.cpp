@@ -181,6 +181,16 @@ float CobCannon::GetPendingSimulationBlastDelay() const
 	return GetSecondsUntilFrame(kLaunchFrame) + kCobFlightSeconds;
 }
 
+float CobCannon::GetSimulationShotWindup()
+{
+	return kReadyToLaunchSeconds + kCobFlightSeconds;
+}
+
+float CobCannon::GetSimulationFlightSeconds()
+{
+	return kCobFlightSeconds;
+}
+
 void CobCannon::UpdateCobTrackColor()
 {
 	if (!mAnimator) return;

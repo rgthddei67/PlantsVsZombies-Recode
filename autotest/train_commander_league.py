@@ -76,7 +76,7 @@ def evaluation_gate(before, after, cases, curriculum):
     mixed = [(a,b,c) for a,b,c in zip(before,after,cases)
              if c[0] == 'normal:opening_11_6' and c[1] == 'ice_bunker_mixed']
     transfer = [(a,b,c) for a,b,c in zip(before,after,cases)
-                if c[0] == 'normal:opening_10_6' and c[1] == 'pine_elite']
+                if c[0] == 'normal:opening_10_6' and c[1] == 'cob']
     def group(rows, minimum):
         old = sum(a['outcome'] == 'commander_win' for a,b,c in rows)
         new = sum(b['outcome'] == 'commander_win' for a,b,c in rows)
@@ -188,7 +188,10 @@ def curriculum_templates(name):
         collection = [('normal:opening_11_6','ice_bunker_mixed')] * 12
     elif name != 'balanced':
         raise ValueError('Unknown curriculum: '+name)
-    return collection, selection, holdout
+    # 当前10-6正常开局的正式陪练是无增益炮阵；案例身份与实际选卡/控制器一致。
+    def current_opponents(cases):
+        return [(arena, 'cob' if arena.endswith('opening_10_6') else opponent) for arena, opponent in cases]
+    return tuple(current_opponents(cases) for cases in (collection, selection, holdout))
 
 
 def draw_cases(templates, rng, seconds, long_seconds, curriculum, phase='selection', used_seeds=None):

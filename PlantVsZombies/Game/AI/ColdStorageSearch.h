@@ -323,7 +323,9 @@ struct Counter {
 	bool targeted = false; // 倭瓜先在种植格附近索敌，再在目标附近结算窄范围伤害
 	int cellRow = -1, cellColumn = -1; // 新种灰烬的原落点；-1 表示无需空格的已有能力
 	bool shovelAllowed = false; // Board 已验证可腾出普通层；推演仍受当前占位、资源与反制择时约束
-	int plantID = 0; // 预存一次性反制的来源；释放前可被吃掉，爆炸后只消费这株一次
+	int plantID = 0; // 已有反制能力的稳定来源；死亡停止后续释放，不按格位替换目标
+	bool consumesPlant = true; // 一次性灰烬爆炸后消耗宿主；玉米炮保持可受击并继续装填
+	float flightSeconds = 0; // 爆炸前独立飞行时间，游戏秒；离膛后不再依赖来源，零保持宿主绑定
 	int sharedSource = -1; // 额外共享的触发卡冷却，如多株预存毁灭共用咖啡；-1 表示无需第二张牌
 	float sharedReady = 0, sharedRecharge = 0;
 	float vulnerableSeconds = 0; // 从提交到清醒无敌的等待，游戏秒；已经清醒时为零

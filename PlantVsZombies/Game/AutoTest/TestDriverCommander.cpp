@@ -20,6 +20,136 @@ constexpr int kMixedProducerLimit=20; // 混合陪练的同时经济株建设目
 constexpr int kMixedDecisionTicks=30; // 混合陪练每半个游戏秒观察并提交合法输入，60 ticks为1秒
 constexpr int kMixedLotusColumn=3; // 混合陪练为唯一曙光莲保留的列，避免补射手占掉补种位置
 constexpr int kReservedAshWorkerCount=2; // 同一合法爆区内至少两只可生产工人时，允许交保留的灰烬
+constexpr int kCobEconomyMinimum=6; // 炮阵先建立的同时经济株数，之后优先完成双格升级
+constexpr int kCobEconomyTarget=10; // 炮阵中排两列的同时经济株目标，不占用炮体或前墙位置
+constexpr int kCobWallColumn=6; // 炮阵前排高坚果的逻辑列，后方留四列给双格炮
+constexpr float kCobTargetRadius=115; // 炮阵水平爆区的观察估计，像素；实际伤害仍由正式弹丸结算
+constexpr float kCobAshStake=1800; // 炮阵对可见集群交即时灰烬的生命门槛，后排救险不受此门槛限制
+/** 炮阵陪练从公开目标轮射，正常建设双格升级、高坚果和经济，并合法使用携带的灰烬。 */
+std::vector<Json> CobPlayerActions(const Json& state) {
+    std::vector<Json> actions;
+    const auto& ice=state.at("coldStorage");
+    int sun=state.at("sun"),stock=ice.at("playerIce");
+    const int rows=state.at("rows"),columns=state.at("columns");
+    const auto alive=[](const Json& p){return p.value("health",0)>0 && !p.value("squished",false);};
+    const auto plantAt=[&](int row,int col)->const Json* {
+        for(const auto& p:state.at("plants")) if(alive(p) && p.at("row")==row
+            && (p.at("col")==col || (p.at("type")=="PLANT_COBCANNON" && p.at("col").get<int>()+1==col))) return &p;
+        return nullptr;
+    };
+    auto flights=state.value("cobFlights",Json::array());
+    for(const auto& p:state.at("plants")) if(alive(p) && p.value("cobPhase",std::string{})=="FIRING")
+        flights.push_back({{"cobTargetRow",p.at("cobTargetRow")},{"cobTargetXInt",p.at("cobTargetXInt")}});
+    const auto covered=[&](const Json& z) {
+        return std::any_of(flights.begin(),flights.end(),[&](const Json& f) {
+            return std::abs(z.at("row").get<int>()-f.at("cobTargetRow").get<int>())<=1
+                && std::abs(z.at("xInt").get<int>()-f.at("cobTargetXInt").get<int>())<=kCobTargetRadius;
+        });
+    };
+    const auto visibleTarget=[&](const Json& z) {
+        return z.value("bodyHealth",0)>0 && !z.value("fogObscured",false) && z.value("cobBlastTargetable",false) && !covered(z);
+    };
+    // 每次只交一门就绪炮；下一次观察重看战损与在途落点，保留其他炮填补轮射空档。
+    const Json* cannon=nullptr;
+    for(const auto& p:state.at("plants")) if(alive(p) && p.value("cobPhase",std::string{})=="READY") {cannon=&p;break;}
+    int targetRow=-1,targetX=0; float best=0;
+    if(cannon) for(const auto& center:state.at("zombies")) if(visibleTarget(center)) {
+        const int x=center.at("xInt"),row=center.at("row");
+        if(x>SCENE_WIDTH || x<0) continue;
+        float value=0;
+        for(const auto& z:state.at("zombies")) if(visibleTarget(z) && std::abs(z.at("row").get<int>()-row)<=1
+            && std::abs(z.at("xInt").get<int>()-x)<=kCobTargetRadius) value+=std::min(1800,z.at("bodyHealth").get<int>());
+        value*=1+std::max(0,SCENE_WIDTH-x)/static_cast<float>(SCENE_WIDTH);
+        if(value>best) {best=value;targetRow=row;targetX=x;}
+    }
+    if(targetRow>=0) {
+        actions.push_back({{"op","player_fire_cob_cannon"},{"row",cannon->at("row")},{"col",cannon->at("col")},
+            {"x",targetX},{"y",state.at("cells").at(targetRow).at(0).at("centerYInt")}});
+        flights.push_back({{"cobTargetRow",targetRow},{"cobTargetXInt",targetX}});
+    }
+    for(const auto& coin:state.at("suns")) if(!coin.value("collected",false)) actions.push_back({{"op","collect_sun"},{"id",coin.at("id")}});
+    for(const auto& p:state.at("plants")) if(alive(p) && p.at("type")=="PLANT_MARIGOLD")
+        actions.push_back({{"op","player_shovel"},{"row",p.at("row")},{"col",p.at("col")}});
+    if(ice.at("orderIce")==0 && stock<std::max(40,ice.at("plantCosts").at("PLANT_COBCANNON").get<int>())) {
+        if(sun>=225) {actions.push_back({{"op","buy_ice"},{"large",true}});sun-=225;}
+        else if(sun>=100) {actions.push_back({{"op","buy_ice"},{"large",false}});sun-=100;}
+    }
+    bool planted=false;
+    const auto attempt=[&](const std::string& kind,const std::vector<std::pair<int,int>>& cells) {
+        if(planted) return;
+        for(const auto& card:state.at("cards")) if(card.at("gameplayType")==kind && card.at("ready").get<bool>()
+            && card.at("sunCost").get<int>()<=sun && ice.at("plantCosts").at(kind).get<int>()<=stock)
+            for(const auto& [row,col]:cells) {
+                const Json cell=Json::array({row,col});
+                if(std::find(card.at("legalCells").begin(),card.at("legalCells").end(),cell)==card.at("legalCells").end()) continue;
+                actions.push_back({{"op","player_plant"},{"slot",card.at("slot")},{"row",row},{"col",col}});planted=true;return;
+            }
+    };
+    // 已种毁灭仍须等咖啡豆真实转好并付款。先按本次公开威胁选格，不空场唤醒存炮。
+    const bool night=state.value("background",std::string{})=="WEATHER_STATION";
+    const auto ashCells=[&](const std::string& kind) {
+        std::vector<std::pair<float,std::pair<int,int>>> ranked;
+        for(const auto& card:state.at("cards")) if(card.at("gameplayType")==kind && card.at("ready").get<bool>())
+            for(const auto& cell:card.at("legalCells")) {
+                const int row=cell.at(0),col=cell.at(1),x=state.at("cells").at(row).at(col).at("centerXInt");
+                float value=0;bool urgent=false;
+                for(const auto& z:state.at("zombies")) {
+                    if(z.value("bodyHealth",0)<=0 || z.value("fogObscured",false) || covered(z) || z.at("xInt").get<int>()>SCENE_WIDTH) continue;
+                    const int dx=std::abs(z.at("xInt").get<int>()-x),dy=std::abs(z.at("row").get<int>()-row);
+                    const bool doom=kind=="PLANT_DOOMSHROOM" || kind=="PLANT_INSTANT_COFFEE";
+                    if(kind=="PLANT_JALAPENO" ? dy==0 : dy<=(doom ? 2 : 1) && dx<=(doom ? kStoredWakeReach : 130)) {
+                        value+=z.at("bodyHealth").get<int>();
+                        urgent|=z.at("xInt").get<int>()<state.at("cells").at(z.at("row").get<int>()).at(3).at("centerXInt").get<int>();
+                    }
+                }
+                if(value>=(kind=="PLANT_DOOMSHROOM" || kind=="PLANT_INSTANT_COFFEE" ? kStoredWakeStake : kCobAshStake) || (urgent && value>0))
+                    ranked.push_back({value,{row,col}});
+            }
+        std::stable_sort(ranked.begin(),ranked.end(),[](const auto& a,const auto& b){return a.first>b.first;});
+        std::vector<std::pair<int,int>> cells;
+        for(const auto& entry:ranked) cells.push_back(entry.second);
+        return cells;
+    };
+    if(!night) attempt("PLANT_INSTANT_COFFEE",ashCells("PLANT_INSTANT_COFFEE"));
+    attempt("PLANT_JALAPENO",ashCells("PLANT_JALAPENO"));
+    attempt("PLANT_CHERRYBOMB",ashCells("PLANT_CHERRYBOMB"));
+    bool coffeePayable=night;
+    if(!night) for(const auto& coffee:state.at("cards")) if(coffee.at("gameplayType")=="PLANT_INSTANT_COFFEE" && coffee.at("ready").get<bool>())
+        for(const auto& doom:state.at("cards")) if(doom.at("gameplayType")=="PLANT_DOOMSHROOM")
+            coffeePayable=sun>=coffee.at("sunCost").get<int>()+doom.at("sunCost").get<int>()
+                && stock>=ice.at("plantCosts").at("PLANT_INSTANT_COFFEE").get<int>()+ice.at("plantCosts").at("PLANT_DOOMSHROOM").get<int>();
+    if(coffeePayable) attempt("PLANT_DOOMSHROOM",ashCells("PLANT_DOOMSHROOM"));
+    std::vector<std::pair<int,int>> farm,wall,anchors,kernels,exchange;
+    int producers=0;
+    for(const auto& p:state.at("plants")) if(alive(p) && (p.at("type")=="PLANT_SUNFLOWER" || p.at("type")=="PLANT_SUNSHROOM")) ++producers;
+    for(int i=0;i<rows;++i) {
+        const int row=(rows/2+i)%rows;
+        for(int col:{4,5}) if(col<columns && !plantAt(row,col)) farm.emplace_back(row,col);
+        if(kCobWallColumn<columns && !plantAt(row,kCobWallColumn)) wall.emplace_back(row,kCobWallColumn);
+        for(int col:{0,2}) if(col+1<columns) {
+            const auto* left=plantAt(row,col); const auto* right=plantAt(row,col+1);
+            if(left && right && left->at("type")=="PLANT_KERNELPULT" && right->at("type")=="PLANT_KERNELPULT") anchors.emplace_back(row,col);
+            else if(!left) kernels.emplace_back(row,col);
+            else if(left->at("type")=="PLANT_KERNELPULT" && !right) kernels.insert(kernels.begin(),{row,col+1});
+        }
+        for(int col:{7,8}) if(col<columns && !plantAt(row,col)) exchange.emplace_back(row,col);
+    }
+    attempt("PLANT_MARIGOLD",exchange);
+    if(std::any_of(state.at("zombies").begin(),state.at("zombies").end(),[](const Json& z){return z.at("type")=="ZOMBIE_BALLOON" && !z.value("fogObscured",false);}))
+        attempt("PLANT_BLOVER",exchange);
+    if(std::any_of(state.at("zombies").begin(),state.at("zombies").end(),[](const Json& z){return z.value("bodyHealth",0)>0 && !z.value("fogObscured",false) && z.at("xInt").get<int>()<850;}))
+        attempt("PLANT_TALLNUT",wall);
+    const std::string producer=state.value("background",std::string{})=="WEATHER_STATION" ? "PLANT_SUNSHROOM" : "PLANT_SUNFLOWER";
+    if(producers<kCobEconomyMinimum) attempt(producer,farm);
+    attempt("PLANT_COBCANNON",anchors);
+    // 双玉米已齐且升级卡就绪时攒够正式费用，避免花零钱导致永久不能升级。
+    if(!planted && !anchors.empty() && producers>=kCobEconomyMinimum)
+        for(const auto& card:state.at("cards")) if(card.at("gameplayType")=="PLANT_COBCANNON" && card.at("ready").get<bool>()) return actions;
+    attempt("PLANT_KERNELPULT",kernels);
+    if(producers<kCobEconomyTarget) attempt(producer,farm);
+    attempt("PLANT_TALLNUT",wall);
+    return actions;
+}
 /** 最后一张灰烬只应对公开工人集中、后排救险或无油产冰警报，不从雾内位置选靶。 */
 bool ReservedAshCanRelease(const Json& state,const std::vector<Json>& visible,const std::string& kind,
     int row,int column,bool blindProductionAlarm) {
@@ -39,6 +169,7 @@ bool ReservedAshCanRelease(const Json& state,const std::vector<Json>& visible,co
 }
 /** 固定的植物方陪练，只从可见状态选择动作，不加钱、不重置冷却、不替指挥官出兵。 */
 std::vector<Json> PlayerActions(const Json& state, const std::string& opponent, bool shovelCounters, bool recentIceRise) {
+	if(opponent=="cob") return CobPlayerActions(state);
 	std::vector<Json> actions;
 	const auto& ice = state.at("coldStorage");
 	const bool mixedElite=opponent=="ice_bunker_mixed";
@@ -573,7 +704,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal" && opponent != "ice_bunker_mixed")) {
+	if (ticks < 60 || ticks > 72000 || (opponent != "cob" && opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal" && opponent != "ice_bunker_mixed")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -595,7 +726,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	}
 	// 混合陪练半秒观察一次以正常使用不同卡槽，避免每秒至多一株拖慢开局；其他陪练不变。
 	// 轨迹仍按下方独立的采样间隔输出，正式胜负在每个逻辑步立即收尾。
-	const int observationTicks=opponent=="ice_bunker_mixed" ? kMixedDecisionTicks : 60;
+	const int observationTicks=(opponent=="ice_bunker_mixed" || opponent=="cob") ? kMixedDecisionTicks : 60;
 	Json full;
 	if (terminal || mEpisodeTicks % observationTicks == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
 	else { mEpisodeTicks += timeScale; return false; }

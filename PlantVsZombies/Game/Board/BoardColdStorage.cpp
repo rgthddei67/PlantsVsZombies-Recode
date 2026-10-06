@@ -18,6 +18,7 @@
 #include "Game/LawnMower.h"
 #include "Game/Plant/GameDataManager.h"
 #include "Game/Plant/Plant.h"
+#include "Game/Plant/CobCannon.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/DancerRules.h"
 #include "Game/Zombie/ZombieBirthVitalsRules.h"
@@ -214,6 +215,24 @@ namespace {
 		int rowRadius = 0;
 		float damage = kAshForecastDamage;
 	};
+
+	/** 炮弹可在整个可见场景选点；格中心之外的两侧边缘也必须参与同一装填的择点。 */
+	std::vector<std::pair<int,float>> CobForecastAimPoints(const PlantDefenseMonteCarlo::Snapshot& snapshot)
+	{
+		std::vector<std::pair<int,float>> points;
+		for(const auto& cell:snapshot.cells) points.emplace_back(cell.row,cell.x);
+		if(snapshot.cells.empty()) return points;
+		float left=snapshot.sceneWidth,right=0;
+		for(const auto& cell:snapshot.cells) {left=std::min(left,cell.x);right=std::max(right,cell.x);}
+		const float step=snapshot.columns>1 ? (right-left)/(snapshot.columns-1) : snapshot.sceneWidth;
+		if(step<=0) return points;
+		for(int row=0;row<snapshot.rows;++row) {
+			for(float x=0;x<left;x+=step) points.emplace_back(row,x);
+			for(float x=right+step;x<snapshot.sceneWidth;x+=step) points.emplace_back(row,x);
+			if(right<snapshot.sceneWidth) points.emplace_back(row,snapshot.sceneWidth);
+		}
+		return points;
+	}
 
 	/** 返回对应结算几何在目标行的水平半径；负值表示该行不会命中。 */
 	float EconomyBlastReach(const EconomyBlast& blast, int row, float targetDeltaY)
@@ -1080,8 +1099,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		}
 		if (p.cobBlastDamage > 0.0f) {
 			responseWindow = std::min(responseWindow, p.abilityCooldownRemaining);
-			for (const auto& cell : snapshot.cells) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
-				cell.row, cell.x, p.abilityCooldownRemaining + 4.0f, false, p.cobBlastRadius, p.cobBlastRowRadius, p.cobBlastDamage});
+			for (const auto& [row,x] : CobForecastAimPoints(snapshot)) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
+				row, x, p.abilityCooldownRemaining, false, p.cobBlastRadius, p.cobBlastRowRadius, p.cobBlastDamage});
 		}
 	}
 	for (const auto& blast : snapshot.pendingCobBlasts) economyBlasts.push_back({PlantType::PLANT_COBCANNON,
@@ -1439,7 +1458,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			ColdStorageSearch::Counter counter;
 			counter.source = id; counter.sunCost = sun; counter.iceCost = ice;
 			counter.recharge = recharge; counter.targeted = targeted;
-			counter.windup = blast.type == PlantType::PLANT_COBCANNON ? 4.0f : targeted ? 1.7f : 1.0f;
+			counter.windup = blast.type == PlantType::PLANT_COBCANNON ? CobCannon::GetSimulationShotWindup() : targeted ? 1.7f : 1.0f;
 			if (blast.type == PlantType::PLANT_CHERRYBOMB) counter.windup = CherryBomb::GetMinimumChargeDuration();
 			if (blast.type == PlantType::PLANT_DOOMSHROOM)
 				counter.windup = DoomShroom::GetChargeDuration()+(doomNeedsCoffee ? CoffeeBean::GetFullWakeDelay() : 0);
@@ -1616,11 +1635,23 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				}
 			} else if (p.cobBlastDamage > 0) {
 				const int id = source++;
-				for (const auto& cell : snapshot.cells) addCounter({PlantType::PLANT_COBCANNON,cell.row,cell.x,p.abilityCooldownRemaining,false,p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);
+				// 本体接口返回到爆炸的总余时；候选就绪应扣除发射/飞行，不能再重复加四秒。
+				for (const auto& [row,x] : CobForecastAimPoints(snapshot)) {
+					addCounter({PlantType::PLANT_COBCANNON,row,x,
+						std::max(0.0f,p.abilityCooldownRemaining-CobCannon::GetSimulationShotWindup()),false,
+						p.cobBlastRadius,p.cobBlastRowRadius,p.cobBlastDamage},id,0,0,p.cobBlastCooldown,false);
+					auto& counter=search.counters.back();
+					counter.plantID=p.id; counter.consumesPlant=false;
+					counter.flightSeconds=CobCannon::GetSimulationFlightSeconds();
+				}
 			}
 		}
-		for (const auto& blast : snapshot.pendingCobBlasts)
+		for (const auto& blast : snapshot.pendingCobBlasts) {
 			addCounter({PlantType::PLANT_COBCANNON,blast.targetRow,blast.x,blast.resolveSeconds,true,blast.radius,blast.rowRadius,blast.damage},source++,0,0,10000,false);
+			auto& counter=search.counters.back();
+			counter.plantID=std::max(0,blast.sourcePlantId); counter.consumesPlant=false;
+			counter.flightSeconds=CobCannon::GetSimulationFlightSeconds();
+		}
 		float currentCapital = static_cast<float>(s.enemyIce);
 		for (const auto& body : formation) search.current.push_back({body});
 		// 生产进度使用同一实体，不以成熟工人的默认第一批代替实际收入。

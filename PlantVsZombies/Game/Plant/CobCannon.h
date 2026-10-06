@@ -33,6 +33,10 @@ public:
 	float GetSimulationAbilityCooldownRemaining() const override;
 	/** 已进入射击轨但尚未离膛时，返回当前已提交炮击到爆炸的剩余秒数。 */
 	float GetPendingSimulationBlastDelay() const;
+	/** 从 READY 下令到爆炸的游戏秒数，与正式射击前摇和弹丸飞行共用参数。 */
+	static float GetSimulationShotWindup();
+	/** 离膛后独立飞行的游戏秒数；来源死亡不得撤销这段已经提交的炮击。 */
+	static float GetSimulationFlightSeconds();
 	void Die() override;
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;

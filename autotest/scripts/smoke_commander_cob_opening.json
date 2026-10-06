@@ -1,0 +1,63 @@
+{
+  "description": "Normal no-support 10-6: full eleven-card cannon/tallnut lineup with Doom/Coffee/Cherry/Jalapeno and Blover, shipped policy and realtime x2. Outcome is diagnostic, not a win-rate gate.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT",
+        "PLANT_DOOMSHROOM",
+        "PLANT_INSTANT_COFFEE",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_BLOVER"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "set_timescale",
+      "value": 2
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 360,
+      "name": "normal_cob",
+      "timeout": 240,
+      "traceUnits": true,
+      "timeScale": 2,
+      "snapshotName": "cob_early_10_6",
+      "snapshotAtSeconds": 50
+    },
+    {
+      "op": "screenshot",
+      "name": "normal_final.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -29,7 +29,8 @@ class OpeningTests(unittest.TestCase):
                     long_seconds=120,generations=0,population=3,restarts=0,calibration='off',
                     opponent_weight=None,state_model=changed,state_only=False,net_economy=False,
                     anticipate_building=False,search_version=None,from_candidate=None,reference_policy=None,
-                    curriculum='coached')
+                    curriculum='coached',include_candidate=[],background_commander=False,
+                    holdout_background_commander=False,time_scale=1,reuse_paid_probes=None)
                 with patch('train_commander_league.ROOT',root), patch('train_commander_league.catalog',return_value=['normal']), \
                      patch('train_commander_league.run_batch',side_effect=RuntimeError('reached holdout')) as run:
                     if changed:
@@ -49,7 +50,7 @@ class OpeningTests(unittest.TestCase):
         self.assertIn(('normal:opening','planner'),selection)
         self.assertIn(('normal:opening','fortifier'),selection)
         self.assertTrue({'planner','lotus','ash'} <= {o for _,o in selection})
-        for n in range(1,10):self.assertIn((f'normal:opening_10_{n}','planner'),holdout)
+        for n in range(1,10):self.assertIn((f'normal:opening_10_{n}','cob' if n==6 else 'planner'),holdout)
         self.assertTrue(all(c[3]==900 for c in draw_cases(holdout,random.Random(17),300,900,'coached')))
 
     def test_primary_curriculum_contains_no_prebuilt_positions(self):
@@ -58,7 +59,7 @@ class OpeningTests(unittest.TestCase):
             self.assertTrue(all(is_opening(a) for a, _ in templates))
             self.assertEqual({family(a) for a, _ in templates}, {'normal', 'full', 'masked'})
         for n in range(1, 10):
-            self.assertIn((f'normal:opening_10_{n}', 'fortifier'), holdout)
+            self.assertIn((f'normal:opening_10_{n}', 'cob' if n==6 else 'fortifier'), holdout)
         cases = draw_cases(holdout, random.Random(9), 300, 900, 'openings')
         self.assertTrue(all(c[3] == 900 for c in cases))
 
