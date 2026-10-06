@@ -5265,6 +5265,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchWidestComposition"]=board->mColdStorage.searchWidestComposition;
 		ice["searchExperiencedEvaluated"]=board->mColdStorage.searchExperiencedEvaluated;
 		ice["searchExperiencedSelected"]=board->mColdStorage.searchExperiencedSelected;
+		ice["stallDiagnosticSaved"]=board->mColdStorage.stallDiagnosticSaved;
+		ice["stallDiagnosticPath"]=board->mColdStorage.stallDiagnosticPath;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;
 		ice["searchCounterHoldSeconds"] = board->mColdStorage.searchCounterHoldSeconds;

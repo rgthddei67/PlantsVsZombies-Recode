@@ -379,6 +379,8 @@ struct Snapshot {
 	int fundableUnlockTroopCost = 0; // 当前钱包可支付解锁路径的后续兵种最高单价，只参与现金估值，不开放采购
 	float capitalRiskAllowance = (std::numeric_limits<float>::max)(); // 累计净亏损后的剩余风险额度，冰；未提供实际账本的夹具不启用
 	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
+	int fallbackProbeBudget=0; // 长期空场的独立有限实战试攻额度，冰；零保持纯评分等待
+	bool fallbackAllIn=false; // 有限试攻无实际进展后，允许从真实评估的完整进攻案孤注一掷
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
@@ -425,6 +427,7 @@ struct Snapshot {
 	std::array<ContextWeights, 6> context{};
 };
 struct Result {
+	int fallbackMode=0; // 0正常评分、1有限试攻、2孤注一掷；保留原预测分数，不能伪称盈利
 	int experiencedEvaluated=0; // 经验编队在统一预测中实际积分的数量，不含被去重或资金不足的配方
 	bool experiencedSelected=false; // 最终直接选中经验原案；自由变异后的方案仍按自由搜索记录
 	CapitalUtilityInputs capitalUtilityInputs; // 实际评分使用的现金快照输入，仅诊断，不保存或预支资金

@@ -53,6 +53,9 @@ constexpr int kAdaptiveActions = 32; // 新模型可比较的最大编队，能�
 constexpr float kAdaptiveDelay = 30; // 新模型可搜索的分批出生时域，游戏秒
 constexpr float kAdaptiveHorizon = 90; // 新模型多观察一个后续交战窗口，游戏秒；产冰校准输入固定前60秒，评分计同窗总产冰
 constexpr float kContact = 55; // 接触植物的预测距离，像素
+constexpr int kTrialMinimumTroops = 3; // 有限试攻至少比较一个小队，名额不足时按真实容量缩小
+constexpr int kTrialSeedTroops = 5; // 单兵种试攻起点最多五名，不改变正常自由组合的规模
+constexpr float kAllInSpendFraction = .75f; // 全力候选至少使用可部署攻击预算的四分之三，避免退化为单只廉价试探
 /** 非矿场声波按正式对象位置和网格边界判定；碰撞锚点不能让场外工人提前承伤。 */
 bool EchoContains(const Snapshot& s, const Plant& p, const Unit& unit) {
     const float x=unit.body.x+unit.body.blastAnchorOffset;
@@ -4187,6 +4190,58 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	const auto experienced=BuildExperiencedFormations(s,std::min(ActionLimit(s),DeploymentCapacity(s)),PurchaseBudget(s));
 	size_t experiencedIndex=0;
 	int experiencedEvaluated=0;
+	// 兜底仍使用完整预测，不修改预测分数；正常有益方案永远先于有限试攻/全力进攻。
+	Result fallback; bool hasFallback=false;
+	const auto combat=[](const Option& o) {
+		const auto& u=o.unit;
+		return o.device<0 && !u.body.economic && !u.engineer && !u.clock.present && !u.healer.present && !u.drum.enabled;
+	};
+	int cheapestCombat=PurchaseBudget(s)+1, highestCombat=0;
+	for(const auto& o:s.options) if(combat(o) && o.cost>0 && o.cost<=PurchaseBudget(s)) {
+		cheapestCombat=std::min(cheapestCombat,o.cost); highestCombat=std::max(highestCombat,o.cost);
+	}
+	const int fullCombat=highestCombat>0 ? std::min({DeploymentCapacity(s),ActionLimit(s),PurchaseBudget(s)/cheapestCombat}) : 0;
+	const int requiredCombat=highestCombat>0 ? std::min({kTrialMinimumTroops,fullCombat,std::max(1,PurchaseBudget(s)/highestCombat)}) : 1;
+	const int requiredSpend=std::max(1,static_cast<int>(std::ceil(std::min(PurchaseBudget(s),highestCombat*fullCombat)*kAllInSpendFraction)));
+	int cheapestTroop=PurchaseBudget(s)+1;
+	for(const auto& o:s.options) if(o.device<0 && o.cost>0) cheapestTroop=std::min(cheapestTroop,o.cost);
+	const int trialTroops=std::min({kTrialMinimumTroops,DeploymentCapacity(s),s.fallbackProbeBudget/cheapestTroop});
+	const auto fallbackMerit=[&](const Result& r) {
+		float health=0; for(const auto& a:r.actions) if(combat(s.options[a.option])) health+=s.options[a.option].unit.body.health;
+		return std::make_pair(r.features[0]-r.baselineFeatures[0]+r.features[1]-r.baselineFeatures[1]
+			+r.features[7]-r.baselineFeatures[7],health);
+	};
+	const auto observeFallback=[&](const Result& r) {
+		if(s.fallbackProbeBudget<=0 && !s.fallbackAllIn) return;
+		if(r.precisionTargetID>0 || r.actions.empty()) return;
+		int bill=0, fighters=0;
+		for(const auto& a:r.actions) {
+			const auto& o=s.options[a.option]; if(o.device>=0) return;
+			bill+=o.cost; fighters+=combat(o);
+		}
+		if(s.fallbackAllIn) {
+			if(fighters<requiredCombat || bill<requiredSpend) return;
+		} else if(bill>s.fallbackProbeBudget || r.actions.size()<static_cast<size_t>(trialTroops)) return;
+		bool better=!hasFallback;
+		if(hasFallback) {
+			if(s.fallbackAllIn) better=CompareVictory(r,fallback)>0 || (CompareVictory(r,fallback)==0 && fallbackMerit(r)>fallbackMerit(fallback));
+			else better=r.score/std::max(1.0f,r.features[5]-r.baselineFeatures[5])
+				>fallback.score/std::max(1.0f,fallback.features[5]-fallback.baselineFeatures[5]);
+		}
+		if(better) {fallback=r; hasFallback=true;}
+	};
+	std::vector<std::vector<Action>> fallbackSeeds;
+	if(s.fallbackAllIn || s.fallbackProbeBudget>0) for(const auto& group:initialGroups) for(int option:group) {
+		const auto& o=s.options[option]; if(o.device>=0 || o.cost<=0 || (s.fallbackAllIn && !combat(o))) continue;
+		const int count=s.fallbackAllIn ? std::min({ActionLimit(s),DeploymentCapacity(s),PurchaseBudget(s)/o.cost})
+			: std::min({kTrialSeedTroops,DeploymentCapacity(s),s.fallbackProbeBudget/o.cost});
+		if(count>0) fallbackSeeds.emplace_back(count,Action{option,0});
+	}
+	if(s.fallbackAllIn) std::stable_sort(fallbackSeeds.begin(),fallbackSeeds.end(),[&](const auto& a,const auto& b) {
+		// 短预算先评一组真实战斗生命较厚的合法整队；仍让所有有益方案按原分数竞争。
+		return a.size()*s.options[a.front().option].unit.body.health>b.size()*s.options[b.front().option].unit.body.health;
+	});
+	size_t fallbackSeedIndex=0;
 	size_t pairIndex=0;
 	const auto samplePair=[&](bool simultaneous) {
 		const size_t index=pairIndex%pairs.size(), round=pairIndex++/pairs.size();
@@ -4226,6 +4281,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
     size_t coverageIndex = 0;
 	// 排名、随机数和候选记账只由协调线程修改；辅助线程仅借用本作用域的只读快照。
 	const auto acceptCandidate=[&](Result candidate,bool cohort) {
+		observeFallback(candidate);
 		investments.Observe(s,candidate);
 		assaults.Observe(s,candidate); // 资本拒绝只禁止付款，不能提前截断尚未完成的攻城协同。
 		if(cohort && !candidate.actions.empty() && (!hasCohortAnchor || BetterOutcome(candidate,cohortAnchor))) {
@@ -4277,20 +4333,24 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 		// 每三个首轮名额最多一个用于经验完整案，剩余继续自由组合、变异与协同深化。
 		// 经验案也进入原精英/经营/攻城前沿，后续可删成员、替换兵种及改路线，而非独立固定 AI。
 		const bool experiencedTrial=trial%3==2 && experiencedIndex<experienced.size();
+		const bool fallbackTrial=(trial%3==0 || (s.fallbackAllIn && trial==1)) && fallbackSeedIndex<fallbackSeeds.size();
 		// 独立抽完整队伍，允许跨过“单只亏损、协同才盈利”的谷底，不强制任何兵种模板。
-		const bool portfolioTrial = !experiencedTrial && s.searchVersion == 2 && trial % 4 == 1;
+		const bool portfolioTrial = !fallbackTrial && !experiencedTrial && s.searchVersion == 2 && trial % 4 == 1;
 		// 工人的补搭档时段必须保留；进攻深化从通用变异时段取预算，不能只剩反复裸工人的入口。
 		// 富余钱包先重评自己已发现的构成，再加深攻城；仍轮转经营和新抽样，
 		// 不增加总预算，不指定兵种或采购义务。
-		const bool proposalTrial=!experiencedTrial && trial%8==(prioritizeAssault ? 2 : 4) && proposalIndex<s.proposals.size();
-		const bool assaultTrial=!experiencedTrial && !proposalTrial && ((prioritizeAssault ? trial%4==0 : trial%8==0)
+		const bool proposalTrial=!fallbackTrial && !experiencedTrial && trial%8==(prioritizeAssault ? 2 : 4) && proposalIndex<s.proposals.size();
+		const bool assaultTrial=!fallbackTrial && !experiencedTrial && !proposalTrial && ((prioritizeAssault ? trial%4==0 : trial%8==0)
 			|| (incomeSeeds.empty() && trial%4==2)) && !assaults.Empty();
-		const bool incomeTrial=!experiencedTrial && trial%4==2 && !incomeSeeds.empty() && !assaultTrial;
-        const bool cooperationTrial = !experiencedTrial && trial % 4 == 3 && !pairs.empty();
+		const bool incomeTrial=!fallbackTrial && !experiencedTrial && trial%4==2 && !incomeSeeds.empty() && !assaultTrial;
+        const bool cooperationTrial = !fallbackTrial && !experiencedTrial && trial % 4 == 3 && !pairs.empty();
         const bool reinforcementTrial=cooperationTrial && trial%8==3
             && (hasCohortAnchor || !best.actions.empty());
         bool refinementTrial=false;
-        if(experiencedTrial) {
+        if(fallbackTrial) {
+			plan=fallbackSeeds[fallbackSeedIndex++];
+		}
+        else if(experiencedTrial) {
 			plan=experienced[experiencedIndex++];
 		}
         else if(proposalTrial) {
@@ -4368,14 +4428,14 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 			}
 		}
 		// 首案保留完整抽样，让紧预算至少先比较一次可支付的整队；不强制购买。
-        const int mutations = experiencedTrial || proposalTrial || assaultTrial || incomeTrial || cooperationTrial || (portfolioTrial && trial == 1) ? 0 : 1 + rng() % 3;
+        const int mutations = fallbackTrial || experiencedTrial || proposalTrial || assaultTrial || incomeTrial || cooperationTrial || (portfolioTrial && trial == 1) ? 0 : 1 + rng() % 3;
 		for (int n = 0; n < mutations; ++n) {
 			MutatePlan(s,plan,rng);
 		}
 		// 兵种覆盖、整队和协作探索交错；不能把刚抽出的完整协作案覆盖成单兵案。
-        if (!experiencedTrial && !proposalTrial && !assaultTrial && !incomeTrial && !portfolioTrial && !cooperationTrial && coverageIndex < coverage.size())
+        if (!fallbackTrial && !experiencedTrial && !proposalTrial && !assaultTrial && !incomeTrial && !portfolioTrial && !cooperationTrial && coverageIndex < coverage.size())
 			plan = IntroduceOption(s,best.actions,coverage[coverageIndex++],rng);
-        if (!experiencedTrial && !proposalTrial && !assaultTrial && !incomeTrial && !portfolioTrial && !cooperationTrial && trial%8==0 && elite.size()>1) {
+        if (!fallbackTrial && !experiencedTrial && !proposalTrial && !assaultTrial && !incomeTrial && !portfolioTrial && !cooperationTrial && trial%8==0 && elite.size()>1) {
 			const auto& donor=hasCohortAnchor && trial%16==0 ? cohortAnchor.actions : elite[rng()%elite.size()].actions;
 			BlendPlan(s,plan,donor,rng);
 		}
@@ -4574,6 +4634,9 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	}
 	best.formationBaseScore = baseScore; best.formationScores = rowScores;
 	best.formationTested = tested; best.formationRejected = rejected; best.formationChosenRow = chosenRow;
+	if(best.actions.empty() && best.precisionTargetID<=0 && hasFallback) {
+		best=std::move(fallback); best.fallbackMode=s.fallbackAllIn ? 2 : 1;
+	}
 	best.routeEvaluated = routeEvaluated; best.combinationEvaluated = combinationEvaluated;
 	best.cohortEvaluated=cohortEvaluated;
 	best.duplicatesSkipped=duplicatesSkipped; best.unevenMixEvaluated=unevenMixEvaluated;
@@ -4638,6 +4701,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 /** 技能与不施法优案同分制比较；先有限选靶，再只为胜出目标重搜一次可支付编队。 */
 Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed, PlanEvaluator* evaluator) {
     auto state = input;
+	if(state.fallbackAllIn) state.searchVersion=2; // 全力案必须比较实际可部署整队，不受早期八只小队窗口限制。
     if(state.timeLimitedSearch) {
 		const auto begin=std::chrono::steady_clock::now();
 		state.searchDeadline=begin+(input.searchDeadline-begin)*kWinnerSearchBudgetPercent/100;
@@ -4668,7 +4732,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed,
 		|| input.budget < ColdStorageSkillRules::StrikeIceCost || !ValidWeights(weights)) {
 		if(best.expandedForecast) state.searchVersion=2;
 		state.searchDeadline=input.searchDeadline;
-		PruneWinner(state,best);
+		if(best.fallbackMode==0) PruneWinner(state,best);
 		best.timeLimited|=SearchTimeExpired(state);
 		return best;
 	}
@@ -4841,7 +4905,7 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed,
 	state.precisionAdditionalTargetIDs=best.precisionAdditionalTargetIDs;
 	state.searchDeadline=input.searchDeadline;
 	best.effectiveWeights=incumbent.effectiveWeights;
-	PruneWinner(state,best);
+	if(best.fallbackMode==0) PruneWinner(state,best);
 	best.precisionEvaluated = evaluated;
 	best.evaluated = incumbent.evaluated+evaluated+best.pruningEvaluated;
 	best.effectiveWeights = incumbent.effectiveWeights; best.stateInputs = incumbent.stateInputs;

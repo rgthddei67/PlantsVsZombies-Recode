@@ -365,6 +365,9 @@ public:
 	std::array<float, 8> mGoldenIceTimer{}; // 每行黄色冰道剩余寿命，单位秒
 
 private:
+	/** 主线程一次性捕获已确认的后台停滞；失败也不重试写盘，不改变钱包、出兵或玩家存档。 */
+	void CaptureColdStorageStall(const ColdStorageSearch::Snapshot& search,
+		const ColdStorageSearch::Result& result, std::uint32_t seed);
 	/** 共用正式地形/名额规则；仅预测允许忽略指定普通层或南瓜占位。 */
 	bool CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID);
 	/** 雪穴预警期间尚未创建的正式波次僵尸；提交前清穴只改回右侧入口。 */

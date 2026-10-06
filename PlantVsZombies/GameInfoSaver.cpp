@@ -4,6 +4,8 @@
 #include "SaveSchema.h"
 #include <algorithm>
 #include <cstddef>
+#include <atomic>
+#include <chrono>
 #include <filesystem>
 #include "GameApp.h"
 #include "Game/Board/Board.h"
@@ -2110,6 +2112,75 @@ bool GameInfoSaver::SaveAutoTestLevelSnapshot(Board* board, CardSlotManager* man
 	}
 	catch (const std::exception& e) {
 		LOG_ERROR("GameInfoSaver") << "AutoTest 快照保存失败: " << e.what();
+		return false;
+	}
+}
+
+bool GameInfoSaver::SaveCommanderStallSnapshot(Board* board, CardSlotManager* manager,
+	const nlohmann::json& diagnostics, std::string& directory)
+{
+	directory.clear();
+	if (!board || !manager) {
+		LOG_ERROR("GameInfoSaver") << "指挥官诊断缺少棋盘或卡槽，已跳过";
+		return false;
+	}
+	try {
+		// 固定诊断根目录与唯一子目录隔离普通存档；即使同毫秒/重启也不覆盖已有取证。
+		static std::atomic<unsigned long long> sequence{0};
+		const auto root = std::filesystem::absolute("autotest/out/commander_stalls");
+		std::error_code ec;
+		std::filesystem::create_directories(root, ec);
+		if (ec) {
+			LOG_ERROR("GameInfoSaver") << "指挥官诊断目录创建失败: " << ec.message();
+			return false;
+		}
+		const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+			std::chrono::system_clock::now().time_since_epoch()).count();
+		for (int attempt = 0; attempt < 16; ++attempt) {
+			const auto session = root / (std::to_string(timestamp) + "_"
+				+ std::to_string(sequence.fetch_add(1, std::memory_order_relaxed)));
+			if (std::filesystem::create_directory(session, ec)) {
+				directory = session.u8string();
+				break;
+			}
+			if (ec) {
+				LOG_ERROR("GameInfoSaver") << "指挥官诊断会话创建失败: " << ec.message();
+				return false;
+			}
+		}
+		if (directory.empty()) {
+			LOG_ERROR("GameInfoSaver") << "指挥官诊断会话名冲突，已跳过";
+			return false;
+		}
+		const auto session = std::filesystem::u8path(directory);
+		const bool snapshotSaved = SerializeLevelDataToPath(board, manager,
+			(session / "level_snapshot.json").u8string());
+		// 保存原始资源字节，而不是重新排版 JSON；实验覆盖的实际数值另由 diagnostics 记录。
+		const std::string policySource = "./resources/ai/cold_storage_policy.json";
+		const auto policyBytes = FileManager::LoadFileAsBinary(policySource);
+		const bool policySaved = !policyBytes.empty() && FileManager::SaveBinaryFile(
+			(session / "policy.json").u8string(), policyBytes.data(), policyBytes.size());
+		const auto gameDataBytes=FileManager::LoadFileAsBinary("./resources/gamedata.json");
+		const bool gameDataSaved=!gameDataBytes.empty() && FileManager::SaveBinaryFile(
+			(session/"gamedata.json").u8string(),gameDataBytes.data(),gameDataBytes.size());
+		auto record = diagnostics;
+		record["capture"] = {{"directory",directory},{"levelSnapshot","level_snapshot.json"},
+			{"levelSnapshotSaved",snapshotSaved},{"policySource",policySource},
+			{"policyCopy","policy.json"},{"policyCopySaved",policySaved},
+			{"gameDataCopy","gamedata.json"},{"gameDataCopySaved",gameDataSaved}};
+		const bool diagnosticsSaved = FileManager::SaveJsonFile((session / "diagnostics.json").u8string(),record);
+		if (!snapshotSaved || !policySaved || !diagnosticsSaved) {
+			LOG_ERROR("GameInfoSaver") << "指挥官诊断部分保存失败，保留取证目录: " << directory;
+			return false;
+		}
+		return true;
+	}
+	catch (const std::exception& e) {
+		LOG_ERROR("GameInfoSaver") << "指挥官诊断保存失败，游戏继续: " << e.what();
+		return false;
+	}
+	catch (...) {
+		LOG_ERROR("GameInfoSaver") << "指挥官诊断保存发生未知异常，游戏继续";
 		return false;
 	}
 }

@@ -749,6 +749,18 @@ int main() {
 		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==3,"重复加载不会重复补领");
 	}
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();
+	{
+		std::string error;
+		nlohmann::json old={{"schemaVersion",26},{"coldStorage",{{"enemyIce",1013},{"spent",60},{"workerIncome",20},{"killIncome",12}}}};
+		Expect(SaveSchema::UpgradeLevelDocument(old,error),"v26冷库局升级到有限试攻状态");
+		const auto& ice=old["coldStorage"];
+		Expect(ice["emptyWaitSeconds"]==0 && ice["stallProbeRounds"]==0 && ice["stallProbeSpent"]==0
+			&& ice["stallStartWorkerIncome"]==20 && ice["stallStartKillIncome"]==12 && ice["enemyIce"]==1013 && ice["spent"]==60,
+			"迁移不推定旧局失败，不预扣试攻钱，保留实际账本");
+		old["schemaVersion"]=26; old["coldStorage"]["stallProbeRounds"]=1;
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["coldStorage"]["stallProbeRounds"]==1,
+			"已有明确试攻记录不因重复迁移重置");
+	}
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();
 	TestVersionFourPlayerUpgradeAddsCrazyDaveTutorialsSeen();
 	TestCurrentLevelDocumentIsStable();

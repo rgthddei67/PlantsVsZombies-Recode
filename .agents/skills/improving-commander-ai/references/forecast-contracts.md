@@ -126,3 +126,7 @@
 扶梯的共享通路见 `LadderRules`、`ColdStorageLadderForecast` 与实体只读getter。新购/付费队列/活体读取携梯、放置余时、卸梯速度及支持攀爬资格；已提交通路独立于建造者，灰烬按正式格形/整行拆梯，磁吸及真实植物死亡清理共享梯。待提交目标按同格现有支持层重取，盾破/掉头/来源死亡取消未完成放置。攀升/落地和慢根运动横移分别推进，不瞬移墙体；已实际开路而暂未兑现破坏的单类中间态可继续接后援，`siegeAccessProgress` 只用于探索，不奖励资源或最终评分。精英未来扫描、骑乘/持杆跳跃及垂直弹丸碰撞仍有限近似；专项为 `smoke_commander_ladder_forecast` 与同名verifier，受控高库存阵型不能当正常开局或真人胜率。
 
 经验编队入口为 `ColdStorageSearch::BuildExperiencedFormations`（`ColdStorageFormationSeeds.h/.cpp`）。它从当前合法能力画像生成旧版护卫先行、工人跟进及新的保护/攻坚完整案，只提供搜索起点，不沿用旧启发式评分或直接付款。经验案与自由组合交错，进入同一精英、经营和攻城前沿；后续仍可自由删换成员、改路线与时序。完整配方超过现金或名额时整案拒绝，不能先截掉工人或保护者再称协同有效。纯数值 `experiencedFormations=false` 或 AutoTest 根字段 `commanderExperiencedFormations=false` 只用于消融候选来源，正式默认混合搜索；诊断用 `searchExperiencedEvaluated/Selected` 区分实际比较与直接选中原案，不把自由变异后的方案误记成固定编队。回归需同时保留就绪灰烬下的真实经营、已有复杂自由协作以及亏损时可等待的契约。
+
+长期空场兜底见 `Snapshot::fallbackProbeBudget/fallbackAllIn` 和 `Result::fallbackMode`：正常有益选择仍优先；真正空場、没有在途复活/召唤、未解锁可用兵种或付费技能冷却机会时，才比较有限试攻。实际试攻无破阵或滚动净经营收益后允许完整孤注一掷，不新增自动认负；原有破产结束规则继续生效。兜底保留原负分及预测，不把付费尝试伪装成盈利，也不通过继续加算力来证明阵型一定可破。全力案按可部署战斗预算和合法名额比较，不能退化为反复一只便宜兵。
+
+`Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。

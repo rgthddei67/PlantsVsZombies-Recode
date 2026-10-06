@@ -3495,4 +3495,47 @@ int main()
     check(Search(attack,gain,42).actions.empty(),"the same immobile body without the ranged ability has no invented attack value");
     std::cout<<"Catapult shots, host layers, umbrella, finite ammo, commitment and clock contracts passed\n";
     }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot closed; closed.rows=1; closed.houseX=-10000; closed.gridLeft=0; closed.cellWidth=100;
+    closed.searchVersion=2; closed.netEconomy=true; closed.budget=1000; closed.capacity=16;
+    Plant echo; echo.x=300; echo.health=100000; echo.dps=100000;
+    echo.echo=echo.multiTarget=true; echo.hitDamage=100; echo.range=600; echo.edible=false; closed.plants={echo};
+    Option weak; weak.type=710001; weak.cost=4; weak.unit.body.x=850;
+    weak.unit.body.health=270; weak.unit.body.speed=20; weak.unit.body.purchaseCost=4;
+    auto strong=weak; strong.type=710002; strong.cost=8; strong.unit.body.health=1370; strong.unit.body.purchaseCost=8;
+    closed.options={weak,strong};
+    const auto wait=Search(closed,InitialWeights,7);
+    check(wait.actions.empty() && wait.fallbackMode==0,"ordinary evaluation retains a valid losing-field wait");
+    auto trial=closed; trial.fallbackProbeBudget=20;
+    const auto probed=Search(trial,InitialWeights,7);
+    int bill=0; for(const auto& a:probed.actions) bill+=trial.options[a.option].cost;
+    check(probed.fallbackMode==1 && probed.actions.size()>=3 && bill>0 && bill<=20
+        && probed.score<probed.baselineFeatures[0],
+        "authorized finite trial pays a real bounded cohort without relabeling a negative forecast as profitable");
+    auto lastChance=closed; lastChance.fallbackAllIn=true;
+    const auto full=Search(lastChance,InitialWeights,7);
+    bill=0; for(const auto& a:full.actions) bill+=lastChance.options[a.option].cost;
+    check(full.fallbackMode==2 && bill>=96 && bill<=1000 && full.actions.size()<=16,
+        "last chance uses most deployable combat capital rather than forcing one cheapest zombie");
+    check(std::all_of(full.actions.begin(),full.actions.end(),[](const Action& a){return a.option==1;}),
+        "equally ineffective forecasts still compare real combat vitality for the final attack");
+    lastChance.budget=7;
+    const auto tail=Search(lastChance,InitialWeights,7);
+    check(tail.fallbackMode==2 && tail.actions.size()==1 && lastChance.options[tail.actions[0].option].cost<=7,
+        "last chance can spend the legally affordable tail instead of surrendering with purchasable troops");
+    auto income=closed; income.plants.clear(); income.budget=96; income.fallbackAllIn=true;
+    auto producer=weak; producer.type=710003; producer.cost=24; producer.unit.body.health=500;
+    producer.unit.body.speed=0; producer.unit.body.economic=true; producer.unit.body.purchaseCost=24;
+    income.options.push_back(producer);
+    const auto profitable=Search(income,InitialWeights,7);
+    check(profitable.fallbackMode==0 && profitable.features[4]>profitable.features[5],
+        "real profitable economy remains preferred even when last-chance fallback is armed");
+    trial.timeLimitedSearch=true; trial.searchDeadline=std::chrono::steady_clock::now();
+    check(Search(trial,InitialWeights,7).actions.empty(),"an expired search cannot invent an uncomputed fallback purchase");
+    check(closed.options[0].unit.body.health==270 && closed.plants[0].health==100000,
+        "fallback comparisons preserve caller entities and actual wallet");
+    std::cout<<"Finite trials, last-chance combat cohorts, tail spending and positive-plan priority passed\n";
+    }
 }

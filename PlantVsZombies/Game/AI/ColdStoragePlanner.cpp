@@ -10,6 +10,7 @@ Planner::~Planner() { Cancel(); }
 bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t seed, double timeBudgetMs) {
 	if (Busy()) return false;
 	auto work = std::make_unique<Work>();
+	work->seed=seed;
 	work->snapshot = std::move(snapshot);
 	work->snapshot.proposals=mProposals; // 仅数值动作副本，每轮重新验证并评分；不允许旧结果直接付款。
 	work->weights = weights;

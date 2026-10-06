@@ -35,6 +35,14 @@ public:
 	bool SaveAutoTestLevelSnapshot(Board* board, CardSlotManager* manager,
 		const std::string& filename);
 	/**
+	 * @brief 保存正式游戏也可调用的隔离指挥官停滞诊断，不访问或覆盖玩家续局存档。
+	 * @details 仅写入 autotest/out/commander_stalls 下新建的唯一目录；调用方不能指定路径。
+	 * 主线程同步借用 Board/卡槽，输出完整关卡、诊断与当前策略资源副本；失败记录日志并返回 false。
+	 * directory 返回已创建的目录，部分失败时仍保留供检查；不创建目录时为空。
+	 */
+	bool SaveCommanderStallSnapshot(Board* board, CardSlotManager* manager,
+		const nlohmann::json& diagnostics, std::string& directory);
+	/**
 	 * @brief 为下一次 GameScene 正常加载阶段登记一次性 AutoTest 快照路径。
 	 * @details 路径在加载尝试开始前即清除，成功或失败都不会影响后续普通 goto_level。
 	 */

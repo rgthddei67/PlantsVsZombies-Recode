@@ -10,6 +10,7 @@ namespace ColdStorageSearch {
 class Planner {
 public:
 	struct Work {
+		std::uint32_t seed=0; // 捕获本次后台实际数值搜索种子，诊断不能用提交时的时间重新猜种子
 		Snapshot snapshot;
 		Weights weights{};
 		QueueRevision revision;

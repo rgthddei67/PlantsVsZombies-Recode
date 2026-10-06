@@ -10,7 +10,7 @@ constexpr float kGuardHealth = 1000; // 旧经营入口的护卫最低完整生�
 constexpr float kWorkerDelay = 4; // 旧版护卫先行、工人跟进的基准间隔，游戏秒
 constexpr int kMaxSeeds = 96; // 单次搜索经验候选上限；与自由候选共享原时间预算
 constexpr std::array<int,3> kScales{1,2,4}; // 同一编队的小、中、大规模起点，不是必买数量
-constexpr std::array<int,12> kShapeOrder{0,8,1,9,2,10,3,11,4,5,6,7}; // 经营与旧突击/攻坚候选交错，不能先遍历完工人配方
+constexpr std::array<int,14> kShapeOrder{0,8,1,9,12,2,10,13,3,11,4,5,6,7}; // 经营、滚动生产与进攻交错，紧预算也能比较灰烬错峰
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 
@@ -179,6 +179,13 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             if(front<0 || r.ranged<0) continue;
             plan.Add(front,2*scale,0); plan.Add(r.ranged,3*scale,2); support(2);
             break;
+        case 12: case 13: { // 真群伤挡不住时，不能只试同批工人；让后续产能在清场后继续入场。
+            if(r.worker<0) continue;
+            const float gap=IceProduction::Interval*(shape==12 ? 1.0f : 1.5f);
+            const int count=std::min({actionLimit,8*scale,static_cast<int>(kMaxLeadDelay/gap)+1});
+            for(int i=0;i<count;++i) plan.Add(r.worker,1,i*gap);
+            break;
+        }
         }
         if(plan.valid && !plan.actions.empty()) seeds.push_back(std::move(plan.actions));
         if(seeds.size()>=kMaxSeeds) return seeds;

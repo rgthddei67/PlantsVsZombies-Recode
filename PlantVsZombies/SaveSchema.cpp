@@ -464,6 +464,17 @@ namespace {
 					upgraded["coldStorage"]["strikeAdditionalTargetIDs"]=nlohmann::json::array();
 				version=26; upgraded["schemaVersion"]=version;
 				break;
+			case 26:
+				// v27 旧局没有可核实的空场试攻历史；给予新观察窗口，不追溯扣费或直接全力进攻。
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					auto& ice=upgraded["coldStorage"];
+					for(const auto* key:{"emptyWaitSeconds","stallProbeRounds","stallProbeSpent"})
+						if(!ice.contains(key)) ice[key]=0;
+					if(!ice.contains("stallStartWorkerIncome")) ice["stallStartWorkerIncome"]=ice.value("workerIncome",0);
+					if(!ice.contains("stallStartKillIncome")) ice["stallStartKillIncome"]=ice.value("killIncome",0);
+				}
+				version=27; upgraded["schemaVersion"]=version;
+				break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

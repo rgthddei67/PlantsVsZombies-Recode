@@ -34,6 +34,11 @@ enum class ColdStorageOpeningBonus { NONE = 0, ELITE_QUOTA = 1, PREPARATION = 2,
 
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
+	float emptyWaitSeconds=0; // 正常运行中空场且无在途事务的持续游戏秒，暂停不推进
+	int stallProbeRounds=0, stallProbeSpent=0; // 本轮无进展局面的实际付费试攻次数/冰费，最多三次后比较全力进攻
+	int stallStartWorkerIncome=0, stallStartKillIncome=0; // 试攻前真实账本；盈利经营或破坏植物后重新按正常策略决策
+	bool stallDiagnosticSaved=false; // 本Board已尝试捕获一次，失败也不重复IO；只诊断不入档
+	std::string stallDiagnosticPath; // 本Board的隔离现场目录，只诊断不入档
 	int openingBonusMask = 0; // 已选支援位图；选择中的第一项尚不生效
 	bool openingBonusSelectionComplete = true; // 区分尚待三选二和主动无增益，也兼容旧档单选
 	std::uint64_t nextTicket = 0;
