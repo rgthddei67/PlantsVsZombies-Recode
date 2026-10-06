@@ -1,0 +1,29 @@
+{
+  "description": "Live Board snapshots for new pressure purchases and cotton protection; comparisons do not purchase or mutate the battlefield.",
+  "commands": [
+    {"op":"goto_level","level":95,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_WALLNUT","PLANT_MENDINGCOTTON"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"commander_experiment","weights":[1,1,0,0,1,-1,0,0],"netEconomy":true,"searchVersion":2},
+    {"op":"set_sun","value":1000},
+    {"op":"set_cold_storage","state":{"enemyIce":500,"initialEnemyIce":500,"playerIce":200,"decisions":20,"decisionRemaining":600}},
+    {"op":"plant","type":"PLANT_WALLNUT","row":2,"col":4},
+    {"op":"compare_commander_search","name":"pressure_birth","budgetsMs":[],"candidatePlans":[
+      {"name":"wait","actions":[]},
+      {"name":"pressure","actions":[{"type":"ZOMBIE_PRESSURE_SHOOTER","row":2}]}
+    ]},
+    {"op":"plant","type":"PLANT_MENDINGCOTTON","row":1,"col":4},
+    {"op":"compare_commander_search","name":"cotton_protected","budgetsMs":[],"candidatePlans":[
+      {"name":"pressure","actions":[{"type":"ZOMBIE_PRESSURE_SHOOTER","row":2}]}
+    ]},
+    {"op":"spawn_zombie","type":"ZOMBIE_PRESSURE_SHOOTER","row":2,"x":1000,"stationary":true},
+    {"op":"wait_seconds","value":2},
+    {"op":"compare_commander_search","name":"pressure_live","budgetsMs":[],"candidatePlans":[{"name":"wait","actions":[]}]},
+    {"op":"damage_plant","type":"PLANT_MENDINGCOTTON","row":1,"col":4,"damage":1000},
+    {"op":"compare_commander_search","name":"pressure_live_unprotected","budgetsMs":[],"candidatePlans":[{"name":"wait","actions":[]}]},
+    {"op":"assert_state","path":"coldStorage.spent","equals":0},
+    {"op":"dump_state","name":"unchanged_live_battle.json"},
+    {"op":"quit"}
+  ]
+}

@@ -118,6 +118,8 @@ protected:
 	void PlayStandardImpactSound(
 		const Zombie* zombie, bool bypassShield = false, bool includeBodySplat = true) const;
 	void HitFireballZombie(Zombie* zombie);
+    /** 气弹用同帧线段按行检索，避免高速穿透及外观高度影响植物命中。 */
+    void UpdatePressureProjectile(float deltaTime);
 	/** 结算西瓜直击、相邻行溅射和穿透二类护盾的原版语义。 */
 	void HitMelonZombie(Zombie* zombie);
 	/** 推进解析抛物线；返回 false 表示本帧已落空并回收。 */
@@ -172,7 +174,7 @@ public:
 	int GetBulletDamage() const { return mDamage; }
 	void SetBulletDamage(int damage) { this->mDamage = damage; }
 	void SetPlantDamageOrigin(PlantDamageOrigin origin) { mPlantDamageOrigin = origin; }
-	float GetVelocityX() { return mVelocityX; }
+	float GetVelocityX() const { return mVelocityX; }
 	void SetVelocityX(float x);
 	float GetVelocityY() { return mVelocityY; }
 	void SetVelocityY(float y) { this->mVelocityY = y; }

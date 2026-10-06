@@ -184,7 +184,8 @@ public:
 	void Start() override;
 	void Update() override;
 	void Draw(Graphics* g) override;	// 重写以叠加血量显示
-	virtual void ZombieUpdate(float scaledTime) {}		// 子类重写Update用这个
+    /** 每个可行动步调用一次，啃食仍执行；硬控/水草束缚不执行。覆盖身体动作前须取消啃食事务。 */
+    virtual void ZombieUpdate(float scaledTime) {}
 	// source 必填，使植物增伤只作用于植物来源。penetrateShield=true：穿透二类护盾（大喷菇喷雾）——护盾照常受损/掉落，
 	// 但全额伤害继续透到头盔+本体（还原原版 DoRowAreaDamage(20, 2U) 的位标志语义）。
 	// discardShieldOverflow=true：若命中开始时存在二类护盾，则本击止于护盾，破盾溢出也不进入头盔/本体。

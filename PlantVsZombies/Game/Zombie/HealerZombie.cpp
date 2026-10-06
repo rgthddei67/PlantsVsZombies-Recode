@@ -333,19 +333,6 @@ void HealerZombie::MakeTreatmentReadyForTesting()
 	mStrategicWaitElapsed = 0.0f;
 }
 
-void HealerZombie::Update()
-{
-	const bool wasEating = mIsEating;
-	Zombie::Update();
-	// 基类在啃食态会在品种逻辑前早退；急救冷却与选疗仍须推进，但不能双推普通非啃食帧。
-	if (wasEating && mIsEating && !mIsPreview && IsActive() && !mIsDead
-		&& !mIsDying && mHasHead && !IsImmobilized()
-		&& !IsGarlicRedirectPaused() && mTangleKelpPlantID == NULL_PLANT_ID) {
-		const float slowMultiplier = mCooldownTimer > 0.0f ? 0.5f : 1.0f;
-		ZombieUpdate(DeltaTime::GetDeltaTime() * slowMultiplier);
-	}
-}
-
 void HealerZombie::ZombieUpdate(float scaledTime)
 {
 	if (mIsPreview || mIsDead || mIsDying || !mHasHead

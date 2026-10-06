@@ -145,21 +145,13 @@ void RoofMarshalZombie::Update()
 		mButterImmunityTimer = std::max(0.0f,
 			mButterImmunityTimer - DeltaTime::GetDeltaTime());
 	}
-	const bool wasEating = mIsEating;
 	Zombie::Update();
 	// 只在自然到期且首领仍可战斗时开启免疫；死亡/掉头清状态不能制造无意义的遗留窗口。
 	if (wasButtered && !IsButtered() && mHasHead && !mIsDying && !mIsDead
 		&& IsActive()) {
 		mButterImmunityTimer = kButterImmunityDuration;
 	}
-	// 基类会在仍在啃食时跳过 ZombieUpdate；督军只补这一次派生逻辑，保留 anim_eat 与啃食帧事件。
-	if (!wasEating || !mIsEating || mIsPreview || mIsDying || mIsDead
-		|| !IsActive() || IsImmobilized() || IsGarlicRedirecting()
-		|| mTangleKelpPlantID != NULL_PLANT_ID) {
-		return;
-	}
-	const float slowMultiplier = mCooldownTimer > 0.0f ? 0.5f : 1.0f;
-	ZombieUpdate(DeltaTime::GetDeltaTime() * slowMultiplier);
+
 }
 
 bool RoofMarshalZombie::ApplyButter()
@@ -435,6 +427,7 @@ bool RoofMarshalZombie::BeginLaneSwitchTo(int destination)
 	const float newTerrainY = mBoard->GetZombieSpawnY(destination, position.x);
 	if (oldTerrainY < 0.0f || newTerrainY < 0.0f) return false;
 
+	CancelEatingForSpecialAction(); // 换行先释放旧行啃食目标，避免隔行咬人及 eaterCount 泄漏。
 	// 逻辑行与碰撞箱立即提交；独立视觉补偿从旧行高度平滑归零，遵守逻辑网格/美术偏移分离契约。
 	CommitRow(destination);
 	position.y = newTerrainY;
@@ -457,7 +450,7 @@ void RoofMarshalZombie::UpdateLaneTransition(float scaledTime)
 	}
 	if (mLaneTransitionRemaining <= 0.0f) {
 		mLaneVisualOffsetY = 0.0f;
-		if (mCommandPhase != CommandPhase::COMMANDING) {
+		if (mCommandPhase != CommandPhase::COMMANDING && !mIsEating) {
 			PlayWalkAnimation(kLaneTransitionBlendTime);
 		}
 	}

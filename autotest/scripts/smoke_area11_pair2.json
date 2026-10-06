@@ -1,0 +1,711 @@
+{
+  "description": "Cotton priority/stacking/save and pressure burst/control/eating/charm contract",
+  "commands": [
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "chooseCardReady",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "choose_card_page"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "cotton_choose_card.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MENDINGCOTTON",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3,
+      "damage": 2000
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 3,
+      "damage": 3000
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 2,
+      "col": 2,
+      "damage": 200
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_2.cottonHeals",
+      "equals": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_2.cottonHeals",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_2.health",
+      "equals": 100
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_3.health",
+      "equals": 2000
+    },
+    {
+      "op": "dump_state",
+      "name": "cotton_first.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "cotton_healing.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "cotton_cooldown"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "cotton_cooldown"
+    },
+    {
+      "op": "dump_state",
+      "name": "cotton_restored.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.1
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_2.cottonHeals",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "cotton_second.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MENDINGCOTTON",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 1,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_2.cottonHeals",
+      "equals": 0
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3,
+      "damage": 500
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_3.health",
+      "equals": 3620
+    },
+    {
+      "op": "dump_state",
+      "name": "cotton_stacked.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_3.health",
+      "equals": 3620
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MENDINGCOTTON",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 1030,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.bodyMaxHealth",
+      "equals": 1000
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "pressureBulletCount",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "pressureMinimumGapMilli",
+      "atLeast": 40000
+    },
+    {
+      "op": "screenshot",
+      "name": "pressure_burst.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_four.json"
+    },
+    {
+      "op": "butter_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 4
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "pressure_controlled"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "pressure_controlled"
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_restored.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_after_control.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "atLeast": 8
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MENDINGCOTTON",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.6
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.isEating",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_eating.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "damage": 700
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.hasHead",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_headless.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "pressure_headless.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 4
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_MENDINGCOTTON",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 500,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.4
+    },
+    {
+      "op": "assert_state",
+      "path": "pressureForwardCount",
+      "atLeast": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_charmed.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "pressure_charmed.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 1030,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "butter_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_0.health",
+      "equals": 3900
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_damage.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT",
+        "PLANT_ICEMIRRORGRASS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ICEMIRRORGRASS",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 24.2,
+      "timeout": 34.2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 1030,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "butter_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_1.health",
+      "equals": 250
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_0.health",
+      "equals": 4000
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_mirrors.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 1000
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_walk_start.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.9
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 1
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "pressure_midburst"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "pressure_midburst"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_PRESSURE_SHOOTER.pressureShots",
+      "equals": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "pressure_walk_midburst_restored.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

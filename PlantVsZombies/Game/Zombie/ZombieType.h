@@ -100,6 +100,7 @@ enum class ZombieType {
 	ZOMBIE_BOILER, // 锅炉僵尸；10-3 首次登场，一次付费超频
 	ZOMBIE_COLD_CHAIN_GUARD, // 冷链护卫；一类冰盾付费修复
 	ZOMBIE_DISASTER_ENGINEER, // 防灾工程师；11-3登场，付费装填工人防灰烬冷却罐
+	ZOMBIE_PRESSURE_SHOOTER, // 气压射手；11-5登场，独立四连发枪头
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

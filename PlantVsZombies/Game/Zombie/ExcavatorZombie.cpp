@@ -89,7 +89,7 @@ float ExcavatorZombie::GetAbilityAnimSpeedMultiplier() const
 void ExcavatorZombie::ZombieUpdate(float delta)
 {
 	if (mPhase != Phase::DRILLING) return;
-	// 基类只在无硬控且未啃食时进入这里；delta 已包含普通减速倍率。
+	// 基类只在可行动时进入这里；开吃已由 OnStartEating 取消施工，delta 包含普通减速。
 	mRemaining = std::max(0.0f,mRemaining - delta);
 	if (mRemaining > 0.0f) return;
 	const bool completed = mBoard && mBoard->CompleteMineExcavation(mWall,true);

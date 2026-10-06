@@ -1,0 +1,21 @@
+{
+  "inputs": {
+    "assets\\source\\area11_pair_parts.png": "24c2e7cd3f325a47a21ed8bd2dc2976932738f95c29003c1736bb07955fb29a2",
+    "build\\clang-release\\resources\\reanim\\Marigold.reanim": "e840489c4809d91300efb113e9ccd0798c3462dfdb58dddf2dd19504a7730c6b",
+    "build\\clang-release\\resources\\reanim\\GatlingPea.reanim": "33cd95824c4dfa549e6760b799e1827e5ae93e692edda14773148c2defb3a665"
+  },
+  "outputs": {
+    "build\\clang-release\\resources\\image\\reanim\\MendingCotton_petals.png": "1e6fefc569de5321be6938451ddee5c392cdd55aaf80a5010ec1b90099b78d27",
+    "build\\clang-release\\resources\\image\\reanim\\MendingCotton_head.png": "34cc088599b060843754d2a0187c3849071dd0fda6369fc88099d476f2d35dbd",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_head.png": "237dc2baea1d02b292f8604f995966d3a319500784a51e88c0c8817e691faf07",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_mouth.png": "2253f2310a3fb47738b2d87120fda471c2b2f573a565e69c028d5666b4f8b847",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_overlay.png": "2b6f4f310bd205397fef595039e8811ea399d5e15ca478f3a13933995902caf2",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_barrel.png": "e97a142b8f3603ec53a3fa09211727c560f0163b1e7975ea6f239f2aa0853c80",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_helmet.png": "7ab4776e53b71d03fb68ee3ecbbfa98628c45e700867eaff47a6aec2c9acae50",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_tank.png": "95bdedbbbe2e777c0666ce42364eda90eebef391ada9514f9eea04953bb05e9e",
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_projectile.png": "635022db6c2cb11938c840442e653763c8aec779a7cac098d4f4ab460f6c565b",
+    "build\\clang-release\\resources\\reanim\\MendingCotton.reanim": "4d1da708b69e3c64bc396c57d240e029516a9a600fe7f84e214905d54d641ed9",
+    "build\\clang-release\\resources\\reanim\\PressureShooterHead.reanim": "cd4e835e63c438785aa93d13a24207d7dd5d51b39708f28e3941e88196e03121",
+    "build\\clang-release\\resources\\image\\PlantImage\\MendingCotton.png": "54dc162477791199b5de62d982f93c6e31fc285c77651eb519f3f64fc333bd70"
+  }
+}

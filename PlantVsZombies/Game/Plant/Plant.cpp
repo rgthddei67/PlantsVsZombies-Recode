@@ -109,6 +109,19 @@ void Plant::SetupPlant()
 {
 }
 
+bool Plant::CanReceiveHealing() const {
+	return !mIsPreview && IsActive() && OccupiesGridSlot() && !IsSquished()
+		&& !IsBungeeTargeted() && !IsIceSealed() && mPlantHealth>0 && mPlantHealth<mPlantMaxHealth;
+}
+
+int Plant::RestoreHealth(int amount) {
+	if(amount<=0 || !CanReceiveHealing()) return 0;
+	const int restored=std::min(amount,mPlantMaxHealth-mPlantHealth);
+	mPlantHealth+=restored;
+	SetGlowingTimer(.2f);
+	return restored;
+}
+
 void Plant::Start()
 {
 	GameObject::Start();

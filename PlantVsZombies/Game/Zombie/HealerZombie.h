@@ -32,7 +32,6 @@ public:
 		WAIT,
 	};
 
-	void Update() override;
 	void StartEat(ColliderComponent* other) override;
 	void HeadDrop() override;
 	void ArmDrop() override;

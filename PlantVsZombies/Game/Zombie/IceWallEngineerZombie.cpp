@@ -49,7 +49,17 @@ void IceWallEngineerZombie::ZombieMove(float scaledDelta, Transform* transform)
 		if (ShouldAbortConstruction()) CancelConstruction(true);
 		else return;
 	}
-	if (!mConstructionUsed && CanBeginConstruction() && mCollider) {
+	ConeZombie::ZombieMove(scaledDelta, transform);
+}
+
+void IceWallEngineerZombie::StartEat(ColliderComponent* other)
+{
+	if (mConstructionPhase != ConstructionPhase::BUILDING) ConeZombie::StartEat(other);
+}
+
+void IceWallEngineerZombie::ZombieUpdate(float scaledTime)
+{
+	if (mConstructionPhase == ConstructionPhase::MOVING && !mConstructionUsed && CanBeginConstruction() && mCollider) {
 		const SDL_FRect bounds = mCollider->GetBoundingBox();
 		const float battlefieldRightX = CELL_INITALIZE_POS_X
 			+ static_cast<float>(mBoard->mColumns) * CELL_COLLIDER_SIZE_X;
@@ -69,11 +79,6 @@ void IceWallEngineerZombie::ZombieMove(float scaledDelta, Transform* transform)
 			}
 		}
 	}
-	ConeZombie::ZombieMove(scaledDelta, transform);
-}
-
-void IceWallEngineerZombie::ZombieUpdate(float scaledTime)
-{
 	if (mConstructionPhase != ConstructionPhase::BUILDING) return;
 	if (ShouldAbortConstruction()) {
 		CancelConstruction(true);
@@ -129,6 +134,7 @@ bool IceWallEngineerZombie::BeginConstruction(float wallCenterX)
 	if (!mBoard || !mBoard->AddIceWall(mRow, wallCenterX,
 		IceWall::kConstructionHealth, IceWall::kDefaultHealth, 0.0f,
 		false, mZombieID)) return false;
+	CancelEatingForSpecialAction();
 	mConstructionPhase = ConstructionPhase::BUILDING;
 	mConstructionRemaining = kConstructionDuration;
 	mBuildWallCenterX = wallCenterX;

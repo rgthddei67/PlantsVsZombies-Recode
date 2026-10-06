@@ -88,6 +88,11 @@ void IceStatueExecutionerZombie::RegisterFrameEvents()
 void IceStatueExecutionerZombie::ZombieMove(float scaledDelta, Transform* transform)
 {
 	if (!transform || mExecutionPhase == ExecutionPhase::EXECUTING) return;
+	Zombie::ZombieMove(scaledDelta, transform);
+}
+
+void IceStatueExecutionerZombie::ZombieUpdate(float)
+{
 	if (mExecutionPhase == ExecutionPhase::READY && IsFullyOnBattlefield()
 		&& CanOwnExecution() && mBoard) {
 		MonteCarloTargetStats stats;
@@ -103,11 +108,6 @@ void IceStatueExecutionerZombie::ZombieMove(float scaledDelta, Transform* transf
 			if (BeginExecution(*target)) return;
 		}
 	}
-	Zombie::ZombieMove(scaledDelta, transform);
-}
-
-void IceStatueExecutionerZombie::ZombieUpdate(float)
-{
 	if (mExecutionPhase != ExecutionPhase::EXECUTING) return;
 	if (!CanOwnExecution()) {
 		AbortExecution(true, !mIsDying);
@@ -172,9 +172,7 @@ bool IceStatueExecutionerZombie::BeginExecution(Plant& target)
 		return true;
 	}
 	if (!target.BeginIceSeal(mZombieID)) return false;
-	if (mIsEating && mEatPlantID != NULL_PLANT_ID) {
-		StopEatingInvalidPlantTarget(0.0f);
-	}
+	CancelEatingForSpecialAction(); // 处决占用身体动作，同时释放植物或魅惑互啃目标。
 	mExecutionPhase = ExecutionPhase::EXECUTING;
 	mExecutionTargetPlantID = target.mPlantID;
 	mExecutionProgress = 0;

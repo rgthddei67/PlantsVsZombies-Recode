@@ -60,6 +60,10 @@ public:
 	int mColumn = 0;
 	int mPlantHealth = 300;
 	int mPlantMaxHealth = 300;
+	/** 是否可接受外部治疗：只恢复仍占格且存活的本体，不复活或影响其他层。 */
+	bool CanReceiveHealing() const;
+	/** 恢复本体生命并返回实际恢复量；南瓜、支撑层由各自实体调用。 */
+	int RestoreHealth(int amount);
 	int mPlantID = NULL_PLANT_ID;
 	int mEaterCount = 0;			// 正在啃食此植物的僵尸数量
 

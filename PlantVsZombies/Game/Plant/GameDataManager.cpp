@@ -1,3 +1,5 @@
+#include "MendingCotton.h"
+#include "Game/Zombie/PressureShooterZombie.h"
 #include "GameDataManager.h"
 #include "../../ResourceKeys.h"
 #include "../../Logger.h"
@@ -289,6 +291,10 @@ void GameDataManager::InitializeHardcodedData() {
 	voucher.skillCard = true;
 	mPlantInfo[voucher.type] = voucher;
 	mEnumNameToType[voucher.enumName] = voucher.type;
+	RegisterPlant(PlantType::PLANT_MENDINGCOTTON, "PLANT_MENDINGCOTTON", "IMAGE_MENDINGCOTTON",
+        AnimationType::ANIM_MENDINGCOTTON, "MendingCotton", &MakePlant<MendingCotton>);
+    RegisterZombie(ZombieType::ZOMBIE_PRESSURE_SHOOTER, "ZOMBIE_PRESSURE_SHOOTER",
+        AnimationType::ANIM_PRESSURE_SHOOTER, "PressureShooterZombie", &MakeZombie<PressureShooterZombie>, &PressureShooterZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_THUNDERFLOWER, "PLANT_THUNDERFLOWER", "IMAGE_THUNDERFLOWER",
 		AnimationType::ANIM_THUNDERFLOWER, "ThunderFlower", &MakePlant<ThunderFlower>);
 	RegisterZombie(ZombieType::ZOMBIE_DISASTER_ENGINEER, "ZOMBIE_DISASTER_ENGINEER",

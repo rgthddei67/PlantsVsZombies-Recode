@@ -2015,6 +2015,28 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 	const bool hasStrike=std::any_of(strikes.begin(),strikes.end(),[&](const auto& strike) {
 		return std::any_of(plants.begin(),plants.end(),[&](const auto& p){return p.health>0 && p.id==strike.plantID;});
 	});
+    // 所有棉花落点共用一次火线投影，避免每个格位重复执行单位×植物×遮挡扫描。
+    std::vector<float> healingDemand;
+    if(std::any_of(state.construction.begin(),state.construction.end(),[](const Construction& card){return card.plant.cotton;})) {
+        healingDemand.resize(plants.size());
+        for(size_t i=0;i<plants.size();++i) if(plants[i].health>0)
+            healingDemand[i]=std::max(0.0f,plants[i].maximumHealth-plants[i].health);
+        for(const auto& u:units) {
+            if(u.body.health<=0 || u.body.spawnAt>time) continue;
+            int target=-1;
+            for(size_t i=0;i<plants.size();++i) {
+                const auto& p=plants[i];
+                if(p.health<=0 || p.row!=u.body.row || p.x>u.body.x || p.layer>2) continue;
+                if(target<0 || p.x>plants[target].x || (p.x==plants[target].x && p.layer>plants[target].layer)) target=static_cast<int>(i);
+            }
+            if(target<0) continue;
+            const float remaining=horizon-time;
+            if(u.pressure && u.body.health>u.pressureStopHealth)
+                healingDemand[target]+=4*PressureShooterRules::Damage*remaining
+                    /(PressureShooterRules::Reload+(PressureShooterRules::Frames.back()-PressureShooterRules::FirstFrame)/PressureShooterRules::FramesPerSecond);
+            if(u.body.x-plants[target].x<2*kContact) healingDemand[target]+=u.biteDps*remaining;
+        }
+    }
 	int selected = -1;
 	float best = 0;
 	for (size_t i = 0; i < state.construction.size(); ++i) {
@@ -2039,6 +2061,17 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
 		const float remaining = horizon-time;
 		float value = p.dps*remaining*(0.2f+threat[p.row]/(1000+threat[p.row]));
 		value += p.sunPerSecond*std::max(0.0f,remaining-card.firstSunDelay);
+        if(p.cotton) {
+            // 补建棉花按邻近伤口和实际火线估值，不能把无输出支援一律当作前排肉盾。
+            float demand=0;
+            for(size_t j=0;j<plants.size();++j) {
+                const auto& ally=plants[j];
+                if(ally.health<=0 || std::abs(ally.row-p.row)>1 || std::abs(ally.column-p.column)>1
+                    || (ally.row==p.row && ally.column==p.column)) continue;
+                demand+=healingDemand[j];
+            }
+            value+=std::min(demand,std::floor(remaining/MendingCottonRules::Interval)*MendingCottonRules::Amount);
+        }
 		if (card.strike.damage > 0) {
 			float targets = 0;
 			for (float hp : threat) targets += std::min(hp,card.strike.damage);
@@ -2060,7 +2093,7 @@ static void AdvanceConstruction(const Snapshot& state, float time, float horizon
                 value+=ally.dps*duration*coverage/std::max(1,cells);
             }
         }
-        if (p.dps <= 0 && p.sunPerSecond <= 0 && card.strike.damage <= 0 && !p.plantern)
+        if (p.dps <= 0 && p.sunPerSecond <= 0 && card.strike.damage <= 0 && !p.plantern && !p.cotton)
 			value += std::min(p.health,threat[p.row])*(0.25f+fire[p.row]/50)
 				/ (1+std::max(0.0f,nearest[p.row]-p.x)/200);
 		else value /= 1+0.15f*p.column; // 输出和生产在后方合法位置有更长的存活机会
@@ -2852,6 +2885,73 @@ static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vec
 	}
 }
 
+/** 棉花按最低生命比例逐株治疗，撤回实际回血对应的削血收益，不产生额外钱包。 */
+static void AdvanceCottonHealing(float time,std::vector<Plant>& plants,Weights& features) {
+    for(auto& source:plants) {
+        if(!source.cotton || source.health<=0 || source.shutdownUntil>time) continue;
+        source.cottonRemaining=std::max(0.0f,source.cottonRemaining-kStep);
+        if(source.cottonRemaining>0) continue;
+        Plant* best=nullptr;
+        for(auto& p:plants) {
+            if(p.health<=0 || p.health>=p.maximumHealth || p.maximumHealth<=0
+                || std::abs(p.row-source.row)>1 || std::abs(p.column-source.column)>1
+                || (p.row==source.row && p.column==source.column)) continue;
+            if(!best || p.health*best->maximumHealth<best->health*p.maximumHealth
+                || (p.health*best->maximumHealth==best->health*p.maximumHealth && p.id<best->id)) best=&p;
+        }
+        if(!best) continue;
+        const float healed=std::min(float(MendingCottonRules::Amount),best->maximumHealth-best->health);
+        best->health+=healed;source.cottonRemaining=MendingCottonRules::Interval;
+        const float credit=std::min(best->damageCredit,best->reward*healed/std::max(1.0f,best->initialHealth));
+        best->damageCredit-=credit;features[1]-=credit;
+    }
+}
+
+/** 四发逐次提交，并保留本步内出膛时间；前排/镜片各自消费一颗，来源死亡不撤销。 */
+static void AdvancePressureShooters(const Snapshot& s,float time,std::vector<Unit>& units,
+    std::vector<Plant>& plants,std::vector<PressureRay>& rays,Weights& features,float rain) {
+    for(auto& unit:units) {
+        const auto& body=unit.body;
+        if(!unit.pressure || body.health<=unit.pressureStopHealth || body.spawnAt>time+kStep) continue;
+        const float start=std::max(time,body.spawnAt);
+        const float active=std::max(0.0f,time+kStep-start-body.stopped);
+        const float rate=GoldenIceRules::Amplify(rain>=0 ? rain : unit.rawRainMultiplier,unit.goldenStacks)
+            *GoldenIceRules::Amplify(body.slow>0 ? .6f : 1,unit.goldenStacks);
+        if(rate<=0 || active<=0) continue;
+        float remaining=active*rate, elapsed=0;
+        while(remaining>=unit.pressureRemaining) {
+            elapsed+=unit.pressureRemaining;remaining-=unit.pressureRemaining;
+            rays.push_back({body.row,body.x+unit.pressureMuzzle,start+(time+kStep-start-active)+elapsed/rate});
+            ++unit.pressureShot;
+            if(unit.pressureShot==4) {
+                unit.pressureShot=0;unit.pressureRemaining=PressureShooterRules::Reload+10/PressureShooterRules::FramesPerSecond;
+            } else unit.pressureRemaining=(PressureShooterRules::Frames[unit.pressureShot]-PressureShooterRules::Frames[unit.pressureShot-1])/PressureShooterRules::FramesPerSecond;
+        }
+        unit.pressureRemaining-=remaining;
+    }
+    for(auto it=rays.begin();it!=rays.end();) {
+        const float duration=std::clamp(time+kStep-it->launchedAt,0.0f,kStep);
+        const float next=it->x-PressureShooterRules::ProjectileSpeed*duration;
+        Plant* hit=nullptr;float best=1e9f;
+        for(auto& p:plants) {
+            if(p.health<=0 || p.row!=it->row || p.layer>2) continue;
+            const float left=p.x-s.cellWidth*.5f,right=p.x+s.cellWidth*.5f;
+            if(it->x<left || next>right) continue;
+            const float d=std::max(0.0f,it->x-right);
+            if(std::max(time,it->launchedAt)+d/PressureShooterRules::ProjectileSpeed>=p.counterBlastAt) continue;
+            const bool mirrorFirst=hit && p.hostileMirrors>0 && hit->hostileMirrors<=0;
+            const bool sameKind=hit && (p.hostileMirrors>0)==(hit->hostileMirrors>0);
+            if(!hit || d<best || (d==best && (mirrorFirst || (sameKind && p.layer>hit->layer)))) {hit=&p;best=d;}
+        }
+        if(hit) {
+            if(hit->hostileMirrors>0) --hit->hostileMirrors;
+            else DamagePlant(*hit,it->damage,false,features);
+        }
+        it->x=next;it->launchedAt=time+kStep;
+        if(hit || next<s.gridLeft-60) it=rays.erase(it);else ++it;
+    }
+}
+
 /** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
 static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
 	float& ice, Weights& features, ConstructionStats& stats, bool automaticPhase) {
@@ -3584,6 +3684,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<bool> refunded(units.size()), breached(units.size());
 	std::vector<float> counterHoldUntil(counterReady.size(),-1);
 	std::vector<unsigned char> melonHits(units.size());
+	auto pressureRays=s.pressureRays;
 	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
 	auto basketballs=s.basketballs;
 	auto jackBoxes=s.jackBoxes;
@@ -3687,6 +3788,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			interferenceBeforeAsh,temporalAnchors,interferenceReady,interferenceUntil,ladders);
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
+        AdvancePressureShooters(s,t,units,plants,pressureRays,f,s.weatherStation ? s.rainZombie[environment.Rain()] : -1);
+        AdvanceCottonHealing(t,plants,f);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,
 			preserveManualAuras || preservePaidDefenses,plantingBlocks,rebuildCounterLight,preservePaidDefenses);

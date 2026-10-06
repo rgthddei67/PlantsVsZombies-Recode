@@ -6,6 +6,12 @@
 
 reanim 无 `anim_walk2` 必须覆写 `PlayWalkAnimation`（啃完回走/读档全经它）；啃食视觉残留用 `OnStartEating/OnStopEating` 对称钩子；永不覆写 `ResumeWalkAfterEat`。
 
+### 啃食不暂停品种技能
+
+`Zombie::Update` 仅在非啃食时执行 `ZombieMove`，之后每个可行动逻辑步调用一次 `ZombieUpdate`；保留原有先移动后阶段结算的顺序，跳跃/落地不能漏掉最后一步位移。硬控、水草束缚、大蒜停顿仍由基类门控。派生 `Update` 不得再为啃食手动补调 `ZombieUpdate`，否则冷却和技能推进两次。
+
+原地也能发动的技能，其资格与起手放在 `ZombieUpdate`，不要藏在 `ZombieMove`。占用身体动画的施工、蓄力、召唤等先调用 `CancelEatingForSpecialAction` 释放双方目标及植物 `eaterCount`，并在该阶段的 `StartEat` 拒绝碰撞重试；技能结束后再允许恢复啃食。普通舞蹈节拍更新不得覆盖 `anim_eat`，独立枪头则可与啃食并行。相关回归入口：`smoke_healer_eating_charm`、`smoke_roof_marshal_eating_command`、`smoke_area11_pair2` 及对应施工/跳跃专项。
+
 ### 啃食层级必须复刻 C# `CanTargetPlant(Chew)`，不能无条件认物理顶层
 
 `EatingOrder` 的上层只有在自身仍可成为目标时才遮挡下层；倭瓜 `NotOnGround()`、被吊起、压扁或其他 `CanBeEaten=false` 上层都应让同格花盆/睡莲继续成为候选。碰撞回调收到支撑层时，先验证上层的啃食资格再迁移目标；当前目标校验也必须判断“最高有效层”，不能只比较 `GetTopPlantAt` 指针。否则会每帧先判目标失效并恢复走路、随后又从支撑层碰撞重播啃食，表现为动画冻结在同一帧但 X 持续移动。

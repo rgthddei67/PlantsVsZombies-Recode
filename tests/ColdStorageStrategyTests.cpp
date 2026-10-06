@@ -3538,4 +3538,43 @@ int main()
         "fallback comparisons preserve caller entities and actual wallet");
     std::cout<<"Finite trials, last-chance combat cohorts, tail spending and positive-plan priority passed\n";
     }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot s; s.houseX=-10000; s.gridLeft=100; s.cellWidth=80; s.columns=9;
+    Unit gun; gun.id=1; gun.pressure=true; gun.body.x=820; gun.body.row=2;
+    gun.body.health=1000; gun.body.speed=0; gun.biteDps=0; s.current={gun};
+    Plant wall; wall.id=1; wall.row=2; wall.column=5; wall.x=540;
+    wall.health=wall.maximumHealth=wall.initialHealth=4000; wall.reward=40; s.plants={wall};
+    const auto firing=Evaluate(s,{});
+    s.current[0].pressure=false; const auto silent=Evaluate(s,{});
+    check(firing[1]>silent[1],"pressure gun damages existing plants without deployment trigger");
+    s.current[0]=gun;
+    Plant cotton; cotton.id=2; cotton.cotton=true; cotton.row=1; cotton.column=5; cotton.x=540;
+    cotton.health=cotton.maximumHealth=300; s.plants.push_back(cotton);
+    const auto healed=Evaluate(s,{});
+    check(healed[1]<firing[1],"cotton counters sustained damage and withdraws healed damage credit");
+    s.plants[1].row=0;
+    check(Evaluate(s,{})[1]==firing[1],"cotton cannot heal a target outside its eight adjacent cells");
+    s.plants={wall};s.current[0].body.stopped=60;
+    check(Evaluate(s,{})[1]==0,"hard control pauses pressure burst and recharge");
+    s.current[0]=gun;s.current[0].body.health=300;
+    check(Evaluate(s,{})[1]==0,"head loss suppresses future pressure fire");
+    s.current.clear(); s.pressureRays={{2,700,0,25}};
+    check(Evaluate(s,{})[1]>0,"pressure projectiles survive the firing unit");
+    s.plants[0].hostileMirrors=1;
+    check(Evaluate(s,{})[1]==0,"one ice mirror intercepts one independent pressure projectile");
+    check(s.plants[0].health==4000 && s.plants[0].hostileMirrors==1,
+        "forecast never mutates actual plant health or mirror inventory");
+    s.pressureRays.clear(); s.plants={wall}; s.current={gun};
+    s.playerSun=150; s.playerIce=10;
+    Construction cottonCard; cottonCard.source=0; cottonCard.sunCost=150; cottonCard.iceCost=10;
+    cottonCard.recharge=20; cottonCard.plant=cotton; s.construction={cottonCard};
+    ConstructionStats construction;
+    const auto built=Evaluate(s,{},&construction);
+    check(construction.planted==1 && built[1]<firing[1],"future cotton is valued for adjacent sustained-fire recovery with real shared cost");
+    s.playerIce=0; Evaluate(s,{},&construction);
+    check(construction.planted==0,"forecast cannot plant cotton without the required ice");
+    std::cout<<"Pressure burst and cotton healing forecast passed\n";
+    }
 }

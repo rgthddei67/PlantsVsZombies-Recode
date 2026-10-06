@@ -745,8 +745,11 @@ int main() {
 		std::string error;
 		nlohmann::json previous={{"schemaVersion",7},{"adventureLevel",96},{"havecards",{0,1}}};
 		Expect(SaveSchema::UpgradePlayerDocument(previous,error),"已通关11-2的旧玩家补领雷鸣花");
-		Expect(previous["havecards"].size()==3 && previous["havecards"][2]==static_cast<int>(PlantType::PLANT_THUNDERFLOWER),"新奖励只追加一次");
-		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==3,"重复加载不会重复补领");
+		Expect(previous["havecards"].size()==4 && previous["havecards"][2]==static_cast<int>(PlantType::PLANT_THUNDERFLOWER)
+            && previous["havecards"][3]==static_cast<int>(PlantType::PLANT_MENDINGCOTTON),"已完成对应关卡的两项新奖励各追加一次");
+		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==4,"重复加载不会重复补领");
+        nlohmann::json early={{"schemaVersion",8},{"adventureLevel",94},{"havecards",{0,1}}};
+        Expect(SaveSchema::UpgradePlayerDocument(early,error) && early["havecards"].size()==2,"未通关11-4不提前发棉花");
 	}
 	TestVersionTwoPlayerUpgradeDefaultsToStrictPause();
 	{

@@ -49,6 +49,7 @@ void DancerZombie::ZombieUpdate(float scaledTime)
 
 	switch (mPhase) {
 	case DancerPhase::DANCING_IN:
+        if(mIsEating) break; // 保留入场首口完成后由 EatTarget 发起召唤的契约。
 		mPhaseTimer -= scaledTime;
 		if (mPhaseTimer <= 0.0f && mHasHead) {
 			mPhase = DancerPhase::SNAPPING;
@@ -79,6 +80,7 @@ void DancerZombie::ZombieUpdate(float scaledTime)
 		// scaledTime>0：暂停时不触发（此检查不依赖 dt，恰停在节拍 12 会让暂停画面瞬间切举手）
 		if (mHasHead && scaledTime > 0.0f && mBoard && mBoard->GetDanceBeatFrame() == 12
 			&& GetPosition().x < kDanceLimitX && NeedsMoreBackupDancers()) {
+            CancelEatingForSpecialAction(); // 补召抢占身体动作，先释放旧啃食事务。
 			mPhase = DancerPhase::SNAPPING;
 			mAnimator->PlayTrackOnce("anim_point", "", kPointClip, 0.3f);
 		}
@@ -89,7 +91,7 @@ void DancerZombie::ZombieUpdate(float scaledTime)
 
 void DancerZombie::UpdateDanceTrack(float blendTime)
 {
-	if (!mBoard || mIsDying) return;
+	if (!mBoard || mIsDying || mIsEating) return;
 	const int bucket = (mBoard->GetDanceBeatFrame() >= 12) ? 1 : 0;
 	if (bucket == mLastBeatBucket) return;
 	mLastBeatBucket = bucket;

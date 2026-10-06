@@ -34,6 +34,8 @@ public:
 		ConstructionPhase phase, float remaining, float wallCenterX, bool used);
 
 protected:
+	/** 施工占用身体动作，碰撞重试须等施工结束再啃食。 */
+	void StartEat(ColliderComponent* other) override;
 	void SetupZombie() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void ZombieUpdate(float scaledTime) override;

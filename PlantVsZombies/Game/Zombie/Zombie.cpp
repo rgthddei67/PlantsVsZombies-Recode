@@ -581,6 +581,7 @@ void Zombie::WinGame() const
 	}
 }
 
+/** 推进公共动画、控制和生命，再执行允许的位移及一次品种技能更新；啃食不暂停技能。 */
 void Zombie::Update()
 {
 	AnimatedObject::Update();
@@ -812,14 +813,16 @@ void Zombie::Update()
 		if (IsImmobilized()) return;
 		if (IsGarlicRedirectPaused()) return;
 
-		if (mIsEating) return;
-
-		// 移动类增益只进入位移阶段；固定车速、飞行与普通根运动共用，技能倒计时不被加速。
-		ZombieMove(scaledDelta * (mBoard ? mBoard->GetStationFogMoveMultiplier(this) : 1.0f) * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier())
-			* GetAmberMovementMultiplier(), transform);
-		// 品种只负责水平推进；坡面高度统一由基类在同帧收敛。
-		SyncToRoofTerrain(transform);
-		ZombieUpdate(scaledDelta);
+        // 啃食只阻止水平移动；保留先位移、后阶段结算，避免跳跃/落地丢失最后一步位移。
+        if (!mIsEating) {
+            // 移动增益只进入位移，不能加速技能倒计时。
+            ZombieMove(scaledDelta * (mBoard ? mBoard->GetStationFogMoveMultiplier(this) : 1.0f)
+                * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier(), transform);
+            SyncToRoofTerrain(transform);
+        }
+        // 某些移动阶段可直接离场；只为仍可行动的实体推进一次技能，啃食不再早退。
+        if (IsActive() && !mIsDead && !mIsDying && !IsImmobilized() && !IsGarlicRedirectPaused())
+            ZombieUpdate(scaledDelta);
 	}
 }
 

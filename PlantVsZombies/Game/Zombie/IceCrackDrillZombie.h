@@ -41,6 +41,8 @@ public:
 		DrillPhase phase, float remaining, bool used);
 
 protected:
+	/** 蓄力占用身体动作，碰撞重试不能覆盖其待机演出。 */
+	void StartEat(ColliderComponent* other) override;
 	void SetupZombie() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void ZombieUpdate(float scaledTime) override;

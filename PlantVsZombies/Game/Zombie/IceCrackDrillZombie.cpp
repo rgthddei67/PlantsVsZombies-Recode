@@ -59,15 +59,20 @@ void IceCrackDrillZombie::ZombieMove(float scaledDelta, Transform* transform)
 {
 	if (!transform) return;
 	if (mDrillPhase == DrillPhase::CHARGING) return;
-	if (!mDrillUsed && CanBeginCharge()) {
-		BeginCharge();
-		return;
-	}
 	ConeZombie::ZombieMove(scaledDelta, transform);
+}
+
+void IceCrackDrillZombie::StartEat(ColliderComponent* other)
+{
+	if (mDrillPhase != DrillPhase::CHARGING) ConeZombie::StartEat(other);
 }
 
 void IceCrackDrillZombie::ZombieUpdate(float scaledTime)
 {
+	if (mDrillPhase == DrillPhase::MOVING && !mDrillUsed && CanBeginCharge()) {
+		BeginCharge();
+		return;
+	}
 	if (mDrillPhase != DrillPhase::CHARGING) return;
 	if (HasTerminalChargeAbort()) {
 		CancelCharge(true);
@@ -119,6 +124,7 @@ bool IceCrackDrillZombie::IsStandingOnFrozenCell() const
 void IceCrackDrillZombie::BeginCharge()
 {
 	if (!CanBeginCharge()) return;
+	CancelEatingForSpecialAction();
 	mDrillPhase = DrillPhase::CHARGING;
 	mChargeRemaining = kChargeDuration;
 	mChargeParticleTimer = 0.0f;

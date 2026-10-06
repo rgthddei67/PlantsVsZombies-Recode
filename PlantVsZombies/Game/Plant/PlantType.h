@@ -84,6 +84,7 @@ enum class PlantType
 	PLANT_ICESTORAGENUT, // 冰仓坚果；10-4 奖励，抗碾压与付费修复
 	PLANT_ICEVOUCHER, // 冰惠券；沿用稳定卡牌身份表，但没有植物工厂、动画或占格
 	PLANT_THUNDERFLOWER, // 雷鸣花；11-2奖励，三行雷种伤害与短促麻痹
+	PLANT_MENDINGCOTTON, // 缝补棉花；11-4奖励，八邻格单体治疗
 	NUM_PLANT_TYPES,
 };
 

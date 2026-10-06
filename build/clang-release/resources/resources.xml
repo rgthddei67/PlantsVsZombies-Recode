@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/MendingCotton.png</Image>
     <Image>./resources/image/PlantImage/ThunderFlower.png</Image>
     <Image>./resources/image/Thunder_seed.png</Image>
     <Image>./resources/image/background_weather_station.png</Image>
@@ -637,6 +638,9 @@
 
   <!-- 动画资源 此处的name要与ResourceKey里面的一样-->
   <Reanimations>
+    <Reanimation name="MendingCotton">./resources/reanim/MendingCotton.reanim</Reanimation>
+    <Reanimation name="PressureShooterZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="PressureShooterHead">./resources/reanim/PressureShooterHead.reanim</Reanimation>
     <Reanimation name="ThunderFlower">./resources/reanim/ThunderFlower.reanim</Reanimation>
     <Reanimation name="DisasterEngineerZombie">./resources/reanim/DisasterEngineerZombie.reanim</Reanimation>
     <Reanimation name="IceStorageNut">./resources/reanim/IceStorageNut.reanim</Reanimation>

@@ -281,6 +281,13 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 8:
+                if(kind==DocumentKind::Player && upgraded.value("adventureLevel",0)>=95
+                    && upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+                    // 旧玩家已完成11-4时补领棉花，按稳定植物ID去重。
+                    const int reward=static_cast<int>(PlantType::PLANT_MENDINGCOTTON);
+                    auto& cards=upgraded["havecards"];
+                    if(std::find(cards.begin(),cards.end(),reward)==cards.end()) cards.push_back(reward);
+                }
 				if (kind == DocumentKind::Level) {
 					// 关卡 v9 保存适应头盔出怪预算与在途弹丸来源；旧档均从未提交单位元恢复。
 					if (!upgraded.contains("adaptiveHelmetsSpawnedThisWave")) {

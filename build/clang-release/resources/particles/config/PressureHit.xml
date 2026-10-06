@@ -1,0 +1,16 @@
+<Emitter>
+  <Name>PressureHit</Name>
+  <SpawnMinActive>7</SpawnMinActive>
+  <SpawnMaxLaunched>7</SpawnMaxLaunched>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>3</EmitterRadius>
+  <ParticleDuration>[.15 .3]</ParticleDuration>
+  <ParticleAlpha>.65 0</ParticleAlpha>
+  <ParticleScale>[.08 .14] .03</ParticleScale>
+  <ParticleRed>.85</ParticleRed>
+  <ParticleGreen>.95</ParticleGreen>
+  <ParticleBlue>.93</ParticleBlue>
+  <LaunchSpeed>[35 70]</LaunchSpeed>
+  <SystemDuration>.35</SystemDuration>
+  <Image>PARTICLE_STAR40</Image>
+</Emitter>

@@ -26,6 +26,7 @@ enum class BulletType {
 	BULLET_AURORA_PEA,		// 极光豌豆；50 点伤害并依次穿透最多四只不同僵尸
 	BULLET_THERMAL_PULSE,	// 热感狙击僵尸的敌方水平直射弹；伤害与硬终点由瞄准快照提供
 	BULLET_THUNDER_SEED, // 雷鸣花普通伤害雷种；追加保持旧档整数身份
+	BULLET_PRESSURE, // 气压弹；独立单体直射，追加保持旧档弹型
 	NUM_BULLETS,
 };
 

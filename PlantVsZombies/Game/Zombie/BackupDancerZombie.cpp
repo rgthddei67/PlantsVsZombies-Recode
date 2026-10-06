@@ -78,7 +78,7 @@ void BackupDancerZombie::ZombieUpdate(float scaledTime)
 
 void BackupDancerZombie::UpdateDanceTrack(float blendTime)
 {
-	if (!mBoard || mIsDying) return;
+	if (!mBoard || mIsDying || mIsEating) return;
 	const int bucket = (mBoard->GetDanceBeatFrame() >= 12) ? 1 : 0;
 	if (bucket == mLastBeatBucket) return;
 	mLastBeatBucket = bucket;

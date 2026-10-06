@@ -1,0 +1,202 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 58,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_cold_wave",
+      "phase": "CALM",
+      "temperature": 5,
+      "remaining": 30,
+      "strength": "NORMAL",
+      "targetTemperature": -8
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "row": 1,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_CRACK_DRILL",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_WALL_ENGINEER.isEating",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_CRACK_DRILL.isEating",
+      "equals": true
+    },
+    {
+      "op": "set_cold_wave",
+      "phase": "COLD",
+      "temperature": -8,
+      "remaining": 30,
+      "strength": "NORMAL",
+      "targetTemperature": -8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_WALL_ENGINEER.constructionPhase",
+      "equals": "BUILDING"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_CRACK_DRILL.drillPhase",
+      "equals": "CHARGING"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_WALL_ENGINEER.isEating",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_CRACK_DRILL.isEating",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "skills_started_from_eating.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_WALL_ENGINEER.constructionPhase",
+      "equals": "COMPLETED"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_ICE_CRACK_DRILL.drillPhase",
+      "equals": "SPENT"
+    },
+    {
+      "op": "dump_state",
+      "name": "skills_completed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BACKUP_DANCER",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BACKUP_DANCER.isEating",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "backup_eating_start.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BACKUP_DANCER.isEating",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_BACKUP_DANCER.track",
+      "equals": "anim_eat"
+    },
+    {
+      "op": "dump_state",
+      "name": "backup_eating_later.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

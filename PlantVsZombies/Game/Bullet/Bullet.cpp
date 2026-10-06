@@ -1,3 +1,4 @@
+#include "Game/Zombie/PressureShooterRules.h"
 #include "Game/Board/Board.h"
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
@@ -114,6 +115,7 @@ namespace {
 		{ BulletType::BULLET_AURORA_PEA,  BulletWindResponse::LIGHT_PROJECTILE },
 		{ BulletType::BULLET_THERMAL_PULSE, BulletWindResponse::NONE },
 		{ BulletType::BULLET_THUNDER_SEED, BulletWindResponse::NONE },
+        { BulletType::BULLET_PRESSURE, BulletWindResponse::NONE },
 	};
 
 	constexpr bool BulletWindProfilesCoverEveryType()
@@ -141,6 +143,7 @@ namespace {
 	/** 返回对象池新建/复用时应恢复的类型基础伤害。 */
 	int DefaultDamageForBullet(BulletType type)
 	{
+		if (type == BulletType::BULLET_PRESSURE) return PressureShooterRules::Damage;
 		if (type == BulletType::BULLET_THUNDER_SEED) return ThunderFlowerRules::Damage;
 		if (type == BulletType::BULLET_FIREBALL
 			|| type == BulletType::BULLET_TOXICFIREBALL) return kFireballDamage;
@@ -264,6 +267,7 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	}
 
 	ConfigureCollisionTarget();
+    if(mBulletType==BulletType::BULLET_PRESSURE && mCollider) mCollider->mEnabled=false;
 }
 
 int Bullet::GetBaseDamage(BulletType type) { return DefaultDamageForBullet(type); }
@@ -327,7 +331,7 @@ void Bullet::Reset(Board* board, int row,
 
 	// 重置 Collider
 	if (mCollider) {
-		mCollider->mEnabled = true;
+		mCollider->mEnabled = mBulletType != BulletType::BULLET_PRESSURE;
 	}
 }
 
@@ -369,6 +373,7 @@ void Bullet::Update()
 	if (transform)
 	{
 		const Vector previousPosition = transform->GetPosition();
+        if(mBulletType==BulletType::BULLET_PRESSURE) { UpdatePressureProjectile(deltaTime); return; }
 		if (mBulletType == BulletType::BULLET_THERMAL_PULSE
 			&& mThermalConfigured) {
 			const float direction = mVelocityX >= 0.0f ? 1.0f : -1.0f;
@@ -547,6 +552,10 @@ void Bullet::Draw(Graphics* g)
 			position.x -= drawWidth * 0.5f;
 			position.y -= drawHeight * 0.5f;
 		}
+        if(mBulletType==BulletType::BULLET_PRESSURE) {
+            position.x-=drawWidth*.5f; position.y-=drawHeight*.5f;
+            mRotationDegrees=mVelocityX>0 ? 180.0f : 0.0f;
+        }
 		g->DrawTexture(mTexture, position.x, position.y,
 			drawWidth, drawHeight, mRotationDegrees);
 	}
@@ -966,6 +975,10 @@ void Bullet::ConfigurePresentation()
 		}
 		mScale = 1.0f;
 		break;
+	case BulletType::BULLET_PRESSURE:
+        mTexture = resources.GetTexture("IMAGE_PRESSURE_PROJECTILE");
+        mScale = 1;
+        break;
 	case BulletType::BULLET_THERMAL_PULSE:
 		mTexture = resources.GetTexture(
 			ResourceKeys::Textures::IMAGE_PROJECTILETHERMALPULSE);
@@ -1910,4 +1923,49 @@ int Bullet::GetWinterCorrosionDamage() const
 {
 	return mBulletType == BulletType::BULLET_SALT_CRYSTAL
 		? kSaltCrystalCorrosion : 0;
+}
+
+void Bullet::UpdatePressureProjectile(float deltaTime) {
+    const Vector from=GetPosition(), to=from+Vector(mVelocityX*deltaTime,0);
+    GetTransform()->SetPosition(to);
+    if(mCollider) mCollider->mEnabled=false;
+    if(!mBoard) return;
+    bool hit=false;
+    const float low=std::min(from.x,to.x), high=std::max(from.x,to.x);
+    Vector impact=to;
+    if(mVelocityX<0) {
+        // 与其他敌方直射弹一致：先镜片拦截，再南瓜、本体、支撑；每发只消费一次。
+        for(int col=mBoard->mColumns-1;col>=0 && !hit;--col) {
+            const Vector center=mBoard->GetCellCenterPosition(mRow,col);
+            const float left=center.x-CELL_COLLIDER_SIZE_X*.5f,right=center.x+CELL_COLLIDER_SIZE_X*.5f;
+            if(high<left || low>right) continue;
+            auto* cell=mBoard->GetCell(mRow,col); if(!cell) continue;
+            impact=Vector(std::clamp(right,low,high),to.y);
+            auto* normal=mBoard->mEntityRegistry.GetPlant(cell->GetNormalPlantID());
+            if(normal && normal->TryInterceptHostileStraightProjectile(mVelocityX,impact)) { hit=true; break; }
+            for(int id:{cell->GetPumpkinPlantID(),cell->GetNormalPlantID(),cell->GetUnderPlantID()}) {
+                auto* p=mBoard->mEntityRegistry.GetPlant(id);
+                if(!p || !p->IsActive() || !p->OccupiesGridSlot() || p->IsSquished() || p->mPlantHealth<=0) continue;
+                p->TakeDamage(mDamage,DamageSource::ZOMBIE); hit=true; break;
+            }
+        }
+    } else {
+        // 魅惑只改变未来出膛方向；在途弹的阵营由其速度确定，不引用原射手。
+        Zombie* target=nullptr; float best=high+1;
+        mBoard->mEntityRegistry.ForEachZombieInRow(mRow,[&](Zombie* z) {
+            if(!z || !z->IsActive() || z->IsDying() || z->IsMindControlled() || !z->CanBeTargetedByProjectile(false)) return;
+            const auto* c=z->GetColliderComponent(); if(!c) return;
+            const auto b=c->GetBoundingBox();
+            if(high<b.x || low>b.x+b.w) return;
+            const float x=std::max(low,b.x);
+            if(x<best || (x==best && target && z->mZombieID<target->mZombieID)) {target=z;best=x;}
+        });
+        if(target) { target->TakeProjectileDamage(mDamage,DamageSource::ZOMBIE,mVelocityX); impact=Vector(best,to.y);hit=true; }
+    }
+    if(hit) {
+        if(g_particleSystem) g_particleSystem->EmitEffect("PressureHit",impact);
+        AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT2,.2f);
+        Die(); return;
+    }
+    if(to.x<-40 || to.x>SCENE_WIDTH+40) Die();
 }

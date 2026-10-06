@@ -492,7 +492,7 @@ void Card::DrawPlantImage(
 	if (displayType == PlantType::PLANT_CARRYVINE || displayType == PlantType::PLANT_ECHOSHROOM
 		|| displayType == PlantType::PLANT_PRISMFLOWER || displayType == PlantType::PLANT_AMBERLICHEN
 		|| displayType == PlantType::PLANT_ICEMINT || displayType == PlantType::PLANT_COLDPINEAPPLE
-		|| displayType == PlantType::PLANT_ICESTORAGENUT) {
+		|| displayType == PlantType::PLANT_ICESTORAGENUT || displayType == PlantType::PLANT_MENDINGCOTTON) {
 		// 新卡图是紧裁切合成，不能沿用经典贴图含透明边距的左上偏移。
 		constexpr float inset = 4.0f; // 卡图左右安全边距，UI px
 		constexpr float top = 8.0f; // 卡图区域上边距，UI px
