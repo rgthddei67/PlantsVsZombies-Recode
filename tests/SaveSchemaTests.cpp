@@ -745,9 +745,10 @@ int main() {
 		std::string error;
 		nlohmann::json previous={{"schemaVersion",7},{"adventureLevel",96},{"havecards",{0,1}}};
 		Expect(SaveSchema::UpgradePlayerDocument(previous,error),"已通关11-2的旧玩家补领雷鸣花");
-		Expect(previous["havecards"].size()==4 && previous["havecards"][2]==static_cast<int>(PlantType::PLANT_THUNDERFLOWER)
-            && previous["havecards"][3]==static_cast<int>(PlantType::PLANT_MENDINGCOTTON),"已完成对应关卡的两项新奖励各追加一次");
-		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==4,"重复加载不会重复补领");
+		Expect(previous["havecards"].size()==5 && previous["havecards"][2]==static_cast<int>(PlantType::PLANT_THUNDERFLOWER)
+            && previous["havecards"][3]==static_cast<int>(PlantType::PLANT_MENDINGCOTTON)
+            && previous["havecards"][4]==static_cast<int>(PlantType::PLANT_RAINBAMBOO),"已完成对应关卡的三项新奖励各追加一次");
+		Expect(SaveSchema::UpgradePlayerDocument(previous,error) && previous["havecards"].size()==5,"重复加载不会重复补领");
         nlohmann::json early={{"schemaVersion",8},{"adventureLevel",94},{"havecards",{0,1}}};
         Expect(SaveSchema::UpgradePlayerDocument(early,error) && early["havecards"].size()==2,"未通关11-4不提前发棉花");
 	}
@@ -786,6 +787,13 @@ int main() {
 			"再次升级玩家档不能重置一次性提示");
 	}
 	TestVersionFourPlayerUpgradeAddsCrazyDaveTutorialsSeen();
+    {
+        nlohmann::json player={{"schemaVersion",10},{"adventureLevel",96},{"havecards",nlohmann::json::array()}};
+        std::string error;
+        Expect(SaveSchema::UpgradePlayerDocument(player,error),"rain bamboo player migration");
+        Expect(player["havecards"].size()==1 && player["havecards"][0]==static_cast<int>(PlantType::PLANT_RAINBAMBOO),"completed 11-5 grants missing bamboo once");
+        Expect(SaveSchema::UpgradePlayerDocument(player,error) && player["havecards"].size()==1,"bamboo reward migration is idempotent");
+    }
 	TestCurrentLevelDocumentIsStable();
 	TestLegacyLevelUpgradePreservesGameplayState();
 	TestVersionOneLevelUpgradeDefersFogInitializationToBoard();

@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/RainBamboo.png</Image>
     <Image>./resources/image/PlantImage/MendingCotton.png</Image>
     <Image>./resources/image/PlantImage/ThunderFlower.png</Image>
     <Image>./resources/image/Thunder_seed.png</Image>
@@ -396,6 +397,9 @@
 
   <!-- 粒子纹理 -->
   <ParticleTextures>
+    <Texture>./resources/particles/textures/water_mist.png</Texture>
+    <Texture>./resources/particles/textures/water_droplets.png</Texture>
+    <Texture>./resources/particles/textures/water_blast.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/IceCrackDrillShards.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/pea_splats.png</Texture>
     <Texture Column="3" Row="1">./resources/particles/pea_particles.png</Texture>
@@ -640,6 +644,8 @@
 
   <!-- 动画资源 此处的name要与ResourceKey里面的一样-->
   <Reanimations>
+    <Reanimation name="RainBamboo">./resources/reanim/RainBamboo.reanim</Reanimation>
+    <Reanimation name="FloodMortarZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="MendingCotton">./resources/reanim/MendingCotton.reanim</Reanimation>
     <Reanimation name="PressureShooterZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="PressureShooterHead">./resources/reanim/PressureShooterHead.reanim</Reanimation>

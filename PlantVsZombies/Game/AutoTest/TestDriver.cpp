@@ -12,6 +12,8 @@
 #include "TestDriver.h"
 #include "../../GameApp.h"
 #include "Game/Plant/MendingCotton.h"
+#include "Game/Plant/RainBamboo.h"
+#include "Game/Zombie/FloodMortarZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "../../GameInfoSaver.h"
 #include "../../Renderer/VulkanRenderer.h"
@@ -424,7 +426,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_RAINBAMBOO),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -434,7 +436,7 @@ namespace {
 		BT(BULLET_TOXICPEA), BT(BULLET_TOXICFIREBALL),
 		BT(BULLET_MELT_SNOW), BT(BULLET_SALT_CRYSTAL),
 		BT(BULLET_AURORA_PEA),
-		BT(BULLET_THERMAL_PULSE), BT(BULLET_THUNDER_SEED), BT(BULLET_PRESSURE),
+		BT(BULLET_THERMAL_PULSE), BT(BULLET_THUNDER_SEED), BT(BULLET_PRESSURE), BT(BULLET_RAIN_BAMBOO), BT(BULLET_FLOOD_MORTAR),
 	};
 #undef BT
 #define ZT(n) { #n, ZombieType::n }
@@ -460,7 +462,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -7430,6 +7432,17 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED2", false);
 		}
 		zombieState["thunderResistanceMs"] = static_cast<int>(std::lround(z->GetThunderResistanceRemaining()*1000));
+        if(auto* mortar=dynamic_cast<FloodMortarZombie*>(z)) {
+            zombieState["floodReloadMs"]=static_cast<int>(std::round(mortar->GetReloadRemaining()*1000));
+            zombieState["floodShots"]=mortar->GetShotCount();zombieState["floodTargetRow"]=mortar->GetTargetRow();
+            zombieState["floodTargetColumn"]=mortar->GetTargetColumn();zombieState["floodMonteCarlo"]=mortar->UsedMonteCarlo();
+            zombieState["floodRollouts"]=mortar->GetRollouts();
+            zombieState["floodResourcesReady"]=ResourceManager::GetInstance().HasReanimation("FloodMortarZombie")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_FLOOD_MORTAR_PACK",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_BLAST",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_MIST",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_DROPLETS",false);
+        }
         if(auto* shooter=dynamic_cast<PressureShooterZombie*>(z)) {
             zombieState["pressureShots"]=shooter->GetShotsFired();
             zombieState["pressureBurstShot"]=shooter->GetBurstShot();
@@ -8467,6 +8480,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			plantState["instantBlastRemainingMs"] = static_cast<int>(std::lround(cherry->GetExplosionTimeRemaining()*1000));
 		if (const auto* jalapeno = dynamic_cast<const Jalapeno*>(p))
 			plantState["instantBlastRemainingMs"] = static_cast<int>(std::lround(jalapeno->GetExplosionTimeRemaining()*1000));
+        plantState["floodSlowMs"]=static_cast<int>(std::round(p->GetFloodSlowRemaining()*1000));
+        plantState["attackMultiplierMilli"]=static_cast<int>(std::round(p->GetAttackSpeedMultiplier()*1000));
+        if(auto* bamboo=dynamic_cast<RainBamboo*>(p)) {
+            plantState["bambooChargeMilli"]=static_cast<int>(std::round(bamboo->GetCharge()*1000));
+            plantState["bambooShots"]=bamboo->GetShotCount();
+            plantState["bambooResourcesReady"]=ResourceManager::GetInstance().HasReanimation("RainBamboo")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_RAINBAMBOO",false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_RAIN_BAMBOO_DART",false);
+        }
         if(auto* cotton=dynamic_cast<MendingCotton*>(p)) {
             plantState["cottonHeals"]=cotton->GetHealCount();
             plantState["cottonTargetID"]=cotton->GetLastHealedID();
@@ -9463,6 +9485,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "auroraPlayedHitSound", bullet->HasPlayedAuroraHitSound() },
 			{ "piercedZombieCount", bullet->GetPiercedZombieCount() },
 			{ "piercedZombieIDs", bullet->GetPiercedZombieIDs() },
+            {"bambooHitIDs",bullet->GetBambooHitIDs()},
+            {"floodCharmed",bullet->GetFloodCharmed()},
 			{ "spikeDamageRemainders", bullet->GetSpikeDamageRemainders() },
 			{ "animatedPresentation", bullet->HasAnimatedPresentation() },
 			{ "toxicFireball", bullet->IsToxicFireball() },

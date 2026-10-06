@@ -27,6 +27,8 @@ enum class BulletType {
 	BULLET_THERMAL_PULSE,	// 热感狙击僵尸的敌方水平直射弹；伤害与硬终点由瞄准快照提供
 	BULLET_THUNDER_SEED, // 雷鸣花普通伤害雷种；追加保持旧档整数身份
 	BULLET_PRESSURE, // 气压弹；独立单体直射，追加保持旧档弹型
+	BULLET_RAIN_BAMBOO, // 穿雨竹五目标贯穿
+	BULLET_FLOOD_MORTAR, // 独立在途水弹
 	NUM_BULLETS,
 };
 

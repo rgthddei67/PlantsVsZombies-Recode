@@ -2952,6 +2952,8 @@ static void AdvancePressureShooters(const Snapshot& s,float time,std::vector<Uni
     }
 }
 
+#include "ColdStorageRainForecast.h"
+
 /** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
 static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
 	float& ice, Weights& features, ConstructionStats& stats, bool automaticPhase) {
@@ -3685,6 +3687,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 	std::vector<float> counterHoldUntil(counterReady.size(),-1);
 	std::vector<unsigned char> melonHits(units.size());
 	auto pressureRays=s.pressureRays;
+	auto bambooRays=s.bambooRays;auto floodShots=s.floodShots;
 	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
 	auto basketballs=s.basketballs;
 	auto jackBoxes=s.jackBoxes;
@@ -3842,9 +3845,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			}
 			ray=thunderRays.erase(ray);
 		}
+        AdvanceFloodMortars(s,t,environment.Rain(),units,plants,floodShots,f);
+        AdvanceBambooRays(s,t,units,bambooRays);
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0 && plants[pi].shutdownUntil<=t) {
 			auto& p = plants[pi];
-			const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1);
+			const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1) * (p.floodSlowUntil>t ? FloodMortarRules::AttackMultiplier : 1);
 			int target = -1;
 			for (size_t i = 0; i < units.size(); ++i) {
 				const auto& u = units[i].body;
@@ -3859,6 +3864,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
                 const bool selectedAir=target>=0 && p.targetsAir && CanTargetProjectile(units[target],true);
                 if(target<0 || (air && !selectedAir) || (air==selectedAir && u.x<units[target].body.x)) target=static_cast<int>(i);
 			}
+            if(p.rainBamboo) {
+                const float rate=p.bambooRate*(auras.empty()?1:attackRates[pi])*(p.floodSlowUntil>t?FloodMortarRules::AttackMultiplier:1);
+                p.bambooCharge=std::min(1.0f,p.bambooCharge+kStep*rate/RainBambooRules::Interval(environment.Rain()));
+                if(target>=0 && p.bambooCharge>=1) {p.bambooCharge=0;bambooRays.push_back({p.x+32,p.row,p.damageOrigin,{}});}
+                continue;
+            }
 			if (p.thunder) {
 				const int shots=p.thunderAttack.Advance(kStep,p.thunderAttack.sampledRate*attackRate,target>=0);
 				for(int shot=0;shot<shots;++shot) thunderRays.push_back({p.x+30,p.row,p.damageOrigin});
@@ -3929,6 +3940,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
 			if(danceBlocked[i]) continue;
+            if(worker.floodMortar && worker.body.health>worker.floodStopHealth && FindFloodTarget(s,worker,plants,t,environment.Rain())>=0) continue;
             if(worker.digger.present) {
                 // 阶段门槛按实体原点；地下只受位移场和鼓舞，不吃地面风雨倍率。
                 float objectX=u.x+u.blastAnchorOffset;

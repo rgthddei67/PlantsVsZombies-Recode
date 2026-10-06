@@ -1,0 +1,147 @@
+{
+  "description": "Legal new mortar price and rain capability forecasts without purchasing",
+  "commands": [
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": true
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        -1,
+        0,
+        0
+      ],
+      "netEconomy": true,
+      "searchVersion": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 180
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "flood_clear",
+      "budgetsMs": [
+        120
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        },
+        {
+          "name": "flood",
+          "actions": [
+            {
+              "type": "ZOMBIE_FLOOD_MORTAR",
+              "row": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "station_control",
+      "device": 0,
+      "value": 3,
+      "player": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 10.2
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "flood_heavy",
+      "budgetsMs": [
+        120
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        },
+        {
+          "name": "flood",
+          "actions": [
+            {
+              "type": "ZOMBIE_FLOOD_MORTAR",
+              "row": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "definitions.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

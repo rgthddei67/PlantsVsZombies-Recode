@@ -120,6 +120,11 @@ protected:
 	void HitFireballZombie(Zombie* zombie);
     /** 气弹用同帧线段按行检索，避免高速穿透及外观高度影响植物命中。 */
     void UpdatePressureProjectile(float deltaTime);
+    void UpdateRainBamboo(float deltaTime);
+    void UpdateFloodMortar(float deltaTime);
+    std::vector<int> mBambooHitIDs;
+    float mWaterTrailRemaining=0;
+    bool mFloodCharmed=false;
 	/** 结算西瓜直击、相邻行溅射和穿透二类护盾的原版语义。 */
 	void HitMelonZombie(Zombie* zombie);
 	/** 推进解析抛物线；返回 false 表示本帧已落空并回收。 */
@@ -153,6 +158,11 @@ public:
 
 	// 子弹消失
 	void Die();
+    const std::vector<int>& GetBambooHitIDs() const { return mBambooHitIDs; }
+    /** 恢复不同目标命中序列；不再结算此前已经提交的命中。 */
+    void RestoreBambooHitIDs(const std::vector<int>& ids);
+    void SetFloodCharmed(bool charmed) { mFloodCharmed=charmed; }
+    bool GetFloodCharmed() const { return mFloodCharmed; }
 
 	void Start() override;
 	void Update() override;

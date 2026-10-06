@@ -130,3 +130,5 @@
 长期空场兜底见 `Snapshot::fallbackProbeBudget/fallbackAllIn` 和 `Result::fallbackMode`：正常有益选择仍优先；真正空場、没有在途复活/召唤、未解锁可用兵种或付费技能冷却机会时，才比较有限试攻。实际试攻无破阵或滚动净经营收益后允许完整孤注一掷，不新增自动认负；原有破产结束规则继续生效。兜底保留原负分及预测，不把付费尝试伪装成盈利，也不通过继续加算力来证明阵型一定可破。全力案按可部署战斗预算和合法名额比较，不能退化为反复一只便宜兵。
 
 `Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。
+
+穿雨竹与蓄洪僵尸入口为 RainBambooRules、FloodMortarRules、BoardFloodMortar 和 ColdStorageRainForecast：实际雨势、首装/装填、贯穿目标历史、在途弹与攻击减速必须进入预测；水弹的本格南瓜在扣壳前同时拦截本次伤害和状态，破壳不补结算。经验编队把炮手作为独立 specialist，不能因高血量误当护卫，也不能让投篮车或直射兵的低价排挤其候选；前排时序按停步射程，快兵跟进按首弹落地，错峰只给搜索起点，不强制付款。字段和配方以 ColdStorageFormationSeeds 为准。

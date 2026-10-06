@@ -55,6 +55,8 @@ struct PlantSnapshot {
 	float cobBlastDamage = 0.0f;
 	float cobBlastRadius = 0.0f;
 	int cobBlastRowRadius = 0;
+    float floodSlowRemaining=0;
+    int airborneDefenseRadius=-1;
 };
 
 /**
@@ -193,6 +195,8 @@ struct Snapshot {
 };
 
 struct Config {
+    bool floodMortar=false; // 九格水弹共享候选动作
+    float impactDelay=0; // 候选提交延迟，游戏秒
 	int rolloutCount = 32;                  // 每个候选使用的短视未来样本数
 	int maxZombiesPerRollout = 16;          // 单次样本最多推进的当前敌方僵尸数
 	float horizonSeconds = 16.0f;           // 单次样本向前推演的游戏秒

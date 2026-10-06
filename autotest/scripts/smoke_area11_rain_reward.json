@@ -1,0 +1,95 @@
+{
+  "commands": [
+    {
+      "op": "set_adventure_level",
+      "level": 95
+    },
+    {
+      "op": "goto_level",
+      "level": 95
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "click",
+      "target": "trophy",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "adventureLevel",
+      "equals": 96
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_RAINBAMBOO"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacName",
+      "equals": "穿雨竹"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "bamboo_reward.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "reward.json"
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 96
+    },
+    {
+      "op": "screenshot",
+      "name": "bamboo_next_cards.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

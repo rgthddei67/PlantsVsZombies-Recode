@@ -10,6 +10,8 @@
 #include "Game/Zombie/LadderRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/Plant/MendingCottonRules.h"
+#include "Game/Plant/RainBambooRules.h"
+#include "Game/Zombie/FloodMortarRules.h"
 #include "Game/Zombie/PressureShooterRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 
@@ -124,6 +126,9 @@ struct Unit {
 	Drum drum;
 	DeploymentSniper sniper;
     bool pressure=false;
+    bool floodMortar=false;
+    float floodReload=FloodMortarRules::FirstReload;
+    float floodStopHealth=FloodMortarRules::Health/3;
     int pressureShot=0; // 下一发在四连发中的序号
     float pressureRemaining=PressureShooterRules::Reload+10/PressureShooterRules::FramesPerSecond;
     float pressureStopHealth=PressureShooterRules::Health/3, pressureMuzzle=-20; // 掉头阈值和碰撞参考点至枪口偏移
@@ -184,6 +189,8 @@ struct Plant {
 	bool catapultCrushable=true; // 投篮车自有类型/睡眠资格，不把冰车的目标名单套到投篮车
 	int airborneDefenseRadius=-1; // 非负时按自有逻辑格半径拦截篮球；生命/格位由本候选维护
 	bool cotton = false;
+    bool rainBamboo=false;
+    float bambooCharge=0,bambooRate=1,floodSlowUntil=0;
     float cottonRemaining=MendingCottonRules::Interval; // 活体采样当前治疗冷却，未来株从完整周期开始
 	bool thunder = false;
 	ThunderFlowerRules::AttackForecast thunderAttack; // 射击冷却、索敌等待与已起播头部吐弹分开推进
@@ -348,6 +355,8 @@ struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; 
 /** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
 struct WindCounter { Plant deployment; std::vector<std::array<int,2>> cells; bool committed=false; int source=0, plantID=0, row=-1, column=-1, sunCost=0, iceCost=0; float ready=0,recharge=0,windup=0,nextReady=0; bool house=false; };
 /** 已出膛气弹独立于来源存活；入场新兵和活体共用弹道。 */
+struct BambooRay { float x=0;int row=0;PlantDamageOrigin origin;std::vector<int> hitIDs; };
+struct FloodShot { int row=0,column=0;float at=0,damage=0; };
 struct PressureRay { int row=0; float x=0, launchedAt=0, damage=PressureShooterRules::Damage; };
 struct Snapshot {
     std::vector<PressureRay> pressureRays;
@@ -364,6 +373,8 @@ struct Snapshot {
 	float danceBeatSeconds = 0; // Board 当前全局舞拍在一圈内的位置，游戏秒
 	std::vector<BasketballFlight> basketballs;
 	std::vector<ThunderRay> thunderRays;
+    std::vector<BambooRay> bambooRays;
+    std::vector<FloodShot> floodShots;
 	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹
 	bool fuelAwarePlantern = true; // 仅诊断消融可关闭动态挡位应对，正式搜索始终启用
     bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数

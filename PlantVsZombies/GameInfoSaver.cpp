@@ -631,6 +631,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		p["isSleeping"] = plant->GetSleepState();
 		p["wakeUpTimer"] = plant->GetWakeUpTimeRemaining();
 		p["shutdownTimer"] = plant->GetShutdownTimeRemaining();
+        p["floodSlowRemaining"]=plant->GetFloodSlowRemaining();
 		p["unyieldingRootsSpent"] = plant->HasSpentUnyieldingRoots();
 		p["unyieldingRootsTimer"] = plant->GetUnyieldingRootsTimeRemaining();
 		p["iceSealOwnerZombieID"] = plant->GetIceSealOwnerZombieID();
@@ -735,6 +736,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		b["hitTorchwoodColumn"] = bullet->GetHitTorchwoodColumn();
 		b["hitAuroraTorchwoodColumn"] = bullet->GetHitAuroraTorchwoodColumn();
 		b["auroraHitZombieIDs"] = bullet->GetAuroraHitZombieIDs();
+        b["bambooHitIDs"]=bullet->GetBambooHitIDs();b["floodCharmed"]=bullet->GetFloodCharmed();
 		b["auroraPlayedHitSound"] = bullet->HasPlayedAuroraHitSound();
 		b["piercedZombieIDs"] = bullet->GetPiercedZombieIDs();
 		b["spikeDamageRemainders"] = bullet->GetSpikeDamageRemainders();
@@ -1674,6 +1676,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 			plant->RestoreSleepState(isSleeping, p.value("wakeUpTimer", 0.0f));
 			// 通用停机是实体快照状态；读档只恢复剩余时间，不重新结算来源技能。
 			plant->RestoreShutdown(p.value("shutdownTimer", 0.0f));
+            plant->RestoreFloodSlow(p.value("floodSlowRemaining",0.0f));
 			plant->RestoreUnyieldingRootsState(
 				p.value("unyieldingRootsSpent", false),
 				p.value("unyieldingRootsTimer", 0.0f));
@@ -1834,7 +1837,9 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 			bullet->RestorePiercedZombieState(
 				b.value("piercedZombieIDs", std::vector<int>{}),
 				b.value("spikeDamageRemainders", std::vector<float>{}));
-			bullet->RestoreAuroraState(
+			bullet->RestoreBambooHitIDs(b.value("bambooHitIDs",std::vector<int>{}));
+            bullet->SetFloodCharmed(b.value("floodCharmed",false));
+            bullet->RestoreAuroraState(
 				b.value("auroraHitZombieIDs", std::vector<int>{}),
 				b.value("auroraPlayedHitSound", false));
 			if (b.value("threepeaterMotion", false)) {

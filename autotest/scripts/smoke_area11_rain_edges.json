@@ -1,0 +1,323 @@
+{
+  "description": "Rain weapons in-flight persistence, own-cell shell break, and targeting rows and six-cell range",
+  "commands": [
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 520,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 630,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 740,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 850,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 960,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_REDEYE_GARGANTUAR",
+      "row": 2,
+      "x": 1035,
+      "paralyzedFor": 30
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_RAIN_BAMBOO",
+      "row": 2,
+      "x": 400,
+      "y": 305,
+      "velocityX": 200,
+      "originPlant": "PLANT_RAINBAMBOO"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.9
+    },
+    {
+      "op": "dump_state",
+      "name": "pierce_midflight.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "pierce"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "pierce"
+    },
+    {
+      "op": "dump_state",
+      "name": "pierce_restored.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "pierce_complete.json"
+    },
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_weather",
+      "intensity": "HEAVY",
+      "duration": 180
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 3,
+      "damage": 3500
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FLOOD_MORTAR",
+      "row": 2,
+      "x": 900
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.8
+    },
+    {
+      "op": "dump_state",
+      "name": "shell_broken.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "shell_broken.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "after_shell.json"
+    },
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 4,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FLOOD_MORTAR",
+      "row": 2,
+      "x": 1050
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.4
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FLOOD_MORTAR.floodShots",
+      "equals": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FLOOD_MORTAR.floodShots",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "retained_first.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "mortar_face.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

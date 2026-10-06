@@ -1,0 +1,26 @@
+{
+  "inputs": {
+    "bamboo_parts.png": "41b0a7865c043f71b5bdd2ae13a27259e39658fccc3577a0afe7a661a231bf17",
+    "mortar_pack.png": "43457adc63ad18ebff093ad5e1633f1c057c4ced980e531104f1b2df7a83675b",
+    "water_blast.png": "a97f18f16c69c6c16f52f2db8ad51ae3b05c2cfaa5cae2b761edac1e5b1ccd43",
+    "water_droplets.png": "835b8adee0a58b0e9328c595327e0cb3020b0a0379b9ea1e4502edd98d6a95cd",
+    "water_mist.png": "5e6bad63cd14482bd815f8fcfc76604c438f851dce3ffd04dda2ddd90438cffc"
+  },
+  "outputs": {
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_head.png": "3c771b2d1e8275ff16710ccf00b74fc4fb9f4a9de45f73acc618ae7953ee2318",
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_stalk.png": "12c2d1a6cf696c64a1a15cce6f0c7706919fe14c4d3b5c80866c7845c45cd20d",
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_leaves.png": "43e61f247c3f1c346e59718f004b6e52f4e75c7b446e12195954667ae2bbac98",
+    "build\\clang-release\\resources\\image\\reanim\\Rain_bamboo_dart.png": "70adb2e3cc5c3ccd07556d97f73777cb67755eab8d935818b9d9ff6b31f59c79",
+    "build\\clang-release\\resources\\image\\PlantImage\\RainBamboo.png": "b8ed3544ac08802a07970706299e34052d4ae26aaaf52bb99326532451d566ff",
+    "build\\clang-release\\resources\\image\\reanim\\Flood_mortar_pack.png": "998a1febeaf5dafd1da7fb72cedc8d66ba943d34868d63fcac3c1bc75a1af8c9",
+    "build\\clang-release\\resources\\particles\\textures\\water_mist.png": "18414217ab86a919b9e1fbc97aea6c57d6725d2192a9d03654de03470b0cb6fd",
+    "build\\clang-release\\resources\\particles\\textures\\water_droplets.png": "5bdc046f133bb2bd33237f1de6ab09f4f6abce54d5ac5491d1ed785bb70a8956",
+    "build\\clang-release\\resources\\particles\\textures\\water_blast.png": "2cf6bd4d0b472cc4964078848013f7f493ab3d33e6c5e6f1fb91767d5600bbe1",
+    "build\\clang-release\\resources\\reanim\\RainBamboo.reanim": "3e79c9131d265a9bb54035b22976153f55d05ed381e3c404e100963f8c68ad5e",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooTrail.xml": "8623729b52707a7b0c92654658a3b32c7a20cde566bd88b35f46360b2ee2e23a",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooMuzzle.xml": "9aa53a9efc3934d2fe0f6e18cbea14412c7cef1d33f9ffb56eeaa6939ced8be0",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooHit.xml": "7286cd556024054e1f471301ed45278173a52085ce3ecde97a7263c80033880f",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooFinish.xml": "f102eaa9064757378168594e9fb7867fab78e8308b794652da0e4f5d9e3c4f65",
+    "build\\clang-release\\resources\\particles\\config\\FloodMortarExplosion.xml": "88a12eed1cc967d6c3ffc6cf5e69ec59d3ac8b70c1ab3e38c308745cd61a90f7"
+  }
+}

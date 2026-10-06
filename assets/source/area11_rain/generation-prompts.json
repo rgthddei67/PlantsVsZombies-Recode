@@ -1,0 +1,27 @@
+{
+  "tool": "Built-in image_gen",
+  "sources": {
+    "bamboo_parts.png": "Use the supplied bamboo character as the identity reference. Produce a clean transparent 2-by-2 SPRITE PARTS ATLAS with FOUR separate isolated components, one centered within each equal quadrant, no touching quadrant borders, no text labels or grid. TOP LEFT: only the expressive bamboo cannon HEAD facing right, hollow round muzzle, determined eyes, a SHORT neck socket underneath; no stalk or root leaves. TOP RIGHT: only a vertical gently curved jade bamboo STALK of two segments, cyan seam, generous thick connecting ends for overlap; no head or eyes. BOTTOM LEFT: only a low wide cluster of root LEAVES in the original dark green style, no stalk or head. BOTTOM RIGHT: only one long horizontal bamboo spear projectile pointing RIGHT, sharpened pale bamboo tip, 2 jade nodes, tiny cyan liquid streak along shaft; no face. Preserve thick dark ink outlines and cel shaded classic casual game style. Entire atlas genuinely transparent background; all four parts complete and isolated, with wide padding inside their quadrant. This is for assembling a jointed game animation, not four whole characters.",
+    "mortar_pack.png": "Single isolated 2D cartoon game equipment sprite, transparent background. A compact zombie backpack WATER MORTAR apparatus, shown side-on, launcher muzzle aiming diagonally LEFT and slightly upward. Bulky weathered teal cylindrical water pressure tank with bright turquoise water level window, brass bands and bolts, a curved pipe connecting to a short wide dark metal mortar barrel projecting left. Hand-painted classic casual tower-defense game art with strong dark outlines and simple chunky cel shading, readable at 80 pixels. NO zombie, NO human, NO hands, no feet, no ground, no text, no gauges with text, no background. Equipment alone, full silhouette visible, modest transparent margin. Compact arrangement that can sit behind zombie shoulders without covering face.",
+    "water_mist.png": "One isolated 2D hand-painted game particle texture, transparent background. A single irregular curling puff of pale blue-white WATER MIST/STEAM after a powerful water explosion, side view. Thick soft rolling lobes with internal painterly blue shadows, soft wispy translucent edges, luminous nearly white center, charming classic cartoon tower-defense VFX. Asymmetric organic silhouette, no circular geometric outline, no glow disc, no icon frame, no text, no background, no ground, no multiple disconnected clouds. Fill center 75% of square with generous transparent edges. Designed to look rich and readable when shrunk to 60 pixels. This is a VFX sprite, NOT a rendered scene.",
+    "water_droplets.png": "Single game VFX sprite on truly transparent background: one dynamic cluster of three glossy cyan water droplets flying diagonally up-right with long curved tapering liquid tails, small separate pinprick droplets nearby. Classic hand-painted 2D cartoon lawn-defense game effect. Irregular lively shapes, bright white sharp glints, deep teal-blue underside, translucent blue interior, thin dark blue contour only in shadow. Rich illustrative liquid texture, not plain circles, not basic geometry, no icon badge, no text, no background or ground. Isolated small spray cluster centrally framed with generous transparent margin, readable as a particle at 24-40 pixels.",
+    "water_blast.png": "One isolated explosive water splash game effect texture on transparent background, no scene. Classic hand-painted 2D cartoon game VFX. Wide powerful radial burst of turquoise water seen in slight top down lawn-game perspective: organic jagged curling crown of water, irregular sharp liquid spikes shooting out, foamy white blast center, dozens of tiny brilliant droplets on silhouette. Strong energetic asymmetry. Rich blue cel shaded shadows with white highlights and translucent pale cyan foam. NOT a geometric circle, no generic vector shapes, no solid background, no text, no border, no ground shadow. Splash occupies center 80% of square canvas with clear transparent margin. Designed to scale down to 140 pixels wide."
+  },
+  "runtimeOutputs": [
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_head.png",
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_stalk.png",
+    "build\\clang-release\\resources\\image\\reanim\\RainBamboo_leaves.png",
+    "build\\clang-release\\resources\\image\\reanim\\Rain_bamboo_dart.png",
+    "build\\clang-release\\resources\\image\\PlantImage\\RainBamboo.png",
+    "build\\clang-release\\resources\\image\\reanim\\Flood_mortar_pack.png",
+    "build\\clang-release\\resources\\particles\\textures\\water_mist.png",
+    "build\\clang-release\\resources\\particles\\textures\\water_droplets.png",
+    "build\\clang-release\\resources\\particles\\textures\\water_blast.png",
+    "build\\clang-release\\resources\\reanim\\RainBamboo.reanim",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooTrail.xml",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooMuzzle.xml",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooHit.xml",
+    "build\\clang-release\\resources\\particles\\config\\RainBambooFinish.xml",
+    "build\\clang-release\\resources\\particles\\config\\FloodMortarExplosion.xml"
+  ]
+}

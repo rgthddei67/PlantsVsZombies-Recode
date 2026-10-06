@@ -2170,7 +2170,7 @@ WinterGroundImpactResponse Board::ApplyWinterGroundImpactToCell(int row, int col
 /**
  * 在目标九宫格中稳定选择最近的活动南瓜头；南瓜本体只由自己承伤，避免外壳连锁保护。
  */
-Plant* Board::FindPumpkinAreaProtector(const Plant& plant) const
+Plant* Board::FindPumpkinAreaProtector(const Plant& plant, int cellRadius) const
 {
 	if (!plant.IsActive() || plant.mRow < 0 || plant.mRow >= mRows
 		|| plant.mColumn < 0 || plant.mColumn >= mColumns) {
@@ -2183,15 +2183,16 @@ Plant* Board::FindPumpkinAreaProtector(const Plant& plant) const
 			&& pumpkin->mPlantID == plant.mPlantID ? pumpkin : nullptr;
 	}
 
+    cellRadius=std::clamp(cellRadius,0,1);
 	Plant* best = nullptr;
 	int bestDistanceSquared = INT_MAX;
-	for (int row = std::max(0, plant.mRow - kPumpkinProtectionCellRadius);
-		row <= std::min(mRows - 1, plant.mRow + kPumpkinProtectionCellRadius);
+	for (int row = std::max(0, plant.mRow - cellRadius);
+		row <= std::min(mRows - 1, plant.mRow + cellRadius);
 		++row) {
 		for (int column = std::max(0,
-			plant.mColumn - kPumpkinProtectionCellRadius);
+			plant.mColumn - cellRadius);
 			column <= std::min(mColumns - 1,
-				plant.mColumn + kPumpkinProtectionCellRadius); ++column) {
+				plant.mColumn + cellRadius); ++column) {
 			Plant* candidate = GetPumpkinAt(row, column);
 			if (!candidate || !candidate->IsActive()) continue;
 
@@ -2223,11 +2224,11 @@ void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 }
 
 /**
- * 先按原范围收集命中层，再按九宫格保护者 ID 归并，避免密集或水路叠层重复扣壳。
+ * 先按原范围收集命中层，再按指定格半径的保护者 ID 归并，避免密集或水路叠层重复扣壳。
  */
 void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 	int pumpkinDamageMultiplier,
-	const std::function<bool(const Plant&)>& overlapsArea)
+	const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius)
 {
 	if (baseDamage <= 0 || pumpkinDamageMultiplier <= 0 || !overlapsArea) return;
 
@@ -2237,7 +2238,7 @@ void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 		Plant* plant = mEntityRegistry.GetPlant(plantID);
 		if (!plant || !plant->IsActive() || !overlapsArea(*plant)) continue;
 
-		if (Plant* pumpkin = FindPumpkinAreaProtector(*plant)) {
+		if (Plant* pumpkin = FindPumpkinAreaProtector(*plant,protectionCellRadius)) {
 			protectedPumpkinIDSet.insert(pumpkin->mPlantID);
 		}
 		else {

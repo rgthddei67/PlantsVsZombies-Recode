@@ -876,6 +876,10 @@ public:
 	BoardPresentation* GetPresentation() const { return mPresentation; }
 	/** 绑定当前场景卡槽，供 Board 级轻量推演读取玩家实际已选卡与冷却。 */
 	void BindCardSlotManager(CardSlotManager* manager) { mCardSlotManager = manager; }
+    /** 炮手先枚举射程内格点；开关关闭时只使用确定性实际收益，不运行rollout。 */
+    bool PickFloodMortarTarget(const Zombie& source,Vector& target,int& row,int& column,bool& usedMonteCarlo,int& rollouts);
+    /** 水弹落地事务：九格伤害与减速，本格南瓜同时拦截二者；发射阵营冻结。 */
+    void ApplyFloodMortarImpact(const Vector& target,int row,int damage,bool charmed);
 	/**
 	 * @brief 从当前实体和实际卡槽构建快照，用蒙特卡洛短视推演选择植物爆区。
 	 *
@@ -1725,10 +1729,10 @@ public:
 	/**
 	 * 返回能替目标植物承受僵尸范围爆炸的南瓜头。
 	 *
-	 * 保护范围为逻辑九宫格；优先正交近邻，再按行、列和实体 ID 稳定打破并列。
+	 * 默认保护范围为逻辑九宫格；cellRadius=0 时仅本格。优先正交近邻，再按行、列和实体 ID 稳定打破并列。
 	 * 南瓜头只为自身承伤，不会由相邻南瓜继续转移伤害。
 	 */
-	Plant* FindPumpkinAreaProtector(const Plant& plant) const;
+	Plant* FindPumpkinAreaProtector(const Plant& plant, int cellRadius = 1) const;
 	/**
 	 * 对命中范围内的植物结算可被南瓜头拦截的僵尸范围伤害。
 	 *
@@ -1737,10 +1741,10 @@ public:
 	 */
 	void ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 		const std::function<bool(const Plant&)>& overlapsArea);
-	/** 使用调用方指定的正倍率结算南瓜拦截，供拥有独立平衡值的范围攻击复用同一归并规则。 */
+	/** 使用指定倍率和保护格半径归并承伤；半径默认为1，蓄洪水弹显式传0只保护本格。 */
 	void ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 		int pumpkinDamageMultiplier,
-		const std::function<bool(const Plant&)>& overlapsArea);
+		const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius = 1);
 	/** 将基础僵尸按所选行解析为泳池表现变体；不改变波次成本。 */
 	ZombieType ResolveTerrainZombieType(ZombieType selected, int row) const;
 	bool CanSpawnZombieInRow(ZombieType type, int row) const {

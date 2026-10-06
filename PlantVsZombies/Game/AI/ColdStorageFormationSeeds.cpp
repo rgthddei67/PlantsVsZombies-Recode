@@ -10,19 +10,19 @@ constexpr float kGuardHealth = 1000; // 旧经营入口的护卫最低完整生�
 constexpr float kWorkerDelay = 4; // 旧版护卫先行、工人跟进的基准间隔，游戏秒
 constexpr int kMaxSeeds = 96; // 单次搜索经验候选上限；与自由候选共享原时间预算
 constexpr std::array<int,3> kScales{1,2,4}; // 同一编队的小、中、大规模起点，不是必买数量
-constexpr std::array<int,17> kShapeOrder{0,8,14,1,15,9,12,2,10,13,3,11,16,4,5,6,7}; // 经营、快攻、射手掩护交错，紧预算也有机会比较协同
+constexpr std::array<int,24> kShapeOrder{0,17,8,20,14,1,21,18,15,22,9,12,23,2,10,13,3,11,19,16,4,5,6,7}; // 经营、快攻、射手与炮手掩护交错，紧预算也有机会比较协同
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
 
 bool Specialist(const Unit& u) {
-    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure;
+    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure || u.floodMortar;
 }
 
 /** 同一战术角色保留便宜护卫与厚重前锋两种选择，不依赖固定僵尸枚举。 */
 struct Roles {
     int guard=-1, heavy=-1, worker=-1, engineer=-1, clock=-1, healer=-1, drum=-1;
-    int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1, shooter=-1;
+    int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1, shooter=-1, mortar=-1;
 };
 
 /** 先行前排用偏慢移速、快兵用偏快移速，不能假定同批出生会自然排成前后队。 */
@@ -54,6 +54,34 @@ float ShooterCoverDelay(const Snapshot& s,int row,int front,int shooter) {
     return std::clamp(frontArrival-rearArrival,0.0f,kMaxLeadDelay);
 }
 
+/** 炮手会在六格射程边缘停步，按该位置的前后间距排队，不照搬直射兵接敌时差。 */
+float MortarCoverDelay(const Snapshot& s,int row,int front,int mortar) {
+    float target=s.houseX;bool found=false;
+    for(const auto& p:s.plants) if(p.health>0 && std::abs(p.row-row)<=1) {target=std::max(target,p.x);found=true;}
+    if(!found) return 0;
+    const auto& a=s.options[front].unit;const auto& b=s.options[mortar].unit;
+    const float firingX=std::min(b.body.x,target+FloodMortarRules::RangeCells*s.cellWidth-b.body.blastAnchorOffset);
+    const float frontArrival=std::max(0.0f,a.body.x-firingX+kShooterCoverCells*s.cellWidth)/std::max(1.0f,MoveSpeed(a,false));
+    const float mortarArrival=std::max(0.0f,b.body.x-firingX)/std::max(1.0f,MoveSpeed(b,true));
+    return std::clamp(frontArrival-mortarArrival,0.0f,kMaxLeadDelay);
+}
+
+/** 快兵预计接触本行防线时，炮手的首发已经落地；无本行防线时不人为延迟快兵。 */
+float MortarRushDelay(const Snapshot& s,int row,int mortar,int runner) {
+    float front=s.houseX,aim=s.houseX;bool ownRow=false;
+    for(const auto& p:s.plants) if(p.health>0) {
+        if(std::abs(p.row-row)<=1) aim=std::max(aim,p.x);
+        if(p.row==row) {front=std::max(front,p.x+kContactPadding);ownRow=true;}
+    }
+    if(!ownRow) return 0;
+    const auto& gun=s.options[mortar].unit;const auto& fast=s.options[runner].unit;
+    const float firingX=aim+FloodMortarRules::RangeCells*s.cellWidth-gun.body.blastAnchorOffset;
+    const float approach=std::max(0.0f,gun.body.x-firingX)/std::max(1.0f,MoveSpeed(gun,false));
+    const float impact=std::max(gun.floodReload,approach)+FloodMortarRules::FlightSeconds;
+    const float arrival=std::max(0.0f,fast.body.x-front)/std::max(1.0f,MoveSpeed(fast,true));
+    return std::clamp(impact-arrival,0.0f,kMaxLeadDelay);
+}
+
 /** 能力与真实价格只排序提案；不能用护卫血池替代穿透/溅射和灰烬的正式推演。 */
 Roles FindRoles(const Snapshot& s, int row, int budget) {
     Roles r;
@@ -72,6 +100,7 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
         if(u.balloon.present) cheapest(r.air,id);
         if(u.ladder.present) cheapest(r.ladder,id);
         if(u.catapult.present) cheapest(r.ranged,id);
+        if(u.floodMortar) cheapest(r.mortar,id); // 独立保留炮手，不能被便宜投篮车或气压射手挤掉。
         if(u.pressure) cheapest(r.shooter,id); // 直射与投篮分开保留，不能让较便宜的车永久挤掉新射手。
         if(u.ladder.present || u.digger.present || u.catapult.present || u.jack.present) cheapest(r.access,id);
         if(u.body.smashSeconds>0 || u.vehicleCrush) {
@@ -208,6 +237,62 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             plan.Add(r.fast,2*scale,0);
             plan.Add(r.shooter,2*scale,ShooterCoverDelay(s,row,r.fast,r.shooter));
             break;
+        case 20: { // 肉盾承压、炮击削弱密集阵地、气压射手持续直射；不依赖工人卡位。
+            if(front<0 || r.mortar<0 || r.shooter<0) continue;
+            plan.Add(front,scale,0);
+            plan.Add(r.mortar,scale,MortarCoverDelay(s,row,front,r.mortar));
+            plan.Add(r.shooter,scale,ShooterCoverDelay(s,row,front,r.shooter));
+            break;
+        }
+        case 21: // 快兵在首轮水压窗口接敌，不假定战鼓能缩短炮手的固定装填时钟。
+            if(r.mortar<0 || r.fast<0) continue;
+            plan.Add(r.mortar,scale,0);
+            plan.Add(r.fast,3*scale,MortarRushDelay(s,row,r.mortar,r.fast));
+            break;
+        case 22: { // 两门炮错开半个预计装填周期，比较更均匀的减速覆盖和较少过量伤害。
+            if(front<0 || r.mortar<0) continue;
+            auto weather=s.station.controls[WeatherStationRules::RAIN];
+            WeatherStationRules::Advance(weather,FloodMortarRules::FirstReload+FloodMortarRules::FlightSeconds);
+            const float gap=FloodMortarRules::Reload(weather.value)*.5f;
+            const float delay=MortarCoverDelay(s,row,front,r.mortar);
+            plan.Add(front,2*scale,0);
+            plan.Add(r.mortar,scale,delay);plan.Add(r.mortar,scale,delay+gap);
+            break;
+        }
+        case 23: { // 两条相隔一行的合法路线各自带护卫，扩大炮击覆盖而非只堆同一行。
+            if(front<0 || r.mortar<0) continue;
+            const int partner=row+2<s.rows?row+2:row-2;
+            if(partner<0 || partner>=static_cast<int>(roles.size())) continue;
+            const auto& other=roles[partner];const int otherFront=scale==1?other.guard:other.heavy;
+            if(otherFront<0 || other.mortar<0) continue;
+            plan.Add(front,scale,0);plan.Add(r.mortar,scale,MortarCoverDelay(s,row,front,r.mortar));
+            plan.Add(otherFront,scale,0);plan.Add(other.mortar,scale,MortarCoverDelay(s,partner,otherFront,other.mortar));
+            break;
+        }
+        case 17: // 最小护卫炮组，现金较少时也能完整比较一盾一炮。
+            if(front<0 || r.mortar<0) continue;
+            plan.Add(front,scale,0);
+            plan.Add(r.mortar,scale,MortarCoverDelay(s,row,front,r.mortar));
+            break;
+        case 18: { // 厚前排与炮组续航；支援仍各自按真实能力与价格接受完整推演。
+            if(front<0 || r.mortar<0 || (r.healer<0 && r.clock<0 && r.drum<0)) continue;
+            const float delay=MortarCoverDelay(s,row,front,r.mortar);
+            plan.Add(front,2*scale,0);plan.Add(r.mortar,2*scale,delay);support(delay);
+            break;
+        }
+        case 19: { // 已有活体肉盾时补炮，尚未进场或无头残兵不充当现成掩护。
+            if(r.mortar<0) continue;
+            const float rear=s.options[r.mortar].unit.body.x-kShooterCoverCells*s.cellWidth;
+            const bool covered=std::any_of(s.current.begin(),s.current.end(),[&](const Unit& u) {
+                return u.body.row==row && u.body.spawnAt<=0 && u.body.x<=rear
+                    && u.body.health>=kGuardHealth && !u.body.economic && !Specialist(u)
+                    && !u.balloon.present && !u.digger.present
+                    && u.body.health-u.helmHealth-u.shieldHealth>u.temporalStopHealth;
+            });
+            if(!covered) continue;
+            plan.Add(r.mortar,2*scale,0);
+            break;
+        }
         case 16: { // 已有活体前排时直接补火力；付费未到场或掉头残兵不冒充可靠掩护。
             if(r.shooter<0) continue;
             const float rear=s.options[r.shooter].unit.body.x-kShooterCoverCells*s.cellWidth;

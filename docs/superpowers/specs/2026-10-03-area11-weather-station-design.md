@@ -6,6 +6,8 @@
 
 2026-10-06 第二组扩展：11-4 奖励缝补棉花，11-5 起引入气压射手；前者治疗八邻格最低生命比例的独立植物层，后者行走/啃食中持续四连发。原版机枪僵尸占位保留，新品种追加枚举。参数入口为 [棉花规则](../../../PlantVsZombies/Game/Plant/MendingCottonRules.h) 和 [气压射手规则](../../../PlantVsZombies/Game/Zombie/PressureShooterRules.h)，行为与资源专项为 `smoke_area11_pair2`；此段不替代源码数值。
 
+2026-10-06 第三组扩展：11-5 通关奖励穿雨竹，同关起引入蓄洪僵尸。穿雨竹随雨势加快五目标衰减贯穿；蓄洪僵尸以固定首次装填、雨势后续装填向前六格及相邻行发射九格水弹。水压只减攻击、不减生产或治疗，南瓜仅保护本格并代受三倍伤害，同时挡住本次减速；破壳不补结算余伤或减速，保护伞拦截整枚弹。选点复用蒙特卡洛；玩家关闭时走相同射程内的确定性收益评分。双方雨中变强是阵容取舍，不能据此推定平衡已验证。指挥官经验候选另保留独立炮手角色及护卫、支援、混合直射、快兵跟进、错峰与两路炮组，全部仍经共同钱包和战斗推演筛选。参数见 [穿雨竹规则](../../../PlantVsZombies/Game/Plant/RainBambooRules.h) 与 [蓄洪规则](../../../PlantVsZombies/Game/Zombie/FloodMortarRules.h)，专项入口 `smoke_area11_bamboo`、`smoke_area11_flood_*`。
+
 实现入口：[设备规则](../../../PlantVsZombies/Game/Board/WeatherStationRules.h)、[Board 事务](../../../PlantVsZombies/Game/Board/BoardWeatherStation.cpp)、[控制台](../../../PlantVsZombies/Game/GameSceneWeatherStation.cpp)、[指挥官预测](../../../PlantVsZombies/Game/AI/ColdStorageSearch.cpp)。可见验证使用 `smoke_weather_station`、`smoke_weather_station_interactions`、`smoke_weather_station_tutorials`，跨状态核对见 [verify_weather_station.py](../../../autotest/verify_weather_station.py)。
 
 预测沿用有界步长模型：环境、付款、友伤与停机按时间线评估；未来路线、玩家反制和照明持续时间存在近似，不等同于逐帧复刻正式战斗。

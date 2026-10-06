@@ -59,6 +59,25 @@ int main()
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
 	};
+    {
+        using namespace ColdStorageSearch;
+        Snapshot rain;rain.rows=5;rain.columns=9;rain.gridLeft=100;rain.cellWidth=100;rain.cellHeight=100;
+        rain.rightEdge=1100;rain.weatherStation=true;rain.rainPlant.fill(1);rain.rainZombie.fill(1);
+        Plant wall;wall.id=1;wall.row=2;wall.column=3;wall.x=450;wall.health=wall.maximumHealth=10000;wall.reward=100;
+        rain.plants={wall};
+        Unit mortar;mortar.id=2;mortar.body.row=2;mortar.body.x=850;mortar.body.health=1800;
+        mortar.maximumBody=1800;mortar.floodMortar=true;mortar.body.speed=10;mortar.floodStopHealth=600;
+        rain.current={mortar};
+        const float clear=Evaluate(rain,{})[1];
+        rain.station.controls[0].value=3;
+        const float heavy=Evaluate(rain,{})[1];
+        check(clear>0 && heavy>clear*2,"heavy rain increases real mortar forecast pressure");
+        rain.plants[0].airborneDefenseRadius=1;
+        check(Evaluate(rain,{})[1]==0,"umbrella removes forecast mortar damage");
+        rain.current.clear();rain.plants[0].airborneDefenseRadius=-1;
+        rain.floodShots={{2,3,.5f,250}};
+        check(Evaluate(rain,{})[1]>0,"launched water bomb survives without source in snapshot");
+    }
 	for(int type=0;type<static_cast<int>(ZombieType::NUM_ZOMBIE_TYPES);++type) {
 		const auto value=ZombieBirthVitalsRules::Get(static_cast<ZombieType>(type));
 		check(value.known && value.body>0 && value.helm>=0 && value.shield>=0,
@@ -3649,6 +3668,58 @@ int main()
     const auto rejected=Search(losing,Weights{0,0,0,0,1,-1,0,0},7);
     check(rejected.actions.empty() && rejected.experiencedEvaluated>0,
         "unprofitable ranged recipes still lose to waiting rather than forcing a preset army");
+    auto mortar=option(820005,45,1800,20);mortar.unit.floodMortar=true;
+    auto healer=option(820006,25,1200,20);healer.unit.healer.present=true;
+    auto artillery=field;artillery.options.push_back(mortar);artillery.options.push_back(healer);artillery.budget=250;
+    bool mortarScreen=false,supportedMortar=false,pressureKept=false,lobberKept=false;
+    for(const auto& plan:BuildExperiencedFormations(artillery,8,250)) {
+        int bill=0;bool hasGuard=false,hasMortar=false,hasHealer=false;
+        for(const auto& action:plan) {
+            bill+=artillery.options[action.option].cost;hasGuard|=action.option==0 || action.option==1;
+            hasMortar|=action.option==4;hasHealer|=action.option==5;
+            pressureKept|=action.option==2;lobberKept|=action.option==3;
+            if(action.option==4) check(action.delay<15,"mortar cover uses firing range instead of waiting for melee contact");
+        }
+        check(bill<=250 && plan.size()<=8,"artillery recipe obeys shared budget and capacity");
+        mortarScreen|=hasGuard && hasMortar && !hasHealer;
+        supportedMortar|=hasGuard && hasMortar && hasHealer;
+    }
+    check(mortarScreen && supportedMortar && pressureKept && lobberKept,"mortar has independent light and supported recipes without displacing other ranged roles");
+    bool mixed=false,staggered=false,rush=false;
+    for(const auto& plan:BuildExperiencedFormations(artillery,8,250)) {
+        std::vector<float> shots;int direct=0,fast=0;
+        for(const auto& action:plan) {
+            if(action.option==4)shots.push_back(action.delay);
+            direct+=action.option==2;fast+=action.option==1;
+        }
+        mixed|=!shots.empty() && direct>0;
+        staggered|=shots.size()==2 && std::abs(shots[0]-shots[1])>1;
+        rush|=!shots.empty() && fast>0;
+    }
+    check(mixed && staggered && rush,"mortar seeds include mixed guns, staggered fire and fast follow-through");
+    auto lanes=artillery;lanes.rows=3;
+    auto distantShield=guard;distantShield.row=2;distantShield.unit.body.row=2;
+    auto distantMortar=mortar;distantMortar.row=2;distantMortar.unit.body.row=2;
+    lanes.options.push_back(distantShield);lanes.options.push_back(distantMortar);
+    bool crossfire=false;
+    for(const auto& plan:BuildExperiencedFormations(lanes,8,250)) {
+        bool low=false,high=false;
+        for(const auto& action:plan) {low|=action.option==4;high|=action.option==7;}
+        crossfire|=low && high;
+    }
+    check(crossfire,"two-lane artillery uses only legal row-specific options");
+    auto alone=artillery;alone.options={mortar};alone.current.clear();
+    check(BuildExperiencedFormations(alone,8,250).empty(),"mortar cannot classify itself as its own shield");
+    alone.current={escort};alone.current[0].body.row=0;
+    check(!BuildExperiencedFormations(alone,8,250).empty(),"existing live shields can receive mortar reinforcements");
+    alone.current[0].body.spawnAt=3;
+    check(BuildExperiencedFormations(alone,8,250).empty(),"pending shields cannot unlock mortar-only reinforcement");
+    auto tight=artillery;tight.budget=52;
+    for(const auto& plan:BuildExperiencedFormations(tight,8,52))
+        check(std::none_of(plan.begin(),plan.end(),[](const Action& a){return a.option==4;}),"unaffordable guard plus mortar cannot be truncated into a naked mortar");
+    auto renamedMortar=artillery;for(auto& o:renamedMortar.options)o.type+=170000;
+    check(BuildExperiencedFormations(renamedMortar,8,250).size()==BuildExperiencedFormations(artillery,8,250).size(),"mortar role is capability-based rather than tied to enum IDs");
+    std::cout<<"Mortar screen, support, reinforcement and independent role recipes passed\n";
     std::cout<<"Pressure shooter screen, rush, reinforcement and affordability recipes passed\n";
     }
 }

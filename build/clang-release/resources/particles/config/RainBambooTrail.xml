@@ -1,0 +1,1 @@
+<Emitter><Name>RainBambooTrail</Name><Image>PARTICLE_WATER_DROPLETS</Image><SpawnMinActive>2</SpawnMinActive><ParticleDuration>.3</ParticleDuration><SystemDuration>.3</SystemDuration><ParticleScale>.13 .04</ParticleScale><ParticleAlpha>1,25 0</ParticleAlpha><LaunchSpeed>[8 24]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin></Emitter>

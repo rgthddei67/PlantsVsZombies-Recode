@@ -52,3 +52,7 @@
 ### 工人灰烬保护必须按完整攻击事务结算
 
 新增灰烬范围攻击先收集实际命中的稳定僵尸 ID，再走 `Board::ApplyPlantAshAttack` 的回调。Board 在任何扣血前冻结防灾工程师的邻近工人名单并消费冷却罐；同次爆炸杀死工程师也不能撤销这次保护，同一攻击不按命中的工人数重复耗罐。不要逐目标直接调用 `TakePlantAshDamage` 或直杀来绕过该事务。窝瓜保留原直杀/防具分支，但整个攻击集合仍先经过同一保护入口。
+
+### 范围伤害的南瓜保护资格
+
+Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支持调用方指定保护格半径：默认沿用原有九格保护，水弹显式选择本格。先冻结本次保护者及承伤集合，再扣血；若外壳同时拦截状态效果，不能在破壳后重新查询并补给内层状态或余伤。蒙特卡洛的 pumpkinProtectionCellRadius 和指挥官预测须采用同一资格，不能只改实体伤害。入口见 BoardFloodMortar.cpp 与 ColdStorageRainForecast.h；玩家关闭蒙特卡洛时，落点评分仍须遵守相同射程、保护者与保护伞规则。

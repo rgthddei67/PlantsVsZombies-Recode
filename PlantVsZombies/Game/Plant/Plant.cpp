@@ -1,4 +1,5 @@
 #include "Plant.h"
+#include "Game/Zombie/FloodMortarRules.h"
 #include "Game/Board/Board.h"
 #include "../Zombie/Zombie.h"
 #include "../GameObjectManager.h"
@@ -230,8 +231,16 @@ bool Plant::CanAcquireZombie(const Zombie* zombie) const
 	return zombie && zombie->CanBeTargetedByProjectile(false);
 }
 
+void Plant::ApplyFloodSlow() { mFloodSlowRemaining=FloodMortarRules::SlowSeconds; }
+void Plant::RestoreFloodSlow(float seconds) {
+    mFloodSlowRemaining=std::isfinite(seconds)?std::clamp(seconds,0.0f,FloodMortarRules::SlowSeconds):0;
+}
+
 void Plant::Update()
 {
+    if(!mIsPreview && mBoard && mBoard->mBoardState==BoardState::GAME) {
+        mFloodSlowRemaining=std::max(0.0f,mFloodSlowRemaining-DeltaTime::GetDeltaTime());
+    }
 	if (!mIsPreview && mUnyieldingRootsTimer > 0.0f) {
 		mUnyieldingRootsTimer = std::max(
 			0.0f, mUnyieldingRootsTimer - DeltaTime::GetDeltaTime());
@@ -565,7 +574,8 @@ float Plant::GetSunProductionDeltaTime() const
 
 float Plant::GetAttackSpeedMultiplier() const
 {
-	return GetSkillSpeedMultiplier() * (1.0f + (mBoard ? mBoard->GetAreaPlantAttackSpeedBonus(this) : 0.0f));
+	return GetSkillSpeedMultiplier() * (1.0f + (mBoard ? mBoard->GetAreaPlantAttackSpeedBonus(this) : 0.0f))
+        * (mFloodSlowRemaining>0 ? FloodMortarRules::AttackMultiplier : 1);
 }
 
 float Plant::GetSkillSpeedMultiplier() const
@@ -648,6 +658,11 @@ void Plant::Draw(Graphics* g)
 	AnimatedObject::Draw(g);	// 先画本体动画
 	DrawSleepIndicator(g);
 	DrawIceSeal(g);
+    if(g && !mIsPreview && mFloodSlowRemaining>0) {
+        // 手绘水珠显示尚未消退的水压，不借用冰冻/停机图标混淆机制。
+        const Vector anchor=GetVisualAnchorPosition();
+        g->DrawTexture(ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_DROPLETS",false),anchor.x-12,anchor.y-67,24,16);
+    }
 	if (g && !mIsPreview && mBoard && mBoard->GetAreaPlantAttackSpeedBonus(this) > 0) {
 		// 受益标志从当前领域派生，搬出范围或来源消失的同帧即撤销。
 		const Vector anchor = GetVisualAnchorPosition();

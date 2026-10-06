@@ -223,6 +223,8 @@ bool Board::BuildMonteCarloCombatSnapshot(
 		PlantDefenseMonteCarlo::PlantSnapshot& plantSnapshot =
 			snapshot.plants.back();
 		plantSnapshot.y = plant->GetPosition().y;
+        plantSnapshot.floodSlowRemaining=plant->GetFloodSlowRemaining();
+        plantSnapshot.airborneDefenseRadius=plant->ProtectsCellFromAirborneThreat(plant->mRow,plant->mColumn)?1:-1;
 		plantSnapshot.abilityCooldownRemaining = sleeping
 			? 0.0f : plant->GetSimulationAbilityCooldownRemaining();
 		plantSnapshot.magneticPulseCooldown = sleeping

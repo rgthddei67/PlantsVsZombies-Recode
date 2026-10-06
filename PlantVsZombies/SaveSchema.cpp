@@ -335,6 +335,11 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 10:
+                if(kind==DocumentKind::Player && upgraded.value("adventureLevel",0)>=96
+                    && upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+                    auto& cards=upgraded["havecards"];const int id=static_cast<int>(PlantType::PLANT_RAINBAMBOO);
+                    if(std::find(cards.begin(),cards.end(),id)==cards.end()) cards.push_back(id);
+                }
 				if (kind == DocumentKind::Level
 					&& upgraded.contains("temporalAnchors")
 					&& upgraded["temporalAnchors"].is_array()) {
@@ -491,6 +496,14 @@ namespace {
 				}
 				version=27; upgraded["schemaVersion"]=version;
 				break;
+            case 27:
+                if(kind==DocumentKind::Level) {
+                    for(auto& plant:upgraded["plants"]) if(plant.is_object()) plant["floodSlowRemaining"]=0.0f;
+                    for(auto& bullet:upgraded["bullets"]) if(bullet.is_object()) {
+                        bullet["bambooHitIDs"]=nlohmann::json::array();bullet["floodCharmed"]=false;
+                    }
+                }
+                version=28;upgraded["schemaVersion"]=version;break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

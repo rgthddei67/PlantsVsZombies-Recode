@@ -584,6 +584,27 @@ int main()
 		TestDelayedCandidateCanWin();
 		TestImmediateCandidateWinsExactDelayTie();
 		TestHealingHijackerChangesExecutionValue();
+        {
+            Snapshot snapshot=MakeTreatmentSnapshot();
+            PlantSnapshot plant;plant.id=1;plant.row=2;plant.column=3;plant.x=450;plant.y=300;
+            plant.health=plant.maxHealth=1000;plant.strategicValue=1000;
+            plant.bounds={410,250,80,100};snapshot.plants.push_back(plant);
+            snapshot.candidates.push_back({2,3,450,300});
+            Config config;config.floodMortar=true;config.impactDelay=1.5f;config.impactDamage=250;config.pumpkinProtectionCellRadius=0;
+            config.horizonSeconds=1;config.rolloutCount=1;
+            Require(std::abs(ChooseTarget(snapshot,config,42).score)<.001f,"water bomb must not damage before flight ends");
+            config.horizonSeconds=3;
+            const float exposed=ChooseTarget(snapshot,config,42).score;
+            Require(exposed>200,"water bomb must apply delayed nine-cell damage");
+            snapshot.plants[0].airborneDefenseRadius=1;
+            Require(std::abs(ChooseTarget(snapshot,config,42).score)<.001f,"umbrella must intercept whole water bomb");
+            snapshot.plants[0].airborneDefenseRadius=-1;snapshot.plants[0].pumpkinShell=true;
+            config.pumpkinImpactDamageMultiplier=3;
+            Require(ChooseTarget(snapshot,config,42).score>exposed*2.9f,"mortar uses triple shell damage rather than elite clown multiplier");
+            PlantSnapshot neighbor=plant;neighbor.id=2;neighbor.column=4;neighbor.x=550;
+            snapshot.plants.push_back(neighbor);
+            Require(ChooseTarget(snapshot,config,42).score>exposed*3.9f,"mortar shell cannot shield neighboring cell");
+        }
 		TestSixteenZombieHardLimit();
 		TestSupportPlantsUseSeparateCapacity();
 		TestSupportOnlySnapshotStillSupportsRemoval();

@@ -1,4 +1,6 @@
 #include "Game/Zombie/PressureShooterRules.h"
+#include "Game/Zombie/FloodMortarRules.h"
+#include "Game/Plant/RainBambooRules.h"
 #include "Game/Board/Board.h"
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
@@ -116,6 +118,8 @@ namespace {
 		{ BulletType::BULLET_THERMAL_PULSE, BulletWindResponse::NONE },
 		{ BulletType::BULLET_THUNDER_SEED, BulletWindResponse::NONE },
         { BulletType::BULLET_PRESSURE, BulletWindResponse::NONE },
+        { BulletType::BULLET_RAIN_BAMBOO, BulletWindResponse::NONE },
+        { BulletType::BULLET_FLOOD_MORTAR, BulletWindResponse::NONE },
 	};
 
 	constexpr bool BulletWindProfilesCoverEveryType()
@@ -143,7 +147,9 @@ namespace {
 	/** 返回对象池新建/复用时应恢复的类型基础伤害。 */
 	int DefaultDamageForBullet(BulletType type)
 	{
-		if (type == BulletType::BULLET_PRESSURE) return PressureShooterRules::Damage;
+		if(type==BulletType::BULLET_RAIN_BAMBOO) return RainBambooRules::Damage[0];
+        if(type==BulletType::BULLET_FLOOD_MORTAR) return FloodMortarRules::Damage(0);
+        if (type == BulletType::BULLET_PRESSURE) return PressureShooterRules::Damage;
 		if (type == BulletType::BULLET_THUNDER_SEED) return ThunderFlowerRules::Damage;
 		if (type == BulletType::BULLET_FIREBALL
 			|| type == BulletType::BULLET_TOXICFIREBALL) return kFireballDamage;
@@ -267,7 +273,7 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	}
 
 	ConfigureCollisionTarget();
-    if(mBulletType==BulletType::BULLET_PRESSURE && mCollider) mCollider->mEnabled=false;
+    if((mBulletType==BulletType::BULLET_PRESSURE || mBulletType==BulletType::BULLET_RAIN_BAMBOO || mBulletType==BulletType::BULLET_FLOOD_MORTAR) && mCollider) mCollider->mEnabled=false;
 }
 
 int Bullet::GetBaseDamage(BulletType type) { return DefaultDamageForBullet(type); }
@@ -320,6 +326,7 @@ void Bullet::Reset(Board* board, int row,
 	mHitAuroraTorchwoodColumn = -1;
 	if (mSpikeState) mSpikeState->count = 0;
 	mAuroraState.reset();
+    mBambooHitIDs.clear();mWaterTrailRemaining=0;mFloodCharmed=false;
 	mAnimatorAdvancedInParallel = false;
 	ConfigurePresentation();
 	ConfigureCollisionTarget();
@@ -331,7 +338,7 @@ void Bullet::Reset(Board* board, int row,
 
 	// 重置 Collider
 	if (mCollider) {
-		mCollider->mEnabled = mBulletType != BulletType::BULLET_PRESSURE;
+		mCollider->mEnabled = mBulletType != BulletType::BULLET_PRESSURE && mBulletType != BulletType::BULLET_RAIN_BAMBOO && mBulletType != BulletType::BULLET_FLOOD_MORTAR;
 	}
 }
 
@@ -373,6 +380,8 @@ void Bullet::Update()
 	if (transform)
 	{
 		const Vector previousPosition = transform->GetPosition();
+        if(mBulletType==BulletType::BULLET_RAIN_BAMBOO) { UpdateRainBamboo(deltaTime); return; }
+        if(mBulletType==BulletType::BULLET_FLOOD_MORTAR) { UpdateFloodMortar(deltaTime); return; }
         if(mBulletType==BulletType::BULLET_PRESSURE) { UpdatePressureProjectile(deltaTime); return; }
 		if (mBulletType == BulletType::BULLET_THERMAL_PULSE
 			&& mThermalConfigured) {
@@ -536,6 +545,11 @@ void Bullet::Draw(Graphics* g)
 		return;
 	}
 
+    if(mBulletType==BulletType::BULLET_FLOOD_MORTAR && IsLobbedMotion()) {
+        const float radius=18+5*std::sin(mTrajectory.elapsed*12);
+        g->DrawCircle(mTrajectory.target.x,mTrajectory.target.y,radius,glm::vec4(35,210,255,210),32);
+        g->DrawCircle(mTrajectory.target.x,mTrajectory.target.y,radius+6,glm::vec4(220,250,255,150),32);
+    }
 	if (mTexture) {
 		Vector position = GetPosition();
 		float drawWidth = static_cast<float>(mTexture->width) * mScale;
@@ -548,7 +562,7 @@ void Bullet::Draw(Graphics* g)
 			position.x -= drawWidth * 0.5f;
 			position.y -= drawHeight * 0.5f;
 		}
-		if (IsClassicLobbedBullet(mBulletType)) {
+		if (IsClassicLobbedBullet(mBulletType) || mBulletType==BulletType::BULLET_FLOOD_MORTAR || mBulletType==BulletType::BULLET_RAIN_BAMBOO) {
 			position.x -= drawWidth * 0.5f;
 			position.y -= drawHeight * 0.5f;
 		}
@@ -975,6 +989,10 @@ void Bullet::ConfigurePresentation()
 		}
 		mScale = 1.0f;
 		break;
+    case BulletType::BULLET_RAIN_BAMBOO:
+        mTexture=resources.GetTexture("IMAGE_RAIN_BAMBOO_DART",false);mScale=1;break;
+    case BulletType::BULLET_FLOOD_MORTAR:
+        mTexture=resources.GetTexture("PARTICLE_WATER_DROPLETS",false);mScale=.45f;break;
 	case BulletType::BULLET_PRESSURE:
         mTexture = resources.GetTexture("IMAGE_PRESSURE_PROJECTILE");
         mScale = 1;
@@ -1465,6 +1483,7 @@ void Bullet::HandlePlantContact(ColliderComponent* other)
 
 void Bullet::HandleZombieContact(ColliderComponent* other)
 {
+    if(mBulletType==BulletType::BULLET_RAIN_BAMBOO || mBulletType==BulletType::BULLET_FLOOD_MORTAR) return;
 	if (!IsActive() || !other) return;
 	if (TargetsIceWall()) return;
 	auto* otherGameObject = other->GetGameObject();

@@ -1,4 +1,6 @@
 #include "MendingCotton.h"
+#include "RainBamboo.h"
+#include "Game/Zombie/FloodMortarZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "GameDataManager.h"
 #include "../../ResourceKeys.h"
@@ -291,6 +293,10 @@ void GameDataManager::InitializeHardcodedData() {
 	voucher.skillCard = true;
 	mPlantInfo[voucher.type] = voucher;
 	mEnumNameToType[voucher.enumName] = voucher.type;
+    RegisterPlant(PlantType::PLANT_RAINBAMBOO,"PLANT_RAINBAMBOO","IMAGE_RAINBAMBOO",
+        AnimationType::ANIM_RAINBAMBOO,"RainBamboo",&MakePlant<RainBamboo>);
+    RegisterZombie(ZombieType::ZOMBIE_FLOOD_MORTAR,"ZOMBIE_FLOOD_MORTAR",
+        AnimationType::ANIM_FLOOD_MORTAR,"FloodMortarZombie",&MakeZombie<FloodMortarZombie>,&FloodMortarZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_MENDINGCOTTON, "PLANT_MENDINGCOTTON", "IMAGE_MENDINGCOTTON",
         AnimationType::ANIM_MENDINGCOTTON, "MendingCotton", &MakePlant<MendingCotton>);
     RegisterZombie(ZombieType::ZOMBIE_PRESSURE_SHOOTER, "ZOMBIE_PRESSURE_SHOOTER",

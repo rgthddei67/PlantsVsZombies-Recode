@@ -1,0 +1,164 @@
+{
+  "description": "smoke_area11_flood_counters",
+  "commands": [
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_UMBRELLA"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FLOOD_MORTAR",
+      "row": 2,
+      "x": 900
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.2
+    },
+    {
+      "op": "dump_state",
+      "name": "clear_launched.json"
+    },
+    {
+      "op": "kill_zombie",
+      "type": "ZOMBIE_FLOOD_MORTAR"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "dump_state",
+      "name": "clear_after_death.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8.1
+    },
+    {
+      "op": "dump_state",
+      "name": "slow_expired.json"
+    },
+    {
+      "op": "set_all_owned_cards"
+    },
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_RAINBAMBOO",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_UMBRELLA"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_UMBRELLA",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FLOOD_MORTAR",
+      "row": 2,
+      "x": 900
+    },
+    {
+      "op": "wait_seconds",
+      "value": 7
+    },
+    {
+      "op": "dump_state",
+      "name": "umbrella.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "umbrella.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

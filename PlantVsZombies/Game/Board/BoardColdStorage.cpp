@@ -1,4 +1,6 @@
 #include "Game/Plant/MendingCotton.h"
+#include "Game/Plant/RainBamboo.h"
+#include "Game/Zombie/FloodMortarZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "Board.h"
 #include "BoardPresentation.h"
@@ -352,6 +354,7 @@ namespace {
         }
 		plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,false);
 		plant.cotton = type == P::PLANT_MENDINGCOTTON;
+        plant.rainBamboo=type==P::PLANT_RAINBAMBOO;
 		plant.thunder = type == P::PLANT_THUNDERFLOWER;
 		if (plant.thunder) {
 			plant.hitDamage = ThunderFlowerRules::Damage; plant.stopDuty = 0;
@@ -586,6 +589,7 @@ int Board::GetPlantIceCost(PlantType type) const
 	case P::PLANT_PUFFSHROOM: case P::PLANT_POTATOMINE: case P::PLANT_LILYPAD:
 	case P::PLANT_FLOWERPOT: case P::PLANT_INSTANT_COFFEE: return 5;
 	case P::PLANT_CARRYVINE: return 0; // 搬运既有植物不重复收取种植冰块
+	case P::PLANT_RAINBAMBOO: return RainBambooRules::IceCost;
 	case P::PLANT_MENDINGCOTTON: return MendingCottonRules::IceCost;
 	case P::PLANT_ICEVOUCHER: return 0; // 技能卡只消耗阳光，不生成植物
 	case P::PLANT_WALLNUT: case P::PLANT_REPEATER: case P::PLANT_FUMESHROOM:
@@ -608,6 +612,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 	switch (type) {
 	case Z::ZOMBIE_COLD_CHAIN_GUARD: return 12; // 沿用原默认价，周期修复另付公共冰块
 	case Z::ZOMBIE_BOILER: return 15; // 另有成功超频时的5冰技能费
+	case Z::ZOMBIE_FLOOD_MORTAR: return FloodMortarRules::Cost;
 	case Z::ZOMBIE_PRESSURE_SHOOTER: return PressureShooterRules::Cost;
 	case Z::ZOMBIE_DISASTER_ENGINEER: return DisasterEngineerRules::Cost;
 	case Z::ZOMBIE_ICE_WORKER: return IceProduction::WorkerCost;
@@ -1392,6 +1397,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
                 search.pressureRays.push_back({bullet->mRow,bullet->GetPosition().x,0,static_cast<float>(bullet->GetBulletDamage())});
 			if (bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_THUNDER_SEED)
 				search.thunderRays.push_back({bullet->GetPosition().x,bullet->mRow,bullet->mPlantDamageOrigin});
+            if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_RAIN_BAMBOO)
+                search.bambooRays.push_back({bullet->GetPosition().x,bullet->mRow,bullet->mPlantDamageOrigin,bullet->GetBambooHitIDs()});
+            if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_FLOOD_MORTAR && !bullet->GetFloodCharmed())
+                search.floodShots.push_back({bullet->mRow,static_cast<int>(std::floor((bullet->GetLobTarget().x-search.gridLeft)/search.cellWidth)),
+                    std::max(0.0f,bullet->GetLobDuration()-bullet->GetLobElapsed()),static_cast<float>(bullet->GetBulletDamage())});
 			if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_BASKETBALL && bullet->IsLobbedMotion()) {
 				const int column=static_cast<int>(std::floor((bullet->GetLobTarget().x-search.gridLeft)/search.cellWidth));
 				if(column>=0 && column<search.columns) search.basketballs.push_back({bullet->mRow,column,
@@ -1687,6 +1697,9 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			if (const auto* catapult = dynamic_cast<const CatapultZombie*>(entity)) ProjectCatapult(unit,entity->mZombieType,search.gridLeft,search.cellWidth,catapult);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
+            if(const auto* mortar=dynamic_cast<const FloodMortarZombie*>(entity)) {
+                unit.floodMortar=true;unit.floodReload=mortar->GetReloadRemaining();unit.floodStopHealth=entity->mBodyMaxHealth/3;
+            }
             if(const auto* gun=dynamic_cast<const PressureShooterZombie*>(entity)) {
                 unit.pressure=gun->HasHead(); unit.pressureStopHealth=gun->mBodyMaxHealth/3;
                 unit.pressureShot=gun->GetBurstShot()%4;
@@ -1771,6 +1784,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+                plant.floodSlowUntil=entity->GetFloodSlowRemaining();
+                if(const auto* bamboo=dynamic_cast<const RainBamboo*>(entity)) {
+                    plant.bambooCharge=bamboo->GetCharge();
+                    plant.bambooRate=entity->GetSkillSpeedMultiplier()/std::max(.001f,entity->GetWeatherActionSpeedMultiplier());
+                }
                 if(const auto* cotton=dynamic_cast<const MendingCotton*>(entity)) plant.cottonRemaining=cotton->GetHealRemaining();
 				plant.ladderTarget=entity->SupportsLadderPlacement();
                 plant.magnetRemaining=p.abilityCooldownRemaining;
@@ -1937,6 +1955,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.dance.backup=true; unit.dance.phase=DancerRules::Forecast::Phase::HOLD;
 				unit.dance.remaining=DancerRules::HoldSeconds; unit.dance.walkSpeed=backupWalk.lowerQuartile;
 			}
+            if(type==ZombieType::ZOMBIE_FLOOD_MORTAR) {unit.floodMortar=true;unit.floodStopHealth=vitals.body/3;}
             if(type==ZombieType::ZOMBIE_PRESSURE_SHOOTER) {
                 unit.pressure=true; unit.pressureStopHealth=vitals.body/3;
                 // 出生画像从普通身体头轨的稳定偏移估计枪口；活体则采样真实动画锚点。

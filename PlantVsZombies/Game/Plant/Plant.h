@@ -379,8 +379,16 @@ protected:
 	float GetWeatherActionDeltaTime() const;
 	/** 产光专用计时增量 = 雨势行动倍率 × 路灯花局部照明倍率。 */
 	float GetSunProductionDeltaTime() const;
-	/** 攻击专用组合倍率 = 生存攻速词条 × 雨势行动倍率 × (1 + 九格领域加成)。 */
+public:
+	/** 攻击专用组合倍率 = 生存攻速词条 × 雨势行动倍率 × (1 + 九格领域加成) × 水压攻击倍率。 */
 	float GetAttackSpeedMultiplier() const;
+    /** 水压只减慢攻击；计时不随停机/睡眠延长，重复命中刷新而不叠加。 */
+    void ApplyFloodSlow();
+    float GetFloodSlowRemaining() const { return mFloodSlowRemaining; }
+    void RestoreFloodSlow(float seconds);
+private:
+    float mFloodSlowRemaining=0;
+protected:
 	/** 返回血量文字相对公共视觉锚点的偏移；叠层品种可覆写以避免文字重叠。 */
 	virtual Vector GetHealthTextOffset() const { return Vector(-21.0f, -11.0f); }
 

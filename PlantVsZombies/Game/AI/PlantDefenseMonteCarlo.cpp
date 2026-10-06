@@ -1,4 +1,5 @@
 #include "PlantDefenseMonteCarlo.h"
+#include "Game/Zombie/FloodMortarRules.h"
 
 #include <algorithm>
 #include <array>
@@ -63,6 +64,8 @@ namespace {
 		float cobBlastDamage = 0.0f;
 		float cobBlastRadius = 0.0f;
 		int cobBlastRowRadius = 0;
+        float floodSlowRemaining=0;
+        int airborneDefenseRadius=-1;
 	};
 
 	struct SimSupport {
@@ -251,6 +254,8 @@ namespace {
 			};
 			SimPlant& target = state.plants[i];
 			target.y = source.y;
+            target.floodSlowRemaining=source.floodSlowRemaining;
+            target.airborneDefenseRadius=source.airborneDefenseRadius;
 			target.abilityCooldownRemaining = std::max(
 				0.0f, source.abilityCooldownRemaining);
 			target.magneticPulseCooldown = std::max(
@@ -452,6 +457,14 @@ namespace {
 			return;
 		}
 
+        if(config.floodMortar) {
+            for(int i=0;i<state.plantCount;++i) {
+                const auto& p=state.plants[i];
+                if(IsAlive(p) && p.shutdownRemaining<=0 && p.airborneDefenseRadius>=0
+                    && std::abs(p.row-candidate.row)<=p.airborneDefenseRadius
+                    && std::abs(p.column-candidate.column)<=p.airborneDefenseRadius) return;
+            }
+        }
 		std::array<bool, kMaxSimulationPlants> normalHits{};
 		std::array<bool, kMaxSimulationPlants> pumpkinHits{};
 		std::array<bool, kMaxSimulationSupports> supportHits{};
@@ -459,12 +472,13 @@ namespace {
 			const SimPlant& plant = state.plants[i];
 			if (!IsAlive(plant)
 				|| std::find(candidate.blockedPlantIds.begin(), candidate.blockedPlantIds.end(), plant.id) != candidate.blockedPlantIds.end()
-				|| !CircleOverlapsBounds(candidate, config.impactRadius, plant.bounds)) {
+				|| (config.floodMortar ? (std::abs(plant.row-candidate.row)>1 || std::abs(plant.column-candidate.column)>1) : !CircleOverlapsBounds(candidate, config.impactRadius, plant.bounds))) {
 				continue;
 			}
 
 			const int pumpkinIndex = FindPumpkinProtector(
 				state, plant.row, plant.column, i, config);
+            if(config.floodMortar && pumpkinIndex<0) state.plants[i].floodSlowRemaining=FloodMortarRules::SlowSeconds;
 			if (pumpkinIndex >= 0) pumpkinHits[pumpkinIndex] = true;
 			else normalHits[i] = true;
 		}
@@ -472,7 +486,7 @@ namespace {
 			const SimSupport& support = state.supports[i];
 			if (!IsAlive(support)
 				|| std::find(candidate.blockedPlantIds.begin(), candidate.blockedPlantIds.end(), support.id) != candidate.blockedPlantIds.end()
-				|| !CircleOverlapsBounds(candidate, config.impactRadius, support.bounds)) {
+				|| (config.floodMortar ? (std::abs(support.row-candidate.row)>1 || std::abs(support.column-candidate.column)>1) : !CircleOverlapsBounds(candidate, config.impactRadius, support.bounds))) {
 				continue;
 			}
 			const int pumpkinIndex = FindPumpkinProtector(
@@ -517,6 +531,7 @@ namespace {
 	void UpdatePlantShutdowns(SimulationState& state, float deltaTime)
 	{
 		for (int i = 0; i < state.plantCount; ++i) {
+			state.plants[i].floodSlowRemaining=std::max(0.0f,state.plants[i].floodSlowRemaining-deltaTime);
 			state.plants[i].shutdownRemaining = std::max(
 				0.0f, state.plants[i].shutdownRemaining - deltaTime);
 		}
@@ -724,7 +739,7 @@ namespace {
 				}
 				if (targetIndex >= 0) {
 					ApplyZombieDamage(
-						state.zombies[targetIndex], plant.attackDps * deltaTime);
+						state.zombies[targetIndex], plant.attackDps * deltaTime * (plant.floodSlowRemaining>0?FloodMortarRules::AttackMultiplier:1));
 					if (IsAlive(state.zombies[targetIndex])) {
 						ApplyPlantControl(plant, state.zombies[targetIndex],
 							deltaTime, random);
@@ -1434,7 +1449,8 @@ namespace {
 		const Candidate* candidate, std::uint32_t seed)
 	{
 		SimulationState state = initialState;
-		if (candidate) ApplyCandidateImpact(state, *candidate, config);
+		bool impactApplied=!candidate;
+        if(candidate && config.impactDelay<=0) {ApplyCandidateImpact(state,*candidate,config);impactApplied=true;}
 		int candidateStrikesApplied = 0;
 		std::vector<unsigned char> cobResolved(
 			snapshot.pendingCobBlasts.size(), 0);
@@ -1452,6 +1468,7 @@ namespace {
 				config.horizonSeconds, elapsed + deltaTime);
 			const float remaining = std::max(
 				0.0f, config.horizonSeconds - elapsed);
+            if(!impactApplied && nextElapsed>=config.impactDelay) {ApplyCandidateImpact(state,*candidate,config);impactApplied=true;}
 			ResolvePendingCobBlasts(snapshot, state, nextElapsed, cobResolved);
 			while (candidate && candidate->targetStrikeCount > 0
 				&& candidate->targetStrikeInterval > 0.0f

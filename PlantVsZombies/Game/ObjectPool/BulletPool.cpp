@@ -31,7 +31,9 @@ namespace {
 		case BulletType::BULLET_AURORA_PEA:
 		case BulletType::BULLET_THUNDER_SEED:
 		case BulletType::BULLET_THERMAL_PULSE:
-		case BulletType::BULLET_PRESSURE:
+		case BulletType::BULLET_RAIN_BAMBOO:
+        case BulletType::BULLET_FLOOD_MORTAR:
+        case BulletType::BULLET_PRESSURE:
 			return true;
 		case BulletType::BULLET_ZOMBIE_PEA:
 		case BulletType::NUM_BULLETS:
