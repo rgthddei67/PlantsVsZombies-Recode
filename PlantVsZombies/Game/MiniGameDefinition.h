@@ -13,8 +13,8 @@ inline constexpr int BRAWL_ENEMY_ICE = 850; // 大混战敌方固定初始冰块
 inline constexpr int WAVES = 10; // 清理第十波全部敌人后通关
 inline constexpr float PREPARATION_SECONDS = 60.0f; // 首波前可自由布阵的游戏秒数
 inline constexpr float WAVE_SECONDS = 35.0f; // 后续波次最长间隔，单位：游戏秒
-inline constexpr const char* NAME = u8"最后的家底";
-inline constexpr const char* BRAWL_NAME = u8"大混战";
+inline constexpr const char* NAME = "最后的家底";
+inline constexpr const char* BRAWL_NAME = "大混战";
 inline constexpr std::array<PlantType, 7> CARDS = {
     PlantType::PLANT_PEASHOOTER, PlantType::PLANT_SNOWPEA,
     PlantType::PLANT_REPEATER, PlantType::PLANT_WALLNUT,

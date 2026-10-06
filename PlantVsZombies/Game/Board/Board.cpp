@@ -229,7 +229,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 		mLevelName.clear();
 		int mBigLevel = AdventureProgression::GetAreaNumber(mLevel);
 		int mSmallLevel = AdventureProgression::GetLevelNumberInArea(mLevel);
-		mLevelName = u8"关卡 " + std::to_string(mBigLevel) + u8"-" + std::to_string(mSmallLevel);
+		mLevelName = "关卡 " + std::to_string(mBigLevel) + "-" + std::to_string(mSmallLevel);
 	}
 	mSpawnZombieList.reserve(32);
 	mSpawnZombieList.push_back(ZombieType::ZOMBIE_NORMAL);
@@ -244,7 +244,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 		UpdateSurvivalLevelName();
 	}
 	else if (MiniGame::IsLastSavings(mLevel)) {
-		mLevelName = std::string(u8"小游戏：") + MiniGame::NAME;
+		mLevelName = std::string("小游戏：") + MiniGame::NAME;
 		mSun = MiniGame::INITIAL_SUN;
 		mMaxWave = MiniGame::WAVES;
 		mZombieCountDown = MiniGame::PREPARATION_SECONDS;
@@ -253,7 +253,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 			ZombieType::ZOMBIE_NEWSPAPER, ZombieType::ZOMBIE_DOOR, ZombieType::ZOMBIE_FOOTBALL };
 	}
 	else if (MiniGame::IsBrawl(mLevel)) {
-		mLevelName = std::string(u8"小游戏：") + MiniGame::BRAWL_NAME;
+		mLevelName = std::string("小游戏：") + MiniGame::BRAWL_NAME;
 		mSun = MiniGame::BRAWL_INITIAL_SUN;
 		// 冷藏站使用无限付费波次；建好棋盘后按实际地形筛选独立出怪品种。
 	}
@@ -3805,9 +3805,9 @@ bool Board::CanZombieTypeEnterSurvivalPool(ZombieType type, int round) const
 void Board::UpdateSurvivalLevelName()
 {
 	const auto* definition = FindSurvivalEndlessDefinition(mLevel);
-	const std::string label = definition ? definition->label : u8"未知无尽";
-	mLevelName = std::string(u8"生存模式：") + label + u8" 第"
-		+ std::to_string(mSurvivalRound) + u8"轮";
+	const std::string label = definition ? definition->label : "未知无尽";
+	mLevelName = std::string("生存模式：") + label + " 第"
+		+ std::to_string(mSurvivalRound) + "轮";
 }
 
 bool Board::ConsumePlantDamageEchoHit()

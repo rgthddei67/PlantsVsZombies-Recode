@@ -1,8 +1,5 @@
 # Linux 云端验证入口。Windows / Android 保持原有工具链和发布参数。
 # 共用 Vulkan 源码仍参与编译；本入口部署 OpenGL GLSL，运行时使用 -Renderer=opengl。
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_image CONFIG REQUIRED)
@@ -56,6 +53,7 @@ if(BUILD_TESTING)
         target_link_libraries(${target} PRIVATE Threads::Threads nlohmann_json::nlohmann_json)
         add_test(NAME ${test_name} COMMAND ${target})
     endfunction()
+    pvz_linux_test(Utf8Tests utf8-paths tests/Utf8Tests.cpp)
     pvz_linux_test(SaveMigrationTests save-migration
         tests/SaveMigrationTests.cpp PlantVsZombies/SaveMigration.cpp)
     pvz_linux_test(SaveSchemaTests save-schema
@@ -70,8 +68,20 @@ if(BUILD_TESTING)
     pvz_linux_test(PlantDefenseMonteCarloTests plant-defense-monte-carlo
         tests/PlantDefenseMonteCarloTests.cpp PlantVsZombies/Game/AI/PlantDefenseMonteCarlo.cpp)
     pvz_linux_test(ColdStorageStrategyTests cold-storage-strategy
-        tests/ColdStorageStrategyTests.cpp PlantVsZombies/Game/AI/ColdStoragePlanner.cpp
-        PlantVsZombies/Game/AI/ColdStorageStrategy.cpp PlantVsZombies/Game/AI/ColdStorageSearch.cpp)
+        tests/ColdStorageStrategyTests.cpp
+        PlantVsZombies/Game/AI/ColdStoragePlanEvaluator.cpp
+        PlantVsZombies/Game/AI/ColdStoragePlanner.cpp
+        PlantVsZombies/Game/AI/ColdStorageStrategy.cpp
+        PlantVsZombies/Game/AI/ColdStorageSearch.cpp
+        PlantVsZombies/Game/AI/ColdStorageHealerForecast.cpp
+        PlantVsZombies/Game/AI/ColdStorageLadderForecast.cpp
+        PlantVsZombies/Game/AI/ColdStorageFormationSeeds.cpp
+        tests/ColdStorageLadderForecastTests.cpp
+        tests/ColdStorageHealerForecastTests.cpp
+        tests/ColdStorageJackBalloonForecastTests.cpp
+        tests/ColdStorageThunderTimingTests.cpp
+        tests/ColdStorageDiggerForecastTests.cpp
+        tests/ColdStorageAssaultExplorationTests.cpp)
     pvz_linux_test(ThreadPoolTests thread-pool-generations tests/ThreadPoolTests.cpp)
     set_tests_properties(thread-pool-generations PROPERTIES TIMEOUT 45)
 endif()

@@ -73,9 +73,9 @@ void DawnLotus::Draw(Graphics* g)
 		anchor.x, y + kReadyBadgeHeight + 5.0f, gold);
 	g->DrawLine(anchor.x, y + kReadyBadgeHeight + 5.0f,
 		anchor.x + 5.0f, y + kReadyBadgeHeight, gold);
-	const glm::vec2 size = g->MeasureTextSize(u8"点击释放",
+	const glm::vec2 size = g->MeasureTextSize("点击释放",
 		ResourceKeys::Fonts::FONT_FZCQ, kReadyBadgeFontSize);
-	g->DrawText(u8"点击释放", ResourceKeys::Fonts::FONT_FZCQ, kReadyBadgeFontSize,
+	g->DrawText("点击释放", ResourceKeys::Fonts::FONT_FZCQ, kReadyBadgeFontSize,
 		gold, anchor.x - size.x * 0.5f, y + (kReadyBadgeHeight - size.y) * 0.5f);
 }
 

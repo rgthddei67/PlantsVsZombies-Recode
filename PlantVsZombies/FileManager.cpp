@@ -1,4 +1,5 @@
 #include "FileManager.h"
+#include "Utf8.h"
 #include <SDL2/SDL.h>
 #include "Logger.h"
 #include <filesystem>
@@ -11,7 +12,7 @@
 namespace {
 	/** 将 FileManager 约定的 UTF-8 路径转换为本机 filesystem 路径，兼容非 ASCII 用户名。 */
 	std::filesystem::path Utf8Path(const std::string& path) {
-		return std::filesystem::u8path(path);
+		return Utf8::ToPath(path);
 	}
 #if defined(__ANDROID__) || defined(__linux__)
 	/** 为经典资源的大小写不敏感引用生成查询键，实际打开仍使用 manifest 的原始名称。 */
@@ -246,7 +247,7 @@ std::vector<std::string> FileManager::GetFilesInDirectory(const std::string& dir
 	try {
 		for (const auto& entry : std::filesystem::directory_iterator(Utf8Path(directory))) {
 			if (entry.is_regular_file()) {
-				std::string filename = entry.path().u8string();
+				std::string filename = Utf8::ToString(entry.path().u8string());
 
 				// 如果指定了扩展名，则只添加匹配扩展名的文件
 				if (extension.empty() || GetFileExtension(filename) == extension) {

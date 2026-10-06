@@ -289,7 +289,7 @@ void Board::DrawMineGround(Graphics* g)
 			if (forecast) {
 				const Vector label(p.x + 56, p.y + 24);
 				const bool mainAttack = (GetMineForecastMainEntranceMask() & (1 << r)) != 0;
-				GameAPP::GetInstance().DrawText(mainAttack ? u8"下波主攻" : u8"下波入口",label,
+				GameAPP::GetInstance().DrawText(mainAttack ? "下波主攻" : "下波入口",label,
 					mainAttack ? glm::vec4{255,151,89,255} : glm::vec4{255,214,135,255},ResourceKeys::Fonts::FONT_FZCQ,13);
 			}
 		}
@@ -389,7 +389,7 @@ void Board::DrawMineUI(Graphics* g)
 {
 	if (!IsMineBackground() || mBoardState != BoardState::GAME) return;
 	if (mMineFogNoticeRemaining > 0.0f) {
-		GameAPP::GetInstance().DrawText(HasGoldenMineFog() ? u8"鎏金雾潮：雾中僵尸受到的伤害降低75%，棱光标记可解除保护。" : HasPurpleMineFog() ? u8"紫晶雾潮：雾中僵尸受到的伤害降低50%，迷雾无法驱散。" : u8"幽晶雾潮：雾中僵尸受到的伤害降低25%，迷雾无法驱散。",
+		GameAPP::GetInstance().DrawText(HasGoldenMineFog() ? "鎏金雾潮：雾中僵尸受到的伤害降低75%，棱光标记可解除保护。" : HasPurpleMineFog() ? "紫晶雾潮：雾中僵尸受到的伤害降低50%，迷雾无法驱散。" : "幽晶雾潮：雾中僵尸受到的伤害降低25%，迷雾无法驱散。",
 			Vector(g->LogicalToWorld(215, 105)), {185,230,255,255}, ResourceKeys::Fonts::FONT_FZCQ, 19);
 	}
 	// 施工进度独立在 UI 层绘制，避免被后绘制的前排岩壁和碎石遮挡。
@@ -416,16 +416,16 @@ void Board::DrawMineUI(Graphics* g)
 	if (routeHovered) {
 		const Vector tip = g->LogicalToWorld(872,70);
 		g->FillRect(tip.x,tip.y,114,28,glm::vec4(45,30,20,245));
-		GameAPP::GetInstance().DrawText(mMineRoutesVisible ? u8"收起矿道路线" : u8"查看矿道路线",
+		GameAPP::GetInstance().DrawText(mMineRoutesVisible ? "收起矿道路线" : "查看矿道路线",
 			Vector(tip.x + 8,tip.y + 6),{255,226,170,255},ResourceKeys::Fonts::FONT_FZCQ,14);
 	}
 	if (!mMineToolActive && mMineDigCell < 0) return;
 	const Vector panel = g->LogicalToWorld(7,340);
 	g->FillRect(panel.x,panel.y,188,166,glm::vec4(20,25,33,235));
 	auto& app = GameAPP::GetInstance();
-	app.DrawText(u8"幽晶矿场 · 开凿",Vector(g->LogicalToWorld(17,351)),{251,211,143,255},ResourceKeys::Fonts::FONT_FZCQ,17);
-	app.DrawText(u8"75阳光 / 8秒",Vector(g->LogicalToWorld(17,379)),{239,230,204,255},ResourceKeys::Fonts::FONT_FZCQ,16);
-	app.DrawText(mMineDigCell >= 0 ? u8"点击施工格：取消退款" : u8"点选岩壁，再点确认",Vector(g->LogicalToWorld(17,409)),{220,228,231,255},ResourceKeys::Fonts::FONT_FZCQ,14);
-	app.DrawText(u8"蓝：当前路  金：新路",Vector(g->LogicalToWorld(17,436)),{151,213,230,255},ResourceKeys::Fonts::FONT_FZCQ,14);
-	app.DrawText(mBoardState == BoardState::CHOOSE_CARD ? u8"开战后才能施工" : u8"右键退出镐子",Vector(g->LogicalToWorld(17,465)),{218,195,162,255},ResourceKeys::Fonts::FONT_FZCQ,14);
+	app.DrawText("幽晶矿场 · 开凿",Vector(g->LogicalToWorld(17,351)),{251,211,143,255},ResourceKeys::Fonts::FONT_FZCQ,17);
+	app.DrawText("75阳光 / 8秒",Vector(g->LogicalToWorld(17,379)),{239,230,204,255},ResourceKeys::Fonts::FONT_FZCQ,16);
+	app.DrawText(mMineDigCell >= 0 ? "点击施工格：取消退款" : "点选岩壁，再点确认",Vector(g->LogicalToWorld(17,409)),{220,228,231,255},ResourceKeys::Fonts::FONT_FZCQ,14);
+	app.DrawText("蓝：当前路  金：新路",Vector(g->LogicalToWorld(17,436)),{151,213,230,255},ResourceKeys::Fonts::FONT_FZCQ,14);
+	app.DrawText(mBoardState == BoardState::CHOOSE_CARD ? "开战后才能施工" : "右键退出镐子",Vector(g->LogicalToWorld(17,465)),{218,195,162,255},ResourceKeys::Fonts::FONT_FZCQ,14);
 }

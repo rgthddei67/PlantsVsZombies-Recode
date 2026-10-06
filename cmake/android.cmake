@@ -1,7 +1,5 @@
 # Android 首版共享库。保留共用 Graphics 的 Vulkan 实现以避免复制绘制层，
 # 但启动固定 GLES，Volk 仅动态取函数，不链接或加载 Android Vulkan loader。
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_image CONFIG REQUIRED)

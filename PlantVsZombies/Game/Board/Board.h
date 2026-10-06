@@ -119,14 +119,14 @@ struct SurvivalEndlessDefinition {
 
 // 无尽模式的关卡号、背景、显示名和解锁大关只有这一处真源，新增地形时选关与 Board 自动同步。
 inline constexpr std::array<SurvivalEndlessDefinition, 8> SURVIVAL_ENDLESS_DEFINITIONS{ {
-	{ SURVIVAL_ENDLESS_LEVEL, Background::GROUND_DAY, u8"白天无尽", 1 },
-	{ SURVIVAL_ENDLESS_NIGHT_LEVEL, Background::GROUND_NIGHT, u8"黑夜无尽", 2 },
-	{ SURVIVAL_ENDLESS_POOL_LEVEL, Background::WATER_POOL, u8"泳池无尽", 3 },
-	{ SURVIVAL_ENDLESS_NIGHT_POOL_LEVEL, Background::NIGHT_WATER_POOL, u8"黑夜泳池无尽", 4 },
-	{ SURVIVAL_ENDLESS_ROOF_LEVEL, Background::ROOF, u8"白天屋顶无尽", 5 },
-	{ SURVIVAL_ENDLESS_NIGHT_ROOF_LEVEL, Background::NIGHT_ROOF, u8"黑夜屋顶无尽", 6 },
-	{ SURVIVAL_ENDLESS_WINTER_LEVEL, Background::WINTER_GARDEN, u8"雪原无尽", 7 },
-	{ SURVIVAL_ENDLESS_POLAR_LEVEL, Background::POLAR_NIGHT_SNOWFIELD, u8"极夜无尽", 8 },
+	{ SURVIVAL_ENDLESS_LEVEL, Background::GROUND_DAY, "白天无尽", 1 },
+	{ SURVIVAL_ENDLESS_NIGHT_LEVEL, Background::GROUND_NIGHT, "黑夜无尽", 2 },
+	{ SURVIVAL_ENDLESS_POOL_LEVEL, Background::WATER_POOL, "泳池无尽", 3 },
+	{ SURVIVAL_ENDLESS_NIGHT_POOL_LEVEL, Background::NIGHT_WATER_POOL, "黑夜泳池无尽", 4 },
+	{ SURVIVAL_ENDLESS_ROOF_LEVEL, Background::ROOF, "白天屋顶无尽", 5 },
+	{ SURVIVAL_ENDLESS_NIGHT_ROOF_LEVEL, Background::NIGHT_ROOF, "黑夜屋顶无尽", 6 },
+	{ SURVIVAL_ENDLESS_WINTER_LEVEL, Background::WINTER_GARDEN, "雪原无尽", 7 },
+	{ SURVIVAL_ENDLESS_POLAR_LEVEL, Background::POLAR_NIGHT_SNOWFIELD, "极夜无尽", 8 },
 } };
 
 /** 查找无尽关卡定义；普通冒险关返回 nullptr。 */

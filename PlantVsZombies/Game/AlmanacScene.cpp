@@ -17,7 +17,7 @@ void AlmanacScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
 
 	mBackMenuButton->SetText(GameAPP::GetInstance().mGameInfoSaver.GetAlmanacReturnLevel() >= 0
-		? u8"返回游戏" : u8"返回菜单", ResourceKeys::Fonts::FONT_FZJZ, 18);
+		? "返回游戏" : "返回菜单", ResourceKeys::Fonts::FONT_FZJZ, 18);
 	mBackMenuButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetClickCallBack([this](bool) {
@@ -31,7 +31,7 @@ void AlmanacScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
-	mPlantButton->SetText(u8"植物图鉴", ResourceKeys::Fonts::FONT_FZJZ, 18);
+	mPlantButton->SetText("植物图鉴", ResourceKeys::Fonts::FONT_FZJZ, 18);
 	mPlantButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mPlantButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mPlantButton->SetClickCallBack([this](bool) {
@@ -45,7 +45,7 @@ void AlmanacScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
-	mZombieButton->SetText(u8"僵尸图鉴", ResourceKeys::Fonts::FONT_FZJZ, 18);
+	mZombieButton->SetText("僵尸图鉴", ResourceKeys::Fonts::FONT_FZJZ, 18);
 	mZombieButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mZombieButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mZombieButton->SetClickCallBack([this](bool) {

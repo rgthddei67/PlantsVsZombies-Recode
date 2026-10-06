@@ -655,7 +655,7 @@ void Card::DrawSunCost(Graphics* g, const Vector& position)
 	if (auto* manager = GetCardSlotManager()) {
 		if (auto* board = manager->GetBoard(); board && board->IsColdStorage()) {
 			g->FillRect(position.x + 2, position.y + 3, 40, 16, glm::vec4(15, 46, 57, 220));
-			g->DrawGlyphRun(std::to_string(board->GetPlantIcePaymentCost(GetGameplayPlantType())) + u8"冰",
+			g->DrawGlyphRun(std::to_string(board->GetPlantIcePaymentCost(GetGameplayPlantType())) + "冰",
 				ResourceKeys::Fonts::FONT_FZCQ, 12, glm::vec4(175, 240, 255, 255), position.x + 4, position.y + 3);
 		}
 	}

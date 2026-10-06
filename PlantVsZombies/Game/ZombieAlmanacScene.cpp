@@ -59,7 +59,7 @@ void ZombieAlmanacScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
 
-	mBackMenuButton->SetText(u8"返回索引", ResourceKeys::Fonts::FONT_FZJZ, 18);
+	mBackMenuButton->SetText("返回索引", ResourceKeys::Fonts::FONT_FZJZ, 18);
 	mBackMenuButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetClickCallBack([this](bool) {

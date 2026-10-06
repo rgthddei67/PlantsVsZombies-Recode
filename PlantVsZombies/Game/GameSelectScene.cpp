@@ -130,7 +130,7 @@ void GameSelectScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
-	mBackMenuButton->SetText(u8"返回菜单", ResourceKeys::Fonts::FONT_FZJZ, 18);
+	mBackMenuButton->SetText("返回菜单", ResourceKeys::Fonts::FONT_FZJZ, 18);
 	mBackMenuButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetClickCallBack([this](bool) {
@@ -166,7 +166,7 @@ void GameSelectScene::BuildDrawCommands()
 	mSkipLevelButton->SetImageKeys("IMAGE_ALMANAC_INDEXBUTTON",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT", "IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
-	mSkipLevelButton->SetText(u8"跳过本关", ResourceKeys::Fonts::FONT_FZJZ, 20);
+	mSkipLevelButton->SetText("跳过本关", ResourceKeys::Fonts::FONT_FZJZ, 20);
 	mSkipLevelButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mSkipLevelButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 	mSkipLevelButton->SetClickCallBack([this](bool) { ConfirmSkipLevel(); });
@@ -214,8 +214,8 @@ void GameSelectScene::BuildDrawCommands()
 	RegisterDrawCommand("DrawSelectTexts", [this](Graphics*) {
 		auto& gameApp = GameAPP::GetInstance();
 		const std::string title = mSelectMode == SelectMode::ADVENTURE
-			? u8"选择冒险关卡" : (mSelectMode == SelectMode::MINIGAMES
-				? u8"选择小游戏" : u8"选择生存关卡");
+			? "选择冒险关卡" : (mSelectMode == SelectMode::MINIGAMES
+				? "选择小游戏" : "选择生存关卡");
 		DrawFittedCenteredText(gameApp, title, 552.0f, 82.0f, 500.0f,
 			glm::vec4(0, 0, 0, 255), ResourceKeys::Fonts::FONT_FZJZ, 37, 24);
 		DrawFittedCenteredText(gameApp, title, 550.0f, 80.0f, 500.0f,
@@ -242,13 +242,13 @@ void GameSelectScene::BuildDrawCommands()
 		}
 
 		if (mSelectMode == SelectMode::MINIGAMES) {
-			DrawFittedCenteredText(gameApp, u8"最后的家底：3000 阳光，七种植物，守住十波！",
+			DrawFittedCenteredText(gameApp, "最后的家底：3000 阳光，七种植物，守住十波！",
 				650.0f, 300.0f, 650.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 25, 18);
-			DrawFittedCenteredText(gameApp, u8"开局 60 秒布阵；全程没有阳光补给，记得留钱救场。",
+			DrawFittedCenteredText(gameApp, "开局 60 秒布阵；全程没有阳光补给，记得留钱救场。",
 				650.0f, 342.0f, 670.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 21, 16);
-			DrawFittedCenteredText(gameApp, u8"大混战：冷藏站地图，3000 阳光，对手带 850 冰，兵种逐波解锁。",
+			DrawFittedCenteredText(gameApp, "大混战：冷藏站地图，3000 阳光，对手带 850 冰，兵种逐波解锁。",
 				650.0f, 402.0f, 710.0f, glm::vec4(46, 46, 84, 255),
 				ResourceKeys::Fonts::FONT_FZJZ, 23, 16);
 		}
@@ -372,15 +372,15 @@ void GameSelectScene::ConfirmSkipLevel()
 {
 	const int level = GetSkippableLevel();
 	if (level < 0) return;
-	const std::string message = u8"跳过第 " + GetLevelLabel(mSelectMode, level)
-		+ u8" 关，领取本关奖励并解锁下一关？";
+	const std::string message = "跳过第 " + GetLevelLabel(mSelectMode, level)
+		+ " 关，领取本关奖励并解锁下一关？";
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
-		.Title(u8"跳过本关")
+		.Title("跳过本关")
 		.Message(message)
 		.Scale(SKIP_DIALOG_SCALE)
-		.Button(u8"确认跳过", Vector::zero(), Vector(100, 42), 18,
+		.Button("确认跳过", Vector::zero(), Vector(100, 42), 18,
 			[this, level]() { mPendingSkipLevel = level; })
-		.Button(u8"取消", Vector::zero(), Vector(100, 42), 18, []() {})
+		.Button("取消", Vector::zero(), Vector(100, 42), 18, []() {})
 		.Show();
 }
 
@@ -397,10 +397,10 @@ void GameSelectScene::CompleteSkippedLevel(int level)
 		app.mAdventureLevel = level;
 		app.mHaveCards.resize(oldCardCount);
 		GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
-			.Title(u8"保存失败")
-			.Message(u8"未能保存进度，本关尚未跳过，请重试。")
+			.Title("保存失败")
+			.Message("未能保存进度，本关尚未跳过，请重试。")
 			.Scale(SKIP_DIALOG_SCALE)
-			.Button(u8"确定", Vector::zero(), Vector(100, 42), 18, []() {})
+			.Button("确定", Vector::zero(), Vector(100, 42), 18, []() {})
 			.Show();
 		return;
 	}

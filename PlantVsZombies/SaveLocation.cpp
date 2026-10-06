@@ -1,4 +1,5 @@
 #include "SaveLocation.h"
+#include "Utf8.h"
 
 #if defined(__ANDROID__)
 #include <SDL2/SDL.h>
@@ -24,7 +25,7 @@ std::string SaveLocation::DiscoverPreferredRoot(const std::string& legacyRoot) {
 	CoTaskMemFree(knownFolder);
 	root /= L"PlantsVsZombies";
 	root /= L"saves";
-	return root.u8string();
+	return Utf8::ToString(root.u8string());
 #elif defined(__ANDROID__)
 	char* preferredPath = SDL_GetPrefPath("PvZ", "PlantsVsZombies");
 	if (!preferredPath) {

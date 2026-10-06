@@ -91,7 +91,7 @@ ChooseCardUI::ChooseCardUI(GameScene* gameScene)
 		ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON);
 	button->SetTextColor({ 211, 157, 42 ,255 });
 	button->SetHoverTextColor({ 211, 157, 42 ,255 });
-	button->SetText(u8"  一起摇滚吧！", ResourceKeys::Fonts::FONT_FZCQ, 20);
+	button->SetText("  一起摇滚吧！", ResourceKeys::Fonts::FONT_FZCQ, 20);
 	button->SetEnabled(false);
 	button->SetClickCallBack([this](bool isChecked) {
 		if (mGameScene) {
@@ -108,7 +108,7 @@ ChooseCardUI::ChooseCardUI(GameScene* gameScene)
 	restoreButton->SetImageKeys(ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2,
 		ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2_GLOW,
 		ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2);
-	restoreButton->SetText(u8"上次选卡", ResourceKeys::Fonts::FONT_FZCQ, 13);
+	restoreButton->SetText("上次选卡", ResourceKeys::Fonts::FONT_FZCQ, 13);
 	restoreButton->SetTextColor({ 42, 42, 90, 255 });
 	restoreButton->SetHoverTextColor({ 42, 42, 90, 255 });
 	restoreButton->SetEnabled(false);
@@ -137,7 +137,7 @@ ChooseCardUI::ChooseCardUI(GameScene* gameScene)
 	cancelButton->SetImageKeys(ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2,
 		ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2_GLOW,
 		ResourceKeys::Textures::IMAGE_SEEDCHOOSER_BUTTON2);
-	cancelButton->SetText(u8"取消", ResourceKeys::Fonts::FONT_FZCQ, 14);
+	cancelButton->SetText("取消", ResourceKeys::Fonts::FONT_FZCQ, 14);
 	cancelButton->SetEnabled(false);
 	cancelButton->SetSkipDraw(true);
 	cancelButton->SetClickCallBack([this](bool) {
@@ -257,11 +257,11 @@ void ChooseCardUI::Draw(Graphics* g) {
 		app.DrawText(MiniGame::NAME, pos + Vector(105, 155), {255, 221, 130, 255},
 			ResourceKeys::Fonts::FONT_FZJZ, 32);
 		const std::array<const char*, 5> lines = {
-			u8"3000 阳光，就是你全部的家底。",
-			u8"开局 60 秒布阵，守住十波进攻。",
-			u8"整局没有阳光补给，铲除不退款。",
-			u8"七张卡已备好，留些预算用于救场。",
-			u8"准备好了，就一起摇滚吧！"
+			"3000 阳光，就是你全部的家底。",
+			"开局 60 秒布阵，守住十波进攻。",
+			"整局没有阳光补给，铲除不退款。",
+			"七张卡已备好，留些预算用于救场。",
+			"准备好了，就一起摇滚吧！"
 		};
 		for (std::size_t i = 0; i < lines.size(); ++i) {
 			app.DrawText(lines[i], pos + Vector(35, 220 + static_cast<float>(i) * 42),
@@ -292,7 +292,7 @@ void ChooseCardUI::DrawImitaterDialog(Graphics* g) const
 	g->DrawRect(panel.x + 3.0f, panel.y + 3.0f,
 		kImitaterDialogWidth - 6.0f, panelHeight - 6.0f,
 		glm::vec4(74.0f, 29.0f, 16.0f, 255.0f));
-	const std::string title = u8"选择模仿的植物";
+	const std::string title = "选择模仿的植物";
 	const float titleWidth = g->MeasureTextWidth(
 		title, ResourceKeys::Fonts::FONT_FZCQ, 24);
 	g->DrawGlyphRun(title, ResourceKeys::Fonts::FONT_FZCQ, 24,

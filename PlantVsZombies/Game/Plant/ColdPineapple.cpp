@@ -71,24 +71,24 @@ float ColdPineapple::GetAreaAttackSpeedBonus() const
 std::string ColdPineapple::GetManualAbilityDescription() const
 {
 	return mBoard && mBoard->IsColdStorage()
-		? u8"每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + u8"冰块 · 攻速+100%"
-		: u8"每次" + std::to_string(kSunCost) + u8"阳光 · 攻速+100%";
+		? "每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + "冰块 · 攻速+100%"
+		: "每次" + std::to_string(kSunCost) + "阳光 · 攻速+100%";
 }
 
 std::string ColdPineapple::GetAbilityStatusText() const
 {
 	std::string label;
-	if (mActiveRemaining > 0.0f) label = u8"强化中";
-	else if (mCooldownRemaining > 0.0f) label = u8"冷却";
-	else if (!CanAffordActivation()) label = u8"缺资源";
-	else if (DeltaTime::IsPaused()) label = u8"暂停";
-	else if (IsActionPaused()) label = u8"停机";
-	else label = u8"就绪";
-	if (mAutomatic) label += u8" ↻";
+	if (mActiveRemaining > 0.0f) label = "强化中";
+	else if (mCooldownRemaining > 0.0f) label = "冷却";
+	else if (!CanAffordActivation()) label = "缺资源";
+	else if (DeltaTime::IsPaused()) label = "暂停";
+	else if (IsActionPaused()) label = "停机";
+	else label = "就绪";
+	if (mAutomatic) label += " ↻";
 	// 失败提示也读取当前费用与余额，补足资源后不保留旧的缺资源文案。
 	if (mFeedbackRemaining > 0 && mActiveRemaining <= 0 && mCooldownRemaining <= 0 && !CanAffordActivation())
 		label = mBoard && mBoard->IsColdStorage()
-			? u8"需要" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + u8"冰块" : u8"需要" + std::to_string(kSunCost) + u8"阳光";
+			? "需要" + std::to_string(mBoard->GetPlantAbilityIceCost(kIceCost)) + "冰块" : "需要" + std::to_string(kSunCost) + "阳光";
 	return label;
 }
 

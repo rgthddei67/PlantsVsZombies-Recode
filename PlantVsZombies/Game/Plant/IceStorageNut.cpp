@@ -89,8 +89,8 @@ bool IceStorageNut::TryActivate()
 std::string IceStorageNut::GetManualAbilityDescription() const
 {
 	return mBoard && mBoard->IsColdStorage()
-		? u8"每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kRepairIce)) + u8"冰块 · 恢复1000生命"
-		: u8"每次" + std::to_string(kRepairSun) + u8"阳光 · 恢复1000生命";
+		? "每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kRepairIce)) + "冰块 · 恢复1000生命"
+		: "每次" + std::to_string(kRepairSun) + "阳光 · 恢复1000生命";
 }
 
 bool IceStorageNut::TakeCrushImpact()
@@ -123,9 +123,9 @@ void IceStorageNut::Draw(Graphics* g)
 	const Vector p = GetPosition();
 	const glm::vec4 cyan(150, 245, 255, 255);
 	if (IsDamageImmune()) {
-		g->DrawText(u8"无敌", ResourceKeys::Fonts::FONT_FZCQ, 14, cyan, p.x - 14, p.y - 62);
+		g->DrawText("无敌", ResourceKeys::Fonts::FONT_FZCQ, 14, cyan, p.x - 14, p.y - 62);
 	}
-	const char* label = mAutomatic ? u8"自动修复" : u8"手动修复";
+	const char* label = mAutomatic ? "自动修复" : "手动修复";
 	g->DrawText(label, ResourceKeys::Fonts::FONT_FZCQ, 12, cyan, p.x - 25, p.y + 29);
 	const float timer = mCooldownRemaining / kRepairCooldown;
 	if (timer > 0) {

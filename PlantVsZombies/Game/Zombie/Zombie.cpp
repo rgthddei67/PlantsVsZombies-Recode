@@ -841,7 +841,7 @@ void Zombie::UpdateFullBodyHealthTextCache()
 	}
 
 	mFullBodyHealthText = graphics.AcquireTextTexture(
-		u8"本体: " + std::to_string(mBodyHealth) + u8"/" + std::to_string(mBodyMaxHealth),
+		"本体: " + std::to_string(mBodyHealth) + "/" + std::to_string(mBodyMaxHealth),
 		ResourceKeys::Fonts::FONT_FZJZ, 15,
 		glm::vec4(150.0f, 200.0f, 255.0f, 255.0f));
 	mCachedFullBodyHealth = mBodyMaxHealth;
@@ -3166,14 +3166,14 @@ void Zombie::Draw(Graphics* g)
 		y += lineHeight;
 	}
 	else {
-		drawLine(u8"本体: " + std::to_string(mBodyHealth) + u8"/" + std::to_string(mBodyMaxHealth));
+		drawLine("本体: " + std::to_string(mBodyHealth) + "/" + std::to_string(mBodyMaxHealth));
 	}
 	// 一类防具（有 mHelmType 才显示）
 	if (mHelmType != HelmType::HELMTYPE_NONE)
-		drawLine(u8"一类: " + std::to_string(mHelmHealth) + u8"/" + std::to_string(mHelmMaxHealth));
+		drawLine("一类: " + std::to_string(mHelmHealth) + "/" + std::to_string(mHelmMaxHealth));
 	// 二类防具（有 mShieldType 才显示）
 	if (mShieldType != ShieldType::SHIELDTYPE_NONE)
-		drawLine(u8"二类: " + std::to_string(mShieldHealth) + u8"/" + std::to_string(mShieldMaxHealth));
+		drawLine("二类: " + std::to_string(mShieldHealth) + "/" + std::to_string(mShieldMaxHealth));
 }
 
 void Zombie::ValidateEatingState(EntityRegistry& em)

@@ -48,7 +48,7 @@ void PlantAlmanacScene::BuildDrawCommands()
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 		"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
 
-	mBackMenuButton->SetText(IsReward() ? u8"返回主菜单" : u8"返回索引",
+	mBackMenuButton->SetText(IsReward() ? "返回主菜单" : "返回索引",
 		ResourceKeys::Fonts::FONT_FZJZ, IsReward() ? 22 : 18);
 	mBackMenuButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 	mBackMenuButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
@@ -60,7 +60,7 @@ void PlantAlmanacScene::BuildDrawCommands()
 		nextButton->SetAsCheckbox(false);
 		nextButton->SetImageKeys("IMAGE_ALMANAC_INDEXBUTTON", "IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT",
 			"IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT", "IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
-		nextButton->SetText(u8"继续（下一关）", ResourceKeys::Fonts::FONT_FZJZ, 22);
+		nextButton->SetText("继续（下一关）", ResourceKeys::Fonts::FONT_FZJZ, 22);
 		nextButton->SetTextColor(glm::vec4(52, 51, 93, 255));
 		nextButton->SetHoverTextColor(glm::vec4(52, 51, 93, 255));
 		nextButton->SetEnabled(AdventureProgression::IsAdventureLevel(GameAPP::GetInstance().mAdventureLevel));
@@ -72,7 +72,7 @@ void PlantAlmanacScene::BuildDrawCommands()
 			auto& app = GameAPP::GetInstance();
 			if (IsReward()) {
 				app.DrawText(GameDataManager::GetInstance().IsSkillCard(mRewardPlant)
-					? u8"获得新技能卡！" : u8"获得新植物！", Vector(445, 65),
+					? "获得新技能卡！" : "获得新植物！", Vector(445, 65),
 					glm::vec4(255, 214, 104, 255), ResourceKeys::Fonts::FONT_FZJT, 32);
 			}
 			if (mCurrentPlantType == PlantType::PLANT_ICEVOUCHER)

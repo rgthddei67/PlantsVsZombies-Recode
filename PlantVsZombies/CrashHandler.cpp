@@ -295,35 +295,35 @@ void CrashHandler::ShowCrashDialog(PEXCEPTION_POINTERS exceptionInfo, const std:
 
 std::string CrashHandler::GetExceptionCodeString(DWORD exceptionCode) {
 	switch (exceptionCode) {
-	case EXCEPTION_ACCESS_VIOLATION:         return u8"Access Violation";
-	case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:    return u8"Array Bounds Exceeded";
-	case EXCEPTION_BREAKPOINT:               return u8"Breakpoint";
-	case EXCEPTION_DATATYPE_MISALIGNMENT:    return u8"Data Misalignment";
-	case EXCEPTION_FLT_DENORMAL_OPERAND:     return u8"Floating-point Denormal Operand";
-	case EXCEPTION_FLT_DIVIDE_BY_ZERO:       return u8"Floating-point Divide by Zero";
-	case EXCEPTION_FLT_INEXACT_RESULT:       return u8"Floating-point Inexact Result";
-	case EXCEPTION_FLT_INVALID_OPERATION:    return u8"Floating-point Invalid Operation";
-	case EXCEPTION_FLT_OVERFLOW:             return u8"Floating-point Overflow";
-	case EXCEPTION_FLT_STACK_CHECK:          return u8"Floating-point Stack Check";
-	case EXCEPTION_FLT_UNDERFLOW:            return u8"Floating-point Underflow";
-	case EXCEPTION_GUARD_PAGE:               return u8"Guard Page Violation";
-	case EXCEPTION_ILLEGAL_INSTRUCTION:      return u8"Illegal Instruction";
-	case EXCEPTION_IN_PAGE_ERROR:            return u8"Page Error";
-	case EXCEPTION_INT_DIVIDE_BY_ZERO:       return u8"Integer Divide by Zero";
-	case EXCEPTION_INT_OVERFLOW:             return u8"Integer Overflow";
-	case EXCEPTION_INVALID_DISPOSITION:      return u8"Invalid Disposition";
-	case EXCEPTION_INVALID_HANDLE:           return u8"Invalid Handle";
-	case EXCEPTION_NONCONTINUABLE_EXCEPTION: return u8"Noncontinuable Exception";
-	case EXCEPTION_PRIV_INSTRUCTION:         return u8"Privileged Instruction";
-	case EXCEPTION_SINGLE_STEP:              return u8"Single Step";
-	case EXCEPTION_STACK_OVERFLOW:           return u8"Stack Overflow";
-	case EXCEPTION_STACK_INVALID:            return u8"Stack Invalid";
-	case 0x4001000a:                         return u8"Debug Output Exception";
-	case 0x40010006:                         return u8"Wide Debug Output Exception";
-	case 0x406D1388:                         return u8"Set Thread Name Exception";
-	case 0xE06D7363:                         return u8"C++ Exception";
+	case EXCEPTION_ACCESS_VIOLATION:         return "Access Violation";
+	case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:    return "Array Bounds Exceeded";
+	case EXCEPTION_BREAKPOINT:               return "Breakpoint";
+	case EXCEPTION_DATATYPE_MISALIGNMENT:    return "Data Misalignment";
+	case EXCEPTION_FLT_DENORMAL_OPERAND:     return "Floating-point Denormal Operand";
+	case EXCEPTION_FLT_DIVIDE_BY_ZERO:       return "Floating-point Divide by Zero";
+	case EXCEPTION_FLT_INEXACT_RESULT:       return "Floating-point Inexact Result";
+	case EXCEPTION_FLT_INVALID_OPERATION:    return "Floating-point Invalid Operation";
+	case EXCEPTION_FLT_OVERFLOW:             return "Floating-point Overflow";
+	case EXCEPTION_FLT_STACK_CHECK:          return "Floating-point Stack Check";
+	case EXCEPTION_FLT_UNDERFLOW:            return "Floating-point Underflow";
+	case EXCEPTION_GUARD_PAGE:               return "Guard Page Violation";
+	case EXCEPTION_ILLEGAL_INSTRUCTION:      return "Illegal Instruction";
+	case EXCEPTION_IN_PAGE_ERROR:            return "Page Error";
+	case EXCEPTION_INT_DIVIDE_BY_ZERO:       return "Integer Divide by Zero";
+	case EXCEPTION_INT_OVERFLOW:             return "Integer Overflow";
+	case EXCEPTION_INVALID_DISPOSITION:      return "Invalid Disposition";
+	case EXCEPTION_INVALID_HANDLE:           return "Invalid Handle";
+	case EXCEPTION_NONCONTINUABLE_EXCEPTION: return "Noncontinuable Exception";
+	case EXCEPTION_PRIV_INSTRUCTION:         return "Privileged Instruction";
+	case EXCEPTION_SINGLE_STEP:              return "Single Step";
+	case EXCEPTION_STACK_OVERFLOW:           return "Stack Overflow";
+	case EXCEPTION_STACK_INVALID:            return "Stack Invalid";
+	case 0x4001000a:                         return "Debug Output Exception";
+	case 0x40010006:                         return "Wide Debug Output Exception";
+	case 0x406D1388:                         return "Set Thread Name Exception";
+	case 0xE06D7363:                         return "C++ Exception";
 	default:
-		return u8"Unknown Exception (0x" + std::to_string(exceptionCode) + ")";
+		return "Unknown Exception (0x" + std::to_string(exceptionCode) + ")";
 	}
 }
 

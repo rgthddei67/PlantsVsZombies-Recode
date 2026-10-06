@@ -758,8 +758,8 @@ void CardSlotManager::DrawRelocationHint(Graphics* g)
 {
 	if (!g || GetSelectedPlantType() != PlantType::PLANT_CARRYVINE) return;
 	const char* message = mRelocationSourceID == NULL_PLANT_ID
-		? u8"搬搬藤：点击要搬运的植物组 · 右键取消"
-		: u8"搬搬藤：点击合法空格 · 75阳光 · 右键取消";
+		? "搬搬藤：点击要搬运的植物组 · 右键取消"
+		: "搬搬藤：点击合法空格 · 75阳光 · 右键取消";
 	const Vector p = g->LogicalToWorld(260.0f, 76.0f);
 	g->DrawGlyphRun(message, ResourceKeys::Fonts::FONT_FZCQ, 18,
 		glm::vec4(255, 239, 156, 255), p.x, p.y);

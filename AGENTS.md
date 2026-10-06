@@ -18,7 +18,7 @@
 
 ## 构建与验证
 
-- 本项目是以 x64 Windows 为正式平台的 C++17 CMake/vcpkg 项目，另有 Android ARM64 试玩构建。Codex 可以自主构建；明确的 Android 任务使用 `android/build.ps1`，入口与限制见 `android/README.md`，普通 Windows 工作仍默认 `clang-release`。
+- 本项目是以 x64 Windows 为正式平台的 C++23 CMake/vcpkg 项目，另有 Android ARM64 试玩构建。Codex 可以自主构建；明确的 Android 任务使用 `android/build.ps1`，入口与限制见 `android/README.md`，普通 Windows 工作仍默认 `clang-release`。
 - 主人已长期授权本项目正常构建所需的 vcpkg 依赖安装、CMake 配置/生成和编译；若沙箱阻止写入工作区外的 vcpkg 目录，直接申请提升权限执行，无需再次询问是否允许构建。该授权不包含删除 vcpkg、清空缓存或其他破坏性操作。
 - CMake 已加入系统 `PATH`，直接使用 `cmake` 命令，不要再定位或硬编码 Visual Studio 自带的 `cmake.exe`。运行 CMake 前仍需先把 Visual Studio Installer 目录加入 `PATH`，用 `vswhere` 定位 VS，再导入 `VsDevCmd.bat -arch=x64 -no_logo`；准确的 PowerShell 步骤见项目指南。
 - 所有普通功能、逻辑、UI、资源、存档、性能与架构任务，编译、F5、范围最小的诊断 AutoTest 和最终相关回归统一默认使用 `clang-release`。同一份当前源码若已用该产物完成相关 AutoTest，不再为交付重复编译 Debug 或重跑同一轮 AutoTest。只有主人明确要求 Debug CRT/Debug 语义，或 Release 问题确实需要辅助诊断时，才显式切换 `clang-debug`。

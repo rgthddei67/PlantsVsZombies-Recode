@@ -4,6 +4,8 @@ cmake_minimum_required(VERSION 3.29)
 
 project(PlantsVsZombies LANGUAGES CXX)
 
+include(cmake/cxx_standard.cmake)
+
 # Android 由 NDK 构建共享库；Windows 预设与发布参数继续走原有路径。
 if(ANDROID)
     include(cmake/android.cmake)
@@ -98,8 +100,6 @@ if(PVZ_SHARED_RUNTIME_ROOT)
     endif()
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 与 vcxproj 一致：静态运行时 /MT（Release）、/MTd（Debug），匹配 x64-windows-static triplet
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
@@ -278,6 +278,13 @@ endif()
 # 存档迁移是纯文件系统逻辑，单独目标可在不启动游戏、不接触真实玩家目录的情况下验证。
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(Utf8Tests tests/Utf8Tests.cpp)
+    target_include_directories(Utf8Tests PRIVATE ${SRC_DIR})
+    target_compile_options(Utf8Tests PRIVATE /W3 /sdl /EHsc)
+    target_link_libraries(Utf8Tests PRIVATE pvz_win7_compat nlohmann_json::nlohmann_json)
+    pvz_assert_win7_imports(Utf8Tests)
+    add_test(NAME utf8-paths COMMAND Utf8Tests)
+
     add_executable(SaveMigrationTests
         tests/SaveMigrationTests.cpp
         PlantVsZombies/SaveMigration.cpp

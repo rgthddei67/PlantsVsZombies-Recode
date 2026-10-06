@@ -258,12 +258,12 @@ namespace {
 	/** 把内部雨势枚举转换为面板使用的简短中文名称。 */
 	const char* RainIntensityDisplayName(RainIntensity intensity) {
 		switch (intensity) {
-		case RainIntensity::CLEAR:  return u8"晴天";
-		case RainIntensity::LIGHT:  return u8"小雨";
-		case RainIntensity::MEDIUM: return u8"中雨";
-		case RainIntensity::HEAVY:  return u8"大雨";
+		case RainIntensity::CLEAR:  return "晴天";
+		case RainIntensity::LIGHT:  return "小雨";
+		case RainIntensity::MEDIUM: return "中雨";
+		case RainIntensity::HEAVY:  return "大雨";
 		}
-		return u8"未知";
+		return "未知";
 	}
 
 	/** 低温冬日花园沿用同一降水强度，但把玩家可见名称改为雪。 */
@@ -274,43 +274,43 @@ namespace {
 			&& intensity != RainIntensity::CLEAR;
 		if (!snow) return RainIntensityDisplayName(intensity);
 		switch (intensity) {
-		case RainIntensity::LIGHT:  return u8"小雪";
-		case RainIntensity::MEDIUM: return u8"中雪";
-		case RainIntensity::HEAVY:  return u8"大雪";
-		case RainIntensity::CLEAR:  return u8"晴天";
+		case RainIntensity::LIGHT:  return "小雪";
+		case RainIntensity::MEDIUM: return "中雪";
+		case RainIntensity::HEAVY:  return "大雪";
+		case RainIntensity::CLEAR:  return "晴天";
 		}
-		return u8"未知";
+		return "未知";
 	}
 
 	const char* ColdWaveStrengthDisplayName(ColdWaveStrength strength) {
 		switch (strength) {
-		case ColdWaveStrength::WEAK:   return u8"弱寒潮";
-		case ColdWaveStrength::NORMAL: return u8"普通寒潮";
-		case ColdWaveStrength::STRONG: return u8"强寒潮";
+		case ColdWaveStrength::WEAK:   return "弱寒潮";
+		case ColdWaveStrength::NORMAL: return "普通寒潮";
+		case ColdWaveStrength::STRONG: return "强寒潮";
 		}
-		return u8"寒潮";
+		return "寒潮";
 	}
 
 	/** 把独立雾势转换为天气面板名称。 */
 	const char* FogWeatherDisplayName(FogWeatherIntensity intensity) {
 		switch (intensity) {
-		case FogWeatherIntensity::DEFAULT: return u8"原版迷雾";
-		case FogWeatherIntensity::SMALL:  return u8"小雾";
-		case FogWeatherIntensity::NORMAL: return u8"普通迷雾";
-		case FogWeatherIntensity::DENSE:  return u8"大雾";
+		case FogWeatherIntensity::DEFAULT: return "原版迷雾";
+		case FogWeatherIntensity::SMALL:  return "小雾";
+		case FogWeatherIntensity::NORMAL: return "普通迷雾";
+		case FogWeatherIntensity::DENSE:  return "大雾";
 		}
-		return u8"未知雾势";
+		return "未知雾势";
 	}
 
 	/** 把台风强度转换为当前天气行使用的正式等级名称。 */
 	const char* TyphoonStrengthDisplayName(TyphoonStrength strength) {
 		switch (strength) {
-		case TyphoonStrength::NONE:     return u8"";
-		case TyphoonStrength::TYPHOON:  return u8"台风";
-		case TyphoonStrength::SEVERE:   return u8"强台风";
-		case TyphoonStrength::SUPER:    return u8"超强台风";
+		case TyphoonStrength::NONE:     return "";
+		case TyphoonStrength::TYPHOON:  return "台风";
+		case TyphoonStrength::SEVERE:   return "强台风";
+		case TyphoonStrength::SUPER:    return "超强台风";
 		}
-		return u8"未知台风";
+		return "未知台风";
 	}
 
 	/** 失败提示使用与天气面板相同的台风后缀，避免大雨续期失准时只显示“大雨 → 大雨”。 */
@@ -318,35 +318,35 @@ namespace {
 		RainIntensity rain, TyphoonStrength typhoon) {
 		std::string name = RainIntensityDisplayName(rain);
 		if (rain == RainIntensity::HEAVY && typhoon != TyphoonStrength::NONE) {
-			name += std::string(u8"·") + TyphoonStrengthDisplayName(typhoon);
+			name += std::string("·") + TyphoonStrengthDisplayName(typhoon);
 		}
 		return name;
 	}
 
 	/** 只从公开预报及其已锁定警报等级构建玩家可见文案，隐藏的真实天气不得参与。 */
 	std::string WeatherForecastPanelText(const Board* board) {
-		if (!board) return u8"天气预报：暂无";
+		if (!board) return "天气预报：暂无";
 		if (board->IsWeatherPanelInterferenceActive()) {
-			return u8"气象信号受干扰";
+			return "气象信号受干扰";
 		}
 		if (board->IsStormyNightForecastActive() || board->IsStormyNightActive()) {
-			return u8"天气预报：暴风雨";
+			return "天气预报：暴风雨";
 		}
 		if (board->IsWeatherForecastDisrupted()) {
-			return u8"天气预报：气象信号受干扰";
+			return "天气预报：气象信号受干扰";
 		}
-		if (!board->HasWeatherForecast()) return u8"天气预报：暂无";
+		if (!board->HasWeatherForecast()) return "天气预报：暂无";
 
 		const int seconds = std::max(0,
 			static_cast<int>(std::ceil(board->GetWeatherTimer())));
 		const RainIntensity forecast = board->GetForecastRainIntensity();
-		std::string line = std::string(u8"天气预报（") + std::to_string(seconds)
-			+ u8"秒）：" + PrecipitationDisplayName(board, forecast);
-		if (forecast == board->GetRainIntensity()) line += u8"（持续）";
+		std::string line = std::string("天气预报（") + std::to_string(seconds)
+			+ "秒）：" + PrecipitationDisplayName(board, forecast);
+		if (forecast == board->GetRainIntensity()) line += "（持续）";
 		if (forecast == RainIntensity::HEAVY && board->HasPendingHeavyTyphoon()) {
 			const TyphoonStrength strength = board->GetPendingHeavyTyphoonStrength();
 			if (strength != TyphoonStrength::NONE) {
-				line += std::string(u8"·") + TyphoonStrengthDisplayName(strength);
+				line += std::string("·") + TyphoonStrengthDisplayName(strength);
 			}
 		}
 		return line;
@@ -356,7 +356,7 @@ namespace {
 	std::string ColdWavePanelText(const Board* board) {
 		if (board && board->IsWeatherPanelInterferenceActive()) return {};
 		if (board && board->IsColdWaveForecastDisruptionVisible()) {
-			return u8"寒潮预报：气象信号受干扰";
+			return "寒潮预报：气象信号受干扰";
 		}
 		if (!board || (!board->HasColdWaveForecast() && !board->IsColdWaveActive())) {
 			return {};
@@ -368,19 +368,19 @@ namespace {
 		if (board->HasColdWaveForecast()) {
 			const int minimum = static_cast<int>(std::lround(
 				board->GetColdWaveTargetTemperatureC()));
-			return strength + u8"预报（" + std::to_string(seconds)
-				+ u8"秒）：最低 " + std::to_string(minimum) + u8"°C";
+			return strength + "预报（" + std::to_string(seconds)
+				+ "秒）：最低 " + std::to_string(minimum) + "°C";
 		}
 		switch (board->GetColdWavePhase()) {
 		case ColdWavePhase::COOLING:
-			return strength + u8"实况：降温中（"
-				+ std::to_string(seconds) + u8"秒）";
+			return strength + "实况：降温中（"
+				+ std::to_string(seconds) + "秒）";
 		case ColdWavePhase::COLD:
-			return strength + u8"实况：低温持续（"
-				+ std::to_string(seconds) + u8"秒）";
+			return strength + "实况：低温持续（"
+				+ std::to_string(seconds) + "秒）";
 		case ColdWavePhase::THAWING:
-			return strength + u8"实况：回暖中（"
-				+ std::to_string(seconds) + u8"秒）";
+			return strength + "实况：回暖中（"
+				+ std::to_string(seconds) + "秒）";
 		case ColdWavePhase::CALM:
 			break;
 		}
@@ -392,15 +392,15 @@ namespace {
 		if (!board) return {};
 		if (board->IsWeatherPanelInterferenceActive()) return {};
 		if (board->IsFogWeatherForecastDisrupted()) {
-			return u8"雾势预报：气象信号受干扰";
+			return "雾势预报：气象信号受干扰";
 		}
 		if (!board->HasFogWeatherForecast()) return {};
 		const int seconds = std::max(0,
 			static_cast<int>(std::ceil(board->GetFogWeatherTimer())));
-		std::string line = std::string(u8"雾势预报（") + std::to_string(seconds)
-			+ u8"秒）：" + FogWeatherDisplayName(board->GetForecastFogWeatherIntensity());
+		std::string line = std::string("雾势预报（") + std::to_string(seconds)
+			+ "秒）：" + FogWeatherDisplayName(board->GetForecastFogWeatherIntensity());
 		if (board->GetForecastFogWeatherIntensity() == board->GetFogWeatherIntensity()) {
-			line += u8"（持续）";
+			line += "（持续）";
 		}
 		return line;
 	}
@@ -413,32 +413,32 @@ namespace {
 	/** 风向使用“吹向”而不是气象来向，箭头与植物实际位移方向始终一致。 */
 	const char* WindDirectionDisplayName(WindDirection direction) {
 		switch (direction) {
-		case WindDirection::TOWARD_HOUSE: return u8"← 吹向屋后";
-		case WindDirection::TOWARD_FRONT: return u8"→ 吹向前线";
-		case WindDirection::NONE:         return u8"无";
+		case WindDirection::TOWARD_HOUSE: return "← 吹向屋后";
+		case WindDirection::TOWARD_FRONT: return "→ 吹向前线";
+		case WindDirection::NONE:         return "无";
 		}
-		return u8"未知";
+		return "未知";
 	}
 
 	/** 把 bitmask 锁定行组格式化为面板文案，例如“第1、3行”。 */
 	std::string RoofRunoffRowsDisplayName(const Board* board) {
-		if (!board) return u8"未知行";
-		std::string result = u8"第";
+		if (!board) return "未知行";
+		std::string result = "第";
 		bool hasRow = false;
 		for (int row = 0; row < board->mRows; ++row) {
 			if (!board->IsRoofRunoffRowSelected(row)) continue;
-			if (hasRow) result += u8"、";
+			if (hasRow) result += "、";
 			result += std::to_string(row + 1);
 			hasRow = true;
 		}
-		return hasRow ? result + u8"行" : std::string(u8"未知行");
+		return hasRow ? result + "行" : std::string("未知行");
 	}
 
 	/** 把黑夜屋顶锁定导电瓦路格式化为简短面板文案。 */
 	std::string NightRoofChargeRowDisplayName(const Board* board) {
-		if (!board || board->GetNightRoofChargeRow() < 0) return u8"未知行";
-		return std::string(u8"第")
-			+ std::to_string(board->GetNightRoofChargeRow() + 1) + u8"行";
+		if (!board || board->GetNightRoofChargeRow() < 0) return "未知行";
+		return std::string("第")
+			+ std::to_string(board->GetNightRoofChargeRow() + 1) + "行";
 	}
 
 	/** 返回各档天气在面板上的强调色，并保留调用方提供的透明度。 */
@@ -705,9 +705,9 @@ void GameScene::DrawSpacePauseLabel(Graphics* g) const
 {
 	if (!g || !mSpacePauseActive) return;
 	const float centerX = static_cast<float>(SCENE_WIDTH) * 0.5f;
-	DrawCenteredUiText(g, u8"游戏暂停", kSpacePauseLabelFontSize,
+	DrawCenteredUiText(g, "游戏暂停", kSpacePauseLabelFontSize,
 		glm::vec4(0.0f, 0.0f, 0.0f, 220.0f), centerX + 2.0f, kSpacePauseLabelY + 2.0f);
-	DrawCenteredUiText(g, u8"游戏暂停", kSpacePauseLabelFontSize,
+	DrawCenteredUiText(g, "游戏暂停", kSpacePauseLabelFontSize,
 		glm::vec4(255.0f, 244.0f, 196.0f, 255.0f), centerX, kSpacePauseLabelY);
 }
 
@@ -1225,13 +1225,13 @@ void GameScene::DrawWinterThermometer(Graphics* g) const
 			kWinterThermometerScaleFontSize, textColor,
 			kWinterThermometerLabelX, y - 8.0f);
 	};
-	drawScaleLabel(kWinterThermometerTubeTopY, u8"+6° 上限");
-	drawScaleLabel(freezingY, u8"0° 结冰");
-	drawScaleLabel(kWinterThermometerTubeBottomY, u8"-12° 下限");
+	drawScaleLabel(kWinterThermometerTubeTopY, "+6° 上限");
+	drawScaleLabel(freezingY, "0° 结冰");
+	drawScaleLabel(kWinterThermometerTubeBottomY, "-12° 下限");
 
 	const int current = static_cast<int>(std::lround(mBoard->GetAmbientTemperatureC()));
-	const std::string currentText = std::string(u8"当前 ")
-		+ (current > 0 ? "+" : "") + std::to_string(current) + u8"°C";
+	const std::string currentText = std::string("当前 ")
+		+ (current > 0 ? "+" : "") + std::to_string(current) + "°C";
 	constexpr float kCurrentPlateX = 3.0f;  // 当前温度底板左缘，单位：逻辑像素
 	constexpr float kCurrentPlateY = 381.0f; // 当前温度底板顶缘，单位：逻辑像素
 	constexpr float kCurrentPlateWidth = 144.0f; // 当前温度底板宽度，覆盖完整中文数值
@@ -1273,13 +1273,13 @@ void GameScene::DrawPolarNightInstruments(Graphics* g) const
 		glm::vec4(0.0f, 0.0f, 0.0f, 105.0f));
 	g->FillRect(panelX, panelY, panelWidth, panelHeight, plate);
 	g->DrawRect(panelX, panelY, panelWidth, panelHeight, border);
-	g->DrawText(u8"极地观测站", ResourceKeys::Fonts::FONT_FZCQ, 16,
+	g->DrawText("极地观测站", ResourceKeys::Fonts::FONT_FZCQ, 16,
 		safe, panelX + 8.0f, panelY + 3.0f);
 
 	auto trendText = [](float current, float target) -> const char* {
-		if (target < current - 0.25f) return u8"↓";
-		if (target > current + 0.25f) return u8"↑";
-		return u8"→";
+		if (target < current - 0.25f) return "↓";
+		if (target > current + 0.25f) return "↑";
+		return "→";
 	};
 	auto drawGauge = [&](int index, const std::string& label,
 		const std::string& value, float ratio, bool isDanger,
@@ -1301,16 +1301,16 @@ void GameScene::DrawPolarNightInstruments(Graphics* g) const
 	const float temperature = mBoard->GetPolarTemperatureC();
 	const float humidity = mBoard->GetPolarHumidityPercent();
 	const float wind = mBoard->GetPolarWindSpeedMps();
-	drawGauge(0, u8"温度", std::to_string(static_cast<int>(std::lround(temperature))) + u8"°C",
+	drawGauge(0, "温度", std::to_string(static_cast<int>(std::lround(temperature))) + "°C",
 		(-2.0f - temperature) / 23.0f, mBoard->IsPolarTemperatureDangerous(),
 		trendText(temperature, mBoard->GetPolarTargetTemperatureC()));
-	drawGauge(1, u8"湿度", std::to_string(static_cast<int>(std::lround(humidity))) + "%",
+	drawGauge(1, "湿度", std::to_string(static_cast<int>(std::lround(humidity))) + "%",
 		humidity / 100.0f, mBoard->IsPolarHumidityDangerous(),
 		trendText(humidity, mBoard->GetPolarTargetHumidityPercent()));
 	const VerticalWindDirection direction = mBoard->GetPolarVerticalWindDirection();
 	const std::string windDirection = direction == VerticalWindDirection::UP
-		? u8"↑" : (direction == VerticalWindDirection::DOWN ? u8"↓" : u8"·");
-	drawGauge(2, std::string(u8"风速 ") + windDirection,
+		? "↑" : (direction == VerticalWindDirection::DOWN ? "↓" : "·");
+	drawGauge(2, std::string("风速 ") + windDirection,
 		std::to_string(static_cast<int>(std::lround(wind))) + "m/s",
 		wind / 30.0f, mBoard->IsPolarWindDangerous(),
 		trendText(wind, mBoard->GetPolarTargetWindSpeedMps()));
@@ -1409,7 +1409,7 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 	if (mBoard->IsWeatherPanelInterferenceActive()) {
 		const float textX = x + 18.0f;
 		const glm::vec4 shadow(0.0f, 0.0f, 0.0f, 185.0f * eased);
-		const std::string line = u8"气象信号受干扰";
+		const std::string line = "气象信号受干扰";
 		g->DrawText(line, ResourceKeys::Fonts::FONT_FZCQ, kWeatherCurrentFontSize,
 			shadow, textX + 1.0f, kWeatherPanelY + 26.0f);
 		g->DrawText(line, ResourceKeys::Fonts::FONT_FZCQ, kWeatherCurrentFontSize,
@@ -1419,16 +1419,16 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 	}
 
 	std::string currentLine = mBoard->IsStormyNightActive()
-		? std::string(u8"当前天气：暴风雨")
-		: std::string(u8"当前天气：")
+		? std::string("当前天气：暴风雨")
+		: std::string("当前天气：")
 			+ PrecipitationDisplayName(mBoard.get(), mBoard->GetRainIntensity());
 	if (!mBoard->IsStormyNightActive()) {
 		if (mBoard->SupportsStageFog()) {
-			currentLine += std::string(u8" · ")
+			currentLine += std::string(" · ")
 				+ FogWeatherDisplayName(mBoard->GetFogWeatherIntensity());
 		}
 		if (mBoard->HasTyphoon()) {
-			currentLine += std::string(u8" · ")
+			currentLine += std::string(" · ")
 				+ TyphoonStrengthDisplayName(mBoard->GetTyphoonStrength());
 		}
 	}
@@ -1499,18 +1499,18 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 	if (mBoard->SupportsRoofRunoff()) {
 		const int chargePercent = static_cast<int>(std::lround(
 			mBoard->GetRoofRunoffChargeRatio() * 100.0f));
-		std::string runoffLine = std::string(u8"坡面径流：")
+		std::string runoffLine = std::string("坡面径流：")
 			+ std::to_string(chargePercent) + "%";
 		if (mBoard->IsRoofRunoffWarning()) {
 			const int seconds = std::max(0,
 				static_cast<int>(std::ceil(mBoard->GetRoofRunoffPhaseTimer())));
-			runoffLine = std::string(u8"坡面径流：")
+			runoffLine = std::string("坡面径流：")
 				+ RoofRunoffRowsDisplayName(mBoard.get())
-				+ u8"预警（" + std::to_string(seconds) + u8"秒）";
+				+ "预警（" + std::to_string(seconds) + "秒）";
 		}
 		else if (mBoard->IsRoofRunoffFlowing()) {
-			runoffLine = std::string(u8"坡面径流：")
-				+ RoofRunoffRowsDisplayName(mBoard.get()) + u8"冲刷中";
+			runoffLine = std::string("坡面径流：")
+				+ RoofRunoffRowsDisplayName(mBoard.get()) + "冲刷中";
 		}
 		const float warningPulse = (mBoard->IsRoofRunoffWarning()
 			|| mBoard->IsRoofRunoffFlowing())
@@ -1526,23 +1526,23 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 	if (mBoard->SupportsNightRoofCharge() && !mBoard->HidesStationForecasts()) {
 		const int chargePercent = static_cast<int>(std::lround(
 			mBoard->GetNightRoofChargeRatio() * 100.0f));
-		std::string chargeLine = std::string(u8"屋顶雷荷：")
+		std::string chargeLine = std::string("屋顶雷荷：")
 			+ std::to_string(chargePercent) + "%";
 		if (mBoard->IsNightRoofChargeWarning()) {
 			const int seconds = std::max(0,
 				static_cast<int>(std::ceil(mBoard->GetNightRoofChargePhaseTimer())));
-			chargeLine = std::string(u8"屋顶雷荷：")
+			chargeLine = std::string("屋顶雷荷：")
 				+ NightRoofChargeRowDisplayName(mBoard.get())
-				+ u8"预警（" + std::to_string(seconds) + u8"秒）";
+				+ "预警（" + std::to_string(seconds) + "秒）";
 		}
 		else if (mBoard->IsNightRoofChargeDischarging()) {
-			chargeLine = std::string(u8"屋顶雷荷：")
-				+ NightRoofChargeRowDisplayName(mBoard.get()) + u8"放电中";
+			chargeLine = std::string("屋顶雷荷：")
+				+ NightRoofChargeRowDisplayName(mBoard.get()) + "放电中";
 		}
 		const int overchargePercent = static_cast<int>(std::lround(
 			mBoard->GetNightRoofOvercharge()));
 		if (overchargePercent > 0) {
-			chargeLine += std::string(u8"｜余电+")
+			chargeLine += std::string("｜余电+")
 				+ std::to_string(overchargePercent) + "%";
 		}
 		const float warningPulse = (mBoard->IsNightRoofChargeWarning()
@@ -1558,7 +1558,7 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 
 		const int executionLine = mBoard->GetNightRoofExecutionLine();
 		if (executionLine > 0) {
-			const std::string executionText = std::string(u8"处决线：")
+			const std::string executionText = std::string("处决线：")
 				+ std::to_string(executionLine);
 			const float executionPulse = 0.70f + 0.30f * std::sin(
 				static_cast<float>(mBoard->mBoardFrame)
@@ -1574,22 +1574,22 @@ void GameScene::DrawWeatherPanel(Graphics* g) const
 	}
 
 	if (mBoard->HasTyphoon()) {
-		std::string windLine = std::string(u8"风向实况：")
+		std::string windLine = std::string("风向实况：")
 			+ WindDirectionDisplayName(mBoard->GetWindDirection());
 		if (mBoard->GetTyphoonStrength() == TyphoonStrength::TYPHOON) {
 			// 普通台风只有持续风和僵尸移速影响，不显示从未发生过的植物位移阵风已经结束。
-			windLine += u8"｜持续风（无阵风位移）";
+			windLine += "｜持续风（无阵风位移）";
 		}
 		else if (mBoard->IsTyphoonGustActive()) {
-			windLine += u8"｜阵风中";
+			windLine += "｜阵风中";
 		}
 		else if (mBoard->GetTyphoonGustsRemaining() > 0) {
 			const int gustSeconds = std::max(0,
 				static_cast<int>(std::ceil(mBoard->GetWindGustTimer())));
-			windLine += std::string(u8"｜距阵风 ") + std::to_string(gustSeconds) + u8"秒";
+			windLine += std::string("｜距阵风 ") + std::to_string(gustSeconds) + "秒";
 		}
 		else {
-			windLine += u8"｜本阶段阵风结束";
+			windLine += "｜本阶段阵风结束";
 		}
 		const glm::vec4 windColor = (mBoard->IsTyphoonGustActive()
 			|| mBoard->IsTyphoonGustWarning())
@@ -1632,11 +1632,11 @@ void GameScene::DrawWeatherForecastFailure(Graphics* g) const
 	g->FillRect(x, failureY, 5.0f, kForecastFailureHeight,
 		glm::vec4(255.0f, 105.0f, 91.0f, alpha));
 
-	const std::string title = u8"天气预报失败！";
-	const std::string detail = std::string(u8"预报：")
+	const std::string title = "天气预报失败！";
+	const std::string detail = std::string("预报：")
 		+ ForecastOutcomeDisplayName(
 			mFailedForecastRainIntensity, mFailedForecastTyphoonStrength)
-		+ u8"  →  实际：" + ForecastOutcomeDisplayName(
+		+ "  →  实际：" + ForecastOutcomeDisplayName(
 			mActualForecastRainIntensity, mActualForecastTyphoonStrength);
 	const float textX = x + 18.0f;
 	const glm::vec4 shadow(0.0f, 0.0f, 0.0f, 185.0f * visibility);
@@ -1770,14 +1770,14 @@ void GameScene::DrawRoofMarshalBossHealthBar(Graphics* g) const
 			brightGold, markerX, labelY);
 	};
 	drawPhaseMarker(highThreatRatio,
-		std::string(u8"精锐 ") + std::to_string(state.highThreatThreshold));
+		std::string("精锐 ") + std::to_string(state.highThreatThreshold));
 	drawPhaseMarker(desperateRatio,
-		std::string(u8"狂暴 ") + std::to_string(state.desperateThreshold));
+		std::string("狂暴 ") + std::to_string(state.desperateThreshold));
 
 	const float centerX = state.x + state.width * 0.5f;
-	DrawCenteredUiText(g, u8"—  屋脊督军  —", kRoofMarshalBossTitleFontSize,
+	DrawCenteredUiText(g, "—  屋脊督军  —", kRoofMarshalBossTitleFontSize,
 		shadow, centerX + 2.0f, plateY + 3.0f);
-	DrawCenteredUiText(g, u8"—  屋脊督军  —", kRoofMarshalBossTitleFontSize,
+	DrawCenteredUiText(g, "—  屋脊督军  —", kRoofMarshalBossTitleFontSize,
 		brightGold, centerX, plateY + 1.0f);
 	const std::string healthText = std::to_string(state.currentHealth)
 		+ " / " + std::to_string(state.maxHealth);
@@ -1893,8 +1893,8 @@ void GameScene::BuildDrawCommands()
 	if (GameAPP::mDevelopMode) {
 		RegisterDrawCommand("DevModeBadge",
 			[](Graphics* g) {
-				std::string badge = u8"开发者模式";
-				if (GameAPP::mDevSpawnPaused) badge += u8"（刷怪已暂停）";
+				std::string badge = "开发者模式";
+				if (GameAPP::mDevSpawnPaused) badge += "（刷怪已暂停）";
 				auto& gameApp = GameAPP::GetInstance();
 				gameApp.DrawText(badge, Vector(4, 4), { 0,0,0,255 },
 					ResourceKeys::Fonts::FONT_FZCQ, 14);
@@ -1957,9 +1957,9 @@ void GameScene::BuildDrawCommands()
 			RegisterDrawCommand("ZombieNumber",
 				[this](Graphics* g) {
 					auto& gameApp = GameAPP::GetInstance();
-					gameApp.DrawText(u8"当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
+					gameApp.DrawText("当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
 						Vector(3, 569), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 24);
-					gameApp.DrawText(u8"当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
+					gameApp.DrawText("当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
 						Vector(5, 570), { 223,186,98,255 }, ResourceKeys::Fonts::FONT_FZCQ, 24);
 				},
 				LAYER_UI);
@@ -1989,8 +1989,8 @@ void GameScene::BuildDrawCommands()
 		if (!mBoard || !MiniGame::IsLastSavings(mBoard->mLevel)
 			|| mBoard->mBoardState != BoardState::GAME) return;
 		const std::string text = mBoard->mCurrentWave == 0
-			? u8"布阵剩余 " + std::to_string(static_cast<int>(std::ceil(mBoard->mZombieCountDown))) + u8" 秒 · 本局不再获得阳光"
-			: u8"守住十波 · 阳光用完就没有补给了！";
+			? "布阵剩余 " + std::to_string(static_cast<int>(std::ceil(mBoard->mZombieCountDown))) + " 秒 · 本局不再获得阳光"
+			: "守住十波 · 阳光用完就没有补给了！";
 		auto& app = GameAPP::GetInstance();
 		app.DrawText(text, Vector(260, 82), {0, 0, 0, 255}, ResourceKeys::Fonts::FONT_FZJZ, 20);
 		app.DrawText(text, Vector(259, 81), {255, 235, 160, 255}, ResourceKeys::Fonts::FONT_FZJZ, 20);
@@ -2062,7 +2062,7 @@ void GameScene::OnEnter() {
 	if (mBoard->mIsSurvival) {
 		auto button3 = mUIManager.CreateButton(Vector(990, 95), Vector(125 * 0.9f, 52 * 0.9f));
 		mPerkViewButton = button3;
-		button3->SetText(u8"词条");
+		button3->SetText("词条");
 		button3->SetAsCheckbox(false);
 		button3->SetTextColor(glm::vec4{ 53, 191, 61, 255 });
 		button3->SetHoverTextColor(glm::vec4{ 53, 240, 61, 255 });
@@ -2181,15 +2181,15 @@ void GameScene::OpenMenu()
 	mMenu = GameMessageBox::Builder(Vector(SCENE_WIDTH / 2 + 50, SCENE_HEIGHT / 2 - 80.0f))
 		.Background(ResourceKeys::Textures::IMAGE_OPTIONS_MENUBACK)
 		.ControlFont(ResourceKeys::Fonts::FONT_FZJT)
-		.Button(u8"返回游戏", Vector(400, 430), Vector(360, 100), 40, [this]() {
+		.Button("返回游戏", Vector(400, 430), Vector(360, 100), 40, [this]() {
 			mOpenMenu = false;
 			DeltaTime::SetPaused(false);
 		}, ResourceKeys::Textures::IMAGE_OPTIONS_BACKTOGAMEBUTTON0)
-		.Button(u8"重新开始", Vector(485, 330), Vector(213 * 0.9f, 50 * 0.9f), 21,
+		.Button("重新开始", Vector(485, 330), Vector(213 * 0.9f, 50 * 0.9f), 21,
 			[this]() { this->OpenRestartMenu(); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false)
-		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? u8"小游戏选关" : u8"主菜单", Vector(485, 371), Vector(213 * 0.9f, 50 * 0.9f), 21,
+		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? "小游戏选关" : "主菜单", Vector(485, 371), Vector(213 * 0.9f, 50 * 0.9f), 21,
 			[this]() { this->OpenQuitMenu(); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false)
-		.Button(u8"查看图鉴", Vector(485, 289), Vector(213 * 0.9f, 50 * 0.9f), 21, [this]() {
+		.Button("查看图鉴", Vector(485, 289), Vector(213 * 0.9f, 50 * 0.9f), 21, [this]() {
 			this->mLendToAlmanacScene = true;
 		}, ResourceKeys::Textures::IMAGE_BUTTONBIG, false)
 		.Checkbox(Vector(455, 250), Vector(42, 39), []() {
@@ -2207,11 +2207,11 @@ void GameScene::OpenMenu()
 		.Slider(Vector(530, 225), Vector(135, 10), 1, 4,
 			static_cast<float>(GameAPP::GetInstance().Difficulty),
 			[](float v) { GameAPP::GetInstance().Difficulty = static_cast<int>(v); }, true)
-		.Text(Vector(480, 165), 22, u8"音乐", labelColor)
-		.Text(Vector(480, 190), 22, u8"音效", labelColor)
-		.Text(Vector(480, 215), 22, u8"难度", labelColor)
-		.Text(Vector(498, 256), 14, u8"植物血量显示", labelColor)
-		.Text(Vector(634, 256), 14, u8"僵尸血量显示", labelColor)
+		.Text(Vector(480, 165), 22, "音乐", labelColor)
+		.Text(Vector(480, 190), 22, "音效", labelColor)
+		.Text(Vector(480, 215), 22, "难度", labelColor)
+		.Text(Vector(498, 256), 14, "植物血量显示", labelColor)
+		.Text(Vector(634, 256), 14, "僵尸血量显示", labelColor)
 		.Show();
 }
 
@@ -2247,16 +2247,16 @@ void GameScene::OpenRestartMenu()
 	this->mOpenRestartMenu = true;
 
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
-		.Title(u8"重新开始游戏？")
-		.Message(u8"你想要重新开始这一关吗？")
+		.Title("重新开始游戏？")
+		.Message("你想要重新开始这一关吗？")
 		.Scale(kCompactDialogScale)
-		.Button(u8"重来", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button("重来", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToRestart = true;
 			this->mOpenRestartMenu = false;
 			this->mOpenMenu = false;
 			DeltaTime::SetPaused(false);
 		})
-		.Button(u8"取消", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button("取消", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			// 只关闭确认层，父菜单继续拥有暂停。
 			this->mOpenRestartMenu = false;
 		})
@@ -2269,17 +2269,17 @@ void GameScene::OpenQuitMenu()
 	this->mOpenQuitMenu = true;
 
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
-		.Title(u8"退出当前游戏？")
+		.Title("退出当前游戏？")
 		.Message(MiniGame::IsMiniGame(mBoard->mLevel)
-			? u8"你想要返回小游戏选关吗？" : u8"你想要返回主菜单吗？")
+			? "你想要返回小游戏选关吗？" : "你想要返回主菜单吗？")
 		.Scale(kCompactDialogScale)
-		.Button(u8"退出", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button("退出", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToBackMenu = true;
 			this->mOpenQuitMenu = false;
 			this->mOpenMenu = false;
 			DeltaTime::SetPaused(false);
 		})
-		.Button(u8"取消", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button("取消", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			// 只关闭确认层，父菜单继续拥有暂停。
 			this->mOpenQuitMenu = false;
 		})
@@ -2681,24 +2681,24 @@ void GameScene::BeginColdStorageOpeningBonusSelect()
 	const glm::vec4 textColor{235, 235, 220, 255};
 	GameMessageBox::Builder builder{Vector(SCENE_WIDTH / 2.0f, SCENE_HEIGHT / 2.0f)};
 	builder.Panel(860, 450)
-		.Text(Vector(410, 100), 28, u8"选择战前支援", titleColor)
-		.Text(Vector(160, 145), 18, u8"三选二，仅本关有效。已选 "
-			+ std::to_string(mBoard->GetColdStorageOpeningBonusSelectionCount()) + u8" / 2 项，选完后搭配卡牌。", textColor);
+		.Text(Vector(410, 100), 28, "选择战前支援", titleColor)
+		.Text(Vector(160, 145), 18, "三选二，仅本关有效。已选 "
+			+ std::to_string(mBoard->GetColdStorageOpeningBonusSelectionCount()) + " / 2 项，选完后搭配卡牌。", textColor);
 	const std::array<std::string, 3> titles{
-		u8"扩充精英胆小菇名额", u8"延长开局准备", u8"卡牌快速冷却"};
+		"扩充精英胆小菇名额", "延长开局准备", "卡牌快速冷却"};
 	const std::array<std::string, 3> descriptions{
-		u8"最多同时 " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + u8" 株，额外" + std::to_string(ColdStorageSkillRules::EliteReplacements) + u8"次补种；原价，成长归零。",
-		u8"首次进攻推迟到开战后 150 秒，补给照常进行。",
-		u8"卡槽恢复速度 +120%（冷却÷2.2），含模仿者与冰惠券。"};
+		"最多同时 " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + " 株，额外" + std::to_string(ColdStorageSkillRules::EliteReplacements) + "次补种；原价，成长归零。",
+		"首次进攻推迟到开战后 150 秒，补给照常进行。",
+		"卡槽恢复速度 +120%（冷却÷2.2），含模仿者与冰惠券。"};
 	for (int i = 0; i < 3; ++i) {
 		const float y = 185.0f + i * 80.0f;
 		const bool chosen = mBoard->IsColdStorageOpeningBonusChosen(static_cast<ColdStorageOpeningBonus>(i + 1));
 		builder.Text(Vector(160, y), 24, titles[i], titleColor)
 			.Text(Vector(160, y + 32), 17, descriptions[i], textColor)
-			.Button(chosen ? u8"已选择" : u8"选择", Vector(820, y + 3), Vector(120, 44), 20,
+			.Button(chosen ? "已选择" : "选择", Vector(820, y + 3), Vector(120, 44), 20,
 				[this, i]() { ApplyColdStorageOpeningBonus(i + 1); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false, !chosen);
 	}
-	builder.Button(u8"无增益挑战", Vector(455, 460), Vector(190, 44), 20,
+	builder.Button("无增益挑战", Vector(455, 460), Vector(190, 44), 20,
 		[this]() { ApplyColdStorageOpeningBonus(0); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false);
 	mColdStorageBonusBox = builder.Show();
 }
@@ -2802,9 +2802,9 @@ void GameScene::RenderSurvivalPerkSelectStep()
 	const glm::vec4 red  { 200, 60, 60, 255 };
 	const glm::vec4 titleColor{ 245, 214, 127, 255 };
 
-	const std::string title = std::string(u8"第 ") + std::to_string(mBoard->mSurvivalRound - 1)
-		+ u8" 轮 · 选择强化（第 " + std::to_string(mSurvivalPerkStepsCompleted + 1)
-		+ u8"/" + std::to_string(SURVIVAL_PERK_PICKS_PER_ROUND) + u8" 次）";
+	const std::string title = std::string("第 ") + std::to_string(mBoard->mSurvivalRound - 1)
+		+ " 轮 · 选择强化（第 " + std::to_string(mSurvivalPerkStepsCompleted + 1)
+		+ "/" + std::to_string(SURVIVAL_PERK_PICKS_PER_ROUND) + " 次）";
 
 	// 预生成每个配对的两行文字并量宽，求内容最大宽度（descZh 已自带词条名，不再叠加 nameZh）
 	struct Row { std::string plant; std::string zombie; };
@@ -2816,13 +2816,13 @@ void GameScene::RenderSurvivalPerkSelectStep()
 		const PerkInfo& cz = SurvivalPerkManager::GetInfo(pr.zombie);
 		auto tags = [](const PerkInfo& info) {
 			std::string result;
-			if (info.rarity == PerkRarity::RARE) result += u8"[稀有]";
-			if (info.condition == PerkCondition::PLANTERN_MECHANICS) result += u8"[迷雾]";
+			if (info.rarity == PerkRarity::RARE) result += "[稀有]";
+			if (info.condition == PerkCondition::PLANTERN_MECHANICS) result += "[迷雾]";
 			return result;
 		};
 		Row r;
-		r.plant  = std::string(u8"植物：") + tags(bp) + bp.descZh + u8"（当前 " + std::to_string(pm.GetStacks(pr.plant)) + u8" 层）";
-		r.zombie = std::string(u8"僵尸：") + tags(cz) + cz.descZh + u8"（当前 " + std::to_string(pm.GetStacks(pr.zombie)) + u8" 层）";
+		r.plant  = std::string("植物：") + tags(bp) + bp.descZh + "（当前 " + std::to_string(pm.GetStacks(pr.plant)) + " 层）";
+		r.zombie = std::string("僵尸：") + tags(cz) + cz.descZh + "（当前 " + std::to_string(pm.GetStacks(pr.zombie)) + " 层）";
 		float wp = measureW(r.plant, rowFont);
 		float wz = measureW(r.zombie, rowFont);
 		float w = (wp > wz) ? wp : wz;
@@ -2863,15 +2863,15 @@ void GameScene::RenderSurvivalPerkSelectStep()
 		builder.Text(Vector(boxLeft + padX, blockTop + lineH), static_cast<float>(rowFont), rows[i].zombie, red);
 
 		const float btnY = blockTop + (rowBlockH - selectBtnSize.y) / 2.0f;
-		builder.Button(u8"选择", Vector(boxRight - padX - selectBtnSize.x, btnY), selectBtnSize, 16,
+		builder.Button("选择", Vector(boxRight - padX - selectBtnSize.x, btnY), selectBtnSize, 16,
 			[this, i]() { this->ApplyPerkSelection(i); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
 	}
 
 	// 两次选择共享同一轮的刷新额度；刷新只重抽当前候选，不结算当前选择机会。
 	const bool canRefresh = mSurvivalPerkRefreshesRemaining > 0;
 	const std::string refreshText = canRefresh
-		? std::string(u8"刷新（剩余 ") + std::to_string(mSurvivalPerkRefreshesRemaining) + u8" 次）"
-		: std::string(u8"刷新（已用完）");
+		? std::string("刷新（剩余 ") + std::to_string(mSurvivalPerkRefreshesRemaining) + " 次）"
+		: std::string("刷新（已用完）");
 	const float actionsLeft = cx - actionButtonsW / 2.0f;
 	const float actionsY = boxTop + boxH - padY - skipBtnSize.y;
 	builder.Button(refreshText, Vector(actionsLeft, actionsY), refreshBtnSize, 18,
@@ -2879,7 +2879,7 @@ void GameScene::RenderSurvivalPerkSelectStep()
 		ResourceKeys::Textures::IMAGE_BUTTONBIG, false, canRefresh);
 
 	// 放弃只消耗当前选择机会；第 1 次放弃后仍会进入第 2 次并保留刷新余额。
-	builder.Button(u8"放弃本次", Vector(actionsLeft + refreshBtnSize.x + buttonGap, actionsY),
+	builder.Button("放弃本次", Vector(actionsLeft + refreshBtnSize.x + buttonGap, actionsY),
 		skipBtnSize, 20, [this]() { this->ApplyPerkSelection(-1); },
 		ResourceKeys::Textures::IMAGE_BUTTONBIG, false);
 
@@ -2971,9 +2971,9 @@ void GameScene::RenderPerkViewPage()
 		total += n;
 		Line ln;
 		std::string tags;
-		if (info.rarity == PerkRarity::RARE) tags += u8"[稀有]";
-		if (info.condition == PerkCondition::PLANTERN_MECHANICS) tags += u8"[迷雾]";
-		ln.text  = std::string(u8"· ") + tags + info.descZh + u8"（已选 " + std::to_string(n) + u8" 次）";
+		if (info.rarity == PerkRarity::RARE) tags += "[稀有]";
+		if (info.condition == PerkCondition::PLANTERN_MECHANICS) tags += "[迷雾]";
+		ln.text  = std::string("· ") + tags + info.descZh + "（已选 " + std::to_string(n) + " 次）";
 		ln.color = (info.category == PerkCategory::PLANT_BUFF) ? green : red;
 		perkLines.push_back(ln);
 	}
@@ -2987,10 +2987,10 @@ void GameScene::RenderPerkViewPage()
 	const int pageEnd   = std::min(distinct, pageStart + kPerksPerPage);
 
 	std::string title = (distinct > 0)
-		? (std::string(u8"已强化：") + std::to_string(distinct) + u8" 种词条 · 累计 " + std::to_string(total) + u8" 层")
-		: std::string(u8"尚未选择任何强化词条");
+		? (std::string("已强化：") + std::to_string(distinct) + " 种词条 · 累计 " + std::to_string(total) + " 层")
+		: std::string("尚未选择任何强化词条");
 	if (totalPages > 1)
-		title += std::string(u8"（第 ") + std::to_string(mPerkViewPage + 1) + u8"/" + std::to_string(totalPages) + u8" 页）";
+		title += std::string("（第 ") + std::to_string(mPerkViewPage + 1) + "/" + std::to_string(totalPages) + " 页）";
 
 	// 固定面板（逻辑像素，居中于 550,300）
 	const float boxW = 560.0f, boxH = 420.0f;
@@ -3050,13 +3050,13 @@ void GameScene::RenderPerkViewPage()
 	const Vector   navBtnSize(110.0f, 44.0f);
 	const float    btnY       = boxTop + boxH - padY - closeBtnSize.y;
 
-	builder.Button(u8"关闭", Vector(cx - closeBtnSize.x / 2.0f, btnY), closeBtnSize, 20,
+	builder.Button("关闭", Vector(cx - closeBtnSize.x / 2.0f, btnY), closeBtnSize, 20,
 		[this]() { this->ClosePerkView(); }, ResourceKeys::Textures::IMAGE_BUTTONBIG);
 	if (mPerkViewPage > 0)
-		builder.Button(u8"上一页", Vector(boxLeft + padX, btnY), navBtnSize, 18,
+		builder.Button("上一页", Vector(boxLeft + padX, btnY), navBtnSize, 18,
 			[this]() { --mPerkViewPage; RenderPerkViewPage(); });
 	if (mPerkViewPage < totalPages - 1)
-		builder.Button(u8"下一页", Vector(boxRight - padX - navBtnSize.x, btnY), navBtnSize, 18,
+		builder.Button("下一页", Vector(boxRight - padX - navBtnSize.x, btnY), navBtnSize, 18,
 			[this]() { ++mPerkViewPage; RenderPerkViewPage(); });
 
 	mPerkViewBox = builder.Show();
@@ -3166,9 +3166,9 @@ void GameScene::RegisterSurvivalGameUiOnce()
 	RegisterDrawCommand("ZombieNumber",
 		[this](Graphics* g) {
 			auto& gameApp = GameAPP::GetInstance();
-			gameApp.DrawText(u8"当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
+			gameApp.DrawText("当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
 				Vector(3, 569), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 24);
-			gameApp.DrawText(u8"当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
+			gameApp.DrawText("当前僵尸数量: " + std::to_string(mBoard->mZombieNumber),
 				Vector(5, 570), { 223,186 ,98 ,255 }, ResourceKeys::Fonts::FONT_FZCQ, 24);
 		},
 		LAYER_UI);
@@ -3253,14 +3253,14 @@ void GameScene::GameOver()
 	}
 
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
-		.Title(u8"游戏结束")
-		.Message(u8"僵尸吃掉了你的脑子！")
+		.Title("游戏结束")
+		.Message("僵尸吃掉了你的脑子！")
 		.Scale(kCompactDialogScale)
-		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? u8"返回选关" : u8"返回菜单", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? "返回选关" : "返回菜单", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToBackMenu = true;
 			DeltaTime::SetPaused(false);
 		})
-		.Button(u8"重新开始", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button("重新开始", Vector(560, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToRestart = true;
 			DeltaTime::SetPaused(false);
 		})
@@ -3300,20 +3300,20 @@ void GameScene::RenderDevPanel()
 
 	GameMessageBox::Builder builder{ Vector(cx, cy) };
 	builder.Panel(boxSize.x, boxSize.y);
-	builder.Text(Vector(cx - 70.0f, 110.0f), 22.0f, u8"开发者面板", titleColor);
+	builder.Text(Vector(cx - 70.0f, 110.0f), 22.0f, "开发者面板", titleColor);
 
 	auto toggleText = [](const char* name, bool on) {
-		return std::string(name) + (on ? u8"：开" : u8"：关");
+		return std::string(name) + (on ? "：开" : "：关");
 	};
 
 	// 作弊开关（点击翻转后重建面板刷新文字）
-	builder.Button(toggleText(u8"无冷却种植", GameAPP::mDevNoCooldown),
+	builder.Button(toggleText("无冷却种植", GameAPP::mDevNoCooldown),
 		Vector(340.0f, 160.0f), Vector(200.0f, 36.0f), 16,
 		[this]() { GameAPP::mDevNoCooldown = !GameAPP::mDevNoCooldown; RenderDevPanel(); });
-	builder.Button(toggleText(u8"无视阳光", GameAPP::mDevFreePlant),
+	builder.Button(toggleText("无视阳光", GameAPP::mDevFreePlant),
 		Vector(340.0f, 206.0f), Vector(200.0f, 36.0f), 16,
 		[this]() { GameAPP::mDevFreePlant = !GameAPP::mDevFreePlant; RenderDevPanel(); });
-	builder.Button(toggleText(u8"暂停刷怪", GameAPP::mDevSpawnPaused),
+	builder.Button(toggleText("暂停刷怪", GameAPP::mDevSpawnPaused),
 		Vector(580.0f, 160.0f), Vector(200.0f, 36.0f), 16,
 		[this]() { GameAPP::mDevSpawnPaused = !GameAPP::mDevSpawnPaused; RenderDevPanel(); });
 
@@ -3333,36 +3333,36 @@ void GameScene::RenderDevPanel()
 			PersistDevPanelSelection();
 			RenderDevPanel();
 		});
-	builder.Button(u8"召唤", Vector(620.0f, 252.0f), Vector(90.0f, 36.0f), 16,
+	builder.Button("召唤", Vector(620.0f, 252.0f), Vector(90.0f, 36.0f), 16,
 		[this]() { this->BeginDevSpawnMode(); });
 
 	// 关卡选择行
-	builder.Button(u8"-", Vector(340.0f, 302.0f), Vector(40.0f, 36.0f), 16,
+	builder.Button("-", Vector(340.0f, 302.0f), Vector(40.0f, 36.0f), 16,
 		[this]() {
 			if (mDevLevelSel > 1) --mDevLevelSel;
 			PersistDevPanelSelection();
 			RenderDevPanel();
 		});
 	builder.Text(Vector(420.0f, 310.0f), 16.0f,
-		std::string(u8"关卡 ") + std::to_string(mDevLevelSel), textColor);
-	builder.Button(u8"+", Vector(560.0f, 302.0f), Vector(40.0f, 36.0f), 16,
+		std::string("关卡 ") + std::to_string(mDevLevelSel), textColor);
+	builder.Button("+", Vector(560.0f, 302.0f), Vector(40.0f, 36.0f), 16,
 		[this]() {
 			++mDevLevelSel;
 			PersistDevPanelSelection();
 			RenderDevPanel();
 		});
-	builder.Button(u8"进入", Vector(620.0f, 302.0f), Vector(90.0f, 36.0f), 16,
+	builder.Button("进入", Vector(620.0f, 302.0f), Vector(90.0f, 36.0f), 16,
 		[this]() { this->DevJumpToLevel(mDevLevelSel); });
-	builder.Button(u8"进入无尽", Vector(340.0f, 348.0f), Vector(110.0f, 32.0f), 14,
+	builder.Button("进入无尽", Vector(340.0f, 348.0f), Vector(110.0f, 32.0f), 14,
 		[this]() { DevJumpToLevel(SURVIVAL_ENDLESS_LEVEL); });
-	builder.Button(u8"进入夜无尽", Vector(460.0f, 348.0f), Vector(130.0f, 32.0f), 14,
+	builder.Button("进入夜无尽", Vector(460.0f, 348.0f), Vector(130.0f, 32.0f), 14,
 		[this]() { DevJumpToLevel(SURVIVAL_ENDLESS_NIGHT_LEVEL); });
 
 	// 底部：下一波 / 关闭
-	builder.Button(u8"下一波", Vector(360.0f, 420.0f), Vector(120.0f, 40.0f), 18,
+	builder.Button("下一波", Vector(360.0f, 420.0f), Vector(120.0f, 40.0f), 18,
 		[this]() { this->DevTriggerNextWave(); },
 		ResourceKeys::Textures::IMAGE_BUTTONBIG, false);   // 不自动关面板，可连点
-	builder.Button(u8"关闭", Vector(600.0f, 420.0f), Vector(120.0f, 40.0f), 18,
+	builder.Button("关闭", Vector(600.0f, 420.0f), Vector(120.0f, 40.0f), 18,
 		[this]() { mDevPanelActive = false; DeltaTime::SetPaused(false); mDevPanelBox.reset(); },
 		ResourceKeys::Textures::IMAGE_BUTTONBIG);
 
@@ -3382,8 +3382,8 @@ void GameScene::BeginDevSpawnMode()
 		RegisterDrawCommand("DevSpawnHint",
 			[this](Graphics* g) {
 				if (!mDevSpawnMode) return;
-				const std::string tip = std::string(u8"召唤模式：")
-					+ kDevZombieTable[mDevZombieIndex].second + u8"（左键放置，ESC 退出，RSHIFT 回面板）";
+				const std::string tip = std::string("召唤模式：")
+					+ kDevZombieTable[mDevZombieIndex].second + "（左键放置，ESC 退出，RSHIFT 回面板）";
 				GameAPP::GetInstance().DrawText(tip,
 					g->LogicalToWorld(300, 30), { 255, 90, 90, 255 },
 					ResourceKeys::Fonts::FONT_FZCQ, 18);
@@ -3738,7 +3738,7 @@ void GameScene::ShowTextPrompt(const std::string& text, const glm::vec4& color,
 void GameScene::ShowRoofMarshalAssaultWarning(int row, float duration)
 {
 	if (duration <= 0.0f) return;
-	ShowTextPrompt(u8"突击令：第" + std::to_string(row + 1) + u8"行全军突击！",
+	ShowTextPrompt("突击令：第" + std::to_string(row + 1) + "行全军突击！",
 		glm::vec4(255.0f, 62.0f, 42.0f, 255.0f),
 		kRoofMarshalPromptFontSize,
 		kRoofMarshalPromptAppearDuration,
@@ -3749,7 +3749,7 @@ void GameScene::ShowRoofMarshalAssaultWarning(int row, float duration)
 
 void GameScene::ShowPlanternLowFuelWarning()
 {
-	ShowTextPrompt(u8"路灯花燃料即将耗尽！",
+	ShowTextPrompt("路灯花燃料即将耗尽！",
 		glm::vec4(255.0f, 58.0f, 48.0f, 255.0f),
 		kPlanternLowFuelPromptFontSize,
 		kPlanternLowFuelPromptAppearDuration,
@@ -3767,8 +3767,8 @@ void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 		&& mBoard->GetAmbientTemperatureC() <= 0.0f
 		&& strength == TyphoonStrength::NONE) {
 		constexpr const char* kSnowLines[] = {
-			u8"朔雪压园寒色重，冻云垂野夜无声",
-			u8"寒潮过境霜华结，万点飞琼覆故园",
+			"朔雪压园寒色重，冻云垂野夜无声",
+			"寒潮过境霜华结，万点飞琼覆故园",
 			"THE COLD DESCENDS — THE GARDEN FREEZES",
 		};
 		text = kSnowLines[selected];
@@ -3785,8 +3785,8 @@ void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 	case TyphoonStrength::NONE:
 	{
 		constexpr const char* kLines[] = {
-			u8"玄云压城雾不开，银河倒泻雨声来",
-			u8"雷隐千峰云覆台，雨倾万壑浪奔来",
+			"玄云压城雾不开，银河倒泻雨声来",
+			"雷隐千峰云覆台，雨倾万壑浪奔来",
 			"THE HEAVENS WEEP — THE FLOOD DESCENDS",
 		};
 		text = kLines[selected];
@@ -3795,8 +3795,8 @@ void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 	case TyphoonStrength::TYPHOON:
 	{
 		constexpr const char* kLines[] = {
-			u8"长风卷叶穿孤城，疏雨敲窗万木鸣",
-			u8"云旗猎猎遮危城，夜雨萧萧动客旌",
+			"长风卷叶穿孤城，疏雨敲窗万木鸣",
+			"云旗猎猎遮危城，夜雨萧萧动客旌",
 			"THE WIND HUNTS — BAR THE GATES",
 		};
 		text = kLines[selected];
@@ -3806,8 +3806,8 @@ void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 	case TyphoonStrength::SEVERE:
 	{
 		constexpr const char* kLines[] = {
-			u8"罡风裂野撼孤城，怒雨翻江万壑鸣",
-			u8"狂澜撼岳群山惊，飞石穿云万谷鸣",
+			"罡风裂野撼孤城，怒雨翻江万壑鸣",
+			"狂澜撼岳群山惊，飞石穿云万谷鸣",
 			"THE GALE ROARS — KNEEL OR BREAK",
 		};
 		text = kLines[selected];
@@ -3817,8 +3817,8 @@ void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 	case TyphoonStrength::SUPER:
 	{
 		constexpr const char* kLines[] = {
-			u8"天地无光山岳倾，九霄雷坠鬼神惊",
-			u8"乾坤倒转星河坠，万里山川一怒摧",
+			"天地无光山岳倾，九霄雷坠鬼神惊",
+			"乾坤倒转星河坠，万里山川一怒摧",
 			"THE END DESCENDS — ALL SHALL BREAK",
 		};
 		text = kLines[selected];

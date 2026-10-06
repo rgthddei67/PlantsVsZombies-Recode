@@ -6,6 +6,12 @@
 
 ## 构建与运行
 
+Windows、Linux、Android 的游戏与测试目标统一由 `cmake/cxx_standard.cmake` 启用 C++23，禁止静默降级或关闭 `char8_t`。配置阶段检查语言模式和 UTF-8 窄字符串编码；这不表示当前标准库实现了全部 C++23 功能。新增标准库功能先核对 MSVC STL（Windows）、libstdc++/libc++（Linux）及 NDK libc++（Android），按实际用到的 `__cpp_lib_*` 特性宏和各平台编译验证支持，不能仅依赖 `__cplusplus`。
+
+源码、普通 `"中文"` 字面量及 SDL/JSON/日志接口统一使用 UTF-8 `char` 字节。Windows 强制 `/utf-8`，Linux/Android 强制 UTF-8 输入与执行字符集；`path::u8string()` 返回的 `std::u8string` 通过 `Utf8::ToString` 显式复制为字节，不能改用受 Windows 代码页影响的 `path::string()`。Windows/Linux 的 `utf8-paths` CTest 覆盖中文、非 BMP 字符、内嵌 NUL 与文件/JSON 往返。
+
+仅升级游戏语言标准不会强制第三方库使用同一标准；保留各 port 的构建配置、运行库与 ABI。平台迁移至少验证 Windows `clang-release` + CTest + 相关可见 AutoTest、`android/build.ps1` 的原生编译与打包，以及 Linux 的 CMake 构建 + CTest。编译/打包通过不代表 Android 真机或 Linux 图形运行已经验收。
+
 这是一个使用 CMake + vcpkg（manifest 模式）的 C++ 项目，正式平台为 x64 Windows，另有 [Android ARM64 试玩构建](../../android/README.md)。明确的 Android 构建使用 `android/build.ps1`、NDK 与 `arm64-pvz-android` triplet，不套用下方 Windows 编译参数。构建系统已于 2026-06-13 统一迁移到 CMake，不再使用 `.sln/.vcxproj`（`CMakeLists.txt` + `CMakePresets.json` + `vcpkg.json`，Windows triplet 为 `x64-windows-static`）；仓库内专用依赖通过 `cmake/vcpkg-ports` overlay port 提供。
 
 - **构建（Codex 可自主运行）：** CMake 已加入系统 `PATH`，应直接调用 `cmake`，不再定位或硬编码 Visual Studio 自带的 `cmake.exe`。构建仍必须在 VS 开发者环境中运行，以便提供编译器、Windows SDK 和相关工具链。**关键顺序：先把 `vswhere` 所在的 Installer 目录加入 `PATH`，再导入 `VsDevCmd.bat`**；否则 VsDevCmd 内部调用 vswhere 时会输出 `'vswhere.exe' is not recognized`（构建仍能成功，但会产生噪声）。无噪声的一次性环境导入与构建命令：
@@ -54,7 +60,7 @@ Windows 发布产物以 Windows 7 SP1 x64（PE subsystem 6.01）为最低系统�
 
 Vulkan 运行时把 dynamic rendering 与 synchronization2 **分别**选路：Vulkan 1.3 优先核心入口；1.2 驱动若提供 `VK_KHR_dynamic_rendering` / `VK_KHR_synchronization2` 就使用对应 KHR 入口；缺少任一扩展时分别回退到传统 RenderPass / `vkCmdPipelineBarrier` + `vkQueueSubmit`，不会因为只缺其中一个而放弃另一个快路径。兼容矩阵开关为 `-Vulkan12`（把协商限制到 1.2）、`-VulkanLegacyRendering`、`-VulkanLegacySync`，`-Vulkan12Fallback` 等价于三者同时启用。它们只用于测试和故障诊断，正常启动保持 1.3 核心快路径。
 
-工具链：C++17；源码使用 `/utf-8` 编码（中文 UI 字符串所必需）；Unicode 字符集；vcpkg 静态链接。无头运行时，`CrashHandler` 通过 Windows Vectored Exception Handler 生成的崩溃对话框不会出现在 stderr。
+工具链：C++23；源码使用 `/utf-8` 编码（中文 UI 字符串所必需）；Unicode 字符集；vcpkg 静态链接。无头运行时，`CrashHandler` 通过 Windows Vectored Exception Handler 生成的崩溃对话框不会出现在 stderr。
 
 ### TestDriver 的 Release 编译例外
 

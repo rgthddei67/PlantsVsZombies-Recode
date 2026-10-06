@@ -107,9 +107,9 @@ void CardSlotManager::DrawPlantAbilityMenu(Graphics* g)
 	if (!g || !mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->mTrophySpawned) return;
 	if (mPlantAbilityHintRemaining > 0) {
 #if defined(__ANDROID__)
-		const char* hint = u8"菠萝／冰仓坚果：轻点发动，长按设置";
+		const char* hint = "菠萝／冰仓坚果：轻点发动，长按设置";
 #else
-		const char* hint = u8"菠萝／冰仓坚果：点击发动，悬停设置";
+		const char* hint = "菠萝／冰仓坚果：点击发动，悬停设置";
 #endif
 		g->FillRect(320, 555, 460, 29, glm::vec4(20, 40, 50, 220));
 		g->DrawText(hint, ResourceKeys::Fonts::FONT_FZCQ, 17, glm::vec4(185, 250, 255, 255), 338, 558);
@@ -132,7 +132,7 @@ void CardSlotManager::DrawPlantAbilityMenu(Graphics* g)
 	const glm::vec4 cyan(140, 240, 255, 255);
 	g->FillRect(pos.x, pos.y, kWidth, kHeight, glm::vec4(25, 50, 65, 245));
 	g->DrawRect(pos.x, pos.y, kWidth, kHeight, cyan);
-	const std::string text = p->IsAbilityAutomatic() ? u8"自动 → 手动" : u8"手动 → 自动";
+	const std::string text = p->IsAbilityAutomatic() ? "自动 → 手动" : "手动 → 自动";
 	g->DrawText(text, ResourceKeys::Fonts::FONT_FZCQ, 15, cyan, pos.x + 5, pos.y + 5);
 	const std::string cost = p->GetManualAbilityDescription();
 	const auto size = g->MeasureTextSize(cost, ResourceKeys::Fonts::FONT_FZCQ, 13);

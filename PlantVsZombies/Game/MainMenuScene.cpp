@@ -182,7 +182,7 @@ void MainMenuScene::BuildDrawCommands()
 	mConsoleButton = mUIManager.CreateButton(kConsoleButtonPosition, kConsoleButtonSize);
 	mConsoleButton->SetAsCheckbox(false);
 	mConsoleButton->SetSkipDraw(true);
-	mConsoleButton->SetText(u8"控制台", ResourceKeys::Fonts::FONT_FZCQ, 18);
+	mConsoleButton->SetText("控制台", ResourceKeys::Fonts::FONT_FZCQ, 18);
 	mConsoleButton->SetTextColor(glm::vec4{ 53, 191, 61, 255 });
 	mConsoleButton->SetHoverTextColor(glm::vec4{ 53, 240, 61, 255 });
 	mConsoleButton->SetImageKeys(
@@ -216,7 +216,7 @@ void MainMenuScene::BuildDrawCommands()
 			Vector(330, 535), Vector(213 * 0.9f, 50 * 0.9f));
 		mSkipToSecondAreaButton->SetAsCheckbox(false);
 		mSkipToSecondAreaButton->SetSkipDraw(true);
-		mSkipToSecondAreaButton->SetText(u8"跳到 2-1",
+		mSkipToSecondAreaButton->SetText("跳到 2-1",
 			ResourceKeys::Fonts::FONT_FZCQ, 18);
 		mSkipToSecondAreaButton->SetTextColor(glm::vec4{ 53, 191, 61, 255 });
 		mSkipToSecondAreaButton->SetHoverTextColor(glm::vec4{ 53, 240, 61, 255 });
@@ -274,7 +274,7 @@ void MainMenuScene::OpenMenu()
 	mMenu = GameMessageBox::Builder(Vector(SCENE_WIDTH / 2 + 50, SCENE_HEIGHT / 2 - 80.0f))
 		.Background(ResourceKeys::Textures::IMAGE_OPTIONS_MENUBACK)
 		.ControlFont(ResourceKeys::Fonts::FONT_FZJT)
-		.Button(u8"返回游戏", Vector(400, 430), Vector(360, 100), 40, [this]() {
+		.Button("返回游戏", Vector(400, 430), Vector(360, 100), 40, [this]() {
 			mOpenMenu = false;
 			DeltaTime::SetPaused(false);
 		}, ResourceKeys::Textures::IMAGE_OPTIONS_BACKTOGAMEBUTTON0)
@@ -301,13 +301,13 @@ void MainMenuScene::OpenMenu()
 		.Slider(Vector(530, 225), Vector(135, 10), 1, 4,
 			static_cast<float>(GameAPP::GetInstance().Difficulty),
 			[](float v) { GameAPP::GetInstance().Difficulty = static_cast<int>(v); }, true)
-		.Text(Vector(480, 165), 22, u8"音乐", labelColor)
-		.Text(Vector(480, 190), 22, u8"音效", labelColor)
-		.Text(Vector(480, 215), 22, u8"难度", labelColor)
-		.Text(Vector(555, 254), 18, u8"垂直同步", labelColor)
-		.Text(Vector(555, 294), 18, u8"全屏", labelColor)
-		.Text(Vector(555, 334), 18, u8"植物血量显示", labelColor)
-		.Text(Vector(555, 374), 18, u8"僵尸血量显示", labelColor)
+		.Text(Vector(480, 165), 22, "音乐", labelColor)
+		.Text(Vector(480, 190), 22, "音效", labelColor)
+		.Text(Vector(480, 215), 22, "难度", labelColor)
+		.Text(Vector(555, 254), 18, "垂直同步", labelColor)
+		.Text(Vector(555, 294), 18, "全屏", labelColor)
+		.Text(Vector(555, 334), 18, "植物血量显示", labelColor)
+		.Text(Vector(555, 374), 18, "僵尸血量显示", labelColor)
 		.Show();
 }
 
@@ -325,53 +325,53 @@ void MainMenuScene::OpenConsole()
 	GameMessageBox::Builder builder(panelCenter);
 	builder
 		.Panel(static_cast<float>(SCENE_WIDTH), static_cast<float>(SCENE_HEIGHT))
-		.Text(panelCenter + Vector(-76.0f, -190.0f), 38, u8"控制台", titleColor)
+		.Text(panelCenter + Vector(-76.0f, -190.0f), 38, "控制台", titleColor)
 		.TooltipPanel(kConsoleTooltipMaxWidth, 17.0f)
 		.Checkbox(panelCenter + Vector(-205.0f, -135.0f), Vector(50.0f, 46.0f), []() {
 			auto& app = GameAPP::GetInstance();
 			app.mHxyModeEnabled = !app.mHxyModeEnabled;
 		}, gameApp.mHxyModeEnabled,
-			u8"新开局生效：出怪预算固定为难度1的70%（实际只数随种类和固定出怪变化）；开局额外300阳光；僵尸所有防具（含气球）的初始及最大血量为原来的75%，本体血量不变。续局沿用该局设置，不重复赠送阳光。",
+			"新开局生效：出怪预算固定为难度1的70%（实际只数随种类和固定出怪变化）；开局额外300阳光；僵尸所有防具（含气球）的初始及最大血量为原来的75%，本体血量不变。续局沿用该局设置，不重复赠送阳光。",
 			kConsoleOptionHitSize)
 		.Text(panelCenter + Vector(-140.0f, -120.0f), 22,
-			u8"HXY专属", labelColor)
+			"HXY专属", labelColor)
 		.Checkbox(panelCenter + Vector(-205.0f, -75.0f), Vector(50.0f, 46.0f), []() {
 			auto& app = GameAPP::GetInstance();
 			app.mEnableMonteCarloAI = !app.mEnableMonteCarloAI;
 		}, gameApp.mEnableMonteCarloAI,
-			u8"让部分僵尸模拟未来战局后选择目标；关闭时改用更简单、较省性能的决策。不建议关闭。",
+			"让部分僵尸模拟未来战局后选择目标；关闭时改用更简单、较省性能的决策。不建议关闭。",
 			kConsoleOptionHitSize)
 		.Text(panelCenter + Vector(-140.0f, -60.0f), 22,
-			u8"蒙特卡洛模拟未来AI", labelColor)
+			"蒙特卡洛模拟未来AI", labelColor)
 		.Checkbox(panelCenter + Vector(-205.0f, -15.0f), Vector(50.0f, 46.0f), []() {
 			auto& app = GameAPP::GetInstance();
 			app.mAdvancedPauseEnabled = !app.mAdvancedPauseEnabled;
 		}, gameApp.mAdvancedPauseEnabled,
-			u8"开启后，空格暂停时仍可选择卡片和种植；关闭后，暂停会锁住战斗操作。建议开启。",
+			"开启后，空格暂停时仍可选择卡片和种植；关闭后，暂停会锁住战斗操作。建议开启。",
 			kConsoleOptionHitSize)
 		.Text(panelCenter + Vector(-140.0f, 0.0f), 22,
-			u8"高级暂停（暂停时可选卡和种植）", labelColor)
+			"高级暂停（暂停时可选卡和种植）", labelColor)
 		.Checkbox(panelCenter + Vector(-205.0f, 45.0f), Vector(50.0f, 46.0f), [this]() {
 			auto& app = GameAPP::GetInstance();
 			app.mTyphoonWeatherEnabled = !app.mTyphoonWeatherEnabled;
 			mReadyToRefreshConsole = true;
 		}, gameApp.mTyphoonWeatherEnabled,
-			u8"决定关卡是否可能出现台风；关闭后，台风概率、预警和效果都会停用。游玩生存模式建议关闭。注: 台风有较大运气成分，不愿意接受太多运气的玩家建议关闭；但是关闭会影响部分关卡（2-9等）的体验（变简单）不建议关闭。",
+			"决定关卡是否可能出现台风；关闭后，台风概率、预警和效果都会停用。游玩生存模式建议关闭。注: 台风有较大运气成分，不愿意接受太多运气的玩家建议关闭；但是关闭会影响部分关卡（2-9等）的体验（变简单）不建议关闭。",
 			kConsoleOptionHitSize)
 		.Text(panelCenter + Vector(-140.0f, 60.0f), 22,
-			u8"会出现台风天气", labelColor);
+			"会出现台风天气", labelColor);
 	if (gameApp.mTyphoonWeatherEnabled) {
 		builder.Checkbox(panelCenter + Vector(-205.0f, 105.0f), Vector(50.0f, 46.0f), []() {
 			auto& app = GameAPP::GetInstance();
 			app.mOpeningTyphoonProtectionEnabled = !app.mOpeningTyphoonProtectionEnabled;
 		}, gameApp.mOpeningTyphoonProtectionEnabled,
-			u8"开启后，普通冒险与生存第一轮的第1～5波不会附加台风。建议开启。",
+			"开启后，普通冒险与生存第一轮的第1～5波不会附加台风。建议开启。",
 			kConsoleOptionHitSize)
 		.Text(panelCenter + Vector(-140.0f, 120.0f), 22,
-			u8"开局台风保护（第1～5波）", labelColor);
+			"开局台风保护（第1～5波）", labelColor);
 	}
 	mConsoleMenu = builder
-		.Button(u8"关闭", panelCenter + Vector(-90.0f, 180.0f), Vector(180.0f, 52.0f),
+		.Button("关闭", panelCenter + Vector(-90.0f, 180.0f), Vector(180.0f, 52.0f),
 			24, [this]() { CloseConsole(); })
 		.Show();
 }

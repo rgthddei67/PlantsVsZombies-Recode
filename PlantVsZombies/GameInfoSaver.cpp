@@ -1,4 +1,5 @@
 #include "GameInfoSaver.h"
+#include "Utf8.h"
 #include "SaveLocation.h"
 #include "SaveMigration.h"
 #include "SaveSchema.h"
@@ -65,7 +66,7 @@ namespace {
 			}
 
 			std::error_code directoryError;
-			const auto destination = std::filesystem::u8path(result.root);
+			const auto destination = Utf8::ToPath(result.root);
 			std::filesystem::create_directories(destination, directoryError);
 			if (directoryError || !std::filesystem::is_directory(destination, directoryError) ||
 				directoryError) {
@@ -75,7 +76,7 @@ namespace {
 			}
 
 			const auto migration = SaveMigration::MigrateDirectory(
-				std::filesystem::u8path(GetLegacySaveRoot()), destination);
+				Utf8::ToPath(GetLegacySaveRoot()), destination);
 			if (migration.migratedFileCount > 0 || migration.duplicateFileCount > 0) {
 				LOG_INFO("GameInfoSaver") << "旧存档迁移完成: 新迁移 "
 					<< migration.migratedFileCount << " 个，清理重复 "
@@ -2103,7 +2104,7 @@ bool GameInfoSaver::SaveAutoTestLevelSnapshot(Board* board, CardSlotManager* man
 	if (!GameAPP::mAutoTestMode || !board || !manager || filename.empty()) return false;
 	try {
 		std::error_code ec;
-		const auto parent = std::filesystem::u8path(filename).parent_path();
+		const auto parent = Utf8::ToPath(filename).parent_path();
 		if (!parent.empty()) {
 			std::filesystem::create_directories(parent, ec);
 			if (ec) return false;
@@ -2140,7 +2141,7 @@ bool GameInfoSaver::SaveCommanderStallSnapshot(Board* board, CardSlotManager* ma
 			const auto session = root / (std::to_string(timestamp) + "_"
 				+ std::to_string(sequence.fetch_add(1, std::memory_order_relaxed)));
 			if (std::filesystem::create_directory(session, ec)) {
-				directory = session.u8string();
+				directory = Utf8::ToString(session.u8string());
 				break;
 			}
 			if (ec) {
@@ -2152,23 +2153,23 @@ bool GameInfoSaver::SaveCommanderStallSnapshot(Board* board, CardSlotManager* ma
 			LOG_ERROR("GameInfoSaver") << "指挥官诊断会话名冲突，已跳过";
 			return false;
 		}
-		const auto session = std::filesystem::u8path(directory);
+		const auto session = Utf8::ToPath(directory);
 		const bool snapshotSaved = SerializeLevelDataToPath(board, manager,
-			(session / "level_snapshot.json").u8string());
+			Utf8::ToString((session / "level_snapshot.json").u8string()));
 		// 保存原始资源字节，而不是重新排版 JSON；实验覆盖的实际数值另由 diagnostics 记录。
 		const std::string policySource = "./resources/ai/cold_storage_policy.json";
 		const auto policyBytes = FileManager::LoadFileAsBinary(policySource);
 		const bool policySaved = !policyBytes.empty() && FileManager::SaveBinaryFile(
-			(session / "policy.json").u8string(), policyBytes.data(), policyBytes.size());
+			Utf8::ToString((session / "policy.json").u8string()), policyBytes.data(), policyBytes.size());
 		const auto gameDataBytes=FileManager::LoadFileAsBinary("./resources/gamedata.json");
 		const bool gameDataSaved=!gameDataBytes.empty() && FileManager::SaveBinaryFile(
-			(session/"gamedata.json").u8string(),gameDataBytes.data(),gameDataBytes.size());
+			Utf8::ToString((session/"gamedata.json").u8string()),gameDataBytes.data(),gameDataBytes.size());
 		auto record = diagnostics;
 		record["capture"] = {{"directory",directory},{"levelSnapshot","level_snapshot.json"},
 			{"levelSnapshotSaved",snapshotSaved},{"policySource",policySource},
 			{"policyCopy","policy.json"},{"policyCopySaved",policySaved},
 			{"gameDataCopy","gamedata.json"},{"gameDataCopySaved",gameDataSaved}};
-		const bool diagnosticsSaved = FileManager::SaveJsonFile((session / "diagnostics.json").u8string(),record);
+		const bool diagnosticsSaved = FileManager::SaveJsonFile(Utf8::ToString((session / "diagnostics.json").u8string()),record);
 		if (!snapshotSaved || !policySaved || !diagnosticsSaved) {
 			LOG_ERROR("GameInfoSaver") << "指挥官诊断部分保存失败，保留取证目录: " << directory;
 			return false;

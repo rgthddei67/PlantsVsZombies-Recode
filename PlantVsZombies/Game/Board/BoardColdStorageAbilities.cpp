@@ -143,8 +143,8 @@ void Board::DrawColdStoragePrecisionStrike(Graphics* g) const
 		// 每株均有瞄准环，同批只显示一份倒计时，避免相邻格标签互相覆盖。
 		if(labelDrawn) return;
 		labelDrawn=true;
-		const std::string label = u8"精准清除 " + (count>1 ? u8"×"+std::to_string(count)+" " : std::string{})
-			+ std::to_string(static_cast<int>(std::ceil(mColdStorage.strikeAimRemaining))) + u8"秒";
+		const std::string label = "精准清除 " + (count>1 ? "×"+std::to_string(count)+" " : std::string{})
+			+ std::to_string(static_cast<int>(std::ceil(mColdStorage.strikeAimRemaining))) + "秒";
 		const auto font = ResourceKeys::Fonts::FONT_FZCQ;
 		const float width = g->MeasureTextWidth(label, font, 14);
 		g->FillRect(x - width / 2 - 4, y - radius - 27, width + 8, 20, shadow);

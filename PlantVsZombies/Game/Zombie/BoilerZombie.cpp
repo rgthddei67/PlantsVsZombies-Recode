@@ -159,7 +159,7 @@ void BoilerZombie::Draw(Graphics* g)
 	Zombie::Draw(g);
 	if (!g || mIsPreview || IsDying() || mPhase == Phase::READY || mPhase == Phase::SPENT) return;
 	const auto p = GetPosition();
-	const char* label = mPhase == Phase::PREHEATING ? u8"锅炉预热" : mPhase == Phase::OVERDRIVE ? u8"超频！" : u8"泄压";
+	const char* label = mPhase == Phase::PREHEATING ? "锅炉预热" : mPhase == Phase::OVERDRIVE ? "超频！" : "泄压";
 	const glm::vec4 color = mPhase == Phase::OVERDRIVE ? glm::vec4(255, 110, 50, 255) : glm::vec4(160, 235, 255, 255);
 	// 提示位于脚边；首行不会钻进卡槽，末行限制在可见画布内。
 	const float y = std::clamp(p.y + 38.0f, 88.0f, SCENE_HEIGHT - 27.0f);

@@ -1,4 +1,5 @@
 #include <exception>
+#include "Utf8.h"
 #include <chrono>
 #include <cstdlib>
 #if defined(_WIN32)
@@ -951,7 +952,7 @@ bool TestDriver::SaveLevelSnapshot(const std::string& name) {
 		Fail("save_level_snapshot: 正式序列化或写盘失败");
 		return false;
 	}
-	if (!IsNonEmptyRegularFile(std::filesystem::u8path(path))) {
+	if (!IsNonEmptyRegularFile(Utf8::ToPath(path))) {
 		Fail("save_level_snapshot: 快照不存在或为空");
 		return false;
 	}
@@ -1691,7 +1692,7 @@ bool TestDriver::ExecuteCurrent() {
 		builder.Scale(cmd.value("scale", 1.0f));
 		if (!title.empty()) builder.Title(title);
 		if (!message.empty()) builder.Message(message);
-		builder.Button(u8"确定", Vector::zero(), Vector(100.0f, 41.6f), 14.0f, []() {});
+		builder.Button("确定", Vector::zero(), Vector(100.0f, 41.6f), 14.0f, []() {});
 		builder.Show();
 		return true;
 	}
@@ -3536,15 +3537,15 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("screenshot: " + renderer->GetCaptureError(mCaptureTicket));
 			return false;
 		}
-		const auto path = std::filesystem::u8path(mOutDir + "/" + name);
+		const auto path = Utf8::ToPath(mOutDir + "/" + name);
 		if (!IsNonEmptyRegularFile(path)) {
 			Fail("screenshot: 渲染器报告成功，但 PNG 不存在或为空");
 			return false;
 		}
 		Log("capture ticket " + std::to_string(mCaptureTicket)
-			+ " persisted: " + path.u8string());
+			+ " persisted: " + Utf8::ToString(path.u8string()));
 		if (mInteractiveReady) mInteractiveResults.push_back({
-			{"op", "screenshot"}, {"ok", true}, {"reason", ""}, {"path", path.u8string()} });
+			{"op", "screenshot"}, {"ok", true}, {"reason", ""}, {"path", Utf8::ToString(path.u8string())} });
 		return true;
 	}
 	if (op == "dump_state") {

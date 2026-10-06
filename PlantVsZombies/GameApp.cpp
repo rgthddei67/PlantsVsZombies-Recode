@@ -154,7 +154,7 @@ void GameAPP::DestroyRenderWindow()
 
 bool GameAPP::TryCreateVulkanRenderer(std::string& error)
 {
-	mWindow = SDL_CreateWindow(u8"植物大战僵尸中文版",
+	mWindow = SDL_CreateWindow("植物大战僵尸中文版",
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		SCENE_WIDTH, SCENE_HEIGHT,
 		SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
@@ -209,7 +209,7 @@ bool GameAPP::TryCreateOpenGLRenderer(std::string& error)
 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
-		mWindow = SDL_CreateWindow(u8"植物大战僵尸中文版",
+		mWindow = SDL_CreateWindow("植物大战僵尸中文版",
 			SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			SCENE_WIDTH, SCENE_HEIGHT,
 			SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);

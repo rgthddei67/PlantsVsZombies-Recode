@@ -108,10 +108,10 @@ void GameProgress::Draw(Graphics* g)
 		g->FillRect(848, 501, 252, 99, glm::vec4(20, 35, 40, 195));
 		m_playerIceMeter->Draw(g);
 		m_flagMeter->Draw(g);
-		g->DrawGlyphRun(u8"植物冰块 " + std::to_string(ice.playerIce), ResourceKeys::Fonts::FONT_FZCQ,
+		g->DrawGlyphRun("植物冰块 " + std::to_string(ice.playerIce), ResourceKeys::Fonts::FONT_FZCQ,
 			16, glm::vec4(180, 245, 255, 255), 860, 504);
-		g->DrawGlyphRun(u8"僵尸 " + std::to_string(ice.enemyIce) + u8"冰  补给" +
-			std::to_string(static_cast<int>(std::ceil(ice.supplyRemaining))) + u8"秒", ResourceKeys::Fonts::FONT_FZCQ,
+		g->DrawGlyphRun("僵尸 " + std::to_string(ice.enemyIce) + "冰  补给" +
+			std::to_string(static_cast<int>(std::ceil(ice.supplyRemaining))) + "秒", ResourceKeys::Fonts::FONT_FZCQ,
 			15, glm::vec4(255, 215, 170, 255), 860, 556);
 		return;
 	}
