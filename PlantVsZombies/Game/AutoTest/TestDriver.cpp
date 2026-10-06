@@ -3998,6 +3998,17 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			&& ResourceManager::GetInstance().GetTexture(
 				ResourceKeys::Particles::PARTICLE_WATERPARTICLE_PART_5, false) != nullptr },
 	};
+    out["splatSoundRequests"]={
+        {"splat",AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY1)},
+        {"splat2",AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY2)},
+        {"splat3",AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY3)}};
+    out["pressureHitTexturesReady"]=true;
+    for(const auto& group:std::array<std::pair<const char*,int>,2>{{{"PARTICLE_PRESSURE_SPLATS_PART_",4},{"PARTICLE_PRESSURE_PARTICLES_PART_",3}}}) {
+        for(int i=0;i<group.second;++i) {
+            if(!ResourceManager::GetInstance().GetTexture(std::string(group.first)+std::to_string(i),false))
+                out["pressureHitTexturesReady"]=false;
+        }
+    }
 	out["bonkSoundRequestCount"] =
 		AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_BONK);
 	out["softChewSoundRequestCount"] =

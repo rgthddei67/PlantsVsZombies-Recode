@@ -1930,7 +1930,7 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
     GetTransform()->SetPosition(to);
     if(mCollider) mCollider->mEnabled=false;
     if(!mBoard) return;
-    bool hit=false;
+    bool hit=false, hitPlant=false;
     const float low=std::min(from.x,to.x), high=std::max(from.x,to.x);
     Vector impact=to;
     if(mVelocityX<0) {
@@ -1946,7 +1946,7 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
             for(int id:{cell->GetPumpkinPlantID(),cell->GetNormalPlantID(),cell->GetUnderPlantID()}) {
                 auto* p=mBoard->mEntityRegistry.GetPlant(id);
                 if(!p || !p->IsActive() || !p->OccupiesGridSlot() || p->IsSquished() || p->mPlantHealth<=0) continue;
-                p->TakeDamage(mDamage,DamageSource::ZOMBIE); hit=true; break;
+                p->TakeDamage(mDamage,DamageSource::ZOMBIE); hit=hitPlant=true; break;
             }
         }
     } else {
@@ -1964,7 +1964,14 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
     }
     if(hit) {
         if(g_particleSystem) g_particleSystem->EmitEffect("PressureHit",impact);
-        AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT2,.2f);
+        if(hitPlant) {
+            // 植物实际接弹才随机播放肉身 splat；镜片拦截仍保留冰镜自己的碎裂声。
+            const int variant=GameRandom::Range(0,2);
+            AudioSystem::PlaySound(variant==0 ? ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY1
+                : variant==1 ? ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY2
+                : ResourceKeys::Sounds::SOUND_PEABULLET_HIT_BODY3,.2f);
+        }
+        else AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT2,.2f);
         Die(); return;
     }
     if(to.x<-40 || to.x>SCENE_WIDTH+40) Die();

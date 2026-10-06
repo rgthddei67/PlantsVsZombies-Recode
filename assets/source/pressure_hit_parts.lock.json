@@ -1,0 +1,13 @@
+{
+  "inputs": {
+    "build\\clang-release\\resources\\image\\reanim\\Pressure_projectile.png": "635022db6c2cb11938c840442e653763c8aec779a7cac098d4f4ab460f6c565b",
+    "build\\clang-release\\resources\\particles\\pea_splats.png": "9768f96702451a631f71ee44ec146d6058cfb86c6475c03aba4cff281d380197",
+    "build\\clang-release\\resources\\particles\\pea_particles.png": "49b57e388a52682dfa179624a5100258b2acf13edca4fad7e17450e56c1cc0d2",
+    "build\\clang-release\\resources\\particles\\config\\PeaBulletHit.xml": "b85eea5e804dacd51186b9339f94eac93ccb7862717b04701c9cd7eeea32ff04"
+  },
+  "outputs": {
+    "build\\clang-release\\resources\\particles\\pressure_splats.png": "08383ff3b7a280b38b1d5ae8767f3e5dbf9e3f50af0923895529c0c91bcd3d93",
+    "build\\clang-release\\resources\\particles\\pressure_particles.png": "7bab3ea7fc9cb13cdf98504748ce6d49b506fe21f2bc9d085ddf36d19fce6738",
+    "build\\clang-release\\resources\\particles\\config\\PressureHit.xml": "bf5abad29bf0e542a4a581c9d48c6ec61e539ed1754db4c1869cab92efef9122"
+  }
+}

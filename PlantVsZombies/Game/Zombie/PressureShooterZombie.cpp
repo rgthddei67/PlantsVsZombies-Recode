@@ -27,8 +27,10 @@ void PressureShooterZombie::SetupZombie() {
 
 /** 返回当前身体头轨对应的枪口世界像素位置，阵营反转只改变横向偏移。 */
 Vector PressureShooterZombie::GetMuzzlePosition() const {
+    // 枪头资源的挂接校准和自身呼吸/射击起伏同步进入弹体起点，不能继续沿用旧固定高度。
+    const float headY=mGun ? mGun->GetTrackPosition("anim_face").y : 0.0f;
     return GetRenderedTrackWorldPosition("anim_head1")
-        +Vector(IsMindControlled() ? -PressureShooterRules::MuzzleOffset : PressureShooterRules::MuzzleOffset,14);
+        +Vector(IsMindControlled() ? -PressureShooterRules::MuzzleOffset : PressureShooterRules::MuzzleOffset,14+headY);
 }
 
 void PressureShooterZombie::Shoot() {

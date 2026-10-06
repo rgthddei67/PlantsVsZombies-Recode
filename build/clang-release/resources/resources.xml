@@ -399,6 +399,8 @@
     <Texture Column="4" Row="1">./resources/particles/IceCrackDrillShards.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/pea_splats.png</Texture>
     <Texture Column="3" Row="1">./resources/particles/pea_particles.png</Texture>
+    <Texture Column="4" Row="1">./resources/particles/pressure_splats.png</Texture>
+    <Texture Column="3" Row="1">./resources/particles/pressure_particles.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/toxicpea_splats.png</Texture>
     <Texture Column="3" Row="1">./resources/particles/toxicpea_particles.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/snowpea_splats.png</Texture>

@@ -1,16 +1,40 @@
 <Emitter>
   <Name>PressureHit</Name>
-  <SpawnMinActive>7</SpawnMinActive>
-  <SpawnMaxLaunched>7</SpawnMaxLaunched>
-  <EmitterType>Circle</EmitterType>
-  <EmitterRadius>3</EmitterRadius>
-  <ParticleDuration>[.15 .3]</ParticleDuration>
-  <ParticleAlpha>.65 0</ParticleAlpha>
-  <ParticleScale>[.08 .14] .03</ParticleScale>
-  <ParticleRed>.85</ParticleRed>
-  <ParticleGreen>.95</ParticleGreen>
-  <ParticleBlue>.93</ParticleBlue>
-  <LaunchSpeed>[35 70]</LaunchSpeed>
-  <SystemDuration>.35</SystemDuration>
-  <Image>PARTICLE_STAR40</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>0.6</ParticleDuration>
+  <ParticleAlpha>1 0</ParticleAlpha>
+  <ParticleScale>1.2 0.4</ParticleScale>
+  <ParticleGravity>10</ParticleGravity>
+  <LaunchSpeed>[10 15]</LaunchSpeed>
+  <SystemDuration>0.65</SystemDuration>
+  <Image>PARTICLE_PRESSURE_SPLATS_PART_0,PARTICLE_PRESSURE_SPLATS_PART_1,PARTICLE_PRESSURE_SPLATS_PART_2,PARTICLE_PRESSURE_SPLATS_PART_3</Image>
+  <Field>
+    <FieldType>Position</FieldType>
+    <Y>10</Y>
+  </Field>
+</Emitter>
+
+<Emitter>
+  <Name>PressureHit2</Name>
+	<SpawnMinActive>[6 10]</SpawnMinActive>
+	<ParticleAlpha>1,80 0</ParticleAlpha>
+	<ParticleScale>[0.7 1.1]</ParticleScale>
+	<EmitterType>Circle</EmitterType>
+	<EmitterRadius>[0 10]</EmitterRadius>
+	<LaunchSpeed>[65]</LaunchSpeed>
+	<ParticleDuration>0.48</ParticleDuration>
+	<SystemDuration>0.55</SystemDuration>
+	<Image>PARTICLE_PRESSURE_PARTICLES_PART_0, PARTICLE_PRESSURE_PARTICLES_PART_1, PARTICLE_PRESSURE_PARTICLES_PART_2</Image>
+	<Field>
+	  <FieldType>Friction</FieldType>
+	  <X>0.0,10 0.1</X>
+	  <Y>0.0,10 0.1</Y>
+	</Field>
+	<Field>
+	  <FieldType>Acceleration</FieldType>
+	  <Y>5</Y>
+	</Field>
+	<RandomLaunchSpin>1</RandomLaunchSpin>
+	<ParticleSpinSpeed>[-130 130]</ParticleSpinSpeed>
 </Emitter>

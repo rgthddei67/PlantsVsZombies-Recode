@@ -1,0 +1,556 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "background": "GROUND_DAY",
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 1,
+      "x": 950
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_00.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_01.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_02.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_03.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_04.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_05.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_06.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_07.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_08.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_cycle_09.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "head_cycle.json"
+    },
+    {
+      "op": "charm_zombie",
+      "row": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "screenshot",
+      "name": "head_charmed.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "background": "GROUND_DAY",
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "pressureHitTexturesReady",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "hits_before.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "pressure_splat_0.png"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "pressure_splat_5.png"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PRESSURE",
+      "row": 2,
+      "x": 750,
+      "y": 315,
+      "velocityX": -420,
+      "damage": 25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "dump_state",
+      "name": "hits_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.2_5.health",
+      "equals": 3375
+    },
+    {
+      "op": "assert_state",
+      "path": "splatSoundRequests.splat",
+      "atLeast": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "splatSoundRequests.splat2",
+      "atLeast": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "splatSoundRequests.splat3",
+      "atLeast": 1
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

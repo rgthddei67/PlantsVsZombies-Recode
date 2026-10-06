@@ -52,12 +52,13 @@ for tr in list(root.findall('track')):
     if name in ('idle_shoot_blink','PeaShooter_eyebrow') or name.startswith(('backleaf','frontleaf','stalk')):
         root.remove(tr);continue
     for t in tr.findall('t'):
-        for axis,offset in [('x',19.2),('y',17.8)]:
+        # 新机械头比原僵尸头短：整组下移12px，让颈根在行走/啃食极值仍压住衣领。
+        for axis,offset in [('x',19.2),('y',5.8)]:
             e=t.find(axis)
             if e is not None:e.text=f'{float(e.text)-offset:.4f}'
-        # 新安全帽没有原军盔的透明缺口，缩小并抬高，露出压力表与双眼。
+        # 新帽盖缩小后仍须压住头壳；只调整自身位置，不能为露眼睛把整顶帽子抬成悬空。
         if name=='GatlingPea_helmet':
-            for axis,offset in [('x',5),('y',-7)]:
+            for axis,offset in [('x',5),('y',0)]:
                 e=t.find(axis)
                 if e is not None:e.text=f'{float(e.text)+offset:.4f}'
             for axis in ['sx','sy']:
