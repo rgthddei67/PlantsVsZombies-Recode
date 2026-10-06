@@ -5008,7 +5008,10 @@ Result Search(const Snapshot& input, const Weights& weights, std::uint32_t seed,
 				if (sameRow != group.end()) option = *sameRow;
 				// 第一只也能等打击落地后再进场；否则薄血部队会在清除生效前死亡，联合收益被漏掉。
 				const float span = trial%2 ? std::min(6.0f,DelayLimit(state)) : DelayLimit(state);
-				const float delay = trial%3 == 0 ? 0 : (rng()%(static_cast<int>(span*2)+1))*.5f;
+				float delay = trial%3 == 0 ? 0 : (rng()%(static_cast<int>(span*2)+1))*.5f;
+				// 保留一案在实际瞄准结束后进场，避免延长预警后短错峰抽样漏掉可行跟进。
+				if (trial == 1) delay = std::min(DelayLimit(state),ColdStorageSkillRules::StrikeAimDuration
+					+(state.precisionUnlockAfterPurchase ? std::max(0.0f,state.precisionUnlockAimStartSeconds) : 0)+.5f);
 				plan.push_back({option,delay});
 			}
             // 清除后的小股后援仍会被另一株输出消灭；交错完整规模与本轮未完成协作，不绑定任何兵种。

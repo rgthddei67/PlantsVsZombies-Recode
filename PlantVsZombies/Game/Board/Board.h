@@ -276,7 +276,7 @@ public:
 	bool TryStartColdStoragePrecisionStrike(int plantID);
 	/** 原子校验最多3个不同目标并按每株收费；一份全局冷却和同时瞄准，失败整批不扣款、不换目标。 */
 	bool TryStartColdStoragePrecisionStrike(const std::vector<int>& plantIDs);
-	/** 推进冷却及同批瞄准；各目标独立结算，消失者不退款、不换靶，到期无视防御结束生命周期。 */
+	/** 推进同批瞄准，结算后才递减清除冷却；各目标独立结算，消失者不退款、不换靶，到期无视防御结束生命周期。 */
 	void UpdateColdStorageSkills(float deltaTime);
 	/** 世界层绘制已付款目标的瞄准环、十字和倒计时；只读取状态。 */
 	void DrawColdStoragePrecisionStrike(Graphics* g) const;

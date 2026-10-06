@@ -1344,7 +1344,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				return isUnlocked(type) && cost>0 && cost<=s.enemyIce-ColdStorageSkillRules::StrikeIceCost;
 			});
 		if(search.precisionUnlockAfterPurchase) {
-			// 后台从当前采样到采购仍有计算等待；采购后正式复查再启动下一轮计算，最后才开始2秒瞄准。
+			// 后台从当前采样到采购仍有计算等待；采购后正式复查再启动下一轮计算，最后才开始共用时长的瞄准。
 			// 新兵在场/在途后下一轮恢复常规预算，不把当前空场恢复预算误当作未来每轮的固定成本。
 			// 这里使用1倍速预算基准；实际提交会除以倍速，换回游戏秒时倍率抵消，不能再乘一次。
 			double currentBaseBudgetMs=kPlanningWallBudgetMs;

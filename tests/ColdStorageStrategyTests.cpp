@@ -1866,6 +1866,12 @@ int main()
 	check(Search(s,InitialWeights,91).precisionTargetID==0,"precision retains 60 ice rather than deleting a low-value sunflower");
 	Unit worker; worker.id=9; worker.body.health=500; worker.body.x=950; worker.body.economic=true; worker.body.purchaseCost=12;
 	s.current={worker}; s.plants[0].dps=100;
+	// 旧两秒清除来得及保护工人，完整八秒瞄准则来不及；预测不能借用旧时序的收益。
+	auto timing=s; timing.precisionTargetID=flower.id;
+	check(Evaluate(timing,{})[4]==0,"eight-second precision cannot save a worker that dies during the warning");
+	timing.precisionTargetID=0; timing.pendingPrecisionID=flower.id; timing.pendingPrecisionRemaining=2;
+	check(Evaluate(timing,{})[4]>0,"an already-paid strike with two seconds actually remaining can still save the same worker");
+	worker.body.health=2000; s.current={worker};
 	const auto targeted=Search(s,InitialWeights,91);
 	check(targeted.precisionTargetID==1 && targeted.precisionGain>0,"precision removes lethal fire when protected production repays its opportunity cost");
 	// 没有在场工人时，等待优案不能代表清除后的机会；必须比较技能和同路新工人的联合投入。
@@ -1908,10 +1914,11 @@ int main()
 	troop.unit.body.x=900; troop.unit.body.health=200; troop.unit.body.speed=40;
 	troop.unit.body.purchaseCost=10; troop.unit.biteDps=50;
 	s.options={troop};
-	std::vector<Action> full(16,{0,3});
+	const float followupDelay=ColdStorageSkillRules::StrikeAimDuration+1;
+	std::vector<Action> full(16,{0,followupDelay});
 	check(Evaluate(s,full)[2]==0,"an affordable full formation cannot cross both continuous firing sources without precision");
 	auto cleared=s; cleared.precisionTargetID=key.id;
-	const auto small=Evaluate(cleared,{{0,3},{0,3}});
+	const auto small=Evaluate(cleared,{{0,followupDelay},{0,followupDelay}});
 	check(small[2]==0 && small[0]==0 && small[3]==0,
 		"clearing the key source with two arbitrary troops still loses to the surviving backup fire");
 	const auto funded=Evaluate(cleared,full);

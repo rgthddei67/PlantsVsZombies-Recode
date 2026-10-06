@@ -94,7 +94,8 @@ void Board::UpdateColdStorageSkills(float dt)
 	s.interferenceRemaining = std::max(0.0f, s.interferenceRemaining - dt);
 	s.interferenceCooldownRemaining = std::max(0.0f, s.interferenceCooldownRemaining - dt);
 	s.discountRemaining = std::max(0.0f, s.discountRemaining - dt);
-	s.strikeCooldownRemaining = std::max(0.0f, s.strikeCooldownRemaining - dt);
+	// 已付款打击的瞄准不消耗冷却，结算后再完整等待一轮，避免连续锁定过密。
+	if (s.strikeTargetID < 0) s.strikeCooldownRemaining = std::max(0.0f, s.strikeCooldownRemaining - dt);
 	if (s.strikeTargetID < 0) return;
 	s.strikeAimRemaining = std::max(0.0f, s.strikeAimRemaining - dt);
 	if (s.strikeAimRemaining > 0) return;

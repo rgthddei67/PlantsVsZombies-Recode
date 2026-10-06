@@ -10,10 +10,14 @@ def read(name):
 assert read('status')['status'] == 'passed'
 assert 'script finished OK' in (root / 'run.log').read_text(encoding='utf-8')
 assert read('low-value')['coldStorage']['searchPrecisionTargetID'] == 0
+cooldownBefore, cooldownLoaded = (read(name)['coldStorage'] for name in ('strike-cooldown-before','strike-cooldown-loaded'))
+assert 24.5 <= cooldownBefore['strikeCooldownRemaining'] <= 25
+assert abs(cooldownBefore['strikeCooldownRemaining'] - cooldownLoaded['strikeCooldownRemaining']) < .1, 'loading must preserve elapsed precision cooldown'
 before, planned, resolved = (read(name) for name in ('strike-before','strike-after','strike-resolved'))
 b, p, r = (d['coldStorage'] for d in (before, planned, resolved))
 target = p['searchPrecisionTargetID']
 assert target > 0 and p['strikeTargetID'] == target and p['searchPrecisionGain'] > 0
+assert 7.5 <= p['strikeAimRemaining'] <= 8 and p['strikeCooldownRemaining'] == 45
 plant = next(plant for plant in before['plants'] if plant['id'] == target)
 assert plant['type'] in ('PLANT_MELONPULT', 'PLANT_DAWNLOTUS')
 assert b['enemyIce'] - p['enemyIce'] == p['commanderSpent'] == p['spent'] - b['spent'] == 60
@@ -29,4 +33,4 @@ assert a['searchRitualReleases'] == 3 and a['searchRiftSummons'] == 9
 assert a['searchArmorRepairs'] > 0 and a['searchArmorRepairIce'] == a['searchArmorRepairs']
 assert (b['enemyIce'], b['playerIce'], b['spent']) == (a['enemyIce'], a['playerIce'], a['spent'])
 assert before['zombies'] == after['zombies'], 'forecast must not change live units or cast abilities'
-print('PASS: valuable strike uses one paid transaction; specialist forecasts preserve the live world.')
+print('PASS: precision payment and 45-second cooldown save/load; specialist forecasts preserve the live world.')

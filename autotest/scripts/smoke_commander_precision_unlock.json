@@ -188,7 +188,7 @@
     },
     {
       "op": "wait_seconds",
-      "value": 2.2,
+      "value": 8.2,
       "timeout": 10
     },
     {

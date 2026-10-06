@@ -220,7 +220,7 @@
     },
     {
       "op": "wait_seconds",
-      "value": 2.2
+      "value": 8.2
     },
     {
       "op": "dump_state",

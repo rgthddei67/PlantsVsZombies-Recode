@@ -1,4 +1,5 @@
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/AI/ColdStoragePlanner.h"
 #include <chrono>
 #include <thread>
@@ -913,15 +914,15 @@ void RunColdStorageCobForecastTests()
     Check(stats.counterTrace.empty() && eatenFeatures[0]>0,
         "a cannon remains edible throughout its firing windup instead of inheriting instant-ash invulnerability");
     auto beforeLaunch=state; beforeLaunch.precisionTargetID=cannon.id;
-    beforeLaunch.counters[0].windup=5;
+    beforeLaunch.counters[0].windup=ColdStorageSkillRules::StrikeAimDuration+shot.flightSeconds+1;
     Evaluate(beforeLaunch,{},&stats);
     Check(stats.precisionHits==1 && stats.counterTrace.empty(),
         "destroying a cannon before launch cancels its queued shot and all future reloads");
-    beforeLaunch.counters[0].windup=4;
+    beforeLaunch.counters[0].windup=ColdStorageSkillRules::StrikeAimDuration+shot.flightSeconds;
     Evaluate(beforeLaunch,{},&stats);
     Check(stats.counterTrace.empty(),"source removal resolved on the launch step cannot be bypassed by floating-point time drift");
     auto afterLaunch=state; afterLaunch.precisionTargetID=cannon.id;
-    afterLaunch.counters[0].windup=3;
+    afterLaunch.counters[0].windup=ColdStorageSkillRules::StrikeAimDuration+shot.flightSeconds-1;
     Evaluate(afterLaunch,{},&stats);
     Check(stats.precisionHits==1 && stats.counterTrace.size()==1,
         "destroying a cannon after launch preserves exactly its independent in-flight shot");
@@ -1081,11 +1082,12 @@ void RunColdStorageMultiPrecisionTests()
     auto known=joint;
     known.precisionTargetID=joint.plants[0].id;
     known.precisionAdditionalTargetIDs={joint.plants[1].id,joint.plants[2].id};
-    const auto complete=Evaluate(known,{{0,3}},&stats);
+    const float followupDelay=ColdStorageSkillRules::StrikeAimDuration+1;
+    const auto complete=Evaluate(known,{{0,followupDelay}},&stats);
     Check(complete[2]>0 && complete[5]==181 && stats.precisionHits==3,
         "three removals and delayed ordinary entry have a real jointly affordable breakthrough");
     known.precisionAdditionalTargetIDs.pop_back();
-    Check(Evaluate(known,{{0,3}})[2]==0,
+    Check(Evaluate(known,{{0,followupDelay}})[2]==0,
         "the surviving third firing source prevents the same ordinary followup from claiming breakthrough");
     const auto chosen=Search(joint,values,17);
     Check(chosen.features[2]>0 && chosen.precisionAdditionalTargetIDs.size()==2
@@ -1127,7 +1129,8 @@ void RunColdStoragePrecisionUnlockForecastTests()
     known.precisionTargetID=future.plants[0].id;
     known.precisionAdditionalTargetIDs={future.plants[1].id,future.plants[2].id};
     ConstructionStats stats;
-    const auto delayed=Evaluate(known,{{0,6}},&stats);
+    const float followupDelay=future.precisionUnlockAimStartSeconds+ColdStorageSkillRules::StrikeAimDuration+1;
+    const auto delayed=Evaluate(known,{{0,followupDelay}},&stats);
     Check(delayed[2]>0 && delayed[5]==181 && stats.precisionHits==3 && stats.abilityIceSpent==180,
         "a paid purchase followed by next-decision aiming can jointly fund three removals and a real later entry");
     Check(Evaluate(known,{{0,0}},&stats)[2]==0 && stats.precisionHits==3,
@@ -1159,7 +1162,7 @@ void RunColdStoragePrecisionUnlockForecastTests()
     Check(boundedRealtime.forecastPrecisionTargetID>0 && boundedRealtime.features[2]>0
         && boundedRealtime.precisionTargetID==0 && boundedRealtime.features[5]<=realtime.budget,
         "the same real-time deadline keeps next-wave skill comparison inside the normal bounded search budget");
-    const auto diagnostic=EvaluateCandidate(known,candidateOne,{{0,6}});
+    const auto diagnostic=EvaluateCandidate(known,candidateOne,{{0,followupDelay}});
     Check(diagnostic.precisionTargetID==0 && diagnostic.forecastPrecisionIce==180 && diagnostic.features[5]==181,
         "direct diagnostics keep all predicted fees but cannot turn the future shot into a current Board transaction");
     auto shortWallet=future;
@@ -1169,23 +1172,23 @@ void RunColdStoragePrecisionUnlockForecastTests()
         "future supply and kill proceeds cannot prepay the initially unaffordable troop plus three shots");
     auto missing=known;
     missing.precisionAdditionalTargetIDs[0]=999999;
-    Evaluate(missing,{{0,6}},&stats);
+    Evaluate(missing,{{0,followupDelay}},&stats);
     Check(stats.precisionHits==2 && stats.abilityIceSpent==180,
         "a disappeared future identity receives no replacement while the other two original targets remain independent");
     auto diesBeforeAim=known;
     Unit killer;
     killer.body.x=520; killer.body.health=1000000000; killer.body.speed=0; killer.biteDps=1000000;
     diesBeforeAim.current={killer};
-    Evaluate(diesBeforeAim,{{0,6}},&stats);
+    Evaluate(diesBeforeAim,{{0,followupDelay}},&stats);
     Check(stats.precisionHits==2 && stats.abilityIceSpent==180,
         "a source destroyed before the next decision is not hit twice or replaced by a newly chosen forecast identity");
     auto tooLate=known;
     tooLate.precisionUnlockAimStartSeconds=1000;
-    Check(Evaluate(tooLate,{{0,6}},&stats)[2]==0 && stats.precisionHits==0,
+    Check(Evaluate(tooLate,{{0,followupDelay}},&stats)[2]==0 && stats.precisionHits==0,
         "a future shot outside the forecast window cannot masquerade as an immediately cleared front");
     auto capacity=known;
     capacity.capacity=4; capacity.deploymentCapital=2100; capacity.deploymentOccupied=62; capacity.budget=2100;
-    const auto bounded=EvaluateCandidate(capacity,candidateOne,{{0,6},{0,6},{0,6},{0,6}});
+    const auto bounded=EvaluateCandidate(capacity,candidateOne,{{0,followupDelay},{0,followupDelay},{0,followupDelay},{0,followupDelay}});
     Check(bounded.actions.size()==2 && bounded.features[5]==182 && bounded.forecastPrecisionIce==180,
         "future skill capital reserves reduce the whole paid team to two slots without paying the prediction now");
     auto harmless=future;
@@ -1238,12 +1241,13 @@ void RunColdStorageDeploymentTransactionTests()
     worker.unit.body.economic=true; worker.unit.body.speed=0; worker.unit.biteDps=0;
     state.options={worker};
     const Weights profit{0,0,0,0,1,-1,0,0};
-    const std::vector<Action> four(4,{0,3});
+    const float followupDelay=ColdStorageSkillRules::StrikeAimDuration+1;
+    const std::vector<Action> four(4,{0,followupDelay});
     const auto repaired=EvaluateCandidate(state,profit,four);
     Check(repaired.actions.size()==2 && repaired.features[5]==228
         && repaired.features[4]>repaired.features[5] && repaired.construction.precisionHits==3,
         "capital 2100 and sixty-two occupied slots allow only two new workers after the complete 180-ice skill fee");
-    const auto two=EvaluateCandidate(state,profit,{{0,3},{0,3}});
+    const auto two=EvaluateCandidate(state,profit,{{0,followupDelay},{0,followupDelay}});
     Check(two.actions.size()==2 && two.features==repaired.features,
         "the valid two-member transaction receives the same full evaluation instead of paying a partial four-member plan");
     auto fixed=state;

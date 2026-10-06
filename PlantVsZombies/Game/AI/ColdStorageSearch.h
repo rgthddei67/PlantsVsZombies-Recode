@@ -426,7 +426,7 @@ struct Snapshot {
 	float interferenceRemaining = 0, interferenceReady = 0; // 已生效禁锚余时和独立冷却余时，秒
 	bool precisionReady = false;
 	bool precisionUnlockAfterPurchase = false; // Board确认距技能解锁一波；只预测付费出兵后下一决策的技能，不提前提交
-	float precisionUnlockAimStartSeconds = 0; // 下一正式决策与后台计算等待后的预计瞄准开始时刻，游戏秒；不含正式2秒瞄准
+	float precisionUnlockAimStartSeconds = 0; // 下一正式决策与后台计算等待后的预计瞄准开始时刻，游戏秒；不含 StrikeAimDuration 瞄准时长
 	int precisionTargetID = 0; // 本候选立即购买的技能；零表示保留资金
 	std::vector<int> precisionAdditionalTargetIDs; // 同次付费的其余独立目标，最多两株，与首目标共用瞄准/冷却
 	int precisionTargetLimit = 1; // 调用方开放的目标数，1..3；旧数值夹具默认保持单株行为

@@ -225,8 +225,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.strikeCooldownRemainingMs",
-      "atLeast": 29000,
-      "atMost": 30000
+      "atLeast": 45000,
+      "atMost": 45000
     },
     {
       "op": "start_precision_strike",
@@ -261,8 +261,8 @@
     {
       "op": "assert_state",
       "path": "coldStorage.strikeAimRemainingMs",
-      "atLeast": 1600,
-      "atMost": 2000
+      "atLeast": 7600,
+      "atMost": 8000
     },
     {
       "op": "assert_state",
@@ -314,6 +314,8 @@
       "op": "wait_seconds",
       "value": 2.2
     },
+    { "op": "assert_state", "path": "coldStorage.strikeTargetCount", "equals": 3 },
+    { "op": "wait_seconds", "value": 6 },
     {
       "op": "assert_state",
       "path": "coldStorage.strikeTargetCount",
@@ -471,6 +473,8 @@
       "op": "wait_seconds",
       "value": 2.2
     },
+    { "op": "assert_state", "path": "coldStorage.strikeTargetCount", "equals": 3 },
+    { "op": "wait_seconds", "value": 6 },
     {
       "op": "assert_state",
       "path": "plantCount",
@@ -620,6 +624,8 @@
       "op": "wait_seconds",
       "value": 2.2
     },
+    { "op": "assert_state", "path": "coldStorage.strikeTargetCount", "equals": 3 },
+    { "op": "wait_seconds", "value": 6 },
     {
       "op": "assert_state",
       "path": "coldStorage.strikeTargetCount",
@@ -759,6 +765,8 @@
       "op": "wait_seconds",
       "value": 2.2
     },
+    { "op": "assert_state", "path": "coldStorage.strikeTargetCount", "equals": 3 },
+    { "op": "wait_seconds", "value": 6 },
     {
       "op": "assert_state",
       "path": "coldStorage.strikeTargetCount",
