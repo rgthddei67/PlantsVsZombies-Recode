@@ -3577,4 +3577,78 @@ int main()
     check(construction.planted==0,"forecast cannot plant cotton without the required ice");
     std::cout<<"Pressure burst and cotton healing forecast passed\n";
     }
+
+    {
+    using namespace ColdStorageSearch;
+    Snapshot field; field.rows=1; field.columns=9; field.cellWidth=80;
+    field.houseX=0; field.rightEdge=1100; field.searchVersion=2; field.netEconomy=true;
+    field.budget=100; field.capacity=8;
+    Plant wall; wall.row=0; wall.column=5; wall.x=600; wall.health=wall.maximumHealth=10000;
+    field.plants={wall};
+    const auto option=[](int type,int cost,float health,float speed) {
+        Option o; o.type=type; o.row=0; o.cost=cost; o.unit.body.row=0;
+        o.unit.body.x=1100; o.unit.body.health=health; o.unit.body.speed=speed;
+        o.unit.body.purchaseCost=cost; return o;
+    };
+    auto guard=option(820001,8,2000,12);
+    auto runner=option(820002,16,1500,60);
+    auto gun=option(820003,20,1000,20); gun.unit.pressure=true;
+    auto lobber=option(820004,12,850,20); lobber.unit.catapult.present=true;
+    field.options={guard,runner,gun,lobber};
+    const auto recipes=BuildExperiencedFormations(field,field.capacity,field.budget);
+    bool screened=false,fastScreen=false,legacyLobber=false;
+    for(const auto& plan:recipes) {
+        int bill=0,guards=0,runners=0,guns=0,lobs=0; float gunDelay=0;
+        for(const auto& action:plan) {
+            bill+=field.options[action.option].cost;
+            guards+=action.option==0; runners+=action.option==1; guns+=action.option==2; lobs+=action.option==3;
+            if(action.option==2) gunDelay=action.delay;
+        }
+        check(bill<=field.budget && plan.size()<=static_cast<size_t>(field.capacity),
+            "pressure formations keep complete shared cash and slot admission");
+        if(guards && guns && !runners && !lobs) {
+            screened=true;
+            check(gunDelay>0,"a slower screen departs before its faster shooter rather than being overtaken");
+        }
+        if(runners && guns && !guards && !lobs) {
+            fastScreen=true;
+            check(gunDelay==0,"a naturally faster escort can depart with the shooter without a fixed delay");
+        }
+        legacyLobber|=guards>0 && lobs>0;
+    }
+    check(screened && fastScreen && legacyLobber,
+        "direct pressure shooters receive guard and fast-screen candidates without displacing lobbers");
+    auto poor=field; poor.budget=47;
+    for(const auto& plan:BuildExperiencedFormations(poor,2,poor.budget))
+        check(std::none_of(plan.begin(),plan.end(),[](const Action& a){return a.option==2;}),
+            "insufficient budget or capacity cannot silently truncate the pressure partnership");
+    auto solo=field; solo.options={gun};
+    check(BuildExperiencedFormations(solo,solo.capacity,solo.budget).empty(),
+        "a pressure gun is not classified as its own guard or fast frontliner");
+    auto escort=guard.unit; escort.body.x=650; escort.temporalStopHealth=300;
+    solo.current={escort};
+    const auto reinforcement=BuildExperiencedFormations(solo,solo.capacity,solo.budget);
+    check(!reinforcement.empty() && std::all_of(reinforcement.begin(),reinforcement.end(),[](const auto& plan){
+        return std::all_of(plan.begin(),plan.end(),[](const Action& a){return a.option==0 && a.delay==0;});
+    }),"a living front line can receive shooter-only reinforcements");
+    solo.current[0].body.spawnAt=3;
+    check(BuildExperiencedFormations(solo,solo.capacity,solo.budget).empty(),"paid but unarrived escorts are not treated as established cover");
+    solo.current[0].body.spawnAt=0;solo.current[0].body.health=1200;solo.current[0].temporalStopHealth=1300;
+    check(BuildExperiencedFormations(solo,solo.capacity,solo.budget).empty(),"headless remnants cannot qualify as an established screen");
+    auto renamed=field;
+    for(size_t i=0;i<renamed.options.size();++i) renamed.options[i].type=910000+static_cast<int>(i)*19;
+    const auto names=BuildExperiencedFormations(renamed,renamed.capacity,renamed.budget);
+    check(names.size()==recipes.size(),"pressure recipes classify capabilities rather than fixed unit IDs");
+    for(size_t i=0;i<recipes.size();++i) {
+        check(names[i].size()==recipes[i].size(),"renamed pressure recipe retains all partners");
+        for(size_t j=0;j<recipes[i].size();++j)
+            check(names[i][j].option==recipes[i][j].option && names[i][j].delay==recipes[i][j].delay,
+                "renamed pressure recipe keeps placement timing");
+    }
+    auto losing=field; losing.plants[0].dps=100000; losing.plants[0].multiTarget=true;
+    const auto rejected=Search(losing,Weights{0,0,0,0,1,-1,0,0},7);
+    check(rejected.actions.empty() && rejected.experiencedEvaluated>0,
+        "unprofitable ranged recipes still lose to waiting rather than forcing a preset army");
+    std::cout<<"Pressure shooter screen, rush, reinforcement and affordability recipes passed\n";
+    }
 }

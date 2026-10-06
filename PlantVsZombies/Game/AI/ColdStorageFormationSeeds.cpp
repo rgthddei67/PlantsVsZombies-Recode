@@ -10,18 +10,19 @@ constexpr float kGuardHealth = 1000; // 旧经营入口的护卫最低完整生�
 constexpr float kWorkerDelay = 4; // 旧版护卫先行、工人跟进的基准间隔，游戏秒
 constexpr int kMaxSeeds = 96; // 单次搜索经验候选上限；与自由候选共享原时间预算
 constexpr std::array<int,3> kScales{1,2,4}; // 同一编队的小、中、大规模起点，不是必买数量
-constexpr std::array<int,14> kShapeOrder{0,8,1,9,12,2,10,13,3,11,4,5,6,7}; // 经营、滚动生产与进攻交错，紧预算也能比较灰烬错峰
+constexpr std::array<int,17> kShapeOrder{0,8,14,1,15,9,12,2,10,13,3,11,16,4,5,6,7}; // 经营、快攻、射手掩护交错，紧预算也有机会比较协同
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
+constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
 
 bool Specialist(const Unit& u) {
-    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled;
+    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure;
 }
 
 /** 同一战术角色保留便宜护卫与厚重前锋两种选择，不依赖固定僵尸枚举。 */
 struct Roles {
     int guard=-1, heavy=-1, worker=-1, engineer=-1, clock=-1, healer=-1, drum=-1;
-    int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1;
+    int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1, shooter=-1;
 };
 
 /** 先行前排用偏慢移速、快兵用偏快移速，不能假定同批出生会自然排成前后队。 */
@@ -43,6 +44,16 @@ float RushDelay(const Snapshot& s,int row,int opener,int runner) {
     return std::clamp(opening-arrival,0.0f,kMaxLeadDelay);
 }
 
+/** 前排按慢端、射手按快端估计接敌时差，避免射手在接敌前反超；实际生存与收益仍由推演裁决。 */
+float ShooterCoverDelay(const Snapshot& s,int row,int front,int shooter) {
+    float contact=s.houseX;
+    for(const auto& p:s.plants) if(p.health>0 && p.edible && p.row==row) contact=std::max(contact,p.x+kContactPadding);
+    const auto& a=s.options[front].unit; const auto& b=s.options[shooter].unit;
+    const float frontArrival=std::max(0.0f,a.body.x-contact)/std::max(1.0f,MoveSpeed(a,false));
+    const float rearArrival=std::max(0.0f,b.body.x-contact-kShooterCoverCells*s.cellWidth)/std::max(1.0f,MoveSpeed(b,true));
+    return std::clamp(frontArrival-rearArrival,0.0f,kMaxLeadDelay);
+}
+
 /** 能力与真实价格只排序提案；不能用护卫血池替代穿透/溅射和灰烬的正式推演。 */
 Roles FindRoles(const Snapshot& s, int row, int budget) {
     Roles r;
@@ -61,6 +72,7 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
         if(u.balloon.present) cheapest(r.air,id);
         if(u.ladder.present) cheapest(r.ladder,id);
         if(u.catapult.present) cheapest(r.ranged,id);
+        if(u.pressure) cheapest(r.shooter,id); // 直射与投篮分开保留，不能让较便宜的车永久挤掉新射手。
         if(u.ladder.present || u.digger.present || u.catapult.present || u.jack.present) cheapest(r.access,id);
         if(u.body.smashSeconds>0 || u.vehicleCrush) {
             if(r.breaker<0 || u.body.health/o.cost>s.options[r.breaker].unit.body.health/s.options[r.breaker].cost)
@@ -184,6 +196,29 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             const float gap=IceProduction::Interval*(shape==12 ? 1.0f : 1.5f);
             const int count=std::min({actionLimit,8*scale,static_cast<int>(kMaxLeadDelay/gap)+1});
             for(int i=0;i<count;++i) plan.Add(r.worker,1,i*gap);
+            break;
+        }
+        case 14: // 肉盾先行，持续直射随后；独立于工人、治疗和付费支援的轻量进攻组合。
+            if(front<0 || r.shooter<0) continue;
+            plan.Add(front,scale,0);
+            plan.Add(r.shooter,2*scale,ShooterCoverDelay(s,row,front,r.shooter));
+            break;
+        case 15: // 快兵接敌、射手跟火；快兵本来更快时可同批出发，不硬等固定秒数。
+            if(r.fast<0 || r.shooter<0) continue;
+            plan.Add(r.fast,2*scale,0);
+            plan.Add(r.shooter,2*scale,ShooterCoverDelay(s,row,r.fast,r.shooter));
+            break;
+        case 16: { // 已有活体前排时直接补火力；付费未到场或掉头残兵不冒充可靠掩护。
+            if(r.shooter<0) continue;
+            const float rear=s.options[r.shooter].unit.body.x-kShooterCoverCells*s.cellWidth;
+            const bool covered=std::any_of(s.current.begin(),s.current.end(),[&](const Unit& u) {
+                return u.body.row==row && u.body.spawnAt<=0 && u.body.x<=rear
+                    && u.body.health>=kGuardHealth && !u.body.economic && !Specialist(u)
+                    && !u.balloon.present && !u.digger.present
+                    && u.body.health-u.helmHealth-u.shieldHealth>u.temporalStopHealth;
+            });
+            if(!covered) continue;
+            plan.Add(r.shooter,2*scale,0);
             break;
         }
         }
