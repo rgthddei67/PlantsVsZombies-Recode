@@ -27,14 +27,12 @@ public:
 	std::shared_ptr<Button> GetMiniGamesButton() const;
 
 	bool mReadyToSwitchAdventureLevel = false;
-	bool mReadyToSkipToSecondArea = false;
 	bool mReadyToSwitchAlmanac = false;
 	bool mReadyToSwitchSurvival = false;
 	bool mReadyToSwitchMiniGames = false;
 
 private:
 	std::unique_ptr<MainMenuButtons> mMainMenuButtons;
-	std::shared_ptr<Button> mSkipToSecondAreaButton;
 	std::shared_ptr<Button> mOpitionButton;
 	std::shared_ptr<Button> mConsoleButton;
 	std::shared_ptr<Button> mExitButton;
@@ -47,8 +45,6 @@ private:
 	bool mOpenConsole = false;
 	bool mReadyToRefreshConsole = false;
 
-	/** 补齐第一大关进度与植物奖励，然后从 2-1 开始游戏。 */
-	void SkipToSecondArea();
 	/** 打开原版风格的音量、画面和难度选项面板。 */
 	void OpenMenu();
 	/** 打开仅承载高级玩法开关的控制台设置面板。 */

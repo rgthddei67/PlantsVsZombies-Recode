@@ -81,6 +81,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 ### 存档系统
 
+玩家 schema v10 增加 `firstAreaEntryChoiceMade`（1-1 的继续/前往 2-1 选择）和 `coldStorageEntryNoticeSeen`（10-1 AI 说明已确认）及 `weatherStationEntryNoticeSeen`（11-1 同类说明已确认）。旧档迁移为 false，不从冒险进度或戴夫已读记录推定；选择与跳关奖励/进度成功保存后才继续，保存失败回滚并重试。10-1/11-1 说明等开场支援和戴夫对话结束后显示，主动跳过戴夫也会显示。
+
 使用 nlohmann/json 进行 JSON 序列化（`GameInfoSaver`）。植物和僵尸通过 `SaveExtraData(json&)`、`LoadExtraData(const json&)` 保存和恢复自定义状态。`PlayerInfo.json` 保存全局状态，`level{N}_data.json` 保存各关卡状态。Windows 通过 `FOLDERID_SavedGames` 写入系统“保存的游戏”目录（默认 `%USERPROFILE%\Saved Games\PlantsVsZombies\saves`）；Android 仍使用 `SDL_GetPrefPath`，Linux 暂沿用 `./saves/`。
 
 两类 JSON 根节点都写入独立的 `schemaVersion`，并在任何运行状态被修改前由纯逻辑 `SaveSchema` 事务式升级。缺版本的历史档视为 v0；高于当前程序的未来版本、非对象根节点或非法版本字段一律拒绝加载，失败时输入文档和游戏状态均不应被部分修改。新增持久化结构变化时，应在 `SaveSchema` 增加逐版本迁移并同步 `SaveSchemaTests`，不要把一次性兼容分支继续散落到对象恢复过程。

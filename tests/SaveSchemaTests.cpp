@@ -765,6 +765,26 @@ int main() {
 			"已有明确试攻记录不因重复迁移重置");
 	}
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();
+	{
+		std::string error;
+		nlohmann::json old = {{ "schemaVersion", 9 }, { "adventureLevel", 82 },
+			{ "crazyDaveTutorialsSeen", { 82 } }};
+		Expect(SaveSchema::UpgradePlayerDocument(old, error), "v9 玩家档应新增入场提示记录");
+		Expect(old["firstAreaEntryChoiceMade"] == false && old["coldStorageEntryNoticeSeen"] == false
+			&& old["weatherStationEntryNoticeSeen"] == false,
+			"进度与戴夫已读不能代替尚未做出的入场选择");
+		old["firstAreaEntryChoiceMade"] = true;
+		old["coldStorageEntryNoticeSeen"] = true;
+		old["weatherStationEntryNoticeSeen"] = true;
+		old["schemaVersion"] = 9;
+		Expect(SaveSchema::UpgradePlayerDocument(old, error)
+			&& old["firstAreaEntryChoiceMade"] == true && old["coldStorageEntryNoticeSeen"] == true
+			&& old["weatherStationEntryNoticeSeen"] == true,
+			"迁移必须保留已有入场选择与确认记录");
+		const auto saved = old;
+		Expect(SaveSchema::UpgradePlayerDocument(old, error) && old == saved,
+			"再次升级玩家档不能重置一次性提示");
+	}
 	TestVersionFourPlayerUpgradeAddsCrazyDaveTutorialsSeen();
 	TestCurrentLevelDocumentIsStable();
 	TestLegacyLevelUpgradePreservesGameplayState();

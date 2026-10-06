@@ -6,13 +6,11 @@
 #include "../UI/GameMessageBox.h"
 #include "Game/Board/Board.h"
 #include "AdventureProgression.h"
-#include "../Logger.h"
 
 #include <algorithm>
 
 namespace
 {
-	constexpr int kSecondAreaFirstLevel = AdventureProgression::LEVELS_PER_AREA + 1; // 主菜单跳关目标：2-1
 	const Vector kConsoleButtonPosition(920.0f, 548.0f); // 主菜单右下角控制台入口左上角坐标
 	const Vector kConsoleButtonSize(150.0f, 40.0f); // 控制台入口按钮尺寸，单位：逻辑像素
 	const Vector kConsoleOptionHitSize(620.0f, 46.0f); // 控制台选项整行命中区域，单位：逻辑像素
@@ -43,7 +41,6 @@ void MainMenuScene::OnEnter()
 
 void MainMenuScene::OnExit()
 {
-	mSkipToSecondAreaButton.reset();
 	mOpitionButton.reset();
 	mConsoleButton.reset();
 	mExitButton.reset();
@@ -71,11 +68,6 @@ void MainMenuScene::Update()
 		gameApp.GetGraphics().SetCameraPosition(0, 0);
 		SceneMgr.SetGlobalData("GameSelectMode", "adventure");
 		SceneMgr.SwitchTo("GameSelectScene");
-		return;
-	}
-	if (mReadyToSkipToSecondArea) {
-		mReadyToSkipToSecondArea = false;
-		SkipToSecondArea();
 		return;
 	}
 	if (mReadyToSwitchAlmanac) {
@@ -140,9 +132,6 @@ void MainMenuScene::BuildDrawCommands()
 			}
 			if (mAlmanacButton) {
 				mAlmanacButton->Draw(g);
-			}
-			if (mSkipToSecondAreaButton) {
-				mSkipToSecondAreaButton->Draw(g);
 			}
 			if (mExitButton) {
 				mExitButton->Draw(g);
@@ -210,55 +199,6 @@ void MainMenuScene::BuildDrawCommands()
 		this->mReadyToSwitchAlmanac = true;
 		});
 
-	// 跳关只服务尚未到达 2-1 的存档；进入第二大关后不再占用主菜单空间。
-	if (GameAPP::GetInstance().mAdventureLevel < kSecondAreaFirstLevel) {
-		mSkipToSecondAreaButton = mUIManager.CreateButton(
-			Vector(330, 535), Vector(213 * 0.9f, 50 * 0.9f));
-		mSkipToSecondAreaButton->SetAsCheckbox(false);
-		mSkipToSecondAreaButton->SetSkipDraw(true);
-		mSkipToSecondAreaButton->SetText("跳到 2-1",
-			ResourceKeys::Fonts::FONT_FZCQ, 18);
-		mSkipToSecondAreaButton->SetTextColor(glm::vec4{ 53, 191, 61, 255 });
-		mSkipToSecondAreaButton->SetHoverTextColor(glm::vec4{ 53, 240, 61, 255 });
-		mSkipToSecondAreaButton->SetImageKeys(
-			ResourceKeys::Textures::IMAGE_BUTTONBIG,
-			ResourceKeys::Textures::IMAGE_BUTTONBIG,
-			ResourceKeys::Textures::IMAGE_BUTTONBIG,
-			ResourceKeys::Textures::IMAGE_BUTTONBIG);
-		mSkipToSecondAreaButton->SetClickCallBack([this](bool) {
-			DeltaTime::SetPaused(false);
-			mReadyToSkipToSecondArea = true;
-			});
-	}
-}
-
-void MainMenuScene::SkipToSecondArea()
-{
-	auto& gameApp = GameAPP::GetInstance();
-
-	// 先保证初始豌豆射手存在，再按正式奖励表补齐已经跳过的 1-1～1-9 奖励。
-	auto ensureCard = [&gameApp](PlantType type) {
-		if (type == AdventureProgression::NO_PLANT_REWARD) return;
-		if (std::find(gameApp.mHaveCards.begin(), gameApp.mHaveCards.end(), type) ==
-			gameApp.mHaveCards.end()) {
-			gameApp.mHaveCards.push_back(type);
-		}
-		};
-	ensureCard(PlantType::PLANT_PEASHOOTER);
-	for (int completedLevel = 1; completedLevel < kSecondAreaFirstLevel; ++completedLevel) {
-		ensureCard(AdventureProgression::GetPlantReward(completedLevel));
-	}
-
-	// 只提升、不回退玩家的永久进度；无论当前进度多高，本按钮的游玩入口固定为 2-1。
-	gameApp.mAdventureLevel = std::max(gameApp.mAdventureLevel, kSecondAreaFirstLevel);
-	if (!gameApp.mGameInfoSaver.SavePlayerInfo()) {
-		LOG_ERROR("MainMenu") << "跳到 2-1 后无法立即保存冒险进度，将在退出游戏时重试。";
-	}
-
-	gameApp.GetGraphics().SetCameraPosition(0, 0);
-	auto& sceneManager = SceneManager::GetInstance();
-	sceneManager.SetGlobalData("EnterLevel", std::to_string(kSecondAreaFirstLevel));
-	sceneManager.SwitchTo("GameScene");
 }
 
 void MainMenuScene::OpenMenu()

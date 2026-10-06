@@ -93,6 +93,10 @@ public:
 	Vector GetSize() const { return m_size; }
 	bool UsesAdaptiveStandardSkin() const { return m_backgroundMode == BackgroundMode::STANDARD_DIALOG; }
 	size_t GetWrappedMessageLineCount() const { return m_messageLines.size(); }
+	/** 按创建顺序返回自有按钮，供自动化在自适应布局后走真实点击路径。 */
+	std::shared_ptr<Button> GetButton(size_t index) const {
+		return index < m_buttons.size() ? m_buttons[index] : nullptr;
+	}
 	/** 返回原版标准对话框皮肤的资源完整性，供启动自检与 AutoTest 复用。 */
 	static size_t GetStandardSkinRequiredTextureCount();
 	static size_t GetLoadedStandardSkinTextureCount();

@@ -761,6 +761,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mHumanObservation = j.value("humanObservation",false);
 	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
 	mDefaultColdStorageBonusSelection = mColdStorageBonusSelection;
+	mAdventureEntryNotices = j.value("adventureEntryNotices", false);
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
 	mCommanderFuelAwareLamp = j.value("commanderFuelAwareLamp",true);
@@ -3741,6 +3742,19 @@ bool TestDriver::ExecuteCurrent() {
 			x = center.x;
 			y = center.y;
 		}
+		else if (target == "message_box_button") {
+			auto* scene = SceneManager::GetInstance().GetCurrentScene();
+			auto box = scene ? scene->GetUIManager().GetTopActiveMessageBox() : nullptr;
+			const int index = cmd.value("index", 0);
+			auto button = box && index >= 0 ? box->GetButton(static_cast<size_t>(index)) : nullptr;
+			if (!button || !button->IsEnabled()) {
+				Fail("click target=message_box_button: 顶层弹窗按钮不存在或不可用");
+				return false;
+			}
+			const Vector center = button->GetCenter();
+			x = center.x;
+			y = center.y;
+		}
 		else if (target == "zombie_almanac_previous_page") {
 			auto* almanac = dynamic_cast<ZombieAlmanacScene*>(
 				SceneManager::GetInstance().GetCurrentScene());
@@ -3911,6 +3925,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	auto& gameApp = GameAPP::GetInstance();
 	out["scene"] = currentScene->name;
 	out["adventureLevel"] = gameApp.mAdventureLevel;
+	out["firstAreaEntryChoiceMade"] = gameApp.mFirstAreaEntryChoiceMade;
+	out["coldStorageEntryNoticeSeen"] = gameApp.mColdStorageEntryNoticeSeen;
+	out["weatherStationEntryNoticeSeen"] = gameApp.mWeatherStationEntryNoticeSeen;
 	// 奖励页和选关页同样需要验证发卡结果，不依赖正在运行的 Board。
 	out["haveCardCount"] = static_cast<int>(gameApp.mHaveCards.size());
 	out["haveCards"] = nlohmann::json::array();

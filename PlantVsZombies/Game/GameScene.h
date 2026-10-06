@@ -297,6 +297,13 @@ private:
 	void CloseSurvivalPerkSelectBox();
 	/** 按当前关卡与玩家已读状态尝试打开戴夫闲聊。 */
 	bool TryStartCrazyDaveDialog(bool force);
+	/** 在安全的开场更新边沿显示一次性说明；10-1/11-1 等戴夫退场后再显示。 */
+	void TryShowAdventureEntryNotice();
+	/** 保存玩家选择后再继续或跳到 2-1；保存失败回滚并允许重试。 */
+	void CompleteAdventureEntryNotice();
+	bool mAdventureEntryNoticeActive = false;
+	bool mEntryNoticeWasPaused = false;
+	int mPendingEntryNoticeChoice = -1; // -1 等待选择，0 继续，1 跳到 2-1
 
 	std::unique_ptr<Board> mBoard = nullptr;
 	std::unique_ptr<CrazyDaveDialog> mCrazyDaveDialog;

@@ -32,6 +32,8 @@ public:
 	bool CommanderPreservePaidQueue() const { return mCommanderPreservePaidQueue; }
 	/** 显式支援专项或真人观察显示正式战前窗口；训练缺省保持无增益。 */
 	bool ColdStorageBonusSelection() const { return mColdStorageBonusSelection; }
+	/** 显式验收玩家入场提示；普通专项不被一次性提示打断。 */
+	bool AdventureEntryNotices() const { return mAdventureEntryNotices; }
 	int  ExitCode() const { return mExitCode; }
 
 	// 每帧调用（GameAPP::Run 中 sceneManager.Update() 之后）。未激活时立即返回。
@@ -84,6 +86,7 @@ private:
 	void PublishInteractiveReply();
 	bool mHumanObservation = false;
 	bool mColdStorageBonusSelection = false;
+	bool mAdventureEntryNotices = false;
 	bool mDefaultColdStorageBonusSelection = false; // 脚本默认值；单场 goto_level 覆盖不泄漏到下一场
 	bool mBackgroundCommander = false; // 性能夹具可显式启用；真人观察默认启用，批量训练默认同步
 	bool mHumanRecordingFailed = false;

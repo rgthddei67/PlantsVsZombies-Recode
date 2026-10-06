@@ -2,6 +2,7 @@
 #include "GameScene.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "CrazyDaveDialog.h"
+#include "AdventureProgression.h"
 #include "CursorObjectManager.h"
 #include "SceneManager.h"
 #include "PlantAlmanacScene.h"
@@ -566,6 +567,100 @@ bool GameScene::TryStartCrazyDaveDialog(bool force)
 	}
 	mCrazyDaveDialog = std::move(dialog);
 	return true;
+}
+
+void GameScene::TryShowAdventureEntryNotice()
+{
+	if (!mBoard || mBoard->mIsSurvival || mAdventureEntryNoticeActive
+		|| (GameAPP::mAutoTestMode && !TestDriver::GetInstance().AdventureEntryNotices())
+		|| mUIManager.GetTopActiveMessageBox()) return;
+	auto& app = GameAPP::GetInstance();
+	const bool firstArea = mBoard->mLevel == 1 && !app.mFirstAreaEntryChoiceMade;
+	const bool coldStorage = mBoard->mLevel == AdventureProgression::LEVELS_PER_AREA * 9 + 1
+		&& !app.mColdStorageEntryNoticeSeen;
+	const bool weatherStation = mBoard->mLevel == AdventureProgression::LEVELS_PER_AREA * 10 + 1
+		&& !app.mWeatherStationEntryNoticeSeen;
+	if (!firstArea && !coldStorage && !weatherStation) return;
+
+	// 仅冻结当前场景，不把暂停状态写成玩家设置；关闭的释放事件不推进开场或战斗。
+	mEntryNoticeWasPaused = DeltaTime::IsPaused();
+	DeltaTime::SetPaused(true);
+	mAdventureEntryNoticeActive = true;
+	app.GetGraphics().SetCameraPosition(0.0f, 0.0f);
+	GameMessageBox::Builder builder(Vector(SCENE_WIDTH / 2.0f, SCENE_HEIGHT / 2.0f));
+	builder.Scale(kCompactDialogScale);
+	if (firstArea) {
+		builder.Title("第一大关游玩提示")
+			.Message("第一大关尚未充分打磨，内容比较单调，可能略显无聊。\n"
+				"本作的特色机制从第二大关开始逐步登场。\n"
+				"是否跳过第一大关，直接前往 2-1？\n"
+				"跳关会补齐第一大关的植物奖励，仍可回头重玩。\n"
+				"无论选择哪一项，本存档都不会再次询问。")
+			.Button("前往 2-1", Vector::zero(), Vector(150, 50), 18,
+				[this]() { mPendingEntryNoticeChoice = 1; })
+			.Button("继续 1-1", Vector::zero(), Vector(150, 50), 18,
+				[this]() { mPendingEntryNoticeChoice = 0; });
+	}
+	else {
+		const std::string chapter = weatherStation ? "第十一大关" : "第十大关";
+		builder.Title(chapter + "游玩提示")
+			.Message(chapter + "由 AI 根据战局决定出怪。\n"
+				"作者已反复优化，但仍可能出现掉帧，手机端尤其如此。\n"
+				"AI 的表现并不稳定：有时很强，有时也可能比较简单。\n"
+				"如果打不过，可以继续挑战，或在菜单中降低难度后重开；\n"
+				"也可返回冒险选关页，使用“跳过本关”继续后续内容。\n"
+				"作者会继续尽力改善性能与平衡，但目前效果仍有限，\n"
+				"无法保证完全解决。欢迎反馈遇到的问题与建议。")
+			.Button("我知道了", Vector::zero(), Vector(150, 50), 18,
+				[this]() { mPendingEntryNoticeChoice = 0; });
+	}
+	builder.Show();
+}
+
+void GameScene::CompleteAdventureEntryNotice()
+{
+	const bool skip = mPendingEntryNoticeChoice == 1;
+	mPendingEntryNoticeChoice = -1;
+	auto& app = GameAPP::GetInstance();
+	const bool firstArea = mBoard->mLevel == 1;
+	bool& acknowledged = firstArea ? app.mFirstAreaEntryChoiceMade
+		: mBoard->IsWeatherStation() ? app.mWeatherStationEntryNoticeSeen : app.mColdStorageEntryNoticeSeen;
+	const int previousLevel = app.mAdventureLevel;
+	const auto previousCards = app.mHaveCards;
+	acknowledged = true;
+	constexpr int secondArea = AdventureProgression::LEVELS_PER_AREA + 1; // 一次性入场跳关目标：2-1
+	if (skip) {
+		// 奖励以正式编排表为准，已有卡不重复；回头重玩 1-1 也不能回退永久进度。
+		auto ensureCard = [&app](PlantType type) {
+			if (type != AdventureProgression::NO_PLANT_REWARD
+				&& std::find(app.mHaveCards.begin(), app.mHaveCards.end(), type) == app.mHaveCards.end())
+				app.mHaveCards.push_back(type);
+		};
+		ensureCard(PlantType::PLANT_PEASHOOTER);
+		for (int level = 1; level < secondArea; ++level)
+			ensureCard(AdventureProgression::GetPlantReward(level));
+		app.mAdventureLevel = std::max(app.mAdventureLevel, secondArea);
+	}
+	if (!app.mGameInfoSaver.SavePlayerInfo()) {
+		// 与选关页保持一致：持久化失败不消耗选择，也不留下半提交的奖励/进度。
+		acknowledged = false;
+		app.mAdventureLevel = previousLevel;
+		app.mHaveCards = previousCards;
+		GameMessageBox::Builder(Vector(SCENE_WIDTH / 2.0f, SCENE_HEIGHT / 2.0f))
+			.Title("保存失败").Message("未能保存本次选择，请重试。")
+			.Scale(kCompactDialogScale)
+			.Button("重试", Vector::zero(), Vector(150, 50), 18,
+				[this, skip]() { mPendingEntryNoticeChoice = skip ? 1 : 0; }).Show();
+		return;
+	}
+	mAdventureEntryNoticeActive = false;
+	DeltaTime::SetPaused(mEntryNoticeWasPaused);
+	if (skip) {
+		DeltaTime::SetPaused(false);
+		auto& scenes = SceneManager::GetInstance();
+		scenes.SetGlobalData("EnterLevel", std::to_string(secondArea));
+		scenes.SwitchTo("GameScene");
+	}
 }
 
 bool GameScene::StartCrazyDaveDialogForTesting(bool force)
@@ -2125,7 +2220,9 @@ void GameScene::OnEnter() {
 		mBoard->SelectColdStorageOpeningBonus(ColdStorageOpeningBonus::NONE);
 	// 戴夫在支援选择结束后再进入，避免两个开场流程同时拥有输入。
 	if (mBoard->mBoardState == BoardState::CHOOSE_CARD
-		&& !mBoard->mIsSurvival && !GameAPP::mAutoTestMode && !mBoard->NeedsColdStorageOpeningBonus()) {
+		&& !mBoard->mIsSurvival
+		&& (!GameAPP::mAutoTestMode || TestDriver::GetInstance().AdventureEntryNotices())
+		&& !mBoard->NeedsColdStorageOpeningBonus()) {
 		TryStartCrazyDaveDialog(false);
 	}
 }
@@ -2287,6 +2384,15 @@ void GameScene::OpenQuitMenu()
 }
 
 void GameScene::Update() {
+	if (mPendingEntryNoticeChoice >= 0) {
+		// 模态按钮回调已退出控件遍历，场景切换可安全销毁当前 this。
+		CompleteAdventureEntryNotice();
+		return;
+	}
+	if (mAdventureEntryNoticeActive) {
+		Scene::Update();
+		return;
+	}
 	// OnEnter 中 SceneManager 尚未挂接新场景；首个 Update 才可由 Builder 找到正确 UIManager。
 	if (!mColdStorageBonusSelectActive && mBoard && mBoard->mBoardState == BoardState::CHOOSE_CARD
 		&& mBoard->NeedsColdStorageOpeningBonus())
@@ -2317,6 +2423,11 @@ void GameScene::Update() {
 	// 戴夫闲聊独占本帧输入和逻辑更新；结束输入不会穿透到选卡、暂停或战场。
 	if (mCrazyDaveDialog && mCrazyDaveDialog->IsActive()) {
 		mCrazyDaveDialog->Update();
+		return;
+	}
+	TryShowAdventureEntryNotice();
+	if (mAdventureEntryNoticeActive) {
+		Scene::Update();
 		return;
 	}
 	UpdateColdStorageShop();
@@ -2716,7 +2827,8 @@ bool GameScene::ApplyColdStorageOpeningBonus(int choice)
 	const bool hadSelection = mColdStorageBonusSelectActive;
 	mColdStorageBonusSelectActive = false;
 	if (hadSelection) DeltaTime::SetPaused(mColdStorageBonusPreviousPaused);
-	if (!GameAPP::mAutoTestMode) TryStartCrazyDaveDialog(false);
+	if (!GameAPP::mAutoTestMode || TestDriver::GetInstance().AdventureEntryNotices())
+		TryStartCrazyDaveDialog(false);
 	return true;
 }
 

@@ -313,6 +313,15 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 9:
+				if (kind == DocumentKind::Player) {
+					// 玩家 v10 独立记录入场选择/说明；不能用戴夫已读或冒险进度猜测玩家曾确认。
+					if (!upgraded.contains("firstAreaEntryChoiceMade"))
+						upgraded["firstAreaEntryChoiceMade"] = false;
+					if (!upgraded.contains("coldStorageEntryNoticeSeen"))
+						upgraded["coldStorageEntryNoticeSeen"] = false;
+					if (!upgraded.contains("weatherStationEntryNoticeSeen"))
+						upgraded["weatherStationEntryNoticeSeen"] = false;
+				}
 				if (kind == DocumentKind::Level) {
 					// 关卡 v10 新增 8-7/8-8 独立裂隙、时间锚与曙光导航；旧档从单位元恢复。
 					if (!upgraded.contains("pendingAuroraRifts"))

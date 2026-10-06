@@ -203,6 +203,9 @@ bool GameInfoSaver::SavePlayerInfoImpl()
 	j["fullscreen"] = gameApp.mFullscreen;
 	j["difficulty"] = gameApp.Difficulty;
 	j["adventureLevel"] = gameApp.mAdventureLevel;
+	j["firstAreaEntryChoiceMade"] = gameApp.mFirstAreaEntryChoiceMade;
+	j["coldStorageEntryNoticeSeen"] = gameApp.mColdStorageEntryNoticeSeen;
+	j["weatherStationEntryNoticeSeen"] = gameApp.mWeatherStationEntryNoticeSeen;
 	j["encounteredEliteDancer"] = gameApp.mEncounteredEliteDancer;
 	j["crazyDaveTutorialsSeen"] = gameApp.mCrazyDaveTutorialsSeen;
 	j["stationCounterTutorialsSeen"]=gameApp.mStationCounterTutorialsSeen;
@@ -243,6 +246,9 @@ bool GameInfoSaver::LoadPlayerInfoImpl()
 	gameApp.mFullscreen = j.value("fullscreen", false);
 	gameApp.Difficulty = j.value("difficulty", 1);
 	gameApp.mAdventureLevel = j.value("adventureLevel", 1);
+	gameApp.mFirstAreaEntryChoiceMade = j.value("firstAreaEntryChoiceMade", false);
+	gameApp.mColdStorageEntryNoticeSeen = j.value("coldStorageEntryNoticeSeen", false);
+	gameApp.mWeatherStationEntryNoticeSeen = j.value("weatherStationEntryNoticeSeen", false);
 	gameApp.mEncounteredEliteDancer = j.value("encounteredEliteDancer", false);
 	gameApp.mStationCounterTutorialsSeen=j.value("stationCounterTutorialsSeen",0u)&7u;
 	gameApp.mCrazyDaveTutorialsSeen.clear();

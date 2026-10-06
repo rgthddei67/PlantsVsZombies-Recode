@@ -46,6 +46,9 @@ public:
 	std::array<float, 4> mColdStorageHabits{}; // 冷藏站近期战术画像，按正式落种衰减更新
 	int Difficulty = 3; // 难度系数
 	int mAdventureLevel = 1;    // 玩到的冒险模式关卡
+	bool mFirstAreaEntryChoiceMade = false; // 1-1 入场询问已选择；继续或跳关均只询问一次
+	bool mColdStorageEntryNoticeSeen = false; // 已确认 10-1 的 AI 难度与性能说明
+	bool mWeatherStationEntryNoticeSeen = false; // 已确认 11-1 的 AI 难度与性能说明
 	bool mEncounteredEliteDancer = false; // 是否曾由正式波次实际刷出精英舞王
 	unsigned mStationCounterTutorialsSeen=0; // 已看过的三类敌方控制台操作教学
 	std::vector<int> mCrazyDaveTutorialsSeen; // 已完整看过或主动跳过的关卡闲聊（稳定冒险关卡号）
