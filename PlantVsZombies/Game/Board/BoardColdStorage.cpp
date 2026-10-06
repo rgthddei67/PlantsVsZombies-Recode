@@ -97,6 +97,8 @@ namespace {
 		}
 	};
 	constexpr std::array<int, 9> kOpeningIce{350, 400, 450, 500, 550, 780, 900, 1020, 1200}; // 各关难度1初始敌方冰块；后段平滑增加，避免10-6库存突增
+	constexpr int kSurvivalOpeningIce = 150; // 冷藏站无尽第一轮敌方库存，冰块，不再叠乘菜单难度
+	constexpr double kSurvivalIceGrowth = 0.08; // 每轮开局库存线性增加首轮库存的8%，独立于普通无尽点数预算
 	constexpr float kOpeningPreparationSeconds = 150.0f; // 选择准备支援后的首轮布阵时间，游戏秒；补给照常推进
 	constexpr double kOpeningCardRechargeMultiplier = 2.2; // 战前支援卡槽恢复速度提高120%，实际冷却除以2.2
 	constexpr float kSupplySeconds = 30.0f; // 固定敌方补给间隔，游戏秒
@@ -687,6 +689,7 @@ double Board::GetPlantCardRechargeMultiplier() const
 	return mPerkManager.GetPlantCardRechargeMultiplier() * support;
 }
 
+/** 新建冰块经济与指挥官；无尽按轮次库存初始化，冒险沿用章内开局表。 */
 void Board::InitializeColdStorage()
 {
 	if (!IsColdStorage()) return;
@@ -697,11 +700,33 @@ void Board::InitializeColdStorage()
 	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
-	mColdStorage.initialEnemyIce = MiniGame::IsBrawl(mLevel) ? MiniGame::BRAWL_ENEMY_ICE
-		: (IsWeatherStation() ? WeatherStationRules::EnemyIce[stage] : kOpeningIce[stage]) * (4 + mColdStorage.difficulty - 1) / 4;
+	const int openingIce = mIsSurvival ? static_cast<int>(std::min(static_cast<double>(kMaxIce),
+		std::round(kSurvivalOpeningIce * (1.0 + kSurvivalIceGrowth * (mSurvivalRound - 1)))))
+		: (IsWeatherStation() ? WeatherStationRules::EnemyIce[stage] : kOpeningIce[stage]);
+	mColdStorage.initialEnemyIce = mIsSurvival ? openingIce : MiniGame::IsBrawl(mLevel) ? MiniGame::BRAWL_ENEMY_ICE
+		: static_cast<int>(std::min(static_cast<long long>(kMaxIce),
+			static_cast<long long>(openingIce) * (4 + mColdStorage.difficulty - 1) / 4));
 	mColdStorage.enemyIce = mColdStorage.initialEnemyIce;
 	if (IsWeatherStation()) mColdStorage.playerIce = WeatherStationRules::PlayerIce[stage];
 	mColdStorage.habits = GameAPP::GetInstance().mColdStorageHabits;
+}
+
+void Board::ResetColdStorageForSurvivalRound()
+{
+	// 取消上一轮搜索后清掉敌方付款/经营状态，避免旧队列在选卡后重新提交。
+	auto previous = std::move(mColdStorage);
+	InitializeColdStorage();
+	++mColdStoragePlanningVersion;
+	mColdStoragePlanningTickets.clear();
+	mColdStorage.playerIce = previous.playerIce;
+	mColdStorage.playerProductionIncome = previous.playerProductionIncome;
+	mColdStorage.playerKillIncome = previous.playerKillIncome;
+	mColdStorage.orderIce = previous.orderIce;
+	mColdStorage.orderRemaining = previous.orderRemaining;
+	mColdStorage.discountRemaining = previous.discountRemaining;
+	mColdStorage.interferenceRemaining = previous.interferenceRemaining;
+	mColdStorage.interferenceCooldownRemaining = previous.interferenceCooldownRemaining;
+	mColdStorage.habits = previous.habits;
 }
 
 bool Board::BuyColdStorageIce(bool large)
@@ -811,6 +836,14 @@ bool Board::IsColdStorageCleared() const
 		|| mColdStorage.strikeTargetID >= 0
 		|| !mColdStorage.pending.empty() || !mPendingSnowHoleSpawns.empty()
 		|| !mPendingAuroraRifts.empty() || GetColdStorageHostileCount() != 0) return false;
+	if (mIsSurvival) {
+		// 活体计数已排除死亡动画，但付款退款到 Die 才结算；换轮重建账本前必须等它完成。
+		for (const auto& [id, cost] : mColdStorage.refundableCosts) {
+			const Zombie* zombie = mEntityRegistry.GetZombie(id);
+			if (zombie && zombie->IsActive() && !zombie->IsPreview()
+				&& !zombie->IsMindControlled()) return false;
+		}
+	}
 	// 钟匠已经提交的复活同样属于在途兵力；施法者死亡不能让本局提前结束。
 	for (const auto& anchor : mTemporalAnchors)
 		for (const auto& target : anchor.targets)
@@ -832,6 +865,8 @@ bool Board::IsColdStorageCleared() const
 
 int Board::GetColdStorageUnlockWave(ZombieType type) const
 {
+	// 无尽已由冻结的本轮候选池按 survivalRound 解锁，不再叠加冒险 appearWave 门槛。
+	if (mIsSurvival) return 1;
 	if (type == ZombieType::ZOMBIE_GARGANTUAR) return kGargantuarUnlockWave;
 	if (type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) return kRedeyeUnlockWave;
 	return GameDataManager::GetInstance().GetZombieAppearWave(type);
@@ -2244,7 +2279,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		}
 	}
 
-	const int stage = MiniGame::IsBrawl(mLevel) ? 9
+	const int stage = MiniGame::IsBrawl(mLevel) || mIsSurvival ? 9
 		: std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel), 1, 9);
 	const int assaultCap = stage <= 5 ? kAssaultEarlyBudget : kAssaultLateBudget;
 	const int availableSlots = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount() - static_cast<int>(s.pending.size()));
@@ -2943,6 +2978,7 @@ void Board::PollColdStoragePlan()
 	s.decisionRemaining = kStagingRecheck;
 }
 
+/** 推进经营、订单与正式付费出兵；无尽破产清场结算下一轮，冒险生成奖杯。 */
 void Board::UpdateColdStorage(float dt)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || dt <= 0) return;
@@ -2971,7 +3007,11 @@ void Board::UpdateColdStorage(float dt)
 		if (s.orderRemaining <= 0) { s.playerIce = std::min(kMaxIce, s.playerIce + s.orderIce); s.orderIce = 0; }
 	}
 	// 清场先于本步补给：最后一只死后已破产就结束，不用新补给复活已结束的战争。
-	if (IsColdStorageCleared()) { CreateTrophy(GetCellCenterPosition(2, 4)); return; }
+	if (IsColdStorageCleared()) {
+		if (mIsSurvival) OnSurvivalRoundClear();
+		else CreateTrophy(GetCellCenterPosition(2, 4));
+		return;
+	}
 	s.supplyRemaining -= dt;
 	while (s.supplyRemaining <= 0) {
 		s.supplyRemaining += kSupplySeconds;

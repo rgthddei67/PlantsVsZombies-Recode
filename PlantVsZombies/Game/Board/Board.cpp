@@ -277,7 +277,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	}
 	InitializeColdStorage();
 	if (IsMineBackground()) {
-		mMineGrid.Initialize(mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,MineGrid::CurrentLayoutRevision);
+		mMineGrid.Initialize(mIsSurvival || mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL ? 4 : mLevel >= 79 ? 3 : mLevel >= 77 ? 2 : mLevel >= 75 ? 1 : 0,MineGrid::CurrentLayoutRevision);
 		mMineFogNextWave = GetMineFogOpeningWave();
 		// 初始阳光由关卡表唯一维护；地形初始化不能覆盖已经加载的开局经济。
 	}
@@ -3656,6 +3656,7 @@ void Board::GameOver()
 	mBoardState = BoardState::LOSE_GAME;
 }
 
+/** 保留阵地与玩家资源，重置本轮出兵和环境排期，再进入词条与选卡。 */
 void Board::OnSurvivalRoundClear()
 {
 	if (!mIsSurvival) return;
@@ -3703,10 +3704,26 @@ void Board::OnSurvivalRoundClear()
 	mAdaptiveHelmetTutorialWaveSpawned = false;
 	mThermalSnipersSpawnedThisWave = 0;
 	mThermalSniperTutorialSpawned = false;
+	mAuroraPriestsSpawnedThisWave = 0;
+	mClockmakersSpawnedThisWave = 0;
+	mCrystalMinersSpawnedThisWave = 0;
+	mCrystalDrummersSpawnedThisWave = 0;
+	mSunThievesSpawnedThisWave = 0;
+	if (IsMineBackground()) {
+		// 岩壁/开凿进度继续保留；上一轮的雾潮和冻结预报不能占用新一轮波号。
+		mMineFogElapsed = -1.0f;
+		mMineFogNextWave = GetMineFogOpeningWave();
+		mMineFogNoticeRemaining = 0.0f;
+		mMinePlannedWave = -1;
+		mMineWavePlan.clear();
+	}
+	if (IsColdStorage()) ResetColdStorageForSurvivalRound();
 	RefreshZombieWeatherSpeeds();
 
 	// 重算难度（解锁更强僵尸）+ 刷新关卡名
 	BuildSurvivalSpawnList(mSurvivalRound);
+	// 轮间过场直接恢复 GAME，不会再走 StartGame；在新池确定后冻结下一轮首波预报。
+	if (IsMineBackground()) PrepareMineWave();
 	UpdateSurvivalLevelName();
 
 	// 回到选卡：暂停波次推进

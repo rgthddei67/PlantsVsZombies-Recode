@@ -63,7 +63,8 @@ void GameScene::DrawColdStorageShop(Graphics* g)
 		g->DrawGlyphRun("冰惠券 · 冰费减半 " + std::to_string(static_cast<int>(std::ceil(ice.discountRemaining))) + "秒",
 			ResourceKeys::Fonts::FONT_FZCQ, 16, glm::vec4(165, 245, 255, 255), 373, 75);
 	}
-	g->FillRect(590, 573, 235, 27, glm::vec4(20, 35, 40, 190));
+	// 无尽同时显示轮数与付费波数，扩宽底栏以容纳完整名称。
+	g->FillRect(590, 573, mBoard->mIsSurvival ? 410 : 235, 27, glm::vec4(20, 35, 40, 190));
 	g->DrawGlyphRun(mBoard->mLevelName + "  第" + std::to_string(ice.decisions) + "波",
 		ResourceKeys::Fonts::FONT_FZCQ, 18, glm::vec4(255, 235, 175, 255), 600, 575);
 	if (mColdStorageShopOpen) {

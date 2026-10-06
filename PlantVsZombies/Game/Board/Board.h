@@ -109,6 +109,8 @@ inline constexpr int SURVIVAL_ENDLESS_ROOF_LEVEL = 1004; // 白天屋顶无尽�
 inline constexpr int SURVIVAL_ENDLESS_NIGHT_ROOF_LEVEL = 1005; // 黑夜屋顶无尽专用 level 号
 inline constexpr int SURVIVAL_ENDLESS_WINTER_LEVEL = 1006; // 雪原无尽专用 level 号
 inline constexpr int SURVIVAL_ENDLESS_POLAR_LEVEL = 1007; // 极夜无尽专用 level 号
+inline constexpr int SURVIVAL_ENDLESS_MINE_LEVEL = 1008; // 矿场无尽专用 level 号
+inline constexpr int SURVIVAL_ENDLESS_COLD_STORAGE_LEVEL = 1009; // 冷藏站无尽专用 level 号
 
 struct SurvivalEndlessDefinition {
 	int level;
@@ -118,7 +120,7 @@ struct SurvivalEndlessDefinition {
 };
 
 // 无尽模式的关卡号、背景、显示名和解锁大关只有这一处真源，新增地形时选关与 Board 自动同步。
-inline constexpr std::array<SurvivalEndlessDefinition, 8> SURVIVAL_ENDLESS_DEFINITIONS{ {
+inline constexpr std::array<SurvivalEndlessDefinition, 10> SURVIVAL_ENDLESS_DEFINITIONS{ {
 	{ SURVIVAL_ENDLESS_LEVEL, Background::GROUND_DAY, "白天无尽", 1 },
 	{ SURVIVAL_ENDLESS_NIGHT_LEVEL, Background::GROUND_NIGHT, "黑夜无尽", 2 },
 	{ SURVIVAL_ENDLESS_POOL_LEVEL, Background::WATER_POOL, "泳池无尽", 3 },
@@ -127,6 +129,8 @@ inline constexpr std::array<SurvivalEndlessDefinition, 8> SURVIVAL_ENDLESS_DEFIN
 	{ SURVIVAL_ENDLESS_NIGHT_ROOF_LEVEL, Background::NIGHT_ROOF, "黑夜屋顶无尽", 6 },
 	{ SURVIVAL_ENDLESS_WINTER_LEVEL, Background::WINTER_GARDEN, "雪原无尽", 7 },
 	{ SURVIVAL_ENDLESS_POLAR_LEVEL, Background::POLAR_NIGHT_SNOWFIELD, "极夜无尽", 8 },
+	{ SURVIVAL_ENDLESS_MINE_LEVEL, Background::GLOOMCRYSTAL_MINE, "矿场无尽", 9 },
+	{ SURVIVAL_ENDLESS_COLD_STORAGE_LEVEL, Background::HOT_COLD_STORAGE, "冷藏站无尽", 10 },
 } };
 
 /** 查找无尽关卡定义；普通冒险关返回 nullptr。 */
@@ -298,6 +302,8 @@ public:
 	void SettleColdStorageZombieDeath(const Zombie& zombie);
 	/** 建立新局资源，不从 StartGame 重置已恢复的订单与队伍。 */
 	void InitializeColdStorage();
+	/** 无尽换轮只重建敌方经营状态；玩家钱包、订单、技能余时和本局习惯继续保留。 */
+	void ResetColdStorageForSurvivalRound();
 	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */
 	void UpdateColdStorage(float deltaTime);
 	/** 采集主线程快照并规划；probe 非空时只采样到调用方，不改棋盘、规划任务或决策状态。 */
@@ -1001,12 +1007,12 @@ public:
 	int mMineFogNextWave = 10; // 完全散尽后按所在波次加三；初始化时按关卡设定首次波次
 	bool mMineFogTutorialSeen = false;
 	float mMineFogNoticeRemaining = 0.0f; // 首次说明的剩余游戏秒
-	/** 首次矿雾波次；收官提前，其余关卡仍保留原教学窗口。 */
-	int GetMineFogOpeningWave() const { return mLevel == 81 ? 5 : 10; }
+	/** 首次矿雾波次；收官与无尽提前，其余关卡仍保留原教学窗口。 */
+	int GetMineFogOpeningWave() const { return mIsSurvival || mLevel == 81 ? 5 : 10; }
 	/** 矿雾独立于普通雾，不接入照明、驱散和索敌遮挡。 */
-	bool SupportsMineFog() const { return IsMineBackground() && (mLevel >= 75 && mLevel <= 81); }
+	bool SupportsMineFog() const { return IsMineBackground() && (mIsSurvival || (mLevel >= 75 && mLevel <= 81)); }
 	bool HasPurpleMineFog() const { return SupportsMineFog() && mLevel >= 77 && mLevel <= 78; }
-	bool HasGoldenMineFog() const { return SupportsMineFog() && mLevel >= 79; }
+	bool HasGoldenMineFog() const { return SupportsMineFog() && (mIsSurvival || mLevel >= 79); }
 	int GetMineFogFirstColumn() const { return HasGoldenMineFog() ? 3 : HasPurpleMineFog() ? 4 : 5; }
 	float GetMineFogReduction() const { return HasGoldenMineFog() ? 0.75f : HasPurpleMineFog() ? 0.5f : 0.25f; }
 	float GetMineFogStrength() const;
