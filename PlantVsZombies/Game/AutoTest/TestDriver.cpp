@@ -2489,6 +2489,14 @@ bool TestDriver::ExecuteCurrent() {
 		Zombie* z = gs->GetBoard()->CreateZombie(it->second,
 			cmd.value("row", 0), cmd.value("x", 900.0f));
 		if (!z) { Fail("CreateZombie 返回空"); return false; }
+        if(cmd.contains("bodyTrack")) {
+            // 只用于动作专项固定覆盖不同出生步态，不改变正式随机选择。
+            const std::string track=cmd.at("bodyTrack");
+            if((track!="anim_walk" && track!="anim_walk2") || !z->GetAnimatorInternal()->HasTrack(track)) {
+                Fail("spawn_zombie: bodyTrack must be an available walking clip"); return false;
+            }
+            z->PlayTrack(track);
+        }
 		if (cmd.value("stationary", false)) {
 			// 测试靶只停基础 Animator；不伪造冻结/减速状态，也不改变受击链。
 			z->SetAnimationSpeed(0.0f);

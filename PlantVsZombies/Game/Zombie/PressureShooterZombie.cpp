@@ -4,6 +4,7 @@
 #include "ResourceKeys.h"
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 /** 继承普通身体事件，挂接独立气压枪头和气罐，注册主人确认的四个发射帧。 */
 void PressureShooterZombie::SetupZombie() {
@@ -16,7 +17,8 @@ void PressureShooterZombie::SetupZombie() {
     mGun->SetLocalPosition(0,0);
     mGun->SetFlipX(true,18);
     mGun->PlayTrack("anim_head_idle",1,0);
-    mAnimator->AttachAnimator("anim_head1",mGun);
+    if(!mAnimator->AttachAnimator("anim_head1",mGun,0))
+        throw std::runtime_error("Pressure shooter requires a valid head attachment base pose");
     for(const int frame:PressureShooterRules::Frames) mGun->AddFrameEvent(frame,[this](){Shoot();},true);
     const auto* tank=ResourceManager::GetInstance().GetTexture("IMAGE_PRESSURE_TANK",false);
     mAnimator->SetTrackFollowerImage("Zombie_body","pressureTank",tank,30,3,.65f,.65f,false,true,true);
@@ -25,12 +27,15 @@ void PressureShooterZombie::SetupZombie() {
         if(mAnimator->HasTrack(track)) mAnimator->SetTrackColor(track,SDL_Color{155,195,210,255});
 }
 
-/** 返回当前身体头轨对应的枪口世界像素位置，阵营反转只改变横向偏移。 */
+/** 用与绘制相同的父子矩阵定位实际枪管前端，含插值、镜像和世界缩放。 */
 Vector PressureShooterZombie::GetMuzzlePosition() const {
-    // 枪头资源的挂接校准和自身呼吸/射击起伏同步进入弹体起点，不能继续沿用旧固定高度。
-    const float headY=mGun ? mGun->GetTrackPosition("anim_face").y : 0.0f;
-    return GetRenderedTrackWorldPosition("anim_head1")
-        +Vector(IsMindControlled() ? -PressureShooterRules::MuzzleOffset : PressureShooterRules::MuzzleOffset,14+headY);
+    if(!mGun) throw std::logic_error("Pressure shooter muzzle requested before SetupZombie");
+    const auto* barrel=ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_PRESSURE_BARREL",false);
+    if(!barrel) throw std::runtime_error("Missing pressure shooter barrel texture");
+    const auto parent=mAnimator->GetAttachedWorldTransform(*mGun,GetVisualPosition(),GetAnimationScale());
+    const auto gun=mGun->GetTrackLocalTransform("GatlingPea_barrel1");
+    const auto muzzle=parent*gun*glm::vec4(static_cast<float>(barrel->width)-1,barrel->height*.5f,0,1);
+    return Vector(muzzle.x,muzzle.y);
 }
 
 void PressureShooterZombie::Shoot() {
@@ -51,7 +56,8 @@ void PressureShooterZombie::ZombieUpdate(float) {
     if(IsImmobilized() || IsGarlicRedirectPaused() || mTangleKelpPlantID!=NULL_PLANT_ID) return;
     // 四发动画与轮间加压使用同一行动倍率；最后出膛的本帧不重复消费冷却。
     if(mBurstShot>=4 && mLastShotBoardFrame!=mBoard->mBoardFrame) mReloadRemaining=std::max(0.0f,mReloadRemaining-DeltaTime::GetDeltaTime()*mAnimator->GetExtraSpeedMultiplier());
-    mGun->SetFlipX(!IsMindControlled(),18);
+    // 枪头资源固定朝左；魅惑镜像由完整父矩阵统一继承，不再对子动画翻第二次。
+    mGun->SetFlipX(true,18);
     if(mBurstShot>=4 && mReloadRemaining<=0) {
         mBurstShot=0;
         mGun->PlayTrackOnce("anim_shooting","anim_head_idle",PressureShooterRules::ClipSpeed,0,1,0);
@@ -70,7 +76,7 @@ void PressureShooterZombie::ZombieItemUpdate() const {
     if(!mAnimator || !mGun) return;
     for(const char* track:{"anim_head1","anim_head2","anim_hair","anim_tongue"}) mAnimator->SetTrackVisible(track,false);
     for(const auto& track:*mGun->GetReanimation()->mTracks) mGun->SetTrackVisible(track.mTrackName,mHasHead);
-    mGun->SetFlipX(!IsMindControlled(),18);
+    mGun->SetFlipX(true,18);
 }
 
 void PressureShooterZombie::OnTemporalCoreStateRestored() {

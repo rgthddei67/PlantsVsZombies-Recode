@@ -6,10 +6,18 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace {
+    /** 将附件的父级仿射烘进实例记录；颜色、UV 和提交顺序保持不变。 */
+    void TransformAttachedInstance(InstanceRecord& r, const glm::mat4& matrix) {
+        const auto x=matrix*glm::vec4(r.tA,r.tB,0,0);
+        const auto y=matrix*glm::vec4(r.tC,r.tD,0,0);
+        const auto p=matrix*glm::vec4(r.tx,r.ty,0,1);
+        r.tA=x.x; r.tB=x.y; r.tC=y.x; r.tD=y.y; r.tx=p.x; r.ty=p.y;
+    }
 	thread_local AnimatorRenderProbe* gActiveRenderProbe = nullptr;
 
 	/** 把最终 2x3 仿射单位四边形并入当前根 Animator 的世界包围盒。 */
@@ -447,7 +455,7 @@ namespace {
 	}
 }
 
-void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, float Scale) const {
+void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, float Scale, const glm::mat4* inheritedTransform) const {
 	const BlendMode baseBlend = !mEnableWashedOutEffect ? BlendMode::Alpha
 		: mUseLessWashedOutEffect ? BlendMode::LessWashedOut : BlendMode::WashedOut;
 	const bool hasEnabledTrackGlow = mEnableExtraAdditiveDraw
@@ -553,6 +561,7 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 				rec.tC = -rec.tC;
 				rec.tx = baseX + (2.0f * mFlipPivotX - tx) * Scale;
 			}
+			if (inheritedTransform) TransformAttachedInstance(rec,*inheritedTransform);
 			ApplyRenderScale(rec);
 			RecordRenderQuad(rec.tA, rec.tB, rec.tC, rec.tD, rec.tx, rec.ty);
 
@@ -617,6 +626,7 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 					rec.tC = -rec.tC;
 					rec.tx = baseX + (2.0f * mFlipPivotX - followerX) * Scale;
 				}
+				if (inheritedTransform) TransformAttachedInstance(rec,*inheritedTransform);
 				ApplyRenderScale(rec);
 				RecordRenderQuad(rec.tA, rec.tB, rec.tC, rec.tD, rec.tx, rec.ty);
 
@@ -666,7 +676,12 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 			const float childY = child->mLocalPosY;
 			const float worldX = baseX + (tx + tA * childX + tC * childY) * Scale;
 			const float worldY = baseY + (ty + tB * childX + tD * childY) * Scale;
-			child->DrawInternalInstanced(g, worldX, worldY, 1.0f);
+			if (weakChild.fullTransform) {
+                const glm::mat4 trackMatrix(tA,tB,0,0,tC,tD,0,0,0,0,1,0,tx,ty,0,1);
+                auto attachment=BuildAttachmentTransform(weakChild,trackMatrix,*child,baseX,baseY,Scale);
+                if(inheritedTransform) attachment=(*inheritedTransform)*attachment;
+                child->DrawInternalInstanced(g,0,0,1,&attachment);
+            } else child->DrawInternalInstanced(g, worldX, worldY, 1.0f,inheritedTransform);
 		}
 	}
 
@@ -679,7 +694,7 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 	if (directWrite) g->EndReanimInstanceWrite(directSpan, directCount);
 }
 
-void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale) const {
+void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, const glm::mat4* inheritedTransform) const {
 	if (!mReanim) return;
 	const BlendMode baseBlend = !mEnableWashedOutEffect ? BlendMode::Alpha
 		: mUseLessWashedOutEffect ? BlendMode::LessWashedOut : BlendMode::WashedOut;
@@ -687,7 +702,7 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale) 
 	// 生产路径统一递归实例化整棵 Animator 附件树；慢路径只由 -NoInstance 显式保留，
 	// 用作视觉 A/B 与故障兜底，不再因存在子 Animator 让整棵父级退化成逐顶点提交。
 	if (g->IsInstancePathEnabled() && !g->IsClipActive()) {
-		DrawInternalInstanced(g, baseX, baseY, Scale);
+		DrawInternalInstanced(g, baseX, baseY, Scale, inheritedTransform);
 		return;
 	}
 
@@ -782,6 +797,7 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale) 
 				mat[1][0] = -mat[1][0];
 				mat[3][0] = baseX + (2.0f * mFlipPivotX - tx) * Scale;
 			}
+			if (inheritedTransform) mat=(*inheritedTransform)*mat;
 			ApplyRenderScale(mat);
 			RecordRenderQuad(
 				mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
@@ -841,6 +857,7 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale) 
 					mat[1][0] = -mat[1][0];
 					mat[3][0] = baseX + (2.0f * mFlipPivotX - followerX) * Scale;
 				}
+				if (inheritedTransform) mat=(*inheritedTransform)*mat;
 				ApplyRenderScale(mat);
 				RecordRenderQuad(
 					mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
@@ -890,7 +907,12 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale) 
 				worldX = baseX + worldX * Scale;
 				worldY = baseY + worldY * Scale;
 
-				child->DrawInternal(g, worldX, worldY, 1.0f);
+				if (weakChild.fullTransform) {
+                    const glm::mat4 trackMatrix(tA,tB,0,0,tC,tD,0,0,0,0,1,0,tx,ty,0,1);
+                    auto attachment=BuildAttachmentTransform(weakChild,trackMatrix,*child,baseX,baseY,Scale);
+                    if(inheritedTransform) attachment=(*inheritedTransform)*attachment;
+                    child->DrawInternal(g,0,0,1,&attachment);
+                } else child->DrawInternal(g, worldX, worldY, 1.0f,inheritedTransform);
 			}
 		}
 	}
@@ -1146,35 +1168,75 @@ void Animator::SetFlipX(bool flip, float pivotX) {
 	mFlipPivotX = pivotX;
 }
 
-bool Animator::AttachAnimator(const std::string& trackName, std::shared_ptr<Animator> child) {
-	if (!mReanim || !child || child.get() == this) {
-		return false;
-	}
+bool Animator::AttachAnimator(const std::string& trackName, std::shared_ptr<Animator> child, int basePoseFrame) {
+    if (!mReanim || !child || child.get()==this) return false;
+    const auto indices=GetTrackIndicesByName(trackName);
+    if(indices.empty()) return false;
+    // 先校验全部同名轨道，错误基准帧不能留下半份挂接状态。
+    if(basePoseFrame>=0) for(int index:indices) {
+        const auto* track=mReanim->GetTrack(index);
+        if(!track || basePoseFrame>=static_cast<int>(track->mFrames.size())) return false;
+        const auto b=ComputeReanimBasis(track->mFrames[basePoseFrame]);
+        const float determinant=b.tA*b.tD-b.tB*b.tC;
+        if(!std::isfinite(determinant) || std::abs(determinant)<.00001f) return false;
+    }
+    for(int index:indices) {
+        AttachedAnimator binding;
+        binding.animator=child; binding.fullTransform=basePoseFrame>=0;
+        if(binding.fullTransform) {
+            const auto b=ComputeReanimBasis(mReanim->GetTrack(index)->mFrames[basePoseFrame]);
+            binding.inverseBaseBasis=glm::inverse(glm::mat2(b.tA,b.tB,b.tC,b.tD));
+        }
+        auto& attachments=GetOrCreateSparseTrackState(index).mAttachedReanims;
+        auto found=std::find_if(attachments.begin(),attachments.end(),[&](const AttachedAnimator& old){return old.lock()==child;});
+        if(found==attachments.end()) attachments.push_back(binding);
+        else *found=binding;
+    }
+    child->SetRenderScale(mRenderScaleX,mRenderScaleY,mRenderPivotX,mRenderPivotY);
+    return true;
+}
 
-	auto trackIndices = GetTrackIndicesByName(trackName);
-	if (trackIndices.empty()) {
-		return false;
-	}
+glm::mat4 Animator::BuildAttachmentTransform(const AttachedAnimator& binding, const glm::mat4& track,
+    const Animator& child,float baseX,float baseY,float scale) const {
+    glm::mat4 root(1), correction(1);
+    root[0][0]=mFlipX ? -scale : scale; root[1][1]=scale;
+    root[3][0]=baseX+(mFlipX ? 2*mFlipPivotX*scale : 0); root[3][1]=baseY;
+    for(int c=0;c<2;++c) for(int r=0;r<2;++r) correction[c][r]=binding.inverseBaseBasis[c][r];
+    // 子资源已校准到头轨原点：完整 inverse(basePose) 与基准原点平移相消，只保留基准基向量逆矩阵。
+    // 当前轨道的平移/旋转/非等比缩放及父级镜像均作用于整颗头，不能只换算其原点。
+    return root*track*correction*glm::translate(glm::mat4(1),glm::vec3(child.mLocalPosX,child.mLocalPosY,0));
+}
 
-	for (const int trackIndex : trackIndices) {
-		auto& sparse = GetOrCreateSparseTrackState(trackIndex);
-		// 避免重复添加
-		bool alreadyExists = false;
-		for (const auto& weak : sparse.mAttachedReanims) {
-			if (auto existing = weak.lock()) {
-				if (existing == child) {
-					alreadyExists = true;
-					break;
-				}
-			}
-		}
-		if (!alreadyExists) {
-			sparse.mAttachedReanims.push_back(child);
-		}
-	}
-	// 若父 Animator 已处于压扁等世界绘制变换，新挂件从第一帧起继承，避免短暂弹回原形。
-	child->SetRenderScale(mRenderScaleX, mRenderScaleY, mRenderPivotX, mRenderPivotY);
-	return true;
+glm::mat4 Animator::GetTrackLocalTransform(const std::string& trackName) const {
+    const int index=GetFirstTrackIndexByName(trackName);
+    if(index<0) throw std::out_of_range("Missing animation anchor: "+trackName);
+    const float blend=mReanimBlendCounter>0 ? 1-mReanimBlendCounter/mReanimBlendCounterMax : 0;
+    const auto frame=GetInterpolatedTransform(index,blend);
+    const auto b=ComputeReanimBasis(frame);
+    const float x=frame.x+mExtraInfos[index].mOffsetX,y=frame.y+mExtraInfos[index].mOffsetY;
+    glm::mat4 matrix(b.tA,b.tB,0,0,b.tC,b.tD,0,0,0,0,1,0,x,y,0,1);
+    if(mFlipX) {matrix[0][0]*=-1;matrix[1][0]*=-1;matrix[3][0]=2*mFlipPivotX-x;}
+    return matrix;
+}
+
+glm::mat4 Animator::GetAttachedWorldTransform(const Animator& child,const Vector& origin,float objectScale) const {
+    const float blend=mReanimBlendCounter>0 ? 1-mReanimBlendCounter/mReanimBlendCounterMax : 0;
+    for(const auto& sparse:mSparseTrackStates) for(const auto& binding:sparse.mAttachedReanims) {
+        if(binding.lock().get()!=&child) continue;
+        const auto frame=GetInterpolatedTransform(sparse.mTrackIndex,blend);
+        const auto b=ComputeReanimBasis(frame);
+        const auto& extra=mExtraInfos[sparse.mTrackIndex];
+        const glm::mat4 track(b.tA,b.tB,0,0,b.tC,b.tD,0,0,0,0,1,0,frame.x+extra.mOffsetX,frame.y+extra.mOffsetY,0,1);
+        glm::mat4 result;
+        if(binding.fullTransform) result=BuildAttachmentTransform(binding,track,child,origin.x,origin.y,objectScale);
+        else {
+            const auto position=track*glm::vec4(child.mLocalPosX,child.mLocalPosY,0,1);
+            result=glm::translate(glm::mat4(1),glm::vec3(origin.x+position.x*objectScale,origin.y+position.y*objectScale,0));
+        }
+        child.ApplyRenderScale(result);
+        return result;
+    }
+    throw std::logic_error("Animator world transform requires an attached child");
 }
 
 void Animator::DetachAnimator(const std::string& trackName, std::shared_ptr<Animator> child) {
@@ -1183,7 +1245,7 @@ void Animator::DetachAnimator(const std::string& trackName, std::shared_ptr<Anim
 		if (!sparse) continue;
 		auto& vec = sparse->mAttachedReanims;
 		vec.erase(std::remove_if(vec.begin(), vec.end(),
-			[&child](const std::weak_ptr<Animator>& weak) {
+			[&child](const AttachedAnimator& weak) {
 				auto sp = weak.lock();
 				return sp == child || !sp; // 移除指定对象或已失效的
 			}),

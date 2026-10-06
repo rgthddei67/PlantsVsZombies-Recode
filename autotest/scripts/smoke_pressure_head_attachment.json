@@ -1,0 +1,367 @@
+{
+  "description": "Both body walks, eating and charm keep a base-pose affine gun attachment; legacy gatling plant is a control.",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "background": "GROUND_DAY",
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT",
+        "PLANT_REPEATER",
+        "PLANT_GATLINGPEA"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_sun",
+      "value": 9990
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_REPEATER",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_GATLINGPEA",
+      "row": 4,
+      "col": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 1,
+      "x": 750,
+      "bodyTrack": "anim_walk"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 1,
+      "x": 900,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 2,
+      "x": 700,
+      "bodyTrack": "anim_walk"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_SHOOTER",
+      "row": 3,
+      "x": 600,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "row": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 4,
+      "x": 1000,
+      "stationary": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_00.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_00.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_01.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_01.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_02.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_02.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_03.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_03.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_04.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_04.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_05.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_05.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_06.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_06.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_07.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_07.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_08.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_08.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_09.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_09.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_10.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_10.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_11.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_11.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_12.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_12.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_13.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_13.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_14.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_14.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_15.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_15.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.41
+    },
+    {
+      "op": "screenshot",
+      "name": "pose_16.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "pose_16.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "attached_head"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "attached_head"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25
+    },
+    {
+      "op": "screenshot",
+      "name": "restored.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "restored.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "normalPlantsByCell.4_0.type",
+      "equals": "PLANT_GATLINGPEA"
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 100
+    },
+    {
+      "op": "goto_zombie_almanac"
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "click",
+      "target": "zombie_almanac_next_page"
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "click",
+      "x": 108,
+      "y": 318,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieAlmanacSelected",
+      "equals": "ZOMBIE_PRESSURE_SHOOTER"
+    },
+    {
+      "op": "screenshot",
+      "name": "almanac_head.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "almanac_head.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

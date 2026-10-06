@@ -87,11 +87,18 @@ private:
 		const Texture* mImage = nullptr;
 	};
 
+	/** 完整挂接仅由指定基准帧的调用方启用；旧附件保留原点跟随语义。 */
+	struct AttachedAnimator {
+		std::weak_ptr<Animator> animator;
+		glm::mat2 inverseBaseBasis{1.0f};
+		bool fullTransform = false;
+		std::shared_ptr<Animator> lock() const { return animator.lock(); }
+	};
 	/** 只有 follower 或子 Animator 的轨道才分配冷状态，按轨道索引排序。 */
 	struct SparseTrackState {
 		int mTrackIndex = -1;
 		std::vector<TrackFollowerState> mFollowers;
-		std::vector<std::weak_ptr<Animator>> mAttachedReanims;
+		std::vector<AttachedAnimator> mAttachedReanims;
 	};
 	std::vector<SparseTrackState> mSparseTrackStates;
 
@@ -296,12 +303,17 @@ public:
 	void SetTrackGlowOverride(const std::string& trackName, bool enable);
 
 	/**
-	 * @brief 将子动画器附加到指定轨道 (子动画将跟随父轨道的变换)
+	 * @brief 将子动画器附加到指定轨道；默认保留旧附件的原点跟随行为。
 	 * @param trackName 目标轨道名
 	 * @param child 子动画器共享指针
+	 * @param basePoseFrame 非负时继承相对于该基准帧的完整仿射变换；子资源原点须已校准到挂接点。
 	 * @return 是否成功 (轨道存在且不为自身)
 	 */
-	bool AttachAnimator(const std::string& trackName, std::shared_ptr<Animator> child);
+	bool AttachAnimator(const std::string& trackName, std::shared_ptr<Animator> child, int basePoseFrame = -1);
+	/** 获取当前插值轨道的局部矩阵，含轨道偏移及自身镜像；不含对象位置或世界绘制缩放。缺轨抛错。 */
+	glm::mat4 GetTrackLocalTransform(const std::string& trackName) const;
+	/** 返回直接附件的实际世界矩阵，供枪口等语义点与绘制共用；child 必须已经挂接。 */
+	glm::mat4 GetAttachedWorldTransform(const Animator& child, const Vector& origin, float objectScale) const;
 
 	/**
 	 * @brief 从指定轨道分离子动画器
@@ -646,7 +658,8 @@ private:
 	 * @param baseY 基准 Y
 	 * @param Scale 全局缩放
 	 */
-	void DrawInternal(Graphics* g, float baseX, float baseY, float Scale) const;
+	void DrawInternal(Graphics* g, float baseX, float baseY, float Scale,
+		const glm::mat4* inheritedTransform = nullptr) const;
 
 	/**
 	 * @brief 递归实例化当前 Animator 及全部附件。
@@ -655,7 +668,11 @@ private:
 	 * 轨道间遮挡顺序；overlay/glow 仍紧跟本体。CPU 负责动画插值与附件定位，GPU 只展开
 	 * 单位四边形，2x3 仿射已预乘图像尺寸和 Scale。
 	 */
-	void DrawInternalInstanced(Graphics* g, float baseX, float baseY, float Scale) const;
+	void DrawInternalInstanced(Graphics* g, float baseX, float baseY, float Scale,
+		const glm::mat4* inheritedTransform = nullptr) const;
+	/** 组合对象镜像、父轨当前姿态、基准补偿及子局部位置；最终世界缩放由叶节点统一执行一次。 */
+	glm::mat4 BuildAttachmentTransform(const AttachedAnimator& binding, const glm::mat4& track,
+		const Animator& child, float baseX, float baseY, float scale) const;
 	/** 返回指定轨道合并整体开关与独立覆盖后的实际高亮状态。 */
 	bool IsGlowEffectEnabledForTrack(int trackIndex) const;
 	/** 把世界绘制缩放烘进实例化快路径的 2x3 仿射记录。 */

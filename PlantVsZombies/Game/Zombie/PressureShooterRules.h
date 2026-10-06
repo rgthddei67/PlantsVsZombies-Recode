@@ -12,5 +12,4 @@ inline constexpr float ProjectileSpeed = 420; // 平射像素/游戏秒；不受
 inline constexpr std::array<int,4> Frames{60,68,74,80}; // 主人确认的真实帧事件编号
 inline constexpr int FirstFrame = 50; // anim_shooting 起始全局帧
 inline constexpr float FramesPerSecond = 12*ClipSpeed; // 枪头有效基准帧率
-inline constexpr float MuzzleOffset = -27; // 普通朝向头轨原点到枪口的横向距离，像素
 }
