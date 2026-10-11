@@ -5,6 +5,29 @@
 #include <cmath>
 #include <nlohmann/json.hpp>
 
+namespace {
+constexpr float kOpeningLock11_8 = 120.0f; // 11-8 开局三台设备共同锁定的游戏秒
+constexpr float kOpeningLock11_9 = 180.0f; // 11-9 开局三台设备共同锁定的游戏秒
+
+/** 返回指定冒险关的开幕锁定时长；其他关卡不注入天气。 */
+float OpeningLockSeconds(int level) {
+    return level == 98 ? kOpeningLock11_8 : level == 99 ? kOpeningLock11_9 : 0.0f;
+}
+}
+
+void Board::InitializeStationOpeningWeather() {
+    if (!IsWeatherStation() || mIsSurvival || mIsLoadSave) return;
+    const float duration = OpeningLockSeconds(mLevel);
+    if (duration <= 0.0f) return;
+    mWeatherStation.controls[WeatherStationRules::RAIN].value = static_cast<int>(RainIntensity::HEAVY);
+    mWeatherStation.controls[WeatherStationRules::FOG].value = static_cast<int>(FogWeatherIntensity::DENSE) + 1;
+    mWeatherStation.controls[WeatherStationRules::CHARGE].value = 1;
+    // 复用双方及预测共用的保护期，计时仅在实战推进；到期只解锁，不自动关闭设备。
+    for (auto& control : mWeatherStation.controls) control.protection = duration;
+    ++mWeatherStation.revision;
+    ApplyStationEnvironment();
+}
+
 bool Board::IsStationDeviceUnlocked(int device) const {
     return IsWeatherStation() && device>=0 && device<WeatherStationRules::COUNT
         && AdventureProgression::GetLevelNumberInArea(mLevel)>=device+1;
@@ -100,7 +123,9 @@ void Board::LoadWeatherStation(const nlohmann::json& value) {
         c.pending=std::clamp(saved.value("pending",-1),-1,WeatherStationRules::Count(d)-1);
         auto duration=[&](const char* key,float maximum) { const float v=saved.value(key,0.0f); return std::isfinite(v) ? std::clamp(v,0.0f,maximum) : 0.0f; };
         c.warning=duration("warning",WeatherStationRules::WarningSeconds);
-        c.protection=duration("protection",WeatherStationRules::ProtectionSeconds);
+        // 开幕锁定也保存在既有保护期中，不能被普通切换的 30 秒上限截短。
+        c.protection=duration("protection",std::max(WeatherStationRules::ProtectionSeconds,
+            mIsSurvival ? 0.0f : OpeningLockSeconds(mLevel)));
         c.player=saved.value("player",false);
     }
 }

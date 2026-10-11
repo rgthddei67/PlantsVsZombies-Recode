@@ -233,6 +233,8 @@ public:
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE || IsWeatherStation(); }
 	bool IsWeatherStation() const { return mBackGround == Background::WEATHER_STATION; }
 	WeatherStationRules::State mWeatherStation;
+	/** 仅新局注入 11-8/11-9 的开幕天气与双方设备锁定；读档保留原状态。 */
+	void InitializeStationOpeningWeather();
 	/** 设备只按章节解锁；不限制任何僵尸在晴夜提前部署。 */
 	bool IsStationDeviceUnlocked(int device) const;
 	/** 同时检查设备事务、场景状态与请求方钱包；查询不产生扣款。 */

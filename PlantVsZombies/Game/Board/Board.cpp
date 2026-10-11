@@ -3645,6 +3645,7 @@ void Board::StartGame()
 	InitializeWinterTemperature();
 	InitializePolarNightEnvironment();
 	InitializeFogWeather();
+	InitializeStationOpeningWeather();
 	EnforceStormyNightWeather();
 	// 读档恢复到一场雨中时，玩法状态已经由存档还原；粒子是瞬态资源，需按剩余时间重建一次。
 	if (mRainIntensity != RainIntensity::CLEAR && !mRainVisualActive)
