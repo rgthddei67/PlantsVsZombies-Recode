@@ -2634,23 +2634,23 @@ int main()
 
 	{
 	using namespace ColdStorageSearch;
-	Snapshot s; s.houseX=-10000; s.playerIce=119; s.interferenceAvailable=true;
+	Snapshot s; s.houseX=-10000; s.playerIce=499; s.interferenceAvailable=true;
 	Unit dead; dead.id=1; dead.body.health=0; dead.body.x=900; s.current={dead};
 	TemporalAnchor anchor; anchor.at=2; Unit saved=dead; saved.body.health=2200;
 	anchor.targets.push_back({0,saved}); s.temporalAnchors={anchor};
 	ConstructionStats stats;
 	Evaluate(s,{},&stats);
 	check(stats.clockRevivals==1 && stats.interferences==0,"unaffordable interference cannot erase a committed revival");
-	s.playerIce=120; Evaluate(s,{},&stats);
-	check(stats.clockRevivals==0 && stats.interferences==1 && stats.iceSpent==120,
+	s.playerIce=500; Evaluate(s,{},&stats);
+	check(stats.clockRevivals==0 && stats.interferences==1 && stats.iceSpent==500,
 		"paid interference cancels dead-target records before rewind and spends the shared player wallet once");
-	check(s.playerIce==120 && s.temporalAnchors.size()==1,"interference forecast cannot change live wallet or anchors");
+	check(s.playerIce==500 && s.temporalAnchors.size()==1,"interference forecast cannot change live wallet or anchors");
 	s.interferenceReady=3; Evaluate(s,{},&stats);
 	check(stats.clockRevivals==1 && stats.interferences==0,"a cooling interference cannot cancel an earlier rewind");
 	s.interferenceAvailable=false; s.interferenceRemaining=6; Evaluate(s,{},&stats);
 	check(stats.clockRevivals==0 && stats.interferences==0 && stats.iceSpent==0,"already paid interference is not charged again");
 	// 灰烬前取消锚与灰烬费用共用钱包，预算不足或仍在冷却时不能凭空获得连招。
-	Snapshot combo; combo.houseX=-10000; combo.playerSun=500; combo.playerIce=140;
+	Snapshot combo; combo.houseX=-10000; combo.playerSun=500; combo.playerIce=520;
 	combo.interferenceAvailable=true;
 	Unit worker; worker.body.x=900; worker.body.health=500; worker.body.purchaseCost=24; worker.body.economic=true;
 	combo.current={worker,worker,worker}; TemporalAnchor future; future.at=20;
@@ -2660,14 +2660,14 @@ int main()
 	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
 	std::cout << "pre-ash interference=" << stats.interferences << " revivals=" << stats.clockRevivals
 		<< " ice=" << stats.iceSpent << " casts=" << stats.paidCounterCasts << '\n';
-	check(stats.interferences==1 && stats.clockRevivals==0 && stats.iceSpent==120 && stats.paidCounterCasts==1,
+	check(stats.interferences==1 && stats.clockRevivals==0 && stats.iceSpent==500 && stats.paidCounterCasts==1,
 		"pre-ash interference reserves and spends both real costs once before cancelling the anchor");
-	check(combo.playerIce==140 && combo.temporalAnchors.size()==1 && combo.current[0].body.health==500,
+	check(combo.playerIce==520 && combo.temporalAnchors.size()==1 && combo.current[0].body.health==500,
 		"pre-ash combination cannot mutate the sampled wallet, live health or anchor");
-	combo.playerIce=139;
+	combo.playerIce=519;
 	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
 	check(stats.interferences==0 && stats.clockRevivals==3,"insufficient combined funds cannot prepay interference and ash");
-	combo.playerIce=140; combo.interferenceReady=30;
+	combo.playerIce=520; combo.interferenceReady=30;
 	Evaluate(combo,{},&stats,0,0,0,false,false,-1,false,false,false,true);
 	check(stats.interferences==0 && stats.clockRevivals==3,"cooling time interference does not stop an earlier ash revival");
 	}
