@@ -277,7 +277,12 @@ endif()
 
 # 存档迁移是纯文件系统逻辑，单独目标可在不启动游戏、不接触真实玩家目录的情况下验证。
 include(CTest)
+# 输出目录只在测试目标创建期间生效，避免影响游戏或后续新增的非测试目标。
+block(SCOPE_FOR VARIABLES)
 if(BUILD_TESTING)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests")
+    set(CMAKE_PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests")
+
     add_executable(PlantCardRechargeRulesTests tests/PlantCardRechargeRulesTests.cpp)
     target_include_directories(PlantCardRechargeRulesTests PRIVATE ${SRC_DIR})
     target_compile_options(PlantCardRechargeRulesTests PRIVATE /utf-8 /W3 /sdl /EHsc)
@@ -448,6 +453,7 @@ if(BUILD_TESTING)
     add_test(NAME thread-pool-generations COMMAND ThreadPoolTests)
     set_tests_properties(thread-pool-generations PROPERTIES TIMEOUT 45)
 endif()
+endblock()
 
 # ---- GLSL → SPIR-V（复刻 vcxproj 的 CompileShaders Target，增量编译）----
 find_program(GLSLC glslc HINTS $ENV{VULKAN_SDK}/Bin REQUIRED)
