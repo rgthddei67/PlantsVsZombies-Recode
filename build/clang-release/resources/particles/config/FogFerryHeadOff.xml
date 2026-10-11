@@ -1,0 +1,15 @@
+<Emitter>
+  <Name>FogFerryHeadOff</Name>
+  <Image>IMAGE_DISASTERENGINEER_HEAD</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>1</ParticleDuration>
+  <SystemDuration>1.1</SystemDuration>
+  <ParticleScale>1</ParticleScale>
+  <ParticleAlpha>1 .9</ParticleAlpha>
+  <LaunchSpeed>[60 100]</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>140</ParticleGravity>
+  <ParticleSpinSpeed>[-5 5]</ParticleSpinSpeed>
+  <Field><FieldType>Position</FieldType><X>-10</X><Y>-50</Y></Field>
+</Emitter>

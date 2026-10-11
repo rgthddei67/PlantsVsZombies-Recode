@@ -397,6 +397,8 @@
 
   <!-- 粒子纹理 -->
   <ParticleTextures>
+    <Texture>./resources/particles/textures/fog_ferry_square.png</Texture>
+    <Texture>./resources/particles/textures/fog_ferry_mist.png</Texture>
     <Texture>./resources/particles/textures/water_mist.png</Texture>
     <Texture>./resources/particles/textures/water_droplets.png</Texture>
     <Texture>./resources/particles/textures/water_blast.png</Texture>
@@ -646,6 +648,7 @@
   <Reanimations>
     <Reanimation name="RainBamboo">./resources/reanim/RainBamboo.reanim</Reanimation>
     <Reanimation name="FloodMortarZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="FogFerryZombie">./resources/reanim/DisasterEngineerZombie.reanim</Reanimation>
     <Reanimation name="MendingCotton">./resources/reanim/MendingCotton.reanim</Reanimation>
     <Reanimation name="PressureShooterZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="PressureShooterHead">./resources/reanim/PressureShooterHead.reanim</Reanimation>

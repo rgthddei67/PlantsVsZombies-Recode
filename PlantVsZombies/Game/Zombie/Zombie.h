@@ -331,6 +331,8 @@ public:
 	virtual float GetIceTrapScaleMultiplier() const { return 1.0f; }
 	Vector GetPosition() const;
 	void SetPosition(const Vector& position);
+	/** 同行瞬移保留生命、控制与已提交结果，释放啃食及未提交动作；派生类清理额外位置锁定。 */
+	virtual void TeleportWithinRow(float x);
 	/**
 	 * 时间锚只恢复稳定数值和可选位置，不回滚 Animator 或当前动作相位。
 	 * 新复活实体由调用方创建后同样走此入口，再进入安全行走态。

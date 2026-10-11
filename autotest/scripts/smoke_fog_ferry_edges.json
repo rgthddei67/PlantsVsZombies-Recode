@@ -1,0 +1,208 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 99,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "key",
+      "name": "rshift"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "x": 360,
+      "y": 270
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "devSelectedZombie",
+      "equals": "ZOMBIE_FOG_FERRY"
+    },
+    {
+      "op": "screenshot",
+      "name": "dev_selection.png"
+    },
+    {
+      "op": "click",
+      "x": 665,
+      "y": 270
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "x": 840,
+      "y": 340
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.25
+    },
+    {
+      "op": "screenshot",
+      "name": "clean_charge.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.85
+    },
+    {
+      "op": "screenshot",
+      "name": "clean_arrive.png"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.ferryUses",
+      "equals": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 99,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 100,
+        "playerIce": 500,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "devSelectedZombie",
+      "equals": "ZOMBIE_FOG_FERRY"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 7
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.7
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 2,
+      "x": 890
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.08
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_GARGANTUAR.gargantuarPhase",
+      "equals": "SMASHING"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.45
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.ferryMovedCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_GARGANTUAR.gargantuarPhase",
+      "equals": "WALKING"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_GARGANTUAR.gargantuarTargetColumn",
+      "equals": -1
+    },
+    {
+      "op": "dump_state",
+      "name": "smash_cancelled.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "smash_cancelled.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

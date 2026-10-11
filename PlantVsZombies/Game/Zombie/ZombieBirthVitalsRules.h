@@ -1,6 +1,7 @@
 #pragma once
 #include "PressureShooterRules.h"
 #include "FloodMortarRules.h"
+#include "FogFerryRules.h"
 
 #include "ZombieType.h"
 #include "AdaptiveHelmetRules.h"
@@ -125,6 +126,7 @@ constexpr Stats Get(ZombieType type)
     case Z::ZOMBIE_BOILER: return Known(BoilerRules::kHealth); // 超频不虚增本体生命
     case Z::ZOMBIE_COLD_CHAIN_GUARD: return Known(ColdChainGuardRules::kBodyHealth, ColdChainGuardRules::kShieldHealth); // 冰盾属于一类防具
     case Z::ZOMBIE_FLOOD_MORTAR: return Known(FloodMortarRules::Health);
+    case Z::ZOMBIE_FOG_FERRY: return Known(FogFerryRules::Health);
     case Z::ZOMBIE_PRESSURE_SHOOTER: return Known(PressureShooterRules::Health); // 枪头不是承伤防具
     case Z::ZOMBIE_DISASTER_ENGINEER: return Known(DisasterEngineerRules::Health); // 冷却罐不是承伤防具
     default: return {}; // 未实现或未核实类型显式未知，不按默认生命参与推演

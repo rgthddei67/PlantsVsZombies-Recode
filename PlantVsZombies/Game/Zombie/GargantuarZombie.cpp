@@ -173,6 +173,12 @@ void GargantuarZombie::PlayWalkAnimation(float blendTime)
 	}
 }
 
+void GargantuarZombie::TeleportWithinRow(float x)
+{
+	AbortAction(true);
+	Zombie::TeleportWithinRow(x);
+}
+
 void GargantuarZombie::PlayWalking(float blendTime)
 {
 	mPhase = Phase::WALKING;

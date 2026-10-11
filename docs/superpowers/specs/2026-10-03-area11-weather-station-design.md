@@ -10,6 +10,8 @@
 
 实现入口：[设备规则](../../../PlantVsZombies/Game/Board/WeatherStationRules.h)、[Board 事务](../../../PlantVsZombies/Game/Board/BoardWeatherStation.cpp)、[控制台](../../../PlantVsZombies/Game/GameSceneWeatherStation.cpp)、[指挥官预测](../../../PlantVsZombies/Game/AI/ColdStorageSearch.cpp)。可见验证使用 `smoke_weather_station`、`smoke_weather_station_interactions`、`smoke_weather_station_tutorials`，跨状态核对见 [verify_weather_station.py](../../../autotest/verify_weather_station.py)。
 
+2026-10-11 雾渡扩展：不新增植物；雾渡僵尸本体、同行群体传送、紫晶背包及粒子已实现。参数以 [雾渡规则](../../../PlantVsZombies/Game/Zombie/FogFerryRules.h) 为准，位置事务在 [BoardFogFerry.cpp](../../../PlantVsZombies/Game/Board/BoardFogFerry.cpp)，专项为 `smoke_fog_ferry`（配套 `verify_fog_ferry.py`）与 `smoke_fog_ferry_edges`（运行时加 `-Develop`）。因云端正在修改指挥官，本轮仅开放开发者面板和测试直造；**11-6 首次登场仍是待接入的批准设计**，未加入正式兵池、购买映射或能力预测。后续接入需消费实体共用规则与实时阶段，不能把传送者当普通步兵。蓄洪和气压射手购买费用调整已落在各自规则头文件，不在此复制数值。
+
 预测沿用有界步长模型：环境、付款、友伤与停机按时间线评估；未来路线、玩家反制和照明持续时间存在近似，不等同于逐帧复刻正式战斗。
 
 ## 地图与流程

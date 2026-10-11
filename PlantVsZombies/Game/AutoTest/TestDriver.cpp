@@ -14,6 +14,7 @@
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
+#include "Game/Zombie/FogFerryZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "../../GameInfoSaver.h"
 #include "../../Renderer/VulkanRenderer.h"
@@ -462,7 +463,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -7448,6 +7449,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
                 && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_BLAST",false)
                 && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_MIST",false)
                 && ResourceManager::GetInstance().GetTexture("PARTICLE_WATER_DROPLETS",false);
+        }
+        if (auto* ferry=dynamic_cast<FogFerryZombie*>(z)) {
+            zombieState["ferryPhase"]=static_cast<int>(ferry->GetFerryPhase());
+            zombieState["ferryRemainingMs"]=static_cast<int>(std::lround(ferry->GetFerryRemaining()*1000));
+            zombieState["ferryUses"]=ferry->GetFerryUses();
+            zombieState["ferryMovedCount"]=ferry->GetFerryMovedCount();
+            zombieState["ferryTargetColumn"]=ferry->GetFerryTargetColumn();
+            zombieState["ferryChannelRatePct"]=static_cast<int>(std::lround(ferry->GetChannelRate()*100));
+            zombieState["ferryResourcesReady"]=ResourceManager::GetInstance().HasReanimation("FogFerryZombie")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_PACK",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_FOG_FERRY_SQUARE",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_FOG_FERRY_MIST",false);
         }
         if(auto* shooter=dynamic_cast<PressureShooterZombie*>(z)) {
             zombieState["pressureShots"]=shooter->GetShotsFired();

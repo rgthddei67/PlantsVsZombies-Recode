@@ -1305,6 +1305,12 @@ public:
 	int GetBaseFogLeftColumn() const;
 	/** 合并当前雾势扩展后的目标最左列，不受短时台风透明度影响。 */
 	int GetEffectiveFogLeftColumn() const;
+	/** 雾渡落点：有雾取天气雾线，无雾前移三格并守住玩家第3列；无合法前移返回 -1。 */
+	int GetFogFerryTargetColumn(const Zombie& source) const;
+	/** 按实际三格范围和地面资格返回稳定 ID；不包含同类、自身或敌对阵营。 */
+	std::vector<int> GetFogFerryPassengers(const Zombie& source) const;
+	/** 在同一提交边沿重新采集乘客并搬运，返回实际前移人数；粒子预算不限制人数。 */
+	int CommitFogFerry(const Zombie& source);
 	/** 当前雾场用于绘制的行数；战场行外再保留一条底部收边。 */
 	int GetFogDrawRowCount() const { return SupportsStageFog() ? mRows + 1 : 0; }
 	/** 返回指定雾格平滑后的 alpha（0～255）。 */

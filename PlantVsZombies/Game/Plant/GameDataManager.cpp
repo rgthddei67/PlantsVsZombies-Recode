@@ -1,6 +1,7 @@
 #include "MendingCotton.h"
 #include "RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
+#include "Game/Zombie/FogFerryZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "GameDataManager.h"
 #include "../../ResourceKeys.h"
@@ -297,6 +298,8 @@ void GameDataManager::InitializeHardcodedData() {
         AnimationType::ANIM_RAINBAMBOO,"RainBamboo",&MakePlant<RainBamboo>);
     RegisterZombie(ZombieType::ZOMBIE_FLOOD_MORTAR,"ZOMBIE_FLOOD_MORTAR",
         AnimationType::ANIM_FLOOD_MORTAR,"FloodMortarZombie",&MakeZombie<FloodMortarZombie>,&FloodMortarZombie::GetBirthMovementProfile);
+    RegisterZombie(ZombieType::ZOMBIE_FOG_FERRY,"ZOMBIE_FOG_FERRY",
+        AnimationType::ANIM_FOG_FERRY,"FogFerryZombie",&MakeZombie<FogFerryZombie>,&FogFerryZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_MENDINGCOTTON, "PLANT_MENDINGCOTTON", "IMAGE_MENDINGCOTTON",
         AnimationType::ANIM_MENDINGCOTTON, "MendingCotton", &MakePlant<MendingCotton>);
     RegisterZombie(ZombieType::ZOMBIE_PRESSURE_SHOOTER, "ZOMBIE_PRESSURE_SHOOTER",

@@ -2907,6 +2907,16 @@ void Zombie::SetPosition(const Vector& position)
 	this->GetTransform()->SetPosition(position);
 }
 
+void Zombie::TeleportWithinRow(float x)
+{
+	// 各品种自行撤销尚未提交、依赖原位置的动作；已离手结果不受搬运影响。
+	InterruptUncommittedSpecialAction();
+	const bool wasEating = CancelEatingForSpecialAction();
+	SetPosition(Vector(x, mBoard ? mBoard->GetZombieSpawnY(mRow, x) : GetPosition().y));
+	// 已提交的独立结果由原所有者继续管理，只为被搬运打断的啃食恢复步态。
+	if (wasEating && IsActive() && !IsDying()) PlayWalkAnimation(.12f);
+}
+
 float Zombie::GetCurrentHorizontalMoveSpeed() const
 {
 	if (mIsDying || mIsDead || !mHasHead || mTangleKelpPlantID != NULL_PLANT_ID

@@ -1,0 +1,17 @@
+{
+  "inputs": {
+    "assets\\source\\fog_ferry\\pack.png": "b12a50aeee314f2b9862d3eafebaa52da1c2918f8a47e8943ea5dc0d4f319f23",
+    "build\\clang-release\\resources\\reanim\\DisasterEngineerZombie.reanim": "91f53d8688e586e7641e87d4f7dec2f2b213623d69453a802d5d22a4e1dc5f84"
+  },
+  "outputs": {
+    "build\\clang-release\\resources\\image\\reanim\\Fog_ferry_pack.png": "505c3627d6b43645cd39185fa7b48d679313aaf579622f4d867e20f8549689b9",
+    "build\\clang-release\\resources\\particles\\textures\\fog_ferry_square.png": "38fb43fbd4b078237a94650903231de41f9ac8ed0c2550b3581cd41b6e9ff501",
+    "build\\clang-release\\resources\\particles\\textures\\fog_ferry_mist.png": "85a519c3edcd8d1b5e4c486c0b9b182b9e08250439039623d61217a24f6a923b",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryCharge.xml": "eac00c2c69e8da4ab4de3286953224a18b103c65a6b47a8785c3748ef4a473cb",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryMarker.xml": "16ef16aef2ff968351b826510c52784cb78f636c5d1e79903ae67d01a15c0927",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryCancel.xml": "f83d1de524c5161068268ed85499b7e2a874db63b24a714a7bb09b0e7c2d633b",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryDepart.xml": "3847a0bda89c7706c05c55c37388a23c4305cfb4de168bd0ce68154778093dcf",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryDepartWide.xml": "8395b955786cf473fe2a69b0c92c3978207d95eb06a68b975f5456cc1f8754f4",
+    "build\\clang-release\\resources\\particles\\config\\FogFerryArrive.xml": "53a6d29ca0a3f4b0b1c4473428a93f65f126f0f6cd24fd238d960f7dd0a3c808"
+  }
+}

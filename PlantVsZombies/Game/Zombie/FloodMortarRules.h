@@ -5,7 +5,7 @@
 /** 蓄洪僵尸炮击与选点/指挥官预测的共用规则。 */
 namespace FloodMortarRules {
 inline constexpr int Health = 1800; // 无防具本体生命
-inline constexpr int Cost = 45; // 指挥官购买冰价
+inline constexpr int Cost = 30; // 指挥官购买冰价
 inline constexpr float FirstReload = 5; // 出生后首次装填，固定游戏秒
 inline constexpr std::array<float,4> Reloads{10,8,6,4}; // 后续发射时按实际雨势锁定的装填秒数
 inline constexpr int RangeCells = 6; // 向前选点最大水平距离，格

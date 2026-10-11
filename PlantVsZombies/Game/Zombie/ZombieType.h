@@ -102,6 +102,7 @@ enum class ZombieType {
 	ZOMBIE_DISASTER_ENGINEER, // 防灾工程师；11-3登场，付费装填工人防灰烬冷却罐
 	ZOMBIE_PRESSURE_SHOOTER, // 气压射手；11-5登场，独立四连发枪头
 	ZOMBIE_FLOOD_MORTAR, // 蓄洪僵尸；11-5登场，雨势强化九格炮击
+	ZOMBIE_FOG_FERRY, // 雾渡僵尸：本行群体传送；指挥官与11-6兵池待后续接入
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

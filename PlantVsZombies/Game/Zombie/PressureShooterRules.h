@@ -4,7 +4,7 @@
 /** 气压四连发正式帧与预测时序；原动画是12FPS，片段50..88。 */
 namespace PressureShooterRules {
 inline constexpr int Health = 1000; // 无独立防具的本体生命
-inline constexpr int Cost = 20; // 指挥官购买冰价
+inline constexpr int Cost = 15; // 指挥官购买冰价
 inline constexpr int Damage = 25; // 每颗气弹的独立伤害
 inline constexpr float Reload = 1.5f; // 第四发出膛到下轮起播的有效行动秒数
 inline constexpr float ClipSpeed = 3.0f; // 36FPS；原版四帧点形成清晰分离的连射
