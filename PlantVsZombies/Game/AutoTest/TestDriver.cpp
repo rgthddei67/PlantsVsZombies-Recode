@@ -7697,6 +7697,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
             zombieState["ferryMovedCount"]=ferry->GetFerryMovedCount();
             zombieState["ferryTargetColumn"]=ferry->GetFerryTargetColumn();
             zombieState["ferryChannelRatePct"]=static_cast<int>(std::lround(ferry->GetChannelRate()*100));
+            const auto* stump=ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_OUTERARM_UPPER2",false);
+            zombieState["ferryStumpVisible"]=stump && anim && anim->GetTrackImageOverride("Zombie_outerarm_upper")==stump;
+            zombieState["ferryLimbResourcesReady"]=stump
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_FOG_FERRY_HEAD",false)
+                && ResourceManager::GetInstance().GetTexture("PARTICLE_FOG_FERRY_ARM",false);
             zombieState["ferryResourcesReady"]=ResourceManager::GetInstance().HasReanimation("FogFerryZombie")
                 && ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_PACK",false)
                 && ResourceManager::GetInstance().GetTexture("PARTICLE_FOG_FERRY_SQUARE",false)

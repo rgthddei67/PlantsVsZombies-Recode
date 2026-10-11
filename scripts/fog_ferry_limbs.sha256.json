@@ -1,0 +1,41 @@
+{
+  "inputs": {
+    "build/clang-release/resources/image/reanim/Zombie_outerarm_upper2.png": "5d1363d989a5f988acfe50c49188971d786ffa506ccf43bf30120187a1a72adc",
+    "build/clang-release/resources/reanim/DisasterEngineerZombie.reanim": "91f53d8688e586e7641e87d4f7dec2f2b213623d69453a802d5d22a4e1dc5f84",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_head.png": "dcd0115f030c108b28afcd5e68d25fb4a430afccc9c35fee385d9a5b5ebdf612",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_jaw.png": "ed9e8c73c0bede34f85b02d491f0e412a57f71e874e9186b074f4c4e340cf60f",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_tongue.png": "e2ee2adabf3157c323e42a55e968232189c4d8ca01e30de2d9c630927d89cdb8",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_hair.png": "848213e95ea142b51ef508c80dc0214640032a0ccd5dff3cb1c7d9b2a0cc1977",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_outerarm_hand.png": "b7c1c24ceb84bac45b3207b60a01f4f18b819931fa9b8101d44ffb0588d92811",
+    "build/clang-release/resources/image/reanim/DisasterEngineer_outerarm_lower.png": "8d46d337b240bf93e2b6b9fe4215a28695e1a661e0867f37c711e333ff2e35a3"
+  },
+  "outputs": {
+    "build/clang-release/resources/image/reanim/Fog_ferry_outerarm_upper2.png": "e6aaa8dc9050b9a60165ddeb2f492d323b18325973535228d8eeab7a6b37c2c6",
+    "build/clang-release/resources/particles/textures/fog_ferry_head.png": "918ce1dae142482d5bb6199137af706d619d563f2ab0cec4ccb7fe40ff08d85b",
+    "build/clang-release/resources/particles/textures/fog_ferry_arm.png": "2fad2539d073b2e47be61c58ad645966be345dec3e7616dcfeacb20a9a3e6226"
+  },
+  "geometry": {
+    "head": {
+      "anchor": "anim_head1",
+      "centerOffset": [
+        22.8,
+        21.2
+      ],
+      "size": [
+        49,
+        48
+      ]
+    },
+    "arm": {
+      "anchor": "Zombie_outerarm_lower",
+      "centerOffset": [
+        6.700000000000003,
+        18.5
+      ],
+      "size": [
+        20,
+        39
+      ]
+    }
+  }
+}

@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/reanim/Fog_ferry_outerarm_upper2.png</Image>
     <Image>./resources/image/PlantImage/RainBamboo.png</Image>
     <Image>./resources/image/PlantImage/MendingCotton.png</Image>
     <Image>./resources/image/PlantImage/ThunderFlower.png</Image>
@@ -397,6 +398,8 @@
 
   <!-- 粒子纹理 -->
   <ParticleTextures>
+    <Texture>./resources/particles/textures/fog_ferry_head.png</Texture>
+    <Texture>./resources/particles/textures/fog_ferry_arm.png</Texture>
     <Texture>./resources/particles/textures/fog_ferry_square.png</Texture>
     <Texture>./resources/particles/textures/fog_ferry_mist.png</Texture>
     <Texture>./resources/particles/textures/water_mist.png</Texture>

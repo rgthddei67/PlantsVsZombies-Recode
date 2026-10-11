@@ -1,6 +1,6 @@
 <Emitter>
   <Name>FogFerryArmOff</Name>
-  <Image>IMAGE_DISASTERENGINEER_OUTERARM_LOWER</Image>
+  <Image>PARTICLE_FOG_FERRY_ARM</Image>
   <SpawnMinActive>1</SpawnMinActive>
   <SpawnMaxLaunched>1</SpawnMaxLaunched>
   <ParticleDuration>.7</ParticleDuration>
@@ -10,5 +10,4 @@
   <LaunchSpeed>0</LaunchSpeed>
   <ParticleGravity>115</ParticleGravity>
   <ParticleSpinSpeed>[-5 5]</ParticleSpinSpeed>
-  <Field><FieldType>Position</FieldType><X>-9</X><Y>-8</Y></Field>
 </Emitter>

@@ -33,9 +33,13 @@ float FogFerryZombie::GetChannelRate() const
 void FogFerryZombie::SyncPresentation() const
 {
     mAnimator->SetTrackFollowerVisible("Zombie_body", "fog_ferry_pack", IsActive() && !IsDying());
-    // 基类读档/时间回溯可能恢复普通残臂图；本品种保留防护服上袖。
-    if (!mHasArm) mAnimator->SetTrackImage("Zombie_outerarm_upper",
-        ResourceManager::GetInstance().GetTexture("IMAGE_DISASTERENGINEER_OUTERARM_UPPER", false));
+    // 断肢和读档共用终态；完整态清除 override，避免时间回溯后继续显示残臂。
+    mAnimator->SetTrackVisible("Zombie_outerarm_hand", mHasArm);
+    mAnimator->SetTrackVisible("Zombie_outerarm_lower", mHasArm);
+    mAnimator->SetTrackImage("Zombie_outerarm_upper", mHasArm ? nullptr
+        : ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_OUTERARM_UPPER2", false));
+    for (const auto* track : {"anim_head1", "anim_head2", "anim_hair"}) mAnimator->SetTrackVisible(track, mHasHead);
+    mAnimator->SetTrackVisible("anim_tongue", mHasHead && mHasTongue);
 }
 
 void FogFerryZombie::ZombieItemUpdate() const
@@ -127,24 +131,34 @@ bool FogFerryZombie::InterruptUncommittedSpecialAction()
     return true;
 }
 
-/** 断头保留气象站护目镜贴图，避免换回普通僵尸的掉落头。 */
+/** 完整头部粒子含帽子、下巴与头发，按实际头轨发射；切动画前先取锚点。 */
 void FogFerryZombie::HeadDrop()
 {
     if (!mHasHead) return;
+    // 分件已由 generate_fog_ferry_limbs.py 烘焙为实机尺寸；这里仅换算相对语义轨的中心。
+    const float scale = GetTransform()->GetScale();
+    const Vector origin = GetRenderedTrackWorldPosition("anim_head1")
+        + Vector(mAnimator->GetFlipX() ? -22.8f : 22.8f, 21.2f) * scale;
     CancelChannel(true, true);
     for (const auto* track : {"anim_head1", "anim_head2", "anim_tongue", "anim_hair"})
         mAnimator->SetTrackVisible(track, false);
-    if (g_particleSystem) g_particleSystem->EmitEffect("FogFerryHeadOff", GetPosition());
+    if (g_particleSystem) g_particleSystem->EmitEffect("FogFerryHeadOff", origin);
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, .25f);
 }
 
-/** 保留防护服上袖，只掉落本品种的前臂与手掌。 */
+/** 蓝制服残端沿用经典上臂轴心，前臂和手掌合为一个离体粒子。 */
 void FogFerryZombie::ArmDrop()
 {
     if (!mHasArm) return;
+    // 分件已由 generate_fog_ferry_limbs.py 烘焙为实机尺寸；这里仅换算相对语义轨的中心。
+    const float scale = GetTransform()->GetScale();
+    const Vector origin = GetRenderedTrackWorldPosition("Zombie_outerarm_lower")
+        + Vector(mAnimator->GetFlipX() ? -6.7f : 6.7f, 18.5f) * scale;
     mAnimator->SetTrackVisible("Zombie_outerarm_hand", false);
     mAnimator->SetTrackVisible("Zombie_outerarm_lower", false);
-    if (g_particleSystem) g_particleSystem->EmitEffect("FogFerryArmOff", GetPosition());
+    mAnimator->SetTrackImage("Zombie_outerarm_upper",
+        ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_OUTERARM_UPPER2", false));
+    if (g_particleSystem) g_particleSystem->EmitEffect("FogFerryArmOff", origin);
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, .25f);
 }
 void FogFerryZombie::Die() { CancelChannel(true, true); Zombie::Die(); }

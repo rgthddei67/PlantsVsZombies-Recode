@@ -1,0 +1,178 @@
+{
+  "description": "Fog ferry full detached head/forearm, navy stump, resource geometry and save reconstruction.",
+  "muteAudio": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "row": 2,
+      "x": 740,
+      "stationary": false
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.ferryLimbResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "intact.png"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "damage": 1000
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_detach.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "arm_detach.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.ferryStumpVisible",
+      "equals": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_falling.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_walk_mid.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.7
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_walk_end.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "arm"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "arm"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.ferryStumpVisible",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_restored.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "arm_restored.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "damage": 600
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "head_detach.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "head_detach.json"
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "screenshot",
+      "name": "head_falling.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "head"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "head"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "head_restored.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "head_restored.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_FOG_FERRY.hasHead",
+      "equals": false
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}
