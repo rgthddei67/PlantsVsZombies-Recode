@@ -8,7 +8,6 @@ namespace PressureGuardRules {
 inline constexpr int BodyHealth = 600; // 本体生命，破盾后按普通伤害结算
 inline constexpr int ShieldHealth = 4500; // 一类承压装置耐久，不接受治疗或自动修复
 inline constexpr int Cost = 35; // 指挥官购买价格，冰块
-inline constexpr int UnlockWave = 8; // 本关第8波开放购买
 inline constexpr int BiteDamage = 25; // 普通僵尸一半的基础单口伤害
 inline constexpr int DamageLimit = 600; // 自身常规伤害与全部代伤的共同滚动上限
 inline constexpr double WindowSeconds = 1.0; // 伤害记录保留的游戏秒数
