@@ -92,6 +92,8 @@ public:
 
 	int mSpawnWave = -1;	// 多少波刷新的
 
+	int mPressureShareRemainder = 0; // 80%分担的小数余量，五分之一伤害单位，避免逐帧1点攻击完全绕过保护
+	int mPressureProtectorID = -1; // 最近承压保护者稳定ID；额度耗尽不换人，失效后重新选择
 	int mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
 	int mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
 	HelmType mHelmType = HelmType::HELMTYPE_NONE;
@@ -202,6 +204,10 @@ public:
 		bool requestsShieldBypass = false, PlantDamageOrigin plantOrigin = {});
 	/** 植物爆炸的统一入口：默认按原版阈值化灰，否则走带 PLANT_ASH 分类的普通扣血链。 */
 	virtual void TakePlantAshDamage(int damage);
+	/** 最终来源倍率及代伤分配后限制本目标伤害；默认不限制。 */
+	virtual int LimitFinalIncomingDamage(int damage, DamageSource, PlantDamageOrigin) { return damage; }
+	/** 治疗/修复是否能恢复尚存的一类防具；不影响时间锚的核心状态恢复。 */
+	virtual bool CanRepairHelm() const { return true; }
 	/** 大嘴花等植物直杀的统一入口；只返回是否确实吞掉目标，拒吞后的伤害由攻击者结算。 */
 	virtual bool TakePlantInstantKill();
 	/** 调整拒绝大嘴花吞食后的基础伤害；默认保持攻击者给出的 20 点，特殊品种可覆写。 */

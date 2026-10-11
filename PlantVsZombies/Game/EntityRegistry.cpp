@@ -43,6 +43,8 @@ int EntityRegistry::AddZombie(std::shared_ptr<Zombie> zombie) {
 	TrackHijacker(id, zombie);
 	TrackNightRoofChargeGuide(id, zombie);
 	TrackHealer(id, zombie);
+	if (zombie->mZombieType == ZombieType::ZOMBIE_PRESSURE_GUARD) mPressureGuards[id] = zombie;
+	else mPressureGuards.erase(id);
 	return id;
 }
 
@@ -383,6 +385,7 @@ std::vector<int> EntityRegistry::CleanupExpired() {
 			else ++it;
 		}
 
+		std::erase_if(mPressureGuards, [](const auto& entry) { return entry.second.expired(); });
 		for (auto it = mHealers.begin(); it != mHealers.end(); ) {
 			if (it->second.expired()) {
 				it = mHealers.erase(it);
@@ -432,6 +435,8 @@ int EntityRegistry::AddZombieWithID(std::shared_ptr<Zombie> zombie, int id) {
 	TrackHijacker(id, zombie);
 	TrackNightRoofChargeGuide(id, zombie);
 	TrackHealer(id, zombie);
+	if (zombie->mZombieType == ZombieType::ZOMBIE_PRESSURE_GUARD) mPressureGuards[id] = zombie;
+	else mPressureGuards.erase(id);
 	if (id >= mNextZombieID) {
 		mNextZombieID = id + 1;
 	}

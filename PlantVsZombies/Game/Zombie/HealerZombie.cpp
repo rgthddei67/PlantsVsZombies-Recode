@@ -155,7 +155,7 @@ Vector HealerZombie::TreatmentCenter(const Zombie& zombie)
 bool HealerZombie::IsWounded(const Zombie& zombie)
 {
 	return IsDamagedPool(zombie.mBodyHealth, zombie.mBodyMaxHealth)
-		|| IsDamagedPool(zombie.mHelmHealth, zombie.mHelmMaxHealth)
+		|| (zombie.CanRepairHelm() && IsDamagedPool(zombie.mHelmHealth, zombie.mHelmMaxHealth))
 		|| IsDamagedPool(zombie.mShieldHealth, zombie.mShieldMaxHealth);
 }
 
@@ -166,7 +166,7 @@ float HealerZombie::LowestRepairableRatio(const Zombie& zombie)
 		ratio = std::min(ratio, static_cast<float>(zombie.mBodyHealth)
 			/ static_cast<float>(zombie.mBodyMaxHealth));
 	}
-	if (IsRepairablePool(zombie.mHelmHealth, zombie.mHelmMaxHealth)) {
+	if (zombie.CanRepairHelm() && IsRepairablePool(zombie.mHelmHealth, zombie.mHelmMaxHealth)) {
 		ratio = std::min(ratio, static_cast<float>(zombie.mHelmHealth)
 			/ static_cast<float>(zombie.mHelmMaxHealth));
 	}
@@ -421,7 +421,7 @@ int HealerZombie::ApplyTreatment(
 		total += current - before;
 	};
 	repair(target.mBodyHealth, target.mBodyMaxHealth);
-	repair(target.mHelmHealth, target.mHelmMaxHealth);
+	if (target.CanRepairHelm()) repair(target.mHelmHealth, target.mHelmMaxHealth);
 	repair(target.mShieldHealth, target.mShieldMaxHealth);
 	if (total <= 0) return 0;
 	target.RefreshEquipmentPresentationAfterRepair();

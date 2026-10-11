@@ -13,6 +13,7 @@
 #include "Game/Plant/RainBambooRules.h"
 #include "Game/Zombie/FloodMortarRules.h"
 #include "Game/Zombie/PressureShooterRules.h"
+#include "Game/Zombie/PressureGuardRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
 
 #include "ColdStorageStrategy.h"
@@ -135,6 +136,10 @@ struct Unit {
 	float reloadRemaining = 0, thunderResistance = 0, paralysisRemaining = 0;
 	PaidBurst burst;
 	ArmorRepair repair;
+	bool pressureGroupPresent = false; // 每次完整推演派生；没有护卫时跳过承伤选人扫描
+	bool pressureGuard = false; // 非再生一类盾；同阵营承伤与滚动限额
+	int pressureProtectorID = 0; // 已锁定护卫，额度耗尽不换人
+	PressureGuardRules::DamageWindow pressureWindow;
 	Drum drum;
 	DeploymentSniper sniper;
     bool pressure=false;

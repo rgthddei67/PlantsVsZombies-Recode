@@ -1681,7 +1681,7 @@ void Zombie::TriggerArmorBreakRush()
 void Zombie::RepairExistingHealthLayers()
 {
 	if (mBodyHealth > 0) mBodyHealth = mBodyMaxHealth;
-	if (mHelmType != HelmType::HELMTYPE_NONE && mHelmMaxHealth > 0) {
+	if (CanRepairHelm() && mHelmType != HelmType::HELMTYPE_NONE && mHelmMaxHealth > 0) {
 		mHelmHealth = mHelmMaxHealth;
 		CheckHelmImage();
 	}
@@ -2172,6 +2172,11 @@ void Zombie::TakeDamage(
 	}
 	if (plantOrigin.IsValid() && BlocksPlantDamage(plantOrigin)) return;
 
+	// 先按同阵营邻近保护者分配最终伤害，再应用本目标的窗口；代伤入口不重入本链。
+	if (plantOrigin != PlantDamageOrigin::Ash() && (source != DamageSource::PLANT_ASH || plantOrigin.IsValid()))
+		damage = mBoard->SharePressureGuardDamage(*this, damage);
+	damage = LimitFinalIncomingDamage(damage, source, plantOrigin);
+	if (damage <= 0) return;
 	int remainingDamage = TakeExtraProtectionDamage(damage, source);
 	// 原版飞行额外生命与头盔/本体共用 mJustGotShotCounter；只要确实吸收了伤害就闪本体层。
 	if (remainingDamage < damage) SetGlowingTimer(kHitGlowDuration);

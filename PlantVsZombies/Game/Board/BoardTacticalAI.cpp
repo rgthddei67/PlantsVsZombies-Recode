@@ -328,7 +328,7 @@ bool Board::BuildMonteCarloCombatSnapshot(
 			static_cast<float>(std::max(0, zombie->mBodyHealth)),
 			static_cast<float>(std::max(0, zombie->mBodyMaxHealth)),
 			static_cast<float>(std::max(0, zombie->mHelmHealth)),
-			static_cast<float>(std::max(0, zombie->mHelmMaxHealth)),
+			static_cast<float>(zombie->CanRepairHelm() ? std::max(0, zombie->mHelmMaxHealth) : 0),
 			static_cast<float>(std::max(0, zombie->mShieldHealth)),
 			static_cast<float>(std::max(0, zombie->mShieldMaxHealth)),
 			static_cast<float>(std::max(0, zombie->mAttackDamage)),
@@ -749,7 +749,7 @@ bool Board::PickMonteCarloZombieTreatment(
 		};
 		const float restored = repairPotential(
 			zombie->mBodyHealth, zombie->mBodyMaxHealth)
-			+ repairPotential(zombie->mHelmHealth, zombie->mHelmMaxHealth)
+			+ (zombie->CanRepairHelm() ? repairPotential(zombie->mHelmHealth, zombie->mHelmMaxHealth) : 0)
 			+ repairPotential(zombie->mShieldHealth, zombie->mShieldMaxHealth);
 		const float attackFactor = 0.5f
 			+ static_cast<float>(std::max(0, zombie->mAttackDamage)) / 50.0f;

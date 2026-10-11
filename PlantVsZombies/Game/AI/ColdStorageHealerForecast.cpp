@@ -35,7 +35,7 @@ float LowestRatio(const Unit& unit)
         if(current>0 && maximum>0) ratio=std::min(ratio,current/maximum);
     };
     check(BodyHealth(unit),unit.maximumBody);
-    check(unit.helmHealth,unit.maximumHelm);
+    if (!unit.pressureGuard) check(unit.helmHealth,unit.maximumHelm);
     check(unit.shieldHealth,unit.maximumShield);
     return ratio;
 }
@@ -72,7 +72,7 @@ bool Eligible(const Snapshot& snapshot, const Unit& source, const Unit& target, 
 {
     return Alive(target,time) && InRange(snapshot,source,target,radius)
         && (Damaged(BodyHealth(target),target.maximumBody)
-            || Damaged(target.helmHealth,target.maximumHelm)
+            || (!target.pressureGuard && Damaged(target.helmHealth,target.maximumHelm))
             || Damaged(target.shieldHealth,target.maximumShield));
 }
 
@@ -123,7 +123,7 @@ float Repair(Unit& target, float amount)
         return Damaged(current,maximum) ? std::min(amount,maximum-current) : 0;
     };
     const float body=increase(BodyHealth(target),target.maximumBody);
-    const float helm=increase(target.helmHealth,target.maximumHelm);
+    const float helm=target.pressureGuard ? 0 : increase(target.helmHealth,target.maximumHelm);
     const float shield=increase(target.shieldHealth,target.maximumShield);
     target.helmHealth+=helm;
     target.shieldHealth+=shield;

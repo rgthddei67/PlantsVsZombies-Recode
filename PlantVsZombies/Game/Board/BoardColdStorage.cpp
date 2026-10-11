@@ -39,6 +39,7 @@
 #include "Game/AI/ColdStorageTrialPersistence.h"
 #include "Game/Zombie/BoilerZombie.h"
 #include "Game/Zombie/ColdChainGuardZombie.h"
+#include "Game/Zombie/PressureGuardZombie.h"
 #include "Game/Zombie/CatapultZombie.h"
 #include "Game/Zombie/ColdChainGuardRules.h"
 #include "Game/Zombie/DisasterEngineerZombie.h"
@@ -630,6 +631,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 {
 	using Z = ZombieType;
 	switch (type) {
+	case Z::ZOMBIE_PRESSURE_GUARD: return PressureGuardRules::Cost;
 	case Z::ZOMBIE_COLD_CHAIN_GUARD: return 12; // 沿用原默认价，周期修复另付公共冰块
 	case Z::ZOMBIE_BOILER: return 15; // 另有成功超频时的5冰技能费
 	case Z::ZOMBIE_FOG_FERRY: return FogFerryRules::Cost;
@@ -1800,6 +1802,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.engineerStopHealth=engineer->mBodyMaxHealth/3;
 				unit.reloadPaid = engineer->IsReloadPaid(); unit.reloadRemaining = engineer->GetReloadRemaining();
 			}
+			unit.pressureProtectorID = std::max(0, entity->mPressureProtectorID);
+			if (const auto* guard = dynamic_cast<const PressureGuardZombie*>(entity)) {
+				unit.pressureGuard = true; unit.pressureWindow = guard->CaptureDamageWindow();
+			}
 			if (const auto* guard = dynamic_cast<const ColdChainGuardZombie*>(entity)) ProjectColdChainGuard(unit,guard);
 			if (const auto* catapult = dynamic_cast<const CatapultZombie*>(entity)) ProjectCatapult(unit,entity->mZombieType,search.gridLeft,search.cellWidth,catapult);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
@@ -2088,6 +2094,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.engineer = type == ZombieType::ZOMBIE_DISASTER_ENGINEER;
 			unit.engineerStopHealth=vitals.body/3;
 			if (type == ZombieType::ZOMBIE_BOILER) ProjectBoiler(unit);
+			unit.pressureGuard = type == ZombieType::ZOMBIE_PRESSURE_GUARD;
 			if (type == ZombieType::ZOMBIE_COLD_CHAIN_GUARD) ProjectColdChainGuard(unit);
 			if (type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT) ProjectCatapult(unit,type,search.gridLeft,search.cellWidth);
 			if (type == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) ProjectDrum(unit);

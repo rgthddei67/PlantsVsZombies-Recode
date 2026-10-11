@@ -1,0 +1,11 @@
+{
+  "scripts/assets/pressure_guard_equipment_source.png": "740d84561b9dc27dda535c4bb066b9b627b3a8dcadf9e119afa04472b8b2f5c2",
+  "build/clang-release/resources/image/reanim/Zombie_body.png": "7a455d5aa3bc3dfcfbd5c8d7e16c01948bb3ee3ab210894b446d8add04ce194d",
+  "build/clang-release/resources/reanim/NormalZombie.reanim": "3d93367ab8d56f9e383671e7cb472432d02526dc2aa8fad7d47c6ca5f8fdd602",
+  "build/clang-release/resources/image/reanim/Pressure_guard_equipment.png": "be8c78f059e68c59ae4b2b19ad7f6eb4b13f531f440f6646d373130673316924",
+  "build/clang-release/resources/image/reanim/Pressure_guard_equipment_damaged1.png": "4f953e18e87975ef70823211e34877da528e87d10f30409123c4780563425f16",
+  "build/clang-release/resources/image/reanim/Pressure_guard_equipment_damaged2.png": "917d5a2e5b7b07c59b2766fd64205ac95b0bebf4be0ac5de626b1067865b5074",
+  "build/clang-release/resources/image/reanim/Pressure_guard_equipment_spent.png": "becc8809aeeb2b79e6808fdb7d7f1f5f4525ec4848b42acc8c5a23cb4a7fda2b",
+  "build/clang-release/resources/image/reanim/Pressure_guard_body.png": "8336a4b6bed7f68f78dadff3eefc51cd71b220e2ec4605eeb5256119fa48ef66",
+  "build/clang-release/resources/reanim/PressureGuardZombie.reanim": "922146584f8e5051d1d0da08be739a7055a06d8b04388b40e867b5f37f1b17a6"
+}

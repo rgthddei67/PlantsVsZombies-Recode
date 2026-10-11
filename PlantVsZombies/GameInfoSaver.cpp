@@ -690,6 +690,8 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		z["x"] = zombie->GetPosition().x;
 		z["y"] = zombie->GetPosition().y;
 
+		z["pressureProtectorID"] = zombie->mPressureProtectorID;
+		z["pressureShareRemainder"] = zombie->mPressureShareRemainder;
 		z["bodyHealth"] = zombie->mBodyHealth;
 		z["bodyMaxHealth"] = zombie->mBodyMaxHealth;
 		z["helmType"] = zombie->mHelmType;
@@ -1330,7 +1332,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 				target.helmType = static_cast<HelmType>(std::clamp(savedTarget.value(
 					"helmType", static_cast<int>(HelmType::HELMTYPE_NONE)),
 					static_cast<int>(HelmType::HELMTYPE_NONE),
-					static_cast<int>(HelmType::HELMTYPE_ICE_SHIELD)));
+					static_cast<int>(HelmType::HELMTYPE_PRESSURE_SHIELD)));
 				target.helmHealth = std::max(0, savedTarget.value("helmHealth", 0));
 				target.shieldType = static_cast<ShieldType>(std::clamp(savedTarget.value(
 					"shieldType", static_cast<int>(ShieldType::SHIELDTYPE_NONE)),
@@ -1760,6 +1762,8 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 			Vector savedPosition = zombie->GetPosition();
 			savedPosition.y = z.value("y", savedPosition.y);
 			zombie->SetPosition(savedPosition);
+			zombie->mPressureProtectorID = z.value("pressureProtectorID", -1);
+			zombie->mPressureShareRemainder = std::clamp(z.value("pressureShareRemainder", 0), 0, 4);
 			zombie->mBodyHealth = z.value("bodyHealth", 270);
 			zombie->mBodyMaxHealth = z.value("bodyMaxHealth", 270);
 			zombie->mHelmType = static_cast<HelmType>(z.value("helmType", HelmType::HELMTYPE_NONE));

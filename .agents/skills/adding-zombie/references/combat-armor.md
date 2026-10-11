@@ -56,3 +56,9 @@
 ### 范围伤害的南瓜保护资格
 
 Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支持调用方指定保护格半径：默认沿用原有九格保护，水弹显式选择本格。先冻结本次保护者及承伤集合，再扣血；若外壳同时拦截状态效果，不能在破壳后重新查询并补给内层状态或余伤。蒙特卡洛的 pumpkinProtectionCellRadius 和指挥官预测须采用同一资格，不能只改实体伤害。入口见 BoardFloodMortar.cpp 与 ColdStorageRainForecast.h；玩家关闭蒙特卡洛时，落点评分仍须遵守相同射程、保护者与保护伞规则。
+
+### 范围代伤与滚动封顶的结算顺序
+
+承压代伤入口为 `Board::SharePressureGuardDamage`：在原目标完成来源/状态倍率与既有免疫判定后分配，承接者直接消费自己的防具层，不重进 `TakeDamage`，否则会重复增伤、触发攻击副作用或互相递归转伤。最终承伤封顶使用 `Zombie::LimitFinalIncomingDamage`，不能放在早于攻击回响的 `AdjustIncomingDamage`。灰烬按 `PlantDamageOrigin::Ash()` 区分，不能把所有内部 `PLANT_ASH` 来源都当作灰烬。整数分担保留目标自有小数余量；滚动账本存相对截止时间，暂停不流逝、读档不刷新额度，时间锚不回滚活体已消费额度。
+
+不可治疗的一类防具通过目标自有 `CanRepairHelm()` 表达；急救员资格/排序/实结算、普通修复、治疗MC与指挥官预测须共同排除该层，不能只跳过最终加血而让AI持续选择无效治疗。入口与数值共用规则见 `PressureGuardZombie` / `PressureGuardRules`，实机边界见 `smoke_pressure_guard` 与对应 verifier。

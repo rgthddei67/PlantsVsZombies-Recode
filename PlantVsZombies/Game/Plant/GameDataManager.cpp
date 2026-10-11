@@ -83,6 +83,7 @@
 #include "../Zombie/DisasterEngineerZombie.h"
 #include "IceStorageNut.h"
 #include "../Zombie/ColdChainGuardZombie.h"
+#include "../Zombie/PressureGuardZombie.h"
 #include "ColdPineapple.h"
 #include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
@@ -281,6 +282,8 @@ void GameDataManager::InitializeHardcodedData() {
 
 	RegisterPlant(PlantType::PLANT_ICESTORAGENUT, "PLANT_ICESTORAGENUT", "IMAGE_ICESTORAGENUT",
 		AnimationType::ANIM_ICESTORAGENUT, "IceStorageNut", &MakePlant<IceStorageNut>);
+	RegisterZombie(ZombieType::ZOMBIE_PRESSURE_GUARD, "ZOMBIE_PRESSURE_GUARD",
+		AnimationType::ANIM_PRESSURE_GUARD, "PressureGuardZombie", &MakeZombie<PressureGuardZombie>, &PressureGuardZombie::GetBirthMovementProfile);
 	RegisterZombie(ZombieType::ZOMBIE_COLD_CHAIN_GUARD, "ZOMBIE_COLD_CHAIN_GUARD",
 		AnimationType::ANIM_COLD_CHAIN_GUARD, "ColdChainGuardZombie", &MakeZombie<ColdChainGuardZombie>, &ColdChainGuardZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_COLDPINEAPPLE, "PLANT_COLDPINEAPPLE", "IMAGE_COLDPINEAPPLE",

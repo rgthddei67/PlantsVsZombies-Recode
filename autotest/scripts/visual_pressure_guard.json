@@ -1,0 +1,108 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 91,
+      "resetTestState": true
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 30
+    },
+    {
+      "op": "wait_value",
+      "path": "chooseCardReady",
+      "equals": true,
+      "timeout": 20
+    },
+    {
+      "op": "screenshot",
+      "name": "choose_preview.png"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_GUARD",
+      "row": 2,
+      "x": 850
+    },
+    {
+      "op": "show_zombie_hp",
+      "value": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_0.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_1.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.8
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_2.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.9
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_3.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_4.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.4
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_5.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_state.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

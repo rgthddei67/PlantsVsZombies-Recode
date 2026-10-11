@@ -18,7 +18,8 @@ enum class HelmType {
 	HELMTYPE_AURORA_DEVICE,	//极光祭司的非磁性仪器；破坏后永久取消未提交仪式
 	HELMTYPE_CLOCK_DISK,		//极夜钟匠的非磁性星盘；破坏后永久取消未提交时间锚
 	HELMTYPE_CRYSTAL_HORN, // 非磁性晶角头盔
-	HELMTYPE_ICE_SHIELD // 冷链护卫的非磁性一类冰盾
+	HELMTYPE_ICE_SHIELD, // 冷链护卫的非磁性一类冰盾
+	HELMTYPE_PRESSURE_SHIELD // 承压护卫不可修复的一类装置
 };
 
 enum class ShieldType {
@@ -103,6 +104,7 @@ enum class ZombieType {
 	ZOMBIE_PRESSURE_SHOOTER, // 气压射手；11-5登场，独立四连发枪头
 	ZOMBIE_FLOOD_MORTAR, // 蓄洪僵尸；11-5登场，雨势强化九格炮击
 	ZOMBIE_FOG_FERRY, // 雾渡僵尸：11-6登场，本行群体传送
+	ZOMBIE_PRESSURE_GUARD, // 承压护卫，11-1起第8波购买
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

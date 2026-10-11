@@ -44,6 +44,10 @@ public:
 	/** 多名急救员同时就绪时只允许实体 ID 最小者先尝试领取 Board 的分帧推演预算。 */
 	bool HasReadyHealerBefore(int healerID) const;
 
+    /** 承伤热路径只遍历护卫弱索引；回调自行检查同帧生命、阵营和距离。 */
+    template<typename Fn> void ForEachPressureGuard(Fn&& fn) {
+        for (const auto& entry : mPressureGuards) if (auto guard=entry.second.lock()) fn(guard.get());
+    }
 	int AddBullet(std::shared_ptr<Bullet> bullet);
 	Bullet* GetBullet(int id) const;
 	std::vector<int> GetAllBulletIDs() const;
@@ -112,6 +116,7 @@ private:
 	int mCleanupTick = 0;
 
 	int mNextPlantID = 1;
+	std::map<int, std::weak_ptr<Zombie>> mPressureGuards;
 	int mNextZombieID = 1;
 	int mNextBulletID = 1;
 	int mNextCoinID = 1;

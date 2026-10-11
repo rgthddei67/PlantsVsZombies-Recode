@@ -1831,6 +1831,8 @@ public:
 	Bullet* CreatePlantBullet(BulletType bulletType, int row, const Vector& position,
 		PlantType originPlant);
 
+	/** 常规伤害只向一个有效承压护卫转移；不包含灰烬，返回受击者自留伤害。 */
+	int SharePressureGuardDamage(Zombie& target, int damage);
 	// 创建樱桃爆炸效果；纵向范围按植物逻辑行覆盖相邻三行，避免泳池美术下沉干扰命中。
 	/** 冻结同次灰烬的保护集合后再扣血；来源同次死亡不撤销已兑现保护。 */
 	void ApplyPlantAshAttack(const std::vector<int>& targets, const std::function<void(Zombie*)>& apply);

@@ -85,6 +85,7 @@
 #include "../Plant/ColdPineapple.h"
 #include "../Plant/IceStorageNut.h"
 #include "../Zombie/ColdChainGuardZombie.h"
+#include "../Zombie/PressureGuardZombie.h"
 #include "../Zombie/BoilerZombie.h"
 #include "../Zombie/IceWorkerZombie.h"
 #include "../Zombie/DisasterEngineerZombie.h"
@@ -421,6 +422,7 @@ namespace {
 		case HelmType::HELMTYPE_TALLNUT: return "HELMTYPE_TALLNUT";
 		case HelmType::HELMTYPE_INSULATOR: return "HELMTYPE_INSULATOR";
 		case HelmType::HELMTYPE_CRYSTAL_HORN: return "HELMTYPE_CRYSTAL_HORN";
+		case HelmType::HELMTYPE_PRESSURE_SHIELD: return "HELMTYPE_PRESSURE_SHIELD";
 		case HelmType::HELMTYPE_ICE_SHIELD: return "HELMTYPE_ICE_SHIELD";
 		case HelmType::HELMTYPE_ADAPTIVE: return "HELMTYPE_ADAPTIVE";
 		case HelmType::HELMTYPE_AURORA_DEVICE: return "HELMTYPE_AURORA_DEVICE";
@@ -528,7 +530,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_PRESSURE_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -1181,6 +1183,10 @@ bool TestDriver::ExecuteCurrent() {
 				{"widestComposition",result.widestComposition},
 				{"queueEvaluated",queue.evaluated},{"actions",actions}});
 		}
+        report["pressureGuards"]=nlohmann::json::array();
+        for(const auto& u:probe.snapshot.current) if(u.pressureGuard)
+            report["pressureGuards"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
+                {"shield",u.helmHealth},{"windowUsed",u.pressureWindow.Used(0)},{"health",u.body.health}});
         report["ferryCurrent"]=nlohmann::json::array();
         for(const auto& u:probe.snapshot.current) if(u.ferry.present)
             report["ferryCurrent"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
@@ -1208,7 +1214,7 @@ bool TestDriver::ExecuteCurrent() {
 					{"birthLadder",option.unit.ladder.present},{"birthLadderPlacementSeconds",option.unit.ladder.placementSeconds},
 					{"birthCanClimb",option.unit.ladderClimb.eligible},
 					{"birthHeadThreshold",option.unit.temporalStopHealth},
-                    {"birthFerry",option.unit.ferry.present},{"birthFerryRemaining",option.unit.ferry.remaining},
+                    {"birthPressureGuard",option.unit.pressureGuard},{"birthFerry",option.unit.ferry.present},{"birthFerryRemaining",option.unit.ferry.remaining},
                     {"birthFerryStopHealth",option.unit.ferry.stopBodyHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
 					auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
@@ -7666,6 +7672,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_BOILER_PACK", false)
 				&& boiler->GetAnimatorInternal()->GetTrackFollowerVisible("Zombie_body", "boiler_pack");
 		}
+        zombieState["pressureProtectorID"] = z->mPressureProtectorID;
+        if (auto* guard = dynamic_cast<PressureGuardZombie*>(z)) {
+            zombieState["pressureWindowUsed"] = static_cast<int>(std::lround(guard->GetDamageWindowUsed()));
+            zombieState["pressureCanProtect"] = guard->CanProtect();
+            zombieState["pressureStage"] = guard->GetPressureStage();
+            zombieState["pressureEquipmentVisible"] = anim && anim->GetTrackFollowerVisible("Zombie_body", "pressure_guard_equipment");
+            zombieState["pressureResourcesReady"] = ResourceManager::GetInstance().HasReanimation("PressureGuardZombie")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_PRESSURE_GUARD_EQUIPMENT", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_PRESSURE_GUARD_EQUIPMENT_DAMAGED1", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_PRESSURE_GUARD_EQUIPMENT_DAMAGED2", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_PRESSURE_GUARD_EQUIPMENT_SPENT", false);
+        }
 		if (auto* guard = dynamic_cast<ColdChainGuardZombie*>(z)) {
 			zombieState["guardRepairMs"] = static_cast<int>(std::lround(guard->GetRepairRemaining() * 1000));
 			zombieState["guardHasShield"] = guard->HasIceShield();

@@ -12,6 +12,8 @@
 
 2026-10-11 雾渡扩展：不新增植物；雾渡僵尸本体、同行群体传送、紫晶背包及粒子已实现。参数以 [雾渡规则](../../../PlantVsZombies/Game/Zombie/FogFerryRules.h) 为准，位置事务在 [BoardFogFerry.cpp](../../../PlantVsZombies/Game/Board/BoardFogFerry.cpp)，专项为 `smoke_fog_ferry`（配套 `verify_fog_ferry.py`）与 `smoke_fog_ferry_edges`（运行时加 `-Develop`）。R9 云端代码同步后已接入 **11-6 起正式兵池**、购买和能力预测；出生/已付款队列保留首次准备，活体采样实时阶段。预测入口为 [ColdStorageFogFerryForecast.cpp](../../../PlantVsZombies/Game/AI/ColdStorageFogFerryForecast.cpp)，经验编队提供重兵、车辆、气压射手和二次运输提案，均须经过普通钱包、容量及完整战斗评分。`smoke_commander_fog_ferry` 检查投影和正式付款；固定夹具不作为自主胜率证据。蓄洪和气压射手购买费用调整已落在各自规则头文件，不在此复制数值。
 
+
+2026-10-11 承压护卫扩展：已接入十一大关全程兵池，作为周围友军的常规伤害承担者。不可修复装置与滚动承伤窗口的权威参数在 [PressureGuardRules.h](../../../PlantVsZombies/Game/Zombie/PressureGuardRules.h)，保护者选择在 `BoardPressureGuard.cpp`；灰烬、硬控、魅惑、存档及指挥官三类来源分别按正式契约处理，未调整发布策略权重。验证入口为 `smoke_pressure_guard`、`smoke_commander_pressure_guard`、`visual_pressure_guard` 与 `verify_pressure_guard.py`。
 预测沿用有界步长模型：环境、付款、友伤与停机按时间线评估；未来路线、玩家反制和照明持续时间存在近似，不等同于逐帧复刻正式战斗。
 
 ## 地图与流程

@@ -390,9 +390,37 @@ void AdvanceHeadlessDecay(Unit& unit) {
 }
 
 /** 维护“总剩余生命 + 其中护盾”的双层投影；穿透同时扣两层，剩余门不能救活已死本体。 */
-float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false, PlantDamageOrigin origin = {}) {
+float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass = false, bool discardOverflow = false, PlantDamageOrigin origin = {},
+    std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0) {
 	if(unit.jack.present && !unit.jack.elite && unit.jack.phase==JackBoxRules::Forecast::Phase::POPPING) return 0;
 	if (origin.IsValid() && unit.adaptedOrigin.IsValid() && origin == unit.adaptedOrigin) return 0;
+    if (origin != PlantDamageOrigin::Ash()) {
+        Unit* guard = nullptr;
+        if (group && state && unit.pressureGroupPresent) {
+            const auto eligible = [&](const Unit& candidate) {
+                return candidate.pressureGuard && candidate.helmHealth > 0 && !candidate.headless
+                    && candidate.body.health > 0 && candidate.body.spawnAt <= time && candidate.body.stopped <= 0
+                    && std::abs(candidate.body.row-unit.body.row) <= 1
+                    && std::abs(candidate.body.x-unit.body.x) <= state->cellWidth*PressureGuardRules::RadiusCells;
+            };
+            for (auto& candidate : *group) if (candidate.id == unit.pressureProtectorID && eligible(candidate)) {
+                guard = &candidate; break;
+            }
+            if (!guard) {
+                for (auto& candidate : *group) if (eligible(candidate)
+                    && (!guard || candidate.body.x < guard->body.x
+                        || (candidate.body.x == guard->body.x && candidate.id < guard->id))) guard=&candidate;
+                unit.pressureProtectorID = guard ? guard->id : 0;
+            }
+            if (guard && guard != &unit) {
+                // 无群体上下文的递归只结算承接者自己的生命层，不可能二次转移。
+                const float share=unit.pressureGuard && unit.helmHealth>0 ? 1.0f : PressureGuardRules::Share;
+                ApplyDamage(*guard, damage*share, false, false, false, {}, nullptr, nullptr, time);
+                damage *= 1-share;
+            }
+        }
+        if (unit.pressureGuard && unit.helmHealth > 0) damage=unit.pressureWindow.Consume(damage,time);
+    }
 	if (unit.adaptiveHelmet > 0 && origin.IsValid() && damage >= unit.adaptiveHelmet) {
 		const float lost = unit.adaptiveHelmet;
 		unit.body.health -= lost; unit.adaptiveHelmet = 0; unit.adaptedOrigin = origin;
@@ -437,7 +465,7 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 	return {plant.dps*fraction*multiplier*reduction,plant.melon || (plant.fume && !blocksFume),bypass,blocksFume};
 }
 /** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
-float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
+float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0) {
 	if(ash && unit.digger.present && unit.digger.AshKillsDirectly(damage)) {
 		const float lost=unit.body.health; unit.body.health=0; return lost;
 	}
@@ -453,7 +481,7 @@ float ApplyDiscreteHit(Unit& unit, float damage, bool ash) {
 	}
 	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
 	return ApplyDamage(unit,cap > 0 ? std::min(damage,cap) : damage,false,false,false,
-		ash ? PlantDamageOrigin::Ash() : PlantDamageOrigin::FromPlant(PlantType::PLANT_DAWNLOTUS));
+		ash ? PlantDamageOrigin::Ash() : PlantDamageOrigin::FromPlant(PlantType::PLANT_DAWNLOTUS),group,state,time);
 }
 
 /** 返回本次搜索阶段的容量；升级阶段可以比较整队，但不设置最低购买量。 */
@@ -2035,7 +2063,7 @@ void AdvanceRowStrikes(const Snapshot& state, const std::vector<RowStrike>& stri
 				if (u.health <= 0 || u.spawnAt > time || u.row != row) continue;
 				const bool primary = static_cast<int>(i) == target;
 				if (!primary && std::abs(u.x+u.blastAnchorOffset-center) > strike.radius) continue;
-				const float damage = ApplyDiscreteHit(units[i],primary ? strike.damage : strike.splashDamage,false);
+				const float damage = ApplyDiscreteHit(units[i],primary ? strike.damage : strike.splashDamage,false,&units,&state,time);
 				const float credit = u.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
 				features[6] += credit; units[i].blastCredit += credit;
 			}
@@ -3393,7 +3421,7 @@ void AdvanceJackBoxes(const Snapshot& state,float time,std::vector<JackBoxFlight
                 const float dx=it->x-std::clamp(it->x,body.x+body.boundsOffset,body.x+body.boundsOffset+body.boundsWidth);
                 if(dx*dx+dy*dy<=JackBoxRules::BoxRadius*JackBoxRules::BoxRadius) {
                     auto hit=recordImpact ? UnitCombatHit(state,target,JackBoxRules::BoxDamage) : CombatForecastHit{};
-                    ApplyDamage(target,JackBoxRules::BoxDamage);
+                    ApplyDamage(target,JackBoxRules::BoxDamage,false,false,false,{},&units,&state,time);
                     if(recordImpact) {FinishUnitCombatHit(hit,target);event.targets.push_back(hit);}
                 }
             }
@@ -3966,7 +3994,7 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
 			unit.body.health=saved.body.health-saved.helmHealth-saved.shieldHealth+helm+shield
                 +(unit.balloon.present ? unit.balloon.health-saved.balloon.health : 0);
 			unit.headless=saved.headless; // 正式核心回溯恢复hasHead，不受能力快照是否可恢复限制。
-			if(revived) unit.headlessBleedRemainder=0; // 重建实体没有旧流血余量；活体回溯沿用其本地计时。
+			if(revived) { unit.headlessBleedRemainder=0; unit.pressureWindow.hits.clear(); unit.pressureProtectorID=0; } // 重建实体没有旧流血余量；活体回溯沿用其本地计时。
 			unit.helmHealth=helm; unit.shieldHealth=shield;
 			if(unit.ladder.present) {
 				unit.ladder.canPlace=saved.ladder.canPlace; // 核心回溯的头部资格，动作阶段仍不倒放。
@@ -4161,7 +4189,7 @@ struct StationProjection {
                 && (!protector || std::abs(other.body.x-u.body.x)<std::abs(protector->body.x-u.body.x))) protector=&other;
             if(protector) { const float absorbed=std::min(protector->helmHealth,kNightRoofZombieDamage*damageMultiplier); protector->helmHealth-=absorbed; protector->body.health-=absorbed; protector->overloadRemaining=15; }
             else {
-                ApplyDamage(u,kNightRoofZombieDamage*damageMultiplier);
+                ApplyDamage(u,kNightRoofZombieDamage*damageMultiplier,false,false,false,{},&units,&s,t);
                 if(u.paralysisAllowed) {
                     u.body.stopped=std::max(u.body.stopped,kNightRoofZombieParalysisDuration);
                     // 电荷麻痹与雷鸣花共享状态；雷鸣花不能延长正在生效的电荷麻痹。
@@ -4624,7 +4652,13 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         }
     };
 	bool orderArrived = false;
+    // 预测出生ID使用负数，0才是未锁定哨兵；潜在的后续真实增援也可能首次带来护卫。
+    const bool pressureGroupPresent=std::any_of(units.begin(),units.end(),[](const Unit& u){return u.pressureGuard;})
+        || (followup && std::any_of(followup->actions.begin(),followup->actions.end(),[&](const Action& a) {
+            return a.option>=0 && a.option<static_cast<int>(s.options.size()) && s.options[a.option].unit.pressureGuard;
+        }));
 	for (float t = 0; t < Horizon(s); t += kStep) {
+        if (pressureGroupPresent) for (auto& u : units) u.pressureGroupPresent=true;
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		for (auto& unit:units) {
 			unit.thunderResistance=std::max(0.0f,unit.thunderResistance-kStep);
@@ -4752,7 +4786,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			std::sort(hits.begin(),hits.end()); int controlled=0;
 			for (const auto& hit:hits) {
 				auto& unit=units[hit.second];
-				ApplyDamage(unit,ThunderFlowerRules::Damage,false,false,false,ray->origin);
+				ApplyDamage(unit,ThunderFlowerRules::Damage,false,false,false,ray->origin,&units,&s,t);
 				if (controlled<ThunderFlowerRules::ControlLimit && unit.body.health>0 && unit.paralysisAllowed
 					&& unit.chargeControlImmunity<=t && unit.paralysisRemaining<=0 && unit.thunderResistance<=0) {
 					unit.body.stopped=std::max(unit.body.stopped,ThunderFlowerRules::Paralysis);
@@ -4837,7 +4871,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (p.fume && !p.around && u.x > fumeEnd) continue;
 				const auto hit = DescribePlantHit(units[i],p,splash ? secondaryDps/p.dps : 1);
 				const bool slowReachesBody = units[i].shieldHealth <= 0 || p.melon || hit.bypass;
-				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow,p.damageOrigin);
+				ApplyDamage(units[i],hit.rate*kStep*damageRate,hit.penetrate,hit.bypass,hit.discardOverflow,p.damageOrigin,&units,&s,t);
 				if ((units[i].digger.present ? units[i].digger.CanChill() : u.canBeChilled)
 					&& u.slowImmunity <= t && p.slowRate > 0 && slowReachesBody)
 					u.slow = std::max(u.slow, std::min(p.slowDuration, p.slowRate * p.slowDuration * kStep * 2 * attackRate));

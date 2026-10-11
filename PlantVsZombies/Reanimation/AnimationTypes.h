@@ -149,6 +149,7 @@ enum class AnimationType
 	ANIM_RAINBAMBOO,
 	ANIM_FLOOD_MORTAR,
 	ANIM_FOG_FERRY,
+	ANIM_PRESSURE_GUARD,
 };
 
 #endif
