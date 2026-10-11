@@ -31,6 +31,8 @@ struct Texture {
 	// 绘制时应改用 atlasPage->BindingId()，并把 [0,1] UV 重映射到对应区域。
 	const Texture* atlasPage = nullptr;
 	float aU0 = 0.0f, aV0 = 0.0f, aU1 = 1.0f, aV1 = 1.0f;
+	/// 仅 AutoTest 保留原子图逐像素 alpha；正式游戏为空，缺失时公开像素取证必须拒绝。
+	std::vector<std::uint8_t> autoTestAlpha;
 };
 
 class ResourceManager {

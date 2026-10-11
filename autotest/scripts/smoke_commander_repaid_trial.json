@@ -1,0 +1,390 @@
+{
+  "description": "R7 controlled real Board repayment/lifecycle fixture, NOT strength or autonomous trial-commit evidence. Waves 9 and 10 each pay 24 ice through the normal queue_ice_zombie unlock/payment path on an empty level 91. Only afterward, one explicitly SYNTHETIC ledger record owns their exact total cost 48 and paidWaves [9,10]. Separately paid wave 11 is deliberately unowned. Wallet (600, full 1000000, then 600), elapsed 100, wave numbers and decision delay 150 are explicit test controls; training/allUnits and AI plan commits are not used. Real accepted production must repay and release unresolved while both owned workers remain alive. Full-wallet batches must not count as income. Pause/save/reload preserves actual cash, cumulative ledger and paid-wave ownership, then both old waves must continue earning after resuming the test clock at 5x.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "batchStepsPerFrame": 0,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "goto_level",
+      "level": 91,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "spent": 0,
+        "supplied": 0,
+        "workerIncome": 0,
+        "killIncome": 0,
+        "decisions": 9,
+        "decisionRemaining": 150,
+        "supplyRemaining": 30,
+        "elapsed": 100,
+        "boundedTrials": {
+          "disabled": false,
+          "records": []
+        }
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "purchase_before.json"
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "delay": 2,
+      "expectedSuccess": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 10
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 4,
+      "delay": 7,
+      "expectedSuccess": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 552
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 48
+    },
+    {
+      "op": "dump_state",
+      "name": "paid_before_synthetic_record.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "boundedTrials": {
+          "disabled": false,
+          "records": [
+            {
+              "signature": 710001,
+              "latestPaidWave": 10,
+              "paidWaves": [
+                9,
+                10
+              ],
+              "cost": 48,
+              "production": 0,
+              "unresolved": true,
+              "startedAt": 100
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "synthetic_record.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 11
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 2,
+      "delay": 2,
+      "expectedSuccess": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 528
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 72
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "all_paid.json"
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.5,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "old_wave_only.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.production",
+      "atLeast": 4,
+      "atMost": 47
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.5,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "both_waves_before_repayment.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.production",
+      "atLeast": 8,
+      "atMost": 47
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000000
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "full_wallet_before.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.2,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "full_wallet_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 1000000
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "repayment_resume_before.json"
+    },
+    {
+      "op": "wait_value",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": false,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "repaid_alive.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.production",
+      "atLeast": 48
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopActivity",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 72
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "paused_before.json"
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "paused_after.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "repaid_trial"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "repaid_trial"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "selectedTimeScaleOn1000",
+      "equals": 5000
+    },
+    {
+      "op": "dump_state",
+      "name": "repaid_after_reload.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.2,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "old_waves_resumed.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 72
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.decisions",
+      "equals": 11
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

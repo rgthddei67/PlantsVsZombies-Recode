@@ -765,6 +765,11 @@ void Graphics::PushTransform(const glm::mat4& transform) {
 	m_transformIsIdentity.push_back((curId && tId) ? 1 : 0);
 }
 
+bool Graphics::IsCurrentTransformIdentity() const {
+	const auto& identity = tl_transformIsIdentity ? *tl_transformIsIdentity : m_transformIsIdentity;
+	return !identity.empty() && identity.back() != 0;
+}
+
 void Graphics::PopTransform() {
 	if (tl_record) {
 		if (tl_transformStack->size() > 1) {

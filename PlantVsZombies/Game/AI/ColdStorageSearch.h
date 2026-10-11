@@ -17,6 +17,8 @@
 
 #include "ColdStorageStrategy.h"
 #include "ColdStorageDiagnostics.h"
+#include "ColdStorageObservedResponse.h"
+#include "ColdStorageBoundedTrials.h"
 #include "Game/PlantDamageOrigin.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Plant/AttackGrowth.h"
@@ -27,11 +29,15 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <memory>
+#include <utility>
 #include <vector>
 
 /** 可训练的编队搜索。仅消费数值快照；预测既不扣款也不使用正式游戏随机数。 */
 namespace ColdStorageSearch {
 inline constexpr int FeatureCount = 8;
+inline constexpr int RawWorldCacheEntryLimit=128; // 单次会话最多保留128份完整原始世界
+inline constexpr std::size_t RawWorldCacheByteLimit=16*1024*1024; // 条目及轨迹有效载荷上限16MiB，非进程RSS；满后只重算
 inline constexpr int FuelAwarePlanternResponse = 4; // 燃料充足用III挡、低油用II挡的合法玩家应对；不是实际挡位
 using Weights = std::array<float, FeatureCount>;
 inline constexpr int ContextCount = 8; // 偏置、友军伤势、友军密度、前墙、减速、火力、工人数、后排保护
@@ -137,7 +143,9 @@ struct Unit {
 	GoldenDrive goldenDrive;
 	Clock clock;
 	DancerRules::Forecast dance;
-	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和可锚定的本体掉头阈值；已有实体由 Board 精确采样
+	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和本体掉头阈值；零表示当前阶段不掉头，已有实体由 Board 精确采样
+	bool headless = false; // 推演受伤后的核心状态；时间锚恢复头部，不由治疗或防具回血重新长头
+	float headlessBleedRemainder = 0; // 无头流血尚未结算的亚整数生命；按未减速游戏秒推进
 	bool temporalEligible = true, temporalIrreversible = false; // 复合编队/首领及清洁车等不可逆清除不参与回溯
 	float blastCredit = 0; // 本单位已计入爆区损失的冰价，回溯恢复生命时撤回对应部分
 	std::array<float,9> goldenMoveRatios{1,1,1,1,1,1,1,1,1}; // 各层相对采样速度的常驻能力/天气倍率，鼓舞和减速独立推进
@@ -175,10 +183,16 @@ struct Unit {
 	float magneticBacklash=0; // 目标卸甲反噬磁力菇本体，生命点
 	int magneticLayer=0; // 可吸取的当前层：0无、1头甲、2门盾、3工具；小丑失盒另推进
 	float boundsY=0, boundsHeight=100; // 碰撞框相对本行中心的垂直偏移与高度，像素
+    float responseNominalCapital=0; // 公开行为证据使用的普通兵价；零为未知，不进入付款/投资/返冰账
+    float responseObjectYOffset=0; // 实体逻辑对象Y相对当前行地形中心，不从碰撞框猜测
+    bool responseObjectYKnown=false; // 只对可由公开几何精确重建的普通运动画像启用Doom机会
+    bool responseCobTargetKnown=false,responseCobTargetable=false; // 活体正式炮击资格；缺出生投影时保持未知
 
 
 };
 struct Plant {
+	int actualType = -1, footprintColumns = 1; // 真实本体类型及普通层横向占格；玉米炮两格仍是一株实体
+	bool cobBaseEligible = false; // 仅正式可升级的玉米底材，未变身模仿者不能提前取得资格
 	float y=0, boundsX=-40, boundsY=-50, boundsWidth=80, boundsHeight=100; // 实体逻辑位置与实际爆区判定矩形相对量
     float targetValue=0; // 精英盒贪心选点的阳光及产能价值，不计入僵尸资源账本
     bool pumpkin=false, targetsAir=false;
@@ -229,6 +243,8 @@ struct Plant {
 	float initialHealth = 0, productionAt = 0; // 削血分母与新生产株首次产出的时刻，游戏秒
 	float repairMaximum = 0, repairAmount = 0, repairCost = 0, repairRecharge = 0, repairRemaining = 0;
 	float repairBlockedUntil = 0, damageCredit = 0; // 暂停新修复的期限，以及可被回血撤回的削血得分
+    float attackAssetCredit=0; // 本完整预测中攻击造成、尚未恢复的资产损失；只供信息试探，不改变伤害或评分
+    float attackAssetInitialHealth=0; // 新建消耗来源的资产分母；独立于既有伤害评分的initialHealth
 	bool repairAutomatic = false;
 	float crushDamage = 0, immuneRemaining = 0, vehicleRetreat = 0;
 	bool hasBurstProtection = false;
@@ -240,10 +256,21 @@ struct RowStrike {
 	int plantID = 0;
 	float ready = 0, recharge = 20, damage = 0, splashDamage = 0, radius = 0;
 };
+/** 新炮的数值能力；初次就绪不含下令后的前摇/飞行，不使用建造卡冷却替代装填。 */
+struct CobConstruction {
+	float firstReady = 0, recharge = 0, windup = 0, flightSeconds = 0;
+	float damage = 0, radius = 0;
+	int rowRadius = 0;
+};
+/** Board 采样的公共炮击候选点；实际择点仍只使用当前世界的可见目标。 */
+struct CobAimPoint { int row = 0; float x = 0; };
 /** 当前卡槽的合法建设落点；同 source 共用冷却，不能把每个格位当成独立牌。 */
 struct Construction {
 	Plant plant;
 	RowStrike strike;
+	CobConstruction cob;
+	int requiredBaseKind = -1; // 非负时只表达双玉米升级，不扩展任意升级树
+	std::array<int,2> requiredSupportIDs{}; // 0无需承载；非零必须仍为同格存活承载层，炮按左右格分别检查
 	int source = 0, sunCost = 0, iceCost = 0;
 	float ready = 0, recharge = 1, firstSunDelay = 0;
 	int remainingUses = -1; // 同 source 共用累计剩余次数，-1 表示不限；死亡不返还
@@ -265,12 +292,44 @@ struct AttackAura {
 	bool automatic = false;
 };
 struct ShopOrder { int sunCost = 0, iceGain = 0; float delivery = 0; };
+struct Action { int option = 0; float delay = 0; };
+/** 未付款后队只保存条件与相对付款的出生延迟；不能作为 Board 的付款凭据。 */
+struct FollowupPolicy {
+    std::vector<Action> actions;
+    float earliestSeconds=0, expirySeconds=30;
+    bool requireObservedCobLaunch=false, requireShotsClear=false;
+    int maxReadyCobs=-1; // -1 不约束；按存活炮源去重，不按候选落点计数
+};
+/** 单个完整世界实际兑现的后队账本；未付款单位没有生命、投资、返冰或收入。 */
+struct FollowupForecast {
+    enum class Status { Disabled, Pending, Purchased, Expired, Invalid };
+    Status status=Status::Disabled;
+    float observedAt=-1, purchasedAt=-1, spent=0, walletBefore=0, walletAfter=0;
+    int observedCobLaunches=0, readyCobs=0, committedShots=0;
+    std::vector<Action> realizedActions; // 只有付款成功后才填入，delay 是本次快照的绝对秒
+};
+/** 同窗完整对照的诊断；未来费用不属于本次购物车。 */
+struct PhasedSearchDiagnostics {
+    int evaluated=0, incomplete=0, valueRejected=0, capitalRejected=0;
+    bool selected=false, waitSelected=false;
+    float prefixScore=0, fullScore=0, waitScore=0, deferredScore=0;
+    float forecastFutureSpent=0, forecastFuturePurchasedAt=-1;
+};
 struct ConstructionStats {
+    FollowupForecast followup;
+    int observedDelaySteps=0; // 本完整行为世界真正延后的未提交付费反制候选步数
+    int observedCobLaunches=0; // 当前推演中已实际离膛的公开炮击，不依赖诊断追踪开关
+
+	int cobUpgrades = 0, constructedCobShots = 0; // 实际完成的预测升级及新炮已提交炮击，不代表真人一定执行
+	float cobTransferredAssets = 0; // 被消费底材的剩余资产转入新炮，既不复制也不产生击杀冰
 	float productionAfterWindow=0; // 60秒校准窗口之后、同一战斗时域内真实兑现的预测产冰，不预支采购
 
 	int catapultShots=0, catapultHits=0, catapultBlocks=0;
 	std::vector<WorkerForecastTrace> workerTrace;
 	std::vector<CounterForecastTrace> counterTrace;
+    std::vector<CombatForecastTrace> combatTrace;
+    bool combatTraceTruncated=false; // 显式取证达到上限时必须标记，不把截断记录当完整战斗
+    int nextCombatAttackID=0; // 本次Evaluate的诊断攻击序号，不参与玩法/评分/付款
 	float breachSeconds = -1; // 首次有效进屋的预测游戏秒；-1 表示尚未突破
 	int cratersCreated = 0; // 实际完成爆炸后生成的预测弹坑，不含被提前消灭的灰烬
 	int planternResponseGear = -1; // -1沿用当前挡位；0..3固定应对；4随燃料切II/III挡，无雾关灯
@@ -278,6 +337,7 @@ struct ConstructionStats {
 	int counterShovels = 0; // 为灰烬腾位而主动牺牲的普通层植物数，不计僵尸击杀奖励
 	float counterShovelAssets = 0; // 主动腾位损失的植物资产，冰价；用于诊断回本与反制代价
 	int paidCounterCasts = 0; // 玩家尚未提交的付费灰烬实际使用次数，已提交爆炸不重复计费
+	bool visibleCounterResponse = false; // 本完整世界等待可见炮击见证；不拼接其他响应战果
 	bool paidDefensesRetained = false; // 本完整玩家应对保留付费手动反制；既有事务和自动能力仍生效
 	int stationDischarges=0, stationJams=0, stationCounters=0, stationFogCounters=0;
 	int movementBoundsApplied = 0; // 为经济生存推演采用出生移速边界的单位数，不额外增加候选或推演次数
@@ -301,11 +361,12 @@ struct ConstructionStats {
 	int interferences = 0; // 玩家实际可支付的时间干扰次数
 	int clockAnchors = 0, clockTargets = 0, clockRewinds = 0, clockRevivals = 0, clockRedirects = 0;
 	float sunSpent = 0, iceSpent = 0, opponentAssets = 0;
+    float plantAssets=0; // 终点存活植物的剩余资产，含未被维修恢复的削血；不含钱包、费用或僵尸资产
+    float plantAttackAssets=0; // 攻击实际造成且未被治疗恢复的植物资产损失，不含未建设、铲除或自行消耗
 	float exchangeSun = 0, exchangeIce = 0, orderSun = 0, orderIce = 0, pendingIce = 0;
 };
 struct Mower { int row = 0; float x = 0, width = 60, speed = 230; bool moving = false, active = true; float y=0,height=0; };
 struct Option { int type = 0, row = 0, cost = 0; Unit unit; ContextWeights preference{}; float firePreferenceScale = 1; int device=-1, setting=0; };
-struct Action { int option = 0; float delay = 0; };
 /** 未付款的跨轮探索提案；仅保存兵种、路线、时序，不携带旧实体、评分、价格或收益。 */
 struct ProposalMember { int type=0, row=0, device=-1, setting=0; float delay=0; };
 using Proposal = std::vector<ProposalMember>;
@@ -317,6 +378,7 @@ struct QueueRevision {
 };
 /** 同一 source 的格位是同一次反制的备选落点，共用冷却和资源；已提交动作不可改点。 */
 struct Counter {
+
 	ColdStorageStrategy::BlastThreat blast;
 	int source = 0, sunCost = 0, iceCost = 0;
 	float recharge = 10000, windup = 1;
@@ -334,6 +396,7 @@ struct Counter {
 	bool clearsCell = false; // 毁灭引爆会清除同格各层；樱桃/辣椒只消耗自身
 	int ladderClearRow=-1,ladderClearRadius=-1; bool clearsLadderRow=false; // 正式灰烬额外拆梯形状；不依赖命中僵尸
 	float craterSeconds = 0; // 爆炸后禁止该格新种植的游戏秒数，由正式弹坑寿命提供
+    int observedSourceKey=0; // Board 投影的公开卡槽/种类键；不参与真实 source 冷却或交易身份
 };
 /** 已提交的裂隙，即使来源死亡也必须进入预测。 */
 struct Rift { Unit unit; int column = 0; float remaining = 0; };
@@ -353,14 +416,42 @@ struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
 /** 已离膛篮球只保存落格与到达秒，来源死亡或下一轮重排不取消。 */
 struct BasketballFlight { int row=0, column=-1; float at=0, damage=0; };
 /** 已离手精英盒冻结落点和阵营；死亡动画仍飞行，但载体被灰烬直接移除会取消，回溯不复制。 */
-struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; };
+struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; int traceID=0; };
 /** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
 struct WindCounter { Plant deployment; std::vector<std::array<int,2>> cells; bool committed=false; int source=0, plantID=0, row=-1, column=-1, sunCost=0, iceCost=0; float ready=0,recharge=0,windup=0,nextReady=0; bool house=false; };
 /** 已出膛气弹独立于来源存活；入场新兵和活体共用弹道。 */
 struct BambooRay { float x=0;int row=0;PlantDamageOrigin origin;std::vector<int> hitIDs; };
 struct FloodShot { int row=0,column=0;float at=0,damage=0; };
 struct PressureRay { int row=0; float x=0, launchedAt=0, damage=PressureShooterRules::Damage; };
+class RawWorldCache;
+/** 仅一次同步搜索借用缓存；普通快照复制自动断开，只有已审核的同源变体可以显式继承。 */
+class RawWorldBinding {
+public:
+    RawWorldBinding()=default;
+    RawWorldBinding(const RawWorldBinding&) {}
+    RawWorldBinding& operator=(const RawWorldBinding&) {mCache=nullptr;mFreshPaidAreaOmitted=false;return *this;}
+    RawWorldBinding(RawWorldBinding&& other) noexcept : mCache(std::exchange(other.mCache,nullptr)),
+        mFreshPaidAreaOmitted(std::exchange(other.mFreshPaidAreaOmitted,false)) {}
+    RawWorldBinding& operator=(RawWorldBinding&& other) noexcept {mCache=std::exchange(other.mCache,nullptr);
+        mFreshPaidAreaOmitted=std::exchange(other.mFreshPaidAreaOmitted,false);return *this;}
+    bool Attached() const {return mCache!=nullptr;}
+private:
+    RawWorldCache* mCache=nullptr;
+    bool mFreshPaidAreaOmitted=false; // 本会话内唯一窄反事实域，防止删反制后的结果命中原世界
+    friend class RawWorldCache;
+};
 struct Snapshot {
+    bool informationalTrials=false; // Board仅在准备后的普通决策武装；既有活体照常计本金和同军团等待，没有超时规则
+    ColdStorageTrials::State trialHistory; // 持久真实成本/生产的只读值副本，不制造对手画像
+
+    bool observedRiskEnabled=true; // 仅显式AutoTest消融关闭，正式局使用公开证据有界风险
+    const ColdStorageResponse::Profile* observedProfile=nullptr; // 仅同步独立行为世界借用，不存档或跨后台任务
+    ColdStorageResponse::Forecast observedResponse; // 仅包含公开证据的不可变值副本；硬风险仍用原完整响应
+
+    bool assaultContinuationRelativeTiming=false; // 条件后队保留成员相对出生间隔；旧观察提案仍比较立即增援
+    std::vector<Proposal> assaultContinuation; // 已观测真实反制后的未付款增援构成；必须按本快照重新定价和完整评价
+    std::uint64_t assaultIntentRevision=0; // 本次重新评价对应的公开事件代数，不属于付款凭据
+    std::uint32_t searchRound=0; // 同一Planner的候选类别轮转；不读取正式随机数或改变预算
     std::vector<PressureRay> pressureRays;
 
 	std::vector<LadderRules::Cell> ladders; // Board已存在的共享梯，与来源死亡及未付款方案无关
@@ -377,6 +468,10 @@ struct Snapshot {
 	std::vector<ThunderRay> thunderRays;
     std::vector<BambooRay> bambooRays;
     std::vector<FloodShot> floodShots;
+    bool traceCombat = false; // 独立显式战斗取证；正式对局默认关闭，不新增候选或响应
+    bool visibleCounterResponse = true; // 给等待和所有候选同样补充短暂留炮的完整响应；显式消融可关闭
+    int diagnosticJackTargetMode = 0; // 仅显式候选消融：0原贪心，1独立并列采样，2边际伤害代理；均非完整MC
+    bool diagnosticVisibleCounterWitness = false; // 本完整世界的屏内炮击见证；正式附加响应与显式消融共用，不改变场外承伤
 	bool traceEconomy = false; // 仅显式诊断采集预测轨迹；正式对局与批量训练默认不分配轨迹
 	bool fuelAwarePlantern = true; // 仅诊断消融可关闭动态挡位应对，正式搜索始终启用
     bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数
@@ -405,8 +500,8 @@ struct Snapshot {
 	int fundableUnlockTroopCost = 0; // 当前钱包可支付解锁路径的后续兵种最高单价，只参与现金估值，不开放采购
 	float capitalRiskAllowance = (std::numeric_limits<float>::max)(); // 累计净亏损后的剩余风险额度，冰；未提供实际账本的夹具不启用
 	bool allowWait = true; // 默认允许等待；Board 仅为可支付的后续兵种解锁路径请求出兵
-	int fallbackProbeBudget=0; // 长期空场的独立有限实战试攻额度，冰；零保持纯评分等待
-	bool fallbackAllIn=false; // 有限试攻无实际进展后，允许从真实评估的完整进攻案孤注一掷
+	int fallbackProbeBudget=0; // 旧快照兼容字段，搜索忽略，不授予试探权限
+	bool fallbackAllIn=false; // 旧快照兼容字段，搜索忽略；不再提供孤注一掷采购路径
 	int playerSun = 0, playerIce = 0, incomingIce = 0;
 	int playerSunLimit = (std::numeric_limits<int>::max)(), playerIceLimit = (std::numeric_limits<int>::max)(); // Board 提供正式容量；纯数值夹具可不设上限
 	float incomingIceAt = 0;
@@ -447,15 +542,32 @@ struct Snapshot {
 	std::vector<RowStrike> rowStrikes;
 	std::vector<AttackAura> attackAuras;
 	std::vector<Construction> construction;
+	std::vector<CobAimPoint> cobAimPoints;
 	std::vector<SunExchange> exchanges;
 	std::vector<ShopOrder> shop;
 	std::vector<Mower> mowers;
 	std::array<ContextWeights, 6> context{};
+    bool reuseRawWorlds=true; // 仅数值缓存消融，不改变世界、候选、响应或截止规则
+    RawWorldBinding rawWorldBinding; // 不存档，不跨任务继承；移动仅转移原借用生命周期
 };
 struct Result {
-	int fallbackMode=0; // 0正常评分、1有限试攻、2孤注一掷；保留原预测分数，不能伪称盈利
+    TrialDiagnostics trialDiagnostics;
+    ObservedDecisionDiagnostics observedDecision;
+    FollowupPolicy followupPolicy;
+    PhasedSearchDiagnostics phasedPlanning;
+    int followupWorldsEvaluated=0, followupWorldsPurchased=0;
+    int observedDelayedWorlds=0; // 所有完整响应姿态中的实际延期计数，不改变被选世界的特征或收益
+    int rawWorldEvaluations=0, rawWorldCacheHits=0; // 本次同步Search/诊断完整积分次数与精确命中次数，含辅助线程
+    int rawWorldCacheEntries=0;std::size_t rawWorldCacheBytes=0; // 已保留条目/载荷；上限见RawWorldCacheEntryLimit/ByteLimit
+
+	std::vector<Proposal> assaultProposals; // 本轮完整评过的至多两份大队构成，仅供实际小队付款后短期观察
+	bool assaultContinuationSelected=false; // 最终直接采用已按当前棋盘重评的增援原案
+	AssaultSearchDiagnostics assaultDiagnostics;
+	int fallbackMode=0; // 0正常评分、1有界信息试探；2不再生成，试探保留完整保守负分
 	int experiencedEvaluated=0; // 经验编队在统一预测中实际积分的数量，不含被去重或资金不足的配方
 	bool experiencedSelected=false; // 最终直接选中经验原案；自由变异后的方案仍按自由搜索记录
+	int experiencedAshEvaluated=0; // 实际评完的双路灰烬封顶护卫加钟匠/部署热狙经验案，不含生成或去重次数
+	bool experiencedAshSelected=false; // 最终仍是上述经验原案；删减、变异或其他整案替换即撤销
 	CapitalUtilityInputs capitalUtilityInputs; // 实际评分使用的现金快照输入，仅诊断，不保存或预支资金
 	std::vector<Proposal> proposals; // 有界未付款中间态；可供下一轮探索，不属于可执行购物车
 	int proposalEvaluated=0; // 跨轮提案在当前局面真正重新评估的数量
@@ -503,6 +615,13 @@ struct Result {
 	int formationTested = 0, formationRejected = 0, formationChosenRow = -1; // 拒绝位表示低库存收益不足；-1 保留自由编队
 };
 
+/** 只识别未来新种、已公开选出的付费范围灰烬，不含已提交/存储/免费炮/其他能力。 */
+bool IsFreshKnownPaidAreaCounter(const Counter& counter);
+/** 新购或现存单位若可能持续自动扣冰，不进入只登记一次采购费的信息试探。 */
+bool HasInformationalTrialAutomaticFees(const Unit& unit);
+/** 按能力构成、相对路线/时序和粗粒度公开防线签名；忽略时间、实体ID、细粒度冷却和兵种编号。 */
+std::uint64_t InformationalTrialSignature(const Snapshot& state,const std::vector<Action>& actions);
+
 /** 验证参数尺寸以外的数值域，非法参数必须回退旧 AI。 */
 bool ValidWeights(const Weights& weights);
 /** 提取只读局势；baseline 的生产仍使用统一的未来 60 秒窗口。 */
@@ -536,7 +655,7 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 /** 有限步位置推演；planternResponseGear=-1沿用当前挡位，0..3固定挡位，4随燃料切挡，无雾关灯。
  * clearFogWhenReady 在共享预算内按真实设备时序尝试关雾；reserveCounterSpace 暂缓未来补阵，
  * 但显式照明响应仍可合法补灯，不增加资源或清空现有植物。hold 只延迟未提交且非救险的反制，
- * storedHoldSeconds 仅适用于预存灰烬，rowStrikeHoldSeconds 适用于主动打击。
+ * storedHoldSeconds 适用于预存灰烬及可重复炮，rowStrikeHoldSeconds 适用于主动打击。
  * preserveManualAuras 保留尚未开启的手动攻击领域，不撤销已激活或自动释放。
  * shovelCounterSpace 允许付出单格普通层植物的资产与功能损失后腾位反制，不授予击杀奖励。
  * preservePaidDefenses 保留付费手动灰烬、领域、维修及商店反制，既有事务和自动能力仍生效。
@@ -544,11 +663,77 @@ bool ShouldConserveCapital(const Result& result, int budget, int reserve,
 Weights Evaluate(const Snapshot& state, const std::vector<Action>& plan, ConstructionStats* construction = nullptr,
 	float counterHoldSeconds = 0, float storedHoldSeconds = 0, float rowStrikeHoldSeconds = 0, bool reserveCounterSpace = false, bool clearFogWhenReady = false, int planternResponseGear = -1,
 	bool preserveManualAuras = false, bool shovelCounterSpace = false, bool preservePaidDefenses = false,
-	bool interferenceBeforeAsh = false);
+	bool interferenceBeforeAsh = false, const FollowupPolicy* followup = nullptr);
+/** 仅接纳可在未来原子激活的出生画像；复杂独立来源/召唤能力暂不进入后队。 */
+bool CanForecastFollowup(const Option& option);
+/** 同快照的独立原始世界批量诊断；有序动作、响应及未付款政策逐项完整执行，不作评分或采购。 */
+struct RawWorldRequest {
+    std::vector<Action> actions;
+    FollowupPolicy followup;
+    bool enableFollowup=false;
+    float counterHoldSeconds=0,storedHoldSeconds=0,rowStrikeHoldSeconds=0;
+    bool reserveCounterSpace=false,clearFogWhenReady=false;
+    int planternResponseGear=-1;
+    bool preserveManualAuras=false,shovelCounterSpace=false,preservePaidDefenses=false,interferenceBeforeAsh=false;
+    int observedProfile=-1; // -1完整普通世界；非负下标引用本次不可变公开证据
+    int searchVersion=0; // 0沿用快照，1/2为明确的预测时域变体
+    bool visibleCounterWitness=false;
+    int precisionTargetID=-1; // -1沿用快照；非负值显式替换本案尚未付款的精准意图
+    std::vector<int> precisionAdditionalTargetIDs;
+};
+struct RawWorldOutcome {
+    Weights features{};
+    ConstructionStats construction;
+    bool complete=false;
+};
+struct RawWorldCounts {int evaluations=0,hits=0,entries=0;std::size_t bytes=0;};
+/** 拥有一次同步诊断/搜索的不可变快照；不能跨实战采样复用，模型/取消令牌仍须活到本会话结束。 */
+class RawWorldSession {
+public:
+    explicit RawWorldSession(const Snapshot& state);
+    ~RawWorldSession();
+    RawWorldSession(const RawWorldSession&)=delete;
+    RawWorldSession& operator=(const RawWorldSession&)=delete;
+    const Snapshot& State() const;
+    RawWorldCounts Counts() const;
+    /** 完整原始世界诊断；命中也检查取消，截止后complete=false，不作评分或采购。 */
+    RawWorldOutcome Evaluate(const RawWorldRequest& request);
+private:
+    struct Impl;
+    std::unique_ptr<Impl> mImpl;
+};
 class PlanEvaluator;
 /** 只读诊断购物车，复用条件权重、等待基线及玩家应对；动态资本快照按整案费用修案。
  * 解锁后技能仅导出forecast诊断，不生成当下可提交的打击；不消费真实钱包或修改快照。 */
 Result EvaluateCandidate(const Snapshot& state, const Weights& weights, const std::vector<Action>& plan);
+/** 一个响应域内的完整购物车/同军团等待对照；材料差只用真实推演收入和未恢复攻击损失。 */
+struct PaidAreaResponsePair {
+    Result cart, wait;
+    float cash=0, plantAttackAssets=0;
+    bool breach=false, complete=false;
+};
+/** 反制项数量是能力快照清单，类别可重叠；不把备用落点数量当成真实炮数。 */
+struct PaidAreaCounterInventory {
+    int total=0, freshPaidArea=0, free=0, committed=0, stored=0, reusable=0, other=0;
+};
+/** 四案使用同一扩展快照、权重和响应包络；结果仅供诊断，不授予试探资格或采购标记。 */
+struct PaidAreaResponseComparison {
+    PaidAreaResponsePair robust, potential;
+    int requestedSearchVersion=0, effectiveSearchVersion=0, bill=0, removedCounterCount=0;
+    std::vector<int> removedSourceKeys;
+    float horizonSeconds=0, productionWindowSeconds=0;
+    float responseEnvelopeSeconds=0, storedResponseEnvelopeSeconds=0, patientResponseHoldSeconds=0;
+    bool expandedForecast=false, matchesRequested=false, complete=false;
+    PaidAreaCounterInventory robustCounters, potentialCounters;
+    RawWorldCounts rawWorldCounts;
+};
+/** 复用信息试探的四案完整评估；只撤未来新付费范围灰烬，保留免费/已提交反制与同一既有军团。
+ * 调用者提供完整合法购物车；不修案、不检查试探历史/64冰上限、不生成未付技能或后续政策。
+ * 默认按当前资本扩展时域；expandToFullForecast 对齐调用者已经完成的 v2 搜索。
+ * 保留截止及取消；只有显式诊断调用者可以自行关闭墙钟限制，不修改输入快照或真实交易。
+ */
+PaidAreaResponseComparison ComparePaidAreaResponse(const Snapshot& state, const Weights& weights,
+    const std::vector<Action>& actions, bool expandToFullForecast=false);
 /** 按合法兵种自由变异、配对及扩展后逐行比较；突破优先，同结果比较净收益，不迁移已有实体。
  * 仅差一波解锁的技能可以比较付费出兵后的未来收益，返回当下购物车和未付款forecast，不提前施法。
  * evaluator 由后台任务独占，函数返回前领完其结果；缺省为空，离线搜索保持同步随机顺序。

@@ -37,6 +37,8 @@ public:
 	static float GetSimulationShotWindup();
 	/** 离膛后独立飞行的游戏秒数；来源死亡不得撤销这段已经提交的炮击。 */
 	static float GetSimulationFlightSeconds();
+	/** 从合法升级建成到首次可点火的基础游戏秒；与实体初装填和充能共用常量，不含飞行。 */
+	static float GetSimulationInitialReadySeconds();
 	void Die() override;
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;

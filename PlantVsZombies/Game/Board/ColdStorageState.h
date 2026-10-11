@@ -2,8 +2,11 @@
 
 #include "Game/Zombie/ZombieType.h"
 #include "Game/AI/ColdStorageDiagnostics.h"
+#include "Game/AI/ColdStorageObservedResponse.h"
+#include "Game/AI/ColdStorageBoundedTrials.h"
 #include <array>
 #include <cstdint>
+#include <cstddef>
 #include <deque>
 #include <map>
 #include <string>
@@ -32,11 +35,26 @@ struct ColdStorageProductionEvent { float at = 0; int wave = 0, amount = 0; };
 /** 战前支援按钮的稳定身份；组合按 1 << (身份 - 1) 入档。 */
 enum class ColdStorageOpeningBonus { NONE = 0, ELITE_QUOTA = 1, PREPARATION = 2, CARD_RECHARGE = 3 };
 
+/** 击杀返冰来源；技能与部队共用钱包，但技能不能伪装成实际部队进展。 */
+enum class ColdStorageKillOrigin { Troop, CommanderSkill };
+
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
-	float emptyWaitSeconds=0; // 正常运行中空场且无在途事务的持续游戏秒，暂停不推进
-	int stallProbeRounds=0, stallProbeSpent=0; // 本轮无进展局面的实际付费试攻次数/冰费，最多三次后比较全力进攻
-	int stallStartWorkerIncome=0, stallStartKillIncome=0; // 试攻前真实账本；盈利经营或破坏植物后重新按正常策略决策
+	int searchCobUpgrades=0, searchConstructedCobShots=0;
+	float searchCobTransferredAssets=0; // 预测内真实三交易与底材资产转移，仅诊断不入档
+	bool assaultIntentActive=false, assaultContinuationSelected=false; // 未付款观察意图及本次重评采用结果，仅诊断、不入档
+	std::uint64_t assaultObservationSignature=0, assaultIntentRevision=0;
+	int assaultReadyCannons=0, assaultActiveCannons=0, assaultCommittedShots=0;
+	int assaultIntentsArmed=0, assaultEventReplans=0, assaultFollowupPurchases=0, assaultFollowupTroops=0;
+	float emptyWaitSeconds=0; // 没有活体或已付部队事务的持续游戏秒；精准瞄准/冷却不清零，暂停不推进
+	int stallProbeRounds=0, stallProbeSpent=0; // 历史真实试攻次数/冰费，仅保留诊断与旧档，不授予升级全押或重置风险的权限
+	ColdStorageTrials::State boundedTrials; // 真实付费假设及逐波产冰的持久账本；失败记录不因击杀、补给或读档清除
+	ColdStorageSearch::TrialDiagnostics searchTrialDiagnostics; // 当前完整/未完成试验评估，仅诊断，不入档
+	int trialCommitChecks=0, trialCommitRejections=0, trialBookkeepingFailures=0;
+	float trialCommitRiskCap=0, trialCommitOutstandingPaidCapital=0;
+	std::string trialCommitReason; // 主线程重验结果；不作为后续付款凭据
+	int stallStartWorkerIncome=0, stallStartKillIncome=0; // 试攻前真实账本；killIncome保留诊断/旧档兼容，不判定部队进展
+	int troopPlantKills=0, stallStartTroopPlantKills=0; // 真实部队消灭植物次数及试攻基线；零返冰也计数，精准技能不计，入档
 	bool stallDiagnosticSaved=false; // 本Board已尝试捕获一次，失败也不重复IO；只诊断不入档
 	std::string stallDiagnosticPath; // 本Board的隔离现场目录，只诊断不入档
 	int openingBonusMask = 0; // 已选支援位图；选择中的第一项尚不生效
@@ -99,17 +117,26 @@ struct ColdStorageState {
 	int lastAttackRow = -1;
 	int candidatesEvaluated = 0;
 	int searchRouteEvaluated = 0, searchCombinationEvaluated = 0; // 通用路线/组合比较次数，仅诊断不入档
+    int searchRawWorldEvaluations=0,searchRawWorldCacheHits=0; // 同次搜索完整原始世界复用统计，不入档
+    int searchRawWorldCacheEntries=0;std::size_t searchRawWorldCacheBytes=0; // 会话内有界内存诊断，不入档
 	int searchCohortEvaluated = 0; // 组合预算中的通用成批候选数，仅诊断不入档
 	int searchUnevenMixEvaluated = 0, searchDuplicatesSkipped = 0; // 通用比例覆盖及重复案复用，仅诊断不入档
 	int searchPaidCounterCasts = 0; // 预测中实际提交的付费灰烬次数，仅诊断不入档
+	bool searchVisibleCounterResponse = false; // 选中的完整世界使用可见目标炮击，仅诊断不入档
 	bool searchPaidDefensesRetained = false; // 选中的完整玩家应对保留付费手动工具，仅诊断不入档
 	int searchReinforcementEvaluated = 0; // 组合预算中的跟队增援候选数，仅诊断不入档
 	int searchRefinementEvaluated = 0; // 完整优案换入少量其他成员的候选数，仅诊断不入档
 	int searchIncomeEvaluated = 0, searchPruningEvaluated = 0; // 经营分支与最终删成员对照，仅诊断不入档
 	int searchProposalEvaluated = 0; // 未付款提案跨轮重新评价的次数，仅诊断不入档
+	int searchExperiencedAshEvaluated=0; bool searchExperiencedAshSelected=false; // 抗灰双路经验的实际完整评价/直接原案采用，仅诊断
 	int searchExperiencedEvaluated = 0; // 经验编队与自由搜索共享预算的实际积分次数，仅诊断不入档
 	bool searchExperiencedSelected = false; // 最终直接选中经验原案，自由变异后的案不标记为固定编队
 	int searchAssaultEvaluated = 0; // 通用攻城中间态深化次数，仅诊断不入档
+	ColdStorageSearch::ObservedDecisionDiagnostics searchObservedDecision; // 行为排序与原最坏世界差额，完整诊断不入档
+	ColdStorageResponse::Forecast searchObservedResponse; // 实际本轮使用的公开证据副本，不代替当前观察或写入存档
+	int searchObservedCommitChecks=0, searchObservedCommitRejections=0; // 实际付款前门禁累计次数，仅诊断
+	bool searchObservedCommitRejected=false; // 最近采用尝试被当前证据/风险门禁拒绝，不改变原最坏评分
+	float searchObservedCommitRiskCap=0, searchObservedCommitOutstandingPaidCapital=0; // 当前钱包重算的额度与已付全价，冰
 	float searchCombinationBaseScore = 0, searchCombinationBestScore = 0; // 最终阶段组合比较前后评分
 	bool searchCombinationBaseBreach = false, searchCombinationBestBreach = false; // 突破优先于中间收益
 	float searchCombinationBaseBreachSeconds = -1, searchCombinationBestBreachSeconds = -1; // 比较前后首次进屋游戏秒，仅诊断不入档
@@ -159,6 +186,7 @@ struct ColdStorageState {
 	int searchClockOptions = 0, searchClockAnchors = 0, searchClockTargets = 0; // 钟匠候选和预测锚覆盖，仅诊断
 	int searchClockRewinds = 0, searchClockRevivals = 0, searchClockRedirects = 0; // 预测回溯、复活与界碑拒入，仅诊断
 	int searchEliteReplacementOptions = 0, searchEliteRemainingUses = 0; // 共享累计名额的补菇画像，仅诊断
+	ColdStorageSearch::AssaultSearchDiagnostics searchAssaultTiming; // 完整进攻探索的只读诊断，不入档
 	int searchPrecisionEvaluated = 0, searchPrecisionTargetID = 0; // 本次精准清除搜索
 	std::vector<int> searchPrecisionAdditionalTargetIDs; // 完整胜出名单的附加目标，仅诊断，不入档
 	int searchForecastPrecisionTargetID = 0, searchForecastPrecisionIce = 0; // 解锁后尚未付款的狙击反事实，仅诊断

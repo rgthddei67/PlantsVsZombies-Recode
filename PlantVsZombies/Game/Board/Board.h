@@ -1,6 +1,7 @@
 #pragma once
 #include "WeatherStationRules.h"
 #include "ColdStorageState.h"
+#include "Game/AI/ColdStorageObservedResponse.h"
 #include "../MiniGameDefinition.h"
 #ifndef _BOARD_H
 #define _BOARD_H
@@ -25,8 +26,9 @@
 
 class GameInfoSaver;
 class BoardPresentation;
-namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; struct Probe; }
+namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; struct Probe; struct AssaultObservation; }
 class CardSlotManager;
+class Card;
 class Graphics;
 class Sun;
 class SmallSun;
@@ -220,6 +222,9 @@ public:
 	int mZombieNumber = 0;
 
 	ColdStorageState mColdStorage;
+	ColdStorageResponse::Tracker mColdStorageResponse;
+	float mColdStorageResponseNextSample = 0, mColdStorageResponseLastTime = -1;
+	std::uint64_t mColdStorageResponseCardSignature = 0; // 本局卡槽身份改变时丢弃旧应对经验；不入档
 	std::unique_ptr<ColdStorageSearch::Planner> mColdStoragePlanner;
 	std::vector<std::uint64_t> mColdStoragePlanningTickets;
 	std::uint64_t mColdStoragePlanningStamp = 0;
@@ -254,8 +259,9 @@ public:
 	bool HasColdStorageOpeningBonus(ColdStorageOpeningBonus bonus) const;
 	/** 选卡前选两个不同支援才提交生效；0 放弃所有支援，1～3 为名额、准备、冷却。 */
 	bool SelectColdStorageOpeningBonus(ColdStorageOpeningBonus bonus);
-	/** 卡槽冷却计时速度，合并生存词条和单局支援；实体技能不读取此倍率。 */
-	double GetPlantCardRechargeMultiplier() const;
+	/** 按实战类型合并卡槽冷却速度：玉米炮仅排除战前支援，生存词条照常；不用于实体装填。
+	 * NUM_PLANT_TYPES 仅供通用卡槽诊断，正式卡片与预测必须传入实战类型。 */
+	double GetPlantCardRechargeMultiplier(PlantType gameplayType) const;
 	/** 冰价只用于冷藏站正式落种/直接出兵，技能召唤和读档恢复不收费。 */
 	int GetPlantIceCost(PlantType type) const;
 	/** 当前玩家实际种植冰费；基础冰价仍用于击杀奖励，减费只影响玩家付款。 */
@@ -296,8 +302,16 @@ public:
 	void CreditProducedIce(bool player, int amount, int sourceWave = 0);
 	/** 正式玩家落种后结算冰块并更新近期战术画像。 */
 	void CommitColdStoragePlant(PlantType type);
-	/** 仅植物实际被僵尸消灭时调用；幂等由植物生命周期门禁保证。 */
-	void RewardColdStoragePlantKill(PlantType type);
+	/** 真实卡片成功扣款并开始冷却后通知；种下睡眠毁灭菇只算准备，不算施法。 */
+	void NotifyColdStoragePaidAreaCard(const Card& card, const Plant& plant);
+	/** 当前实际卡槽的稳定公开来源；未知、模仿者和非付费灰烬返回零。 */
+	int GetColdStorageObservedSourceKey(const Card& card) const;
+	/** 新局、读档或关闭AI时清除局内公开应对历史，不恢复序列化经验。 */
+	void ResetColdStorageResponse();
+	/** 只在真实运行棋盘按半秒游戏时间采样；预测和诊断探针不能推进经验。 */
+	void UpdateColdStorageResponse();
+	/** 植物实际被敌方消灭时返冰；来源只区分部队进展，幂等由植物生命周期门禁保证。 */
+	void RewardColdStoragePlantKill(PlantType type, ColdStorageKillOrigin origin = ColdStorageKillOrigin::Troop);
 	/** 实际死亡时结算付费单位75%返冰；免费召唤、魅惑友军与时间替身退役不返冰。 */
 	void SettleColdStorageZombieDeath(const Zombie& zombie);
 	/** 建立新局资源，不从 StartGame 重置已恢复的订单与队伍。 */
@@ -312,15 +326,21 @@ public:
 	void PollColdStoragePlan();
 	/** 后台快照的关键局面签名；种铲植物、主动技能、小推车状态变化会使结果失效。 */
 	std::uint64_t ColdStoragePlanningStamp() const;
+	/** 只读取公开炮相位、固定在途炮弹与已付精准提示，时间余量不进入事件身份。 */
+	ColdStorageSearch::AssaultObservation ObserveColdStorageAssault() const;
 	/** 两种执行方式共用的提交路径，后台只计算，不碰钱包与实体。 */
 	void ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, ColdStorageSearch::Result& result,
 		const ColdStorageSearch::QueueRevision& revision, int requestedVersion, float age,
-		const std::vector<std::uint64_t>& tickets);
+		const std::vector<std::uint64_t>& tickets, std::uint32_t searchSeed);
 	/** 付费与队列登记在同一主线程提交；测试与正式指挥官共用。 */
 	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
 	/** 无活动/在途敌军时检查破产或长期无破阵且经营不盈利的低库存败局；存档恢复计时。 */
 	bool IsColdStorageCleared() const;
 	int GetColdStorageHostileCount() const;
+	/** 是否仍有实际敌方部队或已提交出生/复活事务；包含空中/潜地单位，不含精准技能。 */
+	bool HasColdStorageTroopActivity() const;
+	/** 已付出生/延迟召唤/可返回事务是否仍未兑现；普通活体另由HasColdStorageTroopActivity计入。 */
+	bool HasColdStoragePendingTroopTransactions() const;
 	/** 按库存及仍存活/在途的付费资产计算同时部署上限；召唤自身的数量规则不变。 */
 	int GetColdStorageDeploymentLimit() const;
 	/** 库存加敌对活体/在途兵力原成交价，用于按技能费用消耗后的资本预检整案名额。 */
@@ -1662,6 +1682,10 @@ public:
 	bool CanForecastReplacementAt(PlantType type, int row, int col);
 	/** 单格普通层腾出后的反制落点；保留承载层、地形和种植规则，不实际铲除植物。 */
 	bool CanForecastCounterAt(PlantType type, int row, int col);
+	/** 只读假设当前普通层已空出的玉米落格；不移除实体，实际预测仍等待整株死亡。 */
+	bool CanForecastKernelAfterVacancyAt(int row,int col);
+	/** 炮牌未来左锚点的地形/两格条件；每格仍须已有真玉米或允许以后合法补玉米。 */
+	bool CanForecastCobUpgradeAt(int row,int col,bool kernelCardSelected);
 	/** 解析可搬组合的稳定锚点 ID；多格植物任一占格均归到同一锚点。 */
 	int GetRelocationSourceID(int row, int col);
 	/** 检查已有整组植物能否原样移入完整空占地，不应用新种配额或升级前置条件。 */
@@ -1744,13 +1768,15 @@ public:
 	 *
 	 * 每个实际命中的植物层先在自身九宫格内选择一枚活动南瓜头；同一次爆炸对同一南瓜
 	 * 只结算一次默认 5 倍基础伤害。没有保护者时仍由原命中植物层承受基础伤害。
+	 * traceAttackID 仅在显式 AutoTest 中观察实际接收者，不改变伤害、去重或生命周期。
 	 */
 	void ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
-		const std::function<bool(const Plant&)>& overlapsArea);
+		const std::function<bool(const Plant&)>& overlapsArea, std::uint64_t traceAttackID = 0);
 	/** 使用指定倍率和保护格半径归并承伤；半径默认为1，蓄洪水弹显式传0只保护本格。 */
 	void ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 		int pumpkinDamageMultiplier,
-		const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius = 1);
+		const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius = 1,
+		std::uint64_t traceAttackID = 0);
 	/** 将基础僵尸按所选行解析为泳池表现变体；不改变波次成本。 */
 	ZombieType ResolveTerrainZombieType(ZombieType selected, int row) const;
 	bool CanSpawnZombieInRow(ZombieType type, int row) const {
@@ -1812,8 +1838,9 @@ public:
 
 	// 毁灭菇爆炸：半径 250 圆形判定、波及全部行、跳过魅惑僵尸；Charred 阈值逻辑同 CreateBoom
 	void CreateDoomBoom(const Vector& position, int plantRow, int damage = 1800);
-	/** 玉米加农炮落点爆炸：半径 115px、目标行上下各一行，只命中合法地面敌人。 */
-	void CreateCobCannonExplosion(const Vector& position, int targetRow, int damage = 1800);
+	/** 玉米加农炮落点爆炸：半径 115px、目标行上下各一行；目标资格由实体定义。
+	 * traceProjectileID 只供显式 AutoTest 关联独立炮弹，不改变爆区或伤害。 */
+	void CreateCobCannonExplosion(const Vector& position, int targetRow, int damage = 1800, int traceProjectileID = 0);
 
 	// 添加/查询弹坑（毁灭菇）。AddCrater 由爆炸与读档共用；timeLeft 读档时传剩余值
 	Crater* AddCrater(int row, int column, float timeLeft);

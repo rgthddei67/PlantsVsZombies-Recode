@@ -1,4 +1,5 @@
 #include "Game/Board/Board.h"
+#include "Game/AutoTest/TestDriver.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
 #include "Game/AI/MineWaveFormation.h"
@@ -1659,7 +1660,7 @@ void Board::CreateTrophy(const Vector& position)
 	mTrophy = trophy;
 }
 
-void Board::CreateCobCannonExplosion(const Vector& position, int targetRow, int damage)
+void Board::CreateCobCannonExplosion(const Vector& position, int targetRow, int damage, int traceProjectileID)
 {
 	std::vector<int> targets;
 	constexpr float kCobBlastRadius = 115.0f; // 原版 CobBig 爆心半径，单位：px
@@ -1694,7 +1695,20 @@ void Board::CreateCobCannonExplosion(const Vector& position, int targetRow, int 
 			}
 		});
 	}
-	ApplyPlantAshAttack(targets, [damage](Zombie* z) { z->TakePlantAshDamage(damage); });
+	std::uint64_t traceAttack=0;
+	if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+		traceAttack=TestDriver::GetInstance().RecordCommanderCombatEvent(*this,[&] { return nlohmann::json{{"event","cob_impact"},
+			{"projectileID",traceProjectileID},{"targetRow",targetRow},{"x",position.x},{"y",position.y},
+			{"candidateIDs",targets},{"requestedDamage",damage}}; });
+	ApplyPlantAshAttack(targets, [this,damage,traceAttack](Zombie* z) {
+		if(traceAttack && TestDriver::GetInstance().CommanderCombatTrace()) {
+			auto& recorder=TestDriver::GetInstance();
+			auto before=recorder.CommanderCombatZombieState(*z);
+			z->TakePlantAshDamage(damage);
+			recorder.RecordCommanderCombatDamage(*this,traceAttack,"zombie",damage,
+				std::move(before),recorder.CommanderCombatZombieState(*z));
+		} else z->TakePlantAshDamage(damage);
+	});
 
 	// 原版玉米炮与樱桃炸弹相同：扶梯按爆心格周围 3x3 方形范围清除。
 	RemoveLaddersInBlastSquare(position, targetRow, 1);
@@ -1778,10 +1792,35 @@ bool Board::CanForecastCounterAt(PlantType type, int row, int col)
 {
 	if (CanPlantAt(type,row,col)) return true;
 	const Plant* plant=GetNormalPlantAt(row,col);
-	// 只忽略普通层占位，南瓜和睡莲/花盆仍按正式规则保留；多格铲除另需完整占地投影。
+	// 只忽略普通层占位，南瓜和承载层仍按正式规则保留；多格来源仅开放整株死亡后的空格。
 	return plant && plant->IsActive() && !plant->IsIceSealed()
-		&& !IsMultiCellPlantType(plant->GetPlacementType())
 		&& CanPlantAtImpl(type,row,col,plant->mPlantID);
+}
+
+bool Board::CanForecastKernelAfterVacancyAt(int row,int col)
+{
+	const Plant* plant=GetNormalPlantAt(row,col);
+	// 忽略的只是同一普通层实体身份；双格炮的另一半仍是同株，后台必须等它整株退出。
+	return CanPlantAtImpl(PlantType::PLANT_KERNELPULT,row,col,
+		plant && plant->IsActive() ? plant->mPlantID : NULL_PLANT_ID);
+}
+
+bool Board::CanForecastCobUpgradeAt(int row,int col,bool kernelCardSelected)
+{
+	if(!MiniGame::AllowsPlant(mLevel,PlantType::PLANT_COBCANNON)
+		|| row<0 || row>=mRows || col<0 || col+1>=mColumns
+		|| IsPlantFootprintFrozen(PlantType::PLANT_COBCANNON,row,col)) return false;
+	for(int column=col;column<=col+1;++column) {
+		if(!CanPlantOnMineCell(row,column) || HasSnowHoleAt(row,column)
+			|| IsIceAt(row,column) || HasCraterAt(row,column)
+			|| GetPumpkinAt(row,column) || GetOverlayPlantAt(row,column)) return false;
+		const Plant* plant=GetNormalPlantAt(row,column);
+		const bool base=plant && plant->IsActive() && plant->mPlantHealth>0
+			&& !plant->IsSquished() && !plant->IsBungeeTargeted()
+			&& plant->mPlantType==PlantType::PLANT_KERNELPULT;
+		if(!base && (!kernelCardSelected || !CanForecastKernelAfterVacancyAt(row,column))) return false;
+	}
+	return true;
 }
 
 bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
@@ -2217,10 +2256,10 @@ Plant* Board::FindPumpkinAreaProtector(const Plant& plant, int cellRadius) const
 }
 
 void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
-	const std::function<bool(const Plant&)>& overlapsArea)
+	const std::function<bool(const Plant&)>& overlapsArea, std::uint64_t traceAttackID)
 {
 	ApplyPumpkinProtectedZombieAreaDamage(baseDamage,
-		kPumpkinAreaDamageMultiplier, overlapsArea);
+		kPumpkinAreaDamageMultiplier, overlapsArea, 1, traceAttackID);
 }
 
 /**
@@ -2228,7 +2267,7 @@ void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
  */
 void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 	int pumpkinDamageMultiplier,
-	const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius)
+	const std::function<bool(const Plant&)>& overlapsArea, int protectionCellRadius, std::uint64_t traceAttackID)
 {
 	if (baseDamage <= 0 || pumpkinDamageMultiplier <= 0 || !overlapsArea) return;
 
@@ -2250,7 +2289,13 @@ void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 	for (const int plantID : unprotectedPlantIDs) {
 		Plant* plant = mEntityRegistry.GetPlant(plantID);
 		if (plant && plant->IsActive()) {
-			plant->TakeDamage(baseDamage, DamageSource::ZOMBIE);
+			if(traceAttackID && GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace()) {
+				auto& recorder=TestDriver::GetInstance();
+				auto before=recorder.CommanderCombatPlantState(*plant);
+				plant->TakeDamage(baseDamage, DamageSource::ZOMBIE);
+				recorder.RecordCommanderCombatDamage(*this,traceAttackID,"plant",baseDamage,
+					std::move(before),recorder.CommanderCombatPlantState(*plant));
+			} else plant->TakeDamage(baseDamage, DamageSource::ZOMBIE);
 		}
 	}
 
@@ -2262,7 +2307,13 @@ void Board::ApplyPumpkinProtectedZombieAreaDamage(int baseDamage,
 	for (const int pumpkinID : protectedPumpkinIDs) {
 		Plant* pumpkin = mEntityRegistry.GetPlant(pumpkinID);
 		if (pumpkin && pumpkin->IsActive()) {
-			pumpkin->TakeDamage(pumpkinDamage, DamageSource::ZOMBIE);
+			if(traceAttackID && GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace()) {
+				auto& recorder=TestDriver::GetInstance();
+				auto before=recorder.CommanderCombatPlantState(*pumpkin);
+				pumpkin->TakeDamage(pumpkinDamage, DamageSource::ZOMBIE);
+				recorder.RecordCommanderCombatDamage(*this,traceAttackID,"plant",pumpkinDamage,
+					std::move(before),recorder.CommanderCombatPlantState(*pumpkin));
+			} else pumpkin->TakeDamage(pumpkinDamage, DamageSource::ZOMBIE);
 		}
 	}
 }

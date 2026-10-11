@@ -27,6 +27,12 @@
 
 根字段 `commanderForecastTrace: true` 导出最终选中推演的 `coldStorage.searchWorkerTrace`（工人 ID、行、预测秒、位置、血量及单次产冰）和 `searchCounterTrace`（实际发生的预测爆炸时刻及来源格）。工人每两秒记录状态，另逐笔记录产冰；生产校准输入与 `rawProduction` 只汇总前 60 秒；扩展战斗时域内真正完成的后续产冰另记并加入最终评分，同样应用保守校准，不能用于初始采购。普通对局和训练默认关闭轨迹。
 
+根字段 `commanderCombatTrace: true` 独立记录真实小丑投盒/落地/取消、玉米炮锁定/离膛/命中及付费出生。`commanderCombatCapture` 可用 `minimumEliteJacks`、`minimumCost`、`maxCaptures` 有界捕获真正付款前的关卡副本、原选中预测和行动→票据→实体映射；逐原快照响应诊断会额外占用墙钟，不当作强度样本。默认关闭，记录错误不改变交易或伤害。存档不含完整随机源，重载诊断不是历史精确重放；`requestedVersion`、实际 `snapshotSearchVersion` 和 `expandedForecast` 须分别解释。专项为 `smoke_commander_combat_trace` 及其 verifier。
+
+经济单位取证可改用 `minimumEconomicUnits`，按正式画像的 `body.economic` 过滤，并要求根字段 `commanderForecastTrace: true`。该模式直接导出已选原始世界的工人/反制轨迹及玩家经济画像，不额外运行小丑消融；设置多个门槛时同时满足才捕获。真实辣椒逐实体结算记录为独立的 `jalapeno_impact`，保留除冰和灰烬原顺序，植物 ID 不复用小丑来源命名空间。额外存档只是事后检查入口，不视为完整随机重放。
+
+显式 `candidatePlans` 可用 `combatTrace: true` 导出预测逐击事件；`visibleCounterResponse: false` 只用于关闭新增可见目标炮击世界的对照。`diagnosticJackTargetMode` 的1/2分别是独立贪心并列采样/直接边际伤害代理，均非实体完整MC，正式默认0；单独比较择点时还须固定 `visibleCounterResponse`，不要混成两个变量。`diagnosticVisibleCounterWitness: true` 仅给该完整世界增加屏内目标见证，不改变既有炮弹或场外连带承伤。`responseMatrix` 是显式、有限、只读的完整响应列表；其特征标为原始值，不能冒充已经过生产校准的正式分数。
+
 `commander_episode.traceUnits: true` 在对战结果的 `trace` 中逐游戏秒附加真实 `units`，用稳定 ID、同行相对位置、分层掉血与工人 `iceBatches` 核对前排是否实际掩护生产；默认仍每十秒只记录聚合状态。`python autotest/verify_commander_frontline.py <输出目录> --require-frontline` 检查账本并要求至少一段前排掉血、后方工人血量不变且完成生产的记录，结果不代表胜率。`ice_bunker_temporal` 是独立陪练，在可见工人群有钟匠且真实资金/冷却允许时先执行时间干扰再交灰烬，其他动作沿用 `ice_bunker`。比较真人与脚本时还须核对战前支援：快速卡槽恢复会缩短真实灰烬空窗，不能仅凭卡组或关卡相同判断威胁等价。`battle_commander_temporal_96.json` 使用正常资金与正式后台搜索，不强制僵尸组合。
 
 `ice_bunker_mixed` 为精英胆小菇与雷鸣花同时建设的独立陪练，仍通过正式卡槽、资金、累计配额和冷却逐步成阵，并保留坚果修复、灰烬与时间干扰。精英菇累计配额耗尽后，空出的后排用雷鸣花按真实费用/冷却补种，专项为 `smoke_commander_mixed_replacement` 及同名 verifier。入口为 `battle_commander_mixed_96.json`，`verify_commander_mixed.py` 核对两种真实输出同场存在及资源账本；旧陪练不受影响。

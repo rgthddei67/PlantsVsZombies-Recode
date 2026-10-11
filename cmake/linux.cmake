@@ -57,10 +57,21 @@ if(BUILD_TESTING)
     pvz_linux_test(FileManagerTests file-manager tests/FileManagerTests.cpp
         PlantVsZombies/FileManager.cpp PlantVsZombies/Logger.cpp)
     target_link_libraries(FileManagerTests PRIVATE SDL2::SDL2 pugixml::pugixml)
+    pvz_linux_test(PlantCardRechargeRulesTests plant-card-recharge-rules
+        tests/PlantCardRechargeRulesTests.cpp)
+    pvz_linux_test(CobSparringLightingTests cob-sparring-lighting
+        tests/CobSparringLightingTests.cpp PlantVsZombies/Game/AutoTest/CobSparringLighting.cpp)
+    pvz_linux_test(CobSparringVisibilityTests cob-sparring-visibility
+        tests/CobSparringVisibilityTests.cpp PlantVsZombies/Game/AutoTest/CobSparringVisibility.cpp)
+    pvz_linux_test(CobSparringTargetsTests cob-sparring-targets
+        tests/CobSparringTargetsTests.cpp PlantVsZombies/Game/AutoTest/CobSparringTargets.cpp)
     pvz_linux_test(SaveMigrationTests save-migration
         tests/SaveMigrationTests.cpp PlantVsZombies/SaveMigration.cpp)
     pvz_linux_test(SaveSchemaTests save-schema
-        tests/SaveSchemaTests.cpp PlantVsZombies/SaveSchema.cpp)
+        tests/SaveSchemaTests.cpp PlantVsZombies/SaveSchema.cpp
+        PlantVsZombies/Game/AI/ColdStorageTrialPersistence.cpp
+        PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedResponse.cpp)
     pvz_linux_test(MineGridTests mine-grid
         tests/MineGridTests.cpp PlantVsZombies/Game/Board/MineGrid.cpp)
     pvz_linux_test(ExcavationPlannerTests excavation-planner
@@ -84,7 +95,34 @@ if(BUILD_TESTING)
         tests/ColdStorageJackBalloonForecastTests.cpp
         tests/ColdStorageThunderTimingTests.cpp
         tests/ColdStorageDiggerForecastTests.cpp
-        tests/ColdStorageAssaultExplorationTests.cpp)
+        tests/ColdStorageAssaultExplorationTests.cpp
+        tests/ColdStorageAssaultTimingTests.cpp
+        tests/ColdStorageAssaultIntentTests.cpp
+        tests/ColdStorageAssaultContinuationTests.cpp
+        tests/ColdStorageCannonExperienceTests.cpp
+        tests/ColdStorageHeadlessForecastTests.cpp
+        tests/ColdStorageCobConstructionTests.cpp
+        tests/ColdStorageStagnationSearchTests.cpp
+        tests/ColdStorageLightAshExperienceTests.cpp
+        tests/ColdStorageCombatTraceTests.cpp
+        tests/ColdStorageJackAblationTests.cpp
+        tests/ColdStorageVisibleCounterTests.cpp
+        tests/ColdStoragePhasedForecastTests.cpp
+        tests/ColdStoragePhasedPlanningTests.cpp
+        tests/ColdStorageObservedResponseTests.cpp
+        tests/ColdStorageObservedForecastTests.cpp
+        tests/ColdStorageObservedPlanningTests.cpp
+        tests/ColdStorageObservedIntegrationTests.cpp
+        tests/ColdStorageWorldCacheTests.cpp
+        tests/ColdStorageBoundedTrialsTests.cpp
+        tests/ColdStorageTrialPersistenceTests.cpp
+        PlantVsZombies/Game/AI/ColdStoragePhasedPlanning.cpp
+        PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp
+        PlantVsZombies/Game/AI/ColdStorageTrialPersistence.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedResponse.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedForecast.cpp
+        PlantVsZombies/Game/AI/ColdStorageAssaultTiming.cpp
+        PlantVsZombies/Game/AI/ColdStorageAssaultIntent.cpp)
     pvz_linux_test(ThreadPoolTests thread-pool-generations tests/ThreadPoolTests.cpp)
     set_tests_properties(thread-pool-generations PROPERTIES TIMEOUT 45)
 endif()

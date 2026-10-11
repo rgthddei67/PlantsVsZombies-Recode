@@ -6,6 +6,15 @@
 #include <vector>
 #include <fstream>
 #include <chrono>
+#include <map>
+#include <unordered_map>
+#include <concepts>
+#include <utility>
+
+class Board;
+class Plant;
+class Zombie;
+namespace ColdStorageSearch { struct Snapshot; struct Result; struct ConstructionStats; }
 #include <nlohmann/json.hpp>
 
 // -AutoTest 脚本自动驾驶：解析 JSON 命令队列，挂在主循环每帧推进。
@@ -22,6 +31,45 @@ public:
 	bool BackgroundCommander() const { return mBackgroundCommander; }
 	/** 只在显式诊断脚本记录预测工人轨迹和灰烬时点，不改变搜索或交易。 */
 	bool CommanderForecastTrace() const { return mCommanderForecastTrace; }
+    bool CommanderObservedRisk() const { return mCommanderObservedRisk; }
+    /** 原始完整世界缓存的显式性能消融；正式游戏默认启用。 */
+    bool CommanderRawWorldCache() const { return mCommanderRawWorldCache; }
+	/** 显式诊断开关；调用方在构造 JSON 或扫描目标前检查，正式游戏不记录。 */
+	bool CommanderCombatTrace() const { return mActive && mCommanderCombatTrace && !mCommanderCombatTruncated && !mCommanderCombatFailed; }
+	/** 主线程记录数值事件并补入真实时钟；来源/弹丸关联只属于诊断，异常不得影响玩法。 */
+	std::uint64_t RecordCommanderCombatEvent(const Board& board, nlohmann::json event) noexcept;
+	/** 工厂在异常屏障内构造 JSON，取证分配失败也不能跳过调用方原伤害/死亡。 */
+	template<class Factory> requires std::invocable<Factory>
+	std::uint64_t RecordCommanderCombatEvent(const Board& board, Factory&& factory) noexcept {
+		if(!CommanderCombatTrace()) return 0;
+		try { return RecordCommanderCombatEvent(board,std::forward<Factory>(factory)()); }
+		catch(...) {mCommanderCombatFailed=true;return 0;}
+	}
+	/** 返回正在观察的攻击身份；0 表示记录窗口外的攻击，不能补猜历史离手时刻。 */
+	std::uint64_t CommanderCombatAttackID(bool cob, int sourceID, int projectileID = 0) const noexcept;
+	/** 伤害前保存真实层生命/活性，伤害后按同一稳定 ID 记录结果，直接死亡不伪造掉血。 */
+	struct CombatTargetState {
+		int id=0,type=-1,row=-1,column=-1,layer=-1;
+		int health=0,body=0,helm=0,shield=0,extra=0;
+		float x=0,y=0;
+		bool active=false,dying=false,headless=false;
+	};
+	CombatTargetState CommanderCombatPlantState(const Plant& plant) const noexcept;
+	CombatTargetState CommanderCombatZombieState(const Zombie& zombie) const noexcept;
+	void RecordCommanderCombatDamage(const Board& board, std::uint64_t attackID, const char* kind,
+		int requestedDamage, const CombatTargetState& before, const CombatTargetState& after) noexcept;
+	/** 直接导出所选 Result 已有的预测事件，绝不为录制增加搜索或重评。 */
+	static nlohmann::json CommanderCombatForecast(const ColdStorageSearch::ConstructionStats& stats);
+	/** 原提交校验后、任何付款前，按显式人数/费用阈值保存一次真实关卡；不重新搜索。 */
+	std::uint64_t CaptureCommanderPlanBeforePayment(Board& board, const ColdStorageSearch::Snapshot& search,
+		const ColdStorageSearch::Result& result, int requestedVersion, float age,
+		const std::vector<std::uint64_t>& tickets, std::uint32_t searchSeed) noexcept;
+	/** 配对原付款的真实结果与新增票据；记录失败或技能拒绝均不能改变事务。 */
+	void CaptureCommanderPlanAfterPayment(const Board& board, std::uint64_t captureID, bool committed) noexcept;
+	/** 换场只关闭旧录制身份，保存已有事件；不会给未完成攻击虚构命中或取消。 */
+	void ResetCommanderCombatScope() noexcept;
+	/** 有界日志只在取证边界/收尾落盘；失败仅标记诊断不完整，不结束对局。 */
+	void FlushCommanderCombatTrace() noexcept;
 	/** Board 在主线程灰烬事务中记录实际免伤；只为显式逐秒对战取证，不借用实体或改变玩法。 */
 	void RecordEngineerAshProtection(float elapsed,int row,int engineerID,const std::vector<int>& workerIDs);
 	/** 仅供同一局面消融比较，普通脚本和正式对局保持动态挡位预测。 */
@@ -50,7 +98,21 @@ public:
 	const std::string& OutDir() const { return mOutDir; }
 
 private:
+	bool mCommanderCombatTrace = false, mCommanderCombatTruncated = false, mCommanderCombatFailed = false;
+	std::size_t mCommanderCombatLimit = 50000, mCommanderCombatRecordCount = 0;
+	std::unordered_map<std::uint64_t,std::size_t> mCommanderImpactEvents;
+	std::uint64_t mCommanderCombatSequence = 0, mCommanderAttackSequence = 0, mCommanderCombatEpoch = 0;
+	std::map<std::pair<bool,int>,std::uint64_t> mCommanderCombatSources;
+	struct CombatProjectile { std::uint64_t attackID=0; int sourceID=0, row=-1, col=-1; };
+	std::unordered_map<int,CombatProjectile> mCommanderCombatProjectiles;
+	nlohmann::json mCommanderCombatEvents = nlohmann::json::array();
+	nlohmann::json mCommanderPlanCaptures = nlohmann::json::array();
+	nlohmann::json mCommanderDeclaredRunnerSeed;
+	int mCommanderCaptureMinimumJacks = 0, mCommanderCaptureMinimumEconomicUnits = 0;
+	int mCommanderCaptureMinimumCost = 0, mCommanderCaptureMaximum = 0;
 	bool mCommanderForecastTrace = false;
+    bool mCommanderObservedRisk = true;
+    bool mCommanderRawWorldCache = true;
 	bool mCommanderFuelAwareLamp = true;
 	bool mCommanderExperiencedFormations = true;
 	bool mCommanderPreservePaidQueue = false;
@@ -108,16 +170,21 @@ private:
 
 	/** 使用正式玩家接口驱动一次有限比赛，输出结果与采样轨迹。 */
 	bool ExecuteCommanderEpisode(const nlohmann::json& command);
+	/** 显式脚本采购只尝试一次；空闲主线程采样并走正式整车提交，不改已有付费队列。 */
+	void AttemptCommanderDiagnosticPurchase(Board& board, nlohmann::json& record);
 	int mBatchSteps = 0;
 	bool mMuteAudio = false;
 	int mEpisodeTicks = -1;
-	bool mEpisodeSnapshotSaved=false; // 单段自然对战最多保存一次诊断快照，胜负已结束时不强行保存
+	std::uint64_t mEpisodeSnapshotCaptureTicket=0; // 仅显式对战快照配图，不暂停或改变陪练动作
+    bool mEpisodeSnapshotSaved=false; // 单段自然对战最多保存一次诊断快照，胜负已结束时不强行保存
 	int mEpisodeLastEnemyIce=-1, mEpisodeFogClears=0, mEpisodeBlindDoomCasts=0; // 陪练仅记公开库存及真实成功事务
 	float mEpisodeBlindIceUntil=0; // 最近公开上涨信号到期的游戏秒，支持先铲后种
 	nlohmann::json mEpisodeInitial, mEpisodeTrace, mEpisodePlantings, mEpisodeDecisions;
 	bool mEpisodeTraceProtections=false;
 	nlohmann::json mEpisodeEngineerProtections; // 事件当场记录，避免工程师同次死亡后被逐秒活体采样漏掉
 	nlohmann::json mEpisodeSunRefills; // 仅显式压力夹具的外部阳光注入记录，不能混入普通训练胜率
+	nlohmann::json mEpisodeDiagnosticPurchases; // 显式采购请求及逐笔真实回执；缺省为空，不属于自主AI成绩
+	float mEpisodeDiagnosticOpeningUntil=0; // 沿用开始观察时尚未结束的正式首攻准备期，不提前买兵
 
 	bool mActive = false;
 	int  mExitCode = 0;

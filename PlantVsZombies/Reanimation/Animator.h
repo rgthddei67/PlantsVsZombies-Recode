@@ -45,6 +45,11 @@ struct AnimatorRenderProbe {
 	float minY = 0.0f;
 	float maxX = 0.0f;
 	float maxY = 0.0f;
+	/// AutoTest 的真实非透明纹理像素见证；不代表未遮雾，调用方必须另查当前遮挡与生命状态。
+	bool hasPublicOpaqueWitness = false;
+	float publicWitnessX = 0.0f;
+	float publicWitnessY = 0.0f;
+	double drawUnscaledTime = -1.0;
 };
 
 class Animator {

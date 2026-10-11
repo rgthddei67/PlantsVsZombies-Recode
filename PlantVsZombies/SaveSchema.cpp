@@ -1,8 +1,10 @@
 #include "SaveSchema.h"
 #include "Game/Plant/PlantType.h"
 #include "Game/Zombie/ZombieType.h"
+#include "Game/AI/ColdStorageTrialPersistence.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -13,6 +15,43 @@ namespace {
 		Player,
 		Level,
 	};
+	constexpr double kTrialLegacyMaxElapsed = 10000000; // 与正式Board读档一致的最大游戏秒，非法旧时钟不能生成试验权限
+
+	/** 迁移仅接受真实账本的整数类型；缺失的旧计数按正式空账本零处理，不截断非法值。 */
+	bool ReadTrialMigrationCounter(const nlohmann::json& ice,const char* key,int& result)
+	{
+		if(!ice.contains(key)) {result=0;return true;}
+		const auto& value=ice.at(key);
+		if(value.is_number_unsigned()) {
+			const auto number=value.get<std::uint64_t>();
+			if(number>ColdStorageTrials::MaximumCounter) return false;
+			result=static_cast<int>(number);return true;
+		}
+		if(!value.is_number_integer()) return false;
+		const auto number=value.get<std::int64_t>();
+		if(number<0 || number>ColdStorageTrials::MaximumCounter) return false;
+		result=static_cast<int>(number);return true;
+	}
+
+	/** v30只知道最新付费波；由共用校验器保留累计收支，坏记录只能关闭试验而不能清空重开。 */
+	void MigrateTrialPaidWaves(nlohmann::json& ice)
+	{
+		if(!ice.is_object() || !ice.contains("boundedTrials")) return;
+		auto& history=ice["boundedTrials"];
+		int wave=0,spent=0,production=0;
+		bool valid=ReadTrialMigrationCounter(ice,"decisions",wave)
+			&& ReadTrialMigrationCounter(ice,"spent",spent)
+			&& ReadTrialMigrationCounter(ice,"workerIncome",production);
+		double elapsed=0;
+		if(ice.contains("elapsed")) {
+			if(!ice.at("elapsed").is_number()) valid=false;
+			else elapsed=ice.at("elapsed").get<double>();
+		}
+		valid=valid && (std::bit_cast<std::uint64_t>(elapsed)&0x7ff0000000000000ULL)!=0x7ff0000000000000ULL
+			&& elapsed>=0 && elapsed<=kTrialLegacyMaxElapsed;
+		if((!valid || !ColdStorageTrials::MigrateLegacyV30(history,wave,static_cast<float>(elapsed),spent,production))
+			&& history.is_object()) history["disabled"]=true;
+	}
 
 	bool ReadSchemaVersion(const nlohmann::json& document, int currentVersion,
 		const char* documentName, int& version, std::string& error)
@@ -504,6 +543,24 @@ namespace {
                     }
                 }
                 version=28;upgraded["schemaVersion"]=version;break;
+			case 28:
+				// v29 不从旧总击杀收入猜测部队战果；已付试攻和技能事务全部保留。
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					auto& ice=upgraded["coldStorage"];
+					if(!ice.contains("troopPlantKills")) ice["troopPlantKills"]=0;
+					if(!ice.contains("stallStartTroopPlantKills")) ice["stallStartTroopPlantKills"]=0;
+				}
+				version=29;upgraded["schemaVersion"]=version;break;
+			case 29:
+				// v30 旧试攻次数不再升级为全押权限；真实账本/队列原样保留，未知假设历史不伪造结果。
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object()
+					&& !upgraded["coldStorage"].empty() && !upgraded["coldStorage"].contains("boundedTrials"))
+					upgraded["coldStorage"]["boundedTrials"]={{"disabled",false},{"records",nlohmann::json::array()}};
+				version=30;upgraded["schemaVersion"]=version;break;
+			case 30:
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage"))
+					MigrateTrialPaidWaves(upgraded["coldStorage"]);
+				version=31;upgraded["schemaVersion"]=version;break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

@@ -1,4 +1,5 @@
 #pragma once
+#include "ColdStorageObservedResponse.h"
 
 #include <vector>
 #include <array>
@@ -39,6 +40,7 @@ struct BlastThreat {
 	bool committed = false;
 	bool usesObjectX = true;
 	bool requiresGroundTarget = false; // 土豆雷/窝瓜须经过地面目标资格，樱桃/毁灭/辣椒可打地下
+    ColdStorageResponse::AreaGeometry responseArea; // 只供公开机会局部删失，不改变原伤害包络
 };
 
 struct BlastRisk {

@@ -22,6 +22,8 @@ public:
 	using JackInTheBoxZombie::JackInTheBoxZombie;
 
 	void Update() override;
+	/** 只为显式取证记录成员飞行盒随来源消失；仍走原小丑死亡入口。 */
+	void Die() override;
 	void Draw(Graphics* g) override;
 	void ZombieItemUpdate() const override;
 	bool HasMagneticItem() const override;

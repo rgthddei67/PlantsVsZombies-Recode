@@ -8,6 +8,8 @@
 #include "../GameObjectManager.h"
 #include "../Zombie/Zombie.h"
 #include "Reanimation/Animator.h"
+#include "Game/AutoTest/TestDriver.h"
+#include "GameApp.h"
 #include <algorithm>
 
 namespace {
@@ -119,8 +121,20 @@ void Jalapeno::IgniteRow()
 			|| mBoard->MineBlocksSegment(GetPosition(), zombie->GetPosition())) return;
 		targets.push_back(zombie->mZombieID);
 		});
-	mBoard->ApplyPlantAshAttack(targets, [](Zombie* z) {
-		z->RemoveColdEffects(); z->TakePlantAshDamage(kJalapenoDamage);
+	// 显式取证只包围原伤害调用，不改变选靶、除冰或灰烬的正式顺序。
+	std::uint64_t traceAttack=0;
+	if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+		traceAttack=TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] {return nlohmann::json{
+			{"event","jalapeno_impact"},{"sourceID",mPlantID},{"sourceRow",mRow},{"sourceColumn",mColumn},
+			{"x",GetPosition().x},{"y",GetPosition().y},{"candidateIDs",targets},{"requestedDamage",kJalapenoDamage}};});
+	mBoard->ApplyPlantAshAttack(targets, [this,traceAttack](Zombie* z) {
+		if(traceAttack) {
+			auto& recorder=TestDriver::GetInstance();
+			const auto before=recorder.CommanderCombatZombieState(*z);
+			z->RemoveColdEffects(); z->TakePlantAshDamage(kJalapenoDamage);
+			recorder.RecordCommanderCombatDamage(*mBoard,traceAttack,"zombie",kJalapenoDamage,
+				before,recorder.CommanderCombatZombieState(*z));
+		} else {z->RemoveColdEffects(); z->TakePlantAshDamage(kJalapenoDamage);}
 	});
 
 	// 原版辣椒把本行冰道计时压到 20cs；本项目统一使用秒。

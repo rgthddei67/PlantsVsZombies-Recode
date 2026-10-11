@@ -1,0 +1,220 @@
+{
+  "description": "Diagnostic transaction contract only: legacy single-type and atomic mixed/multilane purchases with distinct member delays, plus whole-batch refusals. Natural funds, unlocks, opening and cob opponent remain active; this is scripted, not autonomous strength evidence.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "seedMetadata": 38191,
+  "batchStepsPerFrame": 0,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 3
+    },
+    {
+      "op": "goto_level",
+      "level": 91,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT",
+        "PLANT_DOOMSHROOM",
+        "PLANT_PLANTERN",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_BLOVER"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "normal_initial_state.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 91
+    },
+    {
+      "op": "assert_state",
+      "path": "difficulty",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "devNoCooldown",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "devFreePlant",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "devSpawnPaused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "monteCarloAIEnabled",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.openingBonusMask",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pending",
+      "equals": []
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 750
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 250
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 90,
+      "name": "episode",
+      "timeout": 300,
+      "traceUnits": true,
+      "timeScale": 5,
+      "playerActions": true,
+      "diagnosticPurchases": [
+        {
+          "at": 1.25,
+          "type": "ZOMBIE_NORMAL",
+          "row": 0
+        },
+        {
+          "at": 2,
+          "type": "ZOMBIE_NORMAL",
+          "row": 0,
+          "count": 0
+        },
+        {
+          "at": 2.25,
+          "type": "ZOMBIE_DOES_NOT_EXIST",
+          "row": 0
+        },
+        {
+          "at": 3,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_DOES_NOT_EXIST",
+              "row": 4
+            }
+          ]
+        },
+        {
+          "at": 46,
+          "type": "ZOMBIE_ICE_WORKER",
+          "row": 2
+        },
+        {
+          "at": 63,
+          "type": "ZOMBIE_ICE_WORKER",
+          "row": 2,
+          "count": 1,
+          "delay": 0,
+          "responseContrast": true
+        },
+        {
+          "at": 64,
+          "members": [
+            {
+              "type": "ZOMBIE_ICE_WORKER",
+              "row": 0,
+              "count": 2,
+              "delay": 6
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 4
+            }
+          ],
+          "responseContrast": true
+        },
+        {
+          "at": 65,
+          "type": "ZOMBIE_ICE_WORKER",
+          "row": 2,
+          "count": 192,
+          "delay": 0
+        },
+        {
+          "at": 65.25,
+          "type": "ZOMBIE_NORMAL",
+          "row": 2,
+          "count": 80
+        },
+        {
+          "at": 120,
+          "type": "ZOMBIE_NORMAL",
+          "row": 0
+        }
+      ]
+    },
+    {
+      "op": "dump_state",
+      "name": "final_state.json"
+    },
+    {
+      "op": "quit"
+    }
+  ],
+  "commanderRunnerSeed": 38191,
+  "commanderCombatTrace": true,
+  "commanderCombatRecordLimit": 200000,
+  "commanderObservedRisk": true,
+  "commanderForecastTrace": true
+}

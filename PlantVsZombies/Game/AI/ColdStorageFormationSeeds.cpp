@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <numeric>
+#include <utility>
 
 namespace ColdStorageSearch {
 namespace {
@@ -10,7 +11,7 @@ constexpr float kGuardHealth = 1000; // 旧经营入口的护卫最低完整生�
 constexpr float kWorkerDelay = 4; // 旧版护卫先行、工人跟进的基准间隔，游戏秒
 constexpr int kMaxSeeds = 96; // 单次搜索经验候选上限；与自由候选共享原时间预算
 constexpr std::array<int,3> kScales{1,2,4}; // 同一编队的小、中、大规模起点，不是必买数量
-constexpr std::array<int,24> kShapeOrder{0,17,8,20,14,1,21,18,15,22,9,12,23,2,10,13,3,11,19,16,4,5,6,7}; // 经营、快攻、射手与炮手掩护交错，紧预算也有机会比较协同
+constexpr std::array<int,27> kShapeOrder{0,24,17,8,25,20,14,1,26,21,18,15,22,9,12,23,2,10,13,3,11,19,16,4,5,6,7}; // 经营、快攻、射手与炮手掩护交错，紧预算也有机会比较协同
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
@@ -23,12 +24,26 @@ bool Specialist(const Unit& u) {
 struct Roles {
     int guard=-1, heavy=-1, worker=-1, engineer=-1, clock=-1, healer=-1, drum=-1;
     int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1, shooter=-1, mortar=-1;
+    int assaultRunner=-1; // 低于旧护卫血量门槛的独立普通地面突击角色，不替换fast掩护语义
+    int ashGuard=-1, deploymentSniper=-1; // 单次灰烬封顶与落种反制是独立能力，不能按总血量混进普通护卫
 };
 
 /** 先行前排用偏慢移速、快兵用偏快移速，不能假定同批出生会自然排成前后队。 */
 float MoveSpeed(const Unit& u,bool fast) {
     const float sampled=fast ? u.upperForecastMoveSpeed : u.lowerForecastMoveSpeed;
     return sampled>0 ? sampled : u.body.speed;
+}
+
+/** 只补旧护卫门槛漏掉的轻装啃食者；已投影的停步/变阶段专职能力不争抢这个窄入口。
+ * Unit 尚未保存普通撑杆/报纸未来换阶段；出生速度排序不是越障、落地或破盾后的行为证明。
+ */
+bool AssaultRunner(const Unit& u) {
+    return u.body.health<kGuardHealth && u.biteDps>0 && MoveSpeed(u,true)>0 && !u.headless
+        && !u.body.economic && !Specialist(u) && !u.balloon.present && !u.digger.present
+        && !u.vehicleCrush && !u.instantVehicleCrush && !u.goldenDrive.enabled && !u.catapult.present
+        && !u.dance.leader && !u.dance.backup && !u.ritual.present && !u.sniper.enabled
+        && !u.jack.present && !u.ladder.present && !u.jammer && !u.hijacker
+        && u.burst.range<=0 && u.body.smashSeconds<=0 && u.throwHealth<=0;
 }
 
 /** 沿用旧版破墙后快兵再抵达的思路，只估计候选延后，不承诺墙一定已被拆掉。 */
@@ -93,6 +108,10 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
         if(o.row!=row || o.device>=0 || o.cost<=0 || o.cost>budget || u.body.health<=0) continue;
         const int id=static_cast<int>(i);
         if(u.body.economic) { cheapest(r.worker,id); continue; }
+        if(u.sniper.enabled) cheapest(r.deploymentSniper,id);
+        if(u.shieldHealth>0 && u.shieldedAshCap>0 && (r.ashGuard<0
+            || u.shieldHealth/u.shieldedAshCap/o.cost > s.options[r.ashGuard].unit.shieldHealth
+                /s.options[r.ashGuard].unit.shieldedAshCap/s.options[r.ashGuard].cost)) r.ashGuard=id;
         if(u.engineer) cheapest(r.engineer,id);
         if(u.clock.present) cheapest(r.clock,id);
         if(u.healer.present) cheapest(r.healer,id);
@@ -107,6 +126,8 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
             if(r.breaker<0 || u.body.health/o.cost>s.options[r.breaker].unit.body.health/s.options[r.breaker].cost)
                 r.breaker=id;
         }
+        if(AssaultRunner(u) && (r.assaultRunner<0
+            || MoveSpeed(u,true)>MoveSpeed(s.options[r.assaultRunner].unit,true))) r.assaultRunner=id;
         if(Specialist(u) || u.balloon.present || u.digger.present || u.body.health<kGuardHealth) continue;
         if(!u.vehicleCrush && !u.catapult.present && MoveSpeed(u,true)>0
             && (r.fast<0 || MoveSpeed(u,true)>MoveSpeed(s.options[r.fast].unit,true))) r.fast=id;
@@ -131,6 +152,81 @@ struct Recipe {
         for(int i=0;i<count;++i) actions.push_back({option,delay});
     }
 };
+
+/** 最多五份轻快对照：三个纯突击规模，加一份双路突击及其带工人版本。
+ * 路线至少隔一行；先比较低火力路线，同压再取较远路线。现金/容量不足整案拒绝。
+ */
+std::vector<std::vector<Action>> RunnerAssaults(const Snapshot& s,int limit,int budget,
+    const std::vector<int>& rows,const std::array<Roles,6>& roles,const std::array<float,6>& pressure) {
+    std::vector<std::pair<int,int>> pairs;
+    for(int row:rows) for(int partner:rows)
+        if(partner-row>=2 && roles[row].guard>=0 && roles[partner].guard>=0
+            && roles[row].assaultRunner>=0 && roles[partner].assaultRunner>=0)
+            pairs.emplace_back(row,partner);
+    std::stable_sort(pairs.begin(),pairs.end(),[&](const auto& a,const auto& b) {
+        const float first=pressure[a.first]+pressure[a.second],second=pressure[b.first]+pressure[b.second];
+        return first!=second ? first<second : a.second-a.first>b.second-b.first;
+    });
+    std::vector<std::vector<Action>> seeds;
+    for(int scale:kScales) {
+        for(int row:rows) {
+            const int runner=roles[row].assaultRunner;
+            if(runner<0 || runner==roles[row].fast) continue;
+            Recipe plan{s,limit,budget};plan.Add(runner,4*scale,0);
+            if(plan.valid) {seeds.push_back(std::move(plan.actions));break;}
+        }
+        if(scale!=1) continue; // 双路只给最小完整配方，不把新增规模扩散成另一套大搜索。
+        for(bool economy:{false,true}) for(const auto& [row,partner]:pairs) {
+            if(economy && (roles[row].worker<0 || roles[partner].worker<0)) continue;
+            Recipe plan{s,limit,budget};
+            for(int route:{row,partner}) {
+                const auto& r=roles[route];
+                const float offset=route==row ? 0 : kWorkerDelay*.5f;
+                plan.Add(r.guard,1,offset);
+                if(economy) plan.Add(r.worker,2,offset+kWorkerDelay);
+                // 只是相对出生提案，不能据此声称护卫挡住穿透/溅射或轻兵一定利用炮击空窗。
+                plan.Add(r.assaultRunner,3,offset+kWorkerDelay*1.5f);
+            }
+            if(plan.valid) {seeds.push_back(std::move(plan.actions));break;}
+        }
+    }
+    return seeds;
+}
+
+/** 抗灰配方的轻装对照：保留两路完整攻坚核心，不把钟匠/热狙当作购买前置条件。
+ * 最多两类乘三个已有规模，包含后队的全额费用；炮数和预计收益不在这里授予采购资格。
+ */
+std::vector<std::vector<Action>> LightAshAssaults(const Snapshot& s,int limit,int budget,
+    const std::vector<int>& rows,const std::array<Roles,6>& roles,const std::array<float,6>& pressure) {
+    std::vector<std::pair<int,int>> pairs;
+    for(int row:rows) for(int partner:rows)
+        if(row<partner && roles[row].ashGuard>=0 && roles[partner].ashGuard>=0)
+            pairs.emplace_back(row,partner);
+    // 只排序提案路线；行距不是免疫爆炸的证明，实际射程、就绪炮与在途弹仍由完整推演处理。
+    std::stable_sort(pairs.begin(),pairs.end(),[&](const auto& a,const auto& b) {
+        const int first=a.second-a.first,second=b.second-b.first;
+        return first!=second ? first>second : pressure[a.first]+pressure[a.second]<pressure[b.first]+pressure[b.second];
+    });
+    std::vector<std::vector<Action>> seeds;
+    for(int scale:kScales) for(bool ranged:{false,true}) for(const auto& [row,partner]:pairs) {
+        Recipe plan{s,limit,budget};
+        for(int route:{row,partner}) {
+            const auto& r=roles[route];
+            if(ranged) {
+                if(r.ranged<0) {plan.valid=false;break;}
+                plan.Add(r.ashGuard,scale,0);
+                plan.Add(r.ranged,2*scale,ShooterCoverDelay(s,route,r.ashGuard,r.ranged));
+            } else {
+                if(r.ladder<0 || r.fast<0 || r.fast==r.ladder || r.fast==r.ashGuard) {plan.valid=false;break;}
+                plan.Add(r.ashGuard,scale,0);plan.Add(r.ladder,scale,1);
+                plan.Add(r.fast,2*scale,std::min(kMaxLeadDelay,1+RushDelay(s,route,r.ladder,r.fast)));
+            }
+        }
+        // 每类/规模只取一份可支付双路案，不为镜像路线或相同炮的多个爆点复制候选。
+        if(plan.valid && !plan.actions.empty()) {seeds.push_back(std::move(plan.actions));break;}
+    }
+    return seeds;
+}
 }
 
 std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,int actionLimit,int budget) {
@@ -145,6 +241,24 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
     std::stable_sort(rows.begin(),rows.end(),[&](int a,int b){return pressure[a]<pressure[b];});
     std::array<Roles,6> roles{};
     for(int row:rows) roles[row]=FindRoles(s,row,budget);
+    auto lightAssaults=LightAshAssaults(s,actionLimit,budget,rows,roles,pressure);
+    auto runnerAssaults=RunnerAssaults(s,actionLimit,budget,rows,roles,pressure);
+    std::vector<std::vector<Action>> extraAssaults;
+    for(size_t i=0;i<std::max(lightAssaults.size(),runnerAssaults.size());++i) {
+        if(i<runnerAssaults.size()) extraAssaults.push_back(std::move(runnerAssaults[i]));
+        if(i<lightAssaults.size()) extraAssaults.push_back(std::move(lightAssaults[i]));
+    }
+    size_t extraIndex=0;
+    const auto appendExtra=[&] {
+        while(extraIndex<extraAssaults.size()) {
+            auto& candidate=extraAssaults[extraIndex++];
+            const bool duplicate=std::any_of(seeds.begin(),seeds.end(),[&](const auto& existing) {
+                return existing.size()==candidate.size() && std::equal(existing.begin(),existing.end(),candidate.begin(),
+                    [](const Action& a,const Action& b){return a.option==b.option && a.delay==b.delay;});
+            });
+            if(!duplicate) {seeds.push_back(std::move(candidate));break;}
+        }
+    };
     for(int scale:kScales) for(int row:rows) for(int shape:kShapeOrder) {
         const auto& r=roles[row];
         const int front=scale==1 ? r.guard : r.heavy;
@@ -156,6 +270,39 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             plan.Add(r.healer,1,2); plan.Add(r.drum,1,2);
         };
         switch(shape) {
+        case 24: case 25: case 26: { // 抗灰前队分两路承压，后援仍靠完整预测判断；护盾不能替邻居挡爆炸。
+            if(r.ashGuard<0 || rows.size()<2) continue;
+            const auto far=std::max_element(rows.begin(),rows.end(),[&](int a,int b) {
+                const int da=roles[a].ashGuard<0 ? -1 : std::abs(a-row);
+                const int db=roles[b].ashGuard<0 ? -1 : std::abs(b-row);
+                return da<db;
+            });
+            const int partner=*far;
+            if(partner==row || roles[partner].ashGuard<0) continue;
+            const auto& other=roles[partner];
+            const int nearRow=row+(partner>row ? 1 : -1),nearPartner=partner+(partner>row ? -1 : 1);
+            if(roles[nearRow].clock<0 || roles[nearPartner].clock<0) continue;
+            if(shape==24) {
+                if(r.ladder<0 || r.fast<0 || r.drum<0) continue;
+                plan.Add(r.ashGuard,4*scale,0);plan.Add(other.ashGuard,2*scale,0);
+                plan.Add(roles[nearRow].clock,1,6);plan.Add(roles[nearPartner].clock,1,6);
+                plan.Add(r.drum,2,6);plan.Add(r.ladder,2*scale,10);
+                plan.Add(r.fast,4*scale,std::min(kMaxLeadDelay,10+RushDelay(s,row,r.ladder,r.fast)));
+            } else if(shape==25) {
+                if(r.worker<0 || other.worker<0 || r.deploymentSniper<0) continue;
+                plan.Add(r.ashGuard,4*scale,0);plan.Add(other.ashGuard,2*scale,0);
+                plan.Add(roles[nearRow].clock,1,6);plan.Add(r.deploymentSniper,2*scale,6);
+                plan.Add(roles[nearPartner].clock,1,9);plan.Add(r.worker,2*scale,9);
+                plan.Add(r.ashGuard,2*scale,12);plan.Add(other.worker,scale,12);
+            } else {
+                if(r.ranged<0 || other.ranged<0 || r.deploymentSniper<0) continue;
+                plan.Add(r.ashGuard,3*scale,0);plan.Add(other.ashGuard,2*scale,0);
+                plan.Add(r.ranged,3*scale,6);plan.Add(roles[nearRow].clock,1,6);
+                plan.Add(other.ranged,scale,10);plan.Add(roles[nearPartner].clock,1,10);
+                plan.Add(r.deploymentSniper,2*scale,10);
+            }
+            break;
+        }
         case 0: // 历史经营：便宜肉盾先行，后排工人稍后跟进。
             if(front<0 || r.worker<0) continue;
             plan.Add(front,scale,0); plan.Add(r.worker,3*scale,kWorkerDelay);
@@ -307,9 +454,15 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             break;
         }
         }
-        if(plan.valid && !plan.actions.empty()) seeds.push_back(std::move(plan.actions));
+        if(plan.valid && !plan.actions.empty()) {
+            seeds.push_back(std::move(plan.actions));
+            // 新旧轻装家族轮流插入，不挤掉旧经验首案；96案满时末尾旧案可能失去本轮槽位。
+            if(seeds.size()<kMaxSeeds) appendExtra();
+        }
         if(seeds.size()>=kMaxSeeds) return seeds;
     }
+    // 卡池缺少旧经验必需的支援时，独立合法的轻装核心仍有机会接受完整评价。
+    while(seeds.size()<kMaxSeeds && extraIndex<extraAssaults.size()) appendExtra();
     return seeds;
 }
 }

@@ -240,7 +240,7 @@ nlohmann::json TestDriver::BuildInteractiveState(bool fullState) {
 		compact[key] = nlohmann::json::array();
 		if (full.contains(key)) for (const auto& entity : full[key]) {
 			compact[key].push_back(Pick(entity, {"id", "type", "row", "col", "xInt", "yInt", "health",
-				"hasHead", "dying", "dancePhase", "danceRemainingMs", "danceFollowers",
+				"hasHead", "isDying", "dancePhase", "danceRemainingMs", "danceFollowers",
 				"maxHealth", "bodyHealth", "bodyMaxHealth", "countableExecutionHealth", "sleeping", "squished",
 				"iceRemainingMs", "iceBatches", "nextIceYieldOn1000", "engineerFull", "engineerProtectionUses",
 				"engineerReloadMs", "clockPhase", "clockRemainingMs",
@@ -249,7 +249,7 @@ nlohmann::json TestDriver::BuildInteractiveState(bool fullState) {
 				"pineappleReady", "pineappleAffordable", "pineappleActiveMs", "pineappleCooldownMs",
 				"nutReady", "nutAffordable", "nutCooldownMs", "nutAutomatic", "wakeUpTimeMs",
 				"growthShots", "puffDamage", "shootIntervalMs", "fogObscured", "mistFuelReward",
-				"cobPhase", "cobShotLaunched", "cobTargetRow", "cobTargetXInt", "cobTargetYInt", "cobBlastTargetable"}));
+				"cobPhase", "cobShotLaunched", "cobTargetRow", "cobTargetXInt", "cobTargetYInt", "cobBlastTargetable", "publicCobAim"}));
 		}
 	}
 	// 已提交炮弹的公开落点让陪练避免连续把多门炮交在同一群即将死亡的目标上。

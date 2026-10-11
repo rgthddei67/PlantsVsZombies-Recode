@@ -1,0 +1,293 @@
+{
+  "description": "Diagnostic refusal contract only: malformed mixed batches, ambiguous legacy/members input, valid prefix with illegal suffix, and opening-period requests all leave money, purchase waves and queues unchanged. Natural state and normal opponent cadence remain active; no autonomous strength claim.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "seedMetadata": 38191,
+  "batchStepsPerFrame": 0,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "set_difficulty",
+      "value": 3
+    },
+    {
+      "op": "goto_level",
+      "level": 91,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_MARIGOLD",
+        "PLANT_IMITATER",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT",
+        "PLANT_DOOMSHROOM",
+        "PLANT_PLANTERN",
+        "PLANT_CHERRYBOMB",
+        "PLANT_JALAPENO",
+        "PLANT_BLOVER"
+      ],
+      "imitaterTarget": "PLANT_MARIGOLD"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 25
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "normal_initial_state.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 91
+    },
+    {
+      "op": "assert_state",
+      "path": "difficulty",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "devNoCooldown",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "devFreePlant",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "devSpawnPaused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "monteCarloAIEnabled",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.openingBonusMask",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pending",
+      "equals": []
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 750
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.playerIce",
+      "equals": 250
+    },
+    {
+      "op": "commander_episode",
+      "opponent": "cob",
+      "seconds": 8,
+      "name": "episode",
+      "timeout": 90,
+      "traceUnits": true,
+      "timeScale": 5,
+      "playerActions": true,
+      "diagnosticPurchases": [
+        {
+          "at": 1,
+          "type": "ZOMBIE_NORMAL",
+          "row": 0
+        },
+        {
+          "at": 1.25,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 4,
+              "delay": 7
+            }
+          ]
+        },
+        {
+          "at": 2,
+          "members": []
+        },
+        {
+          "at": 2.25,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_DOES_NOT_EXIST",
+              "row": 4
+            }
+          ]
+        },
+        {
+          "at": 2.5,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            }
+          ],
+          "count": 1
+        },
+        {
+          "at": 2.75,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 999
+            }
+          ]
+        },
+        {
+          "at": 3,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 4,
+              "delay": 61
+            }
+          ]
+        },
+        {
+          "at": 3.25,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0,
+              "count": 192
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            }
+          ]
+        },
+        {
+          "at": 3.5,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0,
+              "count": 1.5
+            }
+          ]
+        },
+        {
+          "at": 3.75,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0,
+              "delay": true
+            }
+          ]
+        },
+        {
+          "at": 4,
+          "members": "not an array"
+        },
+        {
+          "at": 4.25,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0,
+              "count": 0
+            }
+          ]
+        },
+        {
+          "at": 4.5,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            },
+            null
+          ]
+        },
+        {
+          "at": 4.75,
+          "members": [
+            {
+              "type": "ZOMBIE_NORMAL",
+              "row": 0
+            }
+          ],
+          "responseContrast": "true"
+        },
+        {
+          "at": 20,
+          "type": "ZOMBIE_NORMAL",
+          "row": 0
+        }
+      ]
+    },
+    {
+      "op": "dump_state",
+      "name": "final_state.json"
+    },
+    {
+      "op": "quit"
+    }
+  ],
+  "commanderRunnerSeed": 38191,
+  "commanderCombatTrace": true,
+  "commanderCombatRecordLimit": 200000,
+  "commanderObservedRisk": true
+}

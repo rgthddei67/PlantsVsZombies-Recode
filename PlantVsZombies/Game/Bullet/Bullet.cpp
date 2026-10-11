@@ -5,6 +5,7 @@
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
 #include "Bullet.h"
+#include "Game/AutoTest/TestDriver.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "../GameObjectManager.h"
 #include "../ObjectPool/BulletPool.h"
@@ -1224,7 +1225,11 @@ bool Bullet::UpdateCobCannonMotion(float deltaTime)
 	if (!mHasHit) {
 		mHasHit = true;
 		if (mBoard && !mTrajectory.polarWindMiss) mBoard->CreateCobCannonExplosion(
-			mTrajectory.target, mTrajectory.targetRow, mDamage);
+			mTrajectory.target, mTrajectory.targetRow, mDamage, mBulletID);
+		else if(mBoard && GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+			TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","cob_cancel"},
+				{"reason","polar_wind_miss"},{"projectileID",mBulletID},{"targetRow",mTrajectory.targetRow},
+				{"x",mTrajectory.target.x},{"y",mTrajectory.target.y}}; });
 	}
 	Die();
 	return false;

@@ -112,7 +112,7 @@ void Board::UpdateColdStorageSkills(float dt)
 		// 同单目标绕过防御结束生命周期，并沿用占格、附件清理和实际击杀返冰。
 		if (target->IsIceSealed()) target->ReleaseIceSeal(target->GetIceSealOwnerZombieID());
 		target->Die();
-		if (!target->IsActive()) RewardColdStoragePlantKill(placementType);
+		if (!target->IsActive()) RewardColdStoragePlantKill(placementType, ColdStorageKillOrigin::CommanderSkill);
 	}
 }
 

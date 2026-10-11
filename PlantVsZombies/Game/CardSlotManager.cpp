@@ -733,7 +733,7 @@ bool CardSlotManager::PlacePlantInCell(int row, int col) {
 
 	if (plant) {
 		// 校验和创建位于同一主线程事务；失败创建不得吞掉玩家阳光。
-		SpendSun(selectedCard->GetSunCost());
+		const bool paid = SpendSun(selectedCard->GetSunCost());
 		if (auto* blover = dynamic_cast<Blover*>(plant)) {
 			blover->SetBlowDirection(selectedCard->GetBloverDirection());
 		}
@@ -741,6 +741,7 @@ bool CardSlotManager::PlacePlantInCell(int row, int col) {
 			imitater->SetInheritedBloverDirection(selectedCard->GetBloverDirection());
 		}
 		selectedCard->StartCooldown();
+		if (paid) mBoard->NotifyColdStoragePaidAreaCard(*selectedCard, *plant);
 	}
 
 	// 取消选择

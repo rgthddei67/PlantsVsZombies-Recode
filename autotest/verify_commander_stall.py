@@ -38,22 +38,23 @@ def transactions(folder):
     assert 3 <= len(a['pending']) <= 64
     for c in (t, a):
         capture = Path(c['stallDiagnosticPath']).resolve()
-        root = Path('build/clang-release/autotest/out/commander_stalls').resolve()
+        runtime = folder.resolve().parents[2]
+        root = (runtime / 'autotest/out/commander_stalls').resolve()
         assert capture.is_relative_to(root)
         record = load(capture, 'diagnostics.json')
         snapshot = load(capture, 'level_snapshot.json')
-        assert snapshot['schemaVersion'] == 27
+        assert snapshot['schemaVersion'] == 29
         assert record['capture']['levelSnapshotSaved'] and record['capture']['policyCopySaved']
         assert record['capture']['gameDataCopySaved']
         assert record['runtime']['devSpawnPaused'], 'paused capture must record the real switch, never unpause it'
         for file, source in (('policy.json', 'resources/ai/cold_storage_policy.json'),
                              ('gamedata.json', 'resources/gamedata.json')):
             assert hashlib.sha256((capture / file).read_bytes()).digest() == hashlib.sha256(
-                (Path('build/clang-release') / source).read_bytes()).digest()
+                (runtime / source).read_bytes()).digest()
         assert all(key in record['snapshot'] for key in ('fallbackAllIn', 'fallbackProbeBudget'))
     report = {'passed': True, 'trialFee': trial_fee, 'allInFee': full_fee,
               'allInTroops': len(a['pending']), 'resumeNoDoublePayment': True,
-              'isolatedSnapshots': True, 'schemaVersion': 27}
+              'isolatedSnapshots': True, 'schemaVersion': 29}
     (folder / 'stall_verification.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
     return report
 

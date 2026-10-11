@@ -127,10 +127,30 @@
 
 经验编队入口为 `ColdStorageSearch::BuildExperiencedFormations`（`ColdStorageFormationSeeds.h/.cpp`）。它从当前合法能力画像生成旧版护卫先行、工人跟进及新的保护/攻坚完整案，只提供搜索起点，不沿用旧启发式评分或直接付款。经验案与自由组合交错，进入同一精英、经营和攻城前沿；后续仍可自由删换成员、改路线与时序。完整配方超过现金或名额时整案拒绝，不能先截掉工人或保护者再称协同有效。纯数值 `experiencedFormations=false` 或 AutoTest 根字段 `commanderExperiencedFormations=false` 只用于消融候选来源，正式默认混合搜索；诊断用 `searchExperiencedEvaluated/Selected` 区分实际比较与直接选中原案，不把自由变异后的方案误记成固定编队。回归需同时保留就绪灰烬下的真实经营、已有复杂自由协作以及亏损时可等待的契约。
 
-长期空场兜底见 `Snapshot::fallbackProbeBudget/fallbackAllIn` 和 `Result::fallbackMode`：正常有益选择仍优先；真正空場、没有在途复活/召唤、未解锁可用兵种或付费技能冷却机会时，才比较有限试攻。实际试攻无破阵或滚动净经营收益后允许完整孤注一掷，不新增自动认负；原有破产结束规则继续生效。兜底保留原负分及预测，不把付费尝试伪装成盈利，也不通过继续加算力来证明阵型一定可破。全力案按可部署战斗预算和合法名额比较，不能退化为反复一只便宜兵。
+长期空场兜底见 `Snapshot::fallbackProbeBudget/fallbackAllIn` 和 `Result::fallbackMode`：正常有益选择仍优先；实际部队及已付出生/复活事务长期为空、没有可资助的近期兵种解锁机会时，才比较有限试攻。精准瞄准与冷却不能阻止这一部队观察时钟。实际试攻无破阵或滚动净经营收益后允许完整孤注一掷，不新增自动认负；原有破产结束规则继续生效。兜底保留原负分及预测，不把付费尝试伪装成盈利，也不通过继续加算力来证明阵型一定可破。全力案按可部署战斗预算和合法名额比较，不能退化为反复一只便宜兵。
 
 `Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。
 
 穿雨竹与蓄洪僵尸入口为 RainBambooRules、FloodMortarRules、BoardFloodMortar 和 ColdStorageRainForecast：实际雨势、首装/装填、贯穿目标历史、在途弹与攻击减速必须进入预测；水弹的本格南瓜在扣壳前同时拦截本次伤害和状态，破壳不补结算。经验编队把炮手作为独立 specialist，不能因高血量误当护卫，也不能让投篮车或直射兵的低价排挤其候选；前排时序按停步射程，快兵跟进按首弹落地，错峰只给搜索起点，不强制付款。字段和配方以 ColdStorageFormationSeeds 为准。
 
 玉米炮使用 `Counter::plantID/consumesPlant/flightSeconds` 区分可重复来源与一次性灰烬。本体余时是到爆炸的总时间，采样时扣除 `CobCannon::GetSimulationShotWindup()` 后再推进前摇，不能重复加延迟；前摇可受击，离膛后按独立弹丸保留已锁定落点。已发射快照不重新收费、不消耗炮体，死亡只停止尚未离膛和未来装填。`CobForecastAimPoints` 必须包含格中心以外的可见场景边缘；玩家能在那里提前炮击，漏掉它会把密集鼓舞冲锋误判成抢先突破。选靶按同一来源去重备选爆点，重复火力纳入先削弱输出的资格；专项是 `smoke_commander_cob_cannon` 与对应 verifier。10-6 正常开局陪练入口为 `train_cold_storage.episode_commands` 的 `cob`，无支援、真实双玉米升级及前排高坚果；满卡槽携带毁灭/咖啡、樱桃、辣椒与对空，灰烬只按真实可见威胁和费用提交。其他命名战术夹具保持独立。
+
+完整进攻时序入口为 `ColdStorageAssaultTiming.h/.cpp` 的 `ColdStorageSearch::BuildAssaultSchedules`：对已合法完整动作只改变出生延迟，保留成员、路线、费用与设备零延迟；技能首次落地、独立在途炮弹、已经存在的装填空窗与下一炮候选时点分开。未提交炮的 `ready+windup` 已含飞行，不再加 `flightSeconds`；事件超出当前延迟窗口时不得截早并声称已经安全。分段只是一份需要完整评价的候选，不承诺诱炮成功；当前实现仍沿用整案付款队列，并非观测后才付款的多阶段控制器。免费可重复炮的即时应对不套用付费灰烬的最低冰价门槛，避免低价单兵被预测成可白打炮阵；仍参与完整长期留火应对，已有弹与其他就绪炮照常结算。
+
+时序、原构成、跨轮提案与经营探索必须都有实际评估入口，避免外层/采样器同余编号锁住规模或覆盖掉提案槽。技能粗案允许少量未胜目标共享原余量深化；联合提案有界合并、重新定价，不携带目标ID或旧收益。`searchAssaultTiming`/对战 `assaultTiming` 记录实际完整积分及联合拒绝原因，保留数量按最终合并后的构成计；生成、去重或已过期的候选不能当作完成覆盖。数值契约见 `ColdStorageAssaultTimingTests`；短墙钟覆盖只作实测诊断，固定候选逻辑断言不得依赖CI运行速度。
+
+经营留位与开炮时机是独立选择：存在免费可重复炮时也须比较“保留周转空位＋即时炮击”的完整世界，不能把留位一律绑定长期留火。无伤害、无付费反制的廉价兵若仍获大量对方资产压力分，应核对等待与行动分别选择的建设/兑换/订冰账本；不能把玩家模型不必要补满格子造成的周转损失当作已证明的进攻效果。`compare_commander_search` 显式案的 `playerEconomy` 提供对应资金及留位诊断。
+
+实际观察后的未付款增援入口为 `ColdStorageAssaultIntent` 与 `Planner::{RememberAssault,ObserveAssault,CompleteAssaultReview}`。只有实际小队或精准技能付款成功才建立短期观察，至多保存两份本轮完整评过的类型/路线构成；它们没有旧价格、收益、资金预留或购买义务。公开炮体相位、离膛和独立弹身份、精准提示结束触发新快照，不能把一炮开火当成全炮冷却。增援在原预算早期槽重映射，缺类型/全额不足/缩容时整案拒绝；原建议延迟不重放，当前即时增援、等待与普通自由搜索仍用原完整反制和资本门禁比较。没有轮到评价的截止不能消费事件；明确拒绝或完整比较才确认捕获代，旧结果不清新事件。有效期不因等待或重评续期，Cancel/读档/关闭策略清瞬态，不影响原付费队列与账本。`assaultObservation` 与 `searchAssaultTiming.continuation*` 区分真实事件、实际评价、无效案和新采购；删改原案后不得沿用直接采用标记。纯数值契约在 `ColdStorageAssaultIntentTests` / `ColdStorageAssaultContinuationTests`，实机生命周期须启用 `backgroundCommander`。这是观察后重新采购闭环，尚未为独立亏损的诱饵估计条件后续策略价值；不能把后队独立收益补到先手分数，公平等待还需获得同样的未来购买机会。
+
+抗灰经验由 `ColdStorageFormationSeeds` 按 `shieldedAshCap` 独立保留护卫，部署狙击也单独选角色，不能用总血量把二类盾的单次灰烬封顶挤掉。双路接梯、错峰护工和投篮组合只生成全额可支付提案；钟匠需真实提交锚，热狙只处理新落种，门盾不替邻居挡溅射。限时经验首案按同Planner轮次轮转，仍与自由搜索共享预算。`experiencedAshEvaluated/Selected` 仅计实际完成的双路抗灰支援经验/直接采用原案，剪枝替换后清选择标签；被取消的旧后台工作不冒充真实采购。对应反事实见 `ColdStorageCannonExperienceTests`。
+
+灰烬的廉价残血处决不得被购买价值门槛漏掉：免费可重复来源只要求实际净伤害价值大于零，付费工具仍沿原门槛与完整留火应对。`Unit::headless` 只由本体掉头阈值置位；通用无头流血按真实本体上限、整数余量和倒地条件推进，停止通用啃食与产冰，不因减速续命。治疗不重新长头，时间锚恢复核心头部资格；活体保留已有流血余量，重建实体清零。零阈值特殊生命周期保持原能力路径。当前Board采样本就排除已有无头活体，这段修复对齐预测内由有头变无头，不宣称重放无头实体动画/每帧碰撞；专项在 `ColdStorageHeadlessForecastTests`。
+
+玉米炮升级重建入口为 `Board::{CanForecastKernelAfterVacancyAt,CanForecastCobUpgradeAt}`、快照 `Construction::cob` 和 `ColdStorageSearch::SelectCobRecipe`。逐笔购买两株真实玉米投手，再支付升级牌；共享玩家钱包、同种卡槽冷却与当前承载层身份，不能借用后续到账。未变身模仿者、重叠底材及外壳/overlay 阻挡不能升级。双格炮活着时同时占两格，死亡后才可补材；主动铲种仍不铲多格炮，但死炮格后来补出的单格植物可按当前身份让位。空场预备只恢复本快照已有炮位，近身危险选择只读可见单位。底材消费不发击杀冰或战损分，新炮只转移底材剩余资产一次；既有炮的历史底材成本仍不追溯虚构。新炮独立负 ID 与反制 source 共用各落点装填，遵守真实首次充能、起手取消和已离膛弹独立规则，旧狙击目标不会命中新身份。暂缓建设/留钱仍是另一完整玩家世界。诊断 `cobRebuildForecast` 的升级/新炮发射是重叠预测中的统计，不能当成实战建炮数；`compare_commander` 的 `cobRebuild:false` 只作只读反事实，`compareConstructionResponse:true` 可分别查看默认建设世界与被选出的最坏完整应对。纯数值回归在 `ColdStorageCobConstructionTests`，真实存档须另外核对采样不变性、三笔费用和实际陪练。
+
+部队停滞与指挥官技能必须分账：`Board::HasColdStorageTroopActivity` 同时服务空场计时与有限试攻资格，包含实际敌军、已付队列、独立出生及仍可返回的复活事务，不包含精准瞄准/冷却或未付款意图。`RewardColdStoragePlantKill` 的 `ColdStorageKillOrigin` 只用于进展归因，全部真实返冰及既有判负账本不变；普通伤害、压扁、吞噬和劫雷者处决仍属部队，精准清除单独归类。`troopPlantKills` 按真实部队击杀次数推进，不能依赖返冰量，满钱包或零价植物也计数。v29迁移不从旧总击杀收入猜来源，旧地面计数从零开始，保留试攻次数/支出与已付事务。搜索已武装试攻时优先在既有早期槽完整评价一份合格案，先过滤不满足原额度/人数资格的案；不增加预算、不凭生成就采购，盈利方案仍优先。`smoke_commander_ground_stagnation` 与同名verifier覆盖真实计时、技能期间资格、归因、暂停与存读档；Search合成快照测试不能替代Board实机验证。
+
+全力兜底同胜负、同实际进展时继续比较完整候选分数，再用出生总生命破平；不能忽略已经算出的费用、爆炸损失和玩家返冰。实时且可见重复范围反制/在途弹时，同总生命优先给既有分路、错峰种子完整评价机会，不加预算或臆造免伤；不限时覆盖顺序不变。负收益兜底仍是明确例外，不代表资本门禁认为方案盈利。
+
+抗灰轻装经验补充两路门盾画像与梯子/快兵或投篮的完整核心，最多六案，仍共用96候选上限及真实钱包。它不检查固定炮数，不要求额外钟匠/热狙，并保留完整炮击、补炮与待机反事实；生成和选中不能混为实战破阵。若走原有孤注一掷，仍可能购买完整预测为负的方案，应在证据中单独标明。生成与费用/炮击回归见 `ColdStorageLightAshExperienceTests`。

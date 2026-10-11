@@ -1,0 +1,483 @@
+{
+  "description": "Diagnostic-only real Jack/Cob lifecycle evidence; controlled fixtures are not normal battle strength evidence. No extra forecast or selected composition is forced by recording.",
+  "muteAudio": true,
+  "commanderCombatTrace": true,
+  "commanderCombatRecordLimit": 3000,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2,
+      "timeout": 15
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "repeat_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "pumpkin_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "cancel_flight.json"
+    },
+    {
+      "op": "ash_damage_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "damage": 1800
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "cancel_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "x": 850,
+      "stationary": true
+    },
+    {
+      "op": "set_elite_jack_throw_countdown",
+      "row": 2,
+      "value": 0.1,
+      "targetRow": 2,
+      "targetColumn": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25,
+      "timeout": 15
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ELITE_JACK_IN_THE_BOX",
+      "row": 2,
+      "damage": 10000
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "dying_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COBCANNON",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "set_cob_cannon_arming",
+      "row": 2,
+      "col": 0,
+      "value": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.6,
+      "timeout": 15
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "begin_cob_cannon_targeting",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "fire_targeted_cob_cannon",
+      "x": 700,
+      "y": 320
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25,
+      "timeout": 15
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_COBCANNON",
+      "row": 2,
+      "col": 0,
+      "damage": 10000
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.1,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "cob_cancel_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 87,
+      "resetTestState": true,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "decisions": 100,
+        "decisionRemaining": 600
+      }
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_KERNELPULT",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_COBCANNON",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "set_cob_cannon_arming",
+      "row": 2,
+      "col": 0,
+      "value": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.6,
+      "timeout": 15
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 700,
+      "stationary": true
+    },
+    {
+      "op": "begin_cob_cannon_targeting",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "fire_targeted_cob_cannon",
+      "x": 700,
+      "y": 320
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.25,
+      "timeout": 15
+    },
+    {
+      "op": "damage_plant",
+      "type": "PLANT_COBCANNON",
+      "row": 2,
+      "col": 0,
+      "damage": 10000
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.25,
+      "timeout": 15
+    },
+    {
+      "op": "dump_state",
+      "name": "cob_independent_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

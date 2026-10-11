@@ -765,7 +765,79 @@ int main() {
 		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["coldStorage"]["stallProbeRounds"]==1,
 			"已有明确试攻记录不因重复迁移重置");
 	}
+	{
+		std::string error;
+		nlohmann::json old={{"schemaVersion",28},{"coldStorage",{{"enemyIce",940},{"spent",60},
+			{"killIncome",300},{"workerIncome",20},{"emptyWaitSeconds",89.0f},{"stallProbeRounds",2},
+			{"stallProbeSpent",44},{"strikeTargetID",123},{"strikeAimRemaining",3.0f},
+			{"strikeAdditionalTargetIDs",{124}},{"strikeCooldownRemaining",0.0f},
+			{"pending",nlohmann::json::array({{{"type",0},{"row",1},{"cost",4},{"remaining",5.0f}}})}}}};
+		const auto previous=old["coldStorage"];
+		Expect(SaveSchema::UpgradeLevelDocument(old,error),"v28技能/试攻中的存档可迁移地面进展归因");
+		const auto& ice=old["coldStorage"];
+		Expect(ice["troopPlantKills"]==0 && ice["stallStartTroopPlantKills"]==0,
+			"旧总击杀收入不能被猜成地面战果");
+		for(const auto& [key,value]:previous.items()) Expect(ice[key]==value,
+			"迁移保留试攻次数、已付队列、技能目标余时和钱包");
+		old["coldStorage"]["troopPlantKills"]=7;
+		old["coldStorage"]["stallStartTroopPlantKills"]=5;
+		const auto current=old;
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==current,
+			"新档重复加载不清地面进展或再次迁移事务");
+	}
 	TestVersionThreePlayerUpgradeAddsLastSelectedCards();
+	{
+		std::string error;
+		nlohmann::json old={{"schemaVersion",29},{"coldStorage",{{"enemyIce",230},{"initialEnemyIce",750},
+			{"supplied",140},{"spent",742},{"workerIncome",32},{"stallProbeRounds",3},{"stallProbeSpent",602},
+			{"strikeTargetID",60},{"strikeAimRemaining",2.5f},
+			{"pending",nlohmann::json::array({{{"type",0},{"row",1},{"cost",4},{"remaining",5.0f},{"wave",11}}})}}}};
+		const auto prior=old["coldStorage"];
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["schemaVersion"]==SaveSchema::kCurrentLevelVersion,
+			"v29试攻记录迁移到有界假设账本");
+		for(const auto& [key,value]:prior.items()) Expect(old["coldStorage"][key]==value,
+			"v30迁移不清旧试攻费用/次数，不重复付款，不修改钱包、技能和已付队列");
+		Expect(old["coldStorage"]["boundedTrials"]["disabled"]==false
+			&& old["coldStorage"]["boundedTrials"]["records"].empty(),
+			"旧次数3不能变成新假设的盈利证明或采购权");
+		old["coldStorage"]["boundedTrials"]={{"disabled",true},{"records",nlohmann::json::array()}};
+		const auto saved=old;
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved,
+			"新格式重复迁移不得清除已禁用的风险账本");
+	}
+	{
+		std::string error;
+		const nlohmann::json record={{"signature",std::uint64_t{510001}},{"latestPaidWave",10},
+			{"cost",48},{"production",60},{"unresolved",true},{"startedAt",100.0f}};
+		nlohmann::json old={{"schemaVersion",30},{"coldStorage",{{"enemyIce",612},{"initialEnemyIce",600},
+			{"spent",48},{"workerIncome",60},{"decisions",10},{"elapsed",120.0f},
+			{"boundedTrials",{{"disabled",false},{"records",nlohmann::json::array({record})}}}}}};
+		const auto original=old;
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["schemaVersion"]==31,
+			"v30试验历史迁移到永久付费波身份");
+		const auto& migrated=old["coldStorage"]["boundedTrials"]["records"][0];
+		Expect(migrated["paidWaves"]==nlohmann::json::array({10}) && migrated["latestPaidWave"]==10
+			&& migrated["cost"]==48 && migrated["production"]==60 && migrated["unresolved"]==false,
+			"仅迁移旧档可知最新波，保留累计账；真钱已回本可释放未决位");
+		for(const auto* key:{"enemyIce","initialEnemyIce","spent","workerIncome","decisions","elapsed"})
+			Expect(old["coldStorage"][key]==original["coldStorage"][key],"迁移不改变真钱与真实时钟");
+		const auto once=old;
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==once,"v31重复迁移不清paidWaves或生产");
+		for(int defect=0;defect<4;++defect) {
+			auto broken=original;
+			auto& ice=broken["coldStorage"];auto& saved=ice["boundedTrials"]["records"][0];
+			if(defect==0) saved.erase("cost");
+			else if(defect==1) saved["paidWaves"]=nlohmann::json::array({9,10});
+			else if(defect==2) ice["spent"]=47;
+			else ice["elapsed"]="120";
+			const auto badRecord=saved;
+			Expect(SaveSchema::UpgradeLevelDocument(broken,error)
+				&& broken["coldStorage"]["boundedTrials"]["disabled"]==true,
+				"损坏v30试验或账本只禁用后续试验，仍允许正常关卡读档");
+			Expect(broken["coldStorage"]["boundedTrials"]["records"][0]==badRecord,
+				"非法旧记录不得被修剪为空历史或凭空补成新波证明");
+		}
+	}
 	{
 		std::string error;
 		nlohmann::json old = {{ "schemaVersion", 9 }, { "adventureLevel", 82 },

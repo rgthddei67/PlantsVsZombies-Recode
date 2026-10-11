@@ -278,6 +278,28 @@ endif()
 # 存档迁移是纯文件系统逻辑，单独目标可在不启动游戏、不接触真实玩家目录的情况下验证。
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(PlantCardRechargeRulesTests tests/PlantCardRechargeRulesTests.cpp)
+    target_include_directories(PlantCardRechargeRulesTests PRIVATE ${SRC_DIR})
+    target_compile_options(PlantCardRechargeRulesTests PRIVATE /utf-8 /W3 /sdl /EHsc)
+    target_link_libraries(PlantCardRechargeRulesTests PRIVATE pvz_win7_compat)
+    if(WIN32)
+        pvz_assert_win7_imports(PlantCardRechargeRulesTests)
+    endif()
+    add_test(NAME plant-card-recharge-rules COMMAND PlantCardRechargeRulesTests)
+    # 陪练只读公开状态的输入决策与正式游戏解耦，反例测试不创建窗口或修改真实资源。
+    foreach(cob_sparring_part IN ITEMS Lighting Targets Visibility)
+        add_executable(CobSparring${cob_sparring_part}Tests
+            tests/CobSparring${cob_sparring_part}Tests.cpp
+            PlantVsZombies/Game/AutoTest/CobSparring${cob_sparring_part}.cpp)
+        target_include_directories(CobSparring${cob_sparring_part}Tests PRIVATE ${SRC_DIR})
+        target_compile_options(CobSparring${cob_sparring_part}Tests PRIVATE /utf-8 /W3 /sdl /EHsc)
+        target_link_libraries(CobSparring${cob_sparring_part}Tests PRIVATE
+            $<$<PLATFORM_ID:Windows>:pvz_win7_compat> nlohmann_json::nlohmann_json)
+        if(WIN32)
+            pvz_assert_win7_imports(CobSparring${cob_sparring_part}Tests)
+        endif()
+        add_test(NAME cob-sparring-${cob_sparring_part} COMMAND CobSparring${cob_sparring_part}Tests)
+    endforeach()
     add_executable(Utf8Tests tests/Utf8Tests.cpp)
     target_include_directories(Utf8Tests PRIVATE ${SRC_DIR})
     target_compile_options(Utf8Tests PRIVATE /W3 /sdl /EHsc)
@@ -310,6 +332,9 @@ if(BUILD_TESTING)
     add_executable(SaveSchemaTests
         tests/SaveSchemaTests.cpp
         PlantVsZombies/SaveSchema.cpp
+        PlantVsZombies/Game/AI/ColdStorageTrialPersistence.cpp
+        PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedResponse.cpp
      )
     target_include_directories(SaveSchemaTests PRIVATE ${SRC_DIR})
     target_compile_options(SaveSchemaTests PRIVATE /utf-8 /W3 /sdl /EHsc)
@@ -372,10 +397,38 @@ if(BUILD_TESTING)
         tests/ColdStorageThunderTimingTests.cpp
         tests/ColdStorageDiggerForecastTests.cpp
         tests/ColdStorageAssaultExplorationTests.cpp
+        tests/ColdStorageAssaultTimingTests.cpp
+        tests/ColdStorageAssaultIntentTests.cpp
+        tests/ColdStorageAssaultContinuationTests.cpp
+        tests/ColdStorageCannonExperienceTests.cpp
+        tests/ColdStorageHeadlessForecastTests.cpp
+        tests/ColdStorageCobConstructionTests.cpp
+        tests/ColdStorageStagnationSearchTests.cpp
+        tests/ColdStorageLightAshExperienceTests.cpp
+        tests/ColdStorageCombatTraceTests.cpp
+        tests/ColdStorageJackAblationTests.cpp
+        tests/ColdStorageVisibleCounterTests.cpp
+        tests/ColdStoragePhasedForecastTests.cpp
+        tests/ColdStoragePhasedPlanningTests.cpp
+        tests/ColdStorageObservedResponseTests.cpp
+        tests/ColdStorageObservedForecastTests.cpp
+        tests/ColdStorageObservedPlanningTests.cpp
+        tests/ColdStorageObservedIntegrationTests.cpp
+        tests/ColdStorageWorldCacheTests.cpp
+        tests/ColdStorageBoundedTrialsTests.cpp
+        tests/ColdStorageTrialPersistenceTests.cpp
+        PlantVsZombies/Game/AI/ColdStoragePhasedPlanning.cpp
+        PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp
+        PlantVsZombies/Game/AI/ColdStorageTrialPersistence.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedResponse.cpp
+        PlantVsZombies/Game/AI/ColdStorageObservedForecast.cpp
+        ${SRC_DIR}/Game/AI/ColdStorageAssaultTiming.cpp
+        ${SRC_DIR}/Game/AI/ColdStorageAssaultIntent.cpp
         ${SRC_DIR}/Game/AI/ColdStorageFormationSeeds.cpp)
     target_include_directories(ColdStorageStrategyTests PRIVATE ${SRC_DIR})
     target_compile_options(ColdStorageStrategyTests PRIVATE /utf-8 /W3 /sdl /EHsc)
-    target_link_libraries(ColdStorageStrategyTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)
+    target_link_libraries(ColdStorageStrategyTests PRIVATE
+        $<$<PLATFORM_ID:Windows>:pvz_win7_compat> nlohmann_json::nlohmann_json)
     if(WIN32)
         # 单一 main 保留多套反事实快照；与正式游戏相同的 4 MiB 栈，避免夹具在进入 main 前耗尽默认 1 MiB。
         target_link_options(ColdStorageStrategyTests PRIVATE /STACK:4194304,65536)

@@ -1,5 +1,6 @@
 #include "EliteJackInTheBoxZombie.h"
 #include "ZombieBirthVitalsRules.h"
+#include "Game/AutoTest/TestDriver.h"
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
@@ -104,6 +105,17 @@ void EliteJackInTheBoxZombie::Update()
 	}
 }
 
+void EliteJackInTheBoxZombie::Die()
+{
+	if(!mIsDead && mBoxInFlight && mBoard && GameAPP::mAutoTestMode
+		&& TestDriver::GetInstance().CommanderCombatTrace())
+		TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","jack_cancel"},
+			{"reason","source_removed"},{"sourceID",mZombieID},{"sourceRow",mRow},{"sourceColumn",-1},
+			{"targetRow",mThrowTargetRow},{"x",mBoxTargetPosition.x},{"y",mBoxTargetPosition.y},
+			{"flightElapsed",mBoxFlightElapsed},{"flightRemaining",kBoxFlightDuration-mBoxFlightElapsed}}; });
+	JackInTheBoxZombie::Die();
+}
+
 /** 在僵尸本体之后绘制单个飞行盒子的旋转抛物线位置。 */
 void EliteJackInTheBoxZombie::Draw(Graphics* g)
 {
@@ -158,6 +170,12 @@ bool EliteJackInTheBoxZombie::BeginThrow()
 	SetHeldBoxVisible(false);
 	mForcedTargetRow = -1;
 	mForcedTargetColumn = -1;
+	if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+		TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","jack_throw"},{"sourceID",mZombieID},
+			{"sourceRow",mRow},{"sourceColumn",-1},{"targetRow",mThrowTargetRow},
+			{"x",mBoxTargetPosition.x},{"y",mBoxTargetPosition.y},{"startX",mBoxStartPosition.x},{"startY",mBoxStartPosition.y},
+			{"flightSeconds",kBoxFlightDuration},{"resolveAt",mBoard->mColdStorage.elapsed+kBoxFlightDuration},
+			{"targetingMode",static_cast<int>(mLastPlantTargetingMode)},{"charmed",mThrowWasMindControlled}}; });
 	return true;
 }
 
@@ -178,6 +196,11 @@ void EliteJackInTheBoxZombie::ResolveThrownBox()
 {
 	if (!mBoxInFlight) return;
 	mBoxInFlight = false;
+	if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+		TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","jack_impact"},{"sourceID",mZombieID},
+			{"sourceRow",mRow},{"sourceColumn",-1},{"targetRow",mThrowTargetRow},
+			{"x",mBoxTargetPosition.x},{"y",mBoxTargetPosition.y},{"flightElapsed",mBoxFlightElapsed},
+			{"sourceDying",mIsDying},{"charmed",mThrowWasMindControlled}}; });
 
 	AudioSystem::PlaySound(
 		ResourceKeys::Sounds::SOUND_EXPLOSION, kExplosionVolume);
@@ -207,7 +230,7 @@ void EliteJackInTheBoxZombie::DamagePlantsAtImpact() const
 			return collider && !mBoard->MineBlocksSegment(mBoxTargetPosition,plant.GetPosition())
 				&& CircleOverlapsRect(mBoxTargetPosition,
 				kBoxExplosionRadius, collider->GetBoundingBox());
-		});
+		}, GameAPP::mAutoTestMode ? TestDriver::GetInstance().CommanderCombatAttackID(false,mZombieID) : 0);
 }
 
 /** 对爆区内与投出阵营敌对的活动僵尸造成伤害。 */
@@ -225,7 +248,14 @@ void EliteJackInTheBoxZombie::DamageEnemyZombiesAtImpact() const
 		const ColliderComponent* collider = zombie->GetColliderComponent();
 		if (collider && !mBoard->MineBlocksSegment(mBoxTargetPosition,zombie->GetPosition()) && CircleOverlapsRect(
 			mBoxTargetPosition, kBoxExplosionRadius, collider->GetBoundingBox())) {
-			zombie->TakeDamage(kBoxExplosionDamage, DamageSource::ZOMBIE);
+			const auto trace=GameAPP::mAutoTestMode ? TestDriver::GetInstance().CommanderCombatAttackID(false,mZombieID) : 0;
+			if(trace) {
+				auto& recorder=TestDriver::GetInstance();
+				auto before=recorder.CommanderCombatZombieState(*zombie);
+				zombie->TakeDamage(kBoxExplosionDamage, DamageSource::ZOMBIE);
+				recorder.RecordCommanderCombatDamage(*mBoard,trace,"zombie",kBoxExplosionDamage,
+					std::move(before),recorder.CommanderCombatZombieState(*zombie));
+			} else zombie->TakeDamage(kBoxExplosionDamage, DamageSource::ZOMBIE);
 		}
 	}
 }

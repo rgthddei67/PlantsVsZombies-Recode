@@ -1,11 +1,17 @@
 #include "TestDriver.h"
+#include "CobSparringLighting.h"
+#include "CobSparringTargets.h"
 #include "DeltaTime.h"
+#include "GameApp.h"
 #include "Game/GameScene.h"
 #include "Game/SceneManager.h"
 #include "Game/Plant/ColdPineappleRules.h"
 #include "Game/Plant/IceStorageNutRules.h"
 #include "Game/Board/ColdStorageSkillRules.h"
+#include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/Board/WeatherStationRules.h"
+#include "Game/AI/ColdStoragePlanner.h"
+#include "Game/Plant/GameDataManager.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -25,12 +31,14 @@ constexpr int kCobEconomyTarget=10; // 炮阵中排两列的同时经济株目�
 constexpr int kCobWallColumn=6; // 炮阵前排高坚果的逻辑列，后方留四列给双格炮
 constexpr float kCobTargetRadius=115; // 炮阵水平爆区的观察估计，像素；实际伤害仍由正式弹丸结算
 constexpr float kCobAshStake=1800; // 炮阵对可见集群交即时灰烬的生命门槛，后排救险不受此门槛限制
+constexpr size_t kDiagnosticPurchaseLimit=64; // 单段显式诊断最多请求64笔采购，默认无请求
 /** 炮阵陪练从公开目标轮射，正常建设双格升级、高坚果和经济，并合法使用携带的灰烬。 */
 std::vector<Json> CobPlayerActions(const Json& state) {
     std::vector<Json> actions;
     const auto& ice=state.at("coldStorage");
     int sun=state.at("sun"),stock=ice.at("playerIce");
     const int rows=state.at("rows"),columns=state.at("columns");
+    const auto visibleZombies=CobSparringTargets::Observe(state.at("zombies"),rows,SCENE_WIDTH);
     const auto alive=[](const Json& p){return p.value("health",0)>0 && !p.value("squished",false);};
     const auto plantAt=[&](int row,int col)->const Json* {
         for(const auto& p:state.at("plants")) if(alive(p) && p.at("row")==row
@@ -53,11 +61,11 @@ std::vector<Json> CobPlayerActions(const Json& state) {
     const Json* cannon=nullptr;
     for(const auto& p:state.at("plants")) if(alive(p) && p.value("cobPhase",std::string{})=="READY") {cannon=&p;break;}
     int targetRow=-1,targetX=0; float best=0;
-    if(cannon) for(const auto& center:state.at("zombies")) if(visibleTarget(center)) {
+    if(cannon) for(const auto& center:visibleZombies) if(visibleTarget(center)) {
         const int x=center.at("xInt"),row=center.at("row");
         if(x>SCENE_WIDTH || x<0) continue;
         float value=0;
-        for(const auto& z:state.at("zombies")) if(visibleTarget(z) && std::abs(z.at("row").get<int>()-row)<=1
+        for(const auto& z:visibleZombies) if(visibleTarget(z) && std::abs(z.at("row").get<int>()-row)<=1
             && std::abs(z.at("xInt").get<int>()-x)<=kCobTargetRadius) value+=std::min(1800,z.at("bodyHealth").get<int>());
         value*=1+std::max(0,SCENE_WIDTH-x)/static_cast<float>(SCENE_WIDTH);
         if(value>best) {best=value;targetRow=row;targetX=x;}
@@ -93,7 +101,7 @@ std::vector<Json> CobPlayerActions(const Json& state) {
             for(const auto& cell:card.at("legalCells")) {
                 const int row=cell.at(0),col=cell.at(1),x=state.at("cells").at(row).at(col).at("centerXInt");
                 float value=0;bool urgent=false;
-                for(const auto& z:state.at("zombies")) {
+                for(const auto& z:visibleZombies) {
                     if(z.value("bodyHealth",0)<=0 || z.value("fogObscured",false) || covered(z) || z.at("xInt").get<int>()>SCENE_WIDTH) continue;
                     const int dx=std::abs(z.at("xInt").get<int>()-x),dy=std::abs(z.at("row").get<int>()-row);
                     const bool doom=kind=="PLANT_DOOMSHROOM" || kind=="PLANT_INSTANT_COFFEE";
@@ -119,6 +127,14 @@ std::vector<Json> CobPlayerActions(const Json& state) {
             coffeePayable=sun>=coffee.at("sunCost").get<int>()+doom.at("sunCost").get<int>()
                 && stock>=ice.at("plantCosts").at("PLANT_INSTANT_COFFEE").get<int>()+ice.at("plantCosts").at("PLANT_DOOMSHROOM").get<int>();
     if(coffeePayable) attempt("PLANT_DOOMSHROOM",ashCells("PLANT_DOOMSHROOM"));
+    // 灰烬保留原优先级；新灯走普通种植事务，不能与本次其他采购重复花同一笔钱。
+    const auto lighting=CobSparringLighting::ChooseAction(state,sun,stock,!planted);
+    if(!lighting.action.is_null()) {
+        actions.push_back(lighting.action);
+        if(lighting.action.at("op")=="player_plant") {
+            sun-=lighting.sunCost;stock-=lighting.iceCost;planted=true;
+        }
+    }
     std::vector<std::pair<int,int>> farm,wall,anchors,kernels,exchange;
     int producers=0;
     for(const auto& p:state.at("plants")) if(alive(p) && (p.at("type")=="PLANT_SUNFLOWER" || p.at("type")=="PLANT_SUNSHROOM")) ++producers;
@@ -135,9 +151,9 @@ std::vector<Json> CobPlayerActions(const Json& state) {
         for(int col:{7,8}) if(col<columns && !plantAt(row,col)) exchange.emplace_back(row,col);
     }
     attempt("PLANT_MARIGOLD",exchange);
-    if(std::any_of(state.at("zombies").begin(),state.at("zombies").end(),[](const Json& z){return z.at("type")=="ZOMBIE_BALLOON" && !z.value("fogObscured",false);}))
+    if(std::any_of(visibleZombies.begin(),visibleZombies.end(),[](const Json& z){return z.at("type")=="ZOMBIE_BALLOON" && !z.value("fogObscured",false);}))
         attempt("PLANT_BLOVER",exchange);
-    if(std::any_of(state.at("zombies").begin(),state.at("zombies").end(),[](const Json& z){return z.value("bodyHealth",0)>0 && !z.value("fogObscured",false) && z.at("xInt").get<int>()<850;}))
+    if(std::any_of(visibleZombies.begin(),visibleZombies.end(),[](const Json& z){return z.value("bodyHealth",0)>0 && !z.value("fogObscured",false) && z.at("xInt").get<int>()<850;}))
         attempt("PLANT_TALLNUT",wall);
     const std::string producer=state.value("background",std::string{})=="WEATHER_STATION" ? "PLANT_SUNSHROOM" : "PLANT_SUNFLOWER";
     if(producers<kCobEconomyMinimum) attempt(producer,farm);
@@ -680,6 +696,231 @@ void TestDriver::RecordEngineerAshProtection(float elapsed,int row,int engineerI
 	mEpisodeEngineerProtections.push_back({{"elapsed",elapsed},{"row",row},{"engineerID",engineerID},{"workerIDs",workerIDs}});
 }
 
+/** 显式单兵或混编采购不参与自主选择；整批验证、完整评分，再经一次正式提交原样付款。 */
+void TestDriver::AttemptCommanderDiagnosticPurchase(Board& board,Json& record) {
+	const auto& request=record.at("requested");
+	const auto& state=board.mColdStorage;
+	const auto queueJson=[](const std::vector<ColdStorageDeployment>& queue) {
+		Json values=Json::array();
+		for(const auto& paid:queue) values.push_back({{"ticket",paid.ticket},{"type",static_cast<int>(paid.type)},
+			{"row",paid.row},{"cost",paid.cost},{"remaining",paid.remaining},{"wave",paid.wave}});
+		return values;
+	};
+	record["attempted"]=true;
+	record["controller"]="scripted_purchase";
+	record["seconds"]=mEpisodeTicks/60.0;
+	record["elapsed"]=state.elapsed;
+	record["walletBefore"]=record["walletAfter"]=state.enemyIce;
+	record["spentBefore"]=record["spentAfter"]=state.spent;
+	record["decisionsBefore"]=record["decisionsAfter"]=state.decisions;
+	record["serialBefore"]=record["serialAfter"]=state.searchSerial;
+	record["actualCost"]=0;
+	record["acceptedCount"]=0;
+	record["typeID"]=nullptr; record["unlockWave"]=nullptr; record["unitCost"]=nullptr;
+	record["requestedCost"]=nullptr; record["requestedCount"]=nullptr; record["failedMember"]=nullptr;
+	record["members"]=Json::array();
+	record["pendingBefore"]=record["pendingAfter"]=queueJson(state.pending);
+	record["oldQueuePreserved"]=true;
+	const auto reject=[&](const char* reason) {record["status"]=reason;};
+	// 混编只接受成员自己的路线、数量与付款后延迟；根级旧字段不能暗中覆盖成员。
+	if(!request.is_object() || !request.contains("at") || !request.at("at").is_number()
+		|| !std::isfinite(request.at("at").get<double>()) || request.at("at").get<double>()<0
+		|| (request.contains("responseContrast") && !request.at("responseContrast").is_boolean()))
+		{reject("invalid_request");return;}
+	const bool mixed=request.contains("members");
+	if(mixed && (!request.at("members").is_array() || request.at("members").empty()
+		|| request.at("members").size()>ColdStorageDeploymentRules::MaximumCapacity
+		|| request.contains("type") || request.contains("row") || request.contains("count") || request.contains("delay")))
+		{reject("invalid_request");return;}
+	const Json requestedMembers=mixed ? request.at("members") : Json::array({request});
+	for(const auto& member:requestedMembers) record["members"].push_back({{"requested",member},
+		{"typeID",nullptr},{"unlockWave",nullptr},{"unitCost",nullptr},{"requestedCost",nullptr}});
+	int count=0;
+	for(size_t i=0;i<requestedMembers.size();++i) {
+		const auto& member=requestedMembers[i];
+		if(!member.is_object() || !member.contains("type") || !member.at("type").is_string()
+			|| !member.contains("row") || !member.at("row").is_number_integer()
+			|| member.at("row").get<double>()<0 || member.at("row").get<double>()>=board.mRows
+			|| (member.contains("count") && (!member.at("count").is_number_integer()
+				|| member.at("count").get<double>()<1 || member.at("count").get<double>()>ColdStorageDeploymentRules::MaximumCapacity))
+			|| (member.contains("delay") && (!member.at("delay").is_number()
+				|| !std::isfinite(member.at("delay").get<double>()) || member.at("delay").get<double>()<0
+				|| member.at("delay").get<double>()>60))) {
+			record["failedMember"]=i; reject("invalid_request");return;
+		}
+		count+=member.value("count",1);
+		if(count>ColdStorageDeploymentRules::MaximumCapacity) {
+			record["failedMember"]=i; reject("invalid_request");return;
+		}
+	}
+	record["requestedCount"]=count;
+	const auto& pool=board.GetSpawnZombieList();
+	std::int64_t bill=0;
+	// 先收齐所有可识别成员的正式单价与解锁波，失败回执也能指出整批拒绝的具体成员。
+	for(size_t i=0;i<requestedMembers.size();++i) {
+		const auto& member=requestedMembers[i];
+		auto& receipt=record["members"][i];
+		const auto type=std::find_if(pool.begin(),pool.end(),[&](ZombieType candidate) {
+			return GameDataManager::GetInstance().ZombieTypeToEnumName(candidate)==member.at("type").get<std::string>();
+		});
+		if(type==pool.end()) {
+			if(record["failedMember"].is_null()) record["failedMember"]=i;
+			continue;
+		}
+		const int unitCost=board.GetZombieIceCost(*type);
+		receipt["typeID"]=static_cast<int>(*type); receipt["unlockWave"]=board.GetColdStorageUnlockWave(*type);
+		receipt["unitCost"]=unitCost; receipt["requestedCost"]=static_cast<std::int64_t>(unitCost)*member.value("count",1);
+		bill+=receipt["requestedCost"].get<std::int64_t>();
+	}
+	// 旧单成员回执保留原字段，混编账单则只由成员明细求和，不能用某一成员代表整车。
+	if(!mixed) for(const auto* key:{"typeID","unlockWave","unitCost"}) record[key]=record["members"][0][key];
+	if(!record["failedMember"].is_null()) {reject("type_not_in_pool");return;}
+	record["requestedCost"]=bill;
+	if(board.mBoardState!=BoardState::GAME || board.mTrophySpawned || DeltaTime::IsPaused()) {reject("not_running");return;}
+	if(GameAPP::mDevSpawnPaused) {reject("spawn_paused");return;}
+	if(state.elapsed<mEpisodeDiagnosticOpeningUntil) {reject("opening_preparation");return;}
+	// Busy 也包含已计算完但尚未领取的结果；拒绝而非取消/抢先领取，避免旧案在诊断后交错付款。
+	if(state.planning || (board.mColdStoragePlanner && board.mColdStoragePlanner->Busy())) {reject("planner_busy");return;}
+	// 即使其他诊断启用了 allZombies，这个入口也不借它越过正式采购波次。
+	for(size_t i=0;i<record["members"].size();++i) if(record["members"][i]["unlockWave"].get<int>()>state.decisions+1) {
+		record["failedMember"]=i; reject("locked");return;
+	}
+	ColdStorageSearch::Probe probe;
+	const auto probeBegin=std::chrono::steady_clock::now();
+	board.PlanColdStorageAttack(false,&probe);
+	record["probeMs"]=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-probeBegin).count();
+	if(!probe.captured) {reject("no_learned_snapshot");return;}
+	const auto& snapshot=probe.snapshot;
+	record["availableCapacity"]=snapshot.capacity;
+	std::vector<ColdStorageSearch::Action> actions;
+	actions.reserve(static_cast<size_t>(count));
+	for(size_t i=0;i<requestedMembers.size();++i) {
+		const auto& member=requestedMembers[i];
+		const auto& receipt=record["members"][i];
+		const int typeID=receipt.at("typeID"),unitCost=receipt.at("unitCost"),row=member.at("row");
+		const auto option=std::find_if(snapshot.options.begin(),snapshot.options.end(),[&](const auto& candidate) {
+			return candidate.device<0 && candidate.type==typeID && candidate.row==row;
+		});
+		if(option==snapshot.options.end() || option->cost!=unitCost || unitCost<=0) {
+			record["failedMember"]=i; reject("unavailable_option");return;
+		}
+		actions.insert(actions.end(),static_cast<size_t>(member.value("count",1)),
+			ColdStorageSearch::Action{static_cast<int>(option-snapshot.options.begin()),member.value("delay",0.0f)});
+	}
+	if(bill>snapshot.budget) {reject("insufficient_ice");return;}
+	if(count>snapshot.capacity) {reject("insufficient_capacity");return;}
+	// 仅显式诊断允许这次不限墙钟的完整评分；保留负分，不把固定采购伪装为搜索胜出。
+	const auto evaluationBegin=std::chrono::steady_clock::now();
+	auto result=ColdStorageSearch::EvaluateCandidate(snapshot,probe.weights,actions);
+	const double evaluationMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-evaluationBegin).count();
+	const bool same=result.actions.size()==actions.size() && std::equal(actions.begin(),actions.end(),result.actions.begin(),
+		[](const auto& a,const auto& b) {return a.option==b.option && a.delay==b.delay;});
+	record["prediction"]={{"evaluationMs",evaluationMs},{"unlimitedDiagnostic",true},{"matchesRequested",same},
+		{"score",result.score},{"features",result.features},{"baseline",result.baselineFeatures},
+		{"rawProduction",result.rawProduction},{"productionAfterWindow",result.construction.productionAfterWindow},
+		{"totalRawProduction",result.rawProduction+result.construction.productionAfterWindow},{"effectiveWeights",result.effectiveWeights},
+		{"expandedForecast",result.expandedForecast},{"requestedSearchVersion",snapshot.searchVersion},
+		{"searchVersion",result.expandedForecast ? 2 : snapshot.searchVersion}};
+	if(!same || result.precisionTargetID>0) {reject("candidate_changed");return;}
+	if(request.value("responseContrast",false)) {
+		// 显式诊断只关闭墙钟；四案与正式信息试探共用完整响应评估、同窗等待和同一权重。
+		const auto contrastBegin=std::chrono::steady_clock::now();
+		auto diagnosticState=snapshot;diagnosticState.timeLimitedSearch=false;
+		const auto comparison=ColdStorageSearch::ComparePaidAreaResponse(diagnosticState,probe.weights,actions,result.expandedForecast);
+		const auto worldJson=[&](const ColdStorageSearch::Result& outcome,bool complete) {
+			const auto& stats=outcome.construction;
+			Json world={{"complete",complete},{"score",outcome.score},{"features",outcome.features},
+				{"baseline",outcome.baselineFeatures},{"effectiveWeights",outcome.effectiveWeights},
+				{"rawProduction",outcome.rawProduction},{"productionAfterWindow",stats.productionAfterWindow},
+				{"totalRawProduction",outcome.rawProduction+stats.productionAfterWindow},
+				{"requestedSearchVersion",comparison.requestedSearchVersion},{"searchVersion",comparison.effectiveSearchVersion},
+				{"expandedForecast",comparison.expandedForecast},{"traceHorizonSeconds",comparison.horizonSeconds},
+				{"productionWindowSeconds",comparison.productionWindowSeconds},{"counterHoldSeconds",outcome.counterHoldSeconds},
+				{"breachSeconds",stats.breachSeconds},
+				{"paidCounterCasts",stats.paidCounterCasts},{"cobShots",stats.observedCobLaunches},
+				{"constructedCobShots",stats.constructedCobShots},{"cobUpgrades",stats.cobUpgrades},
+				{"planted",stats.planted},{"exchanges",stats.exchanges},{"orders",stats.orders},
+				{"sunSpent",stats.sunSpent},{"iceSpent",stats.iceSpent},{"opponentAssets",stats.opponentAssets},
+				{"plantAssets",stats.plantAssets},{"plantAttackAssets",stats.plantAttackAssets},
+				{"paidDefensesRetained",stats.paidDefensesRetained},{"counterSpaceReserved",stats.counterSpaceReserved},
+				{"planternResponseGear",stats.planternResponseGear},{"workerTrace",Json::array()},{"counterTrace",Json::array()}};
+			for(const auto& point:stats.workerTrace) world["workerTrace"].push_back({{"id",point.id},{"row",point.row},
+				{"time",point.at},{"x",point.x},{"health",point.health},{"income",point.income}});
+			for(const auto& point:stats.counterTrace) world["counterTrace"].push_back({{"time",point.at},{"x",point.x},
+				{"damage",point.damage},{"row",point.row},{"column",point.column},{"clearsCell",point.clearsCell}});
+			if(diagnosticState.traceCombat) world["combatTrace"]=CommanderCombatForecast(stats);
+			return world;
+		};
+		const auto pairJson=[&](const ColdStorageSearch::PaidAreaResponsePair& pair) {
+			return Json{{"complete",pair.complete},{"purchase",worldJson(pair.cart,pair.complete)},
+				{"wait",worldJson(pair.wait,pair.complete)},
+				{"delta",{{"cash",pair.cash},{"plantAttackAssets",pair.plantAttackAssets},{"breach",pair.breach},
+					{"rawProduction",pair.cart.rawProduction-pair.wait.rawProduction},
+					{"productionAfterWindow",pair.cart.construction.productionAfterWindow-pair.wait.construction.productionAfterWindow},
+					{"totalRawProduction",pair.cart.rawProduction+pair.cart.construction.productionAfterWindow
+						-pair.wait.rawProduction-pair.wait.construction.productionAfterWindow}}}};
+		};
+		const auto inventoryJson=[](const ColdStorageSearch::PaidAreaCounterInventory& inventory) {
+			return Json{{"total",inventory.total},{"freshPaidArea",inventory.freshPaidArea},{"free",inventory.free},
+				{"committed",inventory.committed},{"stored",inventory.stored},{"reusable",inventory.reusable},{"other",inventory.other}};
+		};
+		Json contrast={{"hypothetical",true},{"probabilityModel",false},{"unlimitedDiagnostic",true},
+			{"basis","shared_full_plan_cart_wait"},{"evaluator","informational_trial_four_arm"},
+			{"responsePolicy","unchanged_full_plan"},
+			{"complete",comparison.complete},{"matchesRequested",comparison.matchesRequested},{"bill",comparison.bill},
+			{"requestedSearchVersion",comparison.requestedSearchVersion},{"searchVersion",comparison.effectiveSearchVersion},
+			{"expandedForecast",comparison.expandedForecast},{"traceHorizonSeconds",comparison.horizonSeconds},
+			{"productionWindowSeconds",comparison.productionWindowSeconds},{"traceEconomy",snapshot.traceEconomy},
+			{"responseEnvelopeSeconds",comparison.responseEnvelopeSeconds},
+			{"storedResponseEnvelopeSeconds",comparison.storedResponseEnvelopeSeconds},
+			{"patientResponseHoldSeconds",comparison.patientResponseHoldSeconds},
+			{"hypothesis","future_direct_paid_area_counters_withheld"},{"removedCounterCount",comparison.removedCounterCount},
+			{"removedSourceKeys",comparison.removedSourceKeys},{"robust",pairJson(comparison.robust)},
+			{"potential",pairJson(comparison.potential)},
+			{"counterInventory",{{"robust",inventoryJson(comparison.robustCounters)},
+				{"potential",inventoryJson(comparison.potentialCounters)}}},
+			{"rawWorldEvaluations",comparison.rawWorldCounts.evaluations},{"rawWorldCacheHits",comparison.rawWorldCounts.hits}};
+		contrast["evaluationMs"]=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-contrastBegin).count();
+		record["responseContrast"]=std::move(contrast);
+	}
+
+	const auto pendingBefore=state.pending;
+	const int walletBefore=state.enemyIce,spentBefore=state.spent,decisionsBefore=state.decisions;
+	const int serialBefore=state.searchSerial;
+	// 空 tickets 禁止正式入口重排任何旧队列；新的整车付款与波号推进全部由 Board 完成。
+	board.ApplyColdStoragePlan(snapshot,result,{},snapshot.searchVersion,0,{},probe.seed);
+	record["walletAfter"]=state.enemyIce; record["spentAfter"]=state.spent;
+	record["decisionsAfter"]=state.decisions; record["serialAfter"]=state.searchSerial;
+	record["actualCost"]=spentBefore<=state.spent ? state.spent-spentBefore : -1;
+	record["pendingAfter"]=queueJson(state.pending);
+	const bool preserved=state.pending.size()>=pendingBefore.size()
+		&& std::equal(pendingBefore.begin(),pendingBefore.end(),state.pending.begin(),[](const auto& a,const auto& b) {
+			return a.ticket==b.ticket && a.type==b.type && a.row==b.row && a.cost==b.cost
+				&& a.remaining==b.remaining && a.wave==b.wave;
+		});
+	const size_t added=preserved ? state.pending.size()-pendingBefore.size() : 0;
+	record["oldQueuePreserved"]=preserved; record["acceptedCount"]=added;
+	const bool matched=preserved && added==actions.size()
+		&& std::equal(actions.begin(),actions.end(),state.pending.begin()+pendingBefore.size(),[&](const auto& action,const auto& paid) {
+			const auto& option=snapshot.options[action.option];
+			return static_cast<int>(paid.type)==option.type && paid.row==option.row && paid.cost==option.cost
+				&& paid.remaining==action.delay && paid.wave==decisionsBefore+1;
+		});
+	record["newQueueMatchesRequested"]=matched;
+	const bool accepted=matched && walletBefore-state.enemyIce==bill
+		&& state.spent-spentBefore==bill && state.decisions==decisionsBefore+1 && state.searchSerial==serialBefore+1;
+	record["accepted"]=accepted;
+	if(accepted) {
+		record["status"]="accepted";
+		board.mColdStorage.commanderMode="scripted_purchase"; // 只标记控制来源，不改真实分数和后续自由决策。
+	} else {
+		reject("commit_rejected");
+		if(!preserved || added>0 || state.enemyIce!=walletBefore || state.spent!=spentBefore
+			|| state.decisions!=decisionsBefore || state.searchSerial!=serialBefore)
+			Fail("commander_episode: diagnostic purchase violated atomic payment/queue preservation");
+	}
+}
+
 /** 用正式玩家入口推进脚本对战，可选逐秒实体轨迹用于核对掩护及战损。 */
 bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	const int ticks = static_cast<int>(std::lround(command.value("seconds", 120.0f) * 60));
@@ -704,7 +945,8 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (refillBelow < -1 || (refillBelow >= 0 && (refillTo <= refillBelow || refillTo > MAX_SUN))) {
 		Fail("commander_episode: invalid external sun refill"); return false;
 	}
-	if (ticks < 60 || ticks > 72000 || (opponent != "cob" && opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal" && opponent != "ice_bunker_mixed")) {
+	// 仅扩大显式诊断脚本的时长上限至3000游戏秒；逻辑步长和已声明倍速保持正式规则。
+	if (ticks < 60 || ticks > 180000 || (opponent != "cob" && opponent != "bomb" && opponent != "growth" && opponent != "deny" && opponent != "counter" && opponent != "ash" && opponent != "adaptive" && opponent != "hunter" && opponent != "builder" && opponent != "lotus" && opponent != "fortifier" && opponent != "planner" && opponent != "pine_elite" && opponent != "ice_fortifier" && opponent != "ice_pine" && opponent != "ice_bunker" && opponent != "ice_pine_hold" && opponent != "ice_bunker_hold" && opponent != "ice_bunker_temporal" && opponent != "ice_bunker_mixed")) {
 		Fail("commander_episode: invalid duration or opponent"); return false;
 	}
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
@@ -716,26 +958,53 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 		Fail("commander_episode: speed differs from declared timeScale"); return false;
 	}
 	if (mEpisodeTicks < 0) {
+		if(command.contains("diagnosticPurchases") && (!command.at("diagnosticPurchases").is_array()
+			|| command.at("diagnosticPurchases").size()>kDiagnosticPurchaseLimit)) {
+			Fail("commander_episode: diagnosticPurchases must be an array of at most 64 requests");return false;
+		}
 		mEpisodeTicks = 0; mEpisodeInitial = BuildInteractiveState(); mEpisodeTrace = Json::array();
 		mEpisodePlantings = Json::object(); mEpisodeDecisions = Json::array(); mEpisodeSunRefills = Json::array();
 		mEpisodeTraceProtections=command.value("traceUnits",false); mEpisodeEngineerProtections=Json::array();
 		mEpisodeLastEnemyIce=-1; mEpisodeBlindIceUntil=0; mEpisodeFogClears=mEpisodeBlindDoomCasts=0;
-		mEpisodeSnapshotSaved=false;
+		mEpisodeSnapshotSaved=false;mEpisodeSnapshotCaptureTicket=0;
+		mEpisodeDiagnosticPurchases=Json::array();
+		mEpisodeDiagnosticOpeningUntil=board->mColdStorage.elapsed
+			+(board->mColdStorage.decisions==0 ? std::max(0.0f,board->mColdStorage.decisionRemaining) : 0.0f);
+		if(command.contains("diagnosticPurchases")) for(const auto& request:command.at("diagnosticPurchases"))
+			mEpisodeDiagnosticPurchases.push_back({{"requested",request},{"attempted",false},{"accepted",false},{"status","scheduled"}});
 		if (mEpisodeInitial.at("cards").empty()) { Fail("commander_episode: player has no cards"); return false; }
 		Log("commander episode started: " + opponent);
+	}
+	bool diagnosticAttempted=false;
+	if(!terminal && mEpisodeTicks<ticks) for(auto& record:mEpisodeDiagnosticPurchases) {
+		if(record.at("attempted").get<bool>()) continue;
+		const auto& request=record.at("requested");
+		const bool validAt=request.is_object() && request.contains("at") && request.at("at").is_number()
+			&& std::isfinite(request.at("at").get<double>()) && request.at("at").get<double>()>=0;
+		if(validAt && request.at("at").get<double>()>mEpisodeTicks/60.0) continue;
+		AttemptCommanderDiagnosticPurchase(*board,record);
+		diagnosticAttempted=true;
+		if(!mActive) return false;
 	}
 	// 混合陪练半秒观察一次以正常使用不同卡槽，避免每秒至多一株拖慢开局；其他陪练不变。
 	// 轨迹仍按下方独立的采样间隔输出，正式胜负在每个逻辑步立即收尾。
 	const int observationTicks=(opponent=="ice_bunker_mixed" || opponent=="cob") ? kMixedDecisionTicks : 60;
 	Json full;
-	if (terminal || mEpisodeTicks % observationTicks == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
+	if (terminal || diagnosticAttempted || mEpisodeTicks % observationTicks == 0 || mEpisodeTicks >= ticks) full = BuildInteractiveState();
 	else { mEpisodeTicks += timeScale; return false; }
 	if (!full.contains("coldStorage")) { Fail("commander_episode requires cold storage"); return false; }
 	const auto& ice = full.at("coldStorage");
 	// 每次决策留一份紧凑证据，包括观望；避免十秒采样漏掉中间的高额采购。
-	if (ice.value("searchSerial",0) > 0 && (mEpisodeDecisions.empty()
-		|| mEpisodeDecisions.back().at("serial") != ice.at("searchSerial"))) {
+	if ((ice.value("searchSerial",0) > 0 || ice.at("searchObservedCommit").at("checks").get<int>() > 0
+		|| ice.at("searchTrialCommit").at("checks").get<int>() > 0) && (mEpisodeDecisions.empty()
+		|| mEpisodeDecisions.back().at("serial") != ice.at("searchSerial")
+		|| mEpisodeDecisions.back().at("observedCommit").at("checks") != ice.at("searchObservedCommit").at("checks")
+		|| mEpisodeDecisions.back().at("trialCommit").at("checks") != ice.at("searchTrialCommit").at("checks"))) {
+		const bool scripted=std::any_of(mEpisodeDiagnosticPurchases.begin(),mEpisodeDiagnosticPurchases.end(),[&](const Json& purchase) {
+			return purchase.value("accepted",false) && purchase.at("serialAfter")==ice.at("searchSerial");
+		});
 		mEpisodeDecisions.push_back({{"seconds",mEpisodeTicks/60.0},{"serial",ice.at("searchSerial")},
+			{"controller",scripted ? "scripted_purchase" : "autonomous"},
 			{"features",ice.at("searchFeatures")},{"baseline",ice.at("searchBaselineFeatures")},
 			{"cashScaleInputs",ice.at("searchCapitalInputs")},
 			{"elapsed",ice.at("searchElapsed")},{"wave",ice.at("decisions")},
@@ -753,13 +1022,22 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 				{"clockAnchors",ice.at("searchClockAnchors")},{"clockRewinds",ice.at("searchClockRewinds")},
 				{"clockRevivals",ice.at("searchClockRevivals")}}},
 			{"formation",ice.at("searchFormation")},{"combination",ice.at("searchCombination")},
+            {"rawWorlds",ice.at("searchRawWorlds")},
 			{"stateInputs",ice.at("searchStateInputs")},{"effectiveWeights",ice.at("searchEffectiveWeights")},
 			{"adaptive",ice.at("searchAdaptive")},
 			{"expandedForecast",ice.at("searchExpandedForecast")},
-			{"counterHoldSeconds",ice.at("searchCounterHoldSeconds")},
+			{"visibleCounterResponse",ice.at("searchVisibleCounterResponse")},
+            {"counterHoldSeconds",ice.at("searchCounterHoldSeconds")},
 			{"queueRevision",ice.at("searchQueue")},
 			{"searchVersion",ice.at("searchVersion")},{"largestPlan",ice.at("searchLargestPlan")},
 			{"widestComposition",ice.at("searchWidestComposition")},
+			{"cobRebuildForecast",ice.at("cobRebuildForecast")},{"assaultTiming",ice.at("searchAssaultTiming")},{"assaultObservation",ice.at("assaultObservation")},
+			{"observedDecision",ice.at("searchObservedDecision")},{"observedCommit",ice.at("searchObservedCommit")},
+			{"trialDecision",ice.at("searchTrialDecision")},{"trialCommit",ice.at("searchTrialCommit")},
+			{"trialHistory",ice.at("boundedTrials")},
+			{"observedCapturedResponse",ice.at("searchObservedResponse")},{"observedCurrentResponse",ice.at("observedResponse")},
+			{"experiencedEvaluated",ice.at("searchExperiencedEvaluated")},{"experiencedSelected",ice.at("searchExperiencedSelected")},
+			{"experiencedAshEvaluated",ice.at("searchExperiencedAshEvaluated")},{"experiencedAshSelected",ice.at("searchExperiencedAshSelected")},
 			{"netEconomy",ice.at("searchNetEconomy")},
 			{"anticipateBuilding",ice.at("searchAnticipateBuilding")},
 			{"playerEconomy",ice.at("searchPlayerEconomy")},
@@ -779,6 +1057,12 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if(!ended && !mEpisodeSnapshotSaved && !snapshotName.empty() && snapshotDue) {
 		if(!SaveLevelSnapshot(snapshotName)) return false;
 		mEpisodeSnapshotSaved=true;
+        if(command.value("screenshotAtSnapshot",false)) {
+            auto* renderer=GameAPP::GetInstance().GetCaptureBackend();
+            if(!renderer) {Fail("commander_episode: snapshot capture backend unavailable");return false;}
+            mEpisodeSnapshotCaptureTicket=renderer->RequestCapture(mOutDir+"/"+snapshotName+".png");
+            Log("episode snapshot capture requested at game seconds "+std::to_string(mEpisodeTicks/60.0));
+        }
 	}
 	const bool traceUnits=command.value("traceUnits",false);
 	if (mEpisodeTicks % (traceUnits ? 60 : 600) == 0 || ended || mEpisodeTicks >= ticks) {
@@ -796,7 +1080,11 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if (ended || mEpisodeTicks >= ticks) {
 		const auto name = command.value("name", std::string("episode"));
 		if (name.empty() || name.find_first_of("/\\:") != std::string::npos) { Fail("invalid episode filename"); return false; }
-		Json result{{"schema",1},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},{"timeScale",timeScale},
+		for(auto& purchase:mEpisodeDiagnosticPurchases) if(!purchase.at("attempted").get<bool>())
+			purchase["status"]=ended ? "episode_ended" : "episode_timeout";
+		Json result{{"schema",1},{"diagnosticCombatTrace",mCommanderCombatTrace},{"opponent",opponent},{"seconds",mEpisodeTicks / 60.0},{"timeScale",timeScale},
+			{"controller",mEpisodeDiagnosticPurchases.empty() ? "autonomous" : "autonomous_with_scripted_purchase"},
+			{"diagnosticPurchases",mEpisodeDiagnosticPurchases},
 			{"outcome",full.at("boardState") == "LOSE_GAME" ? "commander_win" : ice.value("trophySpawned",false) ? "player_win" : "timeout"},
 			{"playerActions",command.value("playerActions",true)},
 			{"shovelCounters",command.value("shovelCounters",false)},
@@ -804,12 +1092,20 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 			{"externalSun",{{"enabled",refillBelow >= 0},{"below",refillBelow},{"target",refillTo},{"events",mEpisodeSunRefills}}},
 			{"engineerProtectionEvents",mEpisodeEngineerProtections},{"sparringFogClears",mEpisodeFogClears},{"sparringBlindDoomCasts",mEpisodeBlindDoomCasts},
 			{"initial",mEpisodeInitial},{"final",full},{"trace",mEpisodeTrace},{"playerPlantings",mEpisodePlantings},{"decisions",mEpisodeDecisions}};
+		        if(mEpisodeSnapshotCaptureTicket) {
+            auto* renderer=GameAPP::GetInstance().GetCaptureBackend();
+            const bool complete=renderer && renderer->GetCaptureStatus(mEpisodeSnapshotCaptureTicket)==pvz::CaptureStatus::Succeeded;
+            result["snapshotScreenshot"]={{"requested",true},{"complete",complete},{"name",snapshotName+".png"}};
+        }
 		std::ofstream output(std::filesystem::path(mOutDir) / (name + ".json"));
 		output << result.dump(2); output.flush();
 		if (!output) { Fail("cannot write episode result"); return false; }
+		FlushCommanderCombatTrace();
 		Log("commander episode finished: " + result.at("outcome").get<std::string>());
 		mEpisodeTicks = -1; mEpisodeTraceProtections=false; return true;
 	}
+	// 诊断付款可在两个陪练观察点之间发生；额外取证不能赠送陪练一次种植/炮击或更新盲炸信号。
+	if(mEpisodeTicks % observationTicks != 0) {mEpisodeTicks+=timeScale;return false;}
 	// 模拟主人用 CE 在低阳光时再次补满；仅测试命令显式启用，不把未来补款泄露给 AI。
 	// 记录每一笔注入，普通训练/真人观察缺省不会进入此分支，灰烬冷却和冰块仍走正式规则。
 	if (refillBelow >= 0 && board->mSun <= refillBelow) {

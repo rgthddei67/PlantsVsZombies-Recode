@@ -1,4 +1,6 @@
 #include "CobCannon.h"
+#include "Game/AutoTest/TestDriver.h"
+#include "GameApp.h"
 
 #include "Game/Board/Board.h"
 #include "../Bullet/Bullet.h"
@@ -116,6 +118,11 @@ bool CobCannon::FireAt(const Vector& target, int targetRow)
 		* GetWeatherActionSpeedMultiplier();
 	if (PlayTrackOnce("anim_shooting", "anim_unarmed_idle", speed,
 		kTrackBlendSeconds, speed, kTrackBlendSeconds)) {
+		if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+			TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","cob_lock"},
+				{"sourceID",mPlantID},{"sourceRow",mRow},{"sourceColumn",mColumn},{"targetRow",targetRow},
+				{"x",target.x},{"y",target.y},{"flightSeconds",kCobFlightSeconds},
+				{"resolveAt",mBoard->mColdStorage.elapsed+GetPendingSimulationBlastDelay()}}; });
 		return true;
 	}
 	// 资源轨道异常时保留可点击的就绪态，不能吞掉本次完整充能。
@@ -191,6 +198,11 @@ float CobCannon::GetSimulationFlightSeconds()
 	return kCobFlightSeconds;
 }
 
+float CobCannon::GetSimulationInitialReadySeconds()
+{
+	return kInitialArmingSeconds + kChargeSeconds;
+}
+
 void CobCannon::UpdateCobTrackColor()
 {
 	if (!mAnimator) return;
@@ -206,16 +218,35 @@ void CobCannon::LaunchCob()
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_COBLAUNCH, kLaunchVolume);
 	Bullet* cob = mBoard->CreatePlantBullet(BulletType::BULLET_COBBIG, mPendingTargetRow,
 		GetVisualPosition() + kLaunchOffset, mPlantType);
-	if (!cob) return;
+	if (!cob) {
+		if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())
+			TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event","cob_cancel"},
+				{"sourceID",mPlantID},{"reason","bullet_creation_failed"}}; });
+		return;
+	}
 	cob->SetBulletDamage(kCobDamage);
 	const bool polarGuided = mBoard->IsPolarWindDangerous()
 		&& mBoard->PreparePolarLobbedNavigation(this);
 	cob->ConfigureCobCannonMotion(
 		mPendingTarget, mPendingTargetRow, kCobFlightSeconds, polarGuided);
+	if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace()) {
+		const auto target=cob->GetCobTarget();
+		TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event",cob->IsActive() ? "cob_launch" : "cob_cancel"},
+			{"reason",cob->IsActive() ? "" : "trajectory_blocked"},{"sourceID",mPlantID},{"sourceRow",mRow},
+			{"sourceColumn",mColumn},{"projectileID",cob->mBulletID},{"targetRow",cob->GetCobTargetRow()},
+			{"x",target.x},{"y",target.y},{"flightSeconds",cob->GetCobDuration()},
+			{"resolveAt",mBoard->mColdStorage.elapsed+cob->GetCobDuration()},{"polarWindMiss",cob->IsPolarWindMiss()}}; });
+	}
 }
 
 void CobCannon::Die()
 {
+	if(IsActive() && mBoard && mPhase==Phase::FIRING && GameAPP::mAutoTestMode
+		&& TestDriver::GetInstance().CommanderCombatTrace()
+		&& (!mShotLaunched || TestDriver::GetInstance().CommanderCombatAttackID(true,mPlantID)>0))
+		TestDriver::GetInstance().RecordCommanderCombatEvent(*mBoard,[&] { return nlohmann::json{{"event",mShotLaunched ? "cob_source_removed" : "cob_cancel"},
+			{"reason",mShotLaunched ? "source_removed_after_launch" : "source_removed_before_launch"},{"sourceID",mPlantID},{"sourceRow",mRow},{"sourceColumn",mColumn},
+			{"targetRow",mPendingTargetRow},{"x",mPendingTarget.x},{"y",mPendingTarget.y}}; });
 	if (mBoard) mBoard->CancelCobCannonTargeting(mPlantID);
 	Plant::Die();
 }

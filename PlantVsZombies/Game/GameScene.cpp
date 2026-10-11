@@ -2800,7 +2800,7 @@ void GameScene::BeginColdStorageOpeningBonusSelect()
 	const std::array<std::string, 3> descriptions{
 		"最多同时 " + std::to_string(mBoard->GetColdStorageOpeningElitePlantLimit()) + " 株，额外" + std::to_string(ColdStorageSkillRules::EliteReplacements) + "次补种；原价，成长归零。",
 		"首次进攻推迟到开战后 150 秒，补给照常进行。",
-		"卡槽恢复速度 +120%（冷却÷2.2），含模仿者与冰惠券。"};
+		"卡槽冷却÷2.2，玉米炮除外；含模仿者与冰惠券。"};
 	for (int i = 0; i < 3; ++i) {
 		const float y = 185.0f + i * 80.0f;
 		const bool chosen = mBoard->IsColdStorageOpeningBonusChosen(static_cast<ColdStorageOpeningBonus>(i + 1));

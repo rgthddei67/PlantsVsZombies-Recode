@@ -3,6 +3,7 @@
 #include "../GameApp.h"
 #include "../ResourceManager.h"
 #include "../Logger.h"
+#include "../Game/AutoTest/CobSparringVisibility.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -19,6 +20,28 @@ namespace {
         r.tA=x.x; r.tB=x.y; r.tC=y.x; r.tD=y.y; r.tx=p.x; r.ty=p.y;
     }
 	thread_local AnimatorRenderProbe* gActiveRenderProbe = nullptr;
+
+	/** 从真正提交的纹理、最终仿射和 alpha 留下屏内像素证据，不读取任何实体坐标。 */
+	void RecordPublicOpaqueWitness(Graphics* g, const Texture* texture, float alpha,
+		float a, float b, float c, float d, float x, float y)
+	{
+		if (!gActiveRenderProbe || gActiveRenderProbe->hasPublicOpaqueWitness
+			|| !texture || texture->autoTestAlpha.empty() || !g || alpha <= 0) return;
+		const Texture* boundTexture = texture->atlasPage ? texture->atlasPage : texture;
+		if (!boundTexture->BindingId()) return;
+		// CurrentClipRect 仅返回主线程栈；IsClipActive 同时识别 worker 裁剪，因此有裁剪一律保守拒绝。
+		// 非默认相机也暂不导出证据，避免世界坐标与可点击视口在震屏/缩放期间混用。
+		const auto camera = g->GetCameraPosition();
+		if (g->IsClipActive() || !g->IsCurrentTransformIdentity() || camera.x != 0 || camera.y != 0
+			|| g->GetCameraZoom() != 1 || g->GetCameraRotation() != 0) return;
+		const auto point = CobSparringVisibility::FindOpaqueWitness(texture->autoTestAlpha,
+			texture->width, texture->height, {a, b, c, d, x, y}, alpha,
+			{0, 0, static_cast<float>(SCENE_WIDTH), static_cast<float>(SCENE_HEIGHT)});
+		if (!point) return;
+		gActiveRenderProbe->hasPublicOpaqueWitness = true;
+		gActiveRenderProbe->publicWitnessX = point->x;
+		gActiveRenderProbe->publicWitnessY = point->y;
+	}
 
 	/** 把最终 2x3 仿射单位四边形并入当前根 Animator 的世界包围盒。 */
 	void RecordRenderQuad(float tA, float tB, float tC, float tD, float tx, float ty)
@@ -350,17 +373,18 @@ void Animator::UpdateParallelDeferred(std::vector<DeferredEvent>& outBuf) {
 }
 
 void Animator::Draw(Graphics* g, float baseX, float baseY, float Scale) {
+	if (GameAPP::mAutoTestMode) mLastRenderProbe = {};
 	if (!mReanim || !g) return;
 
 	// 附件通过 DrawInternal 递归而不会再次进入本函数；thread_local 让并行绘制的各根对象
 	// 独立聚合，并保留嵌套调用时的旧探针以免污染外层。
 	AnimatorRenderProbe* previousProbe = gActiveRenderProbe;
 	if (GameAPP::mAutoTestMode) {
-		mLastRenderProbe = {};
 		mLastRenderProbe.baseX = baseX;
 		mLastRenderProbe.baseY = baseY;
 		mLastRenderProbe.objectScale = Scale;
 		mLastRenderProbe.usedInstancePath = g->IsInstancePathEnabled();
+		mLastRenderProbe.drawUnscaledTime = DeltaTime::GetUnscaledTotalTime();
 		gActiveRenderProbe = &mLastRenderProbe;
 	}
 
@@ -577,6 +601,8 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 			const float baseAlpha = std::clamp(transform.a * mAlpha
 				* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
 			const uint8_t alpha8 = static_cast<uint8_t>(baseAlpha * 255.0f);
+			RecordPublicOpaqueWitness(g, image, alpha8 / 255.0f,
+				rec.tA, rec.tB, rec.tC, rec.tD, rec.tx, rec.ty);
 			rec.colorRGBA8 = PackRGBA8(
 				trackColor.r, trackColor.g, trackColor.b, alpha8);
 			if (!directWrite) {
@@ -639,6 +665,9 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 					? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
 				const float alpha = std::clamp(transform.a * mAlpha
 					* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
+				RecordPublicOpaqueWitness(g, followerImage,
+					static_cast<uint8_t>(alpha * 255.0f) / 255.0f,
+					rec.tA, rec.tB, rec.tC, rec.tD, rec.tx, rec.ty);
 				rec.colorRGBA8 = PackRGBA8(trackColor.r, trackColor.g, trackColor.b,
 					static_cast<uint8_t>(alpha * 255.0f));
 				const uint8_t followerOverlayAlpha = follower.mInheritOverlayEffect
@@ -807,6 +836,8 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 			float combinedAlpha = transform.a * mAlpha
 				* (static_cast<float>(trackColor.a) / 255.0f);
 			float baseAlpha = std::clamp(combinedAlpha, 0.0f, 1.0f);
+			RecordPublicOpaqueWitness(g, image, baseAlpha,
+				mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
 
 			// 模仿者直接替换本体采样颜色，避免在半透明边缘重复叠绘产生白边。
 			glm::vec4 baseColor(trackColor.r, trackColor.g, trackColor.b,
@@ -865,6 +896,8 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 					? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
 				const float alpha = std::clamp(transform.a * mAlpha
 					* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
+				RecordPublicOpaqueWitness(g, followerImage, alpha,
+					mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
 				const glm::vec4 color(trackColor.r, trackColor.g, trackColor.b,
 					alpha * 255.0f);
 				const float followerOverlayAlpha = follower.mInheritOverlayEffect

@@ -948,7 +948,7 @@ void RunColdStorageCobForecastTests()
     preparation.counters.clear();
     Check(Search(preparation,values,42).precisionTargetID==0,"harmless former cannon assets do not authorize reward farming");
     auto lastChance=state; lastChance.current.clear(); lastChance.rows=5; lastChance.budget=150;
-    lastChance.capacity=15; lastChance.fallbackAllIn=true;
+    lastChance.capacity=15; lastChance.fallbackAllIn=true;lastChance.capitalRiskAllowance=0;
     lastChance.counters.clear();
     for(int row=0;row<5;++row) {
         auto counter=shot; counter.recharge=1000; counter.blast.reach.fill(-1);
@@ -959,11 +959,8 @@ void RunColdStorageCobForecastTests()
         soldier.unit.body.speed=0; soldier.unit.biteDps=0; lastChance.options.push_back(soldier);
     }
     const auto dispersed=Search(lastChance,InitialWeights,7);
-    std::set<int> routes;
-    for(const auto& action:dispersed.actions) routes.insert(lastChance.options[action.option].row);
-    const bool delayed=std::any_of(dispersed.actions.begin(),dispersed.actions.end(),[](const Action& a){return a.delay>0;});
-    Check(dispersed.fallbackMode==2 && dispersed.features[3]>0 && (routes.size()>1 || delayed),
-        "last-chance comparisons preserve survivors through actual spread or timing rather than synchronizing every troop under one shell");
+    Check(dispersed.fallbackMode==0 && dispersed.actions.empty(),
+        "legacy all-in cannot spend a zero-risk wallet on survivors with no production, damage or breach");
     std::cout<<"Cob source, launch commitment, repeated fire and proactive removal contracts passed\n";
 }
 

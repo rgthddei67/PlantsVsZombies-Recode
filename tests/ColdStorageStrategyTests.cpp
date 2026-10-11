@@ -38,6 +38,26 @@ void RunColdStorageDeploymentTransactionTests();
 void RunColdStoragePrecisionUnlockForecastTests();
 void RunColdStorageDeepCompositionTests();
 void RunColdStorageAssaultExplorationTests();
+void RunColdStorageAssaultTimingTests();
+void RunColdStorageAssaultIntentTests();
+void RunColdStorageAssaultContinuationTests();
+void RunColdStorageCannonExperienceTests();
+void RunColdStorageHeadlessForecastTests();
+void RunColdStorageCobConstructionTests();
+void RunColdStorageStagnationSearchTests();
+void RunColdStorageLightAshExperienceTests();
+void RunColdStorageCombatTraceTests();
+void RunColdStorageJackAblationTests();
+void RunColdStorageVisibleCounterTests();
+void RunColdStoragePhasedForecastTests();
+void RunColdStoragePhasedPlanningTests();
+void RunColdStorageObservedResponseTests();
+void RunColdStorageObservedForecastTests();
+void RunColdStorageObservedPlanningTests();
+void RunColdStorageObservedIntegrationTests();
+void RunColdStorageWorldCacheTests();
+void RunColdStorageBoundedTrialsTests();
+void RunColdStorageTrialPersistenceTests();
 
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
@@ -58,6 +78,26 @@ int main()
 	RunColdStoragePrecisionUnlockForecastTests();
 	RunColdStorageDeepCompositionTests();
 	RunColdStorageAssaultExplorationTests();
+	RunColdStorageAssaultTimingTests();
+	RunColdStorageAssaultIntentTests();
+	RunColdStorageAssaultContinuationTests();
+	RunColdStorageCannonExperienceTests();
+	RunColdStorageHeadlessForecastTests();
+	RunColdStorageCobConstructionTests();
+	RunColdStorageStagnationSearchTests();
+	RunColdStorageLightAshExperienceTests();
+	RunColdStorageCombatTraceTests();
+	RunColdStorageJackAblationTests();
+	RunColdStorageVisibleCounterTests();
+	RunColdStoragePhasedForecastTests();
+	RunColdStoragePhasedPlanningTests();
+	RunColdStorageObservedResponseTests();
+	RunColdStorageObservedForecastTests();
+	RunColdStorageObservedPlanningTests();
+	RunColdStorageObservedIntegrationTests();
+    RunColdStorageWorldCacheTests();
+    RunColdStorageBoundedTrialsTests();
+    RunColdStorageTrialPersistenceTests();
 	auto check = [](bool condition, const char* name) {
 		if (!condition) { std::cerr << "FAILED: " << name << '\n'; std::exit(1); }
 	};
@@ -1929,10 +1969,22 @@ int main()
 	for(unsigned seed : {17u,29u,91u}) {
 		s.searchDeadline=std::chrono::steady_clock::now()+std::chrono::hours(1);
 		const auto joint=Search(s,InitialWeights,seed);
+		check(joint.assaultDiagnostics.jointLargestPlan>2 && joint.assaultDiagnostics.jointAfterStrike>0,
+			"fixed candidate exploration includes an actual full post-strike army");
 		check(joint.precisionTargetID==key.id && joint.features[2]>0 && joint.actions.size()>2,
 			"realtime precision exploration retains a winning complete followup instead of stopping at pure skill or a doomed pair");
 		check(60+static_cast<int>(joint.actions.size())*troop.cost<=s.budget && joint.actions.size()<=static_cast<size_t>(s.capacity),
 			"complete precision followup keeps the original wallet and real deployment capacity");
+		}
+	// 真墙钟仅记录覆盖，不把CI调度速度当逻辑正确性；固定候选覆盖由上方断言证明。
+	for(const int budgetMs : {120,600}) {
+		s.searchDeadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(budgetMs);
+		const auto joint=Search(s,InitialWeights,29);
+		const int bill=static_cast<int>(joint.actions.size())*troop.cost+(joint.precisionTargetID>0 ? 60 : 0);
+		check(bill<=s.budget && joint.actions.size()<=static_cast<size_t>(s.capacity),
+			"bounded realtime exploration never substitutes elapsed time for the shared wallet");
+		std::cout<<"Precision budget diagnostic ms="<<budgetMs<<" full="<<joint.assaultDiagnostics.jointLargestPlan
+			<<" post="<<joint.assaultDiagnostics.jointAfterStrike<<" breach="<<(joint.features[2]>0)<<'\n';
 	}
 	s.budget=79; s.searchDeadline=std::chrono::steady_clock::now()+std::chrono::hours(1);
 	check(Search(s,InitialWeights,91).features[2]==0,
@@ -3538,33 +3590,31 @@ int main()
     check(wait.actions.empty() && wait.fallbackMode==0,"ordinary evaluation retains a valid losing-field wait");
     auto trial=closed; trial.fallbackProbeBudget=20;
     const auto probed=Search(trial,InitialWeights,7);
-    int bill=0; for(const auto& a:probed.actions) bill+=trial.options[a.option].cost;
-    check(probed.fallbackMode==1 && probed.actions.size()>=3 && bill>0 && bill<=20
-        && probed.score<probed.baselineFeatures[0],
-        "authorized finite trial pays a real bounded cohort without relabeling a negative forecast as profitable");
+    check(probed.fallbackMode==0 && probed.actions.empty(),
+        "a legacy probe budget cannot authorize a known losing purchase without material information potential");
     auto lastChance=closed; lastChance.fallbackAllIn=true;
     const auto full=Search(lastChance,InitialWeights,7);
-    bill=0; for(const auto& a:full.actions) bill+=lastChance.options[a.option].cost;
-    check(full.fallbackMode==2 && bill>=96 && bill<=1000 && full.actions.size()<=16,
-        "last chance uses most deployable combat capital rather than forcing one cheapest zombie");
-    check(std::all_of(full.actions.begin(),full.actions.end(),[](const Action& a){return a.option==1;}),
-        "equally ineffective forecasts still compare real combat vitality for the final attack");
+    check(full.fallbackMode==0 && full.actions.empty(),
+        "the obsolete all-in flag cannot force a full known losing combat cart");
+    const auto costly=EvaluateCandidate(closed,InitialWeights,std::vector<Action>(16,{1,0}));
+    check(costly.features[5]==128 && costly.score<0,
+        "removing forced buying retains the original full real cost and negative forecast");
     lastChance.budget=7;
     const auto tail=Search(lastChance,InitialWeights,7);
-    check(tail.fallbackMode==2 && tail.actions.size()==1 && lastChance.options[tail.actions[0].option].cost<=7,
-        "last chance can spend the legally affordable tail instead of surrendering with purchasable troops");
+    check(tail.fallbackMode==0 && tail.actions.empty(),
+        "remaining affordable cash is not permission to spend on a known ineffective tail");
     auto income=closed; income.plants.clear(); income.budget=96; income.fallbackAllIn=true;
     auto producer=weak; producer.type=710003; producer.cost=24; producer.unit.body.health=500;
     producer.unit.body.speed=0; producer.unit.body.economic=true; producer.unit.body.purchaseCost=24;
     income.options.push_back(producer);
     const auto profitable=Search(income,InitialWeights,7);
     check(profitable.fallbackMode==0 && profitable.features[4]>profitable.features[5],
-        "real profitable economy remains preferred even when last-chance fallback is armed");
+        "real profitable economy remains preferred when legacy flags are present");
     trial.timeLimitedSearch=true; trial.searchDeadline=std::chrono::steady_clock::now();
     check(Search(trial,InitialWeights,7).actions.empty(),"an expired search cannot invent an uncomputed fallback purchase");
     check(closed.options[0].unit.body.health==270 && closed.plants[0].health==100000,
         "fallback comparisons preserve caller entities and actual wallet");
-    std::cout<<"Finite trials, last-chance combat cohorts, tail spending and positive-plan priority passed\n";
+    std::cout<<"Legacy all-in rejection, unchanged cart cost and ordinary positive-plan priority passed\n";
     }
 
     {

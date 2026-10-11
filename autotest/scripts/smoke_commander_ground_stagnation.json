@@ -1,0 +1,633 @@
+{
+  "description": "R5 controlled Board transaction/lifecycle fixture, NOT strength evidence. Two legally unlocked workers are actually paid through queue_ice_zombie at waves 9 and 10. Only after both payments, an explicitly SYNTHETIC controller record assigns wave 10 its real 24-ice bill. Wallet, clock and wave setup are test controls, never autonomous decisions or strength evidence.",
+  "muteAudio": true,
+  "backgroundCommander": true,
+  "batchStepsPerFrame": 0,
+  "commands": [
+    {
+      "op": "reset_test_state"
+    },
+    {
+      "op": "goto_level",
+      "level": 91,
+      "coldStorageBonusSelection": false
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_SUNSHROOM",
+        "PLANT_SUNFLOWER",
+        "PLANT_MARIGOLD",
+        "PLANT_KERNELPULT",
+        "PLANT_COBCANNON",
+        "PLANT_TALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 600,
+        "initialEnemyIce": 600,
+        "spent": 0,
+        "supplied": 0,
+        "workerIncome": 0,
+        "killIncome": 0,
+        "decisions": 9,
+        "decisionRemaining": 150,
+        "supplyRemaining": 30,
+        "elapsed": 100,
+        "emptyWaitSeconds": 17,
+        "troopPlantKills": 0,
+        "stallStartTroopPlantKills": 0,
+        "boundedTrials": {
+          "disabled": false,
+          "records": []
+        }
+      }
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.trainingAllUnits",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "purchase_before.json"
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 0,
+      "delay": 2,
+      "expectedSuccess": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "decisions": 10
+      }
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 4,
+      "delay": 12,
+      "expectedSuccess": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 552
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 48
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "paid_before_synthetic_record.json"
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "boundedTrials": {
+          "disabled": false,
+          "records": [
+            {
+              "signature": 510001,
+              "latestPaidWave": 10,
+              "cost": 24,
+              "production": 0,
+              "unresolved": true,
+              "startedAt": 100,
+              "paidWaves": [
+                10
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "queue_before_reload.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "paid_queue"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "paid_queue"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "selectedTimeScaleOn1000",
+      "equals": 5000
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 552
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 48
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "queue_after_reload.json"
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "queue_paused_before.json"
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "queue_paused_after.json"
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": false
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6.5,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopActivity",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.emptyWaitSeconds",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.workerIncome",
+      "atLeast": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.production",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "old_wave_only.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 10.5,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.hostileCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.pendingCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.production",
+      "atLeast": 4,
+      "atMost": 19
+    },
+    {
+      "op": "dump_state",
+      "name": "both_waves_produced.json"
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000000
+      }
+    },
+    {
+      "op": "dump_state",
+      "name": "full_wallet_before.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.2,
+      "timeout": 20
+    },
+    {
+      "op": "dump_state",
+      "name": "full_wallet_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 1000000
+    },
+    {
+      "op": "kill_zombie",
+      "row": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.25,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopActivity",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "old_wave_still_alive.json"
+    },
+    {
+      "op": "kill_zombie",
+      "row": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopActivity",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.boundedTrials.records.0.unresolved",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "failed_settled.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 2,
+      "col": 0
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 970,
+        "decisionRemaining": 150,
+        "supplyRemaining": 30,
+        "emptyWaitSeconds": 89,
+        "strikeCooldownRemaining": 0
+      }
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "dump_state",
+      "name": "precision_before_payment.json"
+    },
+    {
+      "op": "start_precision_strike",
+      "row": 2,
+      "col": 0,
+      "expectedSuccess": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2,
+      "timeout": 15
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.emptyWaitSeconds",
+      "equals": 90
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopActivity",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopPlantKills",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeAimRemaining",
+      "atLeast": 5
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "during_aim",
+      "budgetsMs": []
+    },
+    {
+      "op": "dump_state",
+      "name": "before_reload.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "aiming_trial"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "aiming_trial"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "selectedTimeScaleOn1000",
+      "equals": 5000
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 910
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.spent",
+      "equals": 108
+    },
+    {
+      "op": "dump_state",
+      "name": "after_reload.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 7,
+      "timeout": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeTargetID",
+      "equals": -1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeCooldownRemaining",
+      "atLeast": 40
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopPlantKills",
+      "equals": 0
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "during_cooldown",
+      "budgetsMs": []
+    },
+    {
+      "op": "dump_state",
+      "name": "skill_finished.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 46,
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.strikeCooldownRemaining",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "precision_cycle_finished.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "failed_trial"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "failed_trial"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "selectedTimeScaleOn1000",
+      "equals": 5000
+    },
+    {
+      "op": "dump_state",
+      "name": "failed_after_reload.json"
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "paused_before.json"
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "paused_after.json"
+    },
+    {
+      "op": "key",
+      "name": "space"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "paused",
+      "equals": false
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 1000000
+      }
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 1,
+      "col": 0
+    },
+    {
+      "op": "damage_plant",
+      "row": 1,
+      "col": 0,
+      "damage": 100000,
+      "source": "ZOMBIE"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopPlantKills",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.enemyIce",
+      "equals": 1000000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "squish_plant",
+      "row": 3,
+      "col": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.troopPlantKills",
+      "equals": 2
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "emptyWaitSeconds": 17,
+        "stallStartTroopPlantKills": 999999
+      }
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2,
+      "timeout": 15
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.emptyWaitSeconds",
+      "equals": 17
+    },
+    {
+      "op": "assert_state",
+      "path": "coldStorage.stallStartTroopPlantKills",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "final.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

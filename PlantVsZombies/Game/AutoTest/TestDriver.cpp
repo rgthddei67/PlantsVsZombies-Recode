@@ -10,6 +10,8 @@
 #include "Game/AI/ColdStoragePlanner.h"
 #include "Game/AI/ColdStoragePlanEvaluator.h"
 #include "TestDriver.h"
+#include "CobSparringVisibility.h"
+#include "Game/AI/ColdStorageSearch.h"
 #include "../../GameApp.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
@@ -162,6 +164,69 @@
 #include <SDL2/SDL.h>
 
 namespace {
+	/** 信息试探的假设上界与原最坏评分并列，不能把假想产出显示为实战回款。 */
+	nlohmann::json TrialDecisionJson(const ColdStorageSearch::TrialDiagnostics& value) {
+		return {{"signature",value.signature},{"bill",value.bill},{"cap",value.cap},{"removedCounters",value.removedCounters},
+			{"robustScore",value.robustScore},{"robustCash",value.robustCash},{"robustPlantAssets",value.robustPlantAssets},
+			{"potentialCash",value.potentialCash},{"potentialPlantAssets",value.potentialPlantAssets},
+			{"robustBreach",value.robustBreach},{"potentialBreach",value.potentialBreach},
+			{"complete",value.complete},{"selected",value.selected},
+			{"reason",ColdStorageSearch::TrialRejectReasonName(value.reason)},
+			{"historyReason",ColdStorageTrials::ReasonName(value.historyReason)}};
+	}
+	/** 公开机会的完整适用包络；逐卡覆盖档必须保留，不能只看全场总兵价。 */
+	nlohmann::json ObservedContextJson(const ColdStorageResponse::Context& value) {
+		return {{"readyPaidAreaMask",value.readyPaidAreaMask},{"exposedCapitalBand",value.exposedCapitalBand},
+			{"nearestThreatBand",value.nearestThreatBand},{"readyFreeAreaCount",value.readyFreeAreaCount},
+			{"economicPresent",value.economicPresent},{"complexPresent",value.complexPresent},
+			{"coveredCapitalBands",value.coveredCapitalBands},{"legalPaidAreaMask",value.readyPaidAreaMask},
+			{"learnablePaidAreaMask",value.learnablePaidAreaMask},{"uncoveredCapitalBand",value.uncoveredCapitalBand},
+			{"uncoveredCoveredCapitalBands",value.uncoveredCoveredCapitalBands},
+			{"committedCoveragePresent",value.committedCoveragePresent}};
+	}
+	/** 当前和搜索捕获的证据使用同一格式，只读导出，不推进窗口或补造非响应样本。 */
+	nlohmann::json ObservedResponseJson(const ColdStorageResponse::Forecast& value) {
+		nlohmann::json out={{"revision",value.revision},{"sampledAt",value.sampledAt},
+			{"currentExposureSeconds",value.currentExposureSeconds},{"currentOpportunity",value.currentOpportunity},
+			{"sourceExposureSeconds",value.sourceExposureSeconds},{"currentContext",ObservedContextJson(value.currentContext)},
+			{"profiles",nlohmann::json::array()}};
+		for(const auto& profile:value.profiles) out["profiles"].push_back({{"context",ObservedContextJson(profile.context)},
+			{"windowSeconds",profile.windowSeconds},{"weight",profile.weight},{"encounters",profile.encounters},
+			{"nonResponses",profile.nonResponses},{"allowWeakTransfer",profile.allowWeakTransfer}});
+		return out;
+	}
+	/** 行为排序单列诊断；保留原完整最坏世界差额，无证据和未完成也明确输出失败原因。 */
+	nlohmann::json ObservedDecisionJson(const ColdStorageSearch::ObservedDecisionDiagnostics& value) {
+        nlohmann::json candidate=nlohmann::json::array();
+        for(const auto& member:value.candidate) candidate.push_back({{"type",member.type},{"row",member.row},{"cost",member.cost},
+            {"delay",member.delay},{"future",member.future}});
+		nlohmann::json reasons=nlohmann::json::array();
+		if(value.profiles==0) reasons.push_back("no_profile");
+		if(value.incomplete>0) reasons.push_back("incomplete");
+		if(value.valueRejected>0) reasons.push_back("value");
+		if(value.capitalRejected>0) reasons.push_back("capital");
+		if(value.allowanceRejected>0) reasons.push_back("risk_allowance");
+		if(value.profiles>0 && value.evaluated==0 && value.incomplete==0) reasons.push_back("not_evaluated");
+		return {{"candidate",std::move(candidate)},{"profiles",value.profiles},{"evaluated",value.evaluated},{"incomplete",value.incomplete},
+			{"valueRejected",value.valueRejected},{"capitalRejected",value.capitalRejected},{"allowanceRejected",value.allowanceRejected},
+			{"selected",value.selected},{"phased",value.phased},{"revision",value.revision},
+			{"outcome",value.selected ? "selected" : value.evaluated>0 ? "incumbent_retained" : "not_evaluated"},
+			{"rejectReasons",std::move(reasons)},{"windowSeconds",value.windowSeconds},{"weight",value.weight},
+			{"riskCap",value.riskCap},{"plannedBill",value.plannedBill},{"robustDelta",value.robustDelta},
+			{"behaviorDelta",value.behaviorDelta},{"combinedDelta",value.combinedDelta},{"incumbentDelta",value.incumbentDelta},
+			{"behaviorFutureWorldsPurchased",value.behaviorFutureWorldsPurchased},
+            {"robustDelayedWorlds",value.robustDelayedWorlds},{"behaviorDelayedWorlds",value.behaviorDelayedWorlds},
+			{"behaviorFutureSpent",value.behaviorFutureSpent},{"behaviorFuturePurchasedAt",value.behaviorFuturePurchasedAt}};
+	}
+	/** 同局面诊断和实战取证共用完整进攻覆盖，生成过但未积分的候选不计数。 */
+	nlohmann::json AssaultTimingJson(const ColdStorageSearch::AssaultSearchDiagnostics& value) {
+		return {{"continuationEvaluated",value.continuationEvaluated},{"continuationUnavailable",value.continuationUnavailable},{"continuationValueRejected",value.continuationValueRejected},
+			{"continuationCapitalRejected",value.continuationCapitalRejected},{"timingEvaluated",value.timingEvaluated},{"jointEvaluated",value.jointEvaluated},
+			{"jointLargestPlan",value.jointLargestPlan},{"jointAfterStrike",value.jointAfterStrike},
+			{"jointValueRejected",value.jointValueRejected},{"jointRegroupRejected",value.jointRegroupRejected},
+			{"jointCapitalRejected",value.jointCapitalRejected},{"jointDeepSearches",value.jointDeepSearches},
+			{"jointProposalsRetained",value.jointProposalsRetained}};
+	}
 	/** 导出实际现金估值输入，供脚本独立复算；不把算法自行报告的倍率当成验证依据。 */
 	nlohmann::json CapitalInputsJson(const ColdStorageSearch::CapitalUtilityInputs& inputs) {
 		return {{"budget",inputs.budget},{"capacity",inputs.capacity},{"recoveryReserve",inputs.recoveryReserve},
@@ -767,6 +832,27 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mAdventureEntryNotices = j.value("adventureEntryNotices", false);
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
+    mCommanderObservedRisk = j.value("commanderObservedRisk",true);
+    mCommanderRawWorldCache = j.value("commanderRawWorldCache",true);
+	mCommanderCombatTrace = j.value("commanderCombatTrace",false);
+	const int combatLimit=j.value("commanderCombatRecordLimit",50000);
+	if(combatLimit<1 || combatLimit>200000) return false;
+	mCommanderCombatLimit=static_cast<std::size_t>(combatLimit);
+	// 仅保留运行器声明的启动种子，不把 GameRandom::GetSeed 当作实际随机流状态。
+	mCommanderDeclaredRunnerSeed=j.value("commanderRunnerSeed",nlohmann::json{});
+	if(!mCommanderDeclaredRunnerSeed.is_null() && !mCommanderDeclaredRunnerSeed.is_number_unsigned()
+		&& !mCommanderDeclaredRunnerSeed.is_number_integer()) return false;
+	const auto capture=j.value("commanderCombatCapture",nlohmann::json::object());
+	if(!capture.is_object()) return false;
+	mCommanderCaptureMinimumJacks=capture.value("minimumEliteJacks",0);
+	mCommanderCaptureMinimumEconomicUnits=capture.value("minimumEconomicUnits",0);
+	mCommanderCaptureMinimumCost=capture.value("minimumCost",0);
+	mCommanderCaptureMaximum=capture.value("maxCaptures",0);
+	if(mCommanderCaptureMinimumJacks<0 || mCommanderCaptureMinimumEconomicUnits<0 || mCommanderCaptureMinimumCost<0
+		|| mCommanderCaptureMaximum<0 || mCommanderCaptureMaximum>8
+		|| (mCommanderCaptureMaximum>0 && (!mCommanderCombatTrace
+			|| (mCommanderCaptureMinimumJacks<1 && mCommanderCaptureMinimumEconomicUnits<1)
+			|| (mCommanderCaptureMinimumEconomicUnits>0 && !mCommanderForecastTrace)))) return false;
 	mCommanderFuelAwareLamp = j.value("commanderFuelAwareLamp",true);
 	mCommanderExperiencedFormations=j.value("commanderExperiencedFormations",true);
 	mCommanderPreservePaidQueue = j.value("commanderPreservePaidQueue",false);
@@ -832,6 +918,9 @@ void TestDriver::WriteStatus(const char* status, const std::string& detail) {
 		{ "commandIndex", mIndex },
 	};
 	if (!detail.empty()) value["detail"] = detail;
+	if(mCommanderCombatTrace) value["combatTrace"]={{"enabled",true},{"truncated",mCommanderCombatTruncated},
+		{"recordingFailed",mCommanderCombatFailed},{"records",mCommanderCombatRecordCount},
+		{"path","commander_combat_trace.json"}};
 	if (mInteractiveReady) {
 		value["humanObservation"] = mHumanObservation;
 		value["humanRecordingFailed"] = mHumanRecordingFailed;
@@ -844,6 +933,7 @@ void TestDriver::WriteStatus(const char* status, const std::string& detail) {
 }
 
 void TestDriver::Fail(const std::string& reason) {
+	FlushCommanderCombatTrace();
 	const std::string op = (mIndex < mCommands.size())
 		? mCommands[mIndex].value("op", "?") : "?";
 	Log("FAIL at cmd#" + std::to_string(mIndex) + " (" + op + "): " + reason);
@@ -855,6 +945,7 @@ void TestDriver::Fail(const std::string& reason) {
 }
 
 void TestDriver::Finish() {
+	FlushCommanderCombatTrace();
 	Log("script finished OK");
 	mExitCode = 0;
 	WriteStatus("passed");
@@ -1003,6 +1094,9 @@ bool TestDriver::ExecuteCurrent() {
 		nlohmann::json report = {{"seed",probe.seed},{"weights",probe.weights},
 			{"budget",probe.snapshot.budget},{"capitalRiskAllowance",probe.snapshot.capitalRiskAllowance},
 			{"options",probe.snapshot.options.size()},{"branches",nlohmann::json::array()}};
+		report["observedResponse"]=ObservedResponseJson(probe.snapshot.observedResponse);
+		report["groundFallback"]={{"probeBudget",probe.snapshot.fallbackProbeBudget},{"allIn",probe.snapshot.fallbackAllIn},
+			{"troopActivity",board->HasColdStorageTroopActivity()}};
 		// 暴露本次数值快照的反制时序与生产边界，用于重载真实局面后定位预测误差。
 		report["playerResources"]={{"sun",probe.snapshot.playerSun},{"ice",probe.snapshot.playerIce},
 			{"incomingIce",probe.snapshot.incomingIce},{"incomingIceAt",probe.snapshot.incomingIceAt}};
@@ -1043,6 +1137,7 @@ bool TestDriver::ExecuteCurrent() {
 			const int workers=compareWorkers ? (repeat%2 ? 2-order : 1+order) : 1;
 			const auto seed=probe.seed+static_cast<unsigned>(repeat)*31;
 			auto state = probe.snapshot;
+			if(!cmd.value("cobRebuild",true)) std::erase_if(state.construction,[](const auto& card){return card.cob.damage>0;});
 			state.experiencedFormations=cmd.value("experiencedFormations",probe.snapshot.experiencedFormations);
 			if (relaxRisk) state.capitalRiskAllowance = (std::numeric_limits<float>::max)();
 			const auto begin = std::chrono::steady_clock::now();
@@ -1069,6 +1164,7 @@ bool TestDriver::ExecuteCurrent() {
 				{"routeEvaluated",result.routeEvaluated},{"combinationEvaluated",result.combinationEvaluated},
 				{"assaultEvaluated",result.assaultEvaluated},{"proposalEvaluated",result.proposalEvaluated},
 				{"experiencedEvaluated",result.experiencedEvaluated},{"experiencedSelected",result.experiencedSelected},
+				{"experiencedAshEvaluated",result.experiencedAshEvaluated},{"experiencedAshSelected",result.experiencedAshSelected},
 				{"reinforcementEvaluated",result.reinforcementEvaluated},
 				{"spreadCohortEvaluated",result.spreadCohortEvaluated},
 				{"precisionTargetID",result.precisionTargetID},
@@ -1080,6 +1176,8 @@ bool TestDriver::ExecuteCurrent() {
 				{"score",result.score},{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 				{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 				{"expanded",result.expandedForecast},{"precisionEvaluated",result.precisionEvaluated},
+				{"assaultTiming",AssaultTimingJson(result.assaultDiagnostics)},
+				{"observedDecision",ObservedDecisionJson(result.observedDecision)},{"trialDecision",TrialDecisionJson(result.trialDiagnostics)},
 				{"widestComposition",result.widestComposition},
 				{"queueEvaluated",queue.evaluated},{"actions",actions}});
 		}
@@ -1087,6 +1185,12 @@ bool TestDriver::ExecuteCurrent() {
 		if(cmd.contains("candidatePlans")) {
 			report["candidatePlans"]=nlohmann::json::array();
 			report["legalOptions"]=nlohmann::json::array();
+			report["cobConstructionOptions"]=nlohmann::json::array();
+			for(const auto& card:probe.snapshot.construction) if(card.cob.damage>0 || card.plant.cobBaseEligible)
+				report["cobConstructionOptions"].push_back({{"type",card.plant.actualType},{"row",card.plant.row},{"column",card.plant.column},
+					{"source",card.source},{"sunCost",card.sunCost},{"iceCost",card.iceCost},{"ready",card.ready},{"recharge",card.recharge},
+					{"firstReady",card.cob.firstReady},{"footprintColumns",card.plant.footprintColumns},{"requiresBase",card.requiredBaseKind}});
+
 			for(const auto& option:probe.snapshot.options) if(option.device<0)
 				report["legalOptions"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))},
 					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},
@@ -1100,7 +1204,16 @@ bool TestDriver::ExecuteCurrent() {
 					{"birthCanClimb",option.unit.ladderClimb.eligible},
 					{"birthHeadThreshold",option.unit.temporalStopHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
-				auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
+					auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
+				state.traceCombat=request.value("combatTrace",false);
+                state.visibleCounterResponse=request.value("visibleCounterResponse",true);
+                state.diagnosticJackTargetMode=request.value("diagnosticJackTargetMode",0);
+                state.diagnosticVisibleCounterWitness=request.value("diagnosticVisibleCounterWitness",false);
+                if(state.diagnosticJackTargetMode<0 || state.diagnosticJackTargetMode>2) {
+                    Fail("compare_commander_search: invalid diagnostic jack mode"); return false;
+                }
+				// 只读因果对照仅移除升级响应；不写正式策略，也不改变真实玩家或对局。
+				if(!request.value("cobRebuild",true)) std::erase_if(state.construction,[](const auto& card){return card.cob.damage>0;});
 				// 编队诊断默认明确采用完整时域；可显式选小队阶段，报告中保留阶段避免混比。
 				state.searchVersion=request.value("searchVersion",2);
 				if(state.searchVersion!=1 && state.searchVersion!=2) {
@@ -1129,7 +1242,11 @@ bool TestDriver::ExecuteCurrent() {
 				}
 				const auto result=ColdStorageSearch::EvaluateCandidate(state,probe.weights,plan);
 				nlohmann::json item={{"name",request.value("name","")},{"legal",true},{"expanded",result.expandedForecast},{"score",result.score},
-					{"searchVersion",result.expandedForecast ? 2 : state.searchVersion},
+					{"observedDecision",ObservedDecisionJson(result.observedDecision)},{"trialDecision",TrialDecisionJson(result.trialDiagnostics)},
+					{"searchVersion",result.expandedForecast ? 2 : state.searchVersion},{"cobRebuild",request.value("cobRebuild",true)},
+                    {"visibleCounterResponseEnabled",state.visibleCounterResponse},{"visibleCounterResponseSelected",result.construction.visibleCounterResponse},
+                    {"diagnosticJackTargetMode",state.diagnosticJackTargetMode},{"diagnosticVisibleCounterWitness",state.diagnosticVisibleCounterWitness},
+                    {"effectiveWeights",result.effectiveWeights},{"opponentWeight",state.opponentWeight},
 					{"features",result.features},{"baselineFeatures",result.baselineFeatures},
 					{"opponentAssets",result.opponentAssets},{"baselineOpponentAssets",result.baselineOpponentAssets},
 					{"engineerBlocks",result.construction.engineerBlocks},{"clockRevivals",result.construction.clockRevivals},
@@ -1140,12 +1257,22 @@ bool TestDriver::ExecuteCurrent() {
                     {"jackBoxHits",result.construction.jackBoxHits},{"magneticExtractions",result.construction.magneticExtractions},
                     {"healerCasts",result.construction.healerCasts},{"healerRecipients",result.construction.healerRecipients},
                     {"healerAmount",result.construction.healerAmount},
+					{"cobUpgrades",result.construction.cobUpgrades},{"constructedCobShots",result.construction.constructedCobShots},
+					{"cobTransferredAssets",result.construction.cobTransferredAssets},
 					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
 					{"catapultBlocks",result.construction.catapultBlocks},
 					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
 					{"protectionProgress",result.construction.workerProtectionProgress},
 					{"paidCounterCasts",result.construction.paidCounterCasts},{"rawProduction",result.rawProduction},
+					{"counterHoldSeconds",result.counterHoldSeconds},
+					{"playerEconomy",{{"planted",result.construction.planted},{"exchanges",result.construction.exchanges},
+						{"orders",result.construction.orders},{"sunSpent",result.construction.sunSpent},{"iceSpent",result.construction.iceSpent},
+						{"exchangeSun",result.construction.exchangeSun},{"exchangeIce",result.construction.exchangeIce},
+						{"orderSun",result.construction.orderSun},{"orderIce",result.construction.orderIce},{"pendingIce",result.construction.pendingIce},
+						{"counterSpaceReserved",result.construction.counterSpaceReserved},{"counterShovels",result.construction.counterShovels},
+						{"counterShovelAssets",result.construction.counterShovelAssets},{"paidDefensesRetained",result.construction.paidDefensesRetained}}},
 					{"capitalRejected",ColdStorageSearch::ShouldConserveCapital(result,state.budget,state.recoveryReserve,state.capitalRiskAllowance)}};
+				if(state.traceCombat) item["combatTrace"]=CommanderCombatForecast(result.construction);
 				item["workerTrace"]=nlohmann::json::array();
 				for(const auto& point:result.construction.workerTrace)
 					item["workerTrace"].push_back({{"id",point.id},{"row",point.row},{"time",point.at},{"x",point.x},{"health",point.health},{"income",point.income}});
@@ -1153,6 +1280,46 @@ bool TestDriver::ExecuteCurrent() {
 				for(const auto& point:result.construction.counterTrace)
 					item["counterTrace"].push_back({{"time",point.at},{"x",point.x},{"damage",point.damage},
 						{"row",point.row},{"column",point.column},{"clearsCell",point.clearsCell}});
+				if(request.value("compareConstructionResponse",false)) {
+					ColdStorageSearch::ConstructionStats response;
+					const auto features=ColdStorageSearch::Evaluate(state,plan,&response);
+					item["constructionResponse"]={{"features",features},{"opponentAssets",response.opponentAssets},
+						{"planted",response.planted},{"cobUpgrades",response.cobUpgrades},{"constructedCobShots",response.constructedCobShots},
+						{"transferredAssets",response.cobTransferredAssets},{"sunSpent",response.sunSpent},{"iceSpent",response.iceSpent}};
+				}
+				if(request.value("compareReservedFreeCounter",false)) {
+					// 只读完整响应诊断：不替正式搜索选择世界，也不修改玩家或AI的资金。
+					ColdStorageSearch::ConstructionStats response;
+					const auto features=ColdStorageSearch::Evaluate(state,plan,&response,0,0,0,true,false,-1,true,false,true);
+					item["reservedFreeCounter"]={{"features",features},{"opponentAssets",response.opponentAssets},
+						{"planted",response.planted},{"exchanges",response.exchanges},{"orders",response.orders},
+						{"paidCounterCasts",response.paidCounterCasts},{"sunSpent",response.sunSpent},{"iceSpent",response.iceSpent},
+						{"exchangeSun",response.exchangeSun},{"exchangeIce",response.exchangeIce},{"orderSun",response.orderSun},
+						{"orderIce",response.orderIce},{"pendingIce",response.pendingIce}};
+				}
+                if(request.contains("responseMatrix")) {
+                    // 仅显式诊断逐个完整世界。原始特征不冒充生产校准后的正式评分。
+                    if(request.at("responseMatrix").size()>64) { Fail("compare_commander_search: too many responses"); return false; }
+                    item["responseMatrix"]=nlohmann::json::array();
+                    for(const auto& setting:request.at("responseMatrix")) {
+                        ColdStorageSearch::ConstructionStats response;
+                        auto responseState=state;
+                        if(setting.value("preserveFutureInterference",false)) responseState.interferenceAvailable=false;
+                        const auto features=ColdStorageSearch::Evaluate(responseState,plan,&response,
+                            setting.value("counterHold",0.0f),setting.value("storedHold",0.0f),setting.value("strikeHold",0.0f),
+                            setting.value("reserve",false),setting.value("clearFog",false),setting.value("lampGear",-1),
+                            setting.value("manualHold",false),setting.value("shovel",false),setting.value("paidHold",false),
+                            setting.value("interferenceFirst",false));
+                        nlohmann::json world={{"settings",setting},{"rawFeatures",features},{"opponentAssets",response.opponentAssets},
+                            {"jackThrows",response.jackThrows},{"jackBoxHits",response.jackBoxHits},{"paidCounterCasts",response.paidCounterCasts},
+                            {"clockRewinds",response.clockRewinds},{"clockRevivals",response.clockRevivals},{"interferences",response.interferences},
+                            {"planted",response.planted},{"cobUpgrades",response.cobUpgrades},{"counterShovels",response.counterShovels},
+                            {"sunSpent",response.sunSpent},{"iceSpent",response.iceSpent},{"productionAfterWindow",response.productionAfterWindow},
+                            {"counterSpaceReserved",response.counterSpaceReserved},{"paidDefensesRetained",response.paidDefensesRetained}};
+                        if(state.traceCombat) world["combatTrace"]=CommanderCombatForecast(response);
+                        item["responseMatrix"].push_back(std::move(world));
+                    }
+                }
 				report["candidatePlans"].push_back(std::move(item));
 			}
 		}
@@ -1236,6 +1403,7 @@ bool TestDriver::ExecuteCurrent() {
 		return mFramesLeft == 0;
 	}
 	if (op == "goto_level") {
+		ResetCommanderCombatScope();
 		if (!cmd.contains("level")) { Fail("goto_level 缺 level 字段"); return false; }
 		const int mineRevision = cmd.value("mineLayoutRevision",mMineLayoutRevision);
 		if (mineRevision < 0 || mineRevision > MineGrid::CurrentLayoutRevision) { Fail("mineLayoutRevision 超出支持范围"); return false; }
@@ -3461,6 +3629,7 @@ bool TestDriver::ExecuteCurrent() {
 	}
 	if (op == "save_level_snapshot") return SaveLevelSnapshot(cmd.value("name",std::string{}));
 	if (op == "reload_level_snapshot") {
+		ResetCommanderCombatScope();
 		const std::string name = cmd.value("name", "");
 		if (!IsSafeSnapshotName(name)) {
 			Fail("reload_level_snapshot: name 只允许 ASCII 字母、数字、_、-，且不能为空");
@@ -5194,6 +5363,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			ice["deploymentTypes"][GameDataManager::GetInstance().ZombieTypeToEnumName(type)] = count;
 		ice["trophySpawned"] = board->mTrophySpawned;
 		ice["candidatesEvaluated"] = board->mColdStorage.candidatesEvaluated;
+        ice["searchRawWorlds"]={{"evaluations",board->mColdStorage.searchRawWorldEvaluations},
+            {"cacheHits",board->mColdStorage.searchRawWorldCacheHits},{"entries",board->mColdStorage.searchRawWorldCacheEntries},
+            {"bytes",board->mColdStorage.searchRawWorldCacheBytes},
+            {"entryLimit",ColdStorageSearch::RawWorldCacheEntryLimit},{"byteLimit",ColdStorageSearch::RawWorldCacheByteLimit}};
 		ice["searchCombination"] = {{"routeEvaluated",board->mColdStorage.searchRouteEvaluated},
 			{"evaluated",board->mColdStorage.searchCombinationEvaluated},
 			{"cohortEvaluated",board->mColdStorage.searchCohortEvaluated},
@@ -5241,6 +5414,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchUnitCandidatesScope"] = "final_formation_before_precision";
 		ice["searchPaidCounterCasts"] = board->mColdStorage.searchPaidCounterCasts;
 		ice["searchPaidDefensesRetained"] = board->mColdStorage.searchPaidDefensesRetained;
+        ice["searchVisibleCounterResponse"] = board->mColdStorage.searchVisibleCounterResponse;
 		if (mCommanderForecastTrace) {
 			ice["searchWorkerTrace"] = nlohmann::json::array();
 			for (const auto& sample : board->mColdStorage.searchWorkerTrace)
@@ -5276,6 +5450,40 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchEliteRemainingUses"] = board->mColdStorage.searchEliteRemainingUses;
 		ice["searchDrumBeats"] = board->mColdStorage.searchDrumBeats;
 		ice["searchDrumRecipients"] = board->mColdStorage.searchDrumRecipients;
+		ice["searchAssaultTiming"] = AssaultTimingJson(board->mColdStorage.searchAssaultTiming);
+		ice["searchObservedDecision"]=ObservedDecisionJson(board->mColdStorage.searchObservedDecision);
+		ice["searchTrialDecision"]=TrialDecisionJson(board->mColdStorage.searchTrialDiagnostics);
+		ice["searchTrialCommit"]={{"checks",board->mColdStorage.trialCommitChecks},
+			{"rejections",board->mColdStorage.trialCommitRejections},{"bookkeepingFailures",board->mColdStorage.trialBookkeepingFailures},
+			{"riskCap",board->mColdStorage.trialCommitRiskCap},
+			{"outstandingPaidCapital",board->mColdStorage.trialCommitOutstandingPaidCapital},
+			{"reason",board->mColdStorage.trialCommitReason}};
+		ice["searchObservedResponse"]=ObservedResponseJson(board->mColdStorage.searchObservedResponse);
+		ice["searchObservedCommit"]={{"checks",board->mColdStorage.searchObservedCommitChecks},
+			{"rejections",board->mColdStorage.searchObservedCommitRejections},{"rejected",board->mColdStorage.searchObservedCommitRejected},
+			{"riskCap",board->mColdStorage.searchObservedCommitRiskCap},
+			{"outstandingPaidCapital",board->mColdStorage.searchObservedCommitOutstandingPaidCapital}};
+		ice["observedResponse"]=ObservedResponseJson(board->mColdStorageResponse.BuildForecast(board->mColdStorage.elapsed));
+        // 此字段在半秒采样节流之前每帧更新，是检查时刻，不能冒充最后一次Observe或证明中间无漏采。
+		ice["observedResponse"]["lastCheckedAt"]=board->mColdStorageResponseLastTime;
+		const auto& observed=board->mColdStorageResponse.LastObservation();
+		auto& observation=ice["observedResponse"]["observation"];
+		observation={{"context",ObservedContextJson(observed.context)},{"eligible",observed.eligible},
+			{"visibleHostiles",observed.visibleHostiles},{"targetSignature",observed.targetSignature},
+			{"targets",nlohmann::json::array()}};
+		for(const auto& target:observed.targets) observation["targets"].push_back({{"id",target.id},{"row",target.row},
+			{"x",target.x},{"y",target.y},{"health",target.health},{"nominalCapital",target.nominalCapital},
+			{"economic",target.economic},{"bitePressure",target.bitePressure},{"committedCovered",target.committedCovered}});
+		ice["cobRebuildForecast"]={{"upgrades",board->mColdStorage.searchCobUpgrades},
+			{"shots",board->mColdStorage.searchConstructedCobShots},{"transferredAssets",board->mColdStorage.searchCobTransferredAssets}};
+
+		ice["assaultObservation"]={{"activeCannons",board->mColdStorage.assaultActiveCannons},
+			{"readyCannons",board->mColdStorage.assaultReadyCannons},{"committedShots",board->mColdStorage.assaultCommittedShots},
+			{"intentActive",board->mColdStorage.assaultIntentActive},{"revision",board->mColdStorage.assaultIntentRevision},
+			{"intentsArmed",board->mColdStorage.assaultIntentsArmed},{"eventReplans",board->mColdStorage.assaultEventReplans},
+			{"followupPurchases",board->mColdStorage.assaultFollowupPurchases},{"followupTroops",board->mColdStorage.assaultFollowupTroops},
+			{"continuationSelected",board->mColdStorage.assaultContinuationSelected}};
+
 		ice["searchPrecisionEvaluated"] = board->mColdStorage.searchPrecisionEvaluated;
 		ice["searchPrecisionTargetID"] = board->mColdStorage.searchPrecisionTargetID;
 		ice["searchPrecisionAdditionalTargetIDs"] = board->mColdStorage.searchPrecisionAdditionalTargetIDs;
@@ -5311,6 +5519,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchCapitalInputs"] = CapitalInputsJson(board->mColdStorage.searchCapitalInputs);
 		ice["searchWidestComposition"]=board->mColdStorage.searchWidestComposition;
 		ice["searchExperiencedEvaluated"]=board->mColdStorage.searchExperiencedEvaluated;
+		ice["searchExperiencedAshEvaluated"]=board->mColdStorage.searchExperiencedAshEvaluated;
+		ice["searchExperiencedAshSelected"]=board->mColdStorage.searchExperiencedAshSelected;
 		ice["searchExperiencedSelected"]=board->mColdStorage.searchExperiencedSelected;
 		ice["stallDiagnosticSaved"]=board->mColdStorage.stallDiagnosticSaved;
 		ice["stallDiagnosticPath"]=board->mColdStorage.stallDiagnosticPath;
@@ -5383,6 +5593,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICEMINT", false)
 			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICE_MINT_CRYSTAL", false)
 			&& ResourceManager::GetInstance().GetTexture("IMAGE_ICE_WORKER_MACHINE", false);
+		ice["troopActivity"] = board->HasColdStorageTroopActivity();
 		ice["commanderMode"] = board->mColdStorage.commanderMode;
 		ice["commanderBudget"] = board->mColdStorage.commanderBudget;
 		ice["commanderSpent"] = board->mColdStorage.commanderSpent;
@@ -6194,6 +6405,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			if (!card) continue;
 			Transform* transform = card->GetTransform();
 			if (!transform) continue;
+			const double recharge = board->GetPlantCardRechargeMultiplier(card->GetGameplayPlantType());
 			nlohmann::json cardState = {
 				{ "type", PlantTypeName(card->GetPlantType()) },
 				{ "gameplayType", PlantTypeName(card->GetGameplayPlantType()) },
@@ -6206,6 +6418,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				{ "cooldown", card->IsCooldown() },
 				{ "sunCost", card->GetSunCost() },
 				{ "cooldownRemainingMs", static_cast<int>(std::lround(card->GetCooldownTimer() * 1000.0f)) },
+				// 原字段保留基础工作量；有效秒数读取与真实冷却/预测相同的逐卡倍率。
+				{ "rechargeMultiplier", recharge },
+				{ "cooldownEffectiveRemainingMs", static_cast<int>(std::lround(card->GetCooldownTimer() / recharge * 1000.0)) },
+				{ "cooldownEffectiveTimeMs", static_cast<int>(std::lround(card->GetCooldownTime() / recharge * 1000.0)) },
 			};
 			if (card->GetPlantType() == PlantType::PLANT_IMITATER) {
 				cardState["imitaterTarget"] = PlantTypeName(card->GetImitaterTarget());
@@ -6729,7 +6945,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["eliteScaredyShroomTotalPlantLimit"] = board->GetEliteScaredyShroomTotalPlantLimit();
 	out["activeEliteScaredyShrooms"] = board->GetActiveEliteScaredyShroomCount();
 	out["coldStorageBonusSelectActive"] = gs->IsColdStorageBonusSelectActive();
-	out["plantCardRechargeMultiplier"] = board->GetPlantCardRechargeMultiplier();
+	// 兼容旧通用卡槽诊断；具体卡片（含炮卡）以 cards 的逐卡倍率为准。
+	out["plantCardRechargeMultiplier"] = board->GetPlantCardRechargeMultiplier(PlantType::NUM_PLANT_TYPES);
 	// 出怪池不分模式都 dump：冒险关卡验证 spawnlists.json 也要抓手（原先只在生存模式导出）
 	out["spawnList"] = nlohmann::json::array();
 	bool spawnListHasBobsledTeam = false;
@@ -7150,6 +7367,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		const Vector pos = z->GetPosition();
 		const float terrainY = board->GetZombieSpawnY(z->mRow, pos.x);
 		const auto anim = z->GetAnimatorInternal();
+		// 陪练只接受最近真实绘制的非透明屏内像素；原始屏外坐标不能变成免费观察。
+		nlohmann::json publicCobAim = nullptr;
+		if (anim && anim->GetAlpha() >= 0.5f && !z->IsDying() && !z->IsMindControlled()
+			&& z->mBodyHealth > 0 && z->CanBeAffectedByCobCannonExplosion()
+			&& !board->IsZombieObscuredByFog(z)) {
+			const auto& probe = anim->GetLastRenderProbe();
+			if (probe.hasPublicOpaqueWitness && CobSparringVisibility::IsFresh(
+				probe.drawUnscaledTime, DeltaTime::GetUnscaledTotalTime())) {
+				publicCobAim = {{"x", std::clamp(static_cast<int>(std::floor(probe.publicWitnessX)),
+					0, SCENE_WIDTH - 1)}, {"row", z->mRow}};
+			}
+		}
 		const auto* zombieShadow = z->GetShadow();
 		float colliderCenterX = pos.x;
 		if (const ColliderComponent* collider = z->GetColliderComponent()) {
@@ -7208,6 +7437,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "roofMarshalAssaultFlagVisible", z->IsRoofMarshalAssaultFlagVisible() },
 			{ "helmType", ZombieHelmTypeName(z->mHelmType) },
 			{ "helmHealth", z->mHelmHealth }, { "shieldHealth", z->mShieldHealth },
+			{ "publicCobAim", publicCobAim },
 			{ "cobBlastTargetable", z->CanBeAffectedByCobCannonExplosion() && !z->IsMindControlled() && !z->IsDying() },
 			{ "helmMaxHealth", z->mHelmMaxHealth }, { "shieldMaxHealth", z->mShieldMaxHealth },
 			{ "fireResistant", z->IsFireResistant() },

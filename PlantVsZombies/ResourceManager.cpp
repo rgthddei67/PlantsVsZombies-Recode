@@ -3,6 +3,7 @@
 #include "./Renderer/RenderBackend.h"
 #include "Logger.h"
 #include "FileManager.h"
+#include "GameApp.h"
 #include <algorithm>
 #include <atomic>
 #include <cctype>
@@ -10,11 +11,30 @@
 #include <mutex>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 ResourceManager* ResourceManager::instance = nullptr;
 
 namespace {
+	/** AutoTest 只读保留上传前的真实 alpha；不改变源表面、GPU 纹理或普通游戏分配。 */
+	void CaptureAutoTestAlpha(Texture& texture, SDL_Surface* surface) {
+		constexpr std::uint64_t kMaximumAlphaPixels = 4 * 1024 * 1024; // 单图诊断遮罩像素上限；超大图不提供证据
+		if (!GameAPP::mAutoTestMode || !surface || surface->w <= 0 || surface->h <= 0
+			|| surface->format->format != SDL_PIXELFORMAT_ABGR8888) return;
+		const auto count = static_cast<std::uint64_t>(surface->w) * surface->h;
+		if (count > kMaximumAlphaPixels || SDL_LockSurface(surface) != 0) return;
+		texture.autoTestAlpha.resize(static_cast<std::size_t>(count));
+		for (int y = 0; y < surface->h; ++y) {
+			const auto* row = reinterpret_cast<const Uint32*>(
+				static_cast<const Uint8*>(surface->pixels) + y * surface->pitch);
+			for (int x = 0; x < surface->w; ++x)
+				texture.autoTestAlpha[static_cast<std::size_t>(y) * surface->w + x]
+					= static_cast<std::uint8_t>((row[x] & surface->format->Amask) >> surface->format->Ashift);
+		}
+		SDL_UnlockSurface(surface);
+	}
+
 	// worker 线程可安全调用：只做 打开→解码→转 ABGR8888，不碰共享状态、不打日志。
 	// 失败时 surface==nullptr，error 携带与旧 LoadTexture 逐字一致的日志文案，由主线程统一输出。
 	struct DecodedImage {
@@ -188,6 +208,7 @@ const Texture* ResourceManager::UploadDecodedTexture(SDL_Surface* converted, con
 	Texture tex;
 	tex.width = converted->w;
 	tex.height = converted->h;
+	CaptureAutoTestAlpha(tex, converted);
 
 	if (mTextureBackend) {
 		pvz::RenderTexture* uploaded = mTextureBackend->CreateTextureRGBA8(converted->w, converted->h, converted->pixels);
@@ -200,7 +221,7 @@ const Texture* ResourceManager::UploadDecodedTexture(SDL_Surface* converted, con
 	}
 	SDL_FreeSurface(converted);
 
-	mTextures[key] = tex;
+	mTextures[key] = std::move(tex);
 	return &mTextures[key];
 }
 
@@ -364,6 +385,7 @@ bool ResourceManager::LoadTiledTexture(const TiledImageInfo& info, const std::st
 			Texture tex;
 			tex.width = tileW;
 			tex.height = tileH;
+			CaptureAutoTestAlpha(tex, tileSurface);
 			if (mTextureBackend) {
 				pvz::RenderTexture* uploaded = mTextureBackend->CreateTextureRGBA8(tileW, tileH, tileSurface->pixels);
 				if (uploaded) {
@@ -378,7 +400,7 @@ bool ResourceManager::LoadTiledTexture(const TiledImageInfo& info, const std::st
 
 			int index = row * info.columns + col;
 			std::string key = baseKey + "_PART_" + std::to_string(index);
-			mTextures[key] = tex;
+			mTextures[key] = std::move(tex);
 
 		}
 	}

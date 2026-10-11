@@ -2,6 +2,7 @@
 #include "ColdStoragePlanEvaluator.h"
 #include <chrono>
 #include <algorithm>
+#include <bit>
 #include <utility>
 
 namespace ColdStorageSearch {
@@ -13,6 +14,17 @@ bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t see
 	work->seed=seed;
 	work->snapshot = std::move(snapshot);
 	work->snapshot.proposals=mProposals; // 仅数值动作副本，每轮重新验证并评分；不允许旧结果直接付款。
+	work->snapshot.searchRound=mSearchRound++;
+	if(mAssaultIntent.Active()) {
+		work->snapshot.assaultIntentRevision=mAssaultIntent.Revision();
+		work->snapshot.searchVersion=2;
+		// 未过门槛的公开变化仍允许正常新搜索；只把真正可触发的后队送入当前钱包重评。
+		// 条件已满足时普通搜索也可重评，不受专用唤醒额度限制。
+		if(mAssaultIntent.Eligible() && (mAssaultIntent.Conditional() || mAssaultIntent.NeedsReplan())) {
+			work->snapshot.assaultContinuation=mAssaultProposals;
+			work->snapshot.assaultContinuationRelativeTiming=mAssaultIntent.Conditional();
+		}
+	}
 	work->weights = weights;
 	// 策略可被测试覆盖/重载，后台不能借用策略单例中的指针。
 	if (work->snapshot.productionCalibration) {
@@ -72,9 +84,64 @@ std::unique_ptr<Planner::Work> Planner::TakeReady() {
 
 void Planner::Cancel() {
 	mProposals.clear(); mProposalCursor=0;
+	ClearAssault(); mSearchRound=0;
 	if (!mWork) return;
 	mWork->cancel.store(true,std::memory_order_relaxed);
 	if (mThread.joinable()) mThread.join();
 	mWork.reset();
+}
+
+bool Planner::ObserveAssault(float now,const AssaultObservation& observation) {
+	mAssaultIntent.Observe(now,observation);
+	if(!mAssaultIntent.Active()) mAssaultProposals.clear();
+	return mAssaultIntent.NeedsReplan() && !mAssaultProposals.empty();
+}
+
+void Planner::RememberAssault(float now,const AssaultObservation& observation,const std::vector<Proposal>& proposals) {
+	mWaitAnchorUsed=false; // 此接口只由已确认的新真实付款调用。
+	mAssaultProposals.clear();
+	for(const auto& proposal:proposals) {
+		if(proposal.size()<4 || proposal.size()>64) continue;
+		mAssaultProposals.push_back(proposal);
+		if(mAssaultProposals.size()==2) break;
+	}
+	if(mAssaultProposals.empty() || (observation.activeSources==0 && observation.committedShots==0)) {mAssaultIntent.Clear(); return;}
+	if(!mAssaultIntent.Arm(now,observation)) mAssaultProposals.clear();
+}
+
+bool Planner::RememberConditionalAssault(float now,const AssaultObservation& observation,const Snapshot& snapshot,
+	const Result& result,bool purchased) {
+	if(!result.phasedPlanning.selected || result.phasedPlanning.evaluated<=0
+		|| result.followupPolicy.actions.empty() || result.followupPolicy.actions.size()>64) return false;
+	if(!purchased && (!result.phasedPlanning.waitSelected || !result.actions.empty() || result.precisionTargetID>0
+		|| mAssaultIntent.Active() || mWaitAnchorUsed)) return false;
+	Proposal proposal;
+	for(const auto& action:result.followupPolicy.actions) {
+		if(action.option<0 || action.option>=static_cast<int>(snapshot.options.size())
+			|| (std::bit_cast<std::uint32_t>(action.delay)&0x7f800000u)==0x7f800000u
+			|| action.delay<0 || action.delay>300) return false;
+		const auto& option=snapshot.options[action.option];
+		if(option.row<0 || option.row>=snapshot.rows || option.unit.body.row!=option.row
+			|| option.device>=0 || !CanForecastFollowup(option)) return false;
+		proposal.push_back({option.type,option.row,-1,0,action.delay});
+	}
+	const auto& policy=result.followupPolicy;
+	const AssaultTrigger trigger{policy.earliestSeconds,policy.expirySeconds,
+		policy.requireObservedCobLaunch,policy.requireShotsClear,policy.maxReadyCobs};
+	if(!mAssaultIntent.ArmConditional(now,observation,trigger)) {
+		mAssaultProposals.clear();
+		return false;
+	}
+	mAssaultProposals={std::move(proposal)};
+	mWaitAnchorUsed=!purchased;
+	return true;
+}
+
+void Planner::CompleteAssaultReview(std::uint64_t revision,bool purchased) {
+	if(revision==0) return;
+	if(purchased && mAssaultIntent.Active() && revision==mAssaultIntent.Revision()) {
+		mAssaultIntent.Clear(); mAssaultProposals.clear();
+		mWaitAnchorUsed=false;
+	} else mAssaultIntent.MarkReplanned(revision);
 }
 }

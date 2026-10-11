@@ -412,6 +412,8 @@ public:
 	 * @return 当前变换矩阵的常量引用
 	 */
 	const glm::mat4& GetCurrentTransform() const { return m_transformStack.back(); }
+	/** 同时读取串行或当前 worker 的实际变换栈，供保守像素取证拒绝额外外层变换。 */
+	bool IsCurrentTransformIdentity() const;
 
 	// ==================== 裁剪栈（屏幕像素矩形，类似 Unity RectMask2D） ====================
 
