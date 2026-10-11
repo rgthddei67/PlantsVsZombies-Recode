@@ -1181,6 +1181,11 @@ bool TestDriver::ExecuteCurrent() {
 				{"widestComposition",result.widestComposition},
 				{"queueEvaluated",queue.evaluated},{"actions",actions}});
 		}
+        report["ferryCurrent"]=nlohmann::json::array();
+        for(const auto& u:probe.snapshot.current) if(u.ferry.present)
+            report["ferryCurrent"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
+                {"enabled",u.ferry.enabled},{"winding",u.ferry.winding},{"remaining",u.ferry.remaining},
+                {"stopHealth",u.ferry.stopBodyHealth},{"health",u.body.health}});
 		// 显式购物车仅作同局面反事实，不加入正式搜索或改变真实采购。
 		if(cmd.contains("candidatePlans")) {
 			report["candidatePlans"]=nlohmann::json::array();
@@ -1202,7 +1207,9 @@ bool TestDriver::ExecuteCurrent() {
 					{"birthCanChill",option.unit.body.canBeChilled},{"birthCanParalyze",option.unit.paralysisAllowed},
 					{"birthLadder",option.unit.ladder.present},{"birthLadderPlacementSeconds",option.unit.ladder.placementSeconds},
 					{"birthCanClimb",option.unit.ladderClimb.eligible},
-					{"birthHeadThreshold",option.unit.temporalStopHealth}});
+					{"birthHeadThreshold",option.unit.temporalStopHealth},
+                    {"birthFerry",option.unit.ferry.present},{"birthFerryRemaining",option.unit.ferry.remaining},
+                    {"birthFerryStopHealth",option.unit.ferry.stopBodyHealth}});
 			for(const auto& request:cmd.at("candidatePlans")) {
 					auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
 				state.traceCombat=request.value("combatTrace",false);
@@ -1261,7 +1268,8 @@ bool TestDriver::ExecuteCurrent() {
 					{"cobTransferredAssets",result.construction.cobTransferredAssets},
 					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
 					{"catapultBlocks",result.construction.catapultBlocks},
-					{"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
+					{"ferryTransfers",result.construction.ferryTransfers},{"ferryPassengers",result.construction.ferryPassengers},
+                    {"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
 					{"protectionProgress",result.construction.workerProtectionProgress},
 					{"paidCounterCasts",result.construction.paidCounterCasts},{"rawProduction",result.rawProduction},
 					{"counterHoldSeconds",result.counterHoldSeconds},
@@ -5443,6 +5451,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchClockOptions"] = board->mColdStorage.searchClockOptions;
 		ice["searchClockAnchors"] = board->mColdStorage.searchClockAnchors;
 		ice["searchClockTargets"] = board->mColdStorage.searchClockTargets;
+		ice["searchFerryTransfers"] = board->mColdStorage.searchFerryTransfers;
+        ice["searchFerryPassengers"] = board->mColdStorage.searchFerryPassengers;
 		ice["searchClockRewinds"] = board->mColdStorage.searchClockRewinds;
 		ice["searchClockRevivals"] = board->mColdStorage.searchClockRevivals;
 		ice["searchClockRedirects"] = board->mColdStorage.searchClockRedirects;

@@ -22,6 +22,7 @@
 #include <iostream>
 #include <stdexcept>
 
+void RunColdStorageFogFerryForecastTests();
 void RunColdStorageHealerForecastTests();
 void RunColdStorageLadderForecastTests();
 void RunColdStorageJackBalloonForecastTests();
@@ -62,6 +63,7 @@ void RunColdStorageTrialPersistenceTests();
 /** Deterministic counterfactuals: triggering splash, existing targets, spacing and paid arrivals. */
 int main()
 {
+	RunColdStorageFogFerryForecastTests();
 	RunColdStorageHealerForecastTests();
 	RunColdStorageLadderForecastTests();
 	RunColdStorageJackBalloonForecastTests();

@@ -1,5 +1,5 @@
 {
-  "description": "Fog ferry entity only: group size, excluded states, vehicles, light, repeated use, save continuity and cancellation. Commander integration deferred.",
+  "description": "Fog ferry entity only: group size, excluded states, vehicles, light, repeated use, save continuity and cancellation. Commander projection/payment has its own fixture.",
   "commands": [
     {
       "op": "goto_level",

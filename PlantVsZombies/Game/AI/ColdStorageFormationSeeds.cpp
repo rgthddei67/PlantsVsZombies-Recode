@@ -1,3 +1,4 @@
+#include "Game/Zombie/FogFerryRules.h"
 #include "ColdStorageFormationSeeds.h"
 #include "ColdStorageSearch.h"
 #include <algorithm>
@@ -11,19 +12,20 @@ constexpr float kGuardHealth = 1000; // 旧经营入口的护卫最低完整生�
 constexpr float kWorkerDelay = 4; // 旧版护卫先行、工人跟进的基准间隔，游戏秒
 constexpr int kMaxSeeds = 96; // 单次搜索经验候选上限；与自由候选共享原时间预算
 constexpr std::array<int,3> kScales{1,2,4}; // 同一编队的小、中、大规模起点，不是必买数量
-constexpr std::array<int,27> kShapeOrder{0,24,17,8,25,20,14,1,26,21,18,15,22,9,12,23,2,10,13,3,11,19,16,4,5,6,7}; // 经营、快攻、射手与炮手掩护交错，紧预算也有机会比较协同
+constexpr std::array<int,31> kShapeOrder{0,27,24,17,28,8,25,20,29,14,1,26,30,21,18,15,22,9,12,23,2,10,13,3,11,19,16,4,5,6,7}; // 经营、快攻、射手与炮手掩护交错，紧预算也有机会比较协同
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
 
 bool Specialist(const Unit& u) {
-    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure || u.floodMortar;
+    return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure || u.floodMortar || u.ferry.present;
 }
 
 /** 同一战术角色保留便宜护卫与厚重前锋两种选择，不依赖固定僵尸枚举。 */
 struct Roles {
     int guard=-1, heavy=-1, worker=-1, engineer=-1, clock=-1, healer=-1, drum=-1;
     int breaker=-1, access=-1, air=-1, fast=-1, ladder=-1, ranged=-1, shooter=-1, mortar=-1;
+    int ferry=-1, ferryVehicle=-1; // 运输者与可运输车辆独立保留，避免巨人挤掉车队候选
     int assaultRunner=-1; // 低于旧护卫血量门槛的独立普通地面突击角色，不替换fast掩护语义
     int ashGuard=-1, deploymentSniper=-1; // 单次灰烬封顶与落种反制是独立能力，不能按总血量混进普通护卫
 };
@@ -112,6 +114,8 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
         if(u.shieldHealth>0 && u.shieldedAshCap>0 && (r.ashGuard<0
             || u.shieldHealth/u.shieldedAshCap/o.cost > s.options[r.ashGuard].unit.shieldHealth
                 /s.options[r.ashGuard].unit.shieldedAshCap/s.options[r.ashGuard].cost)) r.ashGuard=id;
+        if(u.ferry.present) cheapest(r.ferry,id);
+        if(u.vehicleCrush || u.catapult.present) cheapest(r.ferryVehicle,id);
         if(u.engineer) cheapest(r.engineer,id);
         if(u.clock.present) cheapest(r.clock,id);
         if(u.healer.present) cheapest(r.healer,id);
@@ -270,6 +274,31 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
             plan.Add(r.healer,1,2); plan.Add(r.drum,1,2);
         };
         switch(shape) {
+        case 27: case 28: case 29: case 30: {
+            const int cargo=shape==28 ? r.ferryVehicle : shape==29 ? r.shooter : r.heavy;
+            if(r.ferry<0 || cargo<0) continue;
+            const auto& ferry=s.options[r.ferry].unit;const auto& passenger=s.options[cargo].unit;
+            // 按逻辑原点在最右格会合；慢兵先出发，不能假定同批出生能赶上第一次施法。
+            const float rendezvous=s.gridLeft+(s.columns-.25f)*s.cellWidth;
+            const float carrierSpeed=std::max(1.0f,MoveSpeed(ferry,false));
+            const float cargoSpeed=std::max(1.0f,MoveSpeed(passenger,false));
+            const float ready=std::max(FogFerryRules::FirstWait,
+                (ferry.body.x+ferry.body.blastAnchorOffset-rendezvous)/carrierSpeed);
+            const float cargoArrival=std::max(0.0f,(passenger.body.x+passenger.body.blastAnchorOffset-rendezvous)/cargoSpeed);
+            const float ferryDelay=std::max(0.0f,cargoArrival-ready);
+            const float cargoDelay=std::max(0.0f,ready-cargoArrival);
+            plan.Add(r.ferry,1,ferryDelay);plan.Add(cargo,2*scale,cargoDelay);
+            if(shape==30) {
+                const bool fog=s.weatherStation ? s.station.controls[1].value>0 : s.fogLeftColumn<s.columns;
+                const float cooldown=fog ? FogFerryRules::Cooldown : FogFerryRules::ClearCooldown;
+                const float nextX=rendezvous-carrierSpeed*cooldown*(fog ? WeatherStationRules::FogMoveMultiplier : 1);
+                const float arrival=std::max(0.0f,(passenger.body.x+passenger.body.blastAnchorOffset-nextX)/cargoSpeed);
+                const float nextDelay=ferryDelay+ready+FogFerryRules::Windup+cooldown-arrival;
+                if(nextDelay<cargoDelay || nextDelay>kMaxLeadDelay) continue;
+                plan.Add(cargo,2*scale,nextDelay);
+            }
+            break;
+        }
         case 24: case 25: case 26: { // 抗灰前队分两路承压，后援仍靠完整预测判断；护盾不能替邻居挡爆炸。
             if(r.ashGuard<0 || rows.size()<2) continue;
             const auto far=std::max_element(rows.begin(),rows.end(),[&](int a,int b) {

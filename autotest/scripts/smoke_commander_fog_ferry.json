@@ -1,0 +1,301 @@
+{
+  "description": "Explicit fixture: Area 11-6 unlock, real 40-ice queue/payment, unborn/live/channel projection and group transport. Not autonomous strength evidence.",
+  "muteAudio": true,
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 95,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT",
+        "PLANT_PLANTERN"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": true
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        -1,
+        0,
+        0
+      ],
+      "netEconomy": true,
+      "searchVersion": 2
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "before_unlock",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "row": 2,
+      "delay": 10,
+      "expectedSuccess": false
+    },
+    {
+      "op": "goto_level",
+      "level": 96,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT",
+        "PLANT_PLANTERN"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_cold_storage",
+      "state": {
+        "enemyIce": 500,
+        "playerIce": 1000,
+        "decisionRemaining": 600,
+        "decisions": 20
+      }
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": true
+    },
+    {
+      "op": "commander_experiment",
+      "weights": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        -1,
+        0,
+        0
+      ],
+      "netEconomy": true,
+      "searchVersion": 2
+    },
+    {
+      "op": "station_control",
+      "device": 1,
+      "value": 4
+    },
+    {
+      "op": "wait_seconds",
+      "value": 8.5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "birth_options",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        },
+        {
+          "name": "ferry_vehicle",
+          "actions": [
+            {
+              "type": "ZOMBIE_FOG_FERRY",
+              "row": 2
+            },
+            {
+              "type": "ZOMBIE_ZAMBONI",
+              "row": 2,
+              "delay": 10
+            },
+            {
+              "type": "ZOMBIE_ZAMBONI",
+              "row": 2,
+              "delay": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "dump_state",
+      "name": "before_paid.json"
+    },
+    {
+      "op": "queue_ice_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "row": 2,
+      "delay": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "after_paid.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "pending_ferry",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": false
+    },
+    {
+      "op": "wait_seconds",
+      "value": 10.2
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": true
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "live_ferry",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FOG_FERRY",
+      "row": 3,
+      "x": 920,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ZAMBONI",
+      "row": 3,
+      "x": 915,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GARGANTUAR",
+      "row": 3,
+      "x": 920,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.5
+    },
+    {
+      "op": "dump_state",
+      "name": "channel.json"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "channel_ferry",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.5
+    },
+    {
+      "op": "dump_state",
+      "name": "transported.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "transported.png"
+    },
+    {
+      "op": "compare_commander_search",
+      "name": "cooldown_ferry",
+      "budgetsMs": [
+        10
+      ],
+      "candidatePlans": [
+        {
+          "name": "wait",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -184,6 +184,7 @@ struct ColdStorageState {
 	int searchDrumOptions = 0, searchDrumBeats = 0, searchDrumRecipients = 0; // 数值预测，不在正式场景施加效果
 	int searchDeploymentSniperOptions = 0, searchDeploymentShots = 0, searchDeploymentHits = 0; // 落种压制候选与预测弹道，不触发正式射击
 	int searchClockOptions = 0, searchClockAnchors = 0, searchClockTargets = 0; // 钟匠候选和预测锚覆盖，仅诊断
+	int searchFerryTransfers=0, searchFerryPassengers=0; // 本次选案预测运输次数/人数，不作为额外收益
 	int searchClockRewinds = 0, searchClockRevivals = 0, searchClockRedirects = 0; // 预测回溯、复活与界碑拒入，仅诊断
 	int searchEliteReplacementOptions = 0, searchEliteRemainingUses = 0; // 共享累计名额的补菇画像，仅诊断
 	ColdStorageSearch::AssaultSearchDiagnostics searchAssaultTiming; // 完整进攻探索的只读诊断，不入档

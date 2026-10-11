@@ -1,9 +1,12 @@
 #pragma once
 
-/** 雾渡僵尸实体规则；购买与能力预测尚未接入指挥官。 */
+#include <algorithm>
+#include <cmath>
+
+/** 雾渡实体与指挥官共用的时序、购买价格和逻辑格几何。 */
 namespace FogFerryRules {
 inline constexpr int Health = 2200; // 无防具本体基础生命
-inline constexpr int Cost = 40; // 后续指挥官接入时的购买冰价，传送不另收费
+inline constexpr int Cost = 40; // 指挥官购买冰价，传送不另收费
 inline constexpr float FirstWait = 5.0f; // 首次准备游戏秒，不受无雾冷却倍率影响
 inline constexpr float Cooldown = 10.0f; // 有雾时成功传送后的冷却游戏秒
 inline constexpr float ClearCooldown = 15.0f; // 无雾时成功传送后的冷却游戏秒
@@ -13,4 +16,13 @@ inline constexpr int ClearDistance = 3; // 无雾时相对运输者向左传送�
 inline constexpr int ClearLeftColumn = 2; // 无雾最深落点，零基第2列即玩家第3列
 inline constexpr float PulseInterval = 0.25f; // 前摇粒子补发间隔，游戏秒
 inline constexpr int VisualPassengerLimit = 12; // 每次只限制粒子人数，不限制实际运输数量
+/** 只接受对象逻辑原点，不接受碰撞中心或美术偏移。 */
+inline int Column(float x, float left, float width) { return static_cast<int>(std::floor((x-left)/width)); }
+/** 场外不能施法；照明不改变天气雾边界，落点必须比施法者更靠左。 */
+inline int TargetColumn(int source, int fogLeft, int columns) {
+    if(source<0 || source>=columns || columns<=ClearLeftColumn) return -1;
+    const int target=fogLeft<columns ? std::max(0,fogLeft) : std::max(ClearLeftColumn,source-ClearDistance);
+    return target<source ? target : -1;
+}
+inline float LandingX(int column, float left, float width) { return left+(column+.75f)*width; }
 }

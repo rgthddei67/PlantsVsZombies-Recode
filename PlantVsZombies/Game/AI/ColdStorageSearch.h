@@ -117,6 +117,12 @@ struct CatapultAttack {
 	float release=0, duration=0, releaseRemaining=0, remaining=0, damage=0;
 	float animationBase=1; // 品种/词条固有动画倍率；天气、减速、黄金叠层在推演中独立派生
 };
+/** 冷却按游戏秒，光照只改变前摇；临时标记不进入正式存档。 */
+struct FogFerry {
+    bool present=false, enabled=false, winding=false;
+    float remaining=0, stopBodyHealth=0;
+    bool blocksMovement=false, transported=false;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
@@ -142,6 +148,7 @@ struct Unit {
 	Ritual ritual;
 	GoldenDrive goldenDrive;
 	Clock clock;
+    FogFerry ferry;
 	DancerRules::Forecast dance;
 	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和本体掉头阈值；零表示当前阶段不掉头，已有实体由 Board 精确采样
 	bool headless = false; // 推演受伤后的核心状态；时间锚恢复头部，不由治疗或防具回血重新长头
@@ -169,7 +176,8 @@ struct Unit {
 	bool hijackerBoosted=false;
 	float chargeControlImmunity=0, sampledOverload=1; // 引雷免控截止秒、快照已烘焙过载倍率
 	bool hijacker=false, grounding=false, insulator=false, groundHazard=true, paralysisAllowed=true;
-	bool jammer=false; float jammerRemaining=0, overloadRemaining=0;
+	bool jammer=false, jammerChanneling=false; float jammerRemaining=0, jammerReboot=0, overloadRemaining=0;
+    bool ferryPassengerEligible=true; // 活体被缠绕的乘客不参与运输；未来气球/矿工资格由各自阶段判断
 	float rawRainMultiplier=1; // 快照中烘焙的雨势，环境推演逐步替换
 	CatapultAttack catapult;
 	JackBoxRules::Forecast jack;
@@ -316,6 +324,7 @@ struct PhasedSearchDiagnostics {
     float forecastFutureSpent=0, forecastFuturePurchasedAt=-1;
 };
 struct ConstructionStats {
+    int ferryTransfers=0, ferryPassengers=0; // 仅取证，不凭传送次数赠送评分或资源
     FollowupForecast followup;
     int observedDelaySteps=0; // 本完整行为世界真正延后的未提交付费反制候选步数
     int observedCobLaunches=0; // 当前推演中已实际离膛的公开炮击，不依赖诊断追踪开关
@@ -477,6 +486,7 @@ struct Snapshot {
     bool timeLimitedSearch=false; // 仅实时后台按墙钟截止；同步训练维持完整、可重复的搜索次数
     std::chrono::steady_clock::time_point searchDeadline{};
 	bool weatherStation=false;
+    int fogLeftColumn=9; // 非气象站的实际天气雾边界；照明洞不改变落点
 	WeatherStationRules::State station;
 	std::array<float,54> stationFogAlpha{};
 	std::array<float,4> rainZombie{1,1,1,1}, rainPlant{1,1,1,1};

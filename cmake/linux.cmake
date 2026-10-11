@@ -89,6 +89,7 @@ if(BUILD_TESTING)
         PlantVsZombies/Game/AI/ColdStorageSearch.cpp
         PlantVsZombies/Game/AI/ColdStorageHealerForecast.cpp
         PlantVsZombies/Game/AI/ColdStorageLadderForecast.cpp
+        PlantVsZombies/Game/AI/ColdStorageFogFerryForecast.cpp
         PlantVsZombies/Game/AI/ColdStorageFormationSeeds.cpp
         tests/ColdStorageLadderForecastTests.cpp
         tests/ColdStorageHealerForecastTests.cpp
@@ -115,6 +116,7 @@ if(BUILD_TESTING)
         tests/ColdStorageObservedIntegrationTests.cpp
         tests/ColdStorageWorldCacheTests.cpp
         tests/ColdStorageBoundedTrialsTests.cpp
+        tests/ColdStorageFogFerryForecastTests.cpp
         tests/ColdStorageTrialPersistenceTests.cpp
         PlantVsZombies/Game/AI/ColdStoragePhasedPlanning.cpp
         PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp

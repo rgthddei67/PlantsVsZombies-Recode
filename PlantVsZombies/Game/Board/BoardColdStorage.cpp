@@ -1,3 +1,5 @@
+#include "Game/Zombie/WeatherJammerRules.h"
+#include "Game/Zombie/FogFerryZombie.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
@@ -630,6 +632,7 @@ int Board::GetZombieIceCost(ZombieType type) const
 	switch (type) {
 	case Z::ZOMBIE_COLD_CHAIN_GUARD: return 12; // 沿用原默认价，周期修复另付公共冰块
 	case Z::ZOMBIE_BOILER: return 15; // 另有成功超频时的5冰技能费
+	case Z::ZOMBIE_FOG_FERRY: return FogFerryRules::Cost;
 	case Z::ZOMBIE_FLOOD_MORTAR: return FloodMortarRules::Cost;
 	case Z::ZOMBIE_PRESSURE_SHOOTER: return PressureShooterRules::Cost;
 	case Z::ZOMBIE_DISASTER_ENGINEER: return DisasterEngineerRules::Cost;
@@ -1347,6 +1350,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.budget = s.enemyIce;
 		search.weatherStation=IsWeatherStation();
+        search.fogLeftColumn=GetEffectiveFogLeftColumn();
 		if(search.weatherStation) {
 			search.stationWave=mCurrentWave;
 			search.station=mWeatherStation; search.stationCharge=mNightRoofCharge; search.stationOvercharge=mNightRoofOvercharge;
@@ -1743,11 +1747,14 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             }
 			unit.grounding=entity->CanGuideNightRoofCharge();
 			unit.insulator=entity->mZombieType==ZombieType::ZOMBIE_INSULATOR;
-			unit.groundHazard=entity->CanBeAffectedByGroundHazards(); unit.paralysisAllowed=entity->CanBeParalyzed();
+			unit.ferryPassengerEligible=!entity->IsTangleKelpTarget();
+            unit.groundHazard=entity->CanBeAffectedByGroundHazards(); unit.paralysisAllowed=entity->CanBeParalyzed();
 			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
 			if(const auto* jammer=dynamic_cast<const WeatherJammerZombie*>(entity)) {
 				unit.jammer=jammer->GetJammerPhase()!=WeatherJammerZombie::JammerPhase::SPENT;
-				unit.jammerRemaining=jammer->GetJammerPhase()==WeatherJammerZombie::JammerPhase::CHANNELING ? jammer->GetChannelRemaining() : 4.0f+jammer->GetRebootRemaining();
+				unit.jammerChanneling=jammer->GetJammerPhase()==WeatherJammerZombie::JammerPhase::CHANNELING;
+                unit.jammerRemaining=unit.jammerChanneling ? jammer->GetChannelRemaining() : WeatherJammerRules::Channel;
+                unit.jammerReboot=jammer->GetRebootRemaining();
 			}
 			unit.maximumBody=z.bodyMaxHealth; unit.maximumHelm=z.helmMaxHealth; unit.maximumShield=z.shieldMaxHealth;
             unit.boundsY=z.bounds.y-GetCellCenterPosition(z.row,std::clamp(static_cast<int>((z.x-search.gridLeft)/search.cellWidth),0,mColumns-1)).y; unit.boundsHeight=z.bounds.height;
@@ -1797,6 +1804,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			if (const auto* catapult = dynamic_cast<const CatapultZombie*>(entity)) ProjectCatapult(unit,entity->mZombieType,search.gridLeft,search.cellWidth,catapult);
 			if (const auto* adaptive = dynamic_cast<const AdaptiveHelmetZombie*>(entity)) ProjectAdaptation(unit,adaptive);
 			if (const auto* sniper = dynamic_cast<const ThermalSniperZombie*>(entity)) ProjectDeploymentSniper(unit,sniper);
+            if(const auto* ferry=dynamic_cast<const FogFerryZombie*>(entity)) {
+                unit.ferry={true,ferry->GetFerryPhase()!=FogFerryZombie::Phase::DISABLED,
+                    ferry->GetFerryPhase()==FogFerryZombie::Phase::CHANNELING,ferry->GetFerryRemaining(),
+                    static_cast<float>(entity->mBodyMaxHealth/3)};
+            }
             if(const auto* mortar=dynamic_cast<const FloodMortarZombie*>(entity)) {
                 unit.floodMortar=true;unit.floodReload=mortar->GetReloadRemaining();unit.floodStopHealth=entity->mBodyMaxHealth/3;
             }
@@ -2047,7 +2059,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             if(type==Z::ZOMBIE_DOOR || type==Z::ZOMBIE_REINFORCED_DOOR || type==Z::ZOMBIE_LADDER || type==Z::ZOMBIE_ELITE_LADDER) unit.magneticLayer=2;
             if(type==Z::ZOMBIE_DIGGER || type==Z::ZOMBIE_POGO) unit.magneticLayer=3;
 			unit.hijacker=type==ZombieType::ZOMBIE_HIJACKER; unit.grounding=type==ZombieType::ZOMBIE_GROUNDING; unit.insulator=type==ZombieType::ZOMBIE_INSULATOR;
-			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=4;
+			unit.jammer=type==ZombieType::ZOMBIE_WEATHER_JAMMER; unit.jammerRemaining=WeatherJammerRules::Channel;
 			unit.groundHazard=type!=ZombieType::ZOMBIE_BALLOON && type!=ZombieType::ZOMBIE_BUNGEE;
 			unit.rawRainMultiplier=GetZombieRainSpeedMultiplier();
 			const auto& motion = spawnMovement.at(type);
@@ -2066,6 +2078,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				unit.dance.backup=true; unit.dance.phase=DancerRules::Forecast::Phase::HOLD;
 				unit.dance.remaining=DancerRules::HoldSeconds; unit.dance.walkSpeed=backupWalk.lowerQuartile;
 			}
+            if(type==ZombieType::ZOMBIE_FOG_FERRY) unit.ferry={true,true,false,FogFerryRules::FirstWait,static_cast<float>(vitals.body/3)};
             if(type==ZombieType::ZOMBIE_FLOOD_MORTAR) {unit.floodMortar=true;unit.floodStopHealth=vitals.body/3;}
             if(type==ZombieType::ZOMBIE_PRESSURE_SHOOTER) {
                 unit.pressure=true; unit.pressureStopHealth=vitals.body/3;
@@ -3003,6 +3016,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	s.searchCounterHoldSeconds = result.counterHoldSeconds;
 	s.searchPlanternResponseGear = result.construction.planternResponseGear;
 	s.searchFogCounters = result.construction.stationFogCounters;
+    s.searchFerryTransfers=result.construction.ferryTransfers; s.searchFerryPassengers=result.construction.ferryPassengers;
 	s.searchCounterSpaceReserved = result.construction.counterSpaceReserved;
 	s.searchCounterShovels = result.construction.counterShovels;
 	s.searchCounterShovelAssets = result.construction.counterShovelAssets;

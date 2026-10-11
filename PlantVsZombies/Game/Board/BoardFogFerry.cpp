@@ -8,12 +8,7 @@ int Board::GetFogFerryTargetColumn(const Zombie& source) const
 {
     if (source.mRow < 0 || source.mRow >= mRows || mColumns <= FogFerryRules::ClearLeftColumn) return -1;
     const int column = static_cast<int>(std::floor((source.GetPosition().x - CELL_INITALIZE_POS_X) / CELL_COLLIDER_SIZE_X));
-    // 先走入棋盘再停步施法，不能在场外进入无法移动的前摇。
-    if (column < 0 || column >= mColumns) return -1;
-    const int fog = GetEffectiveFogLeftColumn();
-    const int target = fog < mColumns ? fog
-        : std::max(FogFerryRules::ClearLeftColumn, column - FogFerryRules::ClearDistance);
-    return target < column ? target : -1;
+    return FogFerryRules::TargetColumn(column, GetEffectiveFogLeftColumn(), mColumns);
 }
 
 std::vector<int> Board::GetFogFerryPassengers(const Zombie& source) const
@@ -22,7 +17,7 @@ std::vector<int> Board::GetFogFerryPassengers(const Zombie& source) const
     const int target = GetFogFerryTargetColumn(source);
     if (target < 0 || !source.IsActive() || source.IsDying() || source.IsMindControlled()) return result;
     const int sourceColumn = static_cast<int>(std::floor((source.GetPosition().x - CELL_INITALIZE_POS_X) / CELL_COLLIDER_SIZE_X));
-    const float targetX = GetCellCenterPosition(source.mRow, target).x + CELL_COLLIDER_SIZE_X * .25f;
+    const float targetX = FogFerryRules::LandingX(target, CELL_INITALIZE_POS_X, CELL_COLLIDER_SIZE_X);
     for (const int id : mEntityRegistry.GetAllZombieIDs()) {
         const auto* z = mEntityRegistry.GetZombie(id);
         if (!z || z == &source || !z->IsActive() || z->IsDying()
@@ -42,7 +37,7 @@ int Board::CommitFogFerry(const Zombie& source)
     const auto ids = GetFogFerryPassengers(source);
     if (ids.empty()) return 0;
     const int target = GetFogFerryTargetColumn(source);
-    const float targetX = GetCellCenterPosition(source.mRow, target).x + CELL_COLLIDER_SIZE_X * .25f;
+    const float targetX = FogFerryRules::LandingX(target, CELL_INITALIZE_POS_X, CELL_COLLIDER_SIZE_X);
     int moved = 0;
     for (const int id : ids) {
         auto* z = mEntityRegistry.GetZombie(id);

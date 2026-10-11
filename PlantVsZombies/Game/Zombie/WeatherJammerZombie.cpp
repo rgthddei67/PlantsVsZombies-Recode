@@ -1,3 +1,4 @@
+#include "WeatherJammerRules.h"
 #include "WeatherJammerZombie.h"
 
 #include "Game/Board/Board.h"
@@ -9,8 +10,8 @@
 #include <algorithm>
 
 namespace {
-	constexpr float kChannelDuration = 4.0f;              // 停步至全栏目原子提交的游戏秒数
-	constexpr float kRebootDuration = 5.0f;               // 外部打断后允许边走边啃的设备重启时长，单位游戏秒
+	constexpr float kChannelDuration = WeatherJammerRules::Channel;              // 停步至全栏目原子提交的游戏秒数
+	constexpr float kRebootDuration = WeatherJammerRules::Reboot;               // 外部打断后允许边走边啃的设备重启时长，单位游戏秒
 	constexpr float kPanelInterferenceDuration = 30.0f;   // 每次成功提交向整个气象栏目追加的黑障游戏秒数
 	constexpr float kPackAttachOffsetX = 27.0f;            // 背包相对身体稳定锚点的后侧偏移，单位局部 px
 	constexpr float kPackAttachOffsetY = 3.0f;             // 背包相对身体稳定锚点的垂直偏移，单位局部 px

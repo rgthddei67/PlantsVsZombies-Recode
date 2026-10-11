@@ -1,3 +1,5 @@
+#include "ColdStorageFogFerryForecast.h"
+#include "Game/Zombie/FogFerryRules.h"
 #include "Game/Board/NightRoofChargeRules.h"
 #include "ColdStorageSearch.h"
 #include "ColdStoragePlanEvaluator.h"
@@ -3942,6 +3944,7 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
                     unit.balloon.phase=BalloonRules::Phase::FLYING; unit.balloon.health=unit.balloon.maximumHealth;
                     unit.balloon.blowing=false;unit.balloon.blowRemaining=0;unit.groundHazard=false;unit.temporalStopHealth=0;
                 }
+                if(unit.ferry.present) unit.ferry={true,true,false,FogFerryRules::FirstWait,unit.ferry.stopBodyHealth};
                 if(unit.healer.present) { unit.healer=HealerRules::Forecast{}; unit.healer.present=unit.healer.enabled=true; unit.healer.disableBodyHealth=saved.healer.disableBodyHealth; }
                 // 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
 				if(unit.catapult.present) {
@@ -4058,7 +4061,7 @@ struct StationProjection {
     float knownCharge=0, knownRate=0, lastObservation=0;
     int phase=0, row=-1, hijacker=-1, guide=-1;
     bool attempted=false, guided=false;
-    std::array<float,54> fogAlpha{};
+    std::array<float,54> fogAlpha{}, illumination{};
     explicit StationProjection(const Snapshot& s,const std::vector<Action>& plan):state(s.station),
         charge(s.stationCharge),overcharge(s.stationOvercharge),warning(s.stationWarning),jammed(s.stationJammed),
         knownCharge(s.stationJammed>0 ? 0 : s.stationCharge),phase(s.stationChargePhase),row(s.stationRow),
@@ -4178,9 +4181,10 @@ struct StationProjection {
         for(auto& unit:units) if(unit.body.health>0 && unit.body.spawnAt<=t) {
             unit.overloadRemaining=std::max(0.0f,unit.overloadRemaining-kStep);
             if(unit.hijacker && unit.body.health>unit.temporalStopHealth) hasHijacker=true;
+            if(unit.jammerReboot>0) {unit.jammerReboot=std::max(0.0f,unit.jammerReboot-std::max(0.0f,kStep-unit.body.stopped));continue;}
             if(unit.jammer && unit.body.health>unit.temporalStopHealth && unit.body.stopped<=0
                 && unit.body.x+unit.body.boundsOffset+unit.body.boundsWidth<=s.gridLeft+s.columns*s.cellWidth) {
-                unit.jammerRemaining-=kStep; unit.body.stopped=std::max(unit.body.stopped,kStep);
+                unit.jammerChanneling=true;unit.jammerRemaining-=kStep; unit.body.stopped=std::max(unit.body.stopped,kStep);
                 if(unit.jammerRemaining<=0) { jammed=std::min(300.0f,jammed+30); unit.jammer=false; ++stats.stationJams; }
             }
         }
@@ -4196,7 +4200,7 @@ struct StationProjection {
         const int fog=state.controls[1].value;
         const int left=fog==0 ? s.columns : s.columns-3-fog;
         // 先投影存活光源，避免每个格子都重扫完整阵容；无路灯花时不做空的逐株查找。
-        std::array<float,54> illumination{};
+        illumination.fill(0);
         for(auto& p:plants) if(p.plantern && p.health>0) {
             for(auto it=p.lightDeliveries.begin();it!=p.lightDeliveries.end();) {
                 if(it->first<=t) { p.lightFuel=std::min(PlanternRules::FuelCapacity,p.lightFuel+it->second); it=p.lightDeliveries.erase(it); }
@@ -4278,7 +4282,7 @@ bool CanForecastFollowup(const Option& option) {
         && !u.goldenDrive.enabled && !u.clock.present && !u.dance.leader && !u.dance.backup
         && u.throwHealth<=0 && !u.healer.present && !u.catapult.present && !u.jack.present
         && !u.balloon.present && !u.digger.present && !u.ladder.present && !u.jammer
-        && !u.hijacker && !u.pressure && !u.floodMortar;
+        && !u.hijacker && !u.pressure && !u.floodMortar && !u.ferry.present;
 }
 
 /** 条件与成员必须全部合法；付款失败只能继续等待，不能先创建付不起的部分成员。 */
@@ -4847,6 +4851,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         f[6]-=constructionStats.healerRecoveryCredit-healingCredit;
         AdvanceDrums(s,t,units,constructionStats,drumActivity);
 		if (!clockSources.empty()) AdvanceClocks(s,t,units,clockSources,temporalAnchors,clockActivity,constructionStats,interferenceUntil);
+        if(!s.weatherStation) {
+            environment.illumination.fill(0);
+            for(const auto& p:plants) if(p.plantern && p.health>0 && p.lightFuel>0 && p.lightGear!=PlanternGear::OFF)
+                for(int cell=0;cell<s.rows*s.columns;++cell)
+                    environment.illumination[cell]=std::max(environment.illumination[cell],p.illumination[cell]);
+        }
+        const int ferryFog=s.weatherStation ? (environment.state.controls[1].value==0 ? s.columns
+            : s.columns-3-environment.state.controls[1].value) : s.fogLeftColumn;
+        AdvanceFogFerries(s,t,kStep,ferryFog,environment.illumination,units,constructionStats);
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;
@@ -4855,7 +4868,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,followupBegin,riftColumns,initialHealth,initialX,constructionStats);
 			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
 			u.slow = std::max(0.0f, u.slow - kStep);
-			if(danceBlocked[i]) continue;
+			// 被搬走的巨人必须撤销原格未落锤/未脱手动作，已飞行小鬼独立保留。
+            if(worker.ferry.transported) {smash[i]=0;smashTarget[i]=-1;if(i<originalUnits && throwRemaining[i]>0) throwRemaining[i]=-1;}
+            if(danceBlocked[i] || worker.ferry.blocksMovement) continue;
             if(worker.floodMortar && worker.body.health>worker.floodStopHealth && FindFloodTarget(s,worker,plants,t,environment.Rain())>=0) continue;
             if(worker.digger.present) {
                 // 阶段门槛按实体原点；地下只受位移场和鼓舞，不吃地面风雨倍率。
@@ -6637,6 +6652,7 @@ static std::uint64_t TrialCapabilities(const Unit& unit) {
     flag(unit.hijacker);flag(unit.grounding);flag(unit.insulator);flag(unit.jammer);
     flag(unit.pressure);flag(unit.floodMortar);flag(unit.mowerImmune);
     flag(unit.biteDps>0);flag(unit.body.speed>0);flag(unit.blocksShieldBypass);flag(unit.blocksFumePiercing);
+    flag(unit.ferry.present);
     return bits;
 }
 

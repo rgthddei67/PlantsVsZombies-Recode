@@ -416,6 +416,7 @@ if(BUILD_TESTING)
         tests/ColdStorageObservedIntegrationTests.cpp
         tests/ColdStorageWorldCacheTests.cpp
         tests/ColdStorageBoundedTrialsTests.cpp
+        tests/ColdStorageFogFerryForecastTests.cpp
         tests/ColdStorageTrialPersistenceTests.cpp
         PlantVsZombies/Game/AI/ColdStoragePhasedPlanning.cpp
         PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp
@@ -424,6 +425,7 @@ if(BUILD_TESTING)
         PlantVsZombies/Game/AI/ColdStorageObservedForecast.cpp
         ${SRC_DIR}/Game/AI/ColdStorageAssaultTiming.cpp
         ${SRC_DIR}/Game/AI/ColdStorageAssaultIntent.cpp
+        ${SRC_DIR}/Game/AI/ColdStorageFogFerryForecast.cpp
         ${SRC_DIR}/Game/AI/ColdStorageFormationSeeds.cpp)
     target_include_directories(ColdStorageStrategyTests PRIVATE ${SRC_DIR})
     target_compile_options(ColdStorageStrategyTests PRIVATE /utf-8 /W3 /sdl /EHsc)
