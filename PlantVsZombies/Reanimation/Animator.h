@@ -645,9 +645,12 @@ private:
 	std::vector<TrackExtraInfo*> GetTrackExtrasByName(const std::string& trackName);
 	/** 返回全部同名轨道索引，以保持旧接口对重复轨道名的广播语义。 */
 	std::vector<int> GetTrackIndicesByName(const std::string& trackName) const;
-	/** 查询已存在的轨道冷状态；不会在读取路径产生分配。 */
-	SparseTrackState* FindSparseTrackState(int trackIndex);
-	const SparseTrackState* FindSparseTrackState(int trackIndex) const;
+	/** 查询已有冷状态且不分配；返回指针的 const 属性跟随调用对象。 */
+	auto FindSparseTrackState(this auto& self, int trackIndex) {
+		auto& states = self.mSparseTrackStates;
+		const auto it = std::ranges::lower_bound(states, trackIndex, {}, &SparseTrackState::mTrackIndex);
+		return it != states.end() && it->mTrackIndex == trackIndex ? &*it : nullptr;
+	}
 	/** 按轨道索引创建或返回冷状态，并保持容器有序供绘制线性合并。 */
 	SparseTrackState& GetOrCreateSparseTrackState(int trackIndex);
 

@@ -285,6 +285,16 @@ if(BUILD_TESTING)
     pvz_assert_win7_imports(Utf8Tests)
     add_test(NAME utf8-paths COMMAND Utf8Tests)
 
+    add_executable(FileManagerTests tests/FileManagerTests.cpp
+        PlantVsZombies/FileManager.cpp PlantVsZombies/Logger.cpp)
+    target_include_directories(FileManagerTests PRIVATE ${SRC_DIR})
+    target_compile_options(FileManagerTests PRIVATE /W3 /sdl /EHsc)
+    target_link_libraries(FileManagerTests PRIVATE pvz_win7_compat
+        $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
+        nlohmann_json::nlohmann_json pugixml::pugixml)
+    pvz_assert_win7_imports(FileManagerTests)
+    add_test(NAME file-manager COMMAND FileManagerTests)
+
     add_executable(SaveMigrationTests
         tests/SaveMigrationTests.cpp
         PlantVsZombies/SaveMigration.cpp

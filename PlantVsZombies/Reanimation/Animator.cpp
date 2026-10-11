@@ -1058,10 +1058,7 @@ void Animator::SetTrackFollowerImage(const std::string& trackName,
 		SparseTrackState* existing = FindSparseTrackState(trackIndex);
 		if (!image && !existing) continue;
 		SparseTrackState& sparse = existing ? *existing : GetOrCreateSparseTrackState(trackIndex);
-		auto follower = std::find_if(sparse.mFollowers.begin(), sparse.mFollowers.end(),
-			[&followerName](const TrackFollowerState& state) {
-				return state.mName == followerName;
-			});
+		auto follower = std::ranges::find(sparse.mFollowers, followerName, &TrackFollowerState::mName);
 		if (!image) {
 			if (follower != sparse.mFollowers.end()) sparse.mFollowers.erase(follower);
 			continue;
@@ -1099,10 +1096,7 @@ void Animator::SetTrackFollowerVisible(const std::string& trackName,
 	for (const int trackIndex : GetTrackIndicesByName(trackName)) {
 		SparseTrackState* sparse = FindSparseTrackState(trackIndex);
 		if (!sparse) continue;
-		auto follower = std::find_if(sparse->mFollowers.begin(), sparse->mFollowers.end(),
-			[&followerName](const TrackFollowerState& state) {
-				return state.mName == followerName;
-			});
+		auto follower = std::ranges::find(sparse->mFollowers, followerName, &TrackFollowerState::mName);
 		if (follower != sparse->mFollowers.end()) {
 			follower->mVisible = visible && follower->mImage;
 		}
@@ -1244,12 +1238,10 @@ void Animator::DetachAnimator(const std::string& trackName, std::shared_ptr<Anim
 		auto* sparse = FindSparseTrackState(trackIndex);
 		if (!sparse) continue;
 		auto& vec = sparse->mAttachedReanims;
-		vec.erase(std::remove_if(vec.begin(), vec.end(),
-			[&child](const AttachedAnimator& weak) {
-				auto sp = weak.lock();
-				return sp == child || !sp; // 移除指定对象或已失效的
-			}),
-			vec.end());
+		std::erase_if(vec, [&child](const AttachedAnimator& weak) {
+			auto sp = weak.lock();
+			return sp == child || !sp; // 移除指定对象或已失效的
+		});
 	}
 }
 
@@ -1409,11 +1401,7 @@ bool Animator::GetTrackFollowerVisible(const std::string& trackName,
 		const TrackExtraInfo& extra = mExtraInfos[index];
 		const SparseTrackState* sparse = FindSparseTrackState(index);
 		if (!extra.mVisible || !sparse) return false;
-		const auto follower = std::find_if(
-			sparse->mFollowers.begin(), sparse->mFollowers.end(),
-			[&followerName](const TrackFollowerState& state) {
-				return state.mName == followerName;
-			});
+		const auto follower = std::ranges::find(sparse->mFollowers, followerName, &TrackFollowerState::mName);
 		return follower != sparse->mFollowers.end()
 			&& follower->mVisible && follower->mImage;
 	}
@@ -1430,11 +1418,7 @@ bool Animator::GetTrackFollowerInheritsOverlayEffect(const std::string& trackNam
 	const int index = GetFirstTrackIndexByName(trackName);
 	const SparseTrackState* sparse = index >= 0 ? FindSparseTrackState(index) : nullptr;
 	if (!sparse) return false;
-	const auto follower = std::find_if(
-		sparse->mFollowers.begin(), sparse->mFollowers.end(),
-		[&followerName](const TrackFollowerState& state) {
-			return state.mName == followerName;
-		});
+	const auto follower = std::ranges::find(sparse->mFollowers, followerName, &TrackFollowerState::mName);
 	return follower != sparse->mFollowers.end()
 		&& follower->mInheritOverlayEffect;
 }
@@ -1444,11 +1428,7 @@ bool Animator::GetTrackFollowerGlowEffectEnabled(const std::string& trackName,
 	const int index = GetFirstTrackIndexByName(trackName);
 	const SparseTrackState* sparse = index >= 0 ? FindSparseTrackState(index) : nullptr;
 	if (!sparse || !IsGlowEffectEnabledForTrack(index)) return false;
-	const auto follower = std::find_if(
-		sparse->mFollowers.begin(), sparse->mFollowers.end(),
-		[&followerName](const TrackFollowerState& state) {
-			return state.mName == followerName;
-		});
+	const auto follower = std::ranges::find(sparse->mFollowers, followerName, &TrackFollowerState::mName);
 	return follower != sparse->mFollowers.end()
 		&& follower->mVisible && follower->mImage
 		&& follower->mInheritGlowEffect;
@@ -1529,21 +1509,8 @@ std::vector<int> Animator::GetTrackIndicesByName(const std::string& trackName) c
 	return result;
 }
 
-Animator::SparseTrackState* Animator::FindSparseTrackState(int trackIndex) {
-	const auto it = std::lower_bound(mSparseTrackStates.begin(), mSparseTrackStates.end(), trackIndex,
-		[](const SparseTrackState& sparse, int index) { return sparse.mTrackIndex < index; });
-	return it != mSparseTrackStates.end() && it->mTrackIndex == trackIndex ? &*it : nullptr;
-}
-
-const Animator::SparseTrackState* Animator::FindSparseTrackState(int trackIndex) const {
-	const auto it = std::lower_bound(mSparseTrackStates.begin(), mSparseTrackStates.end(), trackIndex,
-		[](const SparseTrackState& sparse, int index) { return sparse.mTrackIndex < index; });
-	return it != mSparseTrackStates.end() && it->mTrackIndex == trackIndex ? &*it : nullptr;
-}
-
 Animator::SparseTrackState& Animator::GetOrCreateSparseTrackState(int trackIndex) {
-	const auto it = std::lower_bound(mSparseTrackStates.begin(), mSparseTrackStates.end(), trackIndex,
-		[](const SparseTrackState& sparse, int index) { return sparse.mTrackIndex < index; });
+	const auto it = std::ranges::lower_bound(mSparseTrackStates, trackIndex, {}, &SparseTrackState::mTrackIndex);
 	if (it != mSparseTrackStates.end() && it->mTrackIndex == trackIndex) return *it;
 	SparseTrackState sparse;
 	sparse.mTrackIndex = trackIndex;

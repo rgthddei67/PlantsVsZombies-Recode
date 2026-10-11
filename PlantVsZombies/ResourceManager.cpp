@@ -253,7 +253,7 @@ size_t ResourceManager::ParallelDecodeAndUpload(const std::vector<TextureJob>& j
 		}
 
 		// 与串行 LoadTexture 相同的去重语义：已存在则跳过（仍算成功）
-		if (mTextures.find(jobs[i].key) != mTextures.end()) {
+		if (mTextures.contains(jobs[i].key)) {
 			if (decoded.surface) SDL_FreeSurface(decoded.surface);
 			++successCount;
 			continue;
@@ -300,7 +300,7 @@ void ResourceManager::UnloadTexture(const std::string& key) {
 }
 
 bool ResourceManager::HasTexture(const std::string& key) const {
-	return mTextures.find(key) != mTextures.end();
+	return mTextures.contains(key);
 }
 
 bool ResourceManager::LoadTiledTexture(const TiledImageInfo& info, const std::string& prefix) {
@@ -668,7 +668,7 @@ void ResourceManager::UnloadReanimation(const std::string& key) {
 }
 
 bool ResourceManager::HasReanimation(const std::string& key) const {
-	return mReanimations.find(key) != mReanimations.end();
+	return mReanimations.contains(key);
 }
 
 std::string ResourceManager::AnimationTypeToString(AnimationType type) {
@@ -677,7 +677,7 @@ std::string ResourceManager::AnimationTypeToString(AnimationType type) {
 
 bool ResourceManager::LoadFont(const std::string& path, const std::string& key) {
 	std::string actualKey = key.empty() ? path : key;
-	if (fonts.find(actualKey) != fonts.end()) {
+	if (fonts.contains(actualKey)) {
 		return true; // 已注册
 	}
 	fonts[actualKey] = std::unordered_map<int, TTF_Font*>();
@@ -772,7 +772,7 @@ void ResourceManager::CleanupUnusedFontSizes() {
 }
 
 bool ResourceManager::HasFont(const std::string& key) const {
-	return fonts.find(key) != fonts.end();
+	return fonts.contains(key);
 }
 
 std::vector<int> ResourceManager::GetLoadedFontSizes(const std::string& key) const {
@@ -796,7 +796,7 @@ int ResourceManager::GetLoadedFontCount() const {
 
 Mix_Chunk* ResourceManager::LoadSound(const std::string& path, const std::string& key) {
 	std::string actualKey = key.empty() ? path : key;
-	if (sounds.find(actualKey) != sounds.end()) {
+	if (sounds.contains(actualKey)) {
 		return sounds[actualKey];
 	}
 
@@ -834,12 +834,12 @@ void ResourceManager::UnloadSound(const std::string& key) {
 }
 
 bool ResourceManager::HasSound(const std::string& key) const {
-	return sounds.find(key) != sounds.end();
+	return sounds.contains(key);
 }
 
 Mix_Music* ResourceManager::LoadMusic(const std::string& path, const std::string& key) {
 	std::string actualKey = key.empty() ? path : key;
-	if (music.find(actualKey) != music.end()) {
+	if (music.contains(actualKey)) {
 		return music[actualKey];
 	}
 
@@ -877,7 +877,7 @@ void ResourceManager::UnloadMusic(const std::string& key) {
 }
 
 bool ResourceManager::HasMusic(const std::string& key) const {
-	return music.find(key) != music.end();
+	return music.contains(key);
 }
 
 std::string ResourceManager::GenerateStandardKey(const std::string& path, const std::string& prefix) {

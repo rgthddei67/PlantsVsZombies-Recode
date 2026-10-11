@@ -24,12 +24,9 @@ private:
 				messageBox->DetachControls();
 			}
 		}
-		messageBoxes.erase(
-			std::remove_if(messageBoxes.begin(), messageBoxes.end(),
-				[](const std::shared_ptr<GameMessageBox>& messageBox) {
-					return !messageBox || messageBox->IsCloseRequested();
-				}),
-			messageBoxes.end());
+		std::erase_if(messageBoxes, [](const std::shared_ptr<GameMessageBox>& messageBox) {
+			return !messageBox || messageBox->IsCloseRequested();
+		});
 	}
 
 	/** 顶层模态框独占按钮/滑块输入；下层框保持绘制且保留原有控件状态。 */

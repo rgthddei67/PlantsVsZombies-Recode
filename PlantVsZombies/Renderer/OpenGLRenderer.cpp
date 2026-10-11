@@ -61,7 +61,7 @@ namespace pvz {
 		mShadingLanguageVersion = GlString(mApi, GL_SHADING_LANGUAGE_VERSION);
 #if defined(__ANDROID__)
 		// GLES 与桌面 GL 的版本数字不能直接比较；移动端最低为 ES 3.0。
-		if (mContextMajor < 3 || mVersion.find("OpenGL ES") == std::string::npos) {
+		if (mContextMajor < 3 || !mVersion.contains("OpenGL ES")) {
 			error = "最低要求 OpenGL ES 3.0，设备报告: " + mVersion;
 			Shutdown();
 			return false;
@@ -155,7 +155,7 @@ namespace pvz {
 		std::string platformSource = source;
 #if defined(__ANDROID__)
 		const auto versionEnd = platformSource.find('\n');
-		if (platformSource.rfind("#version 330 core", 0) != 0 || versionEnd == std::string::npos) {
+		if (!platformSource.starts_with("#version 330 core") || versionEnd == std::string::npos) {
 			error = std::string("GLES 仅接受共享 330 基线 shader: ") + programName;
 			mApi.DeleteShader(shader);
 			return 0;

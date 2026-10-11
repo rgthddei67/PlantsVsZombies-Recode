@@ -54,6 +54,9 @@ if(BUILD_TESTING)
         add_test(NAME ${test_name} COMMAND ${target})
     endfunction()
     pvz_linux_test(Utf8Tests utf8-paths tests/Utf8Tests.cpp)
+    pvz_linux_test(FileManagerTests file-manager tests/FileManagerTests.cpp
+        PlantVsZombies/FileManager.cpp PlantVsZombies/Logger.cpp)
+    target_link_libraries(FileManagerTests PRIVATE SDL2::SDL2 pugixml::pugixml)
     pvz_linux_test(SaveMigrationTests save-migration
         tests/SaveMigrationTests.cpp PlantVsZombies/SaveMigration.cpp)
     pvz_linux_test(SaveSchemaTests save-schema

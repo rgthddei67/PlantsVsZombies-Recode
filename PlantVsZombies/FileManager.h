@@ -20,7 +20,7 @@ public:
 	// 检查文件是否存在
 	static bool FileExists(const std::string& path);
 
-	// 加载文件为字符串
+	/** 按原始字节读取完整文件（保留内嵌 NUL）；空文件或读取失败返回空字符串。 */
 	static std::string LoadFileAsString(const std::string& path);
 
 	// 加载文件为二进制数据

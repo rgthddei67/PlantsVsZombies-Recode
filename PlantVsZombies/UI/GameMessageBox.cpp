@@ -12,11 +12,11 @@
 #include <memory>
 
 namespace {
-	const Vector DEFAULT_SIZE(SCENE_WIDTH / 2, SCENE_HEIGHT / 2); // 自定义背景缺失时的兼容尺寸，单位：逻辑像素
+	constexpr Vector DEFAULT_SIZE(SCENE_WIDTH / 2, SCENE_HEIGHT / 2); // 自定义背景缺失时的兼容尺寸，单位：逻辑像素
 	const int BASE_TITLE_FONT_SIZE = 26; // 默认标题字号，保持原版“大标题+小说明”层级
 	const int BASE_MESSAGE_FONT_SIZE = 18; // 默认正文字号
-	const Vector LEGACY_TITLE_OFFSET = Vector(-70, -65); // 专用纹理背景的旧标题偏移，单位：逻辑像素
-	const Vector LEGACY_MESSAGE_OFFSET = Vector(-190, -25); // 专用纹理背景的旧正文偏移，单位：逻辑像素
+	constexpr Vector LEGACY_TITLE_OFFSET = Vector(-70, -65); // 专用纹理背景的旧标题偏移，单位：逻辑像素
+	constexpr Vector LEGACY_MESSAGE_OFFSET = Vector(-190, -25); // 专用纹理背景的旧正文偏移，单位：逻辑像素
 	constexpr float kDialogHeaderOffset = 24.0f; // 原版九宫格主体为顶部骷髅装饰预留的高度，单位：素材像素
 	constexpr float kDialogHeaderLift = 16.0f; // 骷髅顶盖相对主体向上越界的距离，单位：素材像素
 	constexpr float kDialogMinimumWidth = 400.0f; // 短框宽度，避免骷髅与边框相对内容过大，单位：素材像素
@@ -54,9 +54,10 @@ namespace {
 		GameAPP::GetInstance().DrawText(text, world, color, font, fontSize);
 	}
 
-	const std::array<const std::string*, 10>& StandardDialogTextureKeys()
+	/** 返回皮肤分件的固定地址表；只对地址做常量求值，不读取资源字符串内容。 */
+	constexpr const std::array<const std::string*, 10>& StandardDialogTextureKeys()
 	{
-		static const std::array<const std::string*, 10> keys = {
+		static constexpr std::array<const std::string*, 10> keys = {
 			&ResourceKeys::Textures::IMAGE_DIALOG_TOPLEFT,
 			&ResourceKeys::Textures::IMAGE_DIALOG_TOPMIDDLE,
 			&ResourceKeys::Textures::IMAGE_DIALOG_TOPRIGHT,
