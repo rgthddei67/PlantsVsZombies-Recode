@@ -16,6 +16,41 @@ void CheckTrial(bool condition,const char* message) {
 void RunColdStorageBoundedTrialsTests() {
     using namespace ColdStorageTrials;
     {
+        State state;state.Commit(77,1,12,100);
+        CheckTrial(!state.Settle(true,279) && state.Records().front().unresolved,
+            "a live unpaid trial retains its full observation period");
+        State restored;CheckTrial(restored.Restore(state.Records()),"live trial restores without a new clock");
+        CheckTrial(restored.Settle(true,280) && !restored.Records().front().unresolved,
+            "a surviving ineffective trial cannot hold the unresolved slot forever");
+        CheckTrial(restored.Availability(77)==Reason::FailedHypothesis
+            && restored.Availability(78)==Reason::Allowed && restored.Records().front().cost==12,
+            "expiry permits a different hypothesis without refunding or retrying the failed one");
+        CheckTrial(restored.CreditProduction(1,100)==0 && restored.PurchaseCap(1398,48,0,48)==16,
+            "late income cannot reopen a failed trial and live paid troops still occupy risk");
+    }
+    {
+        State state;
+        CheckTrial(state.CheckPurchase(1,48,1398,48,0,0).Allowed(),
+            "ordinary cash losses cannot starve a rich commander of all new evidence");
+        CheckTrial(state.PurchaseCap(1398,48,0,48)==16,
+            "existing paid capital also occupies the protected evidence budget");
+        CheckTrial(state.PurchaseCap(100,48,0,0)==5 && state.PurchaseCap(48,48,0,0)==0,
+            "protected trials keep the actual reserve and use only a small cash fraction");
+        state.Commit(1,1,64,1);state.Settle(false);
+        state.Commit(2,2,64,2);state.Settle(false);
+        CheckTrial(state.PurchaseCap(100000,48,0,0)==0,
+            "new cash cannot renew an exhausted protected loss budget");
+        State restored;CheckTrial(restored.Restore(state.Records()) && restored.PurchaseCap(1398,48,0,0)==0,
+            "saved trial receipts retain the same exhausted allowance after loading");
+        CheckTrial(restored.CheckPurchase(1,4,1398,48,1000,0).reason==Reason::FailedHypothesis,
+            "even restored ordinary risk cannot repeat the same failed hypothesis");
+        State profitable;profitable.Commit(3,1,48,1);profitable.CreditProduction(1,100);
+        CheckTrial(profitable.PurchaseCap(1398,48,0,0)==64,
+            "actual trial production can finance continued evidence gathering");
+        profitable.Disable();CheckTrial(profitable.PurchaseCap(1398,48,0,0)==0,
+            "invalid or disabled saved history cannot gain protected trial credit");
+    }
+    {
         State state;
         // R3真实付款前钱包230，初始与补给890；额外24付费资产全价计入仍无风险余额。
         const float remaining=ColdStorageSearch::RemainingCapitalRisk(890,254);

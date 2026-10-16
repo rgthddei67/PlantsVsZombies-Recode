@@ -8,6 +8,7 @@
 
 namespace ColdStorageTrials {
 namespace {
+constexpr float kProtectedWalletFraction=.1f; // 单次独立试探最多使用扣除恢复储备后现金的10%
 bool Finite(float value) { return (std::bit_cast<std::uint32_t>(value)&0x7f800000u)!=0x7f800000u; }
 
 /** 非法真实账本必须拒绝，不能借负储备、无穷额度或非数值扩大试探预算。 */
@@ -85,6 +86,18 @@ int PurchaseCap(float wallet,float reserve,float remainingRisk,float outstanding
 
 bool State::Valid() const { return !mDisabled && ValidRecords(mRecords); }
 
+int State::PurchaseCap(float wallet,float reserve,float remainingRisk,float outstandingPaidCapital) const {
+    if(!Valid() || !ValidCapital(wallet,reserve,remainingRisk,outstandingPaidCapital)) return 0;
+    const auto [cost,production]=Totals(mRecords);
+    // 成功狙击的现金支出不应耗尽获取地面证据的机会；真实失败仍永久记账，
+    // 不因等待、补给或读档重领此预算。只有试探自身实际收到的生产可以回补。
+    const float loss=static_cast<float>(std::max<std::int64_t>(0,cost-production));
+    const float protectedRisk=std::max(0.0f,std::min({kProtectedWalletFraction*std::max(0.0f,wallet-reserve),
+        static_cast<float>(MaximumPurchaseIce),static_cast<float>(ProtectedTrialLossIce)-loss})-outstandingPaidCapital);
+    const int protectedCap=static_cast<int>(std::floor(std::min(static_cast<float>(MaximumPurchaseIce),protectedRisk)));
+    return std::max(ColdStorageTrials::PurchaseCap(wallet,reserve,remainingRisk,outstandingPaidCapital),protectedCap);
+}
+
 bool State::Restore(std::span<const Record> records) {
     if(mDisabled) return false;
     if(!ValidRecords(records)) { Disable(); return false; }
@@ -151,7 +164,7 @@ int State::CreditProduction(int wave,int acceptedAmount) {
     const auto found=std::find_if(mRecords.begin(),mRecords.end(),[&](const Record& record) {
         return std::binary_search(record.paidWaves.begin(),record.paidWaves.end(),wave);
     });
-    // 清场后的亏损是假设终局；过期/重放的来源不能洗白失败记录。
+    // 清场或观察超期后的亏损是假设终局；迟到/重放的来源不能洗白失败记录。
     if(found==mRecords.end() || (!found->unresolved && found->production<found->cost)) return 0;
     const int remaining=static_cast<int>(MaximumCounter-Totals(mRecords).second);
     const int credited=std::min(acceptedAmount,remaining);
@@ -160,10 +173,12 @@ int State::CreditProduction(int wave,int acceptedAmount) {
     return credited;
 }
 
-bool State::Settle(bool hasTroopActivity) {
-    if(!Valid()) return false;
+bool State::Settle(bool hasTroopActivity,float at) {
+    if(!Valid() || !Finite(at) || at<0) return false;
     bool settled=false;
-    for(auto& record:mRecords) if(record.unresolved && (!hasTroopActivity || record.production>=record.cost)) {
+    // 长期啃不动修复型防线的存活单位也会得出失败结论；其已付资本仍由实时棋盘全价占用。
+    for(auto& record:mRecords) if(record.unresolved && (!hasTroopActivity || record.production>=record.cost
+        || at-record.startedAt>=MaximumObservationSeconds)) {
         record.unresolved=false;
         settled=true;
     }

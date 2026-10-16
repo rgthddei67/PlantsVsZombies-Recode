@@ -222,9 +222,9 @@ void RunColdStorageStagnationSearchTests() {
     {
         auto state=TrialArena();state.capitalRiskAllowance=0;
         const auto result=SearchWithin(state,120);
-        CheckTrial(result.actions.empty() && result.fallbackMode==0 && result.trialDiagnostics.cap==0
-            && result.trialDiagnostics.reason==TrialRejectReason::NoRisk,
-            "a zero remaining global risk allowance cannot fund an informational purchase");
+        CheckTrial(!result.actions.empty() && result.fallbackMode==1 && result.trialDiagnostics.cap<=64
+            && result.trialDiagnostics.complete,
+            "a rich wallet retains a bounded evidence budget after ordinary capital risk is exhausted");
         state.capitalRiskAllowance=350;state.budget=state.recoveryReserve;
         CheckTrial(SearchWithin(state,120).actions.empty(),"recovery reserve cannot be spent on a trial");
     }

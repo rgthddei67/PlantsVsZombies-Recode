@@ -3415,9 +3415,9 @@ void Board::UpdateColdStorage(float dt)
 	if(s.stallSurrendered && (GameAPP::mDevSpawnPaused || !GameAPP::GetInstance().mEnableMonteCarloAI
 		|| !ColdStoragePolicy::Get() || ColdStorageStallStamp()!=mColdStorageStallStamp)) s.stallSurrendered=false;
 	if(!GameAPP::mDevSpawnPaused) s.emptyWaitSeconds=empty ? std::min(kStallProbeSeconds,s.emptyWaitSeconds+dt) : 0;
-	// 真实产冰回本已可释放试验窗口；仍亏损时须等部队和可返回事务全部结束。
+	// 回本、清场或观察超期释放试验窗口，避免存活但无效的兵力永久堵住新试探。
 	// 成本、失败签名与历次付费波身份保留，普通增援不能冒充试验自身盈利。
-	s.boundedTrials.Settle(!empty);
+	s.boundedTrials.Settle(!empty,s.elapsed);
 
 	if (s.orderIce > 0) {
 		s.orderRemaining = std::max(0.0f, s.orderRemaining - dt);

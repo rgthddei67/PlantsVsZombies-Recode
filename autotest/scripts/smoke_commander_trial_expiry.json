@@ -1,0 +1,29 @@
+{
+  "description": "Controlled live-troop observation deadline, NOT strength evidence. Synthetic paid trial starts at game time 100; a frozen newspaper remains alive across its deadline and snapshot reload. Expiry preserves the original cost and failed hypothesis while releasing the unresolved slot.",
+  "backgroundCommander": true,
+  "muteAudio": true,
+  "commands": [
+    {"op":"reset_test_state"},
+    {"op":"goto_level","level":91,"coldStorageBonusSelection":false},
+    {"op":"choose_cards","cards":["PLANT_SUNFLOWER","PLANT_TALLNUT"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NEWSPAPER","row":0,"frozen":true},
+    {"op":"set_cold_storage","state":{"elapsed":278,"enemyIce":588,"initialEnemyIce":600,"spent":12,"decisions":1,"decisionRemaining":60,"supplyRemaining":30,"boundedTrials":{"disabled":false,"records":[{"signature":710002,"latestPaidWave":1,"paidWaves":[1],"cost":12,"production":0,"unresolved":true,"startedAt":100}]}}},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.unresolved","equals":true},
+    {"op":"save_level_snapshot","name":"observing"},
+    {"op":"reload_level_snapshot","name":"observing"},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.startedAt","equals":100},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.unresolved","equals":true},
+    {"op":"wait_seconds","value":2.2,"timeout":10},
+    {"op":"assert_state","path":"coldStorage.hostileCount","equals":1},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.unresolved","equals":false},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.cost","equals":12},
+    {"op":"assert_state","path":"coldStorage.boundedTrials.records.0.production","equals":0},
+    {"op":"assert_state","path":"coldStorage.enemyIce","equals":588},
+    {"op":"assert_state","path":"coldStorage.spent","equals":12},
+    {"op":"dump_state","name":"expired_alive.json"},
+    {"op":"quit"}
+  ]
+}

@@ -6811,7 +6811,7 @@ static InformationalTrialAdmission PrepareInformationalTrial(const Snapshot& inp
     diagnostics.reason=TrialRejectReason::NoCandidate;
     CheckForecastCancellation(input);
     if(SearchTimeExpired(input)) {diagnostics.reason=TrialRejectReason::Incomplete;return admission;}
-    diagnostics.cap=ColdStorageTrials::PurchaseCap(static_cast<float>(input.budget),static_cast<float>(input.recoveryReserve),
+    diagnostics.cap=input.trialHistory.PurchaseCap(static_cast<float>(input.budget),static_cast<float>(input.recoveryReserve),
         input.capitalRiskAllowance,TrialOutstandingCapital(input));
     if(diagnostics.cap<=0) {diagnostics.reason=TrialRejectReason::NoRisk;return admission;}
     diagnostics.removedCounters=static_cast<int>(std::count_if(input.counters.begin(),input.counters.end(),IsFreshKnownPaidAreaCounter));

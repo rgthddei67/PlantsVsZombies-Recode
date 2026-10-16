@@ -11,6 +11,8 @@ inline constexpr std::size_t MaximumRecords=32; // 最多保留的假设历史�
 inline constexpr std::size_t MaximumPaidWaves=64; // 每个假设永久保留的付费波数；满额停止复用，不淘汰仍可产冰的旧波
 inline constexpr int MaximumCounter=1000000; // 全体假设累计成本和生产各自的安全上限，冰；任一到顶停止新试探
 inline constexpr int MaximumPurchaseIce=64; // 单笔试探上限，冰；仍受当前钱包、恢复储备和累计风险限制
+inline constexpr int ProtectedTrialLossIce=128; // 独立信息预算最多承担128冰累计净亏损；狙击等普通支出不挤占它
+inline constexpr float MaximumObservationSeconds=180.0f; // 单次未回本试探最多观察180游戏秒，避免存活的无效兵力永久占用未决位
 
 /** 累计真实收支不得重置；所有已知付费波保留归因，latestPaidWave仅标识最新付款。 */
 struct Record {
@@ -18,7 +20,7 @@ struct Record {
     int latestPaidWave=0;
     int cost=0,production=0;
     bool unresolved=false;
-    float startedAt=0; // 最新一次真实付款的游戏秒，不作为自动结算或退款期限
+    float startedAt=0; // 最新一次真实付款的游戏秒；观察超期只结案，不退款或删除来源
     std::vector<int> paidWaves; // 严格递增且跨记录唯一；v30迁移仅能保留当时已知的latestPaidWave
     bool operator==(const Record&) const = default;
 };
@@ -50,6 +52,8 @@ public:
 
     /** 检查有界历史、唯一签名/波次和时间顺序，不修剪或修正已有成本。 */
     bool Valid() const;
+    /** 从当前现金和持久试探收支重算额度；保留储备、单笔上限及所有已付兵力的风险占用。 */
+    int PurchaseCap(float wallet,float reserve,float remainingRisk,float outstandingPaidCapital) const;
     /** 事务式恢复纯数值记录；非法或超量历史不改记录并永久禁用本State，不能空历史重试恢复额度。 */
     bool Restore(std::span<const Record> records);
     /** 同时只允许一次未回本试探；已实际回本可申请，失败、全局计数或波历史满额不重开。 */
@@ -65,8 +69,8 @@ public:
      * 关闭的亏损记录不再开放；全局生产计数封顶，返回实际登记量，不影响调用方真钱。
      */
     int CreditProduction(int wave,int acceptedAmount);
-    /** 实收已覆盖累计成本即可释放；亏损须无实际部队、队列或返回事务才关闭，不退款或清账。 */
-    bool Settle(bool hasTroopActivity);
+    /** 回本、清场或观察超期释放未决位，不退款或清账；at为当前游戏秒，旧调用默认不推进观察期限。 */
+    bool Settle(bool hasTroopActivity,float at=0.0f);
 
 private:
     std::vector<Record> mRecords;
