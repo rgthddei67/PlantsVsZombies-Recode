@@ -1050,6 +1050,21 @@ void RunColdStorageMultiPrecisionTests()
     Check(all.precisionTargetID>0 && all.precisionAdditionalTargetIDs.size()==2
         && all.features[5]==180 && all.construction.precisionHits==3,
         "free bounded search can choose a favorable three-target exchange across rows without troop purchase");
+    auto reviewed=selectable;
+    reviewed.stallPrecisionTargets={all.precisionTargetID};
+    reviewed.stallPrecisionTargets.insert(reviewed.stallPrecisionTargets.end(),all.precisionAdditionalTargetIDs.begin(),all.precisionAdditionalTargetIDs.end());
+    const auto confirmed=Search(reviewed,values,42);
+    Check(confirmed.evaluated==1 && confirmed.precisionTargetID==all.precisionTargetID
+        && confirmed.precisionAdditionalTargetIDs==all.precisionAdditionalTargetIDs && confirmed.features[5]==180,
+        "deep-review multi-target intent is revalued together against a fresh no-strike baseline");
+    reviewed.budget=179;
+    Check(Search(reviewed,values,42).features[5]<=120,
+        "confirmation cannot reuse the former wallet to pay for three targets");
+    reviewed=selectable; reviewed.stallPrecisionTargets={999999};
+    const auto missing=Search(reviewed,values,42);
+    Check(missing.precisionTargetID!=999999
+        && std::find(missing.precisionAdditionalTargetIDs.begin(),missing.precisionAdditionalTargetIDs.end(),999999)==missing.precisionAdditionalTargetIDs.end(),
+        "a lost reviewed target is never retargeted by its old identity");
     selectable.plants[2].dps=0; selectable.plants[2].assetValue=0; selectable.plants[2].reward=0;
     const auto two=Search(selectable,values,42);
     Check(two.precisionTargetID>0 && two.precisionAdditionalTargetIDs.size()==1 && two.features[5]==120,

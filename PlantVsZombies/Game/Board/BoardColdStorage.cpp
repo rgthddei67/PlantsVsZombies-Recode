@@ -98,6 +98,7 @@ namespace {
     constexpr double kPlanningWallBudgetMs = 600; // 1倍速下实时搜索的墙钟预算，毫秒；倍速时同比缩短
 	constexpr double kPlanningRecoveryBudgetMs = 1800; // 空场限时等待后的计算上限，按1倍速毫秒计，给3秒过期门禁留余量
 	constexpr float kPlanningSurvivingFraction = .75f; // 原部队剩余有效生命低于快照此比例时重采，避免沿用已被炸掉的护卫
+	constexpr int kStallWaitDecisions = 3; // 最终复查前至少连续采用的空行动决策次数，不含失败或过期结果
 	/** 只统计主线程入口时间；后台耗时由任务自己计时，不能跨线程调用 Profiler。 */
 	struct PlanningTimer {
 		double& maximum;
@@ -877,7 +878,7 @@ int Board::GetColdStorageDeploymentLimit() const
 	return ColdStorageDeploymentRules::Capacity(GetColdStorageDeploymentCapital());
 }
 
-/** 清场且无在途援军时判定破产或长期无破阵且经营不盈利的低库存败局，不中断仍在作战的部队。 */
+/** 清场后结算破产、低库存败局或经完整复查的认输，不中断仍在作战或在途的部队。 */
 bool Board::IsColdStorageCleared() const
 {
 	if (!IsColdStorage() || !mColdStorage.battleStarted || mTrophySpawned
@@ -896,6 +897,9 @@ bool Board::IsColdStorageCleared() const
 	for (const auto& anchor : mTemporalAnchors)
 		for (const auto& target : anchor.targets)
 			if (!target.irreversible) return false;
+	if(mColdStorage.stallSurrendered && !GameAPP::mDevSpawnPaused
+		&& GameAPP::GetInstance().mEnableMonteCarloAI && ColdStoragePolicy::Get()
+		&& ColdStorageStallStamp()==mColdStorageStallStamp) return true;
 	if (mColdStorage.elapsed >= kExhaustionGraceSeconds
 		&& mColdStorage.plantKillIdleSeconds >= kExhaustionIdleSeconds
 		&& mColdStorage.enemyIce < ColdStorageState::RecoveryReserveIce) {
@@ -952,6 +956,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		if (background) return;
 		mColdStoragePlanner->Cancel(); // 显式同步测试/干预不能同时提交一个旧后台结果。
 		mColdStorage.planning = false;
+		mColdStorage.stallReviewRunning=false;
 	}
 	const auto* learnedWeights = GameAPP::GetInstance().mEnableMonteCarloAI ? ColdStoragePolicy::Get() : nullptr;
 	if (probe && !learnedWeights) return;
@@ -2270,6 +2275,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				return unit.body.health>0 && ColdStorageSearch::HasInformationalTrialAutomaticFees(unit);
 			});
 		search.trialHistory=s.boundedTrials;
+		// 最终复查必须完整执行有限搜索，始终在后台；不让墙钟截止冒充无路可走。
+		const bool finalReview=!probe && search.allowWait && CanReviewColdStorageStall();
+		search.stallReview=finalReview;
+		if(finalReview) search.searchVersion=2;
 
 		const auto seed = 0xC01D1234u + static_cast<unsigned>(s.decisions * 31) + static_cast<unsigned>(s.elapsed);
 		if (probe) {
@@ -2279,12 +2288,13 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		}
 		std::vector<std::uint64_t> tickets;
 		for (const auto& paid : s.pending) tickets.push_back(paid.ticket);
-		if (background) {
+		if (background || finalReview) {
 			if (!mColdStoragePlanner) mColdStoragePlanner = std::make_unique<ColdStorageSearch::Planner>();
 			mColdStoragePlanningTickets = std::move(tickets);
 			mColdStoragePlanningAt = s.elapsed;
 			mColdStoragePlanningVersion = requestedVersion;
 			mColdStoragePlanningStamp = ColdStoragePlanningStamp();
+			if(finalReview) mColdStorageStallStamp=ColdStorageStallStamp();
 			const double scale=std::max(1.0f,DeltaTime::GetTimeScale());
 			double budgetMs=kPlanningWallBudgetMs;
 			// 空场连续因计算用尽而等待时加深搜索；有在场/在途兵力或已经出手就恢复常规预算。
@@ -2292,8 +2302,10 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			if (resumePortfolio && s.planningTimeLimited && search.current.empty() && s.pending.empty())
 				budgetMs=std::min(kPlanningRecoveryBudgetMs,std::max(kPlanningWallBudgetMs,s.planningBudgetMs*scale)*2);
 			s.planning = mColdStoragePlanner->Start(std::move(search),*weights,seed,
-				budgetMs/scale);
+				finalReview ? 0 : budgetMs/scale);
 			if (s.planning) ++s.planningStarted;
+			s.stallReviewRunning=s.planning && finalReview;
+			if(s.stallReviewRunning) ++s.stallReviewsStarted;
 			// 启动失败留待下一次重试，不在渲染帧中突然回退执行昂贵的完整搜索。
 			s.attackDeferred = true;
 			return;
@@ -3138,6 +3150,10 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 	}
 	if(mColdStoragePlanner) {
 		const int purchased=static_cast<int>(s.pending.size()-paidCount);
+		// 在线后台决策累计有效等待；纯同步数值/训练夹具不暗中启动异步终局复查。
+		const bool waiting=s.commanderSpent==0 && result.actions.empty() && result.precisionTargetID<=0
+			&& result.followupPolicy.actions.empty() && result.forecastPrecisionTargetID<=0 && !HasColdStorageTroopActivity();
+		s.stallWaitDecisions=waiting ? std::min(kStallWaitDecisions,s.stallWaitDecisions+1) : 0;
 		// 截止只算完等待时没有审查增援，保留脏事件供下一轮重试；明确非法则已完成拒绝。
 		// 条件门槛未满足时本次没有后队可评；正常完整新快照已检查该事件，不重复占用唤醒。
 		if(result.assaultDiagnostics.continuationEvaluated>0 || result.assaultDiagnostics.continuationUnavailable>0
@@ -3263,12 +3279,45 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	return stamp;
 }
 
+bool Board::CanReviewColdStorageStall() const
+{
+	const auto& s=mColdStorage;
+	if(GameAPP::mDevSpawnPaused || !GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get()
+		|| s.stallSurrendered || s.elapsed<kExhaustionGraceSeconds || s.emptyWaitSeconds<kStallProbeSeconds
+		|| s.plantKillIdleSeconds<kExhaustionIdleSeconds || s.stallWaitDecisions<kStallWaitDecisions
+		|| HasColdStorageTroopActivity() || s.strikeTargetID>=0 || s.strikeCooldownRemaining>0 || s.assaultIntentActive) return false;
+	// 后续兵种尚未开放时继续沿原探路规则推进，不把当前弱兵池判成最终败局。
+	if(ColdStoragePolicy::AllUnits()) return true;
+	return std::none_of(mSpawnZombieList.begin(),mSpawnZombieList.end(),[&](ZombieType type) {
+		if(GetColdStorageUnlockWave(type)<=s.decisions+1) return false;
+		for(int row=0;row<mRows;++row) if(IsSpawnRowCompatible(type,row)) return true;
+		return false;
+	});
+}
+
+std::uint64_t Board::ColdStorageStallStamp() const
+{
+	std::uint64_t stamp=ColdStoragePlanningStamp();
+	const auto mix=[&](std::uint64_t value){stamp=(stamp^value)*1099511628211ULL;};
+	mix(mColdStorage.spent); mix(mColdStorage.decisions); mix(mColdStorage.workerIncome); mix(mColdStorage.killIncome);
+	mix(static_cast<unsigned>(mRainIntensity)); mix(static_cast<unsigned>(mFogWeatherIntensity));
+	mix(static_cast<unsigned>(mTyphoonStrength)); mix(static_cast<unsigned>(mWindDirection));
+	mix(static_cast<unsigned>(mColdWavePhase)); mix(static_cast<unsigned>(mPolarNightPhase));
+	for(int id:mEntityRegistry.GetAllPlantIDs()) {
+		const auto* plant=mEntityRegistry.GetPlant(id);
+		if(plant && plant->IsActive()) {mix(id); mix(plant->mPlantHealth); mix(plant->mPlantMaxHealth);}
+	}
+	return stamp;
+}
+
+/** 先领取只读最终复查；旧购物车重新采样评估，普通付款仍保留原来的三秒时效门禁。 */
 void Board::PollColdStoragePlan()
 {
 	if (!mColdStoragePlanner || !mColdStoragePlanner->Busy()) return;
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned) {
 		mColdStoragePlanner->Cancel();
 		mColdStorage.planning = false;
+		mColdStorage.stallReviewRunning=false;
 		return;
 	}
 	PROFILE_SCOPE("Commander.PollMain");
@@ -3282,6 +3331,26 @@ void Board::PollColdStoragePlan()
 	s.planningParallelPlans = work->parallelPlans;
     s.planningBudgetMs=work->budgetMilliseconds;
     s.planningTimeLimited=work->result.timeLimited;
+	if(work->snapshot.stallReview) {
+		s.stallReviewRunning=false;
+		const bool complete=!work->failed && !work->result.timeLimited && work->result.evaluated>1;
+		const bool actionable=!work->result.actions.empty() || work->result.precisionTargetID>0
+			|| !work->result.followupPolicy.actions.empty() || work->result.forecastPrecisionTargetID>0;
+		if(complete) {
+			++s.stallReviewsCompleted;
+			if(actionable) {
+				// 搜索可能花数十秒，旧结果不能直接付款；只携带身份进入下一轮当前局面复核。
+				mColdStoragePlanner->RememberStallPlan(work->snapshot,work->result);
+			} else if(CanReviewColdStorageStall() && work->snapshot.allowWait
+				&& ColdStorageStallStamp()==mColdStorageStallStamp
+				&& mSun>=work->snapshot.playerSun && s.playerIce>=work->snapshot.playerIce) {
+				// 以启动复查时的库存作最终机会，期间被动补给不能无限续期；不删除或回写钱包。
+				s.stallSurrendered=true;
+			} else ++s.stallReviewsDiscarded;
+		} else ++s.stallReviewsDiscarded;
+		s.stallWaitDecisions=0; s.decisionRemaining=0;
+		return;
+	}
 	const float age = s.elapsed-mColdStoragePlanningAt;
 	using Discard = ColdStorageSearch::PlanDiscardReason;
 	int discardMask = 0;
@@ -3340,6 +3409,11 @@ void Board::UpdateColdStorage(float dt)
 	s.assaultCooldown = std::max(0.0f, s.assaultCooldown - dt);
 	s.dispatchQuietSeconds = std::min(kMaxObserveSeconds + 1.0f, s.dispatchQuietSeconds + dt);
 	const bool empty=!HasColdStorageTroopActivity();
+	if(!empty) {s.stallWaitDecisions=0; s.stallSurrendered=false;}
+	if(GameAPP::mDevSpawnPaused || !GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get())
+		s.stallWaitDecisions=0;
+	if(s.stallSurrendered && (GameAPP::mDevSpawnPaused || !GameAPP::GetInstance().mEnableMonteCarloAI
+		|| !ColdStoragePolicy::Get() || ColdStorageStallStamp()!=mColdStorageStallStamp)) s.stallSurrendered=false;
 	if(!GameAPP::mDevSpawnPaused) s.emptyWaitSeconds=empty ? std::min(kStallProbeSeconds,s.emptyWaitSeconds+dt) : 0;
 	// 真实产冰回本已可释放试验窗口；仍亏损时须等部队和可返回事务全部结束。
 	// 成本、失败签名与历次付费波身份保留，普通增援不能冒充试验自身盈利。
@@ -3405,6 +3479,7 @@ void Board::UpdateColdStorage(float dt)
 		}
 	}
 	PollColdStoragePlan();
+	if(s.stallSurrendered) return;
 	s.decisionRemaining -= dt;
 	// 学习分支将已付队列作为未来友军重新推演；旧 AI 仍等队列兑现，避免漏算其承诺。
 	if (!s.planning && s.decisionRemaining <= 0 && (s.pending.empty()
@@ -3458,6 +3533,8 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	if (!j.is_object() || j.empty()) {mColdStorage.boundedTrials.Disable();return;}
 	mColdStoragePlanner.reset();
 	mColdStorage.planning = false;
+	mColdStorage.stallReviewRunning=false; mColdStorage.stallSurrendered=false; mColdStorage.stallWaitDecisions=0;
+	mColdStorage.stallReviewsStarted=mColdStorage.stallReviewsCompleted=mColdStorage.stallReviewsDiscarded=0;
 	mColdStorage.assaultIntentActive=false; mColdStorage.assaultContinuationSelected=false;
 	mColdStorage.assaultObservationSignature=0; mColdStorage.assaultIntentRevision=0;
 	mColdStorage.assaultReadyCannons=0; mColdStorage.assaultActiveCannons=0; mColdStorage.assaultCommittedShots=0;

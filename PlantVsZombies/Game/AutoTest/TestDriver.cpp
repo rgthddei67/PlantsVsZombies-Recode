@@ -5539,6 +5539,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["searchExperiencedAshSelected"]=board->mColdStorage.searchExperiencedAshSelected;
 		ice["searchExperiencedSelected"]=board->mColdStorage.searchExperiencedSelected;
 		ice["stallDiagnosticSaved"]=board->mColdStorage.stallDiagnosticSaved;
+		ice["stallReviewRunning"]=board->mColdStorage.stallReviewRunning;
+		ice["stallSurrendered"]=board->mColdStorage.stallSurrendered;
+		ice["stallWaitDecisions"]=board->mColdStorage.stallWaitDecisions;
+		ice["stallReviewsStarted"]=board->mColdStorage.stallReviewsStarted;
+		ice["stallReviewsCompleted"]=board->mColdStorage.stallReviewsCompleted;
+		ice["stallReviewsDiscarded"]=board->mColdStorage.stallReviewsDiscarded;
 		ice["stallDiagnosticPath"]=board->mColdStorage.stallDiagnosticPath;
 		ice["searchAdaptive"] = board->mColdStorage.searchAdaptive;
 		ice["searchExpandedForecast"] = board->mColdStorage.searchExpandedForecast;

@@ -13,6 +13,8 @@ bool Planner::Start(Snapshot snapshot, const Weights& weights, std::uint32_t see
 	auto work = std::make_unique<Work>();
 	work->seed=seed;
 	work->snapshot = std::move(snapshot);
+	work->snapshot.stallProposal=std::exchange(mStallProposal,{});
+	work->snapshot.stallPrecisionTargets=std::exchange(mStallPrecisionTargets,{});
 	work->snapshot.proposals=mProposals; // 仅数值动作副本，每轮重新验证并评分；不允许旧结果直接付款。
 	work->snapshot.searchRound=mSearchRound++;
 	if(mAssaultIntent.Active()) {
@@ -83,12 +85,26 @@ std::unique_ptr<Planner::Work> Planner::TakeReady() {
 }
 
 void Planner::Cancel() {
+	mStallProposal.clear(); mStallPrecisionTargets.clear();
 	mProposals.clear(); mProposalCursor=0;
 	ClearAssault(); mSearchRound=0;
 	if (!mWork) return;
 	mWork->cancel.store(true,std::memory_order_relaxed);
 	if (mThread.joinable()) mThread.join();
 	mWork.reset();
+}
+
+void Planner::RememberStallPlan(const Snapshot& snapshot,const Result& result) {
+	mStallProposal.clear(); mStallPrecisionTargets.clear();
+	for(const auto& action:result.actions) {
+		if(action.option<0 || action.option>=static_cast<int>(snapshot.options.size())) {mStallProposal.clear(); return;}
+		const auto& option=snapshot.options[action.option];
+		mStallProposal.push_back({option.type,option.row,option.device,option.setting,action.delay});
+	}
+	if(result.precisionTargetID>0) {
+		mStallPrecisionTargets.push_back(result.precisionTargetID);
+		mStallPrecisionTargets.insert(mStallPrecisionTargets.end(),result.precisionAdditionalTargetIDs.begin(),result.precisionAdditionalTargetIDs.end());
+	}
 }
 
 bool Planner::ObserveAssault(float now,const AssaultObservation& observation) {

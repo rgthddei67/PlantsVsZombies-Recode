@@ -228,6 +228,7 @@ public:
 	std::unique_ptr<ColdStorageSearch::Planner> mColdStoragePlanner;
 	std::vector<std::uint64_t> mColdStoragePlanningTickets;
 	std::uint64_t mColdStoragePlanningStamp = 0;
+	std::uint64_t mColdStorageStallStamp = 0;
 	float mColdStoragePlanningAt = 0;
 	int mColdStoragePlanningVersion = 1;
 	bool IsColdStorage() const { return mBackGround == Background::HOT_COLD_STORAGE || IsWeatherStation(); }
@@ -328,6 +329,10 @@ public:
 	void PollColdStoragePlan();
 	/** 后台快照的关键局面签名；种铲植物、主动技能、小推车状态变化会使结果失效。 */
 	std::uint64_t ColdStoragePlanningStamp() const;
+	/** 最终空场复查另核对植物生命及天气边沿；补给不重启已开始的最终复查。 */
+	std::uint64_t ColdStorageStallStamp() const;
+	/** 仅长期空场、多次有效等待且没有后续兵种待解锁时允许最终复查。 */
+	bool CanReviewColdStorageStall() const;
 	/** 只读取公开炮相位、固定在途炮弹与已付精准提示，时间余量不进入事件身份。 */
 	ColdStorageSearch::AssaultObservation ObserveColdStorageAssault() const;
 	/** 两种执行方式共用的提交路径，后台只计算，不碰钱包与实体。 */
@@ -336,7 +341,7 @@ public:
 		const std::vector<std::uint64_t>& tickets, std::uint32_t searchSeed);
 	/** 付费与队列登记在同一主线程提交；测试与正式指挥官共用。 */
 	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
-	/** 无活动/在途敌军时检查破产或长期无破阵且经营不盈利的低库存败局；存档恢复计时。 */
+	/** 无活动/在途敌军时检查破产、低库存败局或完整空场复查认输；读档只恢复计时，不沿用认输凭据。 */
 	bool IsColdStorageCleared() const;
 	int GetColdStorageHostileCount() const;
 	/** 是否仍有实际敌方部队或已提交出生/复活事务；包含空中/潜地单位，不含精准技能。 */

@@ -7064,11 +7064,53 @@ static Result SearchInformationalTrial(const Snapshot& input,const Weights& weig
     return finish();
 }
 
-/** 保留原普通/公开行为/两阶段价值路径；仅合法新颖试探预留有限时间，正常有益案先提交。 */
+/** 完整复查的旧案仅作起点；用当前钱包、目标、完整反制和无技能等待重新验证。 */
+static bool ReconsiderStallProposal(const Snapshot& input,const Weights& baseWeights,Result& result) {
+    if(input.stallProposal.empty() && input.stallPrecisionTargets.empty()) return false;
+    auto state=RawWorldCache::CopyView(input); state.searchVersion=2;
+    state.precisionUnlockAfterPurchase=false;
+    state.precisionTargetID=0; state.precisionAdditionalTargetIDs.clear();
+    const auto actions=RestoreProposal(state,input.stallProposal,true);
+    if(actions.size()!=input.stallProposal.size()) return false;
+    auto baseline=EvaluateCandidateInSession(state,baseWeights,{});
+    baseline.score=Score(baseline.features,baseline.effectiveWeights); baseline.opponentScore=0;
+    if(!input.stallPrecisionTargets.empty()) {
+        if(!state.precisionReady || input.stallPrecisionTargets.size()>static_cast<size_t>(state.precisionTargetLimit)) return false;
+        for(int id:input.stallPrecisionTargets)
+            if(std::none_of(state.plants.begin(),state.plants.end(),[&](const Plant& plant){return plant.id==id && plant.health>0;})) return false;
+        state.precisionTargetID=input.stallPrecisionTargets.front();
+        state.precisionAdditionalTargetIDs.assign(input.stallPrecisionTargets.begin()+1,input.stallPrecisionTargets.end());
+    }
+    auto payable=actions; Repair(state,payable);
+    long long bill=PrecisionCost(state);
+    for(const auto& action:actions) bill+=state.options[action.option].cost;
+    if(bill>state.budget) return false;
+    if(payable.size()!=actions.size() || !std::equal(payable.begin(),payable.end(),actions.begin(),
+        [](const Action& a,const Action& b){return a.option==b.option && a.delay==b.delay;})) return false;
+    auto candidate=EvaluatePlan(state,baseline.effectiveWeights,actions,baseline.features,baseline.opponentAssets);
+    if(!state.netEconomy) candidate.score-=std::max(0.0f,1+baseline.effectiveWeights[5])*PrecisionCost(state);
+    if(state.precisionTargetID>0) {
+        auto without=RawWorldCache::CopyView(state); without.precisionTargetID=0; without.precisionAdditionalTargetIDs.clear();
+        auto sameArmy=actions.empty() ? baseline : EvaluatePlan(without,baseline.effectiveWeights,actions,baseline.features,baseline.opponentAssets);
+        if(!PrecisionWorthwhile(state,candidate,sameArmy)) return false;
+    }
+    if(SearchTimeExpired(state) || !BetterOutcome(candidate,baseline)
+        || ShouldRegroup(candidate,state.budget,state.recoveryReserve)
+        || (state.netEconomy && ShouldConserveCapital(candidate,state.budget,state.recoveryReserve,state.capitalRiskAllowance))) return false;
+    candidate.effectiveWeights=baseline.effectiveWeights; candidate.stateInputs=baseline.stateInputs;
+    candidate.capitalUtilityInputs=baseline.capitalUtilityInputs; candidate.expandedForecast=true;
+    candidate.baselineFeatures=baseline.features; candidate.baselineOpponentAssets=baseline.opponentAssets;
+    candidate.baselineBreachSeconds=baseline.construction.breachSeconds; candidate.evaluated=1;
+    result=std::move(candidate); return true;
+}
+
+/** 保留原普通/公开行为/两阶段价值路径；完整复查的旧案先重新验证，新颖试探仍只用有限预算。 */
 static Result SearchInSession(const Snapshot& input,const Weights& weights,std::uint32_t seed,PlanEvaluator* evaluator) {
     const bool valid=(input.searchVersion==1 || input.searchVersion==2) && ValidWeights(weights)
         && (!input.stateModel || input.stateModel->IsValid()) && FinitePhasedValue(input.opponentWeight)
         && input.opponentWeight>=0 && input.opponentWeight<=100;
+    Result reconsidered;
+    if(valid && ReconsiderStallProposal(input,weights,reconsidered)) return reconsidered;
     const auto admission=valid ? PrepareInformationalTrial(input) : InformationalTrialAdmission{};
     auto ordinary=RawWorldCache::CopyView(input);
     if(!admission.actions.empty() && input.timeLimitedSearch && !SearchTimeExpired(input)) {

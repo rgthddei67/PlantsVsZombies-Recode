@@ -47,6 +47,8 @@ struct ColdStorageState {
 	int assaultReadyCannons=0, assaultActiveCannons=0, assaultCommittedShots=0;
 	int assaultIntentsArmed=0, assaultEventReplans=0, assaultFollowupPurchases=0, assaultFollowupTroops=0;
 	float emptyWaitSeconds=0; // 没有活体或已付部队事务的持续游戏秒；精准瞄准/冷却不清零，暂停不推进
+	int stallWaitDecisions=0, stallReviewsStarted=0, stallReviewsCompleted=0, stallReviewsDiscarded=0;
+	bool stallReviewRunning=false, stallSurrendered=false; // 完整复查及结论只在本次Board有效；读档必须重新核实
 	int stallProbeRounds=0, stallProbeSpent=0; // 历史真实试攻次数/冰费，仅保留诊断与旧档，不授予升级全押或重置风险的权限
 	ColdStorageTrials::State boundedTrials; // 真实付费假设及逐波产冰的持久账本；失败记录不因击杀、补给或读档清除
 	ColdStorageSearch::TrialDiagnostics searchTrialDiagnostics; // 当前完整/未完成试验评估，仅诊断，不入档

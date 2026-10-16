@@ -455,6 +455,9 @@ private:
     friend class RawWorldCache;
 };
 struct Snapshot {
+    bool stallReview=false; // 长期空场的最终完整后台复查；不是付款或认输凭据
+    Proposal stallProposal; // 完整复查留下的未付款案，下一快照必须重新定价和评估
+    std::vector<int> stallPrecisionTargets;
     bool informationalTrials=false; // Board仅在准备后的普通决策武装；既有活体照常计本金和同军团等待，没有超时规则
     ColdStorageTrials::State trialHistory; // 持久真实成本/生产的只读值副本，不制造对手画像
 

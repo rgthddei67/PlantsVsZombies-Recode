@@ -37,6 +37,8 @@ public:
 	bool Busy() const { return mWork != nullptr; }
 	/** 只读诊断：已领取前区分仍在计算与完整结果等待提交；只能由拥有 Planner 的线程调用。 */
 	bool Computing() const { return mWork && !mWork->ready.load(std::memory_order_acquire); }
+	/** 只保存完整复查的动作身份；下一次短搜索在当前快照重新比较，不沿用旧收益或购买权。 */
+	void RememberStallPlan(const Snapshot& snapshot,const Result& result);
 	/** 在积分步边界取消并回收线程，同时清空探索提案；任务、模型指针和缓存不得逃逸到下一张棋盘。 */
 	void Cancel();
 	/** 主线程只观察公开反制边沿；返回值仅唤醒重新评价，绝不代表炮阵已安全。 */
@@ -60,6 +62,8 @@ private:
 	bool mWaitAnchorUsed=false; // 到期不清此锁，重复等待不能永久滚动保留整车；新付款或显式清理才复位
 	size_t mProposalCursor=0; // 跨轮轮转不同探索构成，紧预算不能始终只复算列表头部
 	std::vector<Proposal> mProposals; // 同棋盘内的无状态探索起点；Cancel/销毁清空，不写存档
+	Proposal mStallProposal;
+	std::vector<int> mStallPrecisionTargets;
 	std::unique_ptr<Work> mWork;
 	std::thread mThread;
 };

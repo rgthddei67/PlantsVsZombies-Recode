@@ -169,6 +169,26 @@ void CheckPaidAreaResponseComparison() {
 /** 试探必须有真实可区分潜力、完整四案与持久新假设；正常价值搜索和原风险边界优先。 */
 void RunColdStorageStagnationSearchTests() {
     using namespace ColdStorageSearch;
+    // 最终复查只留下动作身份。当前反制、价格或合法池变化必须使旧案失效。
+    {
+        auto state=TrialArena();state.counters.clear();state.informationalTrials=false;
+        state.stallProposal={{state.options[0].type,0,-1,0,0}};
+        auto accepted=Search(state,InitialWeights,71);
+        CheckTrial(accepted.evaluated==1 && accepted.actions.size()==1 && accepted.score>0,
+            "a deep-review proposal is fully revalued and adopted on the fresh world");
+        auto defended=state;AddLethalFire(defended);
+        CheckTrial(Search(defended,InitialWeights,71).actions.empty(),
+            "new lethal defense rejects an old profitable proposal");
+        auto unaffordable=state;unaffordable.options[0].cost=2000;
+        CheckTrial(Search(unaffordable,InitialWeights,71).actions.empty(),
+            "old proposal uses the current price and never its former bill");
+        auto removed=state;removed.options.clear();
+        CheckTrial(Search(removed,InitialWeights,71).actions.empty(),
+            "an unavailable old type cannot be restored into the legal pool");
+        auto expired=state;expired.timeLimitedSearch=true;expired.searchDeadline=std::chrono::steady_clock::now();
+        CheckTrial(Search(expired,InitialWeights,71).actions.empty(),
+            "expired confirmation cannot buy the cached proposal");
+    }
     CheckPaidAreaResponseComparison();
     for(int version:{1,2}) for(int milliseconds:{120,240,360}) {
         const auto state=TrialArena(version);
