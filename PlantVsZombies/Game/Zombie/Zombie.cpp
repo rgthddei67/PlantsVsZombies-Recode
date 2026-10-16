@@ -525,7 +525,11 @@ void Zombie::ResolvePlantAshDamage(int damage)
 	// TakeDamage 单点缩放，避免植物增伤被重复应用。
 	const int scaledDamage = ScaleStatusDamage(
 		mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
-	if (CanBeCharred() && mBodyHealth <= scaledDamage) {
+	// 承压保护下先让现有防具吸收，只按穿甲余伤判断化灰；实际扣甲仍由 TakeDamage 单点执行。
+	// 用64位预判以免多层高耐久相加溢出；未受保护时保留普通灰烬越甲斩杀。
+	const int64_t armor = mBoard->HasPressureAshProtection(mZombieID)
+		? static_cast<int64_t>(std::max(0,mHelmHealth)) + std::max(0,mShieldHealth) : 0;
+	if (CanBeCharred() && mBodyHealth <= static_cast<int64_t>(scaledDamage)-armor) {
 		Charred();
 		return;
 	}

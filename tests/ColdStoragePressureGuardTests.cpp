@@ -45,7 +45,7 @@ void RunColdStoragePressureGuardTests()
     const auto frozenResult=Evaluate(s,{});
     Check(frozenResult==exposedResult,"hard-controlled guard must not protect adjacent allies");
 
-    // 用完整爆炸事务检查护卫先死、保护不叠加、下一爆失去保护及低本体穿甲化灰。
+    // 用完整爆炸事务检查护卫先死、保护不叠加、下一爆失去保护及防具先承伤。
     Snapshot ash; ash.rows=3; ash.columns=9; ash.cellWidth=80; ash.houseX=-10000; ash.traceCombat=true;
     auto guard=Guard(10,1); guard.body.health=1600; guard.helmHealth=1000;
     Unit ally; ally.id=11; ally.body.row=0; ally.body.x=730; ally.body.health=ally.maximumBody=1000;
@@ -76,7 +76,17 @@ void RunColdStoragePressureGuardTests()
     const auto repeated=impacts(ash,11);
     Check(repeated.size()==2 && Near(repeated[0],640) && Near(repeated[1],0),"a later blast must not reuse dead guard protection");
     ash.counters={blast}; ash.current[1].helmHealth=1100; ash.current[1].body.health=1370; ash.current[1].ashBodyThreshold=true;
-    Check(Near(impacts(ash,11)[0],0),"protected 360 ash must still char a 270-body bucket through its helmet");
+    Check(Near(impacts(ash,11)[0],1010),"protected bucket must keep its 270 body and lose only 360 helmet health");
+    ash.current[1].helmHealth=200; ash.current[1].body.health=470;
+    Check(Near(impacts(ash,11)[0],110),"broken helmet must pass only its 160 overflow to the body");
+    ash.current[1].helmHealth=90; ash.current[1].body.health=360;
+    Check(Near(impacts(ash,11)[0],0),"ash overflow equal to remaining body must still kill");
+    ash.current[1].helmHealth=1100; ash.current[1].body.health=1370; ash.current[0].body.stopped=300;
+    ash.counters[0].blast.damage=500;
+    Check(Near(impacts(ash,11)[0],0),"unprotected ash must retain its ordinary armor-bypassing char threshold");
+    ash.current[0]=guard; ash.counters[0].blast.damage=1800;
+    ash.current[1].helmHealth=0; ash.current[1].shieldHealth=1100;
+    Check(Near(impacts(ash,11)[0],1010),"protected screen door must absorb ash before its body too");
 
     // 没有可治本体损伤时，急救员不为不可修复的装置施法。
     std::vector<Unit> units{Guard(1,1)}; units[0].helmHealth=1000; units[0].body.health=1600;

@@ -45,7 +45,8 @@ def check_entity():
     assert survivor['pressureWindowUsed'] == 600 and survivor['pressureCanProtect']
     assert zombies(load('ash_followup'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2100
     assert zombies(load('ash_followup'), 'BUCKET')[0]['helmHealth'] == 1000
-    assert not zombies(load('ash_ally'), 'BUCKET'), 'Reduced 360 ash still exceeds the bucket body threshold'
+    assert zombies(load('ash_ally'), 'BUCKET')[0]['helmHealth'] == 640
+    assert zombies(load('ash_ally'), 'BUCKET')[0]['bodyHealth'] == 270
     assert zombies(load('almost_broken'), 'PRESSURE_GUARD')[0]['helmHealth'] == 100
     broken = zombies(load('broken'), 'PRESSURE_GUARD')[0]
     assert broken['helmHealth'] == 0 and broken['bodyHealth'] == 550 and broken['pressureStage'] == 3

@@ -487,21 +487,23 @@ std::vector<unsigned char> FreezePressureAsh(const std::vector<Unit>& units, con
 /** 已提交大招逐击结算；保护先同时降低化灰阈值和伤害，不转移也不占普通伤害限额。 */
 float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0,
     bool pressureAshProtected = false) {
-    if(ash && pressureAshProtected && !unit.pressureGuard) damage=std::ceil(damage/PressureGuardRules::AshDivisor);
+    const bool protectedAsh=ash && pressureAshProtected && !unit.pressureGuard;
+    if(protectedAsh) damage=std::ceil(damage/PressureGuardRules::AshDivisor);
 	if(ash && unit.adaptedOrigin==PlantDamageOrigin::Ash()) return 0;
 	if(ash && unit.digger.present && unit.digger.AshKillsDirectly(damage)) {
 		const float lost=unit.body.health; unit.body.health=0; return lost;
 	}
-	if(ash && unit.jack.elite && damage>=unit.body.health-unit.helmHealth-unit.shieldHealth) unit.jack.flightsCancelled=true;
-    // 祭司与钟匠沿用普通化灰入口，灰烬达到本体生命便直接死亡，仪器不能冒充冷链护盾保命。
+    const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
+    // 与实体相同：承压保护先扣门盾和头甲，再用余伤判断本体化灰；未保护时仍可越甲斩杀。
+    const float bodyAshDamage=protectedAsh ? std::max(0.0f,damage-armor-unit.shieldHealth) : damage;
+	if(ash && unit.jack.elite && bodyAshDamage>=unit.body.health-unit.helmHealth-unit.shieldHealth) unit.jack.flightsCancelled=true;
 	if(ash && unit.jack.present && !unit.jack.elite && unit.jack.phase==JackBoxRules::Forecast::Phase::POPPING) {
-        if(damage<unit.body.health-unit.helmHealth-unit.shieldHealth) return 0;
+        if(bodyAshDamage<unit.body.health-unit.helmHealth-unit.shieldHealth) return 0;
         const float lost=unit.body.health; unit.body.health=0; return lost;
     }
-    const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
 	const bool bodyThreshold=unit.ashBodyThreshold && !unit.pressureGuard && unit.adaptiveHelmet<=0
 		&& !(unit.insulator && unit.helmHealth>0) && !(unit.shieldedAshCap>0 && unit.shieldHealth>0);
-	if (ash && (bodyThreshold || unit.ritual.present || unit.clock.present) && damage >= unit.body.health-armor-unit.shieldHealth) {
+	if (ash && (bodyThreshold || unit.ritual.present || unit.clock.present) && bodyAshDamage >= unit.body.health-armor-unit.shieldHealth) {
 		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; unit.helmHealth = 0; return lost;
 	}
 	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
