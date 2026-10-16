@@ -202,8 +202,10 @@ public:
 	void TakeProjectileDamage(int damage, DamageSource source, float velocityX,
 		bool penetrateShield = false, bool discardShieldOverflow = false,
 		bool requestsShieldBypass = false, PlantDamageOrigin plantOrigin = {});
-	/** 植物爆炸的统一入口：默认按原版阈值化灰，否则走带 PLANT_ASH 分类的普通扣血链。 */
-	virtual void TakePlantAshDamage(int damage);
+	/** 植物灰烬统一入口：先应用整次攻击冻结的承压减伤，再交给品种判断斩杀和扣血。 */
+	void TakePlantAshDamage(int damage);
+	/** 品种自有灰烬结算；参数已经减伤，基类转发也不得重新进入公共入口。 */
+	virtual void ResolvePlantAshDamage(int damage);
 	/** 最终来源倍率及代伤分配后限制本目标伤害；默认不限制。 */
 	virtual int LimitFinalIncomingDamage(int damage, DamageSource, PlantDamageOrigin) { return damage; }
 	/** 治疗/修复是否能恢复尚存的一类防具；不影响时间锚的核心状态恢复。 */

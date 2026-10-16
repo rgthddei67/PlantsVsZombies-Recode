@@ -13,7 +13,7 @@ public:
 	void Update() override;
 	void StartEat(ColliderComponent* other) override;
 	void HelmDrop() override;
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	void HeadDrop() override;
 	void Die() override;
 	void ZombieItemUpdate() const override;

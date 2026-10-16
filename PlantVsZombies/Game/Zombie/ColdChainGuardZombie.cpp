@@ -27,7 +27,7 @@ bool ColdChainGuardZombie::HasIceShield() const
 	return mHelmType == HelmType::HELMTYPE_ICE_SHIELD && mHelmHealth > 0;
 }
 
-void ColdChainGuardZombie::TakePlantAshDamage(int damage)
+void ColdChainGuardZombie::ResolvePlantAshDamage(int damage)
 {
 	if (damage <= 0 || !mBoard) return;
 	const int scaled = ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));

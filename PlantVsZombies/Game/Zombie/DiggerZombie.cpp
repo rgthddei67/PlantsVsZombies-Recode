@@ -638,14 +638,14 @@ void DiggerZombie::ZombieItemUpdate() const
 }
 
 /** 地下与出土阶段对齐原版 BurnZombie：灰烬直接回收，不播放地上焦尸。 */
-void DiggerZombie::TakePlantAshDamage(int damage)
+void DiggerZombie::ResolvePlantAshDamage(int damage)
 {
 	if (damage <= 0) return;
 	if (!IsInteractivePhase()) {
 		Die();
 		return;
 	}
-	Zombie::TakePlantAshDamage(damage);
+	Zombie::ResolvePlantAshDamage(damage);
 }
 
 void DiggerZombie::Charred()

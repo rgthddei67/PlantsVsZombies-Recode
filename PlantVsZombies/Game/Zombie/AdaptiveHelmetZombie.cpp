@@ -84,7 +84,7 @@ bool AdaptiveHelmetZombie::TryAdaptHelmetToPlantDamage(
 	return true;
 }
 
-void AdaptiveHelmetZombie::TakePlantAshDamage(int damage)
+void AdaptiveHelmetZombie::ResolvePlantAshDamage(int damage)
 {
 	const PlantDamageOrigin ashOrigin = PlantDamageOrigin::Ash();
 	if (BlocksPlantDamage(ashOrigin)) return;
@@ -95,7 +95,7 @@ void AdaptiveHelmetZombie::TakePlantAshDamage(int damage)
 			false, false, false, ashOrigin);
 		return;
 	}
-	Zombie::TakePlantAshDamage(damage);
+	Zombie::ResolvePlantAshDamage(damage);
 }
 
 void AdaptiveHelmetZombie::HelmDrop()

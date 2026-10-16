@@ -40,6 +40,7 @@ struct BlastThreat {
 	bool committed = false;
 	bool usesObjectX = true;
 	bool requiresGroundTarget = false; // 土豆雷/窝瓜须经过地面目标资格，樱桃/毁灭/辣椒可打地下
+	bool pressureAshReduction = true; // 普通灰烬享受承压减伤；窝瓜独立压扁/直杀链不走该入口
     ColdStorageResponse::AreaGeometry responseArea; // 只供公开机会局部删失，不改变原伤害包络
 };
 

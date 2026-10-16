@@ -622,10 +622,10 @@ void RoofMarshalZombie::LoadExtraData(const nlohmann::json& j)
 	}
 }
 
-void RoofMarshalZombie::TakePlantAshDamage(int damage)
+void RoofMarshalZombie::ResolvePlantAshDamage(int damage)
 {
 	// 土豆雷传入 INT32_MAX；在统一灰烬入口先压回常规爆炸伤害，再保留植物词条缩放。
-	Zombie::TakePlantAshDamage(std::min(damage, kPlantAshDamageCap));
+	Zombie::ResolvePlantAshDamage(std::min(damage, kPlantAshDamageCap));
 }
 
 bool RoofMarshalZombie::TakePlantInstantKill()

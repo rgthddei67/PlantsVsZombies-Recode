@@ -1,6 +1,7 @@
 #include "Board.h"
 #include "Game/Zombie/DisasterEngineerZombie.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
+#include "Game/Zombie/PressureGuardZombie.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "GameApp.h"
@@ -38,6 +39,27 @@ private:
 
 void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::function<void(Zombie*)>& apply)
 {
+	std::vector<int> pressureProtected;
+	// 先冻结整次攻击的保护，护卫同次死亡也不撤销；所有承压护卫均不能被同类减免灰烬。
+	for (const int id : targets) {
+		auto* target=mEntityRegistry.GetZombie(id);
+		if (!target || !target->IsActive() || target->IsDying() || dynamic_cast<PressureGuardZombie*>(target)) continue;
+		bool covered=false;
+		mEntityRegistry.ForEachPressureGuard([&](Zombie* zombie) {
+			auto* guard=static_cast<PressureGuardZombie*>(zombie);
+			if (guard->CanProtect() && guard->IsMindControlled()==target->IsMindControlled()
+				&& std::abs(guard->mRow-target->mRow)<=1
+				&& std::abs(guard->GetPosition().x-target->GetPosition().x)<=CELL_COLLIDER_SIZE_X*PressureGuardRules::RadiusCells)
+				covered=true;
+		});
+		if (covered) pressureProtected.push_back(id);
+	}
+	mPressureAshProtection.push_back(std::move(pressureProtected));
+	// 回调可能触发嵌套伤害；退出时恢复外层名单，不将临时保护泄漏到下一次攻击。
+	struct RestoreProtection {
+		std::vector<std::vector<int>>& stack;
+		~RestoreProtection() { stack.pop_back(); }
+	} restore{mPressureAshProtection};
 	std::vector<int> protectedIDs;
 	auto ids = mEntityRegistry.GetAllZombieIDs();
 	std::sort(ids.begin(), ids.end());
@@ -65,6 +87,13 @@ void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::func
 		if (std::find(protectedIDs.begin(),protectedIDs.end(),id)!=protectedIDs.end()) continue;
 		if (auto* z=mEntityRegistry.GetZombie(id); z && z->IsActive() && !z->IsDying()) apply(z);
 	}
+}
+
+bool Board::HasPressureAshProtection(int zombieID) const
+{
+	if (mPressureAshProtection.empty()) return false;
+	const auto& ids=mPressureAshProtection.back();
+	return std::find(ids.begin(),ids.end(),zombieID)!=ids.end();
 }
 
 void Board::CreateThunderImpact(const Vector& position, int row, int damage)

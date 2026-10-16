@@ -11,7 +11,7 @@ public:
 	float GetRepairRemaining() const { return mRepairRemaining; }
 	bool HasIceShield() const;
 	/** 灰烬按冰盾加本体总耐久判断致死，非致死伤害仍走一类防具。 */
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	int GetShieldDamageStage() const { return mShieldStage; }
 	void ZombieItemUpdate() const override;
 	/** 破盾后隐藏挂件并停止修复，不能重新取得冰盾。 */

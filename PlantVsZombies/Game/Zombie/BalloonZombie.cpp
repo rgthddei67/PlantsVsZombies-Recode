@@ -263,7 +263,7 @@ void BalloonZombie::PlaySpawnSound()
 		ResourceKeys::Sounds::SOUND_BALLOONINFLATE, kOneShotVolume);
 }
 
-void BalloonZombie::TakePlantAshDamage(int damage)
+void BalloonZombie::ResolvePlantAshDamage(int damage)
 {
 	if (damage <= 0 || !mBoard) return;
 

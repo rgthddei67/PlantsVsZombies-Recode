@@ -170,7 +170,7 @@ void CrystalHornMinerZombie::HelmDrop()
 	if (g_particleSystem) g_particleSystem->EmitEffect("CrystalHornBreak",GetRenderedTrackWorldPosition("anim_head1"));
 }
 
-void CrystalHornMinerZombie::TakePlantAshDamage(int damage)
+void CrystalHornMinerZombie::ResolvePlantAshDamage(int damage)
 {
 	if (!mBoard || damage <= 0) return;
 	const int scaled = ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));

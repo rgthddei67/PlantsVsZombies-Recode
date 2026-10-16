@@ -55,7 +55,7 @@ public:
 	void TakeDamage(int damage, DamageSource source, bool penetrateShield = false,
 		bool discardShieldOverflow = false, bool bypassShield = false,
 		PlantDamageOrigin plantOrigin = {}) override;
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	bool TakePlantInstantKill() override;
 	void Die() override;
 	void PlaySpawnSound() override;

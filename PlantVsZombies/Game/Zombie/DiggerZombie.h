@@ -44,7 +44,7 @@ public:
 	void HeadDrop() override;
 	void ArmDrop() override;
 	void ZombieItemUpdate() const override;
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	void Charred() override;
 	void Die() override;
 	bool IsMovingRight() const override;

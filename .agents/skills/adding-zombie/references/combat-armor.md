@@ -4,10 +4,10 @@
 
 ### 灰烬致死若要求直接消失，不能只改 `CanBeCharred()`
 
-覆写 `TakePlantAshDamage()`，按词条缩放后的最终伤害与“本体 + 当前额外生命层”判断是否确实致死；致死直接 `Die()`，非致死继续 `TakeDamage(..., PLANT_ASH)`。同时覆写 `Charred()` 收口其他兼容调用，避免落地态仍生成烧焦残影。带额外生命层时不要简单放开飞行态 `CanBeCharred()`，因为通用调用方多只比较 `mBodyHealth`，会把本应剩血的目标误删。AutoTest 至少分别覆盖额外层仍在与落地后两态，并断言实体、`charredZombieCount` 和特殊爆裂音效。
+覆写 `ResolvePlantAshDamage()`，按词条缩放后的最终伤害与“本体 + 当前额外生命层”判断是否确实致死；致死直接 `Die()`，非致死继续 `TakeDamage(..., PLANT_ASH)`。同时覆写 `Charred()` 收口其他兼容调用，避免落地态仍生成烧焦残影。带额外生命层时不要简单放开飞行态 `CanBeCharred()`，因为通用调用方多只比较 `mBodyHealth`，会把本应剩血的目标误删。AutoTest 至少分别覆盖额外层仍在与落地后两态，并断言实体、`charredZombieCount` 和特殊爆裂音效。
 ### 高生命首领不能只提高 `mBodyHealth`
 
-逐项审计绕过数值耐久的统一入口。土豆雷会向 `TakePlantAshDamage(INT32_MAX)` 传直杀值，若需限制单次灰烬，应在该虚入口先压回基础上限再调用基类，以保留植物词条缩放。大嘴花的 `TakePlantInstantKill()` 只返回是否确实吞下；拒吞时由大嘴花把默认 20 点交给 `AdjustRejectedChomperBiteDamage()`，再走正式 `PLANT` 伤害链。未来拒吞品种默认不覆写调整入口；只有已有明确特殊数值的品种才覆写，不能让每个普通拒吞目标各自复制 20。巨人、红眼巨人和屋脊督军均拒吞并使用默认 20；持杆跳跳因高度咬不到，按装备状态将拒吞伤害调整为 0，失去弹跳器后恢复基类吞食。另按设计覆写 `CanBeCharmed()`、`ResistsTangleKelpDrowning()` 与 `CanBeKilledByMower()`；小推车免疫只跳过处决，车辆仍须正常启动、消耗并驶离。专项必须用真实植物/车辆覆盖每条入口，并以普通僵尸对照锁定默认直杀行为，同时回归已有特殊拒吞伤害。
+逐项审计绕过数值耐久的统一入口。土豆雷会向 `TakePlantAshDamage(INT32_MAX)` 传直杀值，若需限制单次灰烬，应在品种结算虚入口 `ResolvePlantAshDamage()` 先压回基础上限再调用基类，以保留植物词条缩放。大嘴花的 `TakePlantInstantKill()` 只返回是否确实吞下；拒吞时由大嘴花把默认 20 点交给 `AdjustRejectedChomperBiteDamage()`，再走正式 `PLANT` 伤害链。未来拒吞品种默认不覆写调整入口；只有已有明确特殊数值的品种才覆写，不能让每个普通拒吞目标各自复制 20。巨人、红眼巨人和屋脊督军均拒吞并使用默认 20；持杆跳跳因高度咬不到，按装备状态将拒吞伤害调整为 0，失去弹跳器后恢复基类吞食。另按设计覆写 `CanBeCharmed()`、`ResistsTangleKelpDrowning()` 与 `CanBeKilledByMower()`；小推车免疫只跳过处决，车辆仍须正常启动、消耗并驶离。专项必须用真实植物/车辆覆盖每条入口，并以普通僵尸对照锁定默认直杀行为，同时回归已有特殊拒吞伤害。
 
 ### 车辆/精英变体的特殊受击
 
@@ -62,3 +62,5 @@ Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支
 承压代伤入口为 `Board::SharePressureGuardDamage`：在原目标完成来源/状态倍率与既有免疫判定后分配，承接者直接消费自己的防具层，不重进 `TakeDamage`，否则会重复增伤、触发攻击副作用或互相递归转伤。最终承伤封顶使用 `Zombie::LimitFinalIncomingDamage`，不能放在早于攻击回响的 `AdjustIncomingDamage`。灰烬按 `PlantDamageOrigin::Ash()` 区分，不能把所有内部 `PLANT_ASH` 来源都当作灰烬。整数分担保留目标自有小数余量；滚动账本存相对截止时间，暂停不流逝、读档不刷新额度，时间锚不回滚活体已消费额度。
 
 不可治疗的一类防具通过目标自有 `CanRepairHelm()` 表达；急救员资格/排序/实结算、普通修复、治疗MC与指挥官预测须共同排除该层，不能只跳过最终加血而让AI持续选择无效治疗。入口与数值共用规则见 `PressureGuardZombie` / `PressureGuardRules`，实机边界见 `smoke_pressure_guard` 与对应 verifier。
+
+承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结非护卫队友名单；`Zombie::TakePlantAshDamage` 是非虚入口，先缩放本次灰烬，再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；护卫自身不受同类灰烬保护，不转移减掉的伤害，也不消费常规滚动额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash` 与同名 verifier。

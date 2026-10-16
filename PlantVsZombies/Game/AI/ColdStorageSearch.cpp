@@ -464,8 +464,31 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 	const float reduction = cap > 0 && hit > 0 ? std::min(1.0f,cap/hit) : 1;
 	return {plant.dps*fraction*multiplier*reduction,plant.melon || (plant.fume && !blocksFume),bypass,blocksFume};
 }
-/** 已提交大招逐击结算；普通植物能力和灰烬分别使用目标自己的上限。 */
-float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0) {
+/** 使用攻击开始时的群体状态判断承压保护；逻辑对象坐标与实体范围一致。 */
+bool PressureAshProtected(const Unit& target, const std::vector<Unit>& units, const Snapshot& state, float time) {
+    if(target.pressureGuard) return false;
+    return std::any_of(units.begin(),units.end(),[&](const Unit& guard) {
+        return guard.pressureGuard && guard.helmHealth>0 && !guard.headless && guard.body.health>0
+            && guard.body.spawnAt<=time && guard.body.stopped<=0 && guard.ferryPassengerEligible
+            && std::abs(guard.body.row-target.body.row)<=1
+            && std::abs(guard.body.x+guard.body.blastAnchorOffset-target.body.x-target.body.blastAnchorOffset)
+                <=state.cellWidth*PressureGuardRules::RadiusCells;
+    });
+}
+
+/** 冻结同次灰烬的承压名单，避免护卫在遍历中先死导致同行队友失去本次保护。 */
+std::vector<unsigned char> FreezePressureAsh(const std::vector<Unit>& units, const Snapshot& state, float time) {
+    std::vector<unsigned char> result(units.size());
+    if(std::none_of(units.begin(),units.end(),[](const Unit& u) {return u.pressureGuard;})) return result;
+    for(size_t i=0;i<units.size();++i) result[i]=PressureAshProtected(units[i],units,state,time);
+    return result;
+}
+
+/** 已提交大招逐击结算；保护先同时降低化灰阈值和伤害，不转移也不占普通伤害限额。 */
+float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0,
+    bool pressureAshProtected = false) {
+    if(ash && pressureAshProtected && !unit.pressureGuard) damage=std::ceil(damage/PressureGuardRules::AshDivisor);
+	if(ash && unit.adaptedOrigin==PlantDamageOrigin::Ash()) return 0;
 	if(ash && unit.digger.present && unit.digger.AshKillsDirectly(damage)) {
 		const float lost=unit.body.health; unit.body.health=0; return lost;
 	}
@@ -476,7 +499,9 @@ float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* gr
         const float lost=unit.body.health; unit.body.health=0; return lost;
     }
     const float armor = unit.ritual.present ? unit.ritual.armor : unit.helmHealth;
-	if (ash && (unit.ritual.present || unit.clock.present) && damage >= unit.body.health-armor-unit.shieldHealth) {
+	const bool bodyThreshold=unit.ashBodyThreshold && !unit.pressureGuard && unit.adaptiveHelmet<=0
+		&& !(unit.insulator && unit.helmHealth>0) && !(unit.shieldedAshCap>0 && unit.shieldHealth>0);
+	if (ash && (bodyThreshold || unit.ritual.present || unit.clock.present) && damage >= unit.body.health-armor-unit.shieldHealth) {
 		const float lost = unit.body.health; unit.body.health = 0; unit.ritual.armor = 0; unit.helmHealth = 0; return lost;
 	}
 	const float cap = unit.shieldHealth > 0 ? (ash ? unit.shieldedAshCap : unit.shieldedHitCap) : 0;
@@ -2092,7 +2117,7 @@ void PreemptInterference(const Snapshot& s,float time,const ColdStorageStrategy:
 		const auto& unit=units[target.unit];
 		if(unit.temporalIrreversible || !CounterHits(blast,unit,time)) continue;
 		auto hit=unit;
-		preventable+=std::min(target.saved.body.health,ApplyDiscreteHit(hit,blast.damage,true));
+		preventable+=std::min(target.saved.body.health,ApplyDiscreteHit(hit,blast.damage,true,nullptr,nullptr,time,blast.pressureAshReduction && PressureAshProtected(unit,units,s,time)));
 	}
 	if(preventable<DawnLotusRules::Damage) return;
 	// 时间干扰先付款，灰烬仍须支付预留费用；取消死者记录与禁锚均沿用正式规则。
@@ -2166,6 +2191,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
             combatEvent.event="counter_impact"; combatEvent.at=time; combatEvent.attackID=it->traceID;
             combatEvent.sourceID=it->plantID; combatEvent.x=it->blast.x; combatEvent.targetRow=it->ladderClearRow; combatEvent.resolveAt=it->at;
         }
+		const auto pressureProtected=FreezePressureAsh(units,state,time);
 		std::vector<unsigned char> protectedWorkers(units.size());
 		for (auto& engineer:units) if (engineer.engineer && engineer.canisterFull
 			&& engineer.body.spawnAt<=time && engineer.body.health>engineer.engineerStopHealth) {
@@ -2183,7 +2209,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 					protectedWorkers[i]=1; used=true; ++stats.engineerBlocks;
 					auto exposed=units[i];
 					stats.workerProtectionProgress+=units[i].body.purchaseCost
-						*ApplyDiscreteHit(exposed,it->blast.damage,true)/std::max(1.0f,initialHealth[i]);
+						*ApplyDiscreteHit(exposed,it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction && pressureProtected[i])/std::max(1.0f,initialHealth[i]);
 				}
 			}
 			if (used) { engineer.canisterFull=false; engineer.reloadPaid=false; engineer.reloadRemaining=DisasterEngineerRules::ReloadSeconds; }
@@ -2191,7 +2217,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 		for (size_t i = 0; i < units.size(); ++i) if (!protectedWorkers[i] && CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
             auto hit=recordImpact ? UnitCombatHit(state,units[i],it->blast.damage) : CombatForecastHit{};
-			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true);
+			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction && pressureProtected[i]);
             if(recordImpact) {FinishUnitCombatHit(hit,units[i]);combatEvent.targets.push_back(hit);}
 			const float credit = body.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
 			features[6] += credit; units[i].blastCredit += credit;
@@ -2276,6 +2302,18 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 	ColdStorageStrategy::BlastThreat impact;
 	// 同炮的全部爆点共享一次来源存活查询；新增/已毁来源增多也不按爆点反复扫描植物。
 	std::vector<unsigned char> sourceAlive(ready.size());
+    // 新反制的边际收益共用一份在途伤害预览；逐次冻结保护，不能让已被前一爆杀死的护卫继续保护。
+    auto pendingProjection=units;
+    std::vector<const PendingCounter*> orderedPending;
+    for(const auto& scheduled:pending) orderedPending.push_back(&scheduled);
+    std::stable_sort(orderedPending.begin(),orderedPending.end(),[](const auto* a,const auto* b) {return a->at<b->at;});
+    for(const auto* scheduled:orderedPending) {
+        const auto covered=FreezePressureAsh(pendingProjection,state,time);
+        for(const size_t i:activeUnits) if(CounterHits(scheduled->blast,pendingProjection[i],time))
+            ApplyDiscreteHit(pendingProjection[i],scheduled->blast.damage,true,nullptr,nullptr,time,
+                scheduled->blast.pressureAshReduction && covered[i]);
+    }
+    const auto candidateProtection=FreezePressureAsh(pendingProjection,state,time);
 	for (size_t c = 0; c < counters.size(); ++c) {
 		const auto& counter = counters[c];
 		if (PlantingBlocked(blocks,counter.cellRow,counter.cellColumn,time)) continue;
@@ -2318,10 +2356,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 		bool urgent = false;
         bool visibleCounterWitness=false;
 		for (const size_t i : activeUnits) if (!hidden(units[i]) && CounterHits(candidate, units[i], time)) {
-			auto projected = units[i];
-			// 不连续把三张清场牌浪费在已被另一张锁定的濒死目标上。
-			for (const auto& scheduled : pending) if (CounterHits(scheduled.blast, units[i], time))
-				ApplyDiscreteHit(projected,scheduled.blast.damage,true);
+			auto projected = pendingProjection[i];
 			if (projected.body.health <= 0) continue;
             if(state.diagnosticVisibleCounterWitness) {
                 const auto& witness=units[i];
@@ -2334,7 +2369,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
                 visibleCounterWitness|=targetable && bodyHealth>0 && objectX>=0 && objectX<=state.rightEdge;
             }
 			const float stake = std::max(kUnpricedCounterStake,units[i].body.purchaseCost > 0 ? units[i].body.purchaseCost : units[i].body.value);
-			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true) / std::max(1.0f, initialHealth[i]);
+			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true,nullptr,nullptr,time,candidate.pressureAshReduction && candidateProtection[i]) / std::max(1.0f, initialHealth[i]);
 			urgent = urgent || units[i].body.x < state.houseX+kUrgentCounterDistance;
 		}
         if(unknownCount>0 && unknownCells>0 && !counter.targeted) {
@@ -2576,7 +2611,7 @@ static CobRecipePlan SelectCobRecipe(const Snapshot& state, float time, float ho
 						|| std::abs(u.x+u.blastAnchorOffset-aim.x)>card.cob.radius) continue;
 					const int column=std::clamp(static_cast<int>((u.x-state.gridLeft)/state.cellWidth),0,state.columns-1);
 					if(fogAlpha && (*fogAlpha)[u.row*state.columns+column]>96) continue;
-					auto projected=unit; damage+=ApplyDiscreteHit(projected,card.cob.damage,true);
+					auto projected=unit; damage+=ApplyDiscreteHit(projected,card.cob.damage,true,nullptr,nullptr,time,PressureAshProtected(unit,units,state,time));
 				}
 				cachedShotValue=std::max(cachedShotValue,damage);
 			}

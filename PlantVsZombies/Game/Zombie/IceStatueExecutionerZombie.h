@@ -31,7 +31,7 @@ public:
 	void ArmDrop() override;
 	void HelmDrop() override;
 	/** 头盔存在时以本体+防具总耐久决定灰烬直消，否则让爆炸走正常扣血链。 */
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	bool HasMagneticItem() const override;
 	bool ExtractMagneticItem(MagneticItem& item) override;
 	float GetInterruptibleSpecialActionRemaining() const override;

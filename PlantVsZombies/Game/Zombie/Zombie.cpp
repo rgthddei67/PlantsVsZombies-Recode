@@ -1,3 +1,4 @@
+#include "PressureGuardRules.h"
 #include "Zombie.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "GoldenIceRules.h"
@@ -510,6 +511,13 @@ void Zombie::Charred()
 }
 
 void Zombie::TakePlantAshDamage(int damage)
+{
+	if (damage <= 0 || !mBoard) return;
+	if (mBoard->HasPressureAshProtection(mZombieID)) damage=PressureGuardRules::ReduceAsh(damage);
+	ResolvePlantAshDamage(damage);
+}
+
+void Zombie::ResolvePlantAshDamage(int damage)
 {
 	if (damage <= 0 || !mBoard) return;
 

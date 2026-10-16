@@ -138,6 +138,7 @@ struct Unit {
 	ArmorRepair repair;
 	bool pressureGroupPresent = false; // 每次完整推演派生；没有护卫时跳过承伤选人扫描
 	bool pressureGuard = false; // 非再生一类盾；同阵营承伤与滚动限额
+	bool ashBodyThreshold = false; // Board 为普通化灰品种开启本体阈值；未知合成画像仍按完整耐久扣血
 	int pressureProtectorID = 0; // 已锁定护卫，额度耗尽不换人
 	PressureGuardRules::DamageWindow pressureWindow;
 	Drum drum;

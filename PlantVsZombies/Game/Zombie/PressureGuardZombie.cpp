@@ -45,7 +45,7 @@ void PressureGuardZombie::TakeTransferredDamage(int damage)
     SetGlowingTimer(.15f);
 }
 
-void PressureGuardZombie::TakePlantAshDamage(int damage)
+void PressureGuardZombie::ResolvePlantAshDamage(int damage)
 {
     if (damage <= 0 || !mBoard) return;
     const int scaled = ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));

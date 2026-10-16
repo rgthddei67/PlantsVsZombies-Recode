@@ -13,7 +13,7 @@ public:
     /** 接收已经完成来源增伤的代伤；不再次转移、缩放或触发植物攻击副作用。 */
     void TakeTransferredDamage(int damage);
     /** 灰烬按总耐久判断化灰；幸存者继续保留尚存的装置。 */
-    void TakePlantAshDamage(int damage) override;
+    void ResolvePlantAshDamage(int damage) override;
     int LimitFinalIncomingDamage(int damage, DamageSource source, PlantDamageOrigin origin) override;
     void HelmDrop() override;
     void ZombieItemUpdate() const override;

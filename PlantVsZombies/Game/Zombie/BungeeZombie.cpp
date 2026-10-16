@@ -330,9 +330,9 @@ void BungeeZombie::TakeDamage(int damage, DamageSource source,
 		discardShieldOverflow, bypassShield, plantOrigin);
 }
 
-void BungeeZombie::TakePlantAshDamage(int damage)
+void BungeeZombie::ResolvePlantAshDamage(int damage)
 {
-	if (IsVulnerable()) Zombie::TakePlantAshDamage(damage);
+	if (IsVulnerable()) Zombie::ResolvePlantAshDamage(damage);
 }
 
 bool BungeeZombie::TakePlantInstantKill()

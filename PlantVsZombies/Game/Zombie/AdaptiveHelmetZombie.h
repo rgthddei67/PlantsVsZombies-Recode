@@ -13,7 +13,7 @@ public:
 	bool CanBeCharmed() const override { return false; }
 	bool BlocksPlantDamage(PlantDamageOrigin origin) const override;
 	bool TryAdaptHelmetToPlantDamage(int damage, PlantDamageOrigin origin) override;
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	void HeadDrop() override;
 	void HelmDrop() override;
 	void Die() override;

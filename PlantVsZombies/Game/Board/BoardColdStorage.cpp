@@ -337,9 +337,13 @@ namespace {
 		return result;
 	}
 
-	/** 目标自有的加固门特性只在此投影，纯数值推演不辨认僵尸枚举。 */
+	/** 目标自有的防具与化灰特性在此投影，纯数值推演不辨认僵尸枚举。 */
 	void ProjectShieldRules(ColdStorageSearch::Unit& unit, ZombieType type)
 	{
+		using Z=ZombieType;
+		unit.ashBodyThreshold = type!=Z::ZOMBIE_PRESSURE_GUARD && type!=Z::ZOMBIE_COLD_CHAIN_GUARD
+			&& type!=Z::ZOMBIE_CRYSTAL_HORN_MINER && type!=Z::ZOMBIE_ICE_STATUE_EXECUTIONER
+			&& type!=Z::ZOMBIE_BALLOON && type!=Z::ZOMBIE_ROOF_MARSHAL;
 		if (type != ZombieType::ZOMBIE_REINFORCED_DOOR) return;
 		unit.shieldedHitCap = ReinforcedDoorZombie::ShieldedHitCap;
 		unit.shieldedAshCap = ReinforcedDoorZombie::ShieldedAshCap;
@@ -1505,6 +1509,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			counter.blast.committed = blast.committed;
 			counter.blast.usesObjectX = true;
 			counter.blast.requiresGroundTarget = targeted || blast.type == PlantType::PLANT_POTATOMINE;
+			counter.blast.pressureAshReduction = blast.type != PlantType::PLANT_SQUASH;
 			// 观察模型另带正式形状；旧伤害reach保持原样，未知工具不能借宽包络制造局部经验。
 			using ColdStorageResponse::AreaKind;
 			const auto responseKind=blast.type==PlantType::PLANT_CHERRYBOMB ? AreaKind::Cherry
@@ -1798,6 +1803,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			projectMovementCurve(unit,entity->mZombieType);
 			unit.shieldHealth = z.shieldHealth;
 			ProjectShieldRules(unit, entity->mZombieType);
+			unit.ashBodyThreshold = unit.ashBodyThreshold && !entity->IsInPool();
 			unit.biteDps = entity->GetMineSimulationAttackDps();
 			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
 			unit.thunderResistance = entity->GetThunderResistanceRemaining();
@@ -2127,6 +2133,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			unit.vehicleCrush = type == ZombieType::ZOMBIE_ZAMBONI || type == ZombieType::ZOMBIE_GILDED_ZAMBONI
 				|| type == ZombieType::ZOMBIE_CATAPULT || type == ZombieType::ZOMBIE_ELITE_CATAPULT;
 			ProjectShieldRules(unit, type);
+			unit.ashBodyThreshold = unit.ashBodyThreshold && !IsPoolRow(row);
 			unit.helmHealth = std::max({unit.helmHealth,unit.adaptiveHelmet,unit.ritual.armor,unit.repair.health});
 			unit.temporalStopHealth = ZombieBirthVitalsRules::DropsHeadAtBirth(type) ? vitals.body/3 : 0;
 			ProjectLadder(unit,type);

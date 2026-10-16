@@ -318,7 +318,7 @@ const std::string& IceStatueExecutionerZombie::GetHelmetTextureKey() const
 	return IMAGE_ZOMBIE_ICE_EXECUTIONER_HELMET;
 }
 
-void IceStatueExecutionerZombie::TakePlantAshDamage(int damage)
+void IceStatueExecutionerZombie::ResolvePlantAshDamage(int damage)
 {
 	if (damage <= 0 || !mBoard) return;
 

@@ -43,7 +43,7 @@ public:
 	void StartEat(ColliderComponent* other) override;
 	void PlaySpawnSound() override;
 	/** 灰烬伤害足以击杀时直接移除，不生成烧焦残影或转入普通死亡轨。 */
-	void TakePlantAshDamage(int damage) override;
+	void ResolvePlantAshDamage(int damage) override;
 	/** 所有进入化灰表现的兼容调用都收敛为直接移除。 */
 	void Charred() override { Die(); }
 	void HeadDrop() override;

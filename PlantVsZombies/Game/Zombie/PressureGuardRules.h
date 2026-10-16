@@ -3,7 +3,7 @@
 #include <cmath>
 #include <vector>
 
-/** 承压护卫实体与指挥官共用参数；窗口按游戏时间滚动，灰烬完全绕开。 */
+/** 承压护卫实体与指挥官共用参数；窗口只限制常规伤害，灰烬独立减伤。 */
 namespace PressureGuardRules {
 inline constexpr int BodyHealth = 600; // 本体生命，破盾后按普通伤害结算
 inline constexpr int ShieldHealth = 4500; // 一类承压装置耐久，不接受治疗或自动修复
@@ -13,6 +13,10 @@ inline constexpr int DamageLimit = 600; // 自身常规伤害与全部代伤的�
 inline constexpr double WindowSeconds = 1.0; // 伤害记录保留的游戏秒数
 inline constexpr float Share = .8f; // 队友原伤害中交由护卫承接的比例
 inline constexpr float RadiusCells = 1.0f; // 前后各一格，上下各一行
+inline constexpr int AshDivisor = 5; // 被保护队友只承受五分之一灰烬，护卫自身不享受
+
+/** 灰烬在斩杀与扣血前统一缩放；向上取整，正伤害不会因整数舍入变成免疫。 */
+inline int ReduceAsh(int damage) { return damage / AshDivisor + (damage % AshDivisor != 0); }
 
 /** 稀疏受伤账本；复制后只含数值，不引用实体或全局时钟。 */
 struct DamageWindow {
