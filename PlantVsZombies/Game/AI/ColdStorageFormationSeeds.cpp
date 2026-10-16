@@ -28,6 +28,7 @@ struct Roles {
     int ferry=-1, ferryVehicle=-1; // 运输者与可运输车辆独立保留，避免巨人挤掉车队候选
     int assaultRunner=-1; // 低于旧护卫血量门槛的独立普通地面突击角色，不替换fast掩护语义
     int ashGuard=-1, deploymentSniper=-1; // 单次灰烬封顶与落种反制是独立能力，不能按总血量混进普通护卫
+    int pressureGuard=-1, armoredBiter=-1, dancer=-1; // 保护光环、装甲啃食者和召唤者独立保留，避免血价比掩盖协同
 };
 
 /** 先行前排用偏慢移速、快兵用偏快移速，不能假定同批出生会自然排成前后队。 */
@@ -110,6 +111,14 @@ Roles FindRoles(const Snapshot& s, int row, int budget) {
         if(o.row!=row || o.device>=0 || o.cost<=0 || o.cost>budget || u.body.health<=0) continue;
         const int id=static_cast<int>(i);
         if(u.body.economic) { cheapest(r.worker,id); continue; }
+        if(u.pressureGuard && u.helmHealth>0) cheapest(r.pressureGuard,id);
+        if(u.dance.leader) cheapest(r.dancer,id);
+        if(!u.pressureGuard && (u.helmHealth>0 || u.shieldHealth>0) && u.biteDps>0
+            && MoveSpeed(u,true)>0 && !u.headless && !Specialist(u) && !u.balloon.present
+            && !u.digger.present && !u.vehicleCrush && !u.catapult.present && !u.dance.leader
+            && !u.dance.backup && !u.ladder.present && !u.sniper.enabled
+            && (r.armoredBiter<0 || u.body.health/o.cost>s.options[r.armoredBiter].unit.body.health/s.options[r.armoredBiter].cost))
+            r.armoredBiter=id;
         if(u.sniper.enabled) cheapest(r.deploymentSniper,id);
         if(u.shieldHealth>0 && u.shieldedAshCap>0 && (r.ashGuard<0
             || u.shieldHealth/u.shieldedAshCap/o.cost > s.options[r.ashGuard].unit.shieldHealth
@@ -156,6 +165,50 @@ struct Recipe {
         for(int i=0;i<count;++i) actions.push_back({option,delay});
     }
 };
+
+/** 给保护光环单独生成基础推进、召唤、经营、直射、炮击、越墙及分路混编。
+ * 最多十九案，沿用三档规模；只取当前合法角色，保护范围与实际收益仍由统一推演判断。
+ */
+std::vector<std::vector<Action>> PressureGuardAssaults(const Snapshot& s,int limit,int budget,
+    const std::vector<int>& rows,const std::array<Roles,6>& roles) {
+    std::vector<std::vector<Action>> seeds;
+    for(int scale:kScales) for(int shape=0;shape<6;++shape) for(int row:rows) {
+        const auto& r=roles[row];
+        const int runner=r.assaultRunner>=0 ? r.assaultRunner : r.fast;
+        if(r.pressureGuard<0 || (shape<3 && r.armoredBiter<0)
+            || (shape==1 && r.dancer<0) || (shape==2 && r.worker<0)
+            || (shape==3 && r.shooter<0) || (shape==4 && r.mortar<0)
+            || (shape==5 && (r.ladder<0 || runner<0 || runner==r.pressureGuard || runner==r.ladder))) continue;
+        Recipe plan{s,limit,budget};
+        plan.Add(r.pressureGuard,scale,0);
+        // 快兵延后抵达，降低进场即脱离光环的机会；不是保证全程受保护的简化规则。
+        if(shape<3) plan.Add(r.armoredBiter,(shape==2 ? 2 : 3)*scale,ShooterCoverDelay(s,row,r.pressureGuard,r.armoredBiter));
+        if(shape==1) plan.Add(r.dancer,scale,ShooterCoverDelay(s,row,r.pressureGuard,r.dancer));
+        if(shape==2) plan.Add(r.worker,scale,ShooterCoverDelay(s,row,r.pressureGuard,r.worker));
+        if(shape==3) plan.Add(r.shooter,2*scale,ShooterCoverDelay(s,row,r.pressureGuard,r.shooter));
+        if(shape==4) plan.Add(r.mortar,2*scale,MortarCoverDelay(s,row,r.pressureGuard,r.mortar));
+        if(shape==5) {
+            const float ladderDelay=ShooterCoverDelay(s,row,r.pressureGuard,r.ladder);
+            plan.Add(r.ladder,scale,ladderDelay);
+            plan.Add(runner,3*scale,std::min(kMaxLeadDelay,ladderDelay+RushDelay(s,row,r.ladder,runner)));
+        }
+        if(plan.valid) {seeds.push_back(std::move(plan.actions));break;}
+    }
+    // 双路仅保留一份小队，按低火力顺序选择至少隔一行的完整路线，不膨胀为所有行组合。
+    for(int row:rows) for(int partner:rows) {
+        if(std::abs(partner-row)<2) continue;
+        const auto& a=roles[row];const auto& b=roles[partner];
+        if(a.pressureGuard<0 || a.armoredBiter<0 || b.pressureGuard<0 || b.armoredBiter<0) continue;
+        Recipe plan{s,limit,budget};
+        for(int route:{row,partner}) {
+            const auto& r=roles[route];
+            plan.Add(r.pressureGuard,1,0);
+            plan.Add(r.armoredBiter,3,ShooterCoverDelay(s,route,r.pressureGuard,r.armoredBiter));
+        }
+        if(plan.valid) {seeds.push_back(std::move(plan.actions));return seeds;}
+    }
+    return seeds;
+}
 
 /** 最多五份轻快对照：三个纯突击规模，加一份双路突击及其带工人版本。
  * 路线至少隔一行；先比较低火力路线，同压再取较远路线。现金/容量不足整案拒绝。
@@ -247,8 +300,10 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
     for(int row:rows) roles[row]=FindRoles(s,row,budget);
     auto lightAssaults=LightAshAssaults(s,actionLimit,budget,rows,roles,pressure);
     auto runnerAssaults=RunnerAssaults(s,actionLimit,budget,rows,roles,pressure);
+    auto pressureAssaults=PressureGuardAssaults(s,actionLimit,budget,rows,roles);
     std::vector<std::vector<Action>> extraAssaults;
-    for(size_t i=0;i<std::max(lightAssaults.size(),runnerAssaults.size());++i) {
+    for(size_t i=0;i<std::max({lightAssaults.size(),runnerAssaults.size(),pressureAssaults.size()});++i) {
+        if(i<pressureAssaults.size()) extraAssaults.push_back(std::move(pressureAssaults[i]));
         if(i<runnerAssaults.size()) extraAssaults.push_back(std::move(runnerAssaults[i]));
         if(i<lightAssaults.size()) extraAssaults.push_back(std::move(lightAssaults[i]));
     }
@@ -485,12 +540,12 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
         }
         if(plan.valid && !plan.actions.empty()) {
             seeds.push_back(std::move(plan.actions));
-            // 新旧轻装家族轮流插入，不挤掉旧经验首案；96案满时末尾旧案可能失去本轮槽位。
+            // 独立混编家族与旧经验交错，不挤掉旧首案；96案满时末尾旧案可能失去本轮槽位。
             if(seeds.size()<kMaxSeeds) appendExtra();
         }
         if(seeds.size()>=kMaxSeeds) return seeds;
     }
-    // 卡池缺少旧经验必需的支援时，独立合法的轻装核心仍有机会接受完整评价。
+    // 卡池缺少旧经验必需的支援时，独立合法的混编核心仍有机会接受完整评价。
     while(seeds.size()<kMaxSeeds && extraIndex<extraAssaults.size()) appendExtra();
     return seeds;
 }

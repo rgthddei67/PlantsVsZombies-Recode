@@ -12,6 +12,7 @@
 #include "TestDriver.h"
 #include "CobSparringVisibility.h"
 #include "Game/AI/ColdStorageSearch.h"
+#include "Game/AI/ColdStorageFormationSeeds.h"
 #include "../../GameApp.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
@@ -1192,8 +1193,28 @@ bool TestDriver::ExecuteCurrent() {
             report["ferryCurrent"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
                 {"enabled",u.ferry.enabled},{"winding",u.ferry.winding},{"remaining",u.ferry.remaining},
                 {"stopHealth",u.ferry.stopBodyHealth},{"health",u.body.health}});
+		// 按实际生成器取完整配方作只读诊断，不将人工重写的近似时序冒充经验候选。
+		auto candidateRequests=cmd.value("candidatePlans",nlohmann::json::array());
+		if(cmd.contains("experiencedPlansWith")) {
+			const std::string filter=cmd.at("experiencedPlansWith");
+			const auto& state=probe.snapshot;
+			// 此处枚举全容量配方并用完整时域评分，不代表限时搜索每轮都评估了全部配方。
+			report["experiencedPlanScope"]={{"actionLimit",state.capacity},{"budget",state.budget},{"searchVersion",2}};
+			int index=0;
+			for(const auto& plan:ColdStorageSearch::BuildExperiencedFormations(state,state.capacity,state.budget)) {
+				nlohmann::json actions=nlohmann::json::array();bool matches=false;
+				for(const auto& a:plan) {
+					const auto& o=state.options[a.option];
+					const std::string type=GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(o.type));
+					matches|=type==filter;actions.push_back({{"type",type},{"row",o.row},{"delay",a.delay}});
+				}
+				if(matches) candidateRequests.push_back({{"name","experienced_"+std::to_string(index)},
+					{"searchVersion",2},{"actions",std::move(actions)}});
+				++index;
+			}
+		}
 		// 显式购物车仅作同局面反事实，不加入正式搜索或改变真实采购。
-		if(cmd.contains("candidatePlans")) {
+		if(cmd.contains("candidatePlans") || cmd.contains("experiencedPlansWith")) {
 			report["candidatePlans"]=nlohmann::json::array();
 			report["legalOptions"]=nlohmann::json::array();
 			report["cobConstructionOptions"]=nlohmann::json::array();
@@ -1216,7 +1237,7 @@ bool TestDriver::ExecuteCurrent() {
 					{"birthHeadThreshold",option.unit.temporalStopHealth},
                     {"birthPressureGuard",option.unit.pressureGuard},{"birthFerry",option.unit.ferry.present},{"birthFerryRemaining",option.unit.ferry.remaining},
                     {"birthFerryStopHealth",option.unit.ferry.stopBodyHealth}});
-			for(const auto& request:cmd.at("candidatePlans")) {
+			for(const auto& request:candidateRequests) {
 					auto state=probe.snapshot; state.traceEconomy=request.value("trace",false);
 				state.traceCombat=request.value("combatTrace",false);
                 state.visibleCounterResponse=request.value("visibleCounterResponse",true);
@@ -1254,7 +1275,7 @@ bool TestDriver::ExecuteCurrent() {
 					continue;
 				}
 				const auto result=ColdStorageSearch::EvaluateCandidate(state,probe.weights,plan);
-				nlohmann::json item={{"name",request.value("name","")},{"legal",true},{"expanded",result.expandedForecast},{"score",result.score},
+				nlohmann::json item={{"name",request.value("name","")},{"actions",request.at("actions")},{"legal",true},{"expanded",result.expandedForecast},{"score",result.score},
 					{"observedDecision",ObservedDecisionJson(result.observedDecision)},{"trialDecision",TrialDecisionJson(result.trialDiagnostics)},
 					{"searchVersion",result.expandedForecast ? 2 : state.searchVersion},{"cobRebuild",request.value("cobRebuild",true)},
                     {"visibleCounterResponseEnabled",state.visibleCounterResponse},{"visibleCounterResponseSelected",result.construction.visibleCounterResponse},

@@ -53,6 +53,8 @@
 
 `searchWidestComposition` 与对战决策 `widestComposition` 记录实际评估过的单次新购物车最大兵种数，设备与既有部队不计；需和 `largestPlan`、真实付款及防线损害一起看，不能用大队人数代替混编覆盖。`compare_commander_search` 同样导出该字段。
 
+`compare_commander_search.experiencedPlansWith` 可指定僵尸枚举名（例如 `ZOMBIE_PRESSURE_GUARD`），从正式经验生成器取包含该兵种的完整配方，连同真实成员和延迟写入 `candidatePlans` 并只读评分。该诊断按快照钱包、完整容量和完整预测时域枚举，报告的 `experiencedPlanScope` 保留这些边界；不代表限时搜索每轮都评估了全部候选，也不提交采购。可用 `budgetsMs: []` 仅检查配方。
+
 `smoke_commander_ladder_forecast` 与同名 verifier 验证当前资源的出生放梯时长、实际共享攀爬绕过仍完好的南瓜/冰坚果，以及正常付费辣椒整行拆梯。显式候选另导出 `ladderPlaced` / `ladderClimbs` / `ladderRemoved` 和只用于中间态探索的 `siegeAccessProgress`，不计收入或最终评分。该夹具不证明自主破阵；用真人布局复建的高库存残局也须注明准备期、预算、倍速、卡组与状态近似，不能与正常开局胜率混计。
 
 混合陪练金盏周转先尝试原首选格，已被阵型占用时再使用卡槽报告的其他合法空格；普通卡和模仿者各自冷却/付款，不能因固定格位堵塞而意外停掉双金盏经济。专项为 `smoke_commander_mixed_exchange_space` 与同名 verifier，检查原首选株未被铲、两个实际槽位使用及灰烬资金保留。修正前残局作为旧课程诊断保留，不与修正后成绩混计。

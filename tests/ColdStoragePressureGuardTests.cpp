@@ -1,6 +1,9 @@
 #include "Game/AI/ColdStorageSearch.h"
 #include "Game/AI/ColdStorageHealerForecast.h"
+#include "Game/AI/ColdStorageFormationSeeds.h"
 #include "Game/Zombie/PressureGuardRules.h"
+#include <algorithm>
+#include <set>
 #include <cmath>
 #include <stdexcept>
 #include <iostream>
@@ -18,12 +21,84 @@ ColdStorageSearch::Unit Guard(int id, int row, bool ability=true) {
     u.maximumBody=600; u.body.value=u.body.purchaseCost=35; u.pressureGuard=ability;
     return u;
 }
+
+/** 普通前排在血价比和总血量上都胜出，仍必须给保护光环与合法攻击角色比较协同的机会。 */
+void CheckGuardFormations() {
+    using namespace ColdStorageSearch;
+    Snapshot s;s.rows=3;s.netEconomy=true;s.searchVersion=2;s.budget=3000;s.capacity=64;s.cellWidth=80;
+    for(int row=0;row<s.rows;++row) {
+        Plant wall;wall.row=row;wall.x=400;wall.health=1000;wall.edible=true;s.plants.push_back(wall);
+        for(int role=0;role<9;++role) {
+            Option o;o.type=78000+role;o.row=row;o.cost=8;
+            auto& u=o.unit;u.body.row=row;u.body.x=1000;u.body.speed=20;u.biteDps=30;
+            u.body.health=u.maximumBody=270;
+            if(role==0) {u=Guard(0,row);u.body.x=1000;u.body.speed=10;u.biteDps=30;o.cost=35;}
+            if(role==1) {u.body.health=1370;u.helmHealth=u.maximumHelm=1100;}
+            if(role==2) {u.body.economic=true;o.cost=24;}
+            if(role==3) {u.dance.leader=true;o.cost=12;}
+            if(role==4) {u.body.health=u.maximumBody=10000;o.cost=1;}
+            if(role==5) {u.pressure=true;o.cost=20;}
+            if(role==6) {u.floodMortar=true;o.cost=30;}
+            if(role==7) {u.ladder.present=true;u.ladder.placementSeconds=2;o.cost=12;}
+            if(role==8) {u.body.speed=50;o.cost=4;}
+            u.body.value=u.body.purchaseCost=static_cast<float>(o.cost);s.options.push_back(o);
+        }
+    }
+    const auto hasGuard=[&](const auto& plan) {
+        return std::any_of(plan.begin(),plan.end(),[&](const auto& a){return s.options[a.option].unit.pressureGuard;});
+    };
+    const auto full=BuildExperiencedFormations(s,64,s.budget);
+    Check(full.size()<=96 && full.size()>1 && !hasGuard(full.front()) && hasGuard(full[1]),
+        "independent guard recipe must enter early without replacing the original first seed");
+    std::set<int> partners;bool split=false,delayed=false;int guardPlans=0;
+    for(const auto& plan:full) if(hasGuard(plan)) {
+        ++guardPlans;std::set<int> routes;
+        for(const auto& a:plan) {
+            const auto& o=s.options[a.option];routes.insert(o.row);
+            if(!o.unit.pressureGuard) {partners.insert(o.type-78000);delayed|=a.delay>0;}
+        }
+        split|=routes.size()==2;
+    }
+    Check(guardPlans==19 && partners==std::set<int>({1,2,3,5,6,7,8}) && split && delayed,
+        "guard candidates must cover basic, ranged, mortar, ladder and separated-route cooperation");
+    for(int limit:{3,4,8,16}) for(int budget:{34,58,59,118,300}) {
+        const auto plans=BuildExperiencedFormations(s,limit,budget);
+        for(const auto& plan:plans) {
+            int cost=0;for(const auto& a:plan) cost+=s.options[a.option].cost;
+            Check(cost<=budget && plan.size()<=static_cast<size_t>(limit),"all recipes must respect full cash and deployment limits");
+            if(hasGuard(plan)) Check(plan.size()>=3,"unaffordable guard recipes must not degrade into an isolated guard");
+        }
+    }
+    // 删除装甲伙伴后仍允许独立远程组合，但不能把缺失的基础成员静默跳过。
+    auto withoutArmor=s;
+    for(auto& o:withoutArmor.options) if(o.type==78001) o.unit.helmHealth=o.unit.maximumHelm=0;
+    const auto specialized=BuildExperiencedFormations(withoutArmor,64,s.budget);
+    int specializedGuards=0;
+    for(const auto& plan:specialized) if(hasGuard(plan)) ++specializedGuards;
+    Check(specializedGuards==9,"missing armored role must omit complete base recipes while retaining specialist teams");
+    auto renamed=s;for(auto& o:renamed.options) o.type+=12345;
+    const auto renamedPlans=BuildExperiencedFormations(renamed,64,s.budget);
+    Check(renamedPlans.size()==full.size(),"guard role detection must not depend on zombie enum values");
+    for(size_t i=0;i<full.size();++i) {
+        Check(renamedPlans[i].size()==full[i].size(),"renamed roles must keep composition");
+        for(size_t j=0;j<full[i].size();++j)
+            Check(renamedPlans[i][j].option==full[i][j].option && Near(renamedPlans[i][j].delay,full[i][j].delay),
+                "renamed roles must keep candidate order and timing");
+    }
+    for(auto& o:s.options) o.unit.pressureGuard=false;
+    const auto disabled=BuildExperiencedFormations(s,64,s.budget);
+    for(const auto& plan:disabled) for(const auto& a:plan)
+        Check(s.options[a.option].type!=78000,"ordinary armor must not impersonate a missing protection ability");
+    s.experiencedFormations=false;
+    Check(BuildExperiencedFormations(s,64,s.budget).empty(),"experienced candidate switch must still disable all families");
+}
 }
 
 /** 检查真正滚动窗口、保存余时以及完整战斗预测中的保护反事实。 */
 void RunColdStoragePressureGuardTests()
 {
     using namespace ColdStorageSearch;
+    CheckGuardFormations();
     PressureGuardRules::DamageWindow window;
     Check(Near(window.Consume(400,0),400) && Near(window.Consume(400,.25),200),"pressure shared budget must cap at 600");
     Check(Near(window.Consume(3000,.99),0),"pressure cap cannot reset at a frame or fixed boundary");
