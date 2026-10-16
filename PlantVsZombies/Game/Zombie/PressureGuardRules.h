@@ -3,13 +3,13 @@
 #include <cmath>
 #include <vector>
 
-/** 承压护卫实体与指挥官共用参数；窗口只限制常规伤害，灰烬独立减伤。 */
+/** 承压护卫实体与指挥官共用参数；自身含灰烬的承伤与代伤共用滚动窗口。 */
 namespace PressureGuardRules {
 inline constexpr int BodyHealth = 600; // 本体生命，破盾后按普通伤害结算
 inline constexpr int ShieldHealth = 4500; // 一类承压装置耐久，不接受治疗或自动修复
 inline constexpr int Cost = 35; // 指挥官购买价格，冰块
 inline constexpr int BiteDamage = 25; // 普通僵尸一半的基础单口伤害
-inline constexpr int DamageLimit = 600; // 自身常规伤害与全部代伤的共同滚动上限
+inline constexpr int DamageLimit = 600; // 自身常规/灰烬伤害与全部代伤的共同滚动上限
 inline constexpr double WindowSeconds = 1.0; // 伤害记录保留的游戏秒数
 inline constexpr float Share = .8f; // 队友原伤害中交由护卫承接的比例
 inline constexpr float RadiusCells = 1.0f; // 前后各一格，上下各一行
@@ -28,10 +28,14 @@ struct DamageWindow {
         for (const auto& hit : hits) if (hit.expires > now + 1e-7) used += hit.damage;
         return used;
     }
+    /** 只读预判本击可接受的伤害；化灰快路径必须使用同一额度，不能提前消费窗口。 */
+    float Preview(float damage, double now) const {
+        return std::clamp(damage, 0.0f, (std::max)(0.0f, DamageLimit - Used(now)));
+    }
     /** 只记录真正扣除的伤害；同一时刻的多个来源合并，封顶后不排队补伤。 */
     float Consume(float damage, double now) {
         std::erase_if(hits, [now](const Hit& hit) { return hit.expires <= now + 1e-7; });
-        const float accepted = std::clamp(damage, 0.0f, (std::max)(0.0f, DamageLimit - Used(now)));
+        const float accepted = Preview(damage,now);
         if (accepted > 0) {
             if (!hits.empty() && std::abs(hits.back().expires - now - WindowSeconds) < 1e-7)
                 hits.back().damage += accepted;

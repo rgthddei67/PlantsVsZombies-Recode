@@ -29,7 +29,7 @@ bool PressureGuardZombie::CanProtect() const
 
 int PressureGuardZombie::LimitFinalIncomingDamage(int damage, DamageSource source, PlantDamageOrigin origin)
 {
-    if (!HasPressureShield() || (source == DamageSource::PLANT_ASH && !origin.IsValid()) || origin == PlantDamageOrigin::Ash()) return damage;
+    if (!HasPressureShield() || (source == DamageSource::PLANT_ASH && !origin.IsValid())) return damage;
     mLastPressureHit = DeltaTime::GetTotalTime();
     return static_cast<int>(mDamageWindow.Consume(static_cast<float>(damage), mLastPressureHit));
 }
@@ -49,7 +49,11 @@ void PressureGuardZombie::ResolvePlantAshDamage(int damage)
 {
     if (damage <= 0 || !mBoard) return;
     const int scaled = ScaleStatusDamage(mBoard->GetPerkManager().ScaleTotalDamageToZombie(damage));
-    if (CanBeCharred() && static_cast<int64_t>(mBodyHealth) + std::max(0, mHelmHealth) <= scaled) {
+    // 化灰与实际扣血共用最终额度；非致死预判不能消费，否则 TakeDamage 会再次占用窗口。
+    const int accepted = HasPressureShield()
+        ? static_cast<int>(mDamageWindow.Preview(static_cast<float>(scaled),DeltaTime::GetTotalTime())) : scaled;
+    if (CanBeCharred() && static_cast<int64_t>(mBodyHealth) + std::max(0, mHelmHealth) <= accepted) {
+        LimitFinalIncomingDamage(scaled,DamageSource::PLANT_ASH,PlantDamageOrigin::Ash());
         Charred();
         return;
     }

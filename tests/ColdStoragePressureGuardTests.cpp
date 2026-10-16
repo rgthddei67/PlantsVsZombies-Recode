@@ -47,7 +47,7 @@ void RunColdStoragePressureGuardTests()
 
     // 用完整爆炸事务检查护卫先死、保护不叠加、下一爆失去保护及防具先承伤。
     Snapshot ash; ash.rows=3; ash.columns=9; ash.cellWidth=80; ash.houseX=-10000; ash.traceCombat=true;
-    auto guard=Guard(10,1); guard.body.health=1600; guard.helmHealth=1000;
+    auto guard=Guard(10,1); guard.body.health=500; guard.helmHealth=100;
     Unit ally; ally.id=11; ally.body.row=0; ally.body.x=730; ally.body.health=ally.maximumBody=1000;
     ash.current={guard,ally};
     Counter blast; blast.source=0; blast.blast.committed=true; blast.blast.ready=1;
@@ -63,7 +63,7 @@ void RunColdStoragePressureGuardTests()
     auto protectedHits=impacts(ash,11);
     Check(!protectedHits.empty() && Near(protectedHits[0],640),"same-blast guard death must still reduce ally ash to 360");
     auto guardHits=impacts(ash,10);
-    Check(!guardHits.empty() && Near(guardHits[0],0),"guard must take full ash without the ordinary cap");
+    Check(!guardHits.empty() && Near(guardHits[0],0),"allowed ash must still kill a guard with less than 600 total durability");
     auto secondGuard=guard; secondGuard.id=12; ash.current.insert(ash.current.begin(),secondGuard);
     Check(impacts(ash,11)==protectedHits,"overlapping guards must not stack ash protection");
     ash.current={guard,ally}; ash.current[0].body.stopped=300;
@@ -87,6 +87,19 @@ void RunColdStoragePressureGuardTests()
     ash.current[0]=guard; ash.counters[0].blast.damage=1800;
     ash.current[1].helmHealth=0; ash.current[1].shieldHealth=1100;
     Check(Near(impacts(ash,11)[0],1010),"protected screen door must absorb ash before its body too");
+
+    // 大额灰烬也只消费护卫自己的共享滚动额度，不因同次多爆或化灰快路径绕过。
+    Snapshot capped=ash; capped.current={Guard(10,1)};
+    auto huge=blast; huge.blast.damage=10000; huge.blast.ready=0;
+    auto overlap=huge; overlap.source=1; overlap.blast.ready=.5f;
+    auto expired=huge; expired.source=2; expired.blast.ready=1;
+    capped.counters={huge,overlap,expired};
+    const auto cappedHits=impacts(capped,10);
+    Check(cappedHits.size()==3 && Near(cappedHits[0],4500) && Near(cappedHits[1],4500) && Near(cappedHits[2],3900),
+        "ash must share a rolling 600 budget and release only expired damage");
+    capped.current[0].body.health=4700; capped.current[0].helmHealth=4100;
+    capped.current[0].pressureWindow.Consume(400,0);
+    Check(impacts(capped,10)==cappedHits,"ordinary damage already paid must reduce the same ash allowance");
 
     // 没有可治本体损伤时，急救员不为不可修复的装置施法。
     std::vector<Unit> units{Guard(1,1)}; units[0].helmHealth=1000; units[0].body.health=1600;

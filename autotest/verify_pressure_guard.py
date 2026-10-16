@@ -41,9 +41,9 @@ def check_entity():
     controlled = zombies(load('controlled'), 'PRESSURE_GUARD')
     assert not controlled[0]['pressureCanProtect'] and controlled[1]['helmHealth'] == 4100
     survivor = zombies(load('ash_survivor'), 'PRESSURE_GUARD')[0]
-    assert survivor['helmHealth'] == 2100 and survivor['bodyHealth'] == 600
+    assert survivor['helmHealth'] == 3900 and survivor['bodyHealth'] == 600
     assert survivor['pressureWindowUsed'] == 600 and survivor['pressureCanProtect']
-    assert zombies(load('ash_followup'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2100
+    assert zombies(load('ash_followup'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3900
     assert zombies(load('ash_followup'), 'BUCKET')[0]['helmHealth'] == 1000
     assert zombies(load('ash_ally'), 'BUCKET')[0]['helmHealth'] == 640
     assert zombies(load('ash_ally'), 'BUCKET')[0]['bodyHealth'] == 270
@@ -52,13 +52,13 @@ def check_entity():
     assert broken['helmHealth'] == 0 and broken['bodyHealth'] == 550 and broken['pressureStage'] == 3
     assert not broken['pressureCanProtect']
     assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['bodyHealth'] == 350
-    assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 150
+    assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 350
     assert not zombies(load('ash_dead'), 'PRESSURE_GUARD')
     healer = load('healer_ignores_shield')
-    assert zombies(healer, 'PRESSURE_GUARD')[0]['helmHealth'] == 2700
+    assert zombies(healer, 'PRESSURE_GUARD')[0]['helmHealth'] == 3900
     assert zombies(load('charmed_other_faction'), 'BUCKET')[0]['helmHealth'] == 1000
     assert zombies(load('charmed_same_faction'), 'BUCKET')[0]['helmHealth'] == 980
-    assert zombies(load('charmed_same_faction'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2620
+    assert zombies(load('charmed_same_faction'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3820
 
 
 def check_commander():

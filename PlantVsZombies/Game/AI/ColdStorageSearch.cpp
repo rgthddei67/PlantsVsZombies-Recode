@@ -419,8 +419,9 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
                 damage *= 1-share;
             }
         }
-        if (unit.pressureGuard && unit.helmHealth > 0) damage=unit.pressureWindow.Consume(damage,time);
     }
+    // 灰烬不向其他护卫转移，但持盾护卫自身仍与常规伤害、代伤共用同一滚动额度。
+    if (unit.pressureGuard && unit.helmHealth > 0) damage=unit.pressureWindow.Consume(damage,time);
 	if (unit.adaptiveHelmet > 0 && origin.IsValid() && damage >= unit.adaptiveHelmet) {
 		const float lost = unit.adaptiveHelmet;
 		unit.body.health -= lost; unit.adaptiveHelmet = 0; unit.adaptedOrigin = origin;

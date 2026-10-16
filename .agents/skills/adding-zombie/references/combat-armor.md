@@ -63,4 +63,4 @@ Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支
 
 不可治疗的一类防具通过目标自有 `CanRepairHelm()` 表达；急救员资格/排序/实结算、普通修复、治疗MC与指挥官预测须共同排除该层，不能只跳过最终加血而让AI持续选择无效治疗。入口与数值共用规则见 `PressureGuardZombie` / `PressureGuardRules`，实机边界见 `smoke_pressure_guard` 与对应 verifier。
 
-承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结非护卫队友名单；`Zombie::TakePlantAshDamage` 是非虚入口，先缩放本次灰烬，再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；承压保护中的普通化灰入口先预扣当前头甲与门盾，只以穿甲余伤判断本体致死，真实扣甲由正式伤害链执行，未保护时仍沿原越甲斩杀；护卫自身不受同类灰烬保护，不转移减掉的伤害，也不消费常规滚动额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash` 与同名 verifier。
+承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结非护卫队友名单；`Zombie::TakePlantAshDamage` 是非虚入口，先缩放本次灰烬，再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；承压保护中的普通化灰入口先预扣当前头甲与门盾，只以穿甲余伤判断本体致死，真实扣甲由正式伤害链执行，未保护时仍沿原越甲斩杀；护卫自身不享受同类的80%灰烬减伤，但自身灰烬与常规伤害、代伤共用持盾期间的滚动额度；化灰先用 DamageWindow::Preview 只读预判，只有确认提交时消费一次，破盾后不再封顶。队友减掉的灰烬不转移，也不占护卫额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash` 与同名 verifier。
