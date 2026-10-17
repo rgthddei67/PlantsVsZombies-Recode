@@ -4703,8 +4703,12 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         }
     };
 	bool orderArrived = false;
+	// 新部队付款会推进波次；在第14波采购必须与等待使用各自真实的认输时限。
+	const bool buysTroops=std::any_of(plan.begin(),plan.end(),[&](const Action& a){return s.options[a.option].device<0;});
+	int defenseWave=s.defenseWave+(buysTroops ? 1 : 0);
+	float surrenderSeconds=ColdStorageDefenseRules::SurrenderSeconds(defenseWave);
 	float defenseDeadline=s.troopNoKillSeconds<0 ? std::numeric_limits<float>::max()
-		: std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-s.troopNoKillSeconds);
+		: std::max(0.0f,surrenderSeconds-s.troopNoKillSeconds);
 	for (float t = 0; t < Horizon(s); t += kStep) {
 		if(t>=defenseDeadline) {
 			// 认输撤军不返冰，也没有残余兵力资产；后续生产、攻击和未来付款均不再兑现。
@@ -4780,7 +4784,14 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		}
 		for (const auto& p : plants) if (p.health > 0 && p.shutdownUntil<=t && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
+        const bool followupPurchased=constructionStats.followup.status==FollowupForecast::Status::Purchased;
         advanceFollowup(t);
+        if(!followupPurchased && constructionStats.followup.status==FollowupForecast::Status::Purchased) {
+            // 后队实际付款也推进一波；保留上次部队击杀时刻，只缩短跨界后的总时限。
+            const float nextSurrenderSeconds=ColdStorageDefenseRules::SurrenderSeconds(++defenseWave);
+            if(s.troopNoKillSeconds>=0) defenseDeadline+=nextSurrenderSeconds-surrenderSeconds;
+            surrenderSeconds=nextSurrenderSeconds;
+        }
 		AdvanceRiftArrivals(s,t,plants,units,riftColumns,constructionStats);
 		if(hasDance)
 			AdvanceDances(s,t,units,danceIndices,nextDanceSlot,danceSlotEnd,initialHealth,initialX,danceBlocked,constructionStats);
@@ -5127,7 +5138,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
 		for(auto& plant:plants) if(plant.troopKillPending) {
 			plant.troopKillPending=false;
-			if(s.troopNoKillSeconds>=0) defenseDeadline=t+ColdStorageDefenseRules::SurrenderSeconds;
+			if(s.troopNoKillSeconds>=0) defenseDeadline=t+surrenderSeconds;
 		}
 		PruneDeadLadderHosts(plants,ladderLivingPlants,ladders,constructionStats);
 		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。

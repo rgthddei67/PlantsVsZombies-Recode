@@ -19,7 +19,7 @@ assert abs(restored - saved) < 0.1, (saved, restored)
 before, after = read("before_surrender.json"), read("surrender.json")
 a, b = before["coldStorage"], after["coldStorage"]
 assert a["hostileCount"] > 0 and a["pending"] and a["strikeTargetID"] >= 0
-assert b["defenseSurrendered"] and b["trophySpawned"] and b["troopNoKillSeconds"] == 360
+assert b["defenseSurrendered"] and b["trophySpawned"] and b["troopNoKillSeconds"] == 180
 assert b["hostileCount"] == 0 and not b["pending"] and b["strikeTargetID"] == -1
 assert b["playerKillIncome"] == a["playerKillIncome"] == 0
 assert b["spent"] == a["spent"] and b["enemyIce"] == a["enemyIce"], "withdrawal must not refund abandoned paid transactions"

@@ -1396,6 +1396,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
 		search.troopNoKillSeconds = s.troopNoKillSeconds;
+		search.defenseWave = s.decisions;
 		search.budget = s.enemyIce;
 		search.weatherStation=IsWeatherStation();
         search.fogLeftColumn=GetEffectiveFogLeftColumn();
@@ -3449,9 +3450,10 @@ void Board::UpdateColdStorage(float dt)
 	s.battleStarted = true;
 	s.elapsed += dt;
 	if(!GameAPP::mDevSpawnPaused) {
-		s.troopNoKillSeconds=std::min(ColdStorageDefenseRules::SurrenderSeconds,s.troopNoKillSeconds+dt);
+		const float surrenderSeconds=ColdStorageDefenseRules::SurrenderSeconds(s.decisions);
+		s.troopNoKillSeconds=std::min(surrenderSeconds,s.troopNoKillSeconds+dt);
 		// 先于技能、补给及新出场结算；最后时限不因库存、狙击或未清场而续期。
-		if(s.troopNoKillSeconds>=ColdStorageDefenseRules::SurrenderSeconds) {ConcedeColdStorageDefense();return;}
+		if(s.troopNoKillSeconds>=surrenderSeconds) {ConcedeColdStorageDefense();return;}
 	}
 	UpdateColdStorageSkills(dt);
 	UpdateColdStorageResponse();
@@ -3644,7 +3646,6 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	// 旧档没有可核实的收入时间，给予完整恢复窗口，不能用总对局时间追溯判负。
 	s.incomeIdleSeconds = seconds("incomeIdleSeconds", 0, kExhaustionIdleSeconds);
 	s.plantKillIdleSeconds = seconds("plantKillIdleSeconds", 0, kExhaustionIdleSeconds);
-	s.troopNoKillSeconds=seconds("troopNoKillSeconds",0,ColdStorageDefenseRules::SurrenderSeconds);
 	s.emptyWaitSeconds=seconds("emptyWaitSeconds",0,kStallProbeSeconds);
 	s.stallProbeRounds=std::clamp(j.value("stallProbeRounds",0),0,kMaxIce);
 	s.stallProbeSpent=std::clamp(j.value("stallProbeSpent",0),0,kMaxIce);
@@ -3679,6 +3680,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.playerKillIncome = integer("playerKillIncome", 0, 0, kMaxIce);
 	s.deployments = integer("deployments", 0, 0, kMaxIce);
 	s.decisions = integer("decisions", 0, 0, kMaxIce);
+	s.troopNoKillSeconds=seconds("troopNoKillSeconds",0,ColdStorageDefenseRules::SurrenderSeconds(s.decisions));
 	// v31 缺失/损坏的试验历史只关闭继续冒险，不改变真实现金、单位、技能或已付事务。
 	// SaveSchema仅迁移v30已知付费波；v29及以前不从旧rounds=3恢复采购权。
 	s.boundedTrials=ColdStorageTrials::State{};

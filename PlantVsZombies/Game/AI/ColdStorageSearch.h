@@ -515,6 +515,7 @@ struct Snapshot {
 	const StateModel* stateModel = nullptr;
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
 	float troopNoKillSeconds=-1; // 正式久守计时；负数仅供未启用该规则的独立数值夹具
+	int defenseWave=0; // 当前已付款波次；采购新部队时按下一波比较久守时限
 	int budget = 0, capacity = 0;
 	std::int64_t deploymentCapital = -1; // 实际库存+活体/在途原成交价；-1表示纯夹具使用固定capacity
 	int deploymentOccupied = 0; // 实际敌对活体和已付款队列数；技能/设备扣资本后重新核对剩余名额

@@ -5621,8 +5621,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["stallReviewRunning"]=board->mColdStorage.stallReviewRunning;
 		ice["stallSurrendered"]=board->mColdStorage.stallSurrendered;
 		ice["defenseSurrendered"]=board->mColdStorage.defenseSurrendered;
-		ice["finalAssaultActive"]=board->mColdStorage.troopNoKillSeconds>=ColdStorageDefenseRules::WarningSeconds && !board->mColdStorage.defenseSurrendered;
-		ice["finalAssaultRemainingMs"]=static_cast<int>(std::lround(std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-board->mColdStorage.troopNoKillSeconds)*1000));
+		ice["finalAssaultActive"]=board->mColdStorage.troopNoKillSeconds>=ColdStorageDefenseRules::WarningSeconds(board->mColdStorage.decisions) && !board->mColdStorage.defenseSurrendered;
+		ice["finalAssaultRemainingMs"]=static_cast<int>(std::lround(std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds(board->mColdStorage.decisions)-board->mColdStorage.troopNoKillSeconds)*1000));
 		ice["stallWaitDecisions"]=board->mColdStorage.stallWaitDecisions;
 		ice["stallReviewsStarted"]=board->mColdStorage.stallReviewsStarted;
 		ice["stallReviewsCompleted"]=board->mColdStorage.stallReviewsCompleted;

@@ -6,7 +6,7 @@
     {"op":"choose_cards","cards":[]},
     {"op":"wait_state","state":"GAME","timeout":20},
     {"op":"set_spawn_paused","value":true},
-    {"op":"set_cold_storage","state":{"enemyIce":5000,"playerIce":240,"decisionRemaining":60,"troopNoKillSeconds":359.9}},
+    {"op":"set_cold_storage","state":{"enemyIce":5000,"playerIce":240,"decisionRemaining":60,"troopNoKillSeconds":239.9}},
     {"op":"queue_ice_zombie","type":"ZOMBIE_NORMAL","row":2,"delay":30},
     {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":1,"x":1000,"stationary":true},
     {"op":"set_spawn_paused","value":false},
