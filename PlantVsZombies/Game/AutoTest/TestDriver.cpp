@@ -1088,6 +1088,20 @@ bool TestDriver::ExecuteCurrent() {
 		if (!RunFrameworkProbe(cmd, error)) Fail(error);
 		return true;
 	}
+	if (op == "inject_vulkan_frame_failure") {
+		auto* renderer = GameAPP::GetInstance().GetVulkanRenderer();
+		const auto stage = cmd.value("stage", "");
+		using Point = pvz::VulkanRenderer::FrameFailurePoint;
+		const Point point = stage == "begin" ? Point::Begin : stage == "end" ? Point::End
+			: stage == "submit" ? Point::Submit : Point::None;
+		if (!renderer || point == Point::None) {
+			Fail("inject_vulkan_frame_failure requires Vulkan and begin/end/submit stage");
+			return true;
+		}
+		renderer->FailNextFrameForTesting(point);
+		mBreakFrame = true;
+		return true;
+	}
 	if (op == "commander_experiment") {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
 			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,

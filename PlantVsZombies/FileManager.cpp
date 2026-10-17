@@ -9,11 +9,84 @@
 #include <cctype>
 #include <memory>
 #include <unordered_map>
+#include <atomic>
+#include <chrono>
+#include <cerrno>
+#include <cstdint>
+#include <cstdio>
+#include <fcntl.h>
+#include <sys/stat.h>
+#if defined(_WIN32)
+#include <io.h>
+#include <share.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace {
 	/** 将 FileManager 约定的 UTF-8 路径转换为本机 filesystem 路径，兼容非 ASCII 用户名。 */
 	std::filesystem::path Utf8Path(const std::string& path) {
 		return Utf8::ToPath(path);
+	}
+
+	/** 临时文件独占创建；异常或提交失败只清理本次写入，不触碰原文件。 */
+	struct PendingFile {
+		std::filesystem::path path;
+		std::FILE* file = nullptr;
+		bool ownsPath = false;
+		~PendingFile() {
+			if (file) std::fclose(file);
+			if (ownsPath) {
+				std::error_code ignored;
+				std::filesystem::remove(path, ignored);
+			}
+		}
+	};
+
+	/** 完整写入并同步临时文件后，在同目录原子替换；任一步失败都保留旧档。 */
+	bool WriteFileAtomically(const std::filesystem::path& destination, const void* data, size_t size) {
+		if (destination.filename().empty() || (size && !data)) return false;
+		static std::atomic<std::uint64_t> sequence{0};
+		PendingFile pending;
+		int descriptor = -1;
+		for (int attempt = 0; attempt < 32; ++attempt) {
+			pending.path = destination;
+			pending.path += ".tmp-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())
+				+ "-" + std::to_string(sequence.fetch_add(1, std::memory_order_relaxed));
+#if defined(_WIN32)
+			const int error = _wsopen_s(&descriptor, pending.path.c_str(),
+				_O_CREAT | _O_EXCL | _O_WRONLY | _O_BINARY, _SH_DENYRW, _S_IREAD | _S_IWRITE);
+#else
+			descriptor = open(pending.path.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0666);
+			const int error = descriptor < 0 ? errno : 0;
+#endif
+			if (error == 0) break;
+			if (error != EEXIST) return false;
+		}
+		if (descriptor < 0) return false;
+		pending.ownsPath = true;
+#if defined(_WIN32)
+		pending.file = _fdopen(descriptor, "wb");
+		if (!pending.file) { _close(descriptor); return false; }
+#else
+		pending.file = fdopen(descriptor, "wb");
+		if (!pending.file) { close(descriptor); return false; }
+#endif
+		if ((size && std::fwrite(data, 1, size, pending.file) != size)
+			|| std::fflush(pending.file) != 0) return false;
+		// fflush 只排空 C 缓冲；先同步文件内容，再允许替换正式路径。
+#if defined(_WIN32)
+		if (_commit(descriptor) != 0) return false;
+#else
+		if (fsync(descriptor) != 0) return false;
+#endif
+		const int closed = std::fclose(pending.file);
+		pending.file = nullptr;
+		if (closed != 0) return false;
+		std::error_code error;
+		std::filesystem::rename(pending.path, destination, error);
+		if (!error) pending.ownsPath = false;
+		return !error;
 	}
 #if defined(__ANDROID__) || defined(__linux__)
 	/** 为经典资源的大小写不敏感引用生成查询键，实际打开仍使用 manifest 的原始名称。 */
@@ -133,25 +206,13 @@ std::vector<char> FileManager::LoadFileAsBinary(const std::string& path) {
 }
 
 bool FileManager::SaveFile(const std::string& path, const std::string& content) {
-	std::ofstream file(Utf8Path(path));
-	if (!file.is_open()) {
-		LogError("Failed to create file: " + path);
-		return false;
-	}
-
-	file << content;
-	return !file.fail();
+	return SaveBinaryFile(path, content.data(), content.size());
 }
 
 bool FileManager::SaveBinaryFile(const std::string& path, const void* data, size_t size) {
-	std::ofstream file(Utf8Path(path), std::ios::binary);
-	if (!file.is_open()) {
-		LogError("Failed to create binary file: " + path);
-		return false;
-	}
-
-	file.write(static_cast<const char*>(data), size);
-	return !file.fail();
+	if (WriteFileAtomically(Utf8Path(path), data, size)) return true;
+	LogError("Failed to atomically save file: " + path);
+	return false;
 }
 
 bool FileManager::AppendToFile(const std::string& path, const std::string& content) {

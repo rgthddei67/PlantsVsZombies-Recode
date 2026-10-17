@@ -79,6 +79,8 @@ namespace pvz {
 
 	bool VulkanRenderer::Initialize(VulkanContext* ctx) {
 		mCtx = ctx;
+		mFrameError.clear();
+		mTestFailurePoint = FrameFailurePoint::None;
 		if (g_ProfileEnabled) {
 			VkPhysicalDeviceProperties properties{};
 			vkGetPhysicalDeviceProperties(ctx->PhysicalDevice(), &properties);
@@ -230,7 +232,17 @@ namespace pvz {
 		return true;
 	}
 
+	bool VulkanRenderer::FailFrame(const char* operation, VkResult result) {
+		mFrameError = std::string(operation) + " failed (VkResult=" + std::to_string(static_cast<int>(result)) + ")";
+		LOG_ERROR("VulkanRenderer") << mFrameError;
+		CompleteCapture(false, mFrameError);
+		mFrameActive = false;
+		mAcquiredImageIdx = UINT32_MAX;
+		return false;
+	}
+
 	bool VulkanRenderer::BeginFrame(float r, float g, float b, float a) {
+		if (HasFrameFailure()) return false;
 		if (!mCtx || !mCtx->IsInitialized()) return false;
 		if (mFrameActive) {
 			LOG_WARN("VulkanRenderer") << "BeginFrame called twice without EndFrame";
@@ -242,7 +254,8 @@ namespace pvz {
 		// 1) 等本帧上一次 GPU 提交结束。独立统计以区分 GPU 背压与 CPU 命令准备成本。
 		{
 			PROFILE_SCOPE("C1a.BeginFrame_waitFence");
-			vkWaitForFences(dev, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+			const VkResult result = vkWaitForFences(dev, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+			if (result != VK_SUCCESS) return FailFrame("vkWaitForFences", result);
 		}
 		CollectGpuQueries(frame);
 
@@ -260,8 +273,7 @@ namespace pvz {
 			return false;
 		}
 		if (acquireResult != VK_SUCCESS && acquireResult != VK_SUBOPTIMAL_KHR) {
-			LOG_ERROR("VulkanRenderer") << "vkAcquireNextImageKHR failed (" << (int)acquireResult << ")";
-			return false;
+			return FailFrame("vkAcquireNextImageKHR", acquireResult);
 		}
 		if (acquireResult == VK_SUBOPTIMAL_KHR) {
 			// 还能用，本帧继续，但帧末触发重建。
@@ -270,15 +282,15 @@ namespace pvz {
 
 		{
 			PROFILE_SCOPE("C1c.BeginFrame_cmdSetup");
-			// 拿到 image 后才能 reset fence（避免死锁）
-			vkResetFences(dev, 1, &frame.inFlight);
-
 			// 3) 重置命令池并 begin
-			vkResetCommandPool(dev, frame.cmdPool, 0);
+			const VkResult resetResult = vkResetCommandPool(dev, frame.cmdPool, 0);
+			if (resetResult != VK_SUCCESS) return FailFrame("vkResetCommandPool", resetResult);
 
 			VkCommandBufferBeginInfo bi{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 			bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-			VK_CHECK(vkBeginCommandBuffer(frame.cmdBuffer, &bi));
+			const VkResult beginResult = mTestFailurePoint == FrameFailurePoint::Begin
+				? VK_ERROR_OUT_OF_HOST_MEMORY : vkBeginCommandBuffer(frame.cmdBuffer, &bi);
+			if (beginResult != VK_SUCCESS) return FailFrame("vkBeginCommandBuffer", beginResult);
 			if (frame.timestampPool) {
 				vkCmdResetQueryPool(frame.cmdBuffer, frame.timestampPool, 0, 2);
 				vkCmdWriteTimestamp(frame.cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -412,31 +424,22 @@ namespace pvz {
 				VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, colorRange);
 		}
 
-		const VkResult endCommandResult = vkEndCommandBuffer(frame.cmdBuffer);
+		const VkResult endCommandResult = mTestFailurePoint == FrameFailurePoint::End
+			? VK_ERROR_OUT_OF_HOST_MEMORY : vkEndCommandBuffer(frame.cmdBuffer);
 		if (endCommandResult != VK_SUCCESS) {
-			LOG_ERROR("VulkanRenderer") << "vkEndCommandBuffer failed (VkResult="
-				<< static_cast<int>(endCommandResult) << ")";
-			if (capturing) {
-				CompleteCapture(false, "vkEndCommandBuffer 失败 ("
-					+ std::to_string(static_cast<int>(endCommandResult)) + ")");
-			}
-			mFrameActive = false;
-			return false;
+			return FailFrame("vkEndCommandBuffer", endCommandResult);
 		}
 
-		const VkResult submitResult = mCtx->SubmitCommandBuffer(
+		// 只有完整录制后才撤销 fence 信号；提交失败则终止，绝不能再等这个未提交的 fence。
+		const VkResult resetResult = vkResetFences(mCtx->Device(), 1, &frame.inFlight);
+		if (resetResult != VK_SUCCESS) return FailFrame("vkResetFences", resetResult);
+		const VkResult submitResult = mTestFailurePoint == FrameFailurePoint::Submit
+			? VK_ERROR_OUT_OF_HOST_MEMORY : mCtx->SubmitCommandBuffer(
 			frame.cmdBuffer, frame.inFlight,
 			frame.imageAvailable, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
 			mRenderFinished[mAcquiredImageIdx], VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT);
 		if (submitResult != VK_SUCCESS) {
-			LOG_ERROR("VulkanRenderer") << "frame submission failed (VkResult="
-				<< static_cast<int>(submitResult) << ")";
-			if (capturing) {
-				CompleteCapture(false, "帧提交失败 ("
-					+ std::to_string(static_cast<int>(submitResult)) + ")");
-			}
-			mFrameActive = false;
-			return false;
+			return FailFrame("frame submission", submitResult);
 		}
 
 		VkSwapchainKHR sc = mCtx->Swapchain();
@@ -447,23 +450,23 @@ namespace pvz {
 		pi.pSwapchains = &sc;
 		pi.pImageIndices = &mAcquiredImageIdx;
 		VkResult presentResult = vkQueuePresentKHR(mCtx->GraphicsQueue(), &pi);
+		if (capturing) {
+			// 即使 present 失败，已提交的回读仍可能在执行，局部 buffer 析构前必须等 GPU 完成。
+			const VkResult waitResult = vkWaitForFences(mCtx->Device(), 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+			if (waitResult != VK_SUCCESS) {
+				vkDeviceWaitIdle(mCtx->Device());
+				return FailFrame("capture vkWaitForFences", waitResult);
+			}
+		}
 		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
 			// swapchain 已 stale：本帧已经送出去，无需视为失败；标记由上层在帧外重建。
 			mSwapchainNeedsRebuild = true;
 		}
 		else if (presentResult != VK_SUCCESS) {
-			LOG_ERROR("VulkanRenderer") << "vkQueuePresentKHR failed (" << (int)presentResult << ")";
-			if (capturing) {
-				CompleteCapture(false,
-					"vkQueuePresentKHR 失败 (" + std::to_string(static_cast<int>(presentResult)) + ")");
-			}
-			mFrameActive = false;
-			return false;
+			return FailFrame("vkQueuePresentKHR", presentResult);
 		}
 
 		if (capturing) {
-			// 等本帧 GPU 完成（fence 不 reset —— BeginFrame 自己管理 wait+reset）
-			vkWaitForFences(mCtx->Device(), 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
 			if (captureBuf.MappedPtr()) {
 				// GPU availability 已由 fence 保证；显式 invalidate 确保 CPU 可见性
 				// （对 HOST_COHERENT 内存是 no-op，对 non-coherent 刷新 CPU cache line）。

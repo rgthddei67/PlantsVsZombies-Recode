@@ -39,6 +39,13 @@ namespace pvz {
 		bool BeginFrame(float r, float g, float b, float a);
 		bool EndFrame();
 
+		/** 不可恢复的帧错误会锁住后续 BeginFrame；调用方必须结束渲染并销毁后端。 */
+		bool HasFrameFailure() const { return !mFrameError.empty(); }
+		const std::string& GetFrameError() const { return mFrameError; }
+		enum class FrameFailurePoint { None, Begin, End, Submit };
+		/** 仅供显式 AutoTest 命令注入下一帧的 API 失败，不在正常游戏中调用。 */
+		void FailNextFrameForTesting(FrameFailurePoint point) { mTestFailurePoint = point; }
+
 		/**
 		 * @brief 登记一次 AutoTest 截图，并返回可查询的单调递增 ticket。
 		 * @details 下一次 EndFrame 在 present 前回读并写 PNG；同一时刻只接受一个未完成请求。
@@ -71,10 +78,14 @@ namespace pvz {
 		void DestroyFrameResources();
 		/** 在槽位 fence 完成后回收上次 GPU 诊断查询，不向渲染热路注入 CPU 等待。 */
 		void CollectGpuQueries(PerFrame& frame);
+		/** 记录终止原因、结束待处理截图，并阻止再次等待没有提交的 fence。 */
+		bool FailFrame(const char* operation, VkResult result);
 
 		// 当前帧 acquire 到的 swapchain image 索引；仅在 BeginFrame..EndFrame 之间有效。
 		uint32_t mAcquiredImageIdx = UINT32_MAX;
 		bool     mFrameActive = false;
+		std::string mFrameError;
+		FrameFailurePoint mTestFailurePoint = FrameFailurePoint::None;
 
 		VulkanContext* mCtx = nullptr;
 

@@ -533,6 +533,7 @@ int GameAPP::Run()
 	}
 
 	mRunning = true;
+	mRenderFailed = false;
 	SDL_Event event;
 #if defined(__ANDROID__)
 	bool appInBackground = false;
@@ -672,7 +673,7 @@ int GameAPP::Run()
 #if defined(__ANDROID__)
 	if (contextLost) return -8;
 #endif
-	return 0;
+	return mRenderFailed ? -9 : 0;
 }
 
 void GameAPP::Draw()
@@ -682,6 +683,7 @@ void GameAPP::Draw()
 	m_graphics->Clear();
 
 	bool ok;
+	bool submissionFailed = false;
 	{
 		PROFILE_SCOPE("C1.BeginFrame");
 		ok = m_graphics->BeginFrame();
@@ -696,8 +698,17 @@ void GameAPP::Draw()
 		}
 		{
 			PROFILE_SCOPE("C3.EndFrame_Present");
-			m_graphics->EndFrame();
+			submissionFailed = !m_graphics->EndFrame();
 		}
+	}
+	if (submissionFailed || (m_vulkanRenderer && m_vulkanRenderer->HasFrameFailure())) {
+		const std::string reason = m_vulkanRenderer && m_vulkanRenderer->HasFrameFailure()
+			? m_vulkanRenderer->GetFrameError() : "EndFrame failed";
+		LOG_ERROR("GameApp") << "Rendering stopped: " << reason;
+		mRenderFailed = true;
+		mRunning = false;
+		TestDriver::GetInstance().OnRenderFailure(reason);
+		return;
 	}
 
 	// 帧外消化 swapchain rebuild 请求（OUT_OF_DATE / SUBOPTIMAL）。vsync 主动切换走 ApplyVsync 直接重建，
@@ -767,7 +778,7 @@ void GameAPP::Shutdown()
 	if (mRunning) return;
 
 	if (!mGameInfoSaver.SavePlayerInfo()) {
-		LOG_ERROR("GameApp") << "无法保存玩家数据！ 你的数据将会清空！";
+		LOG_ERROR("GameApp") << "无法保存玩家数据，本次更改未写入。";
 	}
 
 	// 清理粒子系统

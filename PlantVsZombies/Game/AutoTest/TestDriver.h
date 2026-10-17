@@ -83,6 +83,8 @@ public:
 	/** 显式验收玩家入场提示；普通专项不被一次性提示打断。 */
 	bool AdventureEntryNotices() const { return mAdventureEntryNotices; }
 	int  ExitCode() const { return mExitCode; }
+	/** 渲染终止时把进行中的脚本标为失败，避免留下 running 状态或误报通过。 */
+	void OnRenderFailure(const std::string& reason) { if (mActive) Fail("render failure: " + reason); }
 
 	// 每帧调用（GameAPP::Run 中 sceneManager.Update() 之后）。未激活时立即返回。
 	void Update();

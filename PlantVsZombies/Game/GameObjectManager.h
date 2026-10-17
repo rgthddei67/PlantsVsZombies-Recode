@@ -100,7 +100,7 @@ public:
 		return obj;
 	}
 
-	// 销毁游戏对象
+	/** 延迟移除对象及附件；Start 前调用会取消启动，不隐式停用已启动对象。 */
 	void DestroyGameObject(std::shared_ptr<GameObject> obj);
 
 	// 裸指针重载：用于子类内部调用 DestroyGameObject(this)，内部线性扫描还原 shared_ptr

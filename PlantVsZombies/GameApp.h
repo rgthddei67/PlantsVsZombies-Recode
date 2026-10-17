@@ -86,6 +86,7 @@ private:
 	std::string m_openGLStartupError;
 
 	bool mRunning;
+	bool mRenderFailed = false;
 	bool mInitialized;
 
 	GameAPP();
@@ -108,6 +109,7 @@ private:
 	bool InitializeResourceManager();
 	bool LoadAllResources();
 	void CleanupResources();
+	/** 绘制并处理可恢复的交换链变化；不可恢复的帧错误会结束主循环。 */
 	void Draw();
 	void Shutdown();
 

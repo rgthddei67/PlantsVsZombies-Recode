@@ -44,6 +44,8 @@ namespace {
     struct RecycleState {
         int events = 0, updates = 0;
         bool recycled = false, checked = false, failed = false;
+        bool reactivate = true, usedWorker = false;
+        std::thread::id mainThread = std::this_thread::get_id();
     };
     std::shared_ptr<RecycleState> recycleState;
 
@@ -52,6 +54,7 @@ namespace {
     public:
         explicit RecycledObject(std::shared_ptr<RecycleState> state) : mState(std::move(state)) {}
         void UpdateParallel(std::vector<DeferredEvent>& events) override {
+            mState->usedWorker = std::this_thread::get_id() != mState->mainThread;
             events.push_back({[this] { ++mState->events; }});
         }
         void Update() override {
@@ -65,11 +68,11 @@ namespace {
     public:
         GameObject* target = nullptr; // 探针集合共同持有，整个运行期间有效
         explicit RecyclingObject(std::shared_ptr<RecycleState> state) : mState(std::move(state)) {}
-        /** 在目标旧回调已经入队之后复用槽位，模拟同一步内的对象池复用。 */
+        /** 在目标旧回调已经入队之后停用或复用槽位，模拟同一步内死亡和对象池复用。 */
         void UpdateParallel(std::vector<DeferredEvent>& events) override {
             if (!mState->recycled) events.push_back({[this] {
                 target->SetActive(false);
-                target->SetActive(true);
+                if (mState->reactivate) target->SetActive(true);
                 mState->recycled = true;
             }});
         }
@@ -82,6 +85,32 @@ namespace {
         }
     };
 
+    struct CreationState {
+        std::array<int, 3> starts{};
+        std::array<std::weak_ptr<GameObject>, 2> cancelled;
+    };
+    std::shared_ptr<CreationState> creationState;
+
+    class CreationObject final : public GameObject {
+        std::shared_ptr<CreationState> mState;
+        int mIndex;
+    public:
+        CreationObject(std::shared_ptr<CreationState> state, int index)
+            : mState(std::move(state)), mIndex(index) {}
+        /** 计数真实 Start 调用，避免只检查活动标志漏掉已取消对象的初始化。 */
+        void Start() override { GameObject::Start(); ++mState->starts[mIndex]; }
+    };
+
+    class CancellingObject final : public GameObject {
+    public:
+        std::weak_ptr<GameObject> target;
+        /** 在待加入队列遍历期间取消后续对象，覆盖移除阶段之后的新取消请求。 */
+        void Start() override {
+            GameObject::Start();
+            if (auto object = target.lock()) GameObjectManager::GetInstance().DestroyGameObject(object);
+        }
+    };
+
     /** 通过正式延迟移除入口清理，允许旧探针的回调存储安全跨过当前调用栈。 */
     void EndProbe() {
         for (auto& object : objects) {
@@ -91,21 +120,55 @@ namespace {
         objects.clear();
         state.reset();
         recycleState.reset();
+        creationState.reset();
     }
 }
 
 bool RunFrameworkProbe(const nlohmann::json& command, std::string& error) {
     const auto action = command.value("action", "check");
     auto& manager = GameObjectManager::GetInstance();
-    if (action == "begin_recycle") {
+    if (action == "begin_cancel") {
+        EndProbe();
+        creationState = std::make_shared<CreationState>();
+        auto cancelled = manager.CreateGameObjectAsShared<CreationObject>(LAYER_GAME_OBJECT, creationState, 0);
+        creationState->cancelled[0] = cancelled;
+        manager.DestroyGameObject(cancelled);
+        auto canceller = manager.CreateGameObjectAsShared<CancellingObject>(LAYER_GAME_OBJECT);
+        auto later = manager.CreateGameObjectAsShared<CreationObject>(LAYER_GAME_OBJECT, creationState, 1);
+        creationState->cancelled[1] = later;
+        canceller->target = later;
+        objects = {canceller, manager.CreateGameObjectAsShared<CreationObject>(LAYER_GAME_OBJECT, creationState, 2)};
+        return true;
+    }
+    if (action == "check_cancel") {
+        if (!creationState || creationState->starts != std::array<int, 3>{0, 0, 1}
+            || !creationState->cancelled[0].expired() || !creationState->cancelled[1].expired()) {
+            error = "cancelled pending object was started or retained by the manager";
+            return false;
+        }
+        EndProbe();
+        return true;
+    }
+    if (action == "begin_recycle" || action == "begin_deactivate") {
         EndProbe();
         recycleState = std::make_shared<RecycleState>();
+        recycleState->reactivate = action == "begin_recycle";
         auto first = manager.CreateGameObjectImmediateAsShared<RecyclingObject>(LAYER_GAME_OBJECT, recycleState);
         auto second = manager.CreateGameObjectImmediateAsShared<RecycledObject>(LAYER_GAME_OBJECT, recycleState);
         first->target = second.get();
         objects = {first, second};
         for (int i = 0; i < std::clamp(command.value("padding", 0), 0, 300); ++i)
             objects.push_back(manager.CreateGameObjectImmediateAsShared<GameObject>(LAYER_GAME_OBJECT));
+        return true;
+    }
+    if (action == "check_deactivate") {
+        if (!recycleState || !recycleState->checked || recycleState->failed || !recycleState->recycled
+            || recycleState->events != 0 || recycleState->updates != 0 || objects[1]->IsActive()
+            || recycleState->usedWorker != command.value("worker", false)) {
+            error = "inactive owner received deferred events/updates or requested worker path was not exercised";
+            return false;
+        }
+        EndProbe();
         return true;
     }
     if (action == "check_recycle") {

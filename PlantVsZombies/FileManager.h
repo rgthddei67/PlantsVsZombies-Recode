@@ -26,10 +26,10 @@ public:
 	// 加载文件为二进制数据
 	static std::vector<char> LoadFileAsBinary(const std::string& path);
 
-	// 保存字符串到文件
+	/** 按 UTF-8 原始字节保存；先同步并关闭同目录临时文件，再原子替换，失败保留旧档。 */
 	static bool SaveFile(const std::string& path, const std::string& content);
 
-	// 保存二进制数据到文件
+	/** 与 SaveFile 共用原子替换；不自动创建父目录，size 非零时 data 必须有效。 */
 	static bool SaveBinaryFile(const std::string& path, const void* data, size_t size);
 
 	// 追加内容到文件

@@ -137,12 +137,18 @@ void GameObjectManager::Update() {
 				}),
 			mGameObjects.end()
 		);
+		// 尚未 Start 的对象也属于管理器；取消创建必须撤掉队列所有权，不能随后重新加入。
+		std::erase_if(mObjectsToAdd, [&toRemove](const auto& object) {
+			return toRemove.contains(object.get());
+		});
 		mObjectsToRemove.clear();
 	}
 
 	// 新对象的操作
 	for (size_t i = 0; i < mObjectsToAdd.size(); i++) {
 		auto obj = mObjectsToAdd[i];
+		// 较早对象的 Start 也可能取消队列后面的对象；附件由下一轮移除阶段清理。
+		if (std::find(mObjectsToRemove.begin(), mObjectsToRemove.end(), obj) != mObjectsToRemove.end()) continue;
 		mGameObjects.push_back(obj);
 		obj->Start();
 	}
@@ -183,8 +189,9 @@ void GameObjectManager::Update() {
 		PROFILE_SCOPE("2c.PhaseB_DrainEvents");
 		for (auto& buffer : mDeferredEventBuffers) {
 			for (auto& event : buffer) {
-                // 内存仍由 GOM 持有，但池槽可能已被更早的回调重新激活。
-                if (!event.owner || event.owner->mActivationGeneration == event.activationGeneration)
+                // 较早的事件可能杀死宿主或复用池槽；内存保活不代表旧动作仍有执行资格。
+                if (!event.owner || (event.owner->IsActive()
+                    && event.owner->mActivationGeneration == event.activationGeneration))
                     event.cb();
             }
 		}

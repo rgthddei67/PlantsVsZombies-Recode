@@ -102,8 +102,18 @@
       "op": "wait_frames",
       "value": 2
     },
-    {
-      "op": "quit"
-    }
+    { "op": "probe_framework", "action": "begin_cancel" },
+    { "op": "wait_frames", "value": 8 },
+    { "op": "probe_framework", "action": "check_cancel" },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "probe_framework", "action": "begin_deactivate", "padding": 0 },
+    { "op": "wait_frames", "value": 8 },
+    { "op": "probe_framework", "action": "check_deactivate", "worker": false },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "probe_framework", "action": "begin_deactivate", "padding": 220 },
+    { "op": "wait_frames", "value": 8 },
+    { "op": "probe_framework", "action": "check_deactivate", "worker": true },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "quit" }
   ]
 }

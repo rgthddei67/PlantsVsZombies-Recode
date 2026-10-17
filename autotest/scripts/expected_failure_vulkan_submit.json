@@ -1,0 +1,8 @@
+{
+  "commands": [
+    { "op": "wait_frames", "value": 8 },
+    { "op": "inject_vulkan_frame_failure", "stage": "submit" },
+    { "op": "wait_frames", "value": 60 },
+    { "op": "quit" }
+  ]
+}
