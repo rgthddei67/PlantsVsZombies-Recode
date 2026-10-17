@@ -92,6 +92,45 @@ void CheckGuardFormations() {
     s.experiencedFormations=false;
     Check(BuildExperiencedFormations(s,64,s.budget).empty(),"experienced candidate switch must still disable all families");
 }
+
+/** 验证多路投篮掩护能进入紧预算候选，且缺角色、缺钱或缺名额时不会产生残缺配方。 */
+void CheckGuardCatapultFormations() {
+    using namespace ColdStorageSearch;
+    Snapshot s;s.rows=5;s.netEconomy=true;s.searchVersion=2;s.budget=295;s.capacity=64;
+    for(int row=0;row<s.rows;++row) {
+        Option guard;guard.type=801;guard.row=row;guard.cost=35;guard.unit=Guard(0,row);s.options.push_back(guard);
+        Option car;car.type=802;car.row=row;car.cost=12;car.unit.catapult.present=true;
+        car.unit.body.row=row;car.unit.body.health=850;s.options.push_back(car);
+    }
+    const auto isConvoy=[&](const auto& plan,int rows,float gap) {
+        if(plan.size()!=static_cast<size_t>(rows*3)) return false;
+        std::array<int,6> guards{},cars{};std::set<int> routes;
+        for(const auto& a:plan) {
+            const auto& o=s.options[a.option];routes.insert(o.row);
+            if(!Near(a.delay,o.row*gap)) return false;
+            if(o.unit.pressureGuard) ++guards[o.row];else if(o.unit.catapult.present) ++cars[o.row];else return false;
+        }
+        if(routes.size()!=static_cast<size_t>(rows)) return false;
+        for(int row:routes) if(guards[row]!=1 || cars[row]!=2) return false;
+        return true;
+    };
+    const auto plans=BuildExperiencedFormations(s,64,s.budget);
+    Check(plans.size()>1 && isConvoy(plans[1],5,8),"all-route staggered convoy must enter the early search candidates");
+    Check(std::any_of(plans.begin(),plans.end(),[&](const auto& p){return isConvoy(p,3,8);}),
+        "separated routes must retain a complete staggered convoy");
+    for(int limit:{8,9,14,15}) for(int budget:{58,176,177,294,295}) {
+        for(const auto& plan:BuildExperiencedFormations(s,limit,budget)) {
+            int cost=0;for(const auto& a:plan) cost+=s.options[a.option].cost;
+            Check(cost<=budget && plan.size()<=static_cast<size_t>(limit),"convoys must fit the full wallet and capacity");
+            Check(std::all_of(plan.begin(),plan.end(),[](const auto& a){return a.delay>=0 && a.delay<=60;}),
+                "convoys must respect the paid queue delay range");
+        }
+    }
+    for(auto& o:s.options) if(o.row!=0) o.unit.catapult.present=false;
+    const auto oneRoute=BuildExperiencedFormations(s,64,s.budget);
+    Check(std::none_of(oneRoute.begin(),oneRoute.end(),[&](const auto& p){return isConvoy(p,5,8);}),
+        "missing legal catapult roles must not be fabricated");
+}
 }
 
 /** 检查真正滚动窗口、保存余时以及完整战斗预测中的保护反事实。 */
@@ -99,6 +138,7 @@ void RunColdStoragePressureGuardTests()
 {
     using namespace ColdStorageSearch;
     CheckGuardFormations();
+    CheckGuardCatapultFormations();
     PressureGuardRules::DamageWindow window;
     Check(Near(window.Consume(400,0),400) && Near(window.Consume(400,.25),200),"pressure shared budget must cap at 600");
     Check(Near(window.Consume(3000,.99),0),"pressure cap cannot reset at a frame or fixed boundary");

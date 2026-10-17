@@ -16,6 +16,7 @@ constexpr std::array<int,31> kShapeOrder{0,27,24,17,28,8,25,20,29,14,1,26,30,21,
 constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距离，像素；只生成时序，最终由统一预测验证
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
+constexpr std::array<float,3> kGuardCatapultGaps{8,16,0}; // 多路投篮护卫队的相邻队出生间隔，游戏秒；含同步对照
 
 bool Specialist(const Unit& u) {
     return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure || u.floodMortar || u.ferry.present;
@@ -210,6 +211,34 @@ std::vector<std::vector<Action>> PressureGuardAssaults(const Snapshot& s,int lim
     return seeds;
 }
 
+/** 给投篮后排比较多路错峰掩护；每路完整付费，不能截掉护卫后仍当作受保护车队。
+ * 最多六案，分别覆盖全部合法行与隔行路线；不保证光环跟随，移动/控制/灰烬仍由推演判断。
+ */
+std::vector<std::vector<Action>> GuardCatapultAssaults(const Snapshot& s,int limit,int budget,
+    const std::array<Roles,6>& roles) {
+    std::vector<int> routes;
+    for(int row=0;row<s.rows && row<6;++row)
+        if(roles[row].pressureGuard>=0 && roles[row].ranged>=0) routes.push_back(row);
+    std::vector<std::vector<Action>> seeds;
+    for(bool separated:{false,true}) {
+        std::vector<int> selected;
+        for(int row:routes) if(!separated || selected.empty() || row-selected.back()>=2) selected.push_back(row);
+        if(selected.size()<2 || (separated && selected==routes)) continue;
+        for(float gap:kGuardCatapultGaps) {
+            if(gap*(selected.size()-1)>kMaxLeadDelay) continue;
+            Recipe plan{s,limit,budget};
+            for(size_t i=0;i<selected.size();++i) {
+                const auto& r=roles[selected[i]];
+                const float delay=gap*static_cast<float>(i);
+                // 同队同步出生保留最初的保护机会；不用近战接敌时间让投篮车错过整个反制空窗。
+                plan.Add(r.pressureGuard,1,delay);plan.Add(r.ranged,2,delay);
+            }
+            if(plan.valid) seeds.push_back(std::move(plan.actions));
+        }
+    }
+    return seeds;
+}
+
 /** 最多五份轻快对照：三个纯突击规模，加一份双路突击及其带工人版本。
  * 路线至少隔一行；先比较低火力路线，同压再取较远路线。现金/容量不足整案拒绝。
  */
@@ -301,8 +330,10 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
     auto lightAssaults=LightAshAssaults(s,actionLimit,budget,rows,roles,pressure);
     auto runnerAssaults=RunnerAssaults(s,actionLimit,budget,rows,roles,pressure);
     auto pressureAssaults=PressureGuardAssaults(s,actionLimit,budget,rows,roles);
+    auto catapultAssaults=GuardCatapultAssaults(s,actionLimit,budget,roles);
     std::vector<std::vector<Action>> extraAssaults;
-    for(size_t i=0;i<std::max({lightAssaults.size(),runnerAssaults.size(),pressureAssaults.size()});++i) {
+    for(size_t i=0;i<std::max({lightAssaults.size(),runnerAssaults.size(),pressureAssaults.size(),catapultAssaults.size()});++i) {
+        if(i<catapultAssaults.size()) extraAssaults.push_back(std::move(catapultAssaults[i]));
         if(i<pressureAssaults.size()) extraAssaults.push_back(std::move(pressureAssaults[i]));
         if(i<runnerAssaults.size()) extraAssaults.push_back(std::move(runnerAssaults[i]));
         if(i<lightAssaults.size()) extraAssaults.push_back(std::move(lightAssaults[i]));
