@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Game/Zombie/ZombieType.h"
+#include "ColdStorageDefenseRules.h"
 #include "Game/AI/ColdStorageDiagnostics.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
 #include "Game/AI/ColdStorageBoundedTrials.h"
@@ -93,6 +94,8 @@ struct ColdStorageState {
 	float strikeAimRemaining = 0.0f; // 不可打断的瞄准提示剩余游戏秒；随目标移动，不换靶
 	float incomeIdleSeconds = 0.0f; // 连续没有实际制冰/击杀收入的游戏秒；定时补给和派兵不重置，入档
 	float plantKillIdleSeconds = 0.0f; // 连续没有消灭植物的游戏秒；新局/无历史旧档从零计时，入档
+	float troopNoKillSeconds=0; // 久守胜利计时，游戏秒；仅部队击杀清零，暂停/开发者暂停刷怪不推进，入档
+	bool defenseSurrendered=false; // 本轮久守胜利已撤军；读档由持久计时重新结算，不单独保存
 	std::deque<ColdStorageCashFlow> incomeWindow; // 最近经营窗口的实际制冰及购买事务，入档；Update 移除过期记录
 	float assaultCooldown = 0.0f; // 总攻后的重新组织时间，游戏秒；读档不重置
 	float dispatchQuietSeconds = 0.0f; // 距上次正式派兵的游戏秒；旧 AI 使用，学习分支不据此强迫出兵

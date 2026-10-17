@@ -343,6 +343,8 @@ public:
 	bool QueueColdStorageZombie(ZombieType type, int row, float delay);
 	/** 无活动/在途敌军时检查破产、低库存败局或完整空场复查认输；读档只恢复计时，不沿用认输凭据。 */
 	bool IsColdStorageCleared() const;
+	/** 久守时限到达后取消敌方事务并撤军，经原奖励/无尽轮次入口结算，不发放撤军击杀奖励。 */
+	void ConcedeColdStorageDefense();
 	int GetColdStorageHostileCount() const;
 	/** 是否仍有实际敌方部队或已提交出生/复活事务；包含空中/潜地单位，不含精准技能。 */
 	bool HasColdStorageTroopActivity() const;

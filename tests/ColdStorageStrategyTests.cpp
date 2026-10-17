@@ -23,6 +23,7 @@
 #include <stdexcept>
 
 void RunColdStoragePressureGuardTests();
+void RunColdStorageDefenseVictoryTests();
 void RunColdStorageFogFerryForecastTests();
 void RunColdStorageHealerForecastTests();
 void RunColdStorageLadderForecastTests();
@@ -65,6 +66,7 @@ void RunColdStorageTrialPersistenceTests();
 int main()
 {
 	RunColdStoragePressureGuardTests();
+	RunColdStorageDefenseVictoryTests();
 	RunColdStorageFogFerryForecastTests();
 	RunColdStorageHealerForecastTests();
 	RunColdStorageLadderForecastTests();

@@ -264,6 +264,7 @@ struct Plant {
 	bool hasBurstProtection = false;
 	IceStorageNutRules::Protection burstProtection; // 自有护体快照；无敌结束才启动冷却，就绪才统计伤害
 	float assetValue = 0; // 当前生命对应的卡价折冰估值；终点再按后续剩余生命折价，不直接返给僵尸
+	bool troopKillPending=false; // 本预测步的部队击杀见证，消费后清除；不含狙击、自耗或铲除
 };
 /** 一次释放同时打击各行最高威胁目标；各行共用来源的一个充能周期。 */
 struct RowStrike {
@@ -346,6 +347,7 @@ struct ConstructionStats {
     bool combatTraceTruncated=false; // 显式取证达到上限时必须标记，不把截断记录当完整战斗
     int nextCombatAttackID=0; // 本次Evaluate的诊断攻击序号，不参与玩法/评分/付款
 	float breachSeconds = -1; // 首次有效进屋的预测游戏秒；-1 表示尚未突破
+	float defenseVictorySeconds=-1; // 久守截止实际结束本预测的游戏秒；-1表示尚未发生
 	int cratersCreated = 0; // 实际完成爆炸后生成的预测弹坑，不含被提前消灭的灰烬
 	int planternResponseGear = -1; // -1沿用当前挡位；0..3固定应对；4随燃料切II/III挡，无雾关灯
 	bool counterSpaceReserved = false; // 对手保留空位/资金优先反制，暂不追加建设的独立推演
@@ -512,6 +514,7 @@ struct Snapshot {
 	const ProductionCalibration* productionCalibration = nullptr;
 	const StateModel* stateModel = nullptr;
 	float noProgressSeconds = 0; // Board 已记录的连续无植物击杀时间，仅作模型输入
+	float troopNoKillSeconds=-1; // 正式久守计时；负数仅供未启用该规则的独立数值夹具
 	int budget = 0, capacity = 0;
 	std::int64_t deploymentCapital = -1; // 实际库存+活体/在途原成交价；-1表示纯夹具使用固定capacity
 	int deploymentOccupied = 0; // 实际敌对活体和已付款队列数；技能/设备扣资本后重新核对剩余名额

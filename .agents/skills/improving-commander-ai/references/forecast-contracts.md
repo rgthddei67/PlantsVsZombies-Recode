@@ -131,6 +131,8 @@
 
 经验编队入口为 `ColdStorageSearch::BuildExperiencedFormations`（`ColdStorageFormationSeeds.h/.cpp`）。它从当前合法能力画像生成旧版护卫先行、工人跟进及新的保护/攻坚完整案，只提供搜索起点，不沿用旧启发式评分或直接付款。经验案与自由组合交错，进入同一精英、经营和攻城前沿；后续仍可自由删换成员、改路线与时序。完整配方超过现金或名额时整案拒绝，不能先截掉工人或保护者再称协同有效。纯数值 `experiencedFormations=false` 或 AutoTest 根字段 `commanderExperiencedFormations=false` 只用于消融候选来源，正式默认混合搜索；诊断用 `searchExperiencedEvaluated/Selected` 区分实际比较与直接选中原案，不把自由变异后的方案误记成固定编队。回归需同时保留就绪灰烬下的真实经营、已有复杂自由协作以及亏损时可等待的契约。
 
+久守胜利与下述空场复查是独立路径。正式规则由 `ColdStorageDefenseRules`、`ColdStorageState::troopNoKillSeconds` 与 `Board::ConcedeColdStorageDefense` 共用：仅部队击杀解除最后攻势，狙击、产冰、补给、派兵和残兵不续期。截止时取消敌方事务并撤军，经正常奖杯/无尽换轮入口结束，不按战斗击杀退款或产雾火；暂停不推进。新计时入档，旧档只继承可证实的无击杀下界，不按总局长补历史。AI 完整世界必须同样截止，仅实际部队击杀续期，不把认输后的产冰或残军资产计入收益。专项见 `smoke_cold_storage_defense_victory`、同名 verifier 与 `ColdStorageDefenseVictoryTests`。
+
 长期空场收尾入口为 `Board::CanReviewColdStorageStall`、`Snapshot::stallReview` 与 `Planner::RememberStallPlan`。多次有效等待、持续空场且没有在途事务、技能冷却或后续兵种待解锁时，后台完整执行一次有限搜索；失败、取消或墙钟截断不能判负。找到的动作只按身份保留，下一快照重新定价并完整对照等待、同军团不施法与资本风险，付款仍用原三秒时效门禁。完整复查仍选择空行动且植物生命、公开局面、天气边沿没有改变，才经原清场入口认输；以复查启动时的库存给最终机会，被动补给不无限重启该机会，钱包不删除或回写。复查与认输凭据不入档，重进须重新核实，原空场时钟保留。`fallbackProbeBudget/fallbackAllIn` 仅为旧诊断字段，当前 `fallbackMode=1` 仍只代表有界信息试探，不能恢复孤注一掷采购。
 
 `Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。

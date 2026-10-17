@@ -813,7 +813,7 @@ int main() {
 			{"spent",48},{"workerIncome",60},{"decisions",10},{"elapsed",120.0f},
 			{"boundedTrials",{{"disabled",false},{"records",nlohmann::json::array({record})}}}}}};
 		const auto original=old;
-		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["schemaVersion"]==31,
+		Expect(SaveSchema::UpgradeLevelDocument(old,error) && old["schemaVersion"]==SaveSchema::kCurrentLevelVersion,
 			"v30试验历史迁移到永久付费波身份");
 		const auto& migrated=old["coldStorage"]["boundedTrials"]["records"][0];
 		Expect(migrated["paidWaves"]==nlohmann::json::array({10}) && migrated["latestPaidWave"]==10
@@ -837,6 +837,21 @@ int main() {
 			Expect(broken["coldStorage"]["boundedTrials"]["records"][0]==badRecord,
 				"非法旧记录不得被修剪为空历史或凭空补成新波证明");
 		}
+	}
+	{
+		std::string error;
+		nlohmann::json previous={{"schemaVersion",31},{"coldStorage",{{"elapsed",3600},{"plantKillIdleSeconds",90},
+			{"enemyIce",2602},{"playerIce",422},{"troopPlantKills",5}}}};
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error) && previous["coldStorage"]["troopNoKillSeconds"]==90,
+			"旧档只继承可核实无击杀下界，不由总时长追溯判负");
+		Expect(previous["coldStorage"]["enemyIce"]==2602 && previous["coldStorage"]["troopPlantKills"]==5,
+			"久守迁移保留钱包和实际击杀");
+		previous["coldStorage"]["troopNoKillSeconds"]=321.5f;
+		const auto once=previous;
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error) && previous==once,"久守倒计时重复加载不重置");
+		previous={{"schemaVersion",31},{"coldStorage",{{"elapsed",3600}}}};
+		Expect(SaveSchema::UpgradeLevelDocument(previous,error) && previous["coldStorage"]["troopNoKillSeconds"]==0,
+			"无可信击杀时间的旧档从零计时");
 	}
 	{
 		std::string error;

@@ -4,6 +4,7 @@
 #include "Game/AI/ColdStorageTrialPersistence.h"
 
 #include <algorithm>
+#include <cmath>
 #include <bit>
 #include <cstdint>
 #include <nlohmann/json.hpp>
@@ -561,6 +562,16 @@ namespace {
 				if(kind==DocumentKind::Level && upgraded.contains("coldStorage"))
 					MigrateTrialPaidWaves(upgraded["coldStorage"]);
 				version=31;upgraded["schemaVersion"]=version;break;
+			case 31:
+				// 旧档最多只保存90秒的全来源无击杀时间，不能从总局长臆测五分钟部队历史。
+				if(kind==DocumentKind::Level && upgraded.contains("coldStorage") && upgraded["coldStorage"].is_object()
+					&& !upgraded["coldStorage"].empty() && !upgraded["coldStorage"].contains("troopNoKillSeconds")) {
+					auto& ice=upgraded["coldStorage"];
+					const auto old=ice.find("plantKillIdleSeconds");
+					const float seconds=old!=ice.end() && old->is_number() ? old->get<float>() : 0;
+					ice["troopNoKillSeconds"]=std::isfinite(seconds) ? std::clamp(seconds,0.0f,90.0f) : 0;
+				}
+				version=32;upgraded["schemaVersion"]=version;break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

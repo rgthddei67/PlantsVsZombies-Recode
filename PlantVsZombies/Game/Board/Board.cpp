@@ -1020,7 +1020,7 @@ void Board::TogglePlanternGearMenu()
 
 void Board::CollectMistFuelFromZombie(Zombie* zombie)
 {
-	if (!zombie || !SupportsPlanternMechanics()
+	if (!zombie || mColdStorage.defenseSurrendered || !SupportsPlanternMechanics()
 		|| zombie->IsMindControlled()) return;
 	const float reward = zombie->ClaimMistFuelReward()
 		* static_cast<float>(mPerkManager.GetMistFuelMultiplier());
@@ -1039,7 +1039,7 @@ void Board::CollectMistFuelFromZombie(Zombie* zombie)
 
 void Board::RelayZombieDeathWard(const Zombie* source)
 {
-	if (!source || !mPerkManager.HasZombieDeathRelay()
+	if (!source || mColdStorage.defenseSurrendered || !mPerkManager.HasZombieDeathRelay()
 		|| source->IsMindControlled()) return;
 	Zombie* recipient = nullptr;
 	for (int zombieID : mEntityRegistry.GetAllZombieIDs()) {

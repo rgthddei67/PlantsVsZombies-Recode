@@ -113,6 +113,15 @@ void GameProgress::Draw(Graphics* g)
 		g->DrawGlyphRun("僵尸 " + std::to_string(ice.enemyIce) + "冰  补给" +
 			std::to_string(static_cast<int>(std::ceil(ice.supplyRemaining))) + "秒", ResourceKeys::Fonts::FONT_FZCQ,
 			15, glm::vec4(255, 215, 170, 255), 860, 556);
+		if(ice.troopNoKillSeconds>=ColdStorageDefenseRules::WarningSeconds) {
+			// 与资源条分开显示；共用玩法时钟，暂停/读档不会重置最后攻势。
+			const int remaining=static_cast<int>(std::ceil(std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-ice.troopNoKillSeconds)));
+			g->FillRect(330,82,440,56,glm::vec4(30,38,48,225));
+			g->DrawGlyphRun(ice.defenseSurrendered ? "防守成功：敌方已撤军" : "最后攻势："+std::to_string(remaining)+"秒",
+				ResourceKeys::Fonts::FONT_FZCQ,22,glm::vec4(255,224,140,255),350,86);
+			g->DrawGlyphRun(ice.defenseSurrendered ? "点击奖杯继续" : "仅僵尸部队击杀植物可解除倒计时",ResourceKeys::Fonts::FONT_FZCQ,
+				16,glm::vec4(235,240,245,255),350,116);
+		}
 		return;
 	}
 	if (m_flagMeter)

@@ -1278,6 +1278,7 @@ bool TestDriver::ExecuteCurrent() {
 				nlohmann::json item={{"name",request.value("name","")},{"actions",request.at("actions")},{"legal",true},{"expanded",result.expandedForecast},{"score",result.score},
 					{"observedDecision",ObservedDecisionJson(result.observedDecision)},{"trialDecision",TrialDecisionJson(result.trialDiagnostics)},
 					{"searchVersion",result.expandedForecast ? 2 : state.searchVersion},{"cobRebuild",request.value("cobRebuild",true)},
+					{"defenseVictorySeconds",result.construction.defenseVictorySeconds},
                     {"visibleCounterResponseEnabled",state.visibleCounterResponse},{"visibleCounterResponseSelected",result.construction.visibleCounterResponse},
                     {"diagnosticJackTargetMode",state.diagnosticJackTargetMode},{"diagnosticVisibleCounterWitness",state.diagnosticVisibleCounterWitness},
                     {"effectiveWeights",result.effectiveWeights},{"opponentWeight",state.opponentWeight},
@@ -5562,6 +5563,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["stallDiagnosticSaved"]=board->mColdStorage.stallDiagnosticSaved;
 		ice["stallReviewRunning"]=board->mColdStorage.stallReviewRunning;
 		ice["stallSurrendered"]=board->mColdStorage.stallSurrendered;
+		ice["defenseSurrendered"]=board->mColdStorage.defenseSurrendered;
+		ice["finalAssaultActive"]=board->mColdStorage.troopNoKillSeconds>=ColdStorageDefenseRules::WarningSeconds && !board->mColdStorage.defenseSurrendered;
+		ice["finalAssaultRemainingMs"]=static_cast<int>(std::lround(std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-board->mColdStorage.troopNoKillSeconds)*1000));
 		ice["stallWaitDecisions"]=board->mColdStorage.stallWaitDecisions;
 		ice["stallReviewsStarted"]=board->mColdStorage.stallReviewsStarted;
 		ice["stallReviewsCompleted"]=board->mColdStorage.stallReviewsCompleted;

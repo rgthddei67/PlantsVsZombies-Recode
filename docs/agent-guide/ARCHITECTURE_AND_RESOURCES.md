@@ -87,6 +87,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 两类 JSON 根节点都写入独立的 `schemaVersion`，并在任何运行状态被修改前由纯逻辑 `SaveSchema` 事务式升级。缺版本的历史档视为 v0；高于当前程序的未来版本、非对象根节点或非法版本字段一律拒绝加载，失败时输入文档和游戏状态均不应被部分修改。新增持久化结构变化时，应在 `SaveSchema` 增加逐版本迁移并同步 `SaveSchemaTests`，不要把一次性兼容分支继续散落到对象恢复过程。
 
+关卡 schema v32 新增冷藏站 `troopNoKillSeconds`，独立记录距部队击杀的游戏时间，不能由狙击收入、派兵或总局长推定。旧档仅继承原 `plantKillIdleSeconds` 可证明的下界（旧计时最多90秒）；缺失则从零开始。新档按剩余时限恢复，撤军凭据不单独入档，达到截止时通过正式 Board 收尾重新结算。入口为 `ColdStorageDefenseRules` 与 `Board::ConcedeColdStorageDefense`。
+
 玩家 schema v5 在 v4 `lastSelectedCards` 之外增加 `crazyDaveTutorialsSeen`，按稳定冒险关卡号保存已经完整看完或主动跳过的戴夫闲聊；v4 及更早旧档迁移为空数组。恢复时闲聊记录只接收当前冒险流程内的整数并排序去重；上次选卡仍只从当前选卡面板已有卡中按名解析、去重并遵守 11 张上限，未知、未注册或未拥有的卡会跳过；按钮恢复必须复用 `Card::SetTargetPosition` 的既有飞行动画，不能直接改卡片坐标。
 
 关卡 schema v15 为矿场保存 `mine.layoutRevision`，v16 允许补强岩墙模板并阻止旧程序误读新图；v15 以前的矿场档迁移为版本0，保留原入口、岩壁和已提交预报。新局使用版本2（后半章补强岩墙），版本1仍保留初版多线模板；恢复时先按保存版本重建模板，再叠加已挖岩壁与实体；不能用新版地图过滤旧档而改变玩家阵地或施工节点。

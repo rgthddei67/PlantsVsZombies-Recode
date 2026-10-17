@@ -25,6 +25,7 @@
 #include "Game/Plant/CobCannon.h"
 #include "Game/Plant/PlantFootprint.h"
 #include "Game/Zombie/Zombie.h"
+#include "Game/Bullet/Bullet.h"
 #include "Game/Zombie/DancerRules.h"
 #include "Game/Zombie/ZombieBirthVitalsRules.h"
 #include "Game/Zombie/DancerZombie.h"
@@ -731,7 +732,7 @@ void Board::InitializeColdStorage()
 	mColdStorage = {};
 	mWeatherStation = {};
 	if (SupportsColdStorageOpeningBonus()) mColdStorage.openingBonusSelectionComplete = false;
-	mMaxWave = 0; // 冷藏站没有最终波；波号仍用于逐步解锁兵种，胜利由冰块破产与清场判定。
+	mMaxWave = 0; // 冷藏站没有最终波；波号用于解锁兵种，胜利由破产清场、复查认输或久守时限判定。
 	mColdStorage.difficulty = std::clamp(GameAPP::GetInstance().Difficulty, 1, 4);
 	const int stage = std::clamp(AdventureProgression::GetLevelNumberInArea(mLevel) - 1, 0, 8);
 	const int openingIce = mIsSurvival ? static_cast<int>(std::min(static_cast<double>(kMaxIce),
@@ -820,8 +821,10 @@ void Board::RewardColdStoragePlantKill(PlantType type, ColdStorageKillOrigin ori
 	if (accepted > 0) mColdStorage.incomeIdleSeconds = 0;
 	// 返冰与整局判负沿用全部真实击杀；只有部队自身破坏才解除部队试攻周期。
 	// 计数不依赖accepted，零价植物/满库存仍能证明部队有实际进展。
-	if(origin==ColdStorageKillOrigin::Troop)
+	if(origin==ColdStorageKillOrigin::Troop) {
 		mColdStorage.troopPlantKills=std::min(kMaxIce,mColdStorage.troopPlantKills+1);
+		mColdStorage.troopNoKillSeconds=0;
+	}
 	mColdStorage.plantKillIdleSeconds = 0;
 }
 
@@ -917,6 +920,26 @@ bool Board::IsColdStorageCleared() const
 	for (ZombieType type : mSpawnZombieList)
 		if (mColdStorage.enemyIce >= GetZombieIceCost(type)) return false;
 	return true;
+}
+
+void Board::ConcedeColdStorageDefense()
+{
+	auto& s=mColdStorage;
+	if(s.defenseSurrendered || mTrophySpawned || mBoardState!=BoardState::GAME) return;
+	// 先关闭后台与付费/复活事务；实体 Die 仍完成各品种的啃食、占位及音效清理。
+	mColdStoragePlanner.reset();s.planning=false;s.stallReviewRunning=false;s.assaultIntentActive=false;
+	s.defenseSurrendered=true;s.commanderMode="surrender";
+	s.pending.clear();s.refundableCosts.clear();
+	s.strikeTargetID=-1;s.strikeAdditionalTargetIDs.clear();s.strikeAimRemaining=0;
+	mPendingSnowHoleSpawns.clear();mPendingAuroraRifts.clear();mTemporalAnchors.clear();
+	const auto zombies=mEntityRegistry.GetAllZombieIDs();
+	for(int id:zombies) if(auto* z=mEntityRegistry.GetZombie(id);z && z->IsActive() && !z->IsPreview() && !z->IsMindControlled())
+		z->Die();
+	// 战斗结束的弹丸统一回收，不能让独立在途水弹/篮球在撤军后继续伤害阵地。
+	for(int id:mEntityRegistry.GetAllBulletIDs()) if(auto* bullet=mEntityRegistry.GetBullet(id);bullet && bullet->IsActive()) bullet->Die();
+	UpdateZombieMetrics();
+	if(mIsSurvival) OnSurvivalRoundClear();
+	else CreateTrophy(GetCellCenterPosition(2,4));
 }
 
 int Board::GetColdStorageUnlockWave(ZombieType type) const
@@ -1359,6 +1382,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			return price*std::clamp(static_cast<float>(entity->mPlantHealth)/std::max(1,entity->mPlantMaxHealth),0.0f,1.0f);
 		};
 		search.noProgressSeconds = s.plantKillIdleSeconds;
+		search.troopNoKillSeconds = s.troopNoKillSeconds;
 		search.budget = s.enemyIce;
 		search.weatherStation=IsWeatherStation();
         search.fogLeftColumn=GetEffectiveFogLeftColumn();
@@ -3407,6 +3431,11 @@ void Board::UpdateColdStorage(float dt)
 	auto& s = mColdStorage;
 	s.battleStarted = true;
 	s.elapsed += dt;
+	if(!GameAPP::mDevSpawnPaused) {
+		s.troopNoKillSeconds=std::min(ColdStorageDefenseRules::SurrenderSeconds,s.troopNoKillSeconds+dt);
+		// 先于技能、补给及新出场结算；最后时限不因库存、狙击或未清场而续期。
+		if(s.troopNoKillSeconds>=ColdStorageDefenseRules::SurrenderSeconds) {ConcedeColdStorageDefense();return;}
+	}
 	UpdateColdStorageSkills(dt);
 	UpdateColdStorageResponse();
 	s.incomeIdleSeconds = std::min(kExhaustionIdleSeconds, s.incomeIdleSeconds + dt);
@@ -3508,6 +3537,7 @@ nlohmann::json Board::SaveColdStorage() const
 		{"strikeTargetID",s.strikeTargetID},{"strikeAdditionalTargetIDs",s.strikeAdditionalTargetIDs},{"strikeAimRemaining",s.strikeAimRemaining},
 		{"incomeIdleSeconds",s.incomeIdleSeconds},
 		{"plantKillIdleSeconds",s.plantKillIdleSeconds},{"emptyWaitSeconds",s.emptyWaitSeconds},
+		{"troopNoKillSeconds",s.troopNoKillSeconds},
 		{"stallProbeRounds",s.stallProbeRounds},{"stallProbeSpent",s.stallProbeSpent},
 		{"boundedTrials",ColdStorageTrials::Encode(s.boundedTrials)},
 		{"stallStartWorkerIncome",s.stallStartWorkerIncome},{"stallStartKillIncome",s.stallStartKillIncome},
@@ -3541,6 +3571,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	mColdStoragePlanner.reset();
 	mColdStorage.planning = false;
 	mColdStorage.stallReviewRunning=false; mColdStorage.stallSurrendered=false; mColdStorage.stallWaitDecisions=0;
+	mColdStorage.defenseSurrendered=false;
 	mColdStorage.stallReviewsStarted=mColdStorage.stallReviewsCompleted=mColdStorage.stallReviewsDiscarded=0;
 	mColdStorage.assaultIntentActive=false; mColdStorage.assaultContinuationSelected=false;
 	mColdStorage.assaultObservationSignature=0; mColdStorage.assaultIntentRevision=0;
@@ -3596,6 +3627,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	// 旧档没有可核实的收入时间，给予完整恢复窗口，不能用总对局时间追溯判负。
 	s.incomeIdleSeconds = seconds("incomeIdleSeconds", 0, kExhaustionIdleSeconds);
 	s.plantKillIdleSeconds = seconds("plantKillIdleSeconds", 0, kExhaustionIdleSeconds);
+	s.troopNoKillSeconds=seconds("troopNoKillSeconds",0,ColdStorageDefenseRules::SurrenderSeconds);
 	s.emptyWaitSeconds=seconds("emptyWaitSeconds",0,kStallProbeSeconds);
 	s.stallProbeRounds=std::clamp(j.value("stallProbeRounds",0),0,kMaxIce);
 	s.stallProbeSpent=std::clamp(j.value("stallProbeSpent",0),0,kMaxIce);

@@ -14,6 +14,7 @@
 #include "Game/Board/ColdStorageDeploymentRules.h"
 #include "Game/Board/IceProduction.h"
 #include "Game/Board/ColdStorageSkillRules.h"
+#include "Game/Board/ColdStorageDefenseRules.h"
 #include "Game/Zombie/CrystalDrummerRules.h"
 #include "Game/Zombie/ThermalSniperRules.h"
 #include "Game/Zombie/PolarClockRules.h"
@@ -3190,7 +3191,7 @@ static bool DamagePlant(Plant& plant, float damage, bool crush, Weights& feature
     plant.attackAssetCredit+=plant.assetValue*std::min(plant.health,damage)/AttackAssetHealth(plant);
 	const float before = plant.health;
 	plant.health = std::max(0.0f,plant.health-damage);
-	if (plant.health <= 0) features[0] += plant.reward;
+	if (plant.health <= 0) {features[0] += plant.reward;plant.troopKillPending=true;}
 	else if (plant.hasBurstProtection) plant.burstProtection.RecordDamage(before-plant.health);
 	return true;
 }
@@ -3324,7 +3325,7 @@ static void ExecutePlant(Plant& plant, Weights& features) {
 	const float credit = plant.reward*plant.health/std::max(1.0f,plant.initialHealth);
 	features[1] += credit; plant.damageCredit += credit;
     plant.attackAssetCredit+=plant.assetValue*plant.health/AttackAssetHealth(plant);
-	features[0] += plant.reward; plant.health = 0;
+	features[0] += plant.reward; plant.health = 0;plant.troopKillPending=true;
 }
 
 /** 圆形爆区使用实际矩形最近点，不能把相邻行一律当成命中或漏掉边缘层。 */
@@ -4695,7 +4696,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         || (followup && std::any_of(followup->actions.begin(),followup->actions.end(),[&](const Action& a) {
             return a.option>=0 && a.option<static_cast<int>(s.options.size()) && s.options[a.option].unit.pressureGuard;
         }));
+	float defenseDeadline=s.troopNoKillSeconds<0 ? std::numeric_limits<float>::max()
+		: std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-s.troopNoKillSeconds);
 	for (float t = 0; t < Horizon(s); t += kStep) {
+		if(t>=defenseDeadline) {
+			// 认输撤军不返冰，也没有残余兵力资产；后续生产、攻击和未来付款均不再兑现。
+			constructionStats.defenseVictorySeconds=t;
+			for(auto& unit:units) unit.body.health=0;
+			break;
+		}
         if (pressureGroupPresent) for (auto& u : units) u.pressureGroupPresent=true;
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		for (auto& unit:units) {
@@ -5109,6 +5118,10 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			if (worker.goldenDrive.enabled) worker.goldenDrive.undamaged=std::min(GoldenIceRules::ThirdAcceleration,worker.goldenDrive.undamaged+kStep);
 		}
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
+		for(auto& plant:plants) if(plant.troopKillPending) {
+			plant.troopKillPending=false;
+			if(s.troopNoKillSeconds>=0) defenseDeadline=t+ColdStorageDefenseRules::SurrenderSeconds;
+		}
 		PruneDeadLadderHosts(plants,ladderLivingPlants,ladders,constructionStats);
 		// 两版搜索共享正式清场/胜负语义：先过清洁车，再判断是否真的进屋。
 		AdvanceMowers(s,mowers,units,t,s.rightEdge);

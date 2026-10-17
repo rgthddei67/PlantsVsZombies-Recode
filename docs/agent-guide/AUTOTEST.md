@@ -75,6 +75,8 @@
 
 `smoke_cold_storage_exhaustion.json` 验证低库存经营失败收尾、盈利/活动及在途兵力保护、收支窗口与计时读档、低库存重组。`coldStorage.plantKillIdleSeconds` 只由消灭植物重置；滚动窗口 `incomeWindowProduction` / `incomeWindowSpent` 只统计实际制冰和付费出兵，补给不计入。`incomeIdleSeconds` 仍供诊断，但少量产冰不再单独延长败局。`commanderMode: regroup` 表示低库存候选收益不足而继续积累恢复资本，实际购买以 `commanderSpent` 和 `pending` 为准。
 
+`smoke_cold_storage_defense_victory.json` 与 `verify_cold_storage_defense_victory.py` 验证独立的久守胜利规则：`troopNoKillSeconds` 仅由部队击杀清零，暂停/开发者暂停出怪不推进；`finalAssaultActive`、`finalAssaultRemainingMs` 与 HUD 共用 `ColdStorageDefenseRules`。达到时限后 `defenseSurrendered` 标记撤军，取消后台、付费队列、狙击、裂隙/复活与场上敌兵，经正式奖杯或无尽换轮入口结束，不产生撤军击杀奖励。专项覆盖暂停、存读档、狙击不续期、部队击杀、产冰与活体/在途事务；时钟边界由夹具设置，不作为实战强度证据。`smoke_cold_storage_defense_survival.json` 另验无尽撤军换轮、玩家资源保留与新轮时钟清零。`compare_commander_search` 的候选报告另导出 `defenseVictorySeconds`，可核对 AI 是否停止计算认输后的收入与残军资产。
+
 脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
 普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
 仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。
