@@ -193,6 +193,11 @@ bool LevelDocumentValidation::Validate(const nlohmann::json& document, std::stri
         "bullets cards craters echoWaves goldenIceTrails groundRifts iceTrails ladders mowers pendingAuroraRifts "
         "pendingSnowHoleSpawns plants snowHoles spawnList sunTheftLedger suns survivalCardCooldowns "
         "temporalAnchors trophies zombies ", Kind::Array, "", error);
+    Fields(document, "coldStorage", Kind::Object, "", error);
+    if (const auto it = document.find("coldStorage"); it != document.end() && it->is_object()) {
+        Fields(*it, "randomSpawns", Kind::Bool, "/coldStorage", error);
+        Fields(*it, "randomWeatherRemaining", Kind::Number, "/coldStorage", error);
+    }
     Entities(document, "plants", "type row column health maxHealth isSleeping", error);
     Entities(document, "zombies", "type row x", error);
     Entities(document, "mowers", "type row x y", error);

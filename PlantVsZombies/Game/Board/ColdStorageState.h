@@ -41,6 +41,9 @@ enum class ColdStorageKillOrigin { Troop, CommanderSkill };
 
 /** Board 独占的冰块经济与指挥官状态；展示层只读，不另存资源余额。 */
 struct ColdStorageState {
+	bool randomSpawns = false; // 本局出怪模式；只在新局选择，读档保持，默认沿用指挥官
+	bool spawnModeChosen = false; // 本次 Board 的选择门禁；任意读档均锁定已保存模式，不另存玩家偏好
+	float randomWeatherRemaining = 45.0f; // 随机模式下一次设备尝试的游戏秒，存档恢复不重抽
 	int searchCobUpgrades=0, searchConstructedCobShots=0;
 	float searchCobTransferredAssets=0; // 预测内真实三交易与底材资产转移，仅诊断不入档
 	bool assaultIntentActive=false, assaultContinuationSelected=false; // 未付款观察意图及本次重评采用结果，仅诊断、不入档

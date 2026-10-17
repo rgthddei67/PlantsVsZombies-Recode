@@ -28,6 +28,8 @@
 
 共享策略加载与回退已有 [smoke_commander_policy_scope.json](../../../../autotest/scripts/smoke_commander_policy_scope.json)：覆盖原范围边界、10-8、10-9、大混战、关闭 AI 与空实验权重。气象站另用 `smoke_weather_station` 与 `smoke_weather_station_interactions` 验证设备事务、交互与真实搜索提交。
 
-新地图接入后，在实际目标关卡断言 `coldStorage.commanderStrategy == learned_search`，核对真实卡池、付款和技能资格；修过训练解析时，断言实际场景的关卡号与背景。换背景或存档资格时，再覆盖受影响的初始化、UI、产冰与快照往返。地图美术与网格另按 `creating-pvz-board-map` 技能验证。
+诊断第十／十一章时先核对 `coldStorage.randomSpawns`：玩家可在每把新局选择随机出怪，模式随关卡存档锁定，只有重开才重新询问。随机模式保留经济和单位能力，但主动绕过指挥官搜索与精准打击，气象站使用独立随机设备时钟；不能把 `commanderStrategy == random` 当成策略加载故障。入口为 `SelectColdStorageSpawnMode`、`PlanRandomColdStorageAttack`、`UpdateRandomStationControl`。
+
+新地图接入后，在指挥官模式的实际目标关卡断言 `coldStorage.commanderStrategy == learned_search`，核对真实卡池、付款和技能资格；修过训练解析时，断言实际场景的关卡号与背景。换背景或存档资格时，再覆盖受影响的初始化、UI、产冰与快照往返。地图美术与网格另按 `creating-pvz-board-map` 技能验证。
 
 气象站环境与出兵放在同一 `ColdStorageSearch::Option` 搜索空间：设备候选带 `device/setting`，不能转成僵尸类型或占用兵力名额。付款前复核整份预算及所有设备可用性；设备改变递增规划身份，不接受旧环境的后台计划。预测用纯数值状态副本，不能访问活体 Board 或消耗正式 RNG。

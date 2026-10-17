@@ -917,6 +917,22 @@ int main() {
         Expect(SaveSchema::UpgradePlayerDocument(player,error) && player["havecards"].size()==1,"bamboo reward migration is idempotent");
     }
 	TestCurrentLevelDocumentIsStable();
+	{
+		std::string error;
+		nlohmann::json old = {{"schemaVersion", 34}, {"coldStorage", {
+			{"enemyIce", 400}, {"playerIce", 250}, {"decisions", 8},
+			{"pending", nlohmann::json::array({{{"type", 0}, {"cost", 4}, {"remaining", 2}}})}}}};
+		const auto economy = old["coldStorage"];
+		Expect(SaveSchema::UpgradeLevelDocument(old, error), "v34 出怪模式迁移成功");
+		Expect(old["coldStorage"]["randomSpawns"] == false
+			&& old["coldStorage"]["randomWeatherRemaining"] == 45.0f, "旧局继续指挥官，不随机切换");
+		for (const auto& [key, value] : economy.items())
+			Expect(old["coldStorage"][key] == value, "模式迁移不改钱包、波号和已付队列");
+		old["coldStorage"]["randomSpawns"] = true;
+		old["coldStorage"]["randomWeatherRemaining"] = 13.5f;
+		const auto current = old;
+		Expect(SaveSchema::UpgradeLevelDocument(old, error) && old == current, "新档保留随机模式与天气倒计时");
+	}
 	TestStarRoofReferenceMigration();
 	TestSunCollectionMigration();
 	TestLegacyLevelUpgradePreservesGameplayState();

@@ -590,6 +590,15 @@ namespace {
 					}
 				}
 				version = 34; upgraded["schemaVersion"] = version; break;
+			case 34:
+				// 旧局沿用原指挥官；不重置已经付款的部队、天气或技能，也不补发新局选择。
+				if (kind == DocumentKind::Level && upgraded.contains("coldStorage")
+					&& upgraded["coldStorage"].is_object() && !upgraded["coldStorage"].empty()) {
+					auto& ice = upgraded["coldStorage"];
+					ice["randomSpawns"] = false;
+					ice["randomWeatherRemaining"] = 45.0f;
+				}
+				version = 35; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

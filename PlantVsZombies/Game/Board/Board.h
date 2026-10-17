@@ -343,6 +343,15 @@ public:
 	void SettleColdStorageZombieDeath(const Zombie& zombie);
 	/** 建立新局资源，不从 StartGame 重置已恢复的订单与队伍。 */
 	void InitializeColdStorage();
+	/** 仅第十、十一大关冒险新局提供出怪选择，不影响无尽或大混战。 */
+	bool SupportsColdStorageSpawnChoice() const;
+	/** 新局选择出兵方式；尚未进入实战时有效，不修改钱包、准备支援或全局 AI 设置。 */
+	bool SelectColdStorageSpawnMode(bool random);
+	bool UsesRandomColdStorageSpawns() const { return SupportsColdStorageSpawnChoice() && mColdStorage.randomSpawns; }
+	/** 在合法兵池及当前预算内随机付款、排队，不读取玩家阵容或启动战术搜索。 */
+	void PlanRandomColdStorageAttack();
+	/** 随机模式按独立时钟尝试一台设备；留足出兵资金，仍经正式付款与保护期检查。 */
+	void UpdateRandomStationControl(float deltaTime);
 	/** 无尽换轮只重建敌方经营状态；玩家钱包、订单、技能余时和本局习惯继续保留。 */
 	void ResetColdStorageForSurvivalRound();
 	/** 独立推进补给、付款队列与指挥官，不走旧波次提前刷新判定。 */

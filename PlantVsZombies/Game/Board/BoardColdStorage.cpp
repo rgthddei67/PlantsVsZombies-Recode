@@ -152,6 +152,8 @@ namespace {
 	constexpr float kSupportHealthRequired = 1200.0f; // 派治疗或钟匠前，同路有效前锋的最低生命
 	constexpr int kNormalEarlyBudget = 72; // 前五关每波常规冰块预算上限，可容纳进攻队伍与跟进工人
 	constexpr int kNormalLateBudget = 96; // 后四关每波常规冰块预算上限
+	constexpr float kRandomWeatherInterval = 45.0f; // 随机设备尝试间隔，游戏秒；每次最多操作一台
+	constexpr int kRandomWeatherReserve = 96; // 操作设备后至少保留的出兵冰块，避免天气耗尽库存
 	constexpr int kAssaultEarlyBudget = 192; // 前五关一次集中进攻冰块预算上限，不是额外收入
 	constexpr int kAssaultLateBudget = 256; // 后四关一次集中进攻冰块预算上限
 	constexpr float kCollateralScorePerIce = 0.4f; // 邻路额外损失每冰折算的出兵评分，可被突破价值抵消
@@ -724,6 +726,23 @@ double Board::GetPlantCardRechargeMultiplier(PlantType gameplayType) const
 		mPerkManager.GetPlantCardRechargeMultiplier());
 }
 
+bool Board::SupportsColdStorageSpawnChoice() const
+{
+	return IsColdStorage() && !mIsSurvival
+		&& mLevel > AdventureProgression::LEVELS_PER_AREA * 9
+		&& mLevel <= AdventureProgression::LEVELS_PER_AREA * 11;
+}
+
+bool Board::SelectColdStorageSpawnMode(bool random)
+{
+	if (!SupportsColdStorageSpawnChoice() || mIsLoadSave || mColdStorage.spawnModeChosen || mColdStorage.battleStarted
+		|| mBoardState != BoardState::CHOOSE_CARD) return false;
+	mColdStorage.randomSpawns = random;
+	mColdStorage.spawnModeChosen = true;
+	mColdStorage.commanderStrategy = random ? "random" : "balanced";
+	return true;
+}
+
 /** 新建冰块经济与指挥官；无尽按轮次库存初始化，冒险沿用章内开局表。 */
 void Board::InitializeColdStorage()
 {
@@ -803,6 +822,7 @@ void Board::CommitColdStoragePlant(PlantType type)
 	if (!IsColdStorage()) return;
 	if (!(GameAPP::mDevelopMode && GameAPP::mDevFreePlant))
 		mColdStorage.playerIce = std::max(0, mColdStorage.playerIce - GetPlantIcePaymentCost(type));
+	if (UsesRandomColdStorageSpawns()) return;
 	const auto use = PlantStrategy(type);
 	for (std::size_t i = 0; i < use.size(); ++i)
 		mColdStorage.habits[i] = mColdStorage.habits[i] * kHabitDecay + use[i] * (1.0f - kHabitDecay);
@@ -982,11 +1002,81 @@ bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 	return true;
 }
 
+void Board::PlanRandomColdStorageAttack()
+{
+	if (!UsesRandomColdStorageSpawns() || mBoardState != BoardState::GAME || mTrophySpawned
+		|| !mColdStorage.pending.empty()) return;
+	auto& s = mColdStorage;
+	s.commanderStrategy = "random";
+	s.commanderMode = "random";
+	s.commanderBudget = std::min(s.enemyIce, AdventureProgression::GetLevelNumberInArea(mLevel) <= 5
+		? kNormalEarlyBudget : kNormalLateBudget);
+	s.commanderSpent = 0;
+	s.commanderFocusRow = -1;
+	s.attackDeferred = false;
+	const int slots = std::max(0, GetColdStorageDeploymentLimit() - GetColdStorageHostileCount());
+	// 先均匀抽品种，再均匀抽兼容行；既不看阵型，也不让兼容行较多的品种得到额外权重。
+	for (int count = 0; count < slots; ++count) {
+		std::vector<ZombieType> candidates;
+		for (auto type : mSpawnZombieList) {
+			const int cost = GetZombieIceCost(type);
+			if (cost <= 0 || cost > s.commanderBudget - s.commanderSpent
+				|| !IsColdStorageZombieUnlocked(type) || !IsStationZombieAllowed(type)
+				|| GameDataManager::GetInstance().GetZombieWeight(type) <= 0) continue;
+			for (int row = 0; row < mRows; ++row) if (IsSpawnRowCompatible(type, row)) {
+				candidates.push_back(type);
+				break;
+			}
+		}
+		if (candidates.empty()) break;
+		const auto type = candidates[GameRandom::Range(0, static_cast<int>(candidates.size()) - 1)];
+		std::vector<int> rows;
+		for (int row = 0; row < mRows; ++row) if (IsSpawnRowCompatible(type, row)) rows.push_back(row);
+		const int row = rows[GameRandom::Range(0, static_cast<int>(rows.size()) - 1)];
+		if (!QueueColdStorageZombie(type, row, count * kDeploySpacing)) break;
+		s.commanderSpent += GetZombieIceCost(type);
+	}
+	// 真实付款才推进解锁波次；出生、死亡返冰、产冰及胜负仍由原经济路径结算。
+	if (!s.pending.empty()) {
+		mCurrentWave = ++s.decisions;
+		if (IsWeatherStation()) mMistFuelAssignedThisWave = 0;
+		for (auto& paid : s.pending) paid.wave = s.decisions;
+		s.dispatchQuietSeconds = 0;
+		ShowPaidWavePrompt(mPresentation, s.commanderSpent);
+	}
+}
+
+void Board::UpdateRandomStationControl(float dt)
+{
+	if (!IsWeatherStation() || !UsesRandomColdStorageSpawns() || mColdStorage.decisions == 0) return;
+	auto& s = mColdStorage;
+	s.randomWeatherRemaining -= dt;
+	if (s.randomWeatherRemaining > 0) return;
+	s.randomWeatherRemaining = kRandomWeatherInterval;
+	std::array<std::vector<int>, WeatherStationRules::COUNT> settings;
+	std::vector<int> devices;
+	for (int device = 0; device < WeatherStationRules::COUNT; ++device) {
+		for (int setting = 0; setting < WeatherStationRules::Count(device); ++setting) {
+			if (s.enemyIce - WeatherStationRules::Cost(device, setting) >= kRandomWeatherReserve
+				&& CanChangeStationControl(device, setting, false)) settings[device].push_back(setting);
+		}
+		if (!settings[device].empty()) devices.push_back(device);
+	}
+	if (devices.empty()) return; // 开幕锁定、保护期或缺钱时等待下次，不免费切天、不补发过期指令。
+	const int device = devices[GameRandom::Range(0, static_cast<int>(devices.size()) - 1)];
+	const auto& choices = settings[device];
+	TryChangeStationControl(device, choices[GameRandom::Range(0, static_cast<int>(choices.size()) - 1)], false);
+}
+
 /** 先决定是否值得增援及本波预算，再在合法候选中组织队伍；未派兵不推进波号。 */
 void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* probe)
 {
 	if (probe) probe->captured = false;
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned) return;
+	if (UsesRandomColdStorageSpawns()) {
+		if (!probe) PlanRandomColdStorageAttack();
+		return;
+	}
 	PROFILE_SCOPE("Commander.PlanMain");
 	// 诊断复用正式采样，但统计清零只作用于临时副本，不能扰动正在运行的 AI。
 	auto diagnosticState = probe ? std::make_unique<ColdStorageState>(mColdStorage) : nullptr;
@@ -3494,7 +3584,7 @@ void Board::UpdateColdStorage(float dt)
 	}
 	if (GameAPP::mDevSpawnPaused) {
 		// 主动暂停刷怪同样要在诊断里可见；只采样并保存，不绕过开关付款或恢复出兵。
-		if(empty && s.plantKillIdleSeconds>=kStallProbeSeconds && !s.stallDiagnosticSaved) {
+		if(!UsesRandomColdStorageSpawns() && empty && s.plantKillIdleSeconds>=kStallProbeSeconds && !s.stallDiagnosticSaved) {
 			ColdStorageSearch::Probe probe; PlanColdStorageAttack(false,&probe);
 			CaptureColdStorageStall(probe.snapshot,ColdStorageSearch::Result{},probe.seed);
 		}
@@ -3518,6 +3608,16 @@ void Board::UpdateColdStorage(float dt)
 		++s.deploymentTypes[it->type];
 		it = s.pending.erase(it);
 		UpdateZombieMetrics();
+	}
+	// 随机模式只共用上方真实经济与已付事务，不能进入观察、后台搜索或战术复查。
+	if (UsesRandomColdStorageSpawns()) {
+		UpdateRandomStationControl(dt);
+		s.decisionRemaining -= dt;
+		if (s.decisionRemaining <= 0 && s.pending.empty()) {
+			PlanRandomColdStorageAttack();
+			s.decisionRemaining = DecisionInterval(s.elapsed);
+		}
+		return;
 	}
 	const auto assault=ObserveColdStorageAssault();
 	s.assaultObservationSignature=assault.signature; s.assaultReadyCannons=assault.readySources;
@@ -3548,7 +3648,8 @@ void Board::UpdateColdStorage(float dt)
 nlohmann::json Board::SaveColdStorage() const
 {
 	const auto& s = mColdStorage;
-	nlohmann::json j{{"openingBonusMask",s.openingBonusMask},{"openingBonusSelectionComplete",s.openingBonusSelectionComplete},
+	nlohmann::json j{{"randomSpawns",s.randomSpawns},{"randomWeatherRemaining",s.randomWeatherRemaining},
+		{"openingBonusMask",s.openingBonusMask},{"openingBonusSelectionComplete",s.openingBonusSelectionComplete},
 		{"playerIce",s.playerIce},{"enemyIce",s.enemyIce},{"initialEnemyIce",s.initialEnemyIce},
 		{"difficulty",s.difficulty},{"orderIce",s.orderIce},{"orderRemaining",s.orderRemaining},
 		{"supplyRemaining",s.supplyRemaining},{"decisionRemaining",s.decisionRemaining},{"elapsed",s.elapsed},
@@ -3586,6 +3687,7 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 {
 	ResetColdStorageResponse();
 	if (!IsColdStorage()) return;
+	mColdStorage.spawnModeChosen = true; // 旧档也继续指挥官模式，不在续玩时重新询问。
 	// 整个经营对象缺失时也不能退回新局的空风险历史；保留原加载行为，只关闭新的信息试探。
 	if (!j.is_object() || j.empty()) {mColdStorage.boundedTrials.Disable();return;}
 	mColdStoragePlanner.reset();
@@ -3623,6 +3725,9 @@ void Board::LoadColdStorage(const nlohmann::json& j)
 	s.orderRemaining = seconds("orderRemaining", 0, 10);
 	s.supplyRemaining = seconds("supplyRemaining", 30, 30);
 	s.decisionRemaining = seconds("decisionRemaining", 12, kOpeningPreparationSeconds);
+	s.randomSpawns = SupportsColdStorageSpawnChoice() && j.value("randomSpawns", false);
+	s.randomWeatherRemaining = seconds("randomWeatherRemaining", kRandomWeatherInterval, kRandomWeatherInterval);
+	if (s.randomSpawns) s.commanderStrategy = "random";
 	s.elapsed = seconds("elapsed", 0, 10000000);
 	s.discountRemaining = seconds("discountRemaining", 0, ColdStorageSkillRules::DiscountDuration);
 	s.interferenceRemaining = SupportsTemporalInterference() ? seconds("interferenceRemaining", 0, ColdStorageSkillRules::InterferenceDuration) : 0;

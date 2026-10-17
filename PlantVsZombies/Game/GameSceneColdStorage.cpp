@@ -64,8 +64,11 @@ void GameScene::DrawColdStorageShop(Graphics* g)
 			ResourceKeys::Fonts::FONT_FZCQ, 16, glm::vec4(165, 245, 255, 255), 373, 75);
 	}
 	// 无尽同时显示轮数与付费波数，扩宽底栏以容纳完整名称。
-	g->FillRect(590, 573, mBoard->mIsSurvival ? 410 : 235, 27, glm::vec4(20, 35, 40, 190));
-	g->DrawGlyphRun(mBoard->mLevelName + "  第" + std::to_string(ice.decisions) + "波",
+	const std::string mode = mBoard->SupportsColdStorageSpawnChoice()
+		? (mBoard->UsesRandomColdStorageSpawns() ? " · 随机" : " · AI") : "";
+	g->FillRect(590, 573, mBoard->mIsSurvival ? 410 : mBoard->SupportsColdStorageSpawnChoice() ? 250 : 235,
+		27, glm::vec4(20, 35, 40, 190));
+	g->DrawGlyphRun(mBoard->mLevelName + "  第" + std::to_string(ice.decisions) + "波" + mode,
 		ResourceKeys::Fonts::FONT_FZCQ, 18, glm::vec4(255, 235, 175, 255), 600, 575);
 	if (mColdStorageShopOpen) {
 		g->FillRect(8, 108, 164, mBoard->SupportsTemporalInterference() ? 282 : 158, glm::vec4(18, 47, 57, 240));

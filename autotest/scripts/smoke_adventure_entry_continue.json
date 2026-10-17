@@ -41,11 +41,11 @@
     {"op": "assert_state", "path": "activeMessageBoxCount", "equals": 1},
     {"op": "click", "target": "message_box_button", "index": 0, "trace": true, "hold_frames": 6},
     {"op": "wait_frames", "value": 5},
-    {"op": "assert_state", "path": "coldStorageEntryNoticeSeen", "equals": true},
+    {"op": "assert_state", "path": "coldStorage.spawnModeChosen", "equals": true},
     {"op": "assert_state", "path": "paused", "equals": false},
     {"op": "goto_level", "level": 82},
     {"op": "wait_frames", "value": 5},
-    {"op": "assert_state", "path": "activeMessageBoxCount", "equals": 0},
+    {"op": "assert_state", "path": "activeMessageBoxCount", "equals": 1},
     {"op": "quit"}
   ]
 }

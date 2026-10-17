@@ -114,7 +114,7 @@ void Board::ResetColdStorageResponse()
 
 void Board::NotifyColdStoragePaidAreaCard(const Card& card, const Plant& plant)
 {
-    if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned || mIsLoadSave
+    if (!IsColdStorage() || UsesRandomColdStorageSpawns() || mBoardState != BoardState::GAME || mTrophySpawned || mIsLoadSave
         || GameAPP::mDevSpawnPaused
         || !GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get()
         || (GameAPP::mDevelopMode && (GameAPP::mDevFreePlant || GameAPP::mDevNoCooldown))
@@ -133,7 +133,7 @@ void Board::NotifyColdStoragePaidAreaCard(const Card& card, const Plant& plant)
 
 void Board::UpdateColdStorageResponse()
 {
-    if (!GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get() || GameAPP::mDevSpawnPaused
+    if (UsesRandomColdStorageSpawns() || !GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get() || GameAPP::mDevSpawnPaused
         || (GameAPP::mDevelopMode && (GameAPP::mDevFreePlant || GameAPP::mDevNoCooldown))) {
         // 诊断暂停刷怪并非正常对抗；丢弃本局观察，避免恢复时把未观察间隔拼成拒用证据。
         if (mColdStorageResponseLastTime >= 0) ResetColdStorageResponse();

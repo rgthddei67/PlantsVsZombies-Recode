@@ -49,7 +49,7 @@ bool Board::TryChangeStationControl(int device,int value,bool player) {
     control.pending=value; control.warning=WeatherStationRules::WarningSeconds; control.player=player;
     ++mWeatherStation.revision;
     if(!player) mWeatherStation.enemyUsedMask|=1u<<device;
-    mColdStorage.decisionRemaining=0; // 双方改环境都使旧战场方案尽快重评。
+	if (!UsesRandomColdStorageSpawns()) mColdStorage.decisionRemaining=0; // 只有战术模式需因环境重评；随机出兵保持节奏。
     return true;
 }
 
@@ -58,7 +58,11 @@ void Board::UpdateWeatherStation(float seconds) {
     if (!IsWeatherStation() || mBoardState!=BoardState::GAME || mTrophySpawned || seconds<=0) return;
     bool changed=false;
     for (auto& control:mWeatherStation.controls) changed=WeatherStationRules::Advance(control,seconds)||changed;
-    if (changed) { ++mWeatherStation.revision; ApplyStationEnvironment(); mColdStorage.decisionRemaining=0; }
+    if (changed) {
+        ++mWeatherStation.revision;
+        ApplyStationEnvironment();
+        if (!UsesRandomColdStorageSpawns()) mColdStorage.decisionRemaining=0;
+    }
 }
 
 void Board::ApplyStationEnvironment() {

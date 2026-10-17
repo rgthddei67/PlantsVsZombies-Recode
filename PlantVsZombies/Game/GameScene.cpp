@@ -576,11 +576,10 @@ void GameScene::TryShowAdventureEntryNotice()
 		|| mUIManager.GetTopActiveMessageBox()) return;
 	auto& app = GameAPP::GetInstance();
 	const bool firstArea = mBoard->mLevel == 1 && !app.mFirstAreaEntryChoiceMade;
-	const bool coldStorage = mBoard->mLevel == AdventureProgression::LEVELS_PER_AREA * 9 + 1
-		&& !app.mColdStorageEntryNoticeSeen;
-	const bool weatherStation = mBoard->mLevel == AdventureProgression::LEVELS_PER_AREA * 10 + 1
-		&& !app.mWeatherStationEntryNoticeSeen;
-	if (!firstArea && !coldStorage && !weatherStation) return;
+	const bool spawnChoice = mBoard->SupportsColdStorageSpawnChoice()
+		&& !mBoard->mColdStorage.spawnModeChosen && !mBoard->IsLoadRestoreActive()
+		&& mBoard->GetState() == BoardState::CHOOSE_CARD;
+	if (!firstArea && !spawnChoice) return;
 
 	// 仅冻结当前场景，不把暂停状态写成玩家设置；关闭的释放事件不推进开场或战斗。
 	mEntryNoticeWasPaused = DeltaTime::IsPaused();
@@ -602,17 +601,17 @@ void GameScene::TryShowAdventureEntryNotice()
 				[this]() { mPendingEntryNoticeChoice = 0; });
 	}
 	else {
-		const std::string chapter = weatherStation ? "第十一大关" : "第十大关";
-		builder.Title(chapter + "游玩提示")
-			.Message(chapter + "由 AI 根据战局决定出怪。\n"
-				"作者已反复优化，但仍可能出现掉帧，手机端尤其如此。\n"
-				"AI 的表现并不稳定：有时很强，有时也可能比较简单。\n"
-				"如果打不过，可以继续挑战，或在菜单中降低难度后重开；\n"
-				"也可返回冒险选关页，使用“跳过本关”继续后续内容。\n"
-				"作者会继续尽力改善性能与平衡，但目前效果仍有限，\n"
-				"无法保证完全解决。欢迎反馈遇到的问题与建议。")
-			.Button("我知道了", Vector::zero(), Vector(150, 50), 18,
-				[this]() { mPendingEntryNoticeChoice = 0; });
+		const bool station = mBoard->IsWeatherStation();
+		builder.Title("选择本局出怪方式")
+			.Message(std::string("AI 指挥官：根据战局组织进攻，可能带来额外卡顿。\n")
+				+ "随机出怪：随机选怪和路线，不使用指挥官精准打击。\n"
+				+ "两种模式均保留冰块经济、商店、通关奖励与进度。\n"
+				+ (station ? "随机模式会随机操作天气设备，您仍可花冰块反制。\n" : "")
+				+ "本局选定后固定，读档沿用；重新开始时可重新选择。")
+			.Button("AI 指挥官", Vector::zero(), Vector(160, 50), 18,
+				[this]() { mPendingEntryNoticeChoice = 0; })
+			.Button("随机出怪", Vector::zero(), Vector(160, 50), 18,
+				[this]() { mPendingEntryNoticeChoice = 1; });
 	}
 	builder.Show();
 }
@@ -621,6 +620,13 @@ void GameScene::CompleteAdventureEntryNotice()
 {
 	const bool skip = mPendingEntryNoticeChoice == 1;
 	mPendingEntryNoticeChoice = -1;
+	if (mBoard->SupportsColdStorageSpawnChoice()) {
+		// 此处只提交本局模式，正常关卡快照负责持久化；不写全局偏好或改变既有读档。
+		mBoard->SelectColdStorageSpawnMode(skip);
+		mAdventureEntryNoticeActive = false;
+		DeltaTime::SetPaused(mEntryNoticeWasPaused);
+		return;
+	}
 	auto& app = GameAPP::GetInstance();
 	const bool firstArea = mBoard->mLevel == 1;
 	bool& acknowledged = firstArea ? app.mFirstAreaEntryChoiceMade
@@ -2232,6 +2238,8 @@ void GameScene::OnEnter() {
 	}
 
 	// 常规专项和训练保持原来的无支援基线；真人观察与支援专项走正式选择窗口。
+	if (GameAPP::mAutoTestMode && !TestDriver::GetInstance().AdventureEntryNotices())
+		mBoard->SelectColdStorageSpawnMode(false);
 	if (GameAPP::mAutoTestMode && !TestDriver::GetInstance().ColdStorageBonusSelection())
 		mBoard->SelectColdStorageOpeningBonus(ColdStorageOpeningBonus::NONE);
 	// 戴夫在支援选择结束后再进入，避免两个开场流程同时拥有输入。

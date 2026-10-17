@@ -56,7 +56,7 @@ bool Board::TryActivateTemporalInterference()
 
 bool Board::CanUseColdStoragePrecisionStrike() const
 {
-	return IsColdStorage() && mBoardState == BoardState::GAME && !mTrophySpawned && !DeltaTime::IsPaused()
+	return IsColdStorage() && !UsesRandomColdStorageSpawns() && mBoardState == BoardState::GAME && !mTrophySpawned && !DeltaTime::IsPaused()
 		&& (MiniGame::IsBrawl(mLevel) || IsWeatherStation() || (mLevel >= ColdStorageSkillRules::StrikeUnlockLevel && mLevel <= 90))
 		&& mColdStorage.decisions >= ColdStorageSkillRules::StrikeUnlockWave
 		&& mColdStorage.enemyIce >= ColdStorageSkillRules::StrikeIceCost

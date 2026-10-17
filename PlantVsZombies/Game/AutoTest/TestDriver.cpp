@@ -5455,6 +5455,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		out["weatherStation"]["resourcesReady"]=!board->IsWeatherStation() || ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_WEATHER_STATION",false)!=nullptr;
 		out["coldStorage"] = board->SaveColdStorage();
 		auto& ice = out["coldStorage"];
+		ice["spawnModeChosen"] = board->mColdStorage.spawnModeChosen;
+		ice["spawnChoiceSupported"] = board->SupportsColdStorageSpawnChoice();
+		ice["precisionStrikeAvailable"] = board->CanUseColdStoragePrecisionStrike();
 		ice["pendingCount"] = board->mColdStorage.pending.size();
 		ice["hostileCount"] = board->GetColdStorageHostileCount();
 		ice["deploymentLimit"] = board->GetColdStorageDeploymentLimit();

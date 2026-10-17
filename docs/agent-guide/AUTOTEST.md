@@ -213,7 +213,7 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 ### 全局模态与图鉴往返
 
-`smoke_mainmenu_skip_second_area` 和 `smoke_adventure_entry_continue` 用根字段 `adventureEntryNotices: true` 验收正式入场提示与自动戴夫流程，覆盖 1-1 两种一次性选择、补齐奖励、主菜单旧按钮移除，以及 10-1 戴夫看完/跳过、11-1 战前支援与戴夫结束后的说明和重复进入。普通专项默认关闭此字段，避免入场提示阻塞既有夹具；仍不读写真实玩家存档。`click target=message_box_button` 用可选 `index`（从 0 开始）定位顶层弹窗创建顺序中的按钮，点击仍走 SDL 输入路径。
+`smoke_mainmenu_skip_second_area` 和 `smoke_adventure_entry_continue` 用根字段 `adventureEntryNotices: true` 验收正式入场提示与自动戴夫流程，覆盖 1-1 两种一次性选择、补齐奖励、主菜单旧按钮移除，以及 10-1 戴夫看完/跳过、11-1 战前支援与戴夫结束后的模式选择和新局重复询问。`smoke_cold_storage_spawn_choice` 另覆盖随机出兵付款、真实重开、两种模式读档不询问、设备付费/保护/预算及指挥官技能禁用；`smoke_cold_storage_random_economy` 验证自然随机波次、工人收益与雾/雷荷操作不重置出兵节奏。普通专项默认关闭此字段并选择原指挥官，避免提示阻塞既有夹具，仍不读写真实玩家存档。`click target=message_box_button` 用可选 `index`（从 0 开始）定位顶层弹窗创建顺序中的按钮，点击仍走 SDL 输入路径。
 
 `smoke_plant_reward_almanac` 覆盖真实奖杯结算后的新植物奖励页、无奖励/重打/已有卡跳过，
 以及下一关选卡和返回首页两条导航。植物图鉴与奖励页共享 `plantAlmanacReward/Selected/Name/DescriptionLineCount/PreviewReady`

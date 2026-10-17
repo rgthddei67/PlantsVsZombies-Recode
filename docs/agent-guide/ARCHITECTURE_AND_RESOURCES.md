@@ -97,7 +97,7 @@ Board 的关卡阶段、当前波次和阳光为私有状态。外部读取走 `
 
 关卡预检按植物、僵尸、弹丸、阳光和小推车各自的 ID 空间拒绝重复、非整数或越界的身份/计数器；缺省 ID 与 `-1` 仍表示旧档自动编号。恢复前先把各计数器预留到文档全部显式 ID 之后，避免缺 ID 的对象抢占尚未恢复的身份；不得通过替换重复 ID 静默修复含糊引用。
 
-玩家 schema v10 增加 `firstAreaEntryChoiceMade`（1-1 的继续/前往 2-1 选择）和 `coldStorageEntryNoticeSeen`（10-1 AI 说明已确认）及 `weatherStationEntryNoticeSeen`（11-1 同类说明已确认）。旧档迁移为 false，不从冒险进度或戴夫已读记录推定；选择与跳关奖励/进度成功保存后才继续，保存失败回滚并重试。10-1/11-1 说明等开场支援和戴夫对话结束后显示，主动跳过戴夫也会显示。
+玩家 schema v10 的 `firstAreaEntryChoiceMade` 仍控制第一章一次性跳关提示；`coldStorageEntryNoticeSeen` / `weatherStationEntryNoticeSeen` 保留旧档兼容，但不再决定出怪选择。第十、十一章每把新局在支援和戴夫结束后询问 AI 指挥官或随机出怪，选择后锁定，重开才重新询问。关卡 schema v35 保存 `coldStorage.randomSpawns` 和随机设备剩余计时；旧档继续指挥官，任何读档均不重新询问、不重抽已付部队或天气事务。
 
 使用 nlohmann/json 进行 JSON 序列化（`GameInfoSaver`）。植物和僵尸通过 `SaveExtraData(json&)`、`LoadExtraData(const json&)` 保存和恢复自定义状态。`PlayerInfo.json` 保存全局状态，`level{N}_data.json` 保存各关卡状态。Windows 通过 `FOLDERID_SavedGames` 写入系统“保存的游戏”目录（默认 `%USERPROFILE%\Saved Games\PlantsVsZombies\saves`）；Android 仍使用 `SDL_GetPrefPath`，Linux 暂沿用 `./saves/`。
 
