@@ -692,8 +692,7 @@ bool Bullet::HitsRoofTerrain(const Vector& position) const
 		minimumClearance = 0.0f;
 		break;
 	case BulletType::BULLET_STAR:
-		minimumClearance = 23.0f;
-		break;
+		return StarHitsRoof(*mBoard, position, mRow);
 	default:
 		// 卷心菜、玉米、篮球等拥有独立抛射高度，不能套用平射弹的屋顶阈值。
 		return false;
@@ -741,15 +740,26 @@ void Bullet::HitRoofTerrain()
 
 void Bullet::UpdateStarRow(const Vector& position)
 {
-	if (!mBoard || mBoard->mRows <= 0 || mVelocityY == 0.0f) return;
+	if (mBoard) mRow = GetStarRow(*mBoard, position, mRow, mVelocityY);
+}
 
-	// C# PixelToGridYKeepOnBoard 以弹丸左上点所在格为准；由当前首行中心和行高重建同一边界。
-	const float rowHeight = mBoard->GetCellHeight();
-	if (rowHeight <= 0.0f) return;
+int Bullet::GetStarRow(const Board& board, const Vector& position, int sourceRow, float velocityY)
+{
+	if (board.mRows <= 0 || velocityY == 0.0f) return sourceRow;
+	const float rowHeight = board.GetCellHeight();
+	if (rowHeight <= 0.0f) return sourceRow;
 	const float boardTop =
-		mBoard->GetRowCenterYAtX(0, position.x) - rowHeight * 0.5f;
+		board.GetRowCenterYAtX(0, position.x) - rowHeight * 0.5f;
 	const int row = static_cast<int>(std::floor((position.y - boardTop) / rowHeight));
-	mRow = std::clamp(row, 0, mBoard->mRows - 1);
+	return std::clamp(row, 0, board.mRows - 1);
+}
+
+bool Bullet::StarHitsRoof(const Board& board, const Vector& position, int row)
+{
+	if (!board.IsRoofBackground() || row < 0 || row >= board.mRows) return false;
+	constexpr float minimumClearance = 23.0f; // 星弹阴影到弹心的最小屋顶净空，单位 px
+	return board.GetRowCenterYAtX(row, position.x) + 28.0f
+		+ kStarShadowExtraOffsetY - position.y < minimumClearance;
 }
 
 void Bullet::EnableThreepeaterMotion(int sourceRow)
@@ -1931,8 +1941,14 @@ bool Bullet::IsTyphoonWindAffected() const
 
 float Bullet::GetWindAdjustedVelocityX() const
 {
-	if (!IsTyphoonWindAffected() || !mBoard || mVelocityX == 0.0f) return mVelocityX;
-	return mVelocityX * mBoard->GetPlantBulletWindSpeedMultiplier(mVelocityX > 0.0f);
+	return GetWindAdjustedVelocityX(mBoard, mBulletType, mVelocityX);
+}
+
+float Bullet::GetWindAdjustedVelocityX(const Board* board, BulletType type, float velocityX)
+{
+	if (!board || velocityX == 0.0f
+		|| WindResponseForBullet(type) != BulletWindResponse::LIGHT_PROJECTILE) return velocityX;
+	return velocityX * board->GetPlantBulletWindSpeedMultiplier(velocityX > 0.0f);
 }
 
 int Bullet::GetWindAdjustedDamage() const

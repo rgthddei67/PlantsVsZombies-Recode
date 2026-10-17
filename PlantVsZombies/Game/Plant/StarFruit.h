@@ -3,7 +3,7 @@
 #include "Plant.h"
 
 /**
- * 经典杨桃：按原版弹道窗口索敌，并在一次射击动画中同时发出五向星弹。
+ * 杨桃：按五向星弹的真实碰撞轨迹索敌，并在一次射击动画中同时发弹。
  */
 class StarFruit final : public Plant
 {
@@ -30,7 +30,7 @@ private:
 	float mShootTimer = 0.0f;
 	float mShootInterval = 1.5f;
 
-	/** 按 C# 的左、竖直与 30 度斜线窗口判断场上是否存在可命中目标。 */
+	/** 按发射前摇、目标当前移动和星弹碰撞/行/地形规则预测是否能命中。 */
 	bool HasStarFruitTarget() const;
 	/** 在同一逻辑帧创建左、上、下、右上、右下五颗星弹。 */
 	void FireStarVolley();

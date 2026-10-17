@@ -58,7 +58,7 @@
     { "op": "assert_state", "path": "starDownRightBulletCount", "equals": 1 },
     { "op": "assert_state", "path": "starSpinningBulletCount", "equals": 5 },
     { "op": "assert_state", "path": "bullets.0.baseDamage", "equals": 20 },
-    { "op": "assert_state", "path": "bullets.0.windAffected", "equals": false },
+    { "op": "assert_state", "path": "bullets.0.windAffected", "equals": true },
     { "op": "assert_state", "path": "bullets.0.fromPool", "equals": true },
     { "op": "assert_state", "path": "bullets.0.poolType", "equals": "BULLET_STAR" },
     { "op": "assert_state", "path": "shooterShootSoundRequestCount", "atLeast": 1 },

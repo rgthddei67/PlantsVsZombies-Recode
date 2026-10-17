@@ -55,6 +55,11 @@ private:
 	struct AuroraState;
 
 public:
+	static constexpr float DefaultColliderDiameter = 10.0f; // Board 创建普通弹丸的碰撞直径，单位 px
+	/** 星弹跨行与屋顶遮挡的无副作用查询，供实际飞行及植物弹道预判共用。 */
+	static int GetStarRow(const Board& board, const Vector& position, int sourceRow, float velocityY);
+	static bool StarHitsRoof(const Board& board, const Vector& position, int row);
+
 	BulletType mBulletType = BulletType::NUM_BULLETS;
 	PlantDamageOrigin mPlantDamageOrigin{}; // 原发射植物谱系；火炬转弹不得改写
 	float mScale = 0.9f;
@@ -174,6 +179,8 @@ public:
 	bool IsTyphoonWindAffected() const;
 	/** 返回按当前实时风向派生的水平速度；基础速度及存档值保持不变。 */
 	float GetWindAdjustedVelocityX() const;
+	/** 按正式弹型风力表查询速度，供尚未创建弹丸的索敌预判复用。 */
+	static float GetWindAdjustedVelocityX(const Board* board, BulletType type, float velocityX);
 	/** 返回按当前实时风向派生的命中伤害；随后仍由受击入口叠加生存词条。 */
 	int GetWindAdjustedDamage() const;
 	/** 返回当前弹型对目标冰制层请求的独立腐蚀值；普通弹丸为 0。 */

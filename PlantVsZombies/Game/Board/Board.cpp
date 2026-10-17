@@ -2592,7 +2592,7 @@ Bullet* Board::CreateBullet(BulletType bulletType, int row, const Vector& positi
 
 	// 从对象池获取子弹（shared_ptr 局部变量，用于把 weak_ptr 注册进 EntityRegistry）
 	std::shared_ptr<Bullet> bullet = bulletPool->AcquireShared
-	(this, bulletType, row, Vector(10, 10), position);
+	(this, bulletType, row, Vector(Bullet::DefaultColliderDiameter, Bullet::DefaultColliderDiameter), position);
 
 	if (bullet && !skipsettings) {
 		mEntityRegistry.AddBullet(bullet);
@@ -4056,7 +4056,8 @@ Bullet* Board::CreateBulletWithID(BulletType type, int row, const Vector& pos, i
 		LOG_ERROR("Board") << "CreateBulletWithID 对象池未初始化";
 		return nullptr;
 	}
-	std::shared_ptr<Bullet> bullet = bulletPool->AcquireShared(this, type, row, Vector(10, 10), pos);
+	std::shared_ptr<Bullet> bullet = bulletPool->AcquireShared(this, type, row,
+		Vector(Bullet::DefaultColliderDiameter, Bullet::DefaultColliderDiameter), pos);
 	if (bullet) {
 		mEntityRegistry.AddBulletWithID(bullet, id);
 	}
