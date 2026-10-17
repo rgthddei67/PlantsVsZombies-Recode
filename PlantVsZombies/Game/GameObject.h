@@ -51,6 +51,7 @@ protected:
 
 private:
 	friend class GameObjectManager;
+	uint64_t mActivationGeneration = 0; // 瞬态激活代号；池槽复用使本步旧回调和旧更新快照失效
 	// 分配凭据独立于显示顺序，不入档；只有 GOM 能分配、交换或回收。
 	struct RenderOrderAllocation {
 		int order = 0;
@@ -120,8 +121,8 @@ public:
 
 	virtual void Update();
 
-	// 阶段二并行：默认空。约定——只做对象本地工作，worker 线程安全；
-	//               遇到 deferred 操作 push 到 outBuf，主线程串行回放。
+	/** 本地预推进：每步在玩法 Update 前调用，可能由主线程或 worker 执行。
+	 * 只修改对象自身状态；跨对象副作用放入 outBuf，统一在主线程按对象顺序提交。 */
 	virtual void UpdateParallel(std::vector<DeferredEvent>& outBuf) {}
 
 	ObjectType GetObjectType() const { return mObjectType; }
@@ -174,8 +175,11 @@ public:
 	bool IsActive() const { return mActive; }
 	bool HasStarted() const { return mStarted; }
 
-	// 设置物体的激活状态
-	void SetActive(bool state) { mActive = state; }
+	/** 切换活动状态；重新激活开启新代号，不继承旧激活周期的调度快照。 */
+	void SetActive(bool state) {
+		if (state && !mActive) ++mActivationGeneration;
+		mActive = state;
+	}
 
 	/**
 	 * @brief 注销并销毁全部显式附件。

@@ -28,7 +28,10 @@ private:
 	std::map<RenderLayer, std::map<int, std::set<int>>> mLayerKeyRecycledOrders;  // 空闲子顺序（全局值）
 	std::map<RenderLayer, std::map<int, int>> mLayerKeyMaxLocalIdx;  // 当前已分配的本地索引（0 ~ SUBORDER_PER_KEY-1）
 
-	std::vector<std::shared_ptr<GameObject>> mGameObjects;       // 已经有的游戏对象
+	std::vector<std::shared_ptr<GameObject>> mGameObjects;       // 按加入顺序拥有对象；绘制不得重排逻辑顺序
+	std::vector<GameObject*> mDrawObjects; // 非拥有绘制视图；移除对象前标脏，下次绘制重建
+	struct UpdateEntry { GameObject* object; uint64_t activationGeneration; };
+	std::vector<UpdateEntry> mUpdateObjects; // 本步开始时的活动对象；阶段中出生/激活者下步更新
 	std::vector<std::shared_ptr<GameObject>> mObjectsToAdd;      // 待添加的游戏对象
 	std::vector<std::shared_ptr<GameObject>> mObjectsToRemove;   // 待删除的游戏对象
 
@@ -106,7 +109,7 @@ public:
 	// 销毁全部游戏对象
 	void DestroyAllGameObjects();
 
-	// 更新
+	/** 按稳定加入顺序执行本地预推进、主线程事件提交和玩法更新；串并行阶段相同。 */
 	void Update();
 
 	// 绘制所有GameObject对象

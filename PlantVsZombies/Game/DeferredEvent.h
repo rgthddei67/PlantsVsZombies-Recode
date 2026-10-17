@@ -3,6 +3,9 @@
 #define _DEFERRED_EVENT_H
 
 #include <cstddef>
+#include <cstdint>
+
+class GameObject;
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -104,6 +107,8 @@ static_assert(sizeof(InlineFrameCallback) == sizeof(void*) * 3,
 // 主线程串行 drain 时依次 invoke cb，全程不触发 std::function 堆分配。
 struct DeferredEvent {
 	InlineFrameCallback cb;
+	const GameObject* owner = nullptr; // GOM 在本地预推进后标记宿主，不拥有对象
+	std::uint64_t activationGeneration = 0; // 旧激活周期的事件不能作用于复用后的池槽
 };
 
 #endif

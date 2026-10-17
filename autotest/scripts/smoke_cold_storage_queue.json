@@ -9,7 +9,7 @@
     },
     {
       "op": "goto_level",
-      "level": 83
+      "level": 89
     },
     {
       "op": "wait_state",
@@ -48,7 +48,7 @@
         "enemyIce": 24,
         "decisionRemaining": 60,
         "supplyRemaining": 30,
-        "decisions": 11
+        "decisions": 29
       }
     },
     {
@@ -122,7 +122,7 @@
     {
       "op": "assert_state",
       "path": "wave",
-      "equals": 11
+      "equals": 29
     },
     {
       "op": "kill_zombie",

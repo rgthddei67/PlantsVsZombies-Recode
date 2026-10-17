@@ -1,0 +1,184 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME"
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 900,
+      "stationary": true
+    },
+    {
+      "op": "wait_value",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_shooting",
+      "timeout": 15
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "shooting_0"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "shooting_0"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_shooting"
+    },
+    {
+      "op": "kill_zombie",
+      "row": 2,
+      "index": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_head_idle"
+    },
+    {
+      "op": "assert_state",
+      "path": "repeatingShootingHeadCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletPoolMissCount",
+      "atLeast": 1
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_PEASHOOTER"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME"
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 1
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 900,
+      "stationary": true
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PEA",
+      "row": 0,
+      "x": 1050,
+      "y": 40,
+      "velocityX": 0,
+      "velocityY": 0,
+      "damage": 0,
+      "count": 256
+    },
+    {
+      "op": "wait_value",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_shooting",
+      "timeout": 15
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "shooting_256"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "shooting_256"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_shooting"
+    },
+    {
+      "op": "kill_zombie",
+      "row": 2,
+      "index": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_1.headTrack",
+      "equals": "anim_head_idle"
+    },
+    {
+      "op": "assert_state",
+      "path": "repeatingShootingHeadCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletPoolMissCount",
+      "atLeast": 257
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

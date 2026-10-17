@@ -1,3 +1,4 @@
+#include "FrameworkProbe.h"
 #include <exception>
 #include "Utf8.h"
 #include <chrono>
@@ -1073,6 +1074,11 @@ bool TestDriver::ExecuteCurrent() {
 		return false;
 	}
 
+	if (op == "probe_framework") {
+		std::string error;
+		if (!RunFrameworkProbe(cmd, error)) Fail(error);
+		return true;
+	}
 	if (op == "commander_experiment") {
 		if (!ColdStoragePolicy::SetExperiment(cmd.value("weights", nlohmann::json()),
 			cmd.value("allZombies", false), cmd.contains("preferences") ? &cmd.at("preferences") : nullptr,

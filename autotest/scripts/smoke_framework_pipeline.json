@@ -1,0 +1,109 @@
+{
+  "commands": [
+    {
+      "op": "probe_framework",
+      "action": "begin",
+      "padding": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "worker": false
+    },
+    {
+      "op": "probe_framework",
+      "action": "reverse"
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "worker": false,
+      "reversed": true
+    },
+    {
+      "op": "probe_framework",
+      "action": "end"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "probe_framework",
+      "action": "begin",
+      "padding": 220
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "worker": true
+    },
+    {
+      "op": "probe_framework",
+      "action": "reverse"
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "worker": true,
+      "reversed": true
+    },
+    {
+      "op": "probe_framework",
+      "action": "end"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "probe_framework",
+      "action": "begin_recycle",
+      "padding": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "action": "check_recycle"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "probe_framework",
+      "action": "begin_recycle",
+      "padding": 220
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "probe_framework",
+      "action": "check_recycle"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -36,6 +36,8 @@ GameObjectManager::GameObjectManager() {
 	mThreadPool = std::make_unique<ThreadPool>(n);
 
 	mGameObjects.reserve(2048);
+	mDrawObjects.reserve(2048);
+	mUpdateObjects.reserve(2048);
 	mObjectsToAdd.reserve(256);
 	mObjectsToRemove.reserve(2048);
 
@@ -79,6 +81,9 @@ void GameObjectManager::DestroyAllGameObjects() {
 			obj->DestroyAttachments();
 		}
 	}
+	mDrawObjects.clear();
+	mUpdateObjects.clear();
+	mSortDirty = true;
 	mGameObjects.clear();
 
 	for (auto& obj : mObjectsToAdd) {
@@ -100,6 +105,7 @@ void GameObjectManager::DestroyAllGameObjects() {
 	LOG_DEBUG("GameObjectManager") << "DestroyAllGameObjects 已销毁所有游戏对象";
 }
 
+/** 统一串并行更新阶段，固定本步对象集合并保留加入顺序。 */
 void GameObjectManager::Update() {
 	PROFILE_SCOPE("2.GOM_Update(serial)");
 	// 有增删时标记排序脏
@@ -108,7 +114,7 @@ void GameObjectManager::Update() {
 
 	// 移除在mObjectsToRemove中的对象
 	// 旧实现：逐个 std::remove 全表扫描 → O(n·k)。
-	// 现改为：收集成 unordered_set，单趟 remove_if → O(n+k)，并保持 renderOrder 有序。
+	// 现改为：收集成 unordered_set，单趟 remove_if → O(n+k)，并保留逻辑加入顺序。
 	if (!mObjectsToRemove.empty()) {
 		// 以裸指针建集合，判定走指针哈希，避开 shared_ptr 引用计数开销
 		std::unordered_set<GameObject*> toRemove;
@@ -123,7 +129,7 @@ void GameObjectManager::Update() {
 				toRemove.insert(obj.get());
 			}
 		}
-		// remove_if 是稳定的：保留剩余元素相对顺序，不破坏按 renderOrder 升序的不变量
+		// 稳定移除保持逻辑加入顺序；绘制视图在下一次 DrawAll 前重建。
 		mGameObjects.erase(
 			std::remove_if(mGameObjects.begin(), mGameObjects.end(),
 				[&toRemove](const std::shared_ptr<GameObject>& o) {
@@ -142,71 +148,66 @@ void GameObjectManager::Update() {
 	}
 	mObjectsToAdd.clear();
 
-	// 现有对象
+	// 固定本步参与者；回调可能立即创建对象或激活池槽，不能让容量变化决定首帧时序。
+	mUpdateObjects.clear();
+	for (const auto& object : mGameObjects) {
+		if (object->IsActive()) mUpdateObjects.push_back({object.get(), object->mActivationGeneration});
+	}
+	const int total = static_cast<int>(mUpdateObjects.size());
+	constexpr int kParallelUpdateThreshold = 200; // 活动对象达到此数量才支付 worker 调度成本
+	const bool parallel = mThreadPool && total >= kParallelUpdateThreshold;
+	const int slots = parallel ? std::min(total, mThreadPool->GetWorkerCount()) : 1;
+	if (mDeferredEventBuffers.size() < static_cast<std::size_t>(slots))
+		mDeferredEventBuffers.resize(slots);
+	for (auto& buffer : mDeferredEventBuffers) buffer.clear();
+
+	// 两条执行路径共享同一阶段边界；worker 只推进本地动画，回调不会提前修改其他对象。
+	auto advance = [this, total, slots](int start, int end) {
+		const int chunkSize = (total + slots - 1) / slots;
+		auto& buffer = mDeferredEventBuffers[chunkSize > 0 ? start / chunkSize : 0];
+		for (int i = start; i < end; ++i) {
+            const auto entry = mUpdateObjects[i];
+            const auto firstEvent = buffer.size();
+            entry.object->UpdateParallel(buffer);
+            for (auto event = firstEvent; event < buffer.size(); ++event) {
+                buffer[event].owner = entry.object;
+                buffer[event].activationGeneration = entry.activationGeneration;
+            }
+        }
+	};
+	if (parallel) mThreadPool->Dispatch(total, advance);
+	else advance(0, total);
+
+	// 按连续对象区间回放，不按 worker 完成时间；所有玩法更新都观察已提交的事件。
 	{
-		PROFILE_SCOPE("2b.GOM_objUpdateLoop(serial)");
-		const int total = static_cast<int>(mGameObjects.size());
-		const int inactivePooledBullets = mBulletPool ? mBulletPool->GetInactiveCount() : 0;
-		const int parallelCandidateCount = std::max(0, total - inactivePooledBullets);
-		constexpr int kParallelUpdateThreshold = 200; // 实际会更新的对象达到此量级才支付调度成本
-
-		// 休眠弹丸仍留在 GOM 维持稳定所有权，但不应把小场景误判为并行更新场景。
-		if (mThreadPool && parallelCandidateCount >= kParallelUpdateThreshold) {
-			int numWorkers = static_cast<int>(std::thread::hardware_concurrency());
-			if (numWorkers < 1) numWorkers = 1;
-			if (numWorkers > total) numWorkers = total;
-
-			if (static_cast<int>(mDeferredEventBuffers.size()) < numWorkers)
-				mDeferredEventBuffers.resize(numWorkers);
-			for (auto& buf : mDeferredEventBuffers) buf.clear();
-
-			// 阶段 A：并行推进（仅 animator 帧推进 + 事件入队，对象本地）
-			mThreadPool->Dispatch(total, [this, total, numWorkers](int start, int end) {
-				const int chunkSize = (total + numWorkers - 1) / numWorkers;
-				const int slot = (chunkSize > 0) ? (start / chunkSize) : 0;
-				auto& outBuf = mDeferredEventBuffers[slot];
-				for (int i = start; i < end; ++i) {
-					auto* obj = mGameObjects[i].get();
-					if (obj->IsActive()) obj->UpdateParallel(outBuf);
-				}
-				});
-
-			// 阶段 B-1：主线程 drain deferred event buffers
-			{
-				PROFILE_SCOPE("2c.PhaseB_DrainEvents");
-				for (auto& buf : mDeferredEventBuffers) {
-					for (auto& evt : buf) evt.cb();
-				}
-			}
-
-			// 阶段 B-2：串行（mGameObjects 序），其余 Update 全部在此
-			{
-				PROFILE_SCOPE("2d.PhaseB_serialUpdate");
-				for (int i = 0; i < total; ++i) {
-					auto* obj = mGameObjects[i].get();
-					if (obj->IsActive()) obj->Update();
-				}
-			}
+		PROFILE_SCOPE("2c.PhaseB_DrainEvents");
+		for (auto& buffer : mDeferredEventBuffers) {
+			for (auto& event : buffer) {
+                // 内存仍由 GOM 持有，但池槽可能已被更早的回调重新激活。
+                if (!event.owner || event.owner->mActivationGeneration == event.activationGeneration)
+                    event.cb();
+            }
 		}
-		else {
-			// 串行 fallback：与原代码逐字节一致
-			for (size_t i = 0; i < mGameObjects.size(); i++) {
-				auto obj = mGameObjects[i].get();
-				if (obj->IsActive()) {
-					obj->Update();
-				}
-			}
+	}
+	{
+		PROFILE_SCOPE("2d.PhaseB_serialUpdate");
+		for (const auto entry : mUpdateObjects) {
+			if (entry.object->IsActive() && entry.object->mActivationGeneration == entry.activationGeneration)
+				entry.object->Update();
 		}
 	}
 }
 
+/** 对非拥有视图排序并提交绘制；不修改逻辑更新容器。 */
 void GameObjectManager::DrawAll(Graphics* g) {
 	// 增删或显式改序后重排；同号用创建序号打破并列，预览不能扰动已有对象的先后。
 	{
 		PROFILE_SCOPE("4.Draw_sort(serial)");
 		if (mSortDirty) {
-			std::sort(mGameObjects.begin(), mGameObjects.end(),
-				[](const std::shared_ptr<GameObject>& a, const std::shared_ptr<GameObject>& b) {
+			mDrawObjects.clear();
+			for (const auto& object : mGameObjects) mDrawObjects.push_back(object.get());
+			std::sort(mDrawObjects.begin(), mDrawObjects.end(),
+				[](const GameObject* a, const GameObject* b) {
 					return a->IsDrawnBefore(*b);
 				});
 			mSortDirty = false;
@@ -220,7 +221,7 @@ void GameObjectManager::DrawAll(Graphics* g) {
 		if (mBulletPool) mBulletPool->DrawShadows(g);
 	}
 
-	const int total = static_cast<int>(mGameObjects.size());
+	const int total = static_cast<int>(mDrawObjects.size());
 
 	// ---- 绘制阶段：小对象数走原串行；大场景走并行 record + 主线程 replay ----
 	constexpr int kParallelDrawThreshold = 200;  // 小于此阈值，并行 dispatch overhead 不划算
@@ -228,7 +229,7 @@ void GameObjectManager::DrawAll(Graphics* g) {
 	// 单个对象的串行绘制（含 clip 处理），并行 fallback 与 overlay 尾段共用。
 	auto drawSerialRange = [&](int begin, int end) {
 		for (int i = begin; i < end; ++i) {
-			auto* obj = mGameObjects[i].get();
+			auto* obj = mDrawObjects[i];
 			if (!obj->IsActive()) continue;
 			const bool clipped = obj->HasClipRect();
 			if (clipped) {
@@ -254,14 +255,14 @@ void GameObjectManager::DrawAll(Graphics* g) {
 	// reanim instance) 与 LAYER_EFFECTS(80000)。这无损正确性——split + 两个分区各自升序 = 完整
 	// 保留全局 z-order；阳光的 instance 走主线程 AppendReanimInstance 分支，落在 BeginParallelRecord
 	// 预留的 POST_PARALLEL_RESERVE_INST(1MB) 余量内。代价仅是这两层不再并行（对象数很少，可忽略）。
-	// mGameObjects 已按 renderOrder 升序，二分定位第一个 ≥ LAYER_UI 的对象。
+	// mDrawObjects 已按 renderOrder 升序，二分定位第一个 ≥ LAYER_UI 的对象。
 	int splitIdx = total;
 	{
-		auto it = std::lower_bound(mGameObjects.begin(), mGameObjects.end(), static_cast<int>(LAYER_UI),
-			[](const std::shared_ptr<GameObject>& o, int order) {
+		auto it = std::lower_bound(mDrawObjects.begin(), mDrawObjects.end(), static_cast<int>(LAYER_UI),
+			[](const GameObject* o, int order) {
 				return o->GetRenderOrder() < order;
 			});
-		splitIdx = static_cast<int>(it - mGameObjects.begin());
+		splitIdx = static_cast<int>(it - mDrawObjects.begin());
 	}
 	const int parallelCount = splitIdx;  // [0, splitIdx) 走并行；[splitIdx, total) overlay 串行
 	const int inactivePooledBullets = mBulletPool ? mBulletPool->GetInactiveCount() : 0;
@@ -318,7 +319,7 @@ void GameObjectManager::DrawAll(Graphics* g) {
 
 				g->SetWorkerSlot(recordSlot);
 				for (int i = rangeBegin; i < rangeEnd; ++i) {
-					auto* obj = mGameObjects[i].get();
+					auto* obj = mDrawObjects[i];
 					if (!obj->IsActive()) continue;
 					if (profileDrawWorkers) ++activeObjects;
 					const bool clipped = obj->HasClipRect();
@@ -396,6 +397,9 @@ void GameObjectManager::ClearAll() {
 			obj->DestroyAttachments();
 		}
 	}
+	mDrawObjects.clear();
+	mUpdateObjects.clear();
+	mSortDirty = true;
 	mGameObjects.clear();
 
 	for (auto& obj : mObjectsToAdd) {
