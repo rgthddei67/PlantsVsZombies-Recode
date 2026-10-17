@@ -39,25 +39,25 @@ private:
 
 void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::function<void(Zombie*)>& apply)
 {
-	std::vector<int> pressureProtected;
+	std::unordered_map<int,int> pressureProtected;
 	// 先冻结整次攻击的保护，护卫同次死亡也不撤销；所有承压护卫均不能被同类减免灰烬。
 	for (const int id : targets) {
 		auto* target=mEntityRegistry.GetZombie(id);
 		if (!target || !target->IsActive() || target->IsDying() || dynamic_cast<PressureGuardZombie*>(target)) continue;
-		bool covered=false;
+		int covered=0;
 		mEntityRegistry.ForEachPressureGuard([&](Zombie* zombie) {
 			auto* guard=static_cast<PressureGuardZombie*>(zombie);
 			if (guard->CanProtect() && guard->IsMindControlled()==target->IsMindControlled()
 				&& std::abs(guard->mRow-target->mRow)<=1
 				&& std::abs(guard->GetPosition().x-target->GetPosition().x)<=CELL_COLLIDER_SIZE_X*PressureGuardRules::RadiusCells)
-				covered=true;
+				++covered;
 		});
-		if (covered) pressureProtected.push_back(id);
+		if (covered) pressureProtected.emplace(id,covered);
 	}
 	mPressureAshProtection.push_back(std::move(pressureProtected));
 	// 回调可能触发嵌套伤害；退出时恢复外层名单，不将临时保护泄漏到下一次攻击。
 	struct RestoreProtection {
-		std::vector<std::vector<int>>& stack;
+		std::vector<std::unordered_map<int,int>>& stack;
 		~RestoreProtection() { stack.pop_back(); }
 	} restore{mPressureAshProtection};
 	std::vector<int> protectedIDs;
@@ -91,9 +91,15 @@ void Board::ApplyPlantAshAttack(const std::vector<int>& targets, const std::func
 
 bool Board::HasPressureAshProtection(int zombieID) const
 {
-	if (mPressureAshProtection.empty()) return false;
-	const auto& ids=mPressureAshProtection.back();
-	return std::find(ids.begin(),ids.end(),zombieID)!=ids.end();
+	return GetPressureAshProtectionCount(zombieID)>0;
+}
+
+int Board::GetPressureAshProtectionCount(int zombieID) const
+{
+	if (mPressureAshProtection.empty()) return 0;
+	const auto& counts=mPressureAshProtection.back();
+	const auto found=counts.find(zombieID);
+	return found==counts.end() ? 0 : found->second;
 }
 
 void Board::CreateThunderImpact(const Vector& position, int row, int damage)

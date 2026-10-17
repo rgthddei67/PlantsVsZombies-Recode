@@ -21,29 +21,29 @@ def check_entity():
     assert load('status')['status'] == 'passed'
     birth = zombies(load('birth'), 'PRESSURE_GUARD')
     assert len(birth) == 2
-    assert all(z['bodyHealth'] == 600 and z['helmHealth'] == 4500
+    assert all(z['bodyHealth'] == 600 and z['helmHealth'] == 3500
                and z['pressureResourcesReady'] and z['pressureEquipmentVisible'] for z in birth)
     shared = load('shared')
     guards = zombies(shared, 'PRESSURE_GUARD')
-    assert [z['helmHealth'] for z in guards] == [3900, 4500], guards
+    assert [z['helmHealth'] for z in guards] == [2900, 2900], guards
     assert guards[0]['pressureWindowUsed'] == 600
     for row in (1, 3):
         z = zombies(shared, 'BUCKET', row)[0]
-        assert z['helmHealth'] == 900 and z['pressureProtectorID'] == guards[0]['id'], z
+        assert z['helmHealth'] == 1000 and z['pressureProtectorID'] == guards[0]['id'], z
     assert zombies(shared, 'BUCKET', 2)[0]['helmHealth'] == 1000
     for name in ('reloaded', 'same_window'):
         restored = zombies(load(name), 'PRESSURE_GUARD')
         assert [(z['id'], z['helmHealth']) for z in restored] == [(z['id'], z['helmHealth']) for z in guards]
         assert restored[0]['pressureWindowUsed'] == 600
-    assert zombies(load('next_window'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3500
-    assert zombies(load('tiny_hits'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3496
-    assert zombies(load('tiny_hits'), 'BUCKET', 1)[0]['helmHealth'] == 799
+    assert zombies(load('next_window'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2500
+    assert zombies(load('tiny_hits'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2496
+    assert zombies(load('tiny_hits'), 'BUCKET', 1)[0]['helmHealth'] == 949
     controlled = zombies(load('controlled'), 'PRESSURE_GUARD')
-    assert not controlled[0]['pressureCanProtect'] and controlled[1]['helmHealth'] == 4100
+    assert not controlled[0]['pressureCanProtect'] and controlled[1]['helmHealth'] == 2450
     survivor = zombies(load('ash_survivor'), 'PRESSURE_GUARD')[0]
-    assert survivor['helmHealth'] == 3900 and survivor['bodyHealth'] == 600
+    assert survivor['helmHealth'] == 2900 and survivor['bodyHealth'] == 600
     assert survivor['pressureWindowUsed'] == 600 and survivor['pressureCanProtect']
-    assert zombies(load('ash_followup'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3900
+    assert zombies(load('ash_followup'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2900
     assert zombies(load('ash_followup'), 'BUCKET')[0]['helmHealth'] == 1000
     assert zombies(load('ash_ally'), 'BUCKET')[0]['helmHealth'] == 640
     assert zombies(load('ash_ally'), 'BUCKET')[0]['bodyHealth'] == 270
@@ -52,13 +52,13 @@ def check_entity():
     assert broken['helmHealth'] == 0 and broken['bodyHealth'] == 550 and broken['pressureStage'] == 3
     assert not broken['pressureCanProtect']
     assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['bodyHealth'] == 350
-    assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 350
+    assert zombies(load('broken_damage'), 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 550
     assert not zombies(load('ash_dead'), 'PRESSURE_GUARD')
     healer = load('healer_ignores_shield')
-    assert zombies(healer, 'PRESSURE_GUARD')[0]['helmHealth'] == 3900
+    assert zombies(healer, 'PRESSURE_GUARD')[0]['helmHealth'] == 2900
     assert zombies(load('charmed_other_faction'), 'BUCKET')[0]['helmHealth'] == 1000
     assert zombies(load('charmed_same_faction'), 'BUCKET')[0]['helmHealth'] == 980
-    assert zombies(load('charmed_same_faction'), 'PRESSURE_GUARD')[0]['helmHealth'] == 3820
+    assert zombies(load('charmed_same_faction'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2820
 
 
 def check_commander():
@@ -68,13 +68,13 @@ def check_commander():
     assert not any(o['type'] == 'ZOMBIE_PRESSURE_GUARD' for o in load('wave7')['legalOptions'])
     options = [o for o in load('wave8')['legalOptions'] if o['type'] == 'ZOMBIE_PRESSURE_GUARD']
     assert options and all(o['cost'] == 35 and o['birthPressureGuard'] and o['birthBodyHealth'] == 600
-                           and o['birthHelmHealth'] == 4500 for o in options)
+                           and o['birthHelmHealth'] == 3500 for o in options)
     before, after = load('before_paid')['coldStorage'], load('after_paid')['coldStorage']
     assert before['enemyIce'] - after['enemyIce'] == 35 and after['spent'] - before['spent'] == 35
     queued = load('queued')['pressureGuards']
-    assert len(queued) == 1 and queued[0]['spawnAt'] > 0 and queued[0]['shield'] == 4500
+    assert len(queued) == 1 and queued[0]['spawnAt'] > 0 and queued[0]['shield'] == 3500
     live = load('live')['pressureGuards']
-    assert len(live) == 1 and live[0]['spawnAt'] == 0 and live[0]['shield'] == 3900 and live[0]['windowUsed'] == 600
+    assert len(live) == 1 and live[0]['spawnAt'] == 0 and live[0]['shield'] == 2900 and live[0]['windowUsed'] == 600
 
 
 check_entity()

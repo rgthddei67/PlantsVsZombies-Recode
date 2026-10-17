@@ -93,7 +93,7 @@ public:
 	int mSpawnWave = -1;	// 多少波刷新的
 
 	int mPressureShareRemainder = 0; // 80%分担的小数余量，五分之一伤害单位，避免逐帧1点攻击完全绕过保护
-	int mPressureProtectorID = -1; // 最近承压保护者稳定ID；额度耗尽不换人，失效后重新选择
+	int mPressureProtectorID = -1; // 最近一击首位承压保护者ID，仅供诊断/旧档兼容，每击按全名单重算
 	int mBodyHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
 	int mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_NORMAL).body;
 	HelmType mHelmType = HelmType::HELMTYPE_NONE;

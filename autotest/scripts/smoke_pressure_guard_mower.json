@@ -26,7 +26,7 @@
     {"op":"assert_state","path":"zombies.0.type","equals":"ZOMBIE_PRESSURE_GUARD"},
     {"op":"assert_state","path":"zombies.0.row","equals":2},
     {"op":"assert_state","path":"zombies.0.bodyHealth","equals":600},
-    {"op":"assert_state","path":"zombies.0.helmHealth","equals":3900},
+    {"op":"assert_state","path":"zombies.0.helmHealth","equals":2900},
     {"op":"quit"}
   ]
 }

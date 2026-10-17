@@ -513,7 +513,7 @@ void Zombie::Charred()
 void Zombie::TakePlantAshDamage(int damage)
 {
 	if (damage <= 0 || !mBoard) return;
-	if (mBoard->HasPressureAshProtection(mZombieID)) damage=PressureGuardRules::ReduceAsh(damage);
+	damage=PressureGuardRules::ReduceAsh(damage,mBoard->GetPressureAshProtectionCount(mZombieID));
 	ResolvePlantAshDamage(damage);
 }
 

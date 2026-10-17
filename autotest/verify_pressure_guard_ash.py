@@ -17,20 +17,20 @@ def units(name, kind, row=None):
 
 
 assert read('status')['status'] == 'passed'
-assert units('protected', 'BOILER', 1)[0]['bodyHealth'] == 280, 'Two hits must deal 720, without stacking or a 600 cap'
-assert units('protected', 'COLD_CHAIN_GUARD')[0]['helmHealth'] == 940, 'Subtype ash must be reduced exactly once'
+assert units('protected', 'BOILER', 1)[0]['bodyHealth'] == 640, 'Two guards reduce each 1800 ash to 180, without charging their caps'
+assert units('protected', 'COLD_CHAIN_GUARD')[0]['helmHealth'] == 1120, 'Subtype ash must be reduced exactly once'
 assert units('protected', 'BUCKET')[0]['bodyHealth'] == 270
-assert units('protected', 'BUCKET')[0]['helmHealth'] == 740
+assert units('protected', 'BUCKET')[0]['helmHealth'] == 920
 assert units('protected', 'DOOR')[0]['bodyHealth'] == units('birth', 'DOOR')[0]['bodyHealth']
-assert units('protected', 'DOOR')[0]['shieldHealth'] == units('birth', 'DOOR')[0]['shieldHealth'] - 360
+assert units('protected', 'DOOR')[0]['shieldHealth'] == units('birth', 'DOOR')[0]['shieldHealth'] - 180
 assert units('armor_overflow', 'BUCKET')[0]['helmHealth'] == 0
 assert units('armor_overflow', 'BUCKET')[0]['bodyHealth'] == 170
 assert not units('armor_lethal', 'BUCKET'), 'Exact lethal overflow must still char the body'
-assert [z['helmHealth'] for z in units('protected', 'PRESSURE_GUARD')] == [3900, 3900]
+assert [z['helmHealth'] for z in units('protected', 'PRESSURE_GUARD')] == [2900, 2900]
 assert all(z['pressureWindowUsed'] == 600 for z in units('protected', 'PRESSURE_GUARD')), 'Each guard ash consumes its own shared budget'
-assert units('capped_huge', 'PRESSURE_GUARD')[0]['helmHealth'] == 3900
-assert units('cap_expired', 'PRESSURE_GUARD')[0]['helmHealth'] == 3300
-assert units('cap_reloaded', 'PRESSURE_GUARD')[0]['helmHealth'] == 3300
+assert units('capped_huge', 'PRESSURE_GUARD')[0]['helmHealth'] == 2900
+assert units('cap_expired', 'PRESSURE_GUARD')[0]['helmHealth'] == 2300
+assert units('cap_reloaded', 'PRESSURE_GUARD')[0]['helmHealth'] == 2300
 assert units('cap_reloaded', 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 600
 assert not units('range', 'BOILER', 4) and not units('range', 'BOILER', 2)
 assert not units('controlled', 'BOILER', 3)

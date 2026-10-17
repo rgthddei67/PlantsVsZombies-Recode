@@ -412,10 +412,16 @@
       "value": 0
     },
     {
-      "op": "ash_damage_zombie",
-      "type": "ZOMBIE_PRESSURE_GUARD",
-      "row": 2,
-      "damage": 600
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
     },
     {
       "op": "set_timescale",
@@ -433,25 +439,7 @@
       "op": "ash_damage_zombie",
       "type": "ZOMBIE_PRESSURE_GUARD",
       "row": 2,
-      "damage": 600
-    },
-    {
-      "op": "set_timescale",
-      "value": 1
-    },
-    {
-      "op": "wait_seconds",
-      "value": 1.1
-    },
-    {
-      "op": "set_timescale",
-      "value": 0
-    },
-    {
-      "op": "ash_damage_zombie",
-      "type": "ZOMBIE_PRESSURE_GUARD",
-      "row": 2,
-      "damage": 200
+      "damage": 400
     },
     {
       "op": "dump_state",

@@ -404,7 +404,7 @@ public:
 	std::array<float, 8> mGoldenIceTimer{}; // 每行黄色冰道剩余寿命，单位秒
 
 private:
-	std::vector<std::vector<int>> mPressureAshProtection; // 同步灰烬事务栈，不存档；嵌套爆炸分别冻结保护名单
+	std::vector<std::unordered_map<int,int>> mPressureAshProtection; // 同步灰烬事务栈，不存档；冻结目标ID及有效保护人数
 	/** 主线程一次性捕获已确认的后台停滞；失败也不重试写盘，不改变钱包、出兵或玩家存档。 */
 	void CaptureColdStorageStall(const ColdStorageSearch::Snapshot& search,
 		const ColdStorageSearch::Result& result, std::uint32_t seed);
@@ -1851,6 +1851,8 @@ public:
 	int SharePressureGuardDamage(Zombie& target, int damage);
 	/** 查询本次完整灰烬攻击冻结的承压保护；事务外没有保护，调用方须先收集攻击集合。 */
 	bool HasPressureAshProtection(int zombieID) const;
+	/** 当前灰烬事务冻结的保护人数；护卫自身不受同类灰烬减伤。 */
+	int GetPressureAshProtectionCount(int zombieID) const;
 	// 创建樱桃爆炸效果；纵向范围按植物逻辑行覆盖相邻三行，避免泳池美术下沉干扰命中。
 	/** 冻结同次灰烬的保护集合后再扣血；来源同次死亡不撤销已兑现保护。 */
 	void ApplyPlantAshAttack(const std::vector<int>& targets, const std::function<void(Zombie*)>& apply);

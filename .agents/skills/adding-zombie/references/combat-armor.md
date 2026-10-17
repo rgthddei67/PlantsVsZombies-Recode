@@ -59,8 +59,8 @@ Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支
 
 ### 范围代伤与滚动封顶的结算顺序
 
-承压代伤入口为 `Board::SharePressureGuardDamage`：在原目标完成来源/状态倍率与既有免疫判定后分配，承接者直接消费自己的防具层，不重进 `TakeDamage`，否则会重复增伤、触发攻击副作用或互相递归转伤。最终承伤封顶使用 `Zombie::LimitFinalIncomingDamage`，不能放在早于攻击回响的 `AdjustIncomingDamage`。灰烬按 `PlantDamageOrigin::Ash()` 区分，不能把所有内部 `PLANT_ASH` 来源都当作灰烬。整数分担保留目标自有小数余量；滚动账本存相对截止时间，暂停不流逝、读档不刷新额度，时间锚不回滚活体已消费额度。
+承压代伤入口为 `Board::SharePressureGuardDamage`：在原目标完成来源/状态倍率与既有免疫判定后冻结全部同阵营邻近护卫，排除目标自身，按朝向的前后位置/稳定 ID 分层分担；首层与后续层比例只查 `PressureGuardRules`，不设人数上限。护卫目标也用同一套规则，不保留同类全额转交；承接者直接消费自己的防具层，不重进 `TakeDamage`，否则会重复增伤、触发攻击副作用或互相递归转伤。分担额度耗尽后丢弃的伤害不回流、不转给下一人；小推车处决跳过全部承压分担与限伤。最终承伤封顶使用 `Zombie::LimitFinalIncomingDamage`，不能放在早于攻击回响的 `AdjustIncomingDamage`。灰烬按 `PlantDamageOrigin::Ash()` 区分，不能把所有内部 `PLANT_ASH` 来源都当作灰烬。首层整数分担保留目标自有小数余量，后续层对剩余整数取一半；滚动账本存相对截止时间，暂停不流逝、读档不刷新额度，时间锚不回滚活体已消费额度。
 
 不可治疗的一类防具通过目标自有 `CanRepairHelm()` 表达；急救员资格/排序/实结算、普通修复、治疗MC与指挥官预测须共同排除该层，不能只跳过最终加血而让AI持续选择无效治疗。入口与数值共用规则见 `PressureGuardZombie` / `PressureGuardRules`，实机边界见 `smoke_pressure_guard` 与对应 verifier。
 
-承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结非护卫队友名单；`Zombie::TakePlantAshDamage` 是非虚入口，先缩放本次灰烬，再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；承压保护中的普通化灰入口先预扣当前头甲与门盾，只以穿甲余伤判断本体致死，真实扣甲由正式伤害链执行，未保护时仍沿原越甲斩杀；护卫自身不享受同类的80%灰烬减伤，但自身灰烬与常规伤害、代伤共用持盾期间的滚动额度；化灰先用 DamageWindow::Preview 只读预判，只有确认提交时消费一次，破盾后不再封顶。队友减掉的灰烬不转移，也不占护卫额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash` 与同名 verifier。
+承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结每个非护卫队友的有效保护人数，不能折成布尔值；`Zombie::TakePlantAshDamage` 是非虚入口，先按人数逐层缩放本次灰烬（每层向上取整），再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；承压保护中的普通化灰入口先预扣当前头甲与门盾，只以穿甲余伤判断本体致死，真实扣甲由正式伤害链执行，未保护时仍沿原越甲斩杀；护卫自身不享受同类的灰烬减伤，但自身灰烬与常规伤害、代伤共用持盾期间的滚动额度；化灰先用 DamageWindow::Preview 只读预判，只有确认提交时消费一次，破盾后不再封顶。队友减掉的灰烬不转移，也不占护卫额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash`、`smoke_pressure_guard_stacking`、`smoke_pressure_guard_mower` 与同名 verifier。AI 的实际爆炸、在途预览、候选反制和时间锚救援估值均须传完整保护人数。

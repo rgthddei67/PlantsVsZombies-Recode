@@ -17,7 +17,7 @@ bool Near(float a, float b) { return std::abs(a-b)<.01f; }
 /** 同位置静止护卫与后排夹具，隔离价格、移动和随机攻击速度。 */
 ColdStorageSearch::Unit Guard(int id, int row, bool ability=true) {
     ColdStorageSearch::Unit u;
-    u.id=id; u.body.row=row; u.body.x=700; u.body.health=5100; u.helmHealth=u.maximumHelm=4500;
+    u.id=id; u.body.row=row; u.body.x=700; u.body.health=PressureGuardRules::BodyHealth+PressureGuardRules::ShieldHealth; u.helmHealth=u.maximumHelm=PressureGuardRules::ShieldHealth;
     u.maximumBody=600; u.body.value=u.body.purchaseCost=35; u.pressureGuard=ability;
     return u;
 }
@@ -139,6 +139,24 @@ void RunColdStoragePressureGuardTests()
     using namespace ColdStorageSearch;
     CheckGuardFormations();
     CheckGuardCatapultFormations();
+    // 邻行护卫共同保护单次打击；只给队友计价，以终点资产独立核对其剩余伤害。
+    for (int count : {1,2,3,8}) {
+        Snapshot stacked; stacked.rows=3; stacked.houseX=-10000;
+        Unit ally; ally.id=1; ally.body.row=0; ally.body.x=700;
+        ally.body.health=ally.maximumBody=3000; ally.body.purchaseCost=20;
+        stacked.current.push_back(ally);
+        float remaining=1000;
+        for(int i=0; i<count; ++i) {
+            auto g=Guard(10+i,1);g.body.x=680+i;g.body.value=g.body.purchaseCost=0;stacked.current.push_back(g);
+            const float transferred=remaining*(i==0 ? .8f : .5f);
+            remaining-=transferred;
+        }
+        const float expected=20*(1-remaining/3000);
+        Plant source; source.id=100;source.row=2;source.x=300;source.health=10000;
+        stacked.plants={source};stacked.rowStrikes={{100,0,10000,1000,0,0}};
+        Check(Near(Evaluate(stacked,{})[3],expected),
+            "ordinary forecast must apply every guard's diminishing protection to the ally");
+    }
     // 两版预测中，车道内的护卫与受保护队友都被处决；相邻未被碾到的护卫不能替它们承伤。
     for (int version : {1,2}) {
         Snapshot mower; mower.rows=3; mower.houseX=-10000; mower.searchVersion=version;
@@ -198,7 +216,14 @@ void RunColdStoragePressureGuardTests()
     auto guardHits=impacts(ash,10);
     Check(!guardHits.empty() && Near(guardHits[0],0),"allowed ash must still kill a guard with less than 600 total durability");
     auto secondGuard=guard; secondGuard.id=12; ash.current.insert(ash.current.begin(),secondGuard);
-    Check(impacts(ash,11)==protectedHits,"overlapping guards must not stack ash protection");
+    Check(Near(impacts(ash,11)[0],820),"second guard must halve the remaining ash even when both die in that blast");
+    for (int count : {3,4,8}) {
+        auto stacked=ash; stacked.current.clear();
+        for(int i=0; i<count; ++i) {auto g=guard;g.id=100+i;stacked.current.push_back(g);}
+        stacked.current.push_back(ally);
+        Check(Near(impacts(stacked,11)[0],1000-PressureGuardRules::ReduceAsh(1800,count)),
+            "all valid guards must contribute to the frozen ash count without a two-guard ceiling");
+    }
     ash.current={guard,ally}; ash.current[0].body.stopped=300;
     Check(Near(impacts(ash,11)[0],0),"hard control must disable ash protection");
     ash.current[0]=guard; ash.current[0].helmHealth=0;
@@ -228,9 +253,9 @@ void RunColdStoragePressureGuardTests()
     auto expired=huge; expired.source=2; expired.blast.ready=1;
     capped.counters={huge,overlap,expired};
     const auto cappedHits=impacts(capped,10);
-    Check(cappedHits.size()==3 && Near(cappedHits[0],4500) && Near(cappedHits[1],4500) && Near(cappedHits[2],3900),
+    Check(cappedHits.size()==3 && Near(cappedHits[0],3500) && Near(cappedHits[1],3500) && Near(cappedHits[2],2900),
         "ash must share a rolling 600 budget and release only expired damage");
-    capped.current[0].body.health=4700; capped.current[0].helmHealth=4100;
+    capped.current[0].body.health=3700; capped.current[0].helmHealth=3100;
     capped.current[0].pressureWindow.Consume(400,0);
     Check(impacts(capped,10)==cappedHits,"ordinary damage already paid must reduce the same ash allowance");
 
@@ -238,7 +263,7 @@ void RunColdStoragePressureGuardTests()
     std::vector<Unit> units{Guard(1,1)}; units[0].helmHealth=1000; units[0].body.health=1600;
     Unit healer; healer.id=2; healer.body.row=1; healer.body.x=700; healer.body.health=healer.maximumBody=800;
     healer.healer.present=true; healer.healer.cooldown=0; units.push_back(healer);
-    ConstructionStats stats; std::vector<float> initial{5100,800};
+    ConstructionStats stats; std::vector<float> initial{4100,800};
     AdvanceHealers(s,0,units,initial,stats);
     Check(units[1].healer.phase==HealerRules::Forecast::Phase::IDLE && Near(units[0].helmHealth,1000),
         "healer forecast must not repair pressure armor or spend a cast on it");

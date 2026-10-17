@@ -395,30 +395,26 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
     std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0) {
 	if(unit.jack.present && !unit.jack.elite && unit.jack.phase==JackBoxRules::Forecast::Phase::POPPING) return 0;
 	if (origin.IsValid() && unit.adaptedOrigin.IsValid() && origin == unit.adaptedOrigin) return 0;
-    if (origin != PlantDamageOrigin::Ash()) {
-        Unit* guard = nullptr;
-        if (group && state && unit.pressureGroupPresent) {
-            const auto eligible = [&](const Unit& candidate) {
-                return candidate.pressureGuard && candidate.helmHealth > 0 && !candidate.headless
-                    && candidate.body.health > 0 && candidate.body.spawnAt <= time && candidate.body.stopped <= 0
-                    && std::abs(candidate.body.row-unit.body.row) <= 1
-                    && std::abs(candidate.body.x-unit.body.x) <= state->cellWidth*PressureGuardRules::RadiusCells;
-            };
-            for (auto& candidate : *group) if (candidate.id == unit.pressureProtectorID && eligible(candidate)) {
-                guard = &candidate; break;
-            }
-            if (!guard) {
-                for (auto& candidate : *group) if (eligible(candidate)
-                    && (!guard || candidate.body.x < guard->body.x
-                        || (candidate.body.x == guard->body.x && candidate.id < guard->id))) guard=&candidate;
-                unit.pressureProtectorID = guard ? guard->id : 0;
-            }
-            if (guard && guard != &unit) {
-                // 无群体上下文的递归只结算承接者自己的生命层，不可能二次转移。
-                const float share=unit.pressureGuard && unit.helmHealth>0 ? 1.0f : PressureGuardRules::Share;
-                ApplyDamage(*guard, damage*share, false, false, false, {}, nullptr, nullptr, time);
-                damage *= 1-share;
-            }
+    if (origin != PlantDamageOrigin::Ash() && group && state && unit.pressureGroupPresent) {
+        std::vector<Unit*> guards;
+        const float targetX=unit.body.x+unit.body.blastAnchorOffset;
+        for (auto& candidate : *group) {
+            if (&candidate != &unit && candidate.pressureGuard && candidate.helmHealth > 0 && !candidate.headless
+                && candidate.body.health > 0 && candidate.body.spawnAt <= time && candidate.body.stopped <= 0
+                && candidate.ferryPassengerEligible && std::abs(candidate.body.row-unit.body.row) <= 1
+                && std::abs(candidate.body.x+candidate.body.blastAnchorOffset-targetX)
+                    <= state->cellWidth*PressureGuardRules::RadiusCells) guards.push_back(&candidate);
+        }
+        std::sort(guards.begin(),guards.end(),[](const Unit* a,const Unit* b) {
+            const float ax=a->body.x+a->body.blastAnchorOffset, bx=b->body.x+b->body.blastAnchorOffset;
+            return ax==bx ? a->id<b->id : ax<bx;
+        });
+        unit.pressureProtectorID=guards.empty() ? 0 : guards.front()->id;
+        for (size_t i=0; i<guards.size() && damage>0; ++i) {
+            const float transferred=damage*(i==0 ? PressureGuardRules::Share : PressureGuardRules::AdditionalShare);
+            // 已冻结的分担不因额度耗尽换人；无群体上下文，只扣承接者自身，防止循环转伤。
+            ApplyDamage(*guards[i],transferred,false,false,false,{},nullptr,nullptr,time);
+            damage-=transferred;
         }
     }
     // 灰烬不向其他护卫转移，但持盾护卫自身仍与常规伤害、代伤共用同一滚动额度。
@@ -467,30 +463,33 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 	return {plant.dps*fraction*multiplier*reduction,plant.melon || (plant.fume && !blocksFume),bypass,blocksFume};
 }
 /** 使用攻击开始时的群体状态判断承压保护；逻辑对象坐标与实体范围一致。 */
-bool PressureAshProtected(const Unit& target, const std::vector<Unit>& units, const Snapshot& state, float time) {
-    if(target.pressureGuard) return false;
-    return std::any_of(units.begin(),units.end(),[&](const Unit& guard) {
+int PressureAshProtectionCount(const Unit& target, const std::vector<Unit>& units, const Snapshot& state, float time) {
+    if(target.pressureGuard) return 0;
+    return static_cast<int>(std::count_if(units.begin(),units.end(),[&](const Unit& guard) {
         return guard.pressureGuard && guard.helmHealth>0 && !guard.headless && guard.body.health>0
             && guard.body.spawnAt<=time && guard.body.stopped<=0 && guard.ferryPassengerEligible
             && std::abs(guard.body.row-target.body.row)<=1
             && std::abs(guard.body.x+guard.body.blastAnchorOffset-target.body.x-target.body.blastAnchorOffset)
                 <=state.cellWidth*PressureGuardRules::RadiusCells;
-    });
+    }));
 }
 
 /** 冻结同次灰烬的承压名单，避免护卫在遍历中先死导致同行队友失去本次保护。 */
-std::vector<unsigned char> FreezePressureAsh(const std::vector<Unit>& units, const Snapshot& state, float time) {
-    std::vector<unsigned char> result(units.size());
+std::vector<int> FreezePressureAsh(const std::vector<Unit>& units, const Snapshot& state, float time) {
+    std::vector<int> result(units.size());
     if(std::none_of(units.begin(),units.end(),[](const Unit& u) {return u.pressureGuard;})) return result;
-    for(size_t i=0;i<units.size();++i) result[i]=PressureAshProtected(units[i],units,state,time);
+    for(size_t i=0;i<units.size();++i) result[i]=PressureAshProtectionCount(units[i],units,state,time);
     return result;
 }
 
 /** 已提交大招逐击结算；保护先同时降低化灰阈值和伤害，不转移也不占普通伤害限额。 */
 float ApplyDiscreteHit(Unit& unit, float damage, bool ash, std::vector<Unit>* group = nullptr, const Snapshot* state = nullptr, float time = 0,
-    bool pressureAshProtected = false) {
-    const bool protectedAsh=ash && pressureAshProtected && !unit.pressureGuard;
-    if(protectedAsh) damage=std::ceil(damage/PressureGuardRules::AshDivisor);
+    int pressureAshProtectionCount = 0) {
+    const bool protectedAsh=ash && pressureAshProtectionCount>0 && !unit.pressureGuard;
+    if(protectedAsh) {
+        damage=std::ceil(damage/PressureGuardRules::AshDivisor);
+        for(int i=1; i<pressureAshProtectionCount && damage>1; ++i) damage=std::ceil(damage*PressureGuardRules::AdditionalShare);
+    }
 	if(ash && unit.adaptedOrigin==PlantDamageOrigin::Ash()) return 0;
 	if(ash && unit.digger.present && unit.digger.AshKillsDirectly(damage)) {
 		const float lost=unit.body.health; unit.body.health=0; return lost;
@@ -2122,7 +2121,7 @@ void PreemptInterference(const Snapshot& s,float time,const ColdStorageStrategy:
 		const auto& unit=units[target.unit];
 		if(unit.temporalIrreversible || !CounterHits(blast,unit,time)) continue;
 		auto hit=unit;
-		preventable+=std::min(target.saved.body.health,ApplyDiscreteHit(hit,blast.damage,true,nullptr,nullptr,time,blast.pressureAshReduction && PressureAshProtected(unit,units,s,time)));
+		preventable+=std::min(target.saved.body.health,ApplyDiscreteHit(hit,blast.damage,true,nullptr,nullptr,time,blast.pressureAshReduction ? PressureAshProtectionCount(unit,units,s,time) : 0));
 	}
 	if(preventable<DawnLotusRules::Damage) return;
 	// 时间干扰先付款，灰烬仍须支付预留费用；取消死者记录与禁锚均沿用正式规则。
@@ -2214,7 +2213,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 					protectedWorkers[i]=1; used=true; ++stats.engineerBlocks;
 					auto exposed=units[i];
 					stats.workerProtectionProgress+=units[i].body.purchaseCost
-						*ApplyDiscreteHit(exposed,it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction && pressureProtected[i])/std::max(1.0f,initialHealth[i]);
+						*ApplyDiscreteHit(exposed,it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction ? pressureProtected[i] : 0)/std::max(1.0f,initialHealth[i]);
 				}
 			}
 			if (used) { engineer.canisterFull=false; engineer.reloadPaid=false; engineer.reloadRemaining=DisasterEngineerRules::ReloadSeconds; }
@@ -2222,7 +2221,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
 		for (size_t i = 0; i < units.size(); ++i) if (!protectedWorkers[i] && CounterHits(it->blast, units[i], time)) {
 			auto& body = units[i].body;
             auto hit=recordImpact ? UnitCombatHit(state,units[i],it->blast.damage) : CombatForecastHit{};
-			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction && pressureProtected[i]);
+			const float damage = ApplyDiscreteHit(units[i],it->blast.damage,true,nullptr,nullptr,time,it->blast.pressureAshReduction ? pressureProtected[i] : 0);
             if(recordImpact) {FinishUnitCombatHit(hit,units[i]);combatEvent.targets.push_back(hit);}
 			const float credit = body.purchaseCost * damage / std::max(1.0f,initialHealth[i]);
 			features[6] += credit; units[i].blastCredit += credit;
@@ -2316,7 +2315,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
         const auto covered=FreezePressureAsh(pendingProjection,state,time);
         for(const size_t i:activeUnits) if(CounterHits(scheduled->blast,pendingProjection[i],time))
             ApplyDiscreteHit(pendingProjection[i],scheduled->blast.damage,true,nullptr,nullptr,time,
-                scheduled->blast.pressureAshReduction && covered[i]);
+                scheduled->blast.pressureAshReduction ? covered[i] : 0);
     }
     const auto candidateProtection=FreezePressureAsh(pendingProjection,state,time);
 	for (size_t c = 0; c < counters.size(); ++c) {
@@ -2374,7 +2373,7 @@ void AdvanceCounters(const Snapshot& state, const std::vector<Counter>& counters
                 visibleCounterWitness|=targetable && bodyHealth>0 && objectX>=0 && objectX<=state.rightEdge;
             }
 			const float stake = std::max(kUnpricedCounterStake,units[i].body.purchaseCost > 0 ? units[i].body.purchaseCost : units[i].body.value);
-			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true,nullptr,nullptr,time,candidate.pressureAshReduction && candidateProtection[i]) / std::max(1.0f, initialHealth[i]);
+			loss += stake * ApplyDiscreteHit(projected,candidate.damage,true,nullptr,nullptr,time,candidate.pressureAshReduction ? candidateProtection[i] : 0) / std::max(1.0f, initialHealth[i]);
 			urgent = urgent || units[i].body.x < state.houseX+kUrgentCounterDistance;
 		}
         if(unknownCount>0 && unknownCells>0 && !counter.targeted) {
@@ -2616,7 +2615,7 @@ static CobRecipePlan SelectCobRecipe(const Snapshot& state, float time, float ho
 						|| std::abs(u.x+u.blastAnchorOffset-aim.x)>card.cob.radius) continue;
 					const int column=std::clamp(static_cast<int>((u.x-state.gridLeft)/state.cellWidth),0,state.columns-1);
 					if(fogAlpha && (*fogAlpha)[u.row*state.columns+column]>96) continue;
-					auto projected=unit; damage+=ApplyDiscreteHit(projected,card.cob.damage,true,nullptr,nullptr,time,PressureAshProtected(unit,units,state,time));
+					auto projected=unit; damage+=ApplyDiscreteHit(projected,card.cob.damage,true,nullptr,nullptr,time,PressureAshProtectionCount(unit,units,state,time));
 				}
 				cachedShotValue=std::max(cachedShotValue,damage);
 			}
