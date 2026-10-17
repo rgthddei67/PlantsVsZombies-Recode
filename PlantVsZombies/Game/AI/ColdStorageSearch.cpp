@@ -1332,17 +1332,17 @@ float Score(const Weights& f, const Weights& w) {
 	return value;
 }
 
-/** 先比较突破，再比较能否避免最后攻势认输；有真实战果的续战不能输给囤冰等败。 */
+/** 先比较突破，再比较同一预测窗内的撤军；攻势准备不能等到最后一分钟才有价值。 */
 int CompareVictory(const Result& a, const Result& b) {
 	const bool aWins = a.features[2] > 0, bWins = b.features[2] > 0;
 	if (aWins != bWins) return aWins ? 1 : -1;
 	if (aWins && a.construction.breachSeconds != b.construction.breachSeconds)
 		return a.construction.breachSeconds < b.construction.breachSeconds ? 1 : -1;
 	if(!aWins) {
-		const auto imminent=[](const Result& r) {return r.construction.defenseVictorySeconds>=0
-			&& r.construction.defenseVictorySeconds<=ColdStorageDefenseRules::FinalAssaultSeconds;};
+		const auto loses=[](const Result& r) {return r.construction.defenseVictorySeconds>=0;};
 		// 使用同一胜负层级保持排序传递性，不能只为“认输/无认输”这一对写特殊比较。
-		if(imminent(a)!=imminent(b)) return imminent(a) ? -1 : 1;
+		// 撤军已进入共同预测窗就比较续战；再等到60秒会错过行军、拆墙和技能准备窗口。
+		if(loses(a)!=loses(b)) return loses(a) ? -1 : 1;
 	}
 	return 0;
 }

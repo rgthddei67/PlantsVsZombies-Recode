@@ -52,7 +52,7 @@
 
 护卫覆盖候选由 `BuildPressureCoverFormations` 生成：按当前合法角色、移速、停火位置和活体护卫范围比较连续护卫、延后后排和直接增援，不修改单位移动，不给覆盖面积赠送收益。完整案仍经过原预算与反制世界；`BuildPhasedPlanningMenu` 可把护卫保留在当前购物车、工人/迫击手留作未付款后队。后队到时必须重新采样评价，缺钱/失效不创造部分单位；迫击手无额外来源槽，只在本世界整笔付款后激活自身装填、弹丸和伤害。换关/读档仍清瞬态意图，已付队列沿原存档恢复，新的搜索根据活体重建候选。
 
-最后攻势内比较结果时，`CompareVictory` 在真实突破之后优先选择能通过部队击杀避免即将认输的完整世界；玩家反制世界也用同一胜负顺序取最坏结果，不能拿某一种乐观炮击时序过关。仅出兵、产冰或技能击杀不续期，钱包、合法池与资本门禁不豁免，非紧急时期仍按原收益比较。专项在 `ColdStorageDefenseVictoryTests` 与 `ColdStoragePhasedPlanningTests`；存档只读诊断不能冒充真实对战胜率。
+`CompareVictory` 在真实突破之后，优先选择能通过部队击杀避免同一预测窗内撤军的完整世界；不能等到最后一分钟才承认行军、拆墙等准备的价值。玩家反制世界也用同一胜负顺序取最坏结果，不能拿某一种乐观炮击时序过关。仅出兵、产冰或技能击杀不续期，钱包、合法池与资本门禁不豁免；等待在共同预测窗内不会撤军时仍按原收益比较。专项在 `ColdStorageDefenseVictoryTests` 与 `ColdStoragePhasedPlanningTests`；存档只读诊断不能冒充真实对战胜率。
 
 ## 保留战术自由与时域一致性
 
@@ -137,7 +137,7 @@
 
 久守胜利与下述空场复查是独立路径。正式规则由 `ColdStorageDefenseRules`、`ColdStorageState::troopNoKillSeconds` 与 `Board::ConcedeColdStorageDefense` 共用：仅部队击杀解除最后攻势，狙击、产冰、补给、派兵和残兵不续期。截止时取消敌方事务并撤军，经正常奖杯/无尽换轮入口结束，不按战斗击杀退款或产雾火；暂停不推进。新计时入档，旧档只继承可证实的无击杀下界，不按总局长补历史。AI 完整世界必须同样截止，仅实际部队击杀续期，不把认输后的产冰或残军资产计入收益。专项见 `smoke_cold_storage_defense_victory`、同名 verifier 与 `ColdStorageDefenseVictoryTests`。
 
-长期空场收尾入口为 `Board::CanReviewColdStorageStall`、`Snapshot::stallReview` 与 `Planner::RememberStallPlan`。多次有效等待、持续空场且没有在途事务、技能冷却或后续兵种待解锁时，后台完整执行一次有限搜索；失败、取消或墙钟截断不能判负。找到的动作只按身份保留，下一快照重新定价并完整对照等待、同军团不施法与资本风险，付款仍用原三秒时效门禁。完整复查仍选择空行动且植物生命、公开局面、天气边沿没有改变，才经原清场入口认输；以复查启动时的库存给最终机会，被动补给不无限重启该机会，钱包不删除或回写。复查与认输凭据不入档，重进须重新核实，原空场时钟保留。`fallbackProbeBudget/fallbackAllIn` 仅为旧诊断字段，当前 `fallbackMode=1` 仍只代表有界信息试探，不能恢复孤注一掷采购。
+长期空场收尾入口为 `Board::CanReviewColdStorageStall`、`Snapshot::stallReview` 与 `Planner::RememberStallPlan`。仅尚未实际派兵时，多次有效等待、持续空场且没有在途事务、技能冷却或后续兵种待解锁，后台才完整执行一次有限搜索；失败、取消或墙钟截断不能判负。出场后已有久守时钟负责收尾，不能让不限墙钟的旧复查独占规划器、耗尽实际进攻窗口；这条边界由 `smoke_commander_melon_assault` 验证。找到的动作只按身份保留，下一快照重新定价并完整对照等待、同军团不施法与资本风险，付款仍用原三秒时效门禁。完整复查仍选择空行动且植物生命、公开局面、天气边沿没有改变，才经原清场入口认输；以复查启动时的库存给最终机会，被动补给不无限重启该机会，钱包不删除或回写。复查与认输凭据不入档，重进须重新核实，原空场时钟保留。`fallbackProbeBudget/fallbackAllIn` 仅为旧诊断字段，当前 `fallbackMode=1` 仍只代表有界信息试探，不能恢复孤注一掷采购。
 
 `Board::CaptureColdStorageStall` 在主线程只尝试一次，`GameInfoSaver::SaveCommanderStallSnapshot` 固定写入 `autotest/out/commander_stalls/` 的唯一目录，保存完整关卡、当前诊断和实际策略/数值资源副本；普通游戏也可使用，不写玩家Save、不取消后台或支付。开发者暂停刷怪需记录真实开关，但暂停时不累计试攻计时或绕过开关。诊断副本与实际交易分离；保存失败记录错误并继续游戏。冷库新增持久试攻历史经关卡schema v27迁移，旧档给新的观察窗口，保留已有明确历史及账本。
 

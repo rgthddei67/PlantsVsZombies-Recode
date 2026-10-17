@@ -48,7 +48,7 @@ void RunColdStorageDefenseVictoryTests() {
     s.precisionTargetID=0;s.troopNoKillSeconds=240;
     ConstructionStats immediate;const auto alreadyEnded=Evaluate(s,{},&immediate);
     Check(immediate.defenseVictorySeconds==0 && alreadyEnded[4]==0,"expired saves must not grant an extra forecast step");
-    // 同样亏冰的普通进攻，在等待将认输时必须优先比较真实部队击杀；不凭出兵或生产续期。
+    // 同样亏冰的普通进攻，在共同预测窗内等待将认输时优先比较真实部队击杀；不凭出兵或生产续期。
     Snapshot last;last.rows=1;last.searchVersion=2;last.capacity=3;last.budget=100;last.houseX=-10000;
     last.troopNoKillSeconds=230;
     p.x=880;p.health=p.initialHealth=1;p.reward=0;last.plants={p};
@@ -58,6 +58,10 @@ void RunColdStorageDefenseVictoryTests() {
     const auto active=Search(last,expense,42);
     Check(!active.actions.empty() && active.score<0 && active.construction.defenseVictorySeconds<0,
         "a real troop kill avoiding imminent surrender must beat a zero-score waiting loss");
+    last.troopNoKillSeconds=170;
+    const auto preparing=Search(last,expense,42);
+    Check(!preparing.actions.empty() && preparing.score<0 && preparing.construction.defenseVictorySeconds<0,
+        "a forecast waiting loss must not defer an effective assault until the final sixty seconds");
     last.troopNoKillSeconds=0;
     Check(Search(last,expense,42).actions.empty(),"without an imminent loss the same uneconomic purchase must still wait");
     last.troopNoKillSeconds=230;last.options[0].unit.biteDps=0;

@@ -3418,10 +3418,13 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	return stamp;
 }
 
+/** 尚未派兵的空场才做最终能力复查；出场后由持续无击杀时限判负，保留实时出兵机会。 */
 bool Board::CanReviewColdStorageStall() const
 {
 	const auto& s=mColdStorage;
 	if(GameAPP::mDevSpawnPaused || !GameAPP::GetInstance().mEnableMonteCarloAI || !ColdStoragePolicy::Get()
+		// 不限时复查会独占规划器数十秒；已启动久守时钟时不能用它阻塞最后的攻势。
+		|| s.deployments>0
 		|| s.stallSurrendered || s.elapsed<kExhaustionGraceSeconds || s.emptyWaitSeconds<kStallProbeSeconds
 		|| s.plantKillIdleSeconds<kExhaustionIdleSeconds || s.stallWaitDecisions<kStallWaitDecisions
 		|| HasColdStorageTroopActivity() || s.strikeTargetID>=0 || s.strikeCooldownRemaining>0 || s.assaultIntentActive) return false;
