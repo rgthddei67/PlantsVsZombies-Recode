@@ -3348,7 +3348,7 @@ std::uint64_t Board::ColdStorageStallStamp() const
 	std::uint64_t stamp=ColdStoragePlanningStamp();
 	const auto mix=[&](std::uint64_t value){stamp=(stamp^value)*1099511628211ULL;};
 	mix(mColdStorage.spent); mix(mColdStorage.decisions); mix(mColdStorage.workerIncome); mix(mColdStorage.killIncome);
-	mix(static_cast<unsigned>(mRainIntensity)); mix(static_cast<unsigned>(mFogWeatherIntensity));
+	mix(static_cast<unsigned>(mRainIntensity)); mix(static_cast<unsigned>(GetFogWeatherIntensity()));
 	mix(static_cast<unsigned>(mTyphoonStrength)); mix(static_cast<unsigned>(mWindDirection));
 	mix(static_cast<unsigned>(mColdWavePhase)); mix(static_cast<unsigned>(mPolarNightPhase));
 	for(int id:mEntityRegistry.GetAllPlantIDs()) {

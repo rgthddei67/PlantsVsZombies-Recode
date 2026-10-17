@@ -1,6 +1,7 @@
 #pragma once
 #include "WeatherStationRules.h"
 #include "RoofRunoff.h"
+#include "FogWeather.h"
 #include "WaveSpawnCounts.h"
 #include "ColdStorageState.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
@@ -602,16 +603,7 @@ private:
 	bool mNightRoofHijackerFinalizing = false; // 本轮劫持者是否已进入最后一秒的停走充能阶段
 
 	// 夜间泳池迷雾是独立于雨势的环境层：基础雾、增强雾势、预报与台风驱散均由 Board 持有。
-	FogWeatherIntensity mFogWeatherIntensity = FogWeatherIntensity::DEFAULT;
-	FogWeatherIntensity mForecastFogWeatherIntensity = FogWeatherIntensity::DEFAULT;
-	FogWeatherIntensity mActualForecastFogWeatherIntensity = FogWeatherIntensity::DEFAULT;
-	float mFogWeatherTimer = 0.0f;      // DEFAULT 时距下一次增强雾势，其余档位为本次事件剩余游戏秒
-	float mFogDispersal = 0.0f;         // 台风累积驱散比例（0～1）；停风后缓慢回落，基础雾随之回流
-	float mFogVisualOffsetX = 0.0f;     // 随实时风向平滑漂移的纯视觉横向偏移，单位像素
-	float mFogAnimationTime = 0.0f;     // 雾纹理轻微呼吸的游戏秒计时；纯视觉，不入存档
-	bool mFogWeatherInitialized = false; // 旧档缺雾势字段时由 StartGame 首次初始化
-	bool mFogWeatherForecastReady = false; // 已锁定公开/真实下一雾势，等待独立雾势倒计时揭晓
-	bool mFogWeatherForecastDisrupted = false; // 当前雾势预报已被隐藏；真实下一雾势仍按原计时揭晓
+	FogWeather mFogWeather; // Board 独占雾势与驱散；逐格 alpha 仅为派生展示缓存
 	std::vector<float> mFogCellAlpha;   // 逐格平滑后的最终 alpha；行数为泳池六行再加一条底部收边
 	int mActivePlanternID = NULL_PLANT_ID; // 当前唯一可用路灯花 ID；由实体创建/死亡派生，不单独入存档
 	float mMistFuelDropAccumulator = 0.0f; // 正式波次雾火随机的保底累计值；影响未来抽取，进入存档
@@ -757,16 +749,11 @@ private:
 	void UpdateFogWeather(float deltaTime);
 	void UpdateFogDispersal(float deltaTime);
 	void UpdateFogCellAlpha(float deltaTime, bool snapToTarget);
-	FogWeatherIntensity RollNextFogWeather(int forcedRoll = 0);
-	void PrepareFogWeatherForecast(int fogRoll = 0);
-	void ConsumeFogWeatherForecast();
-	void BeginFogWeather(FogWeatherIntensity intensity, float duration);
-	void EndFogWeather(float defaultDuration);
-	float RandomDefaultFogWeatherDuration() const;
-	void ClearFogWeatherForecast();
-	void RestoreFogState(bool initialized, FogWeatherIntensity intensity,
-		FogWeatherIntensity forecast, FogWeatherIntensity actual,
-		float timer, bool forecastReady, float dispersal, float visualOffsetX);
+	/** 仅在雾势变化边沿通过展示端口提示。 */
+	void NotifyFogWeatherChange(bool changed);
+	/** 雾域沿用既有存档字段；逐格 alpha 在实体恢复后重建。 */
+	void SaveFogWeather(nlohmann::json& document) const;
+	void LoadFogWeather(const nlohmann::json& document);
 	float GetWeatherLateGameFactor() const;
 	float GetWeatherDirectorFactor() const;
 	float GetWeatherTransitionProgress() const;
@@ -1247,23 +1234,23 @@ public:
 	}
 	RainIntensity GetForecastRainIntensity() const { return mForecastRainIntensity; }
 	RainIntensity GetActualForecastRainIntensity() const { return mActualForecastRainIntensity; }
-	FogWeatherIntensity GetFogWeatherIntensity() const { return mFogWeatherIntensity; }
+	FogWeatherIntensity GetFogWeatherIntensity() const { return mFogWeather.Intensity(); }
 	FogWeatherIntensity GetForecastFogWeatherIntensity() const {
-		return mForecastFogWeatherIntensity;
+		return mFogWeather.Forecast();
 	}
 	FogWeatherIntensity GetActualForecastFogWeatherIntensity() const {
-		return mActualForecastFogWeatherIntensity;
+		return mFogWeather.ActualForecast();
 	}
-	float GetFogWeatherTimer() const { return mFogWeatherTimer; }
-	float GetFogDispersal() const { return mFogDispersal; }
-	float GetFogVisualOffsetX() const { return mFogVisualOffsetX; }
-	float GetFogAnimationTime() const { return mFogAnimationTime; }
-	bool IsFogWeatherInitialized() const { return mFogWeatherInitialized; }
+	float GetFogWeatherTimer() const { return mFogWeather.Timer(); }
+	float GetFogDispersal() const { return mFogWeather.Dispersal(); }
+	float GetFogVisualOffsetX() const { return mFogWeather.VisualOffsetX(); }
+	float GetFogAnimationTime() const { return mFogWeather.AnimationTime(); }
+	bool IsFogWeatherInitialized() const { return mFogWeather.Initialized(); }
 	bool HasFogWeatherForecast() const {
-		return mFogWeatherForecastReady && !mFogWeatherForecastDisrupted;
+		return mFogWeather.HasForecast();
 	}
 	bool IsFogWeatherForecastDisrupted() const {
-		return mFogWeatherForecastReady && mFogWeatherForecastDisrupted;
+		return mFogWeather.ForecastDisrupted();
 	}
 	/** 是否至少存在一项仍公开、可由气象干扰窗口截获的独立预报。 */
 	bool HasDisruptibleWeatherForecast() const;
@@ -1285,7 +1272,7 @@ public:
 		return mWeatherPanelInterferenceTimer;
 	}
 	bool IsDenseFogWeather() const {
-		return mFogWeatherIntensity == FogWeatherIntensity::DENSE;
+		return mFogWeather.Intensity() == FogWeatherIntensity::DENSE;
 	}
 	/** 当前雾势的渲染层数：默认 1 层，小雾/普通迷雾 2 层，大雾 3 层。 */
 	int GetFogLayerCount() const;

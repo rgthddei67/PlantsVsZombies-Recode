@@ -17,7 +17,7 @@
 
 ## 框架阶段与 Board 子域
 
-`smoke_framework_pipeline` 在真实 GOM 中分别运行小场景和足量活动对象，核实实际线程路径、动画预推进/提交/玩法阶段顺序，以及改变绘制排序不重排逻辑更新、同一步复用槽位不接收旧事件。`smoke_framework_shooter_resume` 自建射击前摇快照，覆盖低/高对象数下续播一次并返回待机；`smoke_framework_wave_counts` 专门覆盖狙击教程/复合关配额与往返，不依赖旧战斗数值脚本。`board-domain-state` CTest 不启动资源系统，覆盖径流阶段、恢复不消费 RNG、旧存档字段、波次统一清零及教程/无尽恢复例外。运行中对象交互和视觉仍用对应 AutoTest 验证。
+`smoke_framework_pipeline` 在真实 GOM 中分别运行小场景和足量活动对象，核实实际线程路径、动画预推进/提交/玩法阶段顺序，以及改变绘制排序不重排逻辑更新、同一步复用槽位不接收旧事件。`smoke_framework_shooter_resume` 自建射击前摇快照，覆盖低/高对象数下续播一次并返回待机；`smoke_framework_wave_counts` 专门覆盖狙击教程/复合关配额与往返，不依赖旧战斗数值脚本。`smoke_framework_fog_device` 覆盖气象站接管雾势后自然时钟停用，以及开雾/关雾存档往返。`board-domain-state` CTest 不启动资源系统，覆盖径流阶段、雾势预报与驱散、RNG 调用次序、旧存档字段、波次统一清零及教程/无尽恢复例外。运行中对象交互和视觉仍用对应 AutoTest 验证。
 
 ## AutoTest 测试套件
 

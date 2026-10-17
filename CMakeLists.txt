@@ -447,6 +447,7 @@ if(BUILD_TESTING)
 
     add_executable(BoardDomainsTests tests/BoardDomainsTests.cpp
         PlantVsZombies/Game/Board/RoofRunoff.cpp
+        PlantVsZombies/Game/Board/FogWeather.cpp
         PlantVsZombies/Game/Board/WaveSpawnCounts.cpp)
     target_include_directories(BoardDomainsTests PRIVATE ${SRC_DIR})
     target_compile_options(BoardDomainsTests PRIVATE /utf-8 /W3 /sdl /EHsc)

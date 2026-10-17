@@ -252,7 +252,7 @@ Board 雾势、再恢复植物，所以 `RestoreFogState()` 只清空旧缓存�
 | 目的 | 当前位置 / 搜索词 | 约束 |
 |---|---|---|
 | 基础雨势权重、持续时间、倍率 | `Game/Board/BoardWeather.cpp` 匿名命名空间 `k*Rain*` | 调参常量同行中文注释；不混入独立雾势或屋顶积累器 |
-| 独立雾势、驱散与逐格 alpha | `Game/Board/BoardFogWeather.cpp`：`Board::UpdateFog*` / `GetFogCellAlpha` | Board 持状态；雾势常量与路灯花照明形状集中在同一翻译单元 |
+| 独立雾势、驱散与逐格 alpha | `Game/Board/FogWeather.{h,cpp}` 与 `BoardFogWeather.cpp` | Board 独占 FogWeather 的周期/预报/驱散与存档；Board 持派生 alpha，路灯花照明形状查询 PlanternRules |
 | 冬日寒潮温区、权重与时长 | `Game/Board/BoardWinterClimate.cpp` 匿名命名空间 `k*ColdWave*` / `kWinter*` | Board 接口和状态布局不变；调参常量同行中文注释 |
 | 随机下一天气 | `Game/Board/BoardWeather.cpp`：`Board::RollNextWeather` / `RainTransitionForRoll` | 与合法预报候选保持同构 |
 | 合法公开预报 | `BuildPlausibleForecasts` | 错误预报也必须真实可达 |

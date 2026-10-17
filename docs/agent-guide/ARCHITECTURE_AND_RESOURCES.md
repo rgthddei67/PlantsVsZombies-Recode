@@ -61,7 +61,9 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 Board 保留玩法权威和实体协调，独立机制可由其具名值对象独占，不引入通用组件容器。`RoofRunoff` 拥有径流积累、阶段、锁定行组和残留湿度，并负责推进及 Save/Load；Board 只提供地形、雨势和导流候选，展示继续消费 Board getter。`WaveSpawnCounts` 只保存每波累计台账，统一重置和序列化；同时在场/在途名额、教程标志及劫持者跨波冷却仍各自维护。新增计数在其持久化登记表加入稳定键，生成门禁使用 `WaveSpawnRules` 的共享参数，不再向 Board 添加逐类型字段和清零分支。
 
-这两个子域沿用既有 JSON 键和恢复语义，GameInfoSaver 通过 Board 窄入口组织文档。内部所有权迁移不要求改 schema；真正的存档结构变化仍走 SaveSchema。
+`FogWeather` 独占雾势周期、已提交预报、风致驱散/漂移与 Save/Load；Board 负责地图资格、暴风雨夜锁定、气象站设备控制和展示提示。逐格 alpha 留在 Board，作为当前雾势、驱散和路灯花照明的派生缓存，实体恢复完成后重建；不保存第二份玩法状态。
+
+这些子域沿用既有 JSON 键和恢复语义，GameInfoSaver 通过 Board 窄入口组织文档。内部所有权迁移不要求改 schema；真正的存档结构变化仍走 SaveSchema。
 
 ### 游戏循环（`GameApp::Run`）
 

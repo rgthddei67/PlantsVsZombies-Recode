@@ -69,9 +69,8 @@ void Board::ApplyStationEnvironment() {
         else BeginRain(rain,86400.0f,false,false); // 设备维持状态，时长只供既有雨效使用。
     }
     const int fog=mWeatherStation.controls[WeatherStationRules::FOG].value;
-    mFogWeatherIntensity=static_cast<FogWeatherIntensity>(std::max(0,fog-1));
-    mFogWeatherInitialized=SupportsStageFog();
-    mFogWeatherForecastReady=false;
+    mFogWeather.ApplyDeviceControl(SupportsStageFog(),
+        static_cast<FogWeatherIntensity>(std::max(0,fog-1)));
     mWeatherForecastReady=false;
 }
 

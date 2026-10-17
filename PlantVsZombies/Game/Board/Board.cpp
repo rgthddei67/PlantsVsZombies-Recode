@@ -322,7 +322,7 @@ int Board::GetRoofSlopeColumnCount() const
 void Board::CompleteLoadRestore()
 {
 	mIsLoadSave = false;
-	if (mFogWeatherInitialized && SupportsStageFog()) {
+	if (IsFogWeatherInitialized() && SupportsStageFog()) {
 		UpdateFogCellAlpha(0.0f, true);
 	}
 }

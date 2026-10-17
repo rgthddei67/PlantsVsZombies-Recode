@@ -1025,10 +1025,8 @@ void Board::ActivateStormyNight()
 	mWeakWeatherPhasesSinceHeavy = 0;
 	mHeavyPhasesWithoutTyphoon = 0;
 
-	mFogWeatherInitialized = true;
-	mFogDispersal = 0.0f;
-	mFogVisualOffsetX = 0.0f;
-	BeginFogWeather(FogWeatherIntensity::DENSE, kStormyNightLockedDuration);
+	NotifyFogWeatherChange(mFogWeather.SetFixedWeather(
+		FogWeatherIntensity::DENSE, kStormyNightLockedDuration, true));
 
 	StopTyphoon();
 	mTyphoonStrength = TyphoonStrength::SEVERE;
@@ -1071,12 +1069,8 @@ void Board::EnforceStormyNightWeather()
 	mLightningTimer = 0.0f;
 	ClearPendingHeavyRainWarning();
 
-	mFogWeatherInitialized = true;
-	if (mFogWeatherIntensity != FogWeatherIntensity::DENSE) {
-		BeginFogWeather(FogWeatherIntensity::DENSE, kStormyNightLockedDuration);
-	}
-	mFogWeatherTimer = kStormyNightLockedDuration;
-	ClearFogWeatherForecast();
+	NotifyFogWeatherChange(mFogWeather.SetFixedWeather(
+		FogWeatherIntensity::DENSE, kStormyNightLockedDuration, false));
 
 	if (mTyphoonStrength != TyphoonStrength::SEVERE) {
 		const WindDirection preservedDirection = mWindDirection;
@@ -2561,7 +2555,7 @@ int Board::DisruptWeatherForecastPanel()
 	}
 	if (DisruptColdWaveForecast()) disruptedMask |= 2;
 	if (HasFogWeatherForecast()) {
-		mFogWeatherForecastDisrupted = true;
+		mFogWeather.DisruptForecast();
 		disruptedMask |= 4;
 	}
 	return disruptedMask;
