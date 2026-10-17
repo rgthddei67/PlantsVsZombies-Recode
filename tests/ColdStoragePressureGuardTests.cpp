@@ -253,9 +253,10 @@ void RunColdStoragePressureGuardTests()
     auto expired=huge; expired.source=2; expired.blast.ready=1;
     capped.counters={huge,overlap,expired};
     const auto cappedHits=impacts(capped,10);
-    Check(cappedHits.size()==3 && Near(cappedHits[0],3500) && Near(cappedHits[1],3500) && Near(cappedHits[2],2900),
+    const float guardHealth=PressureGuardRules::BodyHealth+PressureGuardRules::ShieldHealth;
+    Check(cappedHits.size()==3 && Near(cappedHits[0],guardHealth-600) && Near(cappedHits[1],guardHealth-600) && Near(cappedHits[2],guardHealth-1200),
         "ash must share a rolling 600 budget and release only expired damage");
-    capped.current[0].body.health=3700; capped.current[0].helmHealth=3100;
+    capped.current[0].body.health=guardHealth-400; capped.current[0].helmHealth=PressureGuardRules::ShieldHealth-400;
     capped.current[0].pressureWindow.Consume(400,0);
     Check(impacts(capped,10)==cappedHits,"ordinary damage already paid must reduce the same ash allowance");
 
@@ -263,7 +264,7 @@ void RunColdStoragePressureGuardTests()
     std::vector<Unit> units{Guard(1,1)}; units[0].helmHealth=1000; units[0].body.health=1600;
     Unit healer; healer.id=2; healer.body.row=1; healer.body.x=700; healer.body.health=healer.maximumBody=800;
     healer.healer.present=true; healer.healer.cooldown=0; units.push_back(healer);
-    ConstructionStats stats; std::vector<float> initial{4100,800};
+    ConstructionStats stats; std::vector<float> initial{guardHealth,800};
     AdvanceHealers(s,0,units,initial,stats);
     Check(units[1].healer.phase==HealerRules::Forecast::Phase::IDLE && Near(units[0].helmHealth,1000),
         "healer forecast must not repair pressure armor or spend a cast on it");
