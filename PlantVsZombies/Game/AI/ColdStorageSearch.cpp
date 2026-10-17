@@ -567,6 +567,7 @@ void AdvanceMowers(const Snapshot& state,std::vector<Mower>& mowers, std::vector
                 || u.x+u.boundsOffset+u.boundsWidth < left || u.x+u.boundsOffset > right) continue;
 			mower.moving = true;
 			if (unit.consumesOtherMowers) for (auto& other : mowers) if (&other != &mower) other.active = false;
+			// 与实战小推车处决一致：绕过承压代伤、滚动限伤及灰烬减伤，只保留单位自有免疫。
 			if (!unit.mowerImmune) { u.health = 0; unit.temporalIrreversible = true; }
 		}
 		mower.x += movement;

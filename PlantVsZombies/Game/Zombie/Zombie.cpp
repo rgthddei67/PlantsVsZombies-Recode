@@ -2158,11 +2158,13 @@ void Zombie::TakeBodyDamage(int damage)
 	}
 }
 
+// 结算来源倍率、防护与分层耐久；小推车的处决哨兵不参与承压代伤和限伤。
 void Zombie::TakeDamage(
 	int damage, DamageSource source, bool penetrateShield, bool discardShieldOverflow,
 	bool bypassShield, PlantDamageOrigin plantOrigin)
 {
 	if (damage <= 0 || !mBoard) return;
+	const bool mowerExecution = source == DamageSource::OTHER && damage == INT32_MAX;
 
 	// 词条②：僵尸前 N 次免伤（生存专用）。出生时由词条层数设定 mFreeHitsRemaining。
 	// 提前 return：完全吸收且不触发受击白光，0 伤害不应闪。
@@ -2184,10 +2186,13 @@ void Zombie::TakeDamage(
 	}
 	if (plantOrigin.IsValid() && BlocksPlantDamage(plantOrigin)) return;
 
-	// 先按同阵营邻近保护者分配最终伤害，再应用本目标的窗口；代伤入口不重入本链。
-	if (plantOrigin != PlantDamageOrigin::Ash() && (source != DamageSource::PLANT_ASH || plantOrigin.IsValid()))
-		damage = mBoard->SharePressureGuardDamage(*this, damage);
-	damage = LimitFinalIncomingDamage(damage, source, plantOrigin);
+	// 先分配最终伤害，再应用本目标的窗口。小推车资格已由碰撞端检查，处决不能被邻盾接走，
+	// 也不能占用护卫的滚动额度；只识别 OTHER 的原始哨兵，土豆雷等灰烬仍正常限伤。
+	if (!mowerExecution) {
+		if (plantOrigin != PlantDamageOrigin::Ash() && (source != DamageSource::PLANT_ASH || plantOrigin.IsValid()))
+			damage = mBoard->SharePressureGuardDamage(*this, damage);
+		damage = LimitFinalIncomingDamage(damage, source, plantOrigin);
+	}
 	if (damage <= 0) return;
 	int remainingDamage = TakeExtraProtectionDamage(damage, source);
 	// 原版飞行额外生命与头盔/本体共用 mJustGotShotCounter；只要确实吸收了伤害就闪本体层。

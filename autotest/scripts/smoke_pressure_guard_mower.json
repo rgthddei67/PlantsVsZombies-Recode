@@ -1,0 +1,32 @@
+{
+  "description": "Real mowers execute a capped guard, a protected peer and an armored ally without transferring execution to an untouched adjacent guard.",
+  "commands": [
+    {"op":"goto_level","level":1,"resetTestState":true},
+    {"op":"choose_cards","cards":["PLANT_WALLNUT"]},
+    {"op":"wait_state","state":"GAME","timeout":30},
+    {"op":"set_spawn_paused","value":true},
+    {"op":"set_monte_carlo_ai","value":false},
+    {"op":"set_timescale","value":1},
+    {"op":"spawn_zombie","type":"ZOMBIE_PRESSURE_GUARD","row":0,"x":650,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_PRESSURE_GUARD","row":1,"x":400,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_PRESSURE_GUARD","row":2,"x":380,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_BUCKET","row":3,"x":400,"stationary":true},
+    {"op":"wait_frames","value":3},
+    {"op":"set_timescale","value":0},
+    {"op":"damage_zombie","type":"ZOMBIE_PRESSURE_GUARD","row":0,"damage":1000},
+    {"op":"damage_zombie","type":"ZOMBIE_PRESSURE_GUARD","row":1,"damage":1000},
+    {"op":"dump_state","name":"before.json"},
+    {"op":"trigger_mower","row":0},
+    {"op":"trigger_mower","row":1},
+    {"op":"trigger_mower","row":3},
+    {"op":"set_timescale","value":1},
+    {"op":"wait_seconds","value":4.5},
+    {"op":"dump_state","name":"after.json"},
+    {"op":"assert_state","path":"zombieCount","equals":1},
+    {"op":"assert_state","path":"zombies.0.type","equals":"ZOMBIE_PRESSURE_GUARD"},
+    {"op":"assert_state","path":"zombies.0.row","equals":2},
+    {"op":"assert_state","path":"zombies.0.bodyHealth","equals":600},
+    {"op":"assert_state","path":"zombies.0.helmHealth","equals":3900},
+    {"op":"quit"}
+  ]
+}

@@ -139,6 +139,24 @@ void RunColdStoragePressureGuardTests()
     using namespace ColdStorageSearch;
     CheckGuardFormations();
     CheckGuardCatapultFormations();
+    // 两版预测中，车道内的护卫与受保护队友都被处决；相邻未被碾到的护卫不能替它们承伤。
+    for (int version : {1,2}) {
+        Snapshot mower; mower.rows=3; mower.houseX=-10000; mower.searchVersion=version;
+        auto protector=Guard(1,1); protector.body.x=680;
+        auto peer=Guard(2,0);
+        Unit ally; ally.id=3; ally.body.row=2; ally.body.x=700;
+        ally.body.health=ally.maximumBody=3000; ally.body.value=ally.body.purchaseCost=20;
+        for (bool exhausted : {false,true}) {
+            if (exhausted) protector.pressureWindow.Consume(600,0);
+            mower.current={protector,peer,ally};
+            mower.mowers={{0,650,100,230,false,true},{2,650,100,230,false,true}};
+            auto control=mower; control.current={protector}; control.mowers.clear();
+            Check(Evaluate(mower,{})==Evaluate(control,{}),
+                "mowers must execute protected peers and allies without charging the adjacent guard");
+            mower.mowers.push_back({1,650,100,230,false,true});
+            Check(Near(Evaluate(mower,{})[3],0),"mower execution must ignore the guard's own full or spent damage window");
+        }
+    }
     PressureGuardRules::DamageWindow window;
     Check(Near(window.Consume(400,0),400) && Near(window.Consume(400,.25),200),"pressure shared budget must cap at 600");
     Check(Near(window.Consume(3000,.99),0),"pressure cap cannot reset at a frame or fixed boundary");
