@@ -1,5 +1,6 @@
 #include "NightRoofChargeRules.h"
 #include "Game/Board/Board.h"
+#include <nlohmann/json.hpp>
 #include "Game/AI/PlantDefenseMonteCarlo.h"
 #include "Game/AudioSystem.h"
 #include "Game/Plant/Plant.h"
@@ -45,11 +46,11 @@ void Board::PopulateNightRoofHijackerTreatmentForecast(
 	executionSeconds = -1.0f;
 	if (lockedHijackerID == NULL_ZOMBIE_ID) return;
 
-	if (mNightRoofChargePhase == NightRoofChargePhase::WARNING) {
-		executionSeconds = mNightRoofChargePhaseTimer;
+	if (mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING) {
+		executionSeconds = mNightRoofChargeCycle.Timer();
 		return;
 	}
-	if (mNightRoofChargePhase != NightRoofChargePhase::CHARGING) return;
+	if (mNightRoofChargeCycle.Phase() != NightRoofChargePhase::CHARGING) return;
 
 	float chargePerSecond = 0.0f;
 	switch (mRainIntensity) {
@@ -61,7 +62,7 @@ void Board::PopulateNightRoofHijackerTreatmentForecast(
 	chargePerSecond += GetNightRoofHijackerRainChargeBonusPerSecond();
 	if (chargePerSecond > 0.0f) {
 		executionSeconds = std::max(
-			0.0f, (kNightRoofChargeMaximum - mNightRoofCharge)
+			0.0f, (kNightRoofChargeMaximum - mNightRoofChargeCycle.Charge())
 				/ chargePerSecond) + kNightRoofHijackerWarningDuration;
 	}
 }
@@ -150,17 +151,14 @@ void Board::TryLockNightRoofHijacker()
 void Board::BeginNightRoofChargeWarning()
 {
 	if (!SupportsNightRoofCharge()
-		|| mNightRoofChargePhase != NightRoofChargePhase::CHARGING
+		|| mNightRoofChargeCycle.Phase() != NightRoofChargePhase::CHARGING
 		|| mRows <= 0) return;
 	if (!mNightRoofHijackerSelectionAttempted) TryLockNightRoofHijacker();
 	HijackerZombie* hijacker = GetValidNightRoofHijacker();
-	mNightRoofCharge = kNightRoofChargeMaximum;
-	mNightRoofChargePhase = NightRoofChargePhase::WARNING;
-	mNightRoofHijackerWarningExtended = hijacker != nullptr;
+		mNightRoofHijackerWarningExtended = hijacker != nullptr;
 	mNightRoofHijackerFinalizing = false;
-	mNightRoofChargePhaseTimer = hijacker
-		? kNightRoofHijackerWarningDuration : kNightRoofChargeWarningDuration;
-	ChooseNightRoofChargeRoute(mNightRoofChargePhaseTimer);
+	mNightRoofChargeCycle.BeginWarning(hijacker != nullptr);
+	ChooseNightRoofChargeRoute(mNightRoofChargeCycle.Timer());
 	if (hijacker) hijacker->BeginNightRoofWarning();
 }
 
@@ -338,25 +336,17 @@ void Board::AddNightRoofCharge(float amount)
 	if ((IsWeatherStation() && mWeatherStation.controls[WeatherStationRules::CHARGE].value==0)
 		|| !SupportsNightRoofCharge() || amount <= 0.0f
 		|| !std::isfinite(amount)) return;
-	if (mNightRoofChargePhase == NightRoofChargePhase::CHARGING) {
-		const float combinedCharge = mNightRoofCharge + amount;
-		mNightRoofCharge = std::clamp(combinedCharge,
-			0.0f, kNightRoofChargeMaximum);
-		if (!mNightRoofHijackerSelectionAttempted
-			&& combinedCharge >= kNightRoofHijackerLockThreshold) {
-			TryLockNightRoofHijacker();
-		}
-		if (combinedCharge >= kNightRoofChargeMaximum) {
-			const float overflow = combinedCharge - kNightRoofChargeMaximum;
-			BeginNightRoofChargeWarning();
-			mNightRoofOvercharge = std::clamp(
-				mNightRoofOvercharge + overflow,
-				0.0f, kNightRoofOverchargeMaximum);
-		}
-		return;
-	}
-	mNightRoofOvercharge = std::clamp(mNightRoofOvercharge + amount,
-		0.0f, kNightRoofOverchargeMaximum);
+    const bool wasCharging = mNightRoofChargeCycle.Phase() == NightRoofChargePhase::CHARGING;
+    const float overflow = mNightRoofChargeCycle.Add(amount);
+    if (!wasCharging) return;
+    if (!mNightRoofHijackerSelectionAttempted
+        && mNightRoofChargeCycle.Charge() >= kNightRoofHijackerLockThreshold) {
+        TryLockNightRoofHijacker();
+    }
+    if (mNightRoofChargeCycle.Charge() >= kNightRoofChargeMaximum) {
+        BeginNightRoofChargeWarning();
+        mNightRoofChargeCycle.RetainOverflow(overflow);
+    }
 }
 
 int Board::GetNightRoofExecutionLine() const
@@ -753,10 +743,7 @@ void Board::UpdateNightRoofCharge(float deltaTime)
 {
 	if (!SupportsNightRoofCharge()) {
 		ResetNightRoofHijackerCycle();
-		mNightRoofCharge = 0.0f;
-		mNightRoofOvercharge = 0.0f;
-		mNightRoofChargePhase = NightRoofChargePhase::CHARGING;
-		mNightRoofChargePhaseTimer = 0.0f;
+		mNightRoofChargeCycle.Reset();
 		mNightRoofChargeRow = -1;
 		mNightRoofChargeGuided = false;
 		mNightRoofChargeGuideID = NULL_ZOMBIE_ID;
@@ -782,40 +769,34 @@ void Board::UpdateNightRoofCharge(float deltaTime)
 	chargeDelta += GetNightRoofHijackerRainChargeBonusPerSecond();
 	if (IsWeatherStation() && mWeatherStation.controls[WeatherStationRules::CHARGE].value==0) chargeDelta=0;
 
-	if (mNightRoofChargePhase == NightRoofChargePhase::WARNING
-		|| mNightRoofChargePhase == NightRoofChargePhase::DISCHARGING) {
+	if (mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING
+		|| mNightRoofChargeCycle.Phase() == NightRoofChargePhase::DISCHARGING) {
 		// 活动阶段只截留正向输入；晴夜泄漏要等余电兑现为下一轮主电荷后才重新生效。
 		if (chargeDelta > 0.0f) AddNightRoofCharge(chargeDelta * deltaTime);
-		if (mNightRoofChargePhase == NightRoofChargePhase::WARNING
+		if (mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING
 			&& mNightRoofHijackerID != NULL_ZOMBIE_ID
 			&& !GetValidNightRoofHijacker()) {
 			CancelNightRoofHijacker(mNightRoofHijackerID);
 		}
-		mNightRoofChargePhaseTimer = std::max(0.0f,
-			mNightRoofChargePhaseTimer - deltaTime);
-		if (mNightRoofChargePhase == NightRoofChargePhase::WARNING
+		mNightRoofChargeCycle.Elapse(deltaTime);
+		if (mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING
 			&& !mNightRoofHijackerFinalizing
-			&& mNightRoofChargePhaseTimer <= kNightRoofHijackerFinalDuration) {
+			&& mNightRoofChargeCycle.Timer() <= kNightRoofHijackerFinalDuration) {
 			if (HijackerZombie* hijacker = GetValidNightRoofHijacker()) {
 				mNightRoofHijackerFinalizing = true;
 				hijacker->BeginNightRoofFinalization();
 			}
 		}
-		if (mNightRoofChargePhaseTimer > 0.0f) return;
+		if (mNightRoofChargeCycle.Timer() > 0.0f) return;
 
-		if (mNightRoofChargePhase == NightRoofChargePhase::WARNING) {
-			mNightRoofChargePhase = NightRoofChargePhase::DISCHARGING;
-			mNightRoofChargePhaseTimer = kNightRoofChargeDischargeDuration;
+		if (mNightRoofChargeCycle.CommitExpiredPhase()
+            == NightRoofChargeCycle::Transition::DischargeStarted) {
 			ResolveNightRoofHijackerExecution();
 			ResolveNightRoofChargeDischarge();
 			PlayWeatherThunder();
 			return;
 		}
 
-		mNightRoofCharge = mNightRoofOvercharge;
-		mNightRoofOvercharge = 0.0f;
-		mNightRoofChargePhase = NightRoofChargePhase::CHARGING;
-		mNightRoofChargePhaseTimer = 0.0f;
 		mNightRoofChargeRow = -1;
 		mNightRoofChargeGuided = false;
 		mNightRoofChargeGuideID = NULL_ZOMBIE_ID;
@@ -827,8 +808,7 @@ void Board::UpdateNightRoofCharge(float deltaTime)
 		AddNightRoofCharge(chargeDelta * deltaTime);
 	}
 	else {
-		mNightRoofCharge = std::clamp(mNightRoofCharge
-			+ chargeDelta * deltaTime, 0.0f, kNightRoofChargeMaximum);
+		mNightRoofChargeCycle.Leak(-chargeDelta * deltaTime);
 	}
 }
 
@@ -838,10 +818,7 @@ void Board::RestoreNightRoofChargeState(float charge, NightRoofChargePhase phase
 	int hijackerID, bool hijackerWarningExtended, bool hijackerFinalizing,
 	bool guided, int guideID)
 {
-	mNightRoofCharge = 0.0f;
-	mNightRoofOvercharge = 0.0f;
-	mNightRoofChargePhase = NightRoofChargePhase::CHARGING;
-	mNightRoofChargePhaseTimer = 0.0f;
+	mNightRoofChargeCycle.Reset();
 	mNightRoofChargeRow = -1;
 	mNightRoofChargeGuided = false;
 	mNightRoofChargeGuideID = NULL_ZOMBIE_ID;
@@ -855,7 +832,7 @@ void Board::RestoreNightRoofChargeState(float charge, NightRoofChargePhase phase
 	if (!SupportsNightRoofCharge() || !std::isfinite(charge)
 		|| !std::isfinite(phaseTimer) || !std::isfinite(overcharge)) return;
 
-	mNightRoofCharge = std::clamp(charge, 0.0f, kNightRoofChargeMaximum);
+	mNightRoofChargeCycle.Restore(charge, NightRoofChargePhase::CHARGING, 0, 0, false);
 	mNightRoofHijackerSelectionAttempted = hijackerSelectionAttempted;
 	mNightRoofHijackerID = hijackerSelectionAttempted
 		? hijackerID : NULL_ZOMBIE_ID;
@@ -863,26 +840,19 @@ void Board::RestoreNightRoofChargeState(float charge, NightRoofChargePhase phase
 	if ((phase != NightRoofChargePhase::WARNING
 		&& phase != NightRoofChargePhase::DISCHARGING)
 		|| row < 0 || row >= mRows || phaseTimer < 0.0f) {
-		mNightRoofCharge = 0.0f;
+		mNightRoofChargeCycle.Reset();
 		ResetNightRoofHijackerCycle();
 		return;
 	}
-	mNightRoofCharge = kNightRoofChargeMaximum;
-	mNightRoofChargePhase = phase;
 	mNightRoofHijackerWarningExtended = phase == NightRoofChargePhase::WARNING
 		&& hijackerWarningExtended;
 	mNightRoofHijackerFinalizing = mNightRoofHijackerWarningExtended
 		&& hijackerFinalizing && phaseTimer <= kNightRoofHijackerFinalDuration;
-	mNightRoofChargePhaseTimer = std::clamp(phaseTimer, 0.0f,
-		phase == NightRoofChargePhase::WARNING
-			? (mNightRoofHijackerWarningExtended
-				? kNightRoofHijackerWarningDuration : kNightRoofChargeWarningDuration)
-			: kNightRoofChargeDischargeDuration);
+    mNightRoofChargeCycle.Restore(charge, phase, phaseTimer, overcharge,
+        mNightRoofHijackerWarningExtended);
 	mNightRoofChargeRow = row;
 	mNightRoofChargeGuided = guided;
 	mNightRoofChargeGuideID = guided ? guideID : NULL_ZOMBIE_ID;
-	mNightRoofOvercharge = std::clamp(overcharge,
-		0.0f, kNightRoofOverchargeMaximum);
 	if (phase == NightRoofChargePhase::DISCHARGING) {
 		mNightRoofHijackerID = NULL_ZOMBIE_ID;
 		mNightRoofHijackerFinalizing = false;
@@ -900,11 +870,11 @@ void Board::FinalizeNightRoofHijackerLoad()
 {
 	if (mNightRoofHijackerID == NULL_ZOMBIE_ID) return;
 	HijackerZombie* hijacker = GetValidNightRoofHijacker();
-	if (!hijacker || mNightRoofChargePhase == NightRoofChargePhase::DISCHARGING) {
+	if (!hijacker || mNightRoofChargeCycle.Phase() == NightRoofChargePhase::DISCHARGING) {
 		CancelNightRoofHijacker(mNightRoofHijackerID);
 		return;
 	}
-	const bool warning = mNightRoofChargePhase == NightRoofChargePhase::WARNING;
+	const bool warning = mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING;
 	hijacker->RestoreNightRoofPhase(
 		true, warning && mNightRoofHijackerFinalizing, warning);
 }
@@ -953,7 +923,7 @@ bool Board::SetNightRoofChargeForTesting(float charge, NightRoofChargePhase phas
 	ResetNightRoofHijackerCycle();
 	RestoreNightRoofChargeState(charge, phase, row, phaseTimer, overcharge,
 		false, NULL_ZOMBIE_ID, false, false, false, NULL_ZOMBIE_ID);
-	return mNightRoofChargePhase == phase;
+	return mNightRoofChargeCycle.Phase() == phase;
 }
 
 bool Board::SupportsRoofRunoff() const
@@ -981,7 +951,7 @@ float Board::GetNightRoofChargeDischargeProgress() const
 {
 	if (!IsNightRoofChargeDischarging()) return 0.0f;
 	return std::clamp(1.0f
-		- mNightRoofChargePhaseTimer / kNightRoofChargeDischargeDuration,
+		- mNightRoofChargeCycle.Timer() / kNightRoofChargeDischargeDuration,
 		0.0f, 1.0f);
 }
 
@@ -997,4 +967,40 @@ bool Board::TryGetNightRoofChargeGuideAnchor(Vector& anchor) const
 void Board::SaveRoofRunoff(nlohmann::json& document) const { mRoofRunoff.Save(document); }
 void Board::LoadRoofRunoff(const nlohmann::json& document) {
     mRoofRunoff.Load(document, SupportsRoofRunoff(), mRows);
+}
+
+void Board::SaveNightRoofCharge(nlohmann::json& j) const
+{
+    mNightRoofChargeCycle.Save(j);
+	j["nightRoofChargeRow"] = mNightRoofChargeRow;
+	j["nightRoofChargeGuided"] = mNightRoofChargeGuided;
+	j["nightRoofChargeGuideID"] = mNightRoofChargeGuideID;
+	j["nightRoofHijackerSelectionAttempted"] = mNightRoofHijackerSelectionAttempted;
+	j["nightRoofHijackerID"] = mNightRoofHijackerID;
+	j["nightRoofHijackerWarningExtended"] = mNightRoofHijackerWarningExtended;
+	j["nightRoofHijackerFinalizing"] = mNightRoofHijackerFinalizing;
+}
+
+void Board::LoadNightRoofCharge(const nlohmann::json& j)
+{
+	const int nightRoofChargePhaseValue = j.value("nightRoofChargePhase",
+		static_cast<int>(NightRoofChargePhase::CHARGING));
+	const NightRoofChargePhase nightRoofChargePhase = nightRoofChargePhaseValue
+		>= static_cast<int>(NightRoofChargePhase::CHARGING)
+		&& nightRoofChargePhaseValue <= static_cast<int>(NightRoofChargePhase::DISCHARGING)
+		? static_cast<NightRoofChargePhase>(nightRoofChargePhaseValue)
+		: NightRoofChargePhase::CHARGING;
+	// 旧档缺雷荷字段时从空积累开始；活动阶段沿用已锁定路线、倒计时和余电，不重新抽取。
+
+	RestoreNightRoofChargeState(j.value("nightRoofCharge", 0.0f),
+		nightRoofChargePhase, j.value("nightRoofChargeRow", -1),
+		j.value("nightRoofChargePhaseTimer", 0.0f),
+		j.value("nightRoofOvercharge", 0.0f),
+		j.value("nightRoofHijackerSelectionAttempted", false),
+		j.value("nightRoofHijackerID", NULL_ZOMBIE_ID),
+		j.value("nightRoofHijackerWarningExtended", false),
+		j.value("nightRoofHijackerFinalizing", false),
+		j.value("nightRoofChargeGuided", false),
+		j.value("nightRoofChargeGuideID", NULL_ZOMBIE_ID));
+
 }

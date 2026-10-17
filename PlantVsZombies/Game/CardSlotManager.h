@@ -80,7 +80,7 @@ public:
 	void SetPauseGameplayInputBlocked(bool blocked) { mPauseGameplayInputBlocked = blocked; }
 	/** 只有正式战斗状态且未被普通暂停门禁时，卡槽与草坪才接收玩法输入。 */
 	bool CanAcceptGameplayInput() const {
-		return mBoard && mBoard->mBoardState == BoardState::GAME
+		return mBoard && mBoard->GetState() == BoardState::GAME
 			&& !mPauseGameplayInputBlocked;
 	}
 	/** 点击路灯花卡片或本体时切换挡位菜单。 */

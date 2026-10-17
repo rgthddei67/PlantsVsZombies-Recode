@@ -116,7 +116,7 @@ pending 并清空，不能临时重抽。`GameScene` 的累计条与坡面水膜
 只把自己的行纳入；普通地面僵尸仍承受 `-60px/s`，该实例通过 Zombie 虚倍率 `5/3` 独享
 `-100px/s`，爆胎后回到倍率 1。禁止把这一能力实现成选中行所有僵尸的公共加速。
 
-黑夜屋顶雷荷是并行的第二个积累器。`Board::UpdateNightRoofCharge` 只在 `NIGHT_ROOF` 中推进：
+黑夜屋顶雷荷是并行的第二个积累器。`Board::UpdateNightRoofCharge` 通过 `SupportsNightRoofCharge` 覆盖黑夜屋顶与已解锁雷荷设备的气象站：
 晴夜每秒漏 0.5，小/中/大雨每秒积累 1/2/3，现有大雨闪电一次增加 18；满 100 后锁定一次路线，
 普通预警 4 秒、有效劫持者预警 7 秒，放电演出 0.65 秒。每个普通行与每只有效引雷单位都是候选；
 轻量蒙特卡洛开启时用独立 32 rollout、10 秒时域和共同随机数统一比较，关闭或失败时才消费正式 RNG 回退。
@@ -253,7 +253,7 @@ Board 雾势、再恢复植物，所以 `RestoreFogState()` 只清空旧缓存�
 |---|---|---|
 | 基础雨势权重、持续时间、倍率 | `Game/Board/BoardWeather.cpp` 匿名命名空间 `k*Rain*` | 调参常量同行中文注释；不混入独立雾势或屋顶积累器 |
 | 独立雾势、驱散与逐格 alpha | `Game/Board/FogWeather.{h,cpp}` 与 `BoardFogWeather.cpp` | Board 独占 FogWeather 的周期/预报/驱散与存档；Board 持派生 alpha，路灯花照明形状查询 PlanternRules |
-| 冬日寒潮温区、权重与时长 | `Game/Board/BoardWinterClimate.cpp` 匿名命名空间 `k*ColdWave*` / `kWinter*` | Board 接口和状态布局不变；调参常量同行中文注释 |
+| 冬日寒潮温区、权重与时长 | `Game/Board/WinterClimate.cpp` 的寒潮参数；`BoardWinterClimate.cpp` 的霜线表现 | Board 独占 WinterClimate；温度推进/计划/存档在子域，实体与表现仍由 Board 协调 |
 | 随机下一天气 | `Game/Board/BoardWeather.cpp`：`Board::RollNextWeather` / `RainTransitionForRoll` | 与合法预报候选保持同构 |
 | 合法公开预报 | `BuildPlausibleForecasts` | 错误预报也必须真实可达 |
 | 整栏预报干扰 | `BeginWeatherPanelInterference` / `UpdateWeatherPanelInterference` / `DisruptWeatherForecastPanel` | Board 持可叠加时限窗口并截获期间新广播；只改可见性，不改锁定实况 |
@@ -263,7 +263,7 @@ Board 雾势、再恢复植物，所以 `RestoreFogState()` 只清空旧缓存�
 | 极夜雪原环境导演 | `Game/Board/BoardPolarNight.cpp`：`InitializePolarNightEnvironment` / `RollNextPolarNightPlan` / `UpdatePolarNightEnvironment` | Board 保存三实数、锁定曲线、真假约束、提交累计和白毛风阶段；GameScene 只画常驻仪表与瞬态雪层 |
 | 雪穴环境事件 | `Game/Board/BoardPolarNight.cpp`：`CommitSnowHoleBatch` / `UpdatePendingSnowHoleSpawns`；`Game/Board/Board.cpp`：`CreateOrQueueWaveZombie` | 环境文件拥有选点、形成和已锁事务推进；核心文件保留正式波次创建边界。高湿只提交一次选点，预算和行已锁后 1 秒预警只决定雪穴或右侧出生落点 |
 | 昼夜屋顶径流 | `Game/Board/BoardRoofWeather.cpp`：`Board::UpdateRoofRunoff` / `DrawRoofRunoff` | Board 持积累与行组；GameScene 只画常驻条和坡面瞬态 |
-| 黑夜屋顶雷荷 | `Game/Board/BoardRoofWeather.cpp`：`Board::UpdateNightRoofCharge` / `ResolveNightRoofChargeDischarge` / `DrawNightRoofCharge` | 只看 `NIGHT_ROOF`；Board 持积累、阶段、余时和锁定行，转换边沿快照实体并调用通用状态接口，GameScene 只画紫条与瞬态 |
+| 黑夜屋顶雷荷 | `Game/Board/BoardRoofWeather.cpp`：`Board::UpdateNightRoofCharge` / `ResolveNightRoofChargeDischarge` / `DrawNightRoofCharge` | `NightRoofChargeCycle` 持积累/余电/计时；Board 持锁定行及实体，按资格门禁协调结算边沿；GameScene 只画紫条与瞬态 |
 | 波次锁定复合天气 | `IsStormyNightActive` / `ActivateStormyNight` / `EnforceStormyNightWeather` | 生效条件派生；一次性资源和闪光未来状态入档 |
 | 世界天气覆盖与 Scene UI 贴图 | `GameAPP` pre-overlay hook / `Scene::DrawUITextures` | 世界粒子 → 天气覆盖 → Scene UI 贴图 → UI GameObject |
 | 僵尸天气动画倍率 | `Zombie::UpdateAnimSpeed` | 冻结 > ability × 减速 × rain |

@@ -35,7 +35,7 @@ void TestDriver::OnSceneUpdated() {
 		auto* scene = dynamic_cast<GameScene*>(current);
 		auto* board = scene ? scene->GetBoard() : nullptr;
 		const int serial = board ? board->mColdStorage.searchSerial : -1;
-		const int phase = board ? static_cast<int>(board->mBoardState) : -1;
+		const int phase = board ? static_cast<int>(board->GetState()) : -1;
 		const bool trophy = board && board->mTrophySpawned;
 		const bool changed = serial != mHumanLastDecision || phase != mHumanLastBoardState || trophy != mHumanLastTrophy;
 		if (mHumanRecordingFailed || (!changed && now < mNextHumanObservation)) return;

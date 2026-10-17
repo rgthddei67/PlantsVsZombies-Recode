@@ -2,6 +2,8 @@
 #include "WeatherStationRules.h"
 #include "RoofRunoff.h"
 #include "FogWeather.h"
+#include "WinterClimate.h"
+#include "NightRoofChargeCycle.h"
 #include "WaveSpawnCounts.h"
 #include "ColdStorageState.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
@@ -201,8 +203,23 @@ enum class BoardState {
 class Board {
 public:
 	friend GameInfoSaver;
-
+private:
 	BoardState mBoardState = BoardState::CHOOSE_CARD;
+	int mSun = 50;
+	int mCurrentWave = 0;			// 当前波
+public:
+    BoardState GetState() const { return mBoardState; }
+    int GetCurrentWave() const { return mCurrentWave; }
+    /** 完成生存轮间选卡：清预览、恢复 GAME 和音乐，不重建已有场景对象。 */
+    void ResumeSurvivalRoundAfterSelection();
+    /** 已提交选卡但仍在入场过场时，退出存档应记录为 GAME；不触发正常开局副作用。 */
+    void MarkSurvivalRoundCommittedForSave();
+    /** 奖杯已被接收，冻结战斗为胜利阶段；奖励与玩家存档仍由奖杯流程处理。 */
+    void AcceptTrophy();
+    /** AutoTest 设置阳光，沿用夹具上限；正式收入和支付使用 AddSun/SubSun。 */
+    void SetSunForTesting(int amount);
+
+
 	std::string mLevelName = "关卡 1-1";
 	int mLevel = -1;	// 冒险模式当前关卡序号
 	Background mBackGround = Background::GROUND_DAY; // 背景图
@@ -210,12 +227,12 @@ public:
 	int mColumns = 8; // 列数
 	std::weak_ptr<Shovel> mShovel;
 	CursorObjectManager mCursorObjectManager;
-	int mSun = 50;
+
 	bool mHxyModeEnabled = false; // 本局锁定的 HXY专属规则，随关卡保存，读档不跟随菜单开关变化
 	float mSunCountDown = 5.0f;
 	float mPoolSunCountDown = POOL_SUN_SPAWN_TIME;
 	EntityRegistry mEntityRegistry;
-	int mCurrentWave = 0;			// 当前波
+
 	int mMaxWave = 10;		// 关卡总波数
 	float mZombieCountDown = 20.0f;		// 下一波僵尸倒计时
 	int64_t mTotalZombieHP = 0;		// 在场全部僵尸血量
@@ -536,18 +553,7 @@ private:
 	bool mStormyNightInitialized = false; // 4-9 第 23 波暴风雨夜是否已经正式初始化，防读档重置阵风额度
 	int mStormyNightFlashPattern = 0;   // 原版 4-10 三种闪光节奏（1～3）；0 表示尚未启用
 	float mStormyNightFlashTimer = 0.0f; // 当前闪光节奏剩余游戏秒；黑屏等待也包含在此计时内
-	bool mWinterTemperatureInitialized = false; // 冬日花园寒潮状态是否已初始化；旧档由 StartGame 补齐
-	bool mOpeningColdWavePlanInitialized = false; // 7-8/7-9 开幕寒潮是否已锁定，读档后不得重复注入
-	ColdWavePhase mColdWavePhase = ColdWavePhase::CALM; // 当前寒潮阶段，与雨势完全正交
-	float mColdWaveTimer = 0.0f;        // 当前寒潮阶段剩余游戏秒
-	float mAmbientTemperatureC = 6.0f;  // 当前环境温度，单位摄氏度；只由寒潮状态机写入
-	ColdWaveStrength mColdWaveStrength = ColdWaveStrength::STRONG; // 已锁定寒潮强度；预报与揭晓共用
-	float mColdWaveTargetTemperatureC = -12.0f; // 已锁定最低温，单位摄氏度
-	float mColdWaveCoolingDuration = 20.0f; // 已锁定降温总时长，单位游戏秒
-	float mColdWaveHoldDuration = 57.5f; // 已锁定低温维持总时长，单位游戏秒
-	float mColdWaveThawDuration = 32.0f; // 已锁定回暖总时长，单位游戏秒
-	bool mColdWaveForecastDisrupted = false; // 本轮准确预报是否已被干扰；下一轮重新开放
-	int mWinterFrostVariant = 0;       // 本轮寒潮稳定使用的冻融线轮廓变体（0～2）
+	WinterClimate mWinterClimate; // 独占温度计划；雨雪表现与实体通知由 Board 协调
 
 	// 极夜雪原环境导演独立于雨势和寒潮；所有随机量在计划开始时一次性锁定。
 	bool mPolarNightInitialized = false; // 新局初始化或读档恢复后保持，不允许 StartGame 重抽
@@ -587,10 +593,7 @@ private:
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
 	float mDawnNavigationTimer = 0.0f; // 曙光莲强风模块全场导航剩余游戏秒
-	float mNightRoofCharge = 0.0f;      // 黑夜屋顶独立雷荷积累值（0～100）
-	float mNightRoofOvercharge = 0.0f;  // 满电活动阶段截留、放电结束后兑现的余电（0～25）
-	NightRoofChargePhase mNightRoofChargePhase = NightRoofChargePhase::CHARGING; // 当前积累、预警或放电阶段
-	float mNightRoofChargePhaseTimer = 0.0f; // 当前预警或放电阶段剩余游戏秒
+	NightRoofChargeCycle mNightRoofChargeCycle; // 数值周期独立；路线和实体锁定仍由 Board 协调
 	int mNightRoofChargeRow = -1;       // 满电后一次锁定的导电瓦路行；积累阶段为 -1
 	bool mNightRoofChargeGuided = false; // 本轮是否锁定为接地僵尸引导路线；锁定后不因实体失效改写
 	int mNightRoofChargeGuideID = NULL_ZOMBIE_ID; // 本轮接地路线锁定的稳定实体 ID
@@ -710,15 +713,19 @@ private:
 	void UpdateWeatherPanelInterference(float deltaTime);
 	/** 初始化并推进冬日花园独立寒潮；雨势和台风不得改写温度。 */
 	void InitializeWinterTemperature();
+    /** 寒潮保存与恢复只经过子域入口；恢复不生成新计划。 */
+    void SaveWinterClimate(nlohmann::json& document) const;
+    void LoadWinterClimate(const nlohmann::json& document);
     /** 锁定 7-8/7-9 的固定开幕强寒潮；新开实战或旧档恢复尚未消费时调用。 */
-    void InitializeOpeningColdWavePlan();
 	/** 一次性抽取并锁定下一场寒潮的强度、最低温、阶段时长与冻融线外观。 */
-	void RollNextColdWave();
 	void UpdateWinterTemperature(float deltaTime);
 	/** 推进昼夜屋顶雨水积累、锁行预警与短时冲刷状态机。 */
 	void UpdateRoofRunoff(float deltaTime);
 	/** 推进黑夜屋顶独立雷荷的积累、锁行预警与基础放电状态机。 */
 	void UpdateNightRoofCharge(float deltaTime);
+    /** 周期数值交给子域，Board 保存并校验路线及实体锁定组合。 */
+    void SaveNightRoofCharge(nlohmann::json& document) const;
+    void LoadNightRoofCharge(const nlohmann::json& document);
 	/** 统一接收正向雷荷；积累阶段跨阈值的溢出和活动阶段新增量都转入余电。 */
 	void AddNightRoofCharge(float amount);
 	/** 满电后抽取并锁定本次导电瓦路；锁定结果在活动阶段保持不变。 */
@@ -924,7 +931,7 @@ public:
 		mSun -= amount;
 	}
 
-	inline int GetSun() { return mSun; }
+	inline int GetSun() const { return mSun; }
 
 	void SetZombieSpawnList(std::vector<ZombieType>& zombieTypeList) {
 		this->mSpawnZombieList = zombieTypeList;
@@ -1171,17 +1178,17 @@ public:
 	/** AutoTest 固定单行雪穴状态；生产选点仍只走高湿提交。 */
 	bool SetSnowHoleForTesting(int row, int column, SnowHolePhase phase,
 		float timer = 0.0f);
-	bool IsWinterTemperatureInitialized() const { return mWinterTemperatureInitialized; }
-	bool IsOpeningColdWavePlanInitialized() const { return mOpeningColdWavePlanInitialized; }
-	ColdWavePhase GetColdWavePhase() const { return mColdWavePhase; }
-	ColdWaveStrength GetColdWaveStrength() const { return mColdWaveStrength; }
-	float GetColdWaveTimer() const { return mColdWaveTimer; }
-	float GetColdWaveTargetTemperatureC() const { return mColdWaveTargetTemperatureC; }
-	float GetColdWaveCoolingDuration() const { return mColdWaveCoolingDuration; }
-	float GetColdWaveHoldDuration() const { return mColdWaveHoldDuration; }
-	float GetColdWaveThawDuration() const { return mColdWaveThawDuration; }
-	int GetWinterFrostVariant() const { return mWinterFrostVariant; }
-	float GetAmbientTemperatureC() const { return mAmbientTemperatureC; }
+	bool IsWinterTemperatureInitialized() const { return mWinterClimate.Initialized(); }
+	bool IsOpeningColdWavePlanInitialized() const { return mWinterClimate.OpeningInitialized(); }
+	ColdWavePhase GetColdWavePhase() const { return mWinterClimate.Phase(); }
+	ColdWaveStrength GetColdWaveStrength() const { return mWinterClimate.Strength(); }
+	float GetColdWaveTimer() const { return mWinterClimate.Timer(); }
+	float GetColdWaveTargetTemperatureC() const { return mWinterClimate.Target(); }
+	float GetColdWaveCoolingDuration() const { return mWinterClimate.CoolingDuration(); }
+	float GetColdWaveHoldDuration() const { return mWinterClimate.HoldDuration(); }
+	float GetColdWaveThawDuration() const { return mWinterClimate.ThawDuration(); }
+	int GetWinterFrostVariant() const { return mWinterClimate.FrostVariant(); }
+	float GetAmbientTemperatureC() const { return mWinterClimate.Temperature(); }
 	/** 把当前温度映射到温度计液柱比例；0 为最低温，1 为最高温。 */
 	float GetWinterTemperatureGaugeRatio() const;
 	float GetWinterMinimumTemperatureC() const;
@@ -1189,7 +1196,7 @@ public:
 	float GetWinterFreezingTemperatureC() const;
 	/** 寒潮进入降温前的固定准确预报；它不参与雨势预报的误报与失败判定。 */
 	bool HasColdWaveForecast() const;
-	bool IsColdWaveForecastDisrupted() const { return mColdWaveForecastDisrupted; }
+	bool IsColdWaveForecastDisrupted() const { return mWinterClimate.ForecastDisrupted(); }
 	/** 当前寒潮阶段仍处于预报窗口但栏目已经被干扰，供 UI 显示统一故障文案。 */
 	bool IsColdWaveForecastDisruptionVisible() const;
 	/** 使当前已公开寒潮预报失效，并通知依赖预报的植物清除准备状态。 */
@@ -1214,7 +1221,7 @@ public:
 	bool IsCellInColdWaveForecast(int row, int col) const;
 	/** 当前低温会把同一雨势的视觉改为雪；雨势强度和玩法倍率保持原值。 */
 	bool IsWinterPrecipitationSnow() const;
-	/** AutoTest 固定一轮完整寒潮计划；生产逻辑只走 RollNextColdWave 与 UpdateWinterTemperature。 */
+	/** AutoTest 固定一轮完整寒潮计划；生产逻辑只走 WinterClimate 与 UpdateWinterTemperature。 */
 	bool SetWinterTemperatureForTesting(float temperatureC, ColdWavePhase phase,
 		float remaining = 30.0f,
 		ColdWaveStrength strength = ColdWaveStrength::STRONG,
@@ -1544,12 +1551,12 @@ public:
 	float GetRoofRunoffZombieDriftVelocity(int row, float worldX) const;
 	/** 黑夜屋顶场景启用独立雷荷，不依赖关卡编号。 */
 	bool SupportsNightRoofCharge() const;
-	float GetNightRoofCharge() const { return mNightRoofCharge; }
-	float GetNightRoofChargeRatio() const { return mNightRoofCharge / 100.0f; }
-	float GetNightRoofOvercharge() const { return mNightRoofOvercharge; }
-	float GetNightRoofOverchargeRatio() const { return mNightRoofOvercharge / 100.0f; }
-	NightRoofChargePhase GetNightRoofChargePhase() const { return mNightRoofChargePhase; }
-	float GetNightRoofChargePhaseTimer() const { return mNightRoofChargePhaseTimer; }
+	float GetNightRoofCharge() const { return mNightRoofChargeCycle.Charge(); }
+	float GetNightRoofChargeRatio() const { return mNightRoofChargeCycle.Charge() / 100.0f; }
+	float GetNightRoofOvercharge() const { return mNightRoofChargeCycle.Overcharge(); }
+	float GetNightRoofOverchargeRatio() const { return mNightRoofChargeCycle.Overcharge() / 100.0f; }
+	NightRoofChargePhase GetNightRoofChargePhase() const { return mNightRoofChargeCycle.Phase(); }
+	float GetNightRoofChargePhaseTimer() const { return mNightRoofChargeCycle.Timer(); }
 	/** 返回当前由场上有效劫持者提供的雨中雷荷固定增量，晴天恒为零。 */
 	float GetNightRoofHijackerRainChargeBonusPerSecond() const;
 	int GetNightRoofChargeRow() const { return mNightRoofChargeRow; }
@@ -1567,10 +1574,10 @@ public:
 	/** 仅视觉读取已锁定引雷附件位置；实体失效时返回 false，绝不重选。 */
 	bool TryGetNightRoofChargeGuideAnchor(Vector& anchor) const;
 	bool IsNightRoofChargeWarning() const {
-		return mNightRoofChargePhase == NightRoofChargePhase::WARNING;
+		return mNightRoofChargeCycle.Phase() == NightRoofChargePhase::WARNING;
 	}
 	bool IsNightRoofChargeDischarging() const {
-		return mNightRoofChargePhase == NightRoofChargePhase::DISCHARGING;
+		return mNightRoofChargeCycle.Phase() == NightRoofChargePhase::DISCHARGING;
 	}
 	/** 当前被锁定且仍有效的劫持者 ID；没有候选或已取消时为 NULL_ZOMBIE_ID。 */
 	int GetNightRoofHijackerID() const { return mNightRoofHijackerID; }

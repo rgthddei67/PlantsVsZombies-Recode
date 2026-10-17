@@ -30,7 +30,7 @@ bool IceWorkerZombie::HasIceMachine() const
 void IceWorkerZombie::Update()
 {
 	const bool producing = !mIsPreview && mBoard && mBoard->IsColdStorage()
-		&& mBoard->mBoardState == BoardState::GAME && !mBoard->mTrophySpawned
+		&& mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned
 		&& IsActive() && !IsDying() && HasHead() && !IsImmobilized()
 		&& !IsDraggedUnderByTangleKelp();
 	Zombie::Update();

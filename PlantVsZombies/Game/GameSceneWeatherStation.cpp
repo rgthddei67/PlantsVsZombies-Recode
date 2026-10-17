@@ -50,7 +50,7 @@ void GameScene::CreateWeatherStationControls() {
 void GameScene::UpdateWeatherStationControls() {
     if (!mBoard || !mBoard->IsWeatherStation()) return;
     if (mColdStorageShopOpen) mStationOpenDevice=-1;
-    const bool active=mBoard->mBoardState==BoardState::GAME && !mBoard->mTrophySpawned;
+    const bool active=mBoard->GetState()==BoardState::GAME && !mBoard->mTrophySpawned;
     const bool hidden=mBoard->HidesStationForecasts();
     for (int d=0;d<3;++d) if (auto b=mStationDeviceButtons[d].lock()) {
         const bool unlocked=mBoard->IsStationDeviceUnlocked(d);
@@ -84,7 +84,7 @@ void GameScene::UpdateWeatherStationControls() {
 
 /** 使用场外区域展示设备说明，正式雷击仍由既有战场层绘制。 */
 void GameScene::DrawWeatherStationControls(Graphics* g) {
-    if (!g || !mBoard || !mBoard->IsWeatherStation() || mBoard->mBoardState!=BoardState::GAME) return;
+    if (!g || !mBoard || !mBoard->IsWeatherStation() || mBoard->GetState()!=BoardState::GAME) return;
     const auto font=ResourceKeys::Fonts::FONT_FZCQ;
     // 冰块和补给继续使用右下角 GameProgress，左侧只容纳展开菜单及常驻设备。
     g->FillRect(4,392,166,177,glm::vec4(12,24,34,230));

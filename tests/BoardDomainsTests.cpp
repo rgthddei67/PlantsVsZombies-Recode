@@ -1,5 +1,9 @@
 #include "Game/Board/RoofRunoff.h"
 #include "Game/Board/FogWeather.h"
+#include "Game/Board/WinterClimate.h"
+#include "Game/Board/NightRoofChargeCycle.h"
+#include "LevelDocumentValidation.h"
+#include <fstream>
 #include "Game/Board/WaveSpawnCounts.h"
 #include "GameRandom.h"
 #include <nlohmann/json.hpp>
@@ -137,6 +141,113 @@ namespace {
         Check(!legacy.Initialized() && legacy.Dispersal() == 0, "map reset removes fog state");
     }
 
+    /** 固定开幕不抽随机数，阶段/温度/已提交计划经读档保持连续。 */
+    void TestWinterClimate() {
+        GameRandom::SetSeed(42);
+        const int next = GameRandom::Range(0,100000);
+        GameRandom::SetSeed(42);
+        WinterClimate climate;
+        climate.Initialize(true, true, false);
+        climate.Initialize(true, true, false);
+        Check(climate.OpeningInitialized() && climate.HasForecast() && climate.Timer() == 12
+            && climate.FrostVariant() == 1, "opening climate initialized once");
+        Check(GameRandom::Range(0,100000) == next, "opening plan must not draw RNG");
+        Check(climate.DisruptForecast() && !climate.HasForecast()
+            && climate.IsForecastDisruptionVisible(), "hide cold forecast without changing plan");
+        climate.Advance(0);
+        Check(climate.Timer() == 12, "pause cold climate");
+        climate.Advance(12);
+        Check(climate.Phase() == ColdWavePhase::COOLING && climate.Timer() == 15, "opening cooling edge");
+        climate.Advance(7.5f);
+        Check(climate.Temperature() == -3, "linear cold curve crosses freezing point");
+        nlohmann::json saved, after;
+        climate.Save(saved);
+        WinterClimate restored;
+        GameRandom::SetSeed(42);
+        restored.Load(saved, true);
+        Check(GameRandom::Range(0,100000) == next, "cold restore must not draw RNG");
+        restored.Initialize(true, true, false);
+        restored.Save(after);
+        saved["coldWaveForecastDisrupted"] = false; // 旧恢复语义：非预报阶段清除隐藏标记。
+        Check(after == saved, "cold restore does not reinject opening plan");
+        restored.Advance(7.5f);
+        Check(restored.Phase() == ColdWavePhase::COLD && restored.Temperature() == -12
+            && restored.Timer() == 50, "cooling reaches locked cold hold");
+        restored.Advance(50);
+        restored.Advance(15);
+        Check(restored.Phase() == ColdWavePhase::THAWING && restored.Temperature() == -3,
+            "thaw uses original locked plan");
+        restored.Advance(15);
+        Check(restored.Phase() == ColdWavePhase::CALM && restored.Temperature() == 6
+            && restored.Timer() >= 35 && restored.Timer() <= 60, "next natural plan begins only after thaw");
+        restored.Load(saved, false);
+        Check(!restored.Initialized() && restored.Temperature() == 6, "unsupported map remains warm");
+        restored.Load(nlohmann::json::object(), true);
+        Check(!restored.OpeningInitialized(), "legacy missing opening flag is unconsumed");
+    }
+
+    /** 满值溢出、活动期余电和阶段边沿都是一次性事务；恢复演出不会再次放电。 */
+    void TestNightRoofCycle() {
+        using Phase = NightRoofChargePhase;
+        using Edge = NightRoofChargeCycle::Transition;
+        NightRoofChargeCycle cycle;
+        Check(cycle.Add(75) == 0 && cycle.Charge() == 75, "hijacker threshold remains observable");
+        const float overflow = cycle.Add(40);
+        Check(cycle.Phase() == Phase::CHARGING && cycle.Charge() == 100 && overflow == 15,
+            "full charge waits for Board route commitment");
+        cycle.BeginWarning(true);
+        cycle.RetainOverflow(overflow);
+        cycle.Add(50);
+        cycle.Leak(20);
+        Check(cycle.Timer() == 7 && cycle.Overcharge() == 25 && cycle.Charge() == 100,
+            "active charge caps overflow and ignores clear-weather leakage");
+        cycle.Elapse(6);
+        Check(cycle.Timer() == 1 && cycle.CommitExpiredPhase() == Edge::None, "finalization before discharge");
+        cycle.Elapse(10);
+        Check(cycle.CommitExpiredPhase() == Edge::DischargeStarted
+            && cycle.CommitExpiredPhase() == Edge::None, "discharge commits exactly once");
+        nlohmann::json saved;
+        cycle.Save(saved);
+        Check(saved.size() == 4 && saved["nightRoofChargePhase"] == static_cast<int>(Phase::DISCHARGING),
+            "numeric cycle preserves legacy representation");
+        NightRoofChargeCycle restored;
+        restored.Restore(100, Phase::DISCHARGING, cycle.Timer(), 25, false);
+        Check(restored.CommitExpiredPhase() == Edge::None, "restore does not replay damage");
+        restored.Elapse(1);
+        Check(restored.CommitExpiredPhase() == Edge::CycleFinished && restored.Charge() == 25
+            && restored.Overcharge() == 0 && restored.CommitExpiredPhase() == Edge::None,
+            "overflow settles once");
+        restored.Leak(4);
+        Check(restored.Charge() == 21, "clear leakage resumes on next cycle");
+        restored.Restore(100, Phase::WARNING, 100, 99, false);
+        Check(restored.Timer() == 4 && restored.Overcharge() == 25, "restore clamps original phase bounds");
+        restored.Restore(50, Phase::CHARGING, 0, 25, false);
+        Check(restored.Charge() == 50 && restored.Overcharge() == 0, "charging restore ignores pending overflow");
+    }
+
+    /** 在任何对象创建前拒绝后段损坏字段，同时保留缺省字段和未知扩展。 */
+    void TestLevelValidation() {
+        std::string error;
+        nlohmann::json valid = {{"boardState",1},{"sun",50},{"unknownExtension",{{"enabled",true}}},
+            {"plants", nlohmann::json::array({{{"type",0},{"row",1},{"column",1},
+                {"health",300},{"maxHealth",300},{"isSleeping",false}}})}};
+        const auto before = valid;
+        Check(LevelDocumentValidation::Validate(valid, error) && valid == before, "validation is read-only");
+        auto damaged = valid;
+        damaged["coldWaveHoldDuration"] = "broken";
+        Check(!LevelDocumentValidation::Validate(damaged,error) && error.find("/coldWaveHoldDuration") == 0,
+            "late Board field rejected before mutation");
+        damaged = valid;
+        damaged["plants"].push_back(valid["plants"][0]);
+        damaged["plants"][1]["isSleeping"] = "broken";
+        Check(!LevelDocumentValidation::Validate(damaged,error) && error.find("/plants/1/isSleeping") == 0,
+            "last entity field rejected before first entity creation");
+        damaged = valid;
+        damaged["plants"][0].erase("health");
+        Check(!LevelDocumentValidation::Validate(damaged,error), "missing required field rejected");
+        Check(LevelDocumentValidation::Validate(nlohmann::json::object(),error), "legacy optional fields accepted");
+    }
+
     /** 以外部存档表示检验整批重置、历史兼容、关卡门禁与失败预留撤销。 */
     void TestWaveCounts() {
         WaveSpawnCounts counts;
@@ -168,9 +279,20 @@ namespace {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
     TestRunoff();
+    TestWinterClimate();
+    TestNightRoofCycle();
+    TestLevelValidation();
     TestFogWeather();
     TestWaveCounts();
+    for (int i = 1; i < argc; ++i) {
+        std::ifstream input(argv[i]);
+        nlohmann::json document; input >> document;
+        std::string error;
+        if (!LevelDocumentValidation::Validate(document, error)) {
+            std::cerr << argv[i] << ": " << error << '\n'; return 1;
+        }
+    }
     std::cout << "Board domain transitions and legacy persistence passed\n";
 }

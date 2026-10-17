@@ -65,7 +65,7 @@ void FogFerryZombie::EmitChannelPulse()
 void FogFerryZombie::Update()
 {
     if (!mIsPreview && mBoard && !DeltaTime::IsPaused()
-        && mBoard->mBoardState == BoardState::GAME && !mBoard->mTrophySpawned
+        && mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned
         && IsActive() && !IsDying()) {
         if (!HasHead() || IsMindControlled()) CancelChannel(true, true);
         else if (mPhase != Phase::DISABLED && !IsImmobilized() && !IsTangleKelpTarget()

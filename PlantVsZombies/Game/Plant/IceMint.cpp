@@ -16,7 +16,7 @@ void IceMint::SetupPlant()
 
 void IceMint::PlantUpdate()
 {
-	if (mIsPreview || !mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->mTrophySpawned) return;
+	if (mIsPreview || !mBoard || mBoard->GetState() != BoardState::GAME || mBoard->mTrophySpawned) return;
 	mProductionRemaining -= DeltaTime::GetDeltaTime();
 	const bool ice = mBoard->IsColdStorage();
 	while (mProductionRemaining <= 0.0f) {

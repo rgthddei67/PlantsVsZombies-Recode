@@ -63,7 +63,11 @@ Board 保留玩法权威和实体协调，独立机制可由其具名值对象�
 
 `FogWeather` 独占雾势周期、已提交预报、风致驱散/漂移与 Save/Load；Board 负责地图资格、暴风雨夜锁定、气象站设备控制和展示提示。逐格 alpha 留在 Board，作为当前雾势、驱散和路灯花照明的派生缓存，实体恢复完成后重建；不保存第二份玩法状态。
 
+`WinterClimate` 拥有寒潮计划、温度曲线、预报隐藏状态与 Save/Load；Board 负责地图资格、冰点跨越后的雨雪表现和实体通知。`NightRoofChargeCycle` 只持积累、余电与阶段计时，Board 在其唯一放电边沿处理路线/劫持者/伤害；最后一秒动作发生在阶段提交前，恢复放电演出不重播命中。
+
 这些子域沿用既有 JSON 键和恢复语义，GameInfoSaver 通过 Board 窄入口组织文档。内部所有权迁移不要求改 schema；真正的存档结构变化仍走 SaveSchema。
+
+Board 的关卡阶段、当前波次和阳光为私有状态。外部读取走 `GetState/GetCurrentWave/GetSun`，生存选卡完成、过场退出存档、奖杯接收分别使用语义入口；不要恢复直接字段赋值或加一个通用 `SetState` 绕过这些边界。`GameInfoSaver` 仍可在受控恢复阶段写入持久状态，AutoTest 设阳光单独走测试入口。
 
 ### 游戏循环（`GameApp::Run`）
 
@@ -94,6 +98,8 @@ Board 保留玩法权威和实体协调，独立机制可由其具名值对象�
 使用 nlohmann/json 进行 JSON 序列化（`GameInfoSaver`）。植物和僵尸通过 `SaveExtraData(json&)`、`LoadExtraData(const json&)` 保存和恢复自定义状态。`PlayerInfo.json` 保存全局状态，`level{N}_data.json` 保存各关卡状态。Windows 通过 `FOLDERID_SavedGames` 写入系统“保存的游戏”目录（默认 `%USERPROFILE%\Saved Games\PlantsVsZombies\saves`）；Android 仍使用 `SDL_GetPrefPath`，Linux 暂沿用 `./saves/`。
 
 两类 JSON 根节点都写入独立的 `schemaVersion`，并在任何运行状态被修改前由纯逻辑 `SaveSchema` 事务式升级。缺版本的历史档视为 v0；高于当前程序的未来版本、非对象根节点或非法版本字段一律拒绝加载，失败时输入文档和游戏状态均不应被部分修改。新增持久化结构变化时，应在 `SaveSchema` 增加逐版本迁移并同步 `SaveSchemaTests`，不要把一次性兼容分支继续散落到对象恢复过程。
+
+关卡恢复先在文档副本上升级 schema，再由 `LevelDocumentValidation` 校验已登记的根字段与公共实体外壳，全部通过后才开始写场景。恢复阶段依次为 Board/环境、植物/小推车/僵尸、actor 引用、弹丸/卡槽等后置对象；`CompleteLoadRestore` 仍在 GameScene 完成开局或界面恢复之后重建派生缓存。新增直接读取的公共字段应登记对应类型/必填约束。该预检不替代品种 `extraData` 内部验证，也不保证资源创建异常或分配失败时全场景回滚。
 
 关卡 schema v33 为在途星弹保存 `starRoofReferenceY`，把发射高度与跨行位置分离；屋顶遮挡只随横向坡面高差改变。旧档缺少该信息时由迁移写入 null，按保存位置重新建立基准，不反推原发射植物；对象池复用必须按新发射点重算。入口为 `Bullet::CalculateStarRoofReferenceY` 与 `StarHitsRoof`。
 

@@ -19,6 +19,8 @@
 
 `smoke_framework_pipeline` 在真实 GOM 中分别运行小场景和足量活动对象，核实实际线程路径、动画预推进/提交/玩法阶段顺序，以及改变绘制排序不重排逻辑更新、同一步复用槽位不接收旧事件。`smoke_framework_shooter_resume` 自建射击前摇快照，覆盖低/高对象数下续播一次并返回待机；`smoke_framework_wave_counts` 专门覆盖狙击教程/复合关配额与往返，不依赖旧战斗数值脚本。`smoke_framework_fog_device` 覆盖气象站接管雾势后自然时钟停用，以及开雾/关雾存档往返。`board-domain-state` CTest 不启动资源系统，覆盖径流阶段、雾势预报与驱散、RNG 调用次序、旧存档字段、波次统一清零及教程/无尽恢复例外。运行中对象交互和视觉仍用对应 AutoTest 验证。
 
+`smoke_framework_load_rejection` 在已运行场景中通过正式加载入口注入后段环境字段、第二株植物、僵尸和卡牌的坏类型，逐次比较完整快照、读档标记和对象数，随后验证正常往返。`smoke_framework_station_charge` 使用无开场锁定的气象站关卡，验证设备启动、雷荷命中和放电存档恢复。`smoke_framework_board_transitions` 走正式轮清、词条放弃和选卡恢复，验证跨读档保留植物与阳光。`board-domain-state` 同时覆盖寒潮固定开幕不消费 RNG、温度曲线恢复、雷荷余电与一次性阶段边沿，以及结构预检的缺字段/坏类型；可传实际旧快照路径补充兼容检查。
+
 ## AutoTest 测试套件
 
 ### 指挥官经济预测诊断

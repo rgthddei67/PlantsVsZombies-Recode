@@ -21,7 +21,7 @@ void GameScene::CreateColdStorageShop()
 		button->SetEnabled(false);
 		button->SetSkipDraw(true);
 		button->SetClickCallBack([this, i](bool) {
-			if (!mBoard || mBoard->mBoardState != BoardState::GAME || DeltaTime::IsPaused()) return;
+			if (!mBoard || mBoard->GetState() != BoardState::GAME || DeltaTime::IsPaused()) return;
 			if (i == 0) {
 				mColdStorageShopOpen = !mColdStorageShopOpen;
 				if (mCardSlotManager) mCardSlotManager->DeselectCard();
@@ -36,7 +36,7 @@ void GameScene::CreateColdStorageShop()
 void GameScene::UpdateColdStorageShop()
 {
 	if (!mBoard || !mBoard->IsColdStorage()) return;
-	const bool active = mBoard->mBoardState == BoardState::GAME && !mBoard->mTrophySpawned;
+	const bool active = mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned;
 	for (int i = 0; i < 4; ++i) if (auto button = mColdStorageShopButtons[i].lock()) {
 		const bool visible = active && (i == 0 || mColdStorageShopOpen) && (i != 3 || mBoard->SupportsTemporalInterference());
 		button->SetEnabled(visible);
@@ -50,7 +50,7 @@ void GameScene::UpdateColdStorageShop()
 /** 在世界之后、按钮之前绘制场外面板和配送提示，保持可玩格与推车无遮挡。 */
 void GameScene::DrawColdStorageShop(Graphics* g)
 {
-	if (!mBoard || !mBoard->IsColdStorage() || mBoard->mBoardState != BoardState::GAME) return;
+	if (!mBoard || !mBoard->IsColdStorage() || mBoard->GetState() != BoardState::GAME) return;
 	const auto& ice = mBoard->mColdStorage;
 	mBoard->DrawColdStoragePrecisionStrike(g);
 	if (ice.interferenceRemaining > 0) {

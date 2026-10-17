@@ -18,7 +18,7 @@ void ColdPineapple::SetupPlant()
 void ColdPineapple::Update()
 {
 	// 领域与冷却按游戏时间推进；自身停机不能把已付款的强化无限延长。
-	if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME) {
+	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME) {
 		float delta = DeltaTime::GetDeltaTime();
 		mFeedbackRemaining = std::max(0.0f, mFeedbackRemaining - delta);
 		if (mActiveRemaining > 0.0f) {
@@ -39,7 +39,7 @@ void ColdPineapple::PlantUpdate()
 
 bool ColdPineapple::IsReadyToActivate() const
 {
-	return mBoard && mBoard->mBoardState == BoardState::GAME && !mBoard->mTrophySpawned && !DeltaTime::IsPaused()
+	return mBoard && mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned && !DeltaTime::IsPaused()
 		&& !mIsPreview && IsActive() && !IsSquished() && !IsBungeeTargeted()
 		&& !IsActionPaused() && mActiveRemaining <= 0.0f && mCooldownRemaining <= 0.0f;
 }

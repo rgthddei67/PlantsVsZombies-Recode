@@ -71,7 +71,7 @@ void GameProgress::Update()
 	if (mBoard && mUpdateTimer >= 0.4f)
 	{
 		mUpdateTimer = 0.0f;
-		int currentWave = mBoard->mCurrentWave;
+		int currentWave = mBoard->GetCurrentWave();
 		int maxWave = mBoard->mMaxWave;
 		mTargetSliderValue = 1.0f - (static_cast<float>(currentWave) / static_cast<float>(maxWave));
 	}
@@ -88,7 +88,7 @@ void GameProgress::Update()
 
 	// 检测波次变化，触发旗子升起
 	if (mBoard) {
-		int currentWave = mBoard->mCurrentWave;
+		int currentWave = mBoard->GetCurrentWave();
 		if (currentWave != m_lastWave && currentWave > 0 && currentWave % WAVES_PER_FLAG == 0) {
 			// SetupFlags 按第10、20……波的顺序保存旗子，所以波号可直接映射到索引。
 			int flagIndex = currentWave / WAVES_PER_FLAG - 1;
@@ -154,7 +154,7 @@ void GameProgress::SetupFlags(const Texture* stickTex, const Texture* flagTex)
 void GameProgress::InitializeRaisedFlags(float raiseY)
 {
 	if (!m_flagMeter || !mBoard) return;
-	const int raisedCount = std::min(mBoard->mCurrentWave / WAVES_PER_FLAG, m_flagCount);
+	const int raisedCount = std::min(mBoard->GetCurrentWave() / WAVES_PER_FLAG, m_flagCount);
 	for (int i = 0; i < raisedCount; ++i) {
 		m_flagMeter->SetFlagRaiseImmediate(i, raiseY);
 	}
@@ -169,7 +169,7 @@ void GameProgress::LowerAllFlags(float duration)
 		m_flagMeter->RaiseFlag(i, 0.0f, duration);
 	}
 	// 同步重置波次记录，避免 Update 中 currentWave 与 m_lastWave 的判定残留上一轮状态
-	m_lastWave = mBoard ? mBoard->mCurrentWave : 0;
+	m_lastWave = mBoard ? mBoard->GetCurrentWave() : 0;
 }
 
 void GameProgress::SnapProgressToCurrentWave()
@@ -180,7 +180,7 @@ void GameProgress::SnapProgressToCurrentWave()
 	int maxWave = mBoard->mMaxWave;
 	if (maxWave <= 0) return;
 
-	int currentWave = mBoard->mCurrentWave;
+	int currentWave = mBoard->GetCurrentWave();
 	float value = 1.0f - static_cast<float>(currentWave) / static_cast<float>(maxWave);
 
 	mTargetSliderValue = value;

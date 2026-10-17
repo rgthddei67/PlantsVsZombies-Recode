@@ -1,4 +1,5 @@
 #include "GameInfoSaver.h"
+#include "LevelDocumentValidation.h"
 #include "Utf8.h"
 #include "SaveLocation.h"
 #include "SaveMigration.h"
@@ -379,18 +380,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["weatherForecastReady"] = board->mWeatherForecastReady;
 	j["weatherForecastDisrupted"] = board->mWeatherForecastDisrupted;
 	j["weatherPanelInterferenceTimer"] = board->mWeatherPanelInterferenceTimer;
-	j["winterTemperatureInitialized"] = board->mWinterTemperatureInitialized;
-	j["openingColdWavePlanInitialized"] = board->mOpeningColdWavePlanInitialized;
-	j["coldWavePhase"] = static_cast<int>(board->mColdWavePhase);
-	j["coldWaveStrength"] = static_cast<int>(board->mColdWaveStrength);
-	j["coldWaveTimer"] = board->mColdWaveTimer;
-	j["ambientTemperatureC"] = board->mAmbientTemperatureC;
-	j["coldWaveTargetTemperatureC"] = board->mColdWaveTargetTemperatureC;
-	j["coldWaveCoolingDuration"] = board->mColdWaveCoolingDuration;
-	j["coldWaveHoldDuration"] = board->mColdWaveHoldDuration;
-	j["coldWaveThawDuration"] = board->mColdWaveThawDuration;
-	j["coldWaveForecastDisrupted"] = board->mColdWaveForecastDisrupted;
-	j["winterFrostVariant"] = board->mWinterFrostVariant;
+	board->SaveWinterClimate(j);
 	if (board->IsMineBackground()) {
 		j["mine"] = { {"layoutRevision", board->mMineGrid.layoutRevision}, {"rocks", board->mMineGrid.rock}, {"digCell", board->mMineDigCell},
 			{"digRemaining", board->mMineDigRemaining}, {"tutorialSeen", board->mMineTutorialSeen},
@@ -493,17 +483,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["stormyNightFlashPattern"] = board->mStormyNightFlashPattern;
 	j["stormyNightFlashTimer"] = board->mStormyNightFlashTimer;
 	board->SaveRoofRunoff(j);
-	j["nightRoofCharge"] = board->mNightRoofCharge;
-	j["nightRoofOvercharge"] = board->mNightRoofOvercharge;
-	j["nightRoofChargePhase"] = static_cast<int>(board->mNightRoofChargePhase);
-	j["nightRoofChargePhaseTimer"] = board->mNightRoofChargePhaseTimer;
-	j["nightRoofChargeRow"] = board->mNightRoofChargeRow;
-	j["nightRoofChargeGuided"] = board->mNightRoofChargeGuided;
-	j["nightRoofChargeGuideID"] = board->mNightRoofChargeGuideID;
-	j["nightRoofHijackerSelectionAttempted"] = board->mNightRoofHijackerSelectionAttempted;
-	j["nightRoofHijackerID"] = board->mNightRoofHijackerID;
-	j["nightRoofHijackerWarningExtended"] = board->mNightRoofHijackerWarningExtended;
-	j["nightRoofHijackerFinalizing"] = board->mNightRoofHijackerFinalizing;
+	board->SaveNightRoofCharge(j);
 	board->SaveFogWeather(j);
 	j["pendingHeavyTyphoonPrepared"] = board->mPendingHeavyTyphoonPrepared;
 	j["pendingHeavyTyphoonOpeningProtected"] =
@@ -890,6 +870,10 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		LOG_WARN("Save") << "拒绝加载关卡快照: " << schemaError;
 		return false;
 	}
+    if (!LevelDocumentValidation::Validate(j, schemaError)) {
+        LOG_WARN("Save") << "拒绝加载关卡字段: " << schemaError;
+        return false;
+    }
 	// 旧 3-1~3-9 存档使用五行或上移 40px 的泳池坐标；保留文件但拒绝加载，
 	// 避免绝对 Y 入档的清洁车、子弹等对象与新网格错层。
 	if (board->mLevel >= 19 && board->mLevel <= 27
@@ -898,6 +882,18 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		return false;
 	}
 
+    // 阶段顺序是加载契约：公共数据预检成功后才开始修改场景。
+    RestoreBoardDocument(board, j);
+    RestoreActorDocument(board, j);
+    ResolveRestoredActorReferences(board);
+    RestoreRemainingDocument(board, manager, j);
+    // CompleteLoadRestore 仍由 GameScene 在 StartGame/界面恢复后调用，避免提前重建展示缓存。
+
+	return true;
+}
+
+void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
+{
 	board->mIsLoadSave = true;		// 读档标记
 
 	// 恢复 Board 状态
@@ -1032,48 +1028,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		? std::clamp(j.value("weatherPanelInterferenceTimer", 0.0f), 0.0f,
 			board->GetMaximumWeatherPanelInterferenceDuration())
 		: 0.0f;
-	const int coldWavePhaseValue = j.value("coldWavePhase",
-		static_cast<int>(ColdWavePhase::CALM));
-	const bool validColdWavePhase = coldWavePhaseValue >= static_cast<int>(ColdWavePhase::CALM)
-		&& coldWavePhaseValue <= static_cast<int>(ColdWavePhase::THAWING);
-	const int coldWaveStrengthValue = j.value("coldWaveStrength",
-		static_cast<int>(ColdWaveStrength::STRONG));
-	const bool validColdWaveStrength = coldWaveStrengthValue
-		>= static_cast<int>(ColdWaveStrength::WEAK)
-		&& coldWaveStrengthValue <= static_cast<int>(ColdWaveStrength::STRONG);
-	board->mWinterTemperatureInitialized = board->SupportsWinterTemperature()
-		&& validColdWavePhase && validColdWaveStrength
-		&& j.value("winterTemperatureInitialized", false);
-	// v7 以前的关卡档把开幕寒潮视为尚未消费；恢复后的 StartGame 会从 12 秒倒计时重新排入。
-	board->mOpeningColdWavePlanInitialized = board->SupportsWinterTemperature()
-		&& j.value("openingColdWavePlanInitialized", false);
-	board->mColdWavePhase = board->mWinterTemperatureInitialized
-		? static_cast<ColdWavePhase>(coldWavePhaseValue) : ColdWavePhase::CALM;
-	board->mColdWaveStrength = board->mWinterTemperatureInitialized
-		? static_cast<ColdWaveStrength>(coldWaveStrengthValue) : ColdWaveStrength::STRONG;
-	board->mColdWaveTimer = board->mWinterTemperatureInitialized
-		? std::max(0.0f, j.value("coldWaveTimer", 0.0f)) : 0.0f;
-	board->mAmbientTemperatureC = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("ambientTemperatureC", 6.0f), -12.0f, 6.0f)
-		: 6.0f;
-	// 旧档缺少计划字段时沿用此前 -12°C/20s/32s 行为，平稳结束当前一轮后再进入新随机规则。
-	board->mColdWaveTargetTemperatureC = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("coldWaveTargetTemperatureC", -12.0f), -12.0f, 0.0f)
-		: -12.0f;
-	board->mColdWaveCoolingDuration = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("coldWaveCoolingDuration", 20.0f), 1.0f, 120.0f)
-		: 20.0f;
-	board->mColdWaveHoldDuration = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("coldWaveHoldDuration", 57.5f), 1.0f, 180.0f)
-		: 57.5f;
-	board->mColdWaveThawDuration = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("coldWaveThawDuration", 32.0f), 1.0f, 120.0f)
-		: 32.0f;
-	board->mColdWaveForecastDisrupted = board->mWinterTemperatureInitialized
-		&& board->mColdWavePhase == ColdWavePhase::CALM
-		&& j.value("coldWaveForecastDisrupted", false);
-	board->mWinterFrostVariant = board->mWinterTemperatureInitialized
-		? std::clamp(j.value("winterFrostVariant", 0), 0, 2) : 0;
+	board->LoadWinterClimate(j);
 	if (board->IsMineBackground() && j.contains("mine") && j["mine"].is_object()) {
 		const auto& mine = j["mine"];
 		// 旧档沿用自己的入口/岩壁模板，再应用已挖结果；不能把旧植物压进新地图的墙。
@@ -1385,24 +1340,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		board->mStormyNightFlashTimer = 0.0f;
 	}
 	board->LoadRoofRunoff(j);
-	const int nightRoofChargePhaseValue = j.value("nightRoofChargePhase",
-		static_cast<int>(NightRoofChargePhase::CHARGING));
-	const NightRoofChargePhase nightRoofChargePhase = nightRoofChargePhaseValue
-		>= static_cast<int>(NightRoofChargePhase::CHARGING)
-		&& nightRoofChargePhaseValue <= static_cast<int>(NightRoofChargePhase::DISCHARGING)
-		? static_cast<NightRoofChargePhase>(nightRoofChargePhaseValue)
-		: NightRoofChargePhase::CHARGING;
-	// 旧档缺雷荷字段时从空积累开始；活动阶段沿用已锁定路线、倒计时和余电，不重新抽取。
-	board->RestoreNightRoofChargeState(j.value("nightRoofCharge", 0.0f),
-		nightRoofChargePhase, j.value("nightRoofChargeRow", -1),
-		j.value("nightRoofChargePhaseTimer", 0.0f),
-		j.value("nightRoofOvercharge", 0.0f),
-		j.value("nightRoofHijackerSelectionAttempted", false),
-		j.value("nightRoofHijackerID", NULL_ZOMBIE_ID),
-		j.value("nightRoofHijackerWarningExtended", false),
-		j.value("nightRoofHijackerFinalizing", false),
-		j.value("nightRoofChargeGuided", false),
-		j.value("nightRoofChargeGuideID", NULL_ZOMBIE_ID));
+	board->LoadNightRoofCharge(j);
 	// 旧版天气存档没有该字段时按 false：少一次增强机会比读档后凭空再增强更稳妥。
 	board->mRainCanIntensify = board->mRainIntensity == RainIntensity::LIGHT
 		&& j.value("rainCanIntensify", false);
@@ -1499,6 +1437,10 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->mEntityRegistry.SetNextCoinID(j.value("nextCoinID", 1));
 	board->mEntityRegistry.SetNextMowerID(j.value("nextMowerID", 1));
 
+}
+
+void GameInfoSaver::RestoreActorDocument(Board* board, const nlohmann::json& j)
+{
 	// 压扁残影、离地倭瓜与后来补种的植物可以同格共存。先恢复并释放非占格实体，
 	// 再恢复正常植物，避免无序存档数组令旧实体的创建过程覆盖同格新植物 ID。
 	const auto savedPlants = j.value("plants", nlohmann::json::array());
@@ -1646,6 +1588,10 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		}
 	}
 
+}
+
+void GameInfoSaver::ResolveRestoredActorReferences(Board* board)
+{
 	// 验证僵尸进食状态（防止植物不存在时崩溃）
 	for (int id : board->mEntityRegistry.GetAllZombieIDs()) {
 		auto zombie = board->mEntityRegistry.GetZombie(id);
@@ -1656,6 +1602,10 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->FinalizeNightRoofHijackerLoad();
 	board->FinalizeIceStatueExecutionerLoad();
 
+}
+
+void GameInfoSaver::RestoreRemainingDocument(Board* board, CardSlotManager* manager, const nlohmann::json& j)
+{
 	// 恢复子弹
 	for (auto& b : j.value("bullets", nlohmann::json::array())) {
 		const BulletType type = static_cast<BulletType>(b["type"].get<int>());
@@ -1878,8 +1828,6 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	if (board->mCurrentWave > 0 && board->GetPresentation()) {
 		board->GetPresentation()->RestoreWaveProgress();
 	}
-
-	return true;
 }
 
 bool GameInfoSaver::LoadLevelDataImpl(Board* board, CardSlotManager* manager)
@@ -1935,7 +1883,7 @@ bool GameInfoSaver::DeleteLevelData(int level)
 // 公有存档/读档接口统一包一层 try/catch：任何序列化异常（nlohmann 的 type_error/
 // parse_error、缺键、类型不符等，均派生自 std::exception）都转成返回 false（沿用既有
 // “失败”契约），不再逸出到 CrashHandler 直接崩坏整个游戏。
-// 注意：LoadLevelData 中途抛异常时 Board 可能已部分加载（mIsLoadSave/已建实体不会回滚），
+// 根字段/公共实体外壳先预检；品种 extraData 或资源创建中途抛异常时仍可能部分加载，
 // 返回 false 仅保证“不崩”；调用方应把 false 视为读档失败、按全新关卡处理。
 bool GameInfoSaver::SavePlayerInfo()
 {
@@ -2126,4 +2074,32 @@ void GameInfoSaver::ClearAlmanacReturn()
 	mAlmanacReturnDocument = nullptr;
 	mAlmanacReturnLevel = -1;
 	mAlmanacReturnQueued = false;
+}
+
+bool GameInfoSaver::ProbeRejectedLevelLoad(Board* board, CardSlotManager* manager,
+    const std::string& pointer, const nlohmann::json& value, std::string& error)
+{
+    if (!GameAPP::mAutoTestMode || !board || !manager) { error = "load probe requires AutoTest scene"; return false; }
+    try {
+        nlohmann::json before, after;
+        if (!SerializeLevelDocument(board, manager, before)) return false;
+        auto damaged = before;
+        const nlohmann::json::json_pointer field(pointer);
+        if (!damaged.contains(field)) { error = "load probe field not present: " + pointer; return false; }
+        damaged[field] = value;
+        const bool loading = board->IsLoadRestoreActive();
+        const auto objectCount = GameObjectManager::GetInstance().GetAllGameObjects().size();
+        // 同步调用正式入口，不切场景、不推进游戏时间；失败不能留下新实体或读档标记。
+        const bool accepted = DeserializeLevelDocument(board, manager, std::move(damaged));
+        if (!SerializeLevelDocument(board, manager, after)) return false;
+        if (accepted || before != after || loading != board->IsLoadRestoreActive()
+            || objectCount != GameObjectManager::GetInstance().GetAllGameObjects().size()) {
+            error = "rejected load modified scene or accepted invalid field: " + pointer;
+            return false;
+        }
+        return true;
+    } catch (const std::exception& e) {
+        error = std::string("load rejection probe threw: ") + e.what();
+        return false;
+    }
 }

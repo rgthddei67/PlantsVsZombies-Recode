@@ -71,7 +71,7 @@ void EliteLadderZombie::Update()
 {
 	LadderZombie::Update();
 	if (mRowScanComplete || mIsPreview || mIsDying || !IsActive() || !mBoard
-		|| IsParalyzed() || mBoard->mBoardState != BoardState::GAME) {
+		|| IsParalyzed() || mBoard->GetState() != BoardState::GAME) {
 		return;
 	}
 

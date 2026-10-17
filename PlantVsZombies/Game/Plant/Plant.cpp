@@ -238,7 +238,7 @@ void Plant::RestoreFloodSlow(float seconds) {
 
 void Plant::Update()
 {
-    if(!mIsPreview && mBoard && mBoard->mBoardState==BoardState::GAME) {
+    if(!mIsPreview && mBoard && mBoard->GetState()==BoardState::GAME) {
         mFloodSlowRemaining=std::max(0.0f,mFloodSlowRemaining-DeltaTime::GetDeltaTime());
     }
 	if (!mIsPreview && mUnyieldingRootsTimer > 0.0f) {
@@ -259,13 +259,13 @@ void Plant::Update()
 		mSleepIndicatorAnimator->Update();
 	}
 	if (mIsSquished) {
-		if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME) {
+		if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME) {
 			UpdateSquish();
 		}
 		return;
 	}
 	UpdateGridMoveVisual();
-	if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME) {
+	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME) {
 		if (mShutdownTimer > 0.0f) {
 			mShutdownTimer = std::max(0.0f,
 				mShutdownTimer - DeltaTime::GetDeltaTime());
@@ -275,7 +275,7 @@ void Plant::Update()
 	// 仅在对战进行中(GAME)才跑行为逻辑：生存轮间选卡(CHOOSE_CARD)时场上保留的植物应冻结，
 	// 否则向日葵会继续产阳光、射手继续计时等。WIN/LOSE 同理不再行动。
 	if (!actionPaused && !mIsPreview && !mIsSleeping && !IsBungeeTargeted() &&
-		mBoard && mBoard->mBoardState == BoardState::GAME) {
+		mBoard && mBoard->GetState() == BoardState::GAME) {
 		PlantUpdate();
 	}
 }

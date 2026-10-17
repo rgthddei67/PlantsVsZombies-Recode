@@ -42,7 +42,7 @@ void ColdChainGuardZombie::ResolvePlantAshDamage(int damage)
 void ColdChainGuardZombie::Update()
 {
 	Zombie::Update();
-	if (mIsPreview || !mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->mTrophySpawned
+	if (mIsPreview || !mBoard || mBoard->GetState() != BoardState::GAME || mBoard->mTrophySpawned
 		|| DeltaTime::IsPaused() || !IsActive() || IsDying() || !HasHead() || !HasIceShield()
 		|| IsImmobilized() || IsTangleKelpTarget()) return;
 	mRepairRemaining -= DeltaTime::GetDeltaTime();

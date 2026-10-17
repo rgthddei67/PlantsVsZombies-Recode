@@ -560,7 +560,7 @@ int GameAPP::Run()
 					mGameInfoSaver.SavePlayerInfo();
 					if (auto* game = dynamic_cast<GameScene*>(sceneManager.GetCurrentScene())) {
 						if (game->GetBoard() && game->GetCardSlotManager()
-							&& game->GetBoard()->mBoardState == BoardState::GAME) {
+							&& game->GetBoard()->GetState() == BoardState::GAME) {
 							mGameInfoSaver.SaveLevelData(game->GetBoard(), game->GetCardSlotManager());
 						}
 					}

@@ -151,5 +151,5 @@ float Plantern::GetCurrentBurnRate() const
 
 float Plantern::GetBurnRate(PlanternGear gear) const
 {
-	return PlanternRules::BurnRate(gear,mBoard ? PlanternRules::Scarcity(mBoard->IsWeatherStation(),mBoard->mCurrentWave,mBoard->GetMistFuelScarcityFactor()) : 0.0f);
+	return PlanternRules::BurnRate(gear,mBoard ? PlanternRules::Scarcity(mBoard->IsWeatherStation(),mBoard->GetCurrentWave(),mBoard->GetMistFuelScarcityFactor()) : 0.0f);
 }

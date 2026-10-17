@@ -51,7 +51,7 @@ void Trophy::SetOnClickBack(ClickableComponent* click)
 
 		mIsGrowing = true;
 		mIsMoving = true;
-		mBoard->mBoardState = BoardState::WIN;
+		mBoard->AcceptTrophy();
 		AudioSystem::StopMusic();
 		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_WINMUSIC, 0.5f);
 		auto& gameApp = GameAPP::GetInstance();

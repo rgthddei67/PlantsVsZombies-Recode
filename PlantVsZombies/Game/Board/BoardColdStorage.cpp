@@ -1401,8 +1401,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
         search.fogLeftColumn=GetEffectiveFogLeftColumn();
 		if(search.weatherStation) {
 			search.stationWave=mCurrentWave;
-			search.station=mWeatherStation; search.stationCharge=mNightRoofCharge; search.stationOvercharge=mNightRoofOvercharge;
-			search.stationChargePhase=static_cast<int>(mNightRoofChargePhase); search.stationWarning=mNightRoofChargePhaseTimer;
+			search.station=mWeatherStation; search.stationCharge=mNightRoofChargeCycle.Charge(); search.stationOvercharge=mNightRoofChargeCycle.Overcharge();
+			search.stationChargePhase=static_cast<int>(mNightRoofChargeCycle.Phase()); search.stationWarning=mNightRoofChargeCycle.Timer();
 			search.stationRow=mNightRoofChargeRow; search.stationHijackerID=mNightRoofHijackerID; search.stationGuideID=mNightRoofChargeGuideID;
 			search.stationSelectionAttempted=mNightRoofHijackerSelectionAttempted; search.stationGuided=mNightRoofChargeGuided;
 			search.stationJammed=mWeatherPanelInterferenceTimer;
@@ -3268,7 +3268,7 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	mix(mWeatherStation.revision);
     if(IsWeatherStation()) {
         // 放电锁定及黑障切换会改变信息和受伤集合，旧环境方案不能跨此边沿提交。
-        mix(static_cast<unsigned>(mNightRoofChargePhase));
+        mix(static_cast<unsigned>(mNightRoofChargeCycle.Phase()));
         mix(static_cast<std::uint64_t>(mNightRoofHijackerID));
         mix(static_cast<std::uint64_t>(mNightRoofChargeGuideID));
         mix(IsWeatherPanelInterferenceActive());
@@ -3350,7 +3350,7 @@ std::uint64_t Board::ColdStorageStallStamp() const
 	mix(mColdStorage.spent); mix(mColdStorage.decisions); mix(mColdStorage.workerIncome); mix(mColdStorage.killIncome);
 	mix(static_cast<unsigned>(mRainIntensity)); mix(static_cast<unsigned>(GetFogWeatherIntensity()));
 	mix(static_cast<unsigned>(mTyphoonStrength)); mix(static_cast<unsigned>(mWindDirection));
-	mix(static_cast<unsigned>(mColdWavePhase)); mix(static_cast<unsigned>(mPolarNightPhase));
+	mix(static_cast<unsigned>(mWinterClimate.Phase())); mix(static_cast<unsigned>(mPolarNightPhase));
 	for(int id:mEntityRegistry.GetAllPlantIDs()) {
 		const auto* plant=mEntityRegistry.GetPlant(id);
 		if(plant && plant->IsActive()) {mix(id); mix(plant->mPlantHealth); mix(plant->mPlantMaxHealth);}

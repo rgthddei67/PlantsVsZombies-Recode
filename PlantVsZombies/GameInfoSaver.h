@@ -51,6 +51,10 @@ public:
 	bool ConsumeAutoTestLevelSnapshotLoadResult(std::string& error);
 	void CancelAutoTestLevelSnapshotLoad();
 
+    /** AutoTest 在当前场景注入一个损坏字段，验证正式加载拒绝且完整状态和对象数量不变。 */
+    bool ProbeRejectedLevelLoad(Board* board, CardSlotManager* manager,
+        const std::string& pointer, const nlohmann::json& value, std::string& error);
+
 private:
 	// 实际序列化逻辑（须为成员：Board 仅 friend 本类，自由函数无私有成员访问权）。
 	// 上面的公有接口只做一层 try/catch 包裹，详见 .cpp 的“异常安全边界”。
@@ -68,6 +72,15 @@ private:
 	/** 文件存档与临时图鉴快照共用的 JSON 数据契约。 */
 	static bool SerializeLevelDocument(Board* board, CardSlotManager* manager, nlohmann::json& document);
 	static bool DeserializeLevelDocument(Board* board, CardSlotManager* manager, nlohmann::json document);
+    /** 恢复 Board/地形/环境与 ID 计数器，不创建战斗实体。 */
+    static void RestoreBoardDocument(Board* board, const nlohmann::json& document);
+    /** 依次恢复植物、小推车与僵尸；植物非占格状态先于正常占格状态。 */
+    static void RestoreActorDocument(Board* board, const nlohmann::json& document);
+    /** 全部 actor 已注册后恢复啃食和已提交锁定，不重新选目标。 */
+    static void ResolveRestoredActorReferences(Board* board);
+    /** 恢复弹丸、收集物、卡槽与后置场景状态，保留旧加载次序。 */
+    static void RestoreRemainingDocument(Board* board, CardSlotManager* manager, const nlohmann::json& document);
+
 	nlohmann::json mAlmanacReturnDocument;
 	int mAlmanacReturnLevel = -1;
 	bool mAlmanacReturnQueued = false;

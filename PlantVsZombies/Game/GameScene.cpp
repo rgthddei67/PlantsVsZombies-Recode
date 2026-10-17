@@ -1247,7 +1247,7 @@ void GameScene::DrawLightningStrike(Graphics* g) const
 /** 用未缩放时间推进天气面板与失败提示，使游戏倍速不改变 UI 动画观感。 */
 void GameScene::UpdateWeatherUi(float deltaTime)
 {
-	const bool shouldShow = mBoard && mBoard->mBoardState == BoardState::GAME
+	const bool shouldShow = mBoard && mBoard->GetState() == BoardState::GAME
 		&& mBoard->SupportsWeather();
 	const float direction = shouldShow ? 1.0f : -1.0f;
 	mWeatherPanelSlide = std::clamp(mWeatherPanelSlide
@@ -1268,7 +1268,7 @@ void GameScene::UpdateWeatherUi(float deltaTime)
 /** 在天气栏之外常驻绘制冬日花园温度计，并明确标出三条玩法阈值。 */
 void GameScene::DrawWinterThermometer(Graphics* g) const
 {
-	if (!g || !mBoard || mBoard->mBoardState != BoardState::GAME
+	if (!g || !mBoard || mBoard->GetState() != BoardState::GAME
 		|| !mBoard->SupportsWinterTemperature()) return;
 	const Texture* frame = ResourceManager::GetInstance().GetTexture(
 		ResourceKeys::Textures::IMAGE_WINTER_THERMOMETER_FRAME_V1, false);
@@ -1351,7 +1351,7 @@ void GameScene::DrawWinterThermometer(Graphics* g) const
 /** 三只仪表始终读取 Board 当前实数；红色只表示阈值，不泄露隐藏计划。 */
 void GameScene::DrawPolarNightInstruments(Graphics* g) const
 {
-	if (!g || !mBoard || mBoard->mBoardState != BoardState::GAME
+	if (!g || !mBoard || mBoard->GetState() != BoardState::GAME
 		|| !mBoard->SupportsPolarNightEnvironment()) return;
 	constexpr float panelX = 7.0f;       // 帐篷侧观测站左缘，逻辑像素
 	constexpr float panelY = 405.0f;     // 与底部文字留出余量，保持三只仪表完整可读
@@ -1752,7 +1752,7 @@ RoofMarshalBossHealthBarState GameScene::GetRoofMarshalBossHealthBarState() cons
 	state.height = kRoofMarshalBossBarHeight;
 	state.x = (static_cast<float>(SCENE_WIDTH) - state.width) * 0.5f;
 	state.y = kRoofMarshalBossBarY;
-	if (!mBoard || mBoard->mBoardState != BoardState::GAME) return state;
+	if (!mBoard || mBoard->GetState() != BoardState::GAME) return state;
 
 	const auto marshal = mBoard->mEntityRegistry.GetFirstActiveRoofMarshal();
 	if (!marshal || marshal->mBodyHealth <= 0 || marshal->mBodyMaxHealth <= 0) {
@@ -2048,7 +2048,7 @@ void GameScene::BuildDrawCommands()
 			LAYER_UI + 10000);
 
 		// 读档恢复时，board 已处于 GAME 状态，需在此重新注册 UI 文字命令
-		if (mBoard->mBoardState == BoardState::GAME) {
+		if (mBoard->GetState() == BoardState::GAME) {
 			RegisterDrawCommand("ZombieNumber",
 				[this](Graphics* g) {
 					auto& gameApp = GameAPP::GetInstance();
@@ -2061,14 +2061,14 @@ void GameScene::BuildDrawCommands()
 
 			RegisterDrawCommand("LevelName",
 				[this](Graphics* g) {
-					if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
+					if (!mBoard || mBoard->GetState() != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 					DrawLevelName(GameAPP::GetInstance(), mBoard->mLevelName, mBoard->mIsSurvival || MiniGame::IsMiniGame(mBoard->mLevel));
 				},
 				LAYER_UI);
 
 			RegisterDrawCommand("Difficulty",
 				[this](Graphics* g) {
-					if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
+					if (!mBoard || mBoard->GetState() != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 					auto& gameApp = GameAPP::GetInstance();
 					gameApp.DrawText("难度: " + std::to_string(gameApp.Difficulty),
 						Vector(1030, 575), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 21);
@@ -2082,8 +2082,8 @@ void GameScene::BuildDrawCommands()
 
 	RegisterDrawCommand("MiniGameRules", [this](Graphics*) {
 		if (!mBoard || !MiniGame::IsLastSavings(mBoard->mLevel)
-			|| mBoard->mBoardState != BoardState::GAME) return;
-		const std::string text = mBoard->mCurrentWave == 0
+			|| mBoard->GetState() != BoardState::GAME) return;
+		const std::string text = mBoard->GetCurrentWave() == 0
 			? "布阵剩余 " + std::to_string(static_cast<int>(std::ceil(mBoard->mZombieCountDown))) + " 秒 · 本局不再获得阳光"
 			: "守住十波 · 阳光用完就没有补给了！";
 		auto& app = GameAPP::GetInstance();
@@ -2178,7 +2178,7 @@ void GameScene::OnEnter() {
 	// 地形在 Board 构造与读档后已经确定；选卡/镜头演出期间后台解析完整 MO3 分轨。
 	mBoard->PrepareBackgroundMusic();
 
-	if (mBoard->mBoardState == BoardState::GAME) {
+	if (mBoard->GetState() == BoardState::GAME) {
 		// 跳过选卡和开场动画，直接进入游戏
 		GameAPP::GetInstance().GetGraphics().SetCameraPosition(0, 0);
 		mCurrentStage = IntroStage::FINISH;
@@ -2191,7 +2191,7 @@ void GameScene::OnEnter() {
 		// （触发小推车需僵尸、僵尸需波次≥1），故"第1轮+第0波+无小推车" 只可能是 committed-pan。
 		// 第 2 轮起小推车从第 1 轮保留、已在存档中，不进此分支（mIsLoadSave 维持 true，绝不重建）。
 		if (mBoard->mIsSurvival && mBoard->mSurvivalRound == 1
-			&& mBoard->mCurrentWave == 0
+			&& mBoard->GetCurrentWave() == 0
 			&& mBoard->mEntityRegistry.GetAllMowerIDs().empty()) {
 			mBoard->CompleteLoadRestore();
 		}
@@ -2219,7 +2219,7 @@ void GameScene::OnEnter() {
 	if (GameAPP::mAutoTestMode && !TestDriver::GetInstance().ColdStorageBonusSelection())
 		mBoard->SelectColdStorageOpeningBonus(ColdStorageOpeningBonus::NONE);
 	// 戴夫在支援选择结束后再进入，避免两个开场流程同时拥有输入。
-	if (mBoard->mBoardState == BoardState::CHOOSE_CARD
+	if (mBoard->GetState() == BoardState::CHOOSE_CARD
 		&& !mBoard->mIsSurvival
 		&& (!GameAPP::mAutoTestMode || TestDriver::GetInstance().AdventureEntryNotices())
 		&& !mBoard->NeedsColdStorageOpeningBonus()) {
@@ -2235,12 +2235,12 @@ void GameScene::OnExit() {
 	// 才翻成 GAME 的这 3 秒窗口里退出——此刻卡已提交、本轮在即，逻辑上已"进入游戏"。
 	// 按 GAME 持久化，避免重进被误判为"仍在选卡"而重播选卡（卡槽还原committed卡 → 可重复选卡的错乱）。
 	// 仅 survival 分支：普通模式过场期 mBoardState 同为 CHOOSE_CARD，但 mIsSurvival=false 不进此分支，行为零改动。
-	if (mBoard->mIsSurvival && mBoard->mBoardState == BoardState::CHOOSE_CARD
+	if (mBoard->mIsSurvival && mBoard->GetState() == BoardState::CHOOSE_CARD
 		&& mCurrentStage == IntroStage::READY_SET_PLANT) {
-		mBoard->mBoardState = BoardState::GAME;
+		mBoard->MarkSurvivalRoundCommittedForSave();
 	}
-	const bool saveState = (mBoard->mBoardState == BoardState::GAME) ||
-		(mBoard->mIsSurvival && mBoard->mBoardState == BoardState::CHOOSE_CARD);
+	const bool saveState = (mBoard->GetState() == BoardState::GAME) ||
+		(mBoard->mIsSurvival && mBoard->GetState() == BoardState::CHOOSE_CARD);
 	if (saveState && !mReadyToRestart) {
 		gameApp.mGameInfoSaver.SaveLevelData
 		(mBoard.get(), mCardSlotManager.get());
@@ -2315,7 +2315,7 @@ void GameScene::OpenMenu()
 /** 空格键只拥有轻量暂停；完整菜单和其他暂停模态打开时不会被它意外解除。 */
 void GameScene::ToggleSpacePause()
 {
-	if (!mBoard || mBoard->mBoardState != BoardState::GAME) return;
+	if (!mBoard || mBoard->GetState() != BoardState::GAME) return;
 	if (mOpenMenu || mOpenRestartMenu || mOpenQuitMenu
 		|| mSurvivalPerkSelectActive || mPerkViewActive || mDevPanelActive) return;
 
@@ -2394,7 +2394,7 @@ void GameScene::Update() {
 		return;
 	}
 	// OnEnter 中 SceneManager 尚未挂接新场景；首个 Update 才可由 Builder 找到正确 UIManager。
-	if (!mColdStorageBonusSelectActive && mBoard && mBoard->mBoardState == BoardState::CHOOSE_CARD
+	if (!mColdStorageBonusSelectActive && mBoard && mBoard->GetState() == BoardState::CHOOSE_CARD
 		&& mBoard->NeedsColdStorageOpeningBonus())
 		BeginColdStorageOpeningBonusSelect();
 	if (mColdStorageBonusSelectActive) {
@@ -2408,7 +2408,7 @@ void GameScene::Update() {
 	}
     // 首次敌方设备指令采用独立已读位，不重播开局教材；整段期间不推进Scene/Board。
     if(mBoard && mBoard->IsWeatherStation() && !GameAPP::mAutoTestMode
-        && mBoard->mBoardState==BoardState::GAME && (!mCrazyDaveDialog || !mCrazyDaveDialog->IsActive())) {
+        && mBoard->GetState()==BoardState::GAME && (!mCrazyDaveDialog || !mCrazyDaveDialog->IsActive())) {
         auto& app=GameAPP::GetInstance();
         const unsigned unseen=mBoard->mWeatherStation.enemyUsedMask & ~app.mStationCounterTutorialsSeen;
         for(int device=0;device<3;++device) if(unseen & (1u<<device)) {
@@ -2496,7 +2496,7 @@ void GameScene::Update() {
 		if (!devConsumedEsc && input.IsKeyPressed(SDLK_SPACE)) {
 			ToggleSpacePause();
 		}
-		else if (mBoard->mBoardState != BoardState::LOSE_GAME
+		else if (mBoard->GetState() != BoardState::LOSE_GAME
 			&& !mOpenRestartMenu && !mOpenQuitMenu && !devConsumedEsc
 			&& input.IsKeyPressed(SDLK_ESCAPE)) {
 			if (mBoard->IsCobCannonTargeting()) {
@@ -2522,7 +2522,7 @@ void GameScene::Update() {
 			break;
 		case IntroStage::BACKGROUND_MOVE:
 		{
-			if (mBoard->mBoardState != BoardState::CHOOSE_CARD) break;
+			if (mBoard->GetState() != BoardState::CHOOSE_CARD) break;
 
 			if (!mHasEnter) {
 				mAnimElapsed += deltaTime;
@@ -2650,11 +2650,7 @@ void GameScene::Update() {
 					// 生存轮间：铲子/小推车/音乐已存在，不重建，只恢复波次推进
 					mSurvivalRoundTransition = false;
 					if (mBoard) {
-						mBoard->DestroyPreviewZombies();   // 清掉选卡阶段的预览僵尸
-						mBoard->mBoardState = BoardState::GAME;
-
-						// 切回音乐
-						mBoard->PlayBackgroundMusic();
+						mBoard->ResumeSurvivalRoundAfterSelection();
 					}
 					// 恢复铲子显示
 					if (mShovelUI) mShovelUI->SetActive(true);
@@ -3286,13 +3282,13 @@ void GameScene::RegisterSurvivalGameUiOnce()
 		LAYER_UI);
 	RegisterDrawCommand("LevelName",
 		[this](Graphics* g) {
-			if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
+			if (!mBoard || mBoard->GetState() != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 			DrawLevelName(GameAPP::GetInstance(), mBoard->mLevelName, mBoard->mIsSurvival || MiniGame::IsMiniGame(mBoard->mLevel));
 		},
 		LAYER_UI);
 	RegisterDrawCommand("Difficulty",
 		[this](Graphics* g) {
-			if (!mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
+			if (!mBoard || mBoard->GetState() != BoardState::GAME || mBoard->IsColdStorage()) return;  // 冷藏站由专属资源栏显示关卡与波数
 			auto& gameApp = GameAPP::GetInstance();
 			gameApp.DrawText("难度: " + std::to_string(gameApp.Difficulty),
 				Vector(1030, 575), { 0,0,0,255 }, ResourceKeys::Fonts::FONT_FZCQ, 21);
@@ -3348,7 +3344,7 @@ void GameScene::TogglePlanternGearMenu()
 
 void GameScene::GameOver()
 {
-	if (mBoard->mBoardState == BoardState::LOSE_GAME) return;
+	if (mBoard->GetState() == BoardState::LOSE_GAME) return;
 
 	mBoard->mCursorObjectManager.ClearActive();
 	GameAPP::GetInstance().mGameInfoSaver.DeleteLevelData(mBoard.get());
@@ -3550,8 +3546,8 @@ void GameScene::DevJumpToLevel(int level)
 void GameScene::DevTriggerNextWave()
 {
 	// 面板不关闭（按钮 autoClose=false）：直接走出波入口，暂停中也立即生成，连点连出多波
-	if (mBoard && mBoard->mBoardState == BoardState::GAME
-		&& (mBoard->IsColdStorage() || mBoard->mCurrentWave < mBoard->mMaxWave)) {
+	if (mBoard && mBoard->GetState() == BoardState::GAME
+		&& (mBoard->IsColdStorage() || mBoard->GetCurrentWave() < mBoard->mMaxWave)) {
 		mBoard->SummonNextWave();
 	}
 }

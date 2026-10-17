@@ -776,7 +776,7 @@ void TestDriver::AttemptCommanderDiagnosticPurchase(Board& board,Json& record) {
 	if(!mixed) for(const auto* key:{"typeID","unlockWave","unitCost"}) record[key]=record["members"][0][key];
 	if(!record["failedMember"].is_null()) {reject("type_not_in_pool");return;}
 	record["requestedCost"]=bill;
-	if(board.mBoardState!=BoardState::GAME || board.mTrophySpawned || DeltaTime::IsPaused()) {reject("not_running");return;}
+	if(board.GetState()!=BoardState::GAME || board.mTrophySpawned || DeltaTime::IsPaused()) {reject("not_running");return;}
 	if(GameAPP::mDevSpawnPaused) {reject("spawn_paused");return;}
 	if(state.elapsed<mEpisodeDiagnosticOpeningUntil) {reject("opening_preparation");return;}
 	// Busy 也包含已计算完但尚未领取的结果；拒绝而非取消/抢先领取，避免旧案在诊断后交错付款。
@@ -953,7 +953,7 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	auto* scene = dynamic_cast<GameScene*>(SceneManager::GetInstance().GetCurrentScene());
 	auto* board = scene ? scene->GetBoard() : nullptr;
 	if (!board || !board->IsColdStorage()) { Fail("commander_episode requires cold storage"); return false; }
-	const bool terminal = board->mBoardState == BoardState::LOSE_GAME || board->mTrophySpawned;
+	const bool terminal = board->GetState() == BoardState::LOSE_GAME || board->mTrophySpawned;
 	// 正式判负会暂停时钟；先接收胜负，再检查比赛中是否被改速或手动暂停。
 	if (!terminal && (DeltaTime::GetTimeScale() != timeScale || DeltaTime::IsPaused())) {
 		Fail("commander_episode: speed differs from declared timeScale"); return false;
@@ -1109,9 +1109,9 @@ bool TestDriver::ExecuteCommanderEpisode(const nlohmann::json& command) {
 	if(mEpisodeTicks % observationTicks != 0) {mEpisodeTicks+=timeScale;return false;}
 	// 模拟主人用 CE 在低阳光时再次补满；仅测试命令显式启用，不把未来补款泄露给 AI。
 	// 记录每一笔注入，普通训练/真人观察缺省不会进入此分支，灰烬冷却和冰块仍走正式规则。
-	if (refillBelow >= 0 && board->mSun <= refillBelow) {
-		mEpisodeSunRefills.push_back({{"seconds",mEpisodeTicks/60.0},{"before",board->mSun},{"after",refillTo},{"added",refillTo-board->mSun}});
-		board->mSun = refillTo; full["sun"] = refillTo;
+	if (refillBelow >= 0 && board->GetSun() <= refillBelow) {
+		mEpisodeSunRefills.push_back({{"seconds",mEpisodeTicks/60.0},{"before",board->GetSun()},{"after",refillTo},{"added",refillTo-board->GetSun()}});
+		board->SetSunForTesting(refillTo); full["sun"] = refillTo;
 	}
 	// 盲炸信号来自公开钱包最近上涨；短暂保留便于先铲后种，不跨关卡或从隐身实体推断落点。
     const int observedIce=ice.at("enemyIce");

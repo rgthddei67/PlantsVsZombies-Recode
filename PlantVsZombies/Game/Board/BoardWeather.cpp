@@ -953,7 +953,7 @@ float Board::GetWeatherTransitionProgress() const
 float Board::GetRainAudioVolume() const
 {
 	if (SupportsWinterTemperature()
-		&& mAmbientTemperatureC <= GetWinterFreezingTemperatureC()) return 0.0f;
+		&& mWinterClimate.Temperature() <= GetWinterFreezingTemperatureC()) return 0.0f;
 	const float progress = GetWeatherTransitionProgress();
 	const float previous = RainVolumeForIntensity(mPreviousRainIntensity);
 	return previous + (RainVolumeForIntensity(mRainIntensity) - previous) * progress;
@@ -1157,10 +1157,7 @@ void Board::InitializeWeather()
 	mWeakWeatherPhasesSinceHeavy = 0;
 	mHeavyPhasesWithoutTyphoon = 0;
 	mRoofRunoff.Reset();
-	mNightRoofCharge = 0.0f;
-	mNightRoofOvercharge = 0.0f;
-	mNightRoofChargePhase = NightRoofChargePhase::CHARGING;
-	mNightRoofChargePhaseTimer = 0.0f;
+	mNightRoofChargeCycle.Reset();
 	mNightRoofChargeRow = -1;
 	mNightRoofChargeGuided = false;
 	mNightRoofChargeGuideID = NULL_ZOMBIE_ID;
@@ -1262,7 +1259,7 @@ bool Board::IsRainEffectEmitting() const
 void Board::StartRainAudio()
 {
 	if (SupportsWinterTemperature()
-		&& mAmbientTemperatureC <= GetWinterFreezingTemperatureC()) {
+		&& mWinterClimate.Temperature() <= GetWinterFreezingTemperatureC()) {
 		StopRainAudio();
 		return;
 	}

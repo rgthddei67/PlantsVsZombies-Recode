@@ -4030,3 +4030,26 @@ void Board::LoadWaveSpawnCounts(const nlohmann::json& document) {
 	RestoreThermalSniperSpawnState(mWaveSpawnCounts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER),
 		document.value("thermalSniperTutorialSpawned", false));
 }
+
+void Board::ResumeSurvivalRoundAfterSelection()
+{
+    if (!mIsSurvival || mBoardState != BoardState::CHOOSE_CARD) return;
+    DestroyPreviewZombies();
+    mBoardState = BoardState::GAME;
+    PlayBackgroundMusic();
+}
+
+void Board::MarkSurvivalRoundCommittedForSave()
+{
+    if (mIsSurvival && mBoardState == BoardState::CHOOSE_CARD) mBoardState = BoardState::GAME;
+}
+
+void Board::AcceptTrophy()
+{
+    mBoardState = BoardState::WIN;
+}
+
+void Board::SetSunForTesting(int amount)
+{
+    mSun = std::min(amount, MAX_SUN);
+}

@@ -29,7 +29,7 @@ const std::string& IceStorageNut::GetCrackedTextureKey(int stage) const
 
 void IceStorageNut::Update()
 {
-	if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME && !DeltaTime::IsPaused()) {
+	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME && !DeltaTime::IsPaused()) {
 		const float delta = DeltaTime::GetDeltaTime();
 		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta);
 		mProtection.Advance(delta);
@@ -63,7 +63,7 @@ void IceStorageNut::PlantUpdate()
 
 bool IceStorageNut::IsReadyToActivate() const
 {
-	return mBoard && mBoard->mBoardState == BoardState::GAME && !mBoard->mTrophySpawned
+	return mBoard && mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned
 		&& !DeltaTime::IsPaused() && !mIsPreview && IsActive() && !IsSquished()
 		&& !IsBungeeTargeted() && !IsActionPaused() && mPlantHealth > 0
 		&& mPlantHealth < mPlantMaxHealth && mCooldownRemaining <= 0.0f;

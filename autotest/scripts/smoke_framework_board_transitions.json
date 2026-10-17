@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 1000, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 1},
+    {"op": "set_sun", "value": 777},
+    {"op": "force_survival_round_clear"},
+    {"op": "survival_perk_pick", "index": -1},
+    {"op": "survival_perk_pick", "index": -1},
+    {"op": "assert_state", "path": "boardState", "equals": "CHOOSE_CARD"},
+    {"op": "save_level_snapshot", "name": "between_rounds"},
+    {"op": "reload_level_snapshot", "name": "between_rounds"},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "assert_state", "path": "survivalRound", "equals": 2},
+    {"op": "assert_state", "path": "plantCount", "equals": 1},
+    {"op": "assert_state", "path": "sun", "equals": 777},
+    {"op": "save_level_snapshot", "name": "resumed_round"},
+    {"op": "reload_level_snapshot", "name": "resumed_round"},
+    {"op": "assert_state", "path": "boardState", "equals": "GAME"},
+    {"op": "assert_state", "path": "plantCount", "equals": 1},
+    {"op": "assert_state", "path": "sun", "equals": 777},
+    {"op": "dump_state", "name": "state.json"},
+    {"op": "quit"}
+  ]
+}

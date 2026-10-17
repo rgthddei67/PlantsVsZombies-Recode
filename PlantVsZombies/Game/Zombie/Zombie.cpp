@@ -566,7 +566,7 @@ void Zombie::Start()
 
 void Zombie::CheckWin() const
 {
-	if (mBoard && !mBoard->IsColdStorage() && mBoard->mCurrentWave >= mBoard->mMaxWave && mBoard->mZombieNumber <= 0)
+	if (mBoard && !mBoard->IsColdStorage() && mBoard->GetCurrentWave() >= mBoard->mMaxWave && mBoard->mZombieNumber <= 0)
 	{
 		WinGame();
 	}
@@ -694,7 +694,7 @@ void Zombie::Update()
 			mCheckPositionTimer = 0.0f;
 			Vector position = transform->GetPosition();
 			if (position.x <= GAMEOVER_X && CanTriggerGameOver()
-				&& mBoard->mBoardState == BoardState::GAME)
+				&& mBoard->GetState() == BoardState::GAME)
 			{
 				mBoard->GameOver();
 			}
@@ -1927,7 +1927,7 @@ void Zombie::StartMindControlled()
 	UpdateAnimSpeed();
 
 	// 如果是最后一波的最后一个僵尸，魅惑后就不会再有僵尸了，直接死亡
-	if (mBoard && !mBoard->IsColdStorage() && mBoard->mCurrentWave == mBoard->mMaxWave && mBoard->mZombieNumber == 1)
+	if (mBoard && !mBoard->IsColdStorage() && mBoard->GetCurrentWave() == mBoard->mMaxWave && mBoard->mZombieNumber == 1)
 	{
 		this->Die();
 	}

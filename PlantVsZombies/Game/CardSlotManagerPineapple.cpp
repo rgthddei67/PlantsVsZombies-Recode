@@ -104,7 +104,7 @@ void CardSlotManager::UpdatePlantAbilityInput()
 
 void CardSlotManager::DrawPlantAbilityMenu(Graphics* g)
 {
-	if (!g || !mBoard || mBoard->mBoardState != BoardState::GAME || mBoard->mTrophySpawned) return;
+	if (!g || !mBoard || mBoard->GetState() != BoardState::GAME || mBoard->mTrophySpawned) return;
 	if (mPlantAbilityHintRemaining > 0) {
 #if defined(__ANDROID__)
 		const char* hint = "菠萝／冰仓坚果：轻点发动，长按设置";

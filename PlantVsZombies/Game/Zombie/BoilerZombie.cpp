@@ -54,7 +54,7 @@ void BoilerZombie::ChangePhase(Phase phase, float duration)
 
 void BoilerZombie::Update()
 {
-	if (!mIsPreview && mBoard && mBoard->mBoardState == BoardState::GAME
+	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME
 		&& !DeltaTime::IsPaused() && IsActive() && !IsDying()) {
 		const float delta = DeltaTime::GetDeltaTime();
 		mRetryRemaining = std::max(0.0f, mRetryRemaining - delta);

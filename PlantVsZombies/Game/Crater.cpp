@@ -38,7 +38,7 @@ void Crater::Update()
 	GameObject::Update();
 
 	// 选卡期间 GameObjectManager 仍会更新场上对象；弹坑寿命只消耗实际战斗时间。
-	if (!mBoard || mBoard->mBoardState != BoardState::GAME) {
+	if (!mBoard || mBoard->GetState() != BoardState::GAME) {
 		return;
 	}
 

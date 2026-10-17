@@ -1074,6 +1074,15 @@ bool TestDriver::ExecuteCurrent() {
 		return false;
 	}
 
+    if (op == "probe_rejected_level_load") {
+        auto* scene = CurrentGameScene();
+        std::string error;
+        if (!scene || !GameAPP::GetInstance().mGameInfoSaver.ProbeRejectedLevelLoad(
+            scene->GetBoard(), scene->GetCardSlotManager(), cmd.value("path", ""), cmd.at("value"), error)) {
+            Fail("probe_rejected_level_load: " + error);
+        }
+        return true;
+    }
 	if (op == "probe_framework") {
 		std::string error;
 		if (!RunFrameworkProbe(cmd, error)) Fail(error);
@@ -1663,7 +1672,7 @@ bool TestDriver::ExecuteCurrent() {
 		if (!gs || !gs->GetBoard()) return false;
 		auto it = kBoardStateNames.find(cmd.value("state", ""));
 		if (it == kBoardStateNames.end()) { Fail("未知 BoardState: " + cmd.value("state", "")); return false; }
-		return gs->GetBoard()->mBoardState == it->second;
+		return gs->GetBoard()->GetState() == it->second;
 	}
 	if (op == "complete_mine_dig") {
 		GameScene* gs = CurrentGameScene();
@@ -1688,7 +1697,7 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "set_sun") {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard()) { Fail("set_sun: 不在 GameScene 或 Board 为空"); return false; }
-		gs->GetBoard()->mSun = std::min(cmd.value("value", 0), MAX_SUN);
+		gs->GetBoard()->SetSunForTesting(cmd.value("value", 0));
 		return true;
 	}
 	if (op == "set_weather") {
@@ -2077,7 +2086,7 @@ bool TestDriver::ExecuteCurrent() {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard()) { Fail("force_trophy: 不在 GameScene 或 Board 为空"); return false; }
 		Board* board = gs->GetBoard();
-		if (board->mBoardState != BoardState::GAME) { Fail("force_trophy: Board 尚未进入 GAME"); return false; }
+		if (board->GetState() != BoardState::GAME) { Fail("force_trophy: Board 尚未进入 GAME"); return false; }
 		board->CreateTrophy(Vector(cmd.value("x", 500.0f), cmd.value("y", 300.0f)));
 		return true;
 	}
@@ -2154,7 +2163,7 @@ bool TestDriver::ExecuteCurrent() {
 		if (!gs || !gs->GetBoard()) { Fail("force_survival_round_clear: 不在 GameScene 或 Board 为空"); return false; }
 		Board* board = gs->GetBoard();
 		if (!board->mIsSurvival) { Fail("force_survival_round_clear: 非生存模式关卡"); return false; }
-		if (board->mBoardState != BoardState::GAME) { Fail("force_survival_round_clear: Board 尚未进入 GAME"); return false; }
+		if (board->GetState() != BoardState::GAME) { Fail("force_survival_round_clear: Board 尚未进入 GAME"); return false; }
 		// 走正式轮清入口，覆盖词条选择、选卡过场及场上对象保留行为。
 		board->OnSurvivalRoundClear();
 		return true;
@@ -5240,7 +5249,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		{ "usedInstancePath", gs->DidCrazyDaveDialogUseInstancePath() },
 	};
 
-	out["boardState"] = BoardStateName(board->mBoardState);
+	out["boardState"] = BoardStateName(board->GetState());
 	out["cobCannonTargeting"] = board->IsCobCannonTargeting();
 	out["targetingCobCannonID"] = board->GetTargetingCobCannonID();
 	out["chooseCardReady"] = gs->IsChooseCardReady();
@@ -6070,7 +6079,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		{ "openGLFrameMilliseconds", openGLRenderer
 			? openGLRenderer->LastFrameStats().frameMilliseconds : 0.0 },
 	};
-	out["sun"] = board->mSun;
+	out["sun"] = board->GetSun();
 	out["miniGame"] = MiniGame::IsMiniGame(board->mLevel);
 	out["skySunCountdownMs"] =
 		static_cast<int>(std::lround(board->mSunCountDown * 1000.0f));
@@ -6096,7 +6105,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	}
 	out["normalSunCount"] = normalSunCount;
 	out["smallSunCount"] = smallSunCount;
-	out["wave"] = board->mCurrentWave;
+	out["wave"] = board->GetCurrentWave();
 	out["currentWaveZombieHP"] = board->mCurrectWaveZombieHP;
 	out["nextWaveSpawnZombieHP"] = board->mNextWaveSpawnZombieHP;
 	out["maxWave"] = board->mMaxWave;
@@ -6819,7 +6828,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				board->IsColdWaveForecastDisruptionVisible() },
 			{ "coldWaveActive", board->IsColdWaveActive() },
 			{ "coldWaveDisplayText", gs->GetColdWavePanelText() },
-			{ "thermometerVisible", board->mBoardState == BoardState::GAME
+			{ "thermometerVisible", board->GetState() == BoardState::GAME
 				&& board->SupportsWinterTemperature() },
 			{ "thermometerMinimumTenths", static_cast<int>(std::lround(
 				board->GetWinterMinimumTemperatureC() * 10.0f)) },

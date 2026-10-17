@@ -68,7 +68,7 @@ void DisasterEngineerZombie::Update()
 	const bool controlled = IsImmobilized();
 	Zombie::Update();
 	if (IsDying() || !HasHead()) SyncCanister();
-	if (mIsPreview || !mBoard || mBoard->mBoardState != BoardState::GAME
+	if (mIsPreview || !mBoard || mBoard->GetState() != BoardState::GAME
 		|| mBoard->mTrophySpawned || DeltaTime::IsPaused() || !IsActive() || IsDying() || !HasHead()) return;
 	if (!mFull && !controlled && !IsImmobilized() && !IsTangleKelpTarget()) {
 		if (!mReloadPaid) mReloadPaid = IsMindControlled()

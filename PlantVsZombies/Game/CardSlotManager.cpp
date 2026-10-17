@@ -93,7 +93,7 @@ void CardSlotManager::Start() {
 void CardSlotManager::Update() {
 	mPlantAbilityConsumed = false;
 	// 非战斗选卡/词条页与普通暂停都保留已有预览，但不处理任何玩法输入。
-	if (!mBoard || mBoard->mBoardState != BoardState::GAME) {
+	if (!mBoard || mBoard->GetState() != BoardState::GAME) {
 		mPlantAbilityPressID = mPlantAbilityMenuID = NULL_PLANT_ID;
 		return;
 	}
