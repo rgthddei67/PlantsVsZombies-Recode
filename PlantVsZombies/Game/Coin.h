@@ -39,10 +39,12 @@ public:
 		const std::string& tag = "Coin", bool needScaleAnimation = false, bool autoDestroy = true);
 
 	void Start() override;
+	/** 推进缩放、领取移动或未领取的消失计时；抵达和过期均立即退场。 */
 	void Update() override;
 
 	virtual void SetOnClickBack(ClickableComponent* clickComponent);
 
+	/** 关闭点击并飞向领取目标；已退场的可收集物不能再次启动。 */
 	void StartMoveToTarget(const Vector& target = Vector(10, 10),
 		float fastSpeed = 500.0f,
 		float slowSpeed = 100.0f,
@@ -56,6 +58,8 @@ public:
 	void SetPosition(const Vector& newPos);
 
 protected:
+	/** 立即结束交互和存档资格，再交给 GOM 延迟释放；可重复调用。 */
+	void Retire();
 	virtual void OnReachTargetBack();
 	void SetScale(float scale);
 	void UpdateScale();

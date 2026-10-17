@@ -1708,6 +1708,11 @@ bool TestDriver::ExecuteCurrent() {
 		if (result != cmd.value("expectedSuccess", true)) { Fail("Unexpected mine excavation result"); return false; }
 		return true;
 	}
+	if (op == "set_auto_collect") {
+		// 仅修改测试进程偏好，验证手动领取的恢复不依赖自动收集补救。
+		GameAPP::GetInstance().mAutoCollected = cmd.value("value", true);
+		return true;
+	}
 	if (op == "set_sun") {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard()) { Fail("set_sun: 不在 GameScene 或 Board 为空"); return false; }
@@ -6145,7 +6150,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	for (int id : board->mEntityRegistry.GetAllCoinIDs()) {
 		Coin* coin = board->mEntityRegistry.GetCoin(id);
 		auto* sun = dynamic_cast<Sun*>(coin);
-		if (!sun) continue;
+		if (!sun || !sun->IsActive()) continue;
 		const bool isSmall = dynamic_cast<SmallSun*>(sun) != nullptr;
 		if (isSmall) ++smallSunCount;
 		else ++normalSunCount;

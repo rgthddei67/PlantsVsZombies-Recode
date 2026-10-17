@@ -1,0 +1,24 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 61, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 1, "col": 1},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 1},
+    {"op": "set_timescale", "value": 0},
+    {"op": "save_level_snapshot", "name": "good"},
+    {"op": "reload_level_snapshot", "name": "good", "patch": [
+      {"op": "remove", "path": "/plants/0/id"},
+      {"op": "replace", "path": "/plants/1/id", "value": 1},
+      {"op": "remove", "path": "/nextPlantID"}
+    ]},
+    {"op": "assert_state", "path": "plantCount", "equals": 2},
+    {"op": "save_level_snapshot", "name": "legacy_restored"},
+    {"op": "reload_level_snapshot", "name": "legacy_restored"},
+    {"op": "assert_state", "path": "plantCount", "equals": 2},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 3, "col": 1},
+    {"op": "assert_state", "path": "plantCount", "equals": 3},
+    {"op": "quit"}
+  ]
+}

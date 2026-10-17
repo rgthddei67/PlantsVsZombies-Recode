@@ -35,6 +35,15 @@
 #include "Logger.h"
 
 namespace {
+	/** 预检通过后，自动编号从全部显式 ID 之后开始，避免混合旧档受数组恢复顺序影响。 */
+	int NextRestoredEntityID(const nlohmann::json& document, const char* key, const char* counter) {
+		int next = document.value(counter, 1);
+		if (const auto entries = document.find(key); entries != document.end()) {
+			for (const auto& entity : *entries) next = std::max(next, entity.value("id", -1) + 1);
+		}
+		return next;
+	}
+
 	constexpr int kPoolGridSaveVersion = 2; // 第三大关六行+双植物槽及统一背景纵坐标的存档结构版本
 	constexpr std::size_t kMaxRememberedCardNames = 64; // 玩家存档容纳的历史选卡名上限，防止损坏档无限扩张
 	// ---- 存档根目录 -------------------------------------------------------------
@@ -724,7 +733,8 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	nlohmann::json sunsArr = nlohmann::json::array();
 	for (int id : board->mEntityRegistry.GetAllCoinIDs()) {
 		auto* coin = board->mEntityRegistry.GetCoin(id);
-		if (!coin) continue;
+		// 领取/过期立即失活，GOM 的延迟移除不能让刚入账的阳光随快照复活。
+		if (!coin || !coin->IsActive()) continue;
 		auto* sun = dynamic_cast<Sun*>(coin);
 		if (sun) {
 			nlohmann::json s;
@@ -733,6 +743,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 			s["y"] = sun->GetPosition().y;
 			SaveAnimState(s, sun);
 			s["small"] = (dynamic_cast<SmallSun*>(coin) != nullptr);	// 区分大/小阳光
+			s["collected"] = sun->IsCollected();
 			sunsArr.push_back(s);
 		}
 	}
@@ -1440,12 +1451,12 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 	board->mCurrectWaveZombieHP = j.value("currentWaveZombieHP", 0LL);
 	board->mNextWaveSpawnZombieHP = j.value("nextWaveSpawnZombieHP", 0LL);
 
-	// 恢复 EntityRegistry 的 ID 计数器（向后兼容：旧存档没有则使用默认值）
-	board->mEntityRegistry.SetNextPlantID(j.value("nextPlantID", 1));
-	board->mEntityRegistry.SetNextZombieID(j.value("nextZombieID", 1));
-	board->mEntityRegistry.SetNextBulletID(j.value("nextBulletID", 1));
-	board->mEntityRegistry.SetNextCoinID(j.value("nextCoinID", 1));
-	board->mEntityRegistry.SetNextMowerID(j.value("nextMowerID", 1));
+	// 先预留整个文档的显式身份；旧档缺 ID 的对象也不能抢占稍后才恢复的 ID。
+	board->mEntityRegistry.SetNextPlantID(NextRestoredEntityID(j, "plants", "nextPlantID"));
+	board->mEntityRegistry.SetNextZombieID(NextRestoredEntityID(j, "zombies", "nextZombieID"));
+	board->mEntityRegistry.SetNextBulletID(NextRestoredEntityID(j, "bullets", "nextBulletID"));
+	board->mEntityRegistry.SetNextCoinID(NextRestoredEntityID(j, "suns", "nextCoinID"));
+	board->mEntityRegistry.SetNextMowerID(NextRestoredEntityID(j, "mowers", "nextMowerID"));
 
 }
 
@@ -1721,6 +1732,7 @@ void GameInfoSaver::RestoreRemainingDocument(Board* board, CardSlotManager* mana
 		}
 
 		if (sun) {
+			sun->RestoreCollectedState(s.value("collected", false));
 			RestoreAnimState(s, sun);
 		}
 	}

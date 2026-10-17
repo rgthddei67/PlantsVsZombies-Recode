@@ -8,6 +8,7 @@
 #include "GameRandom.h"
 #include <nlohmann/json.hpp>
 #include <cstdlib>
+#include <cstdint>
 #include <iostream>
 #include <limits>
 
@@ -248,6 +249,46 @@ namespace {
         Check(LevelDocumentValidation::Validate(nlohmann::json::object(),error), "legacy optional fields accepted");
     }
 
+    /** 各类身份空间独立；损坏身份必须预检拒绝，缺 ID 的旧档仍允许自动编号。 */
+    void TestEntityIdentities() {
+        using Json = nlohmann::json;
+        const Json entity = {{"id",7},{"type",0},{"row",1},{"column",1},
+            {"health",300},{"maxHealth",300},{"isSleeping",false},
+            {"x",400},{"y",300},{"damage",20},{"velocityX",100},{"velocityY",0}};
+        Json independent;
+        std::string error;
+        for (const auto& [key, counter] : {std::pair{"plants","nextPlantID"},
+            {"zombies","nextZombieID"},{"bullets","nextBulletID"},
+            {"suns","nextCoinID"},{"mowers","nextMowerID"}}) {
+            Json document = {{key,Json::array({entity,entity})}};
+            const auto before = document;
+            Check(!LevelDocumentValidation::Validate(document,error)
+                && error == std::string("/") + key + "/1/id: duplicate entity ID"
+                && document == before, "duplicate identity rejected without changing document");
+            document[key][0].erase("id");
+            Check(LevelDocumentValidation::Validate(document,error), "mixed legacy IDs accepted");
+            document[key][1]["id"] = -1;
+            Check(LevelDocumentValidation::Validate(document,error), "legacy null ID accepted");
+            for (const Json& invalid : {Json(0),Json(-2),Json(1.5),Json(7.0),Json(true),
+                Json(std::numeric_limits<int>::max()),Json(std::numeric_limits<std::uint64_t>::max())}) {
+                document[key][1]["id"] = invalid;
+                Check(!LevelDocumentValidation::Validate(document,error), "invalid identity rejected");
+            }
+            document[key] = Json::array({entity});
+            for (const Json& invalid : {Json(-1),Json(0),Json(1.5),Json(std::numeric_limits<int>::max())}) {
+                document[counter] = invalid;
+                Check(!LevelDocumentValidation::Validate(document,error), "invalid next ID rejected");
+            }
+            document[counter] = std::numeric_limits<int>::max()-1;
+            document[key][0].erase("id");
+            Check(!LevelDocumentValidation::Validate(document,error), "legacy allocation cannot exhaust ID range");
+            independent[key] = Json::array({entity});
+        }
+        Check(LevelDocumentValidation::Validate(independent,error), "different entity types may share an ID");
+        independent["suns"][0]["collected"] = 1;
+        Check(!LevelDocumentValidation::Validate(independent,error), "collection flag must be boolean");
+    }
+
     /** 以外部存档表示检验整批重置、历史兼容、关卡门禁与失败预留撤销。 */
     void TestWaveCounts() {
         WaveSpawnCounts counts;
@@ -284,6 +325,7 @@ int main(int argc, char** argv) {
     TestWinterClimate();
     TestNightRoofCycle();
     TestLevelValidation();
+    TestEntityIdentities();
     TestFogWeather();
     TestWaveCounts();
     for (int i = 1; i < argc; ++i) {

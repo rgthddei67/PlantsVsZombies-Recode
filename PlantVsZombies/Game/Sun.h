@@ -37,9 +37,14 @@ public:
 
 	// TODO 析构函数会自动调用基类的析构函数 不能自己写
 
+	/** 创建点击附件后恢复在途领取，避免 Start 把读档阳光重新变成可点击状态。 */
 	void Start() override {
 		Coin::Start();
 		mIsInitialized = true;
+		if (mIsCollected) {
+			StartMoveToTarget(Vector(160, 10), speedFast, speedSlow, slowDownDistance);
+			return;
+		}
 
 		if (mShouldStartLinearFall) {
 			mShouldStartLinearFall = false;
@@ -51,11 +56,16 @@ public:
 		}
 	}
 
+	/** 结束本次领取并且只结算一次；待移除对象不再有存档资格。 */
 	void OnReachTargetBack() override
 	{
+		if (mIsDestroyed) return;
 		Coin::OnReachTargetBack();
 		mBoard->AddSun(SunPoint);
 	}
+
+	/** 仅用于 Start 前恢复领取承诺；入账仍由实际抵达计数器触发。 */
+	void RestoreCollectedState(bool collected) { mIsCollected = collected; }
 
 	void SetOnClickBack(ClickableComponent* clickComponent) override
 	{
@@ -160,8 +170,10 @@ public:
 		SetPosition(Vector(currentX, currentY));
 	}
 
+	/** 推进领取或下落；结束生命周期后不得继续自动领取或移动。 */
 	void Update() override {
 		Coin::Update();
+		if (mIsDestroyed) return;
 		if (!mIsLinearFalling && !mIsParabola && !isMovingToTarget && !mIsScaling && !mIsCollected
 			&& GameAPP::GetInstance().mAutoCollected) {
 			this->mIsCollected = true;

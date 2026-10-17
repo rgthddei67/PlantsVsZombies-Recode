@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 61, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_sun", "value": 50},
+    {"op": "set_timescale", "value": 0},
+    {"op": "save_level_snapshot", "name": "empty"},
+    {"op": "reload_level_snapshot", "name": "empty", "patch": [{"op": "add", "path": "/suns", "value": [{"id": 1, "x": 400, "y": 300, "small": false}]}]},
+    {"op": "set_timescale", "value": 1},
+    {"op": "wait_value", "path": "sun", "equals": 75, "timeout": 5},
+    {"op": "set_timescale", "value": 0},
+    {"op": "save_level_snapshot", "name": "credited"},
+    {"op": "reload_level_snapshot", "name": "credited"},
+    {"op": "dump_state", "name": "restored.json"},
+    {"op": "assert_state", "path": "normalSunCount", "equals": 0},
+    {"op": "set_timescale", "value": 1},
+    {"op": "wait_seconds", "value": 0.5},
+    {"op": "assert_state", "path": "sun", "equals": 75},
+    {"op": "quit"}
+  ]
+}

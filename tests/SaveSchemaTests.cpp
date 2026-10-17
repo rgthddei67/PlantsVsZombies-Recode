@@ -178,6 +178,21 @@ namespace {
 			"迁移不得覆盖预发布玩家已有的戴夫闲聊记录");
 	}
 
+	/** v33 不曾保存领取标志；兼容只能保留可领取态，已有承诺不能被覆盖。 */
+	void TestSunCollectionMigration() {
+		nlohmann::json document = {{"schemaVersion",33},{"suns", nlohmann::json::array({
+			{{"id",1},{"x",160},{"y",10},{"small",false}},
+			{{"id",2},{"x",400},{"y",300},{"small",true},{"collected",true}}
+		})}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(document,error), "旧阳光档可以迁移");
+		Expect(document["suns"][0]["collected"] == false, "不能凭计数器附近的位置推断已经领取");
+		Expect(document["suns"][1]["collected"] == true && document["suns"][1]["small"] == true,
+			"迁移保留已有领取承诺和小阳光类型");
+		const auto once = document;
+		Expect(SaveSchema::UpgradeLevelDocument(document,error) && document == once, "阳光迁移幂等");
+	}
+
 	/** 旧星弹缺少发射高度时显式标记未知，已有基准与其他弹种必须原样保留。 */
 	void TestStarRoofReferenceMigration() {
 		const int star = static_cast<int>(BulletType::BULLET_STAR);
@@ -903,6 +918,7 @@ int main() {
     }
 	TestCurrentLevelDocumentIsStable();
 	TestStarRoofReferenceMigration();
+	TestSunCollectionMigration();
 	TestLegacyLevelUpgradePreservesGameplayState();
 	TestVersionOneLevelUpgradeDefersFogInitializationToBoard();
 	TestVersionTwoLevelUpgradePreservesFogStrength();

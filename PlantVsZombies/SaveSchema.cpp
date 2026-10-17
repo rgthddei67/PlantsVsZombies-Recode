@@ -582,6 +582,14 @@ namespace {
 					}
 				}
 				version = 33; upgraded["schemaVersion"] = version; break;
+			case 33:
+				// 旧档未记录是否已点击，不能仅凭坐标推断；保持旧档的可领取语义。
+				if (kind == DocumentKind::Level && upgraded.contains("suns") && upgraded["suns"].is_array()) {
+					for (auto& sun : upgraded["suns"]) {
+						if (sun.is_object() && !sun.contains("collected")) sun["collected"] = false;
+					}
+				}
+				version = 34; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

@@ -1,8 +1,10 @@
 #include "LevelDocumentValidation.h"
 #include <nlohmann/json.hpp>
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string_view>
+#include <unordered_set>
 
 namespace {
 using Json = nlohmann::json;
@@ -49,7 +51,7 @@ void Required(const Json& object, std::string_view names, const std::string& pat
 void EntityFields(const Json& object, const std::string& path, std::string& error)
 {
     Fields(object,
-        "armorBreakRushSpent auroraPlayedHitSound cobCannonMotion draggedUnderByTangleKelp floodCharmed "
+        "armorBreakRushSpent auroraPlayedHitSound cobCannonMotion collected draggedUnderByTangleKelp floodCharmed "
         "fogBreakoutObserved fogBreakoutTriggered garlicRedirectActive garlicRowChanged hasArm hasHead hasTongue "
         "imitated inPool isCooldown isDying isEating isMindControlled isSleeping isSquished lobTargetsIceWall "
         "lobbedMotion mineTargetReturning mistFuelRewardClaimed needDropArm needDropHead occupiesGridSlot "
@@ -100,6 +102,41 @@ void Entities(const Json& document, const char* key, std::string_view required, 
         Required(entry, required, path, error);
         EntityFields(entry, path, error);
     }
+}
+
+/** 每类实体各有 ID 空间；拒绝含糊身份，并为旧档自动编号保留安全的递增空间。 */
+void EntityIDs(const Json& document, const char* key, const char* counter, std::string& error)
+{
+    if (!error.empty()) return;
+    const auto validID = [](const Json& value, bool allowMissing) {
+        if (!value.is_number_integer()) return false;
+        const double number = value.get<double>();
+        return (allowMissing && number == -1)
+            || (number >= 1 && number < std::numeric_limits<int>::max());
+    };
+    const auto savedNext = document.find(counter);
+    if (savedNext != document.end() && !validID(*savedNext, false)) {
+        error = std::string("/") + counter + ": invalid entity ID counter"; return;
+    }
+    std::int64_t next = document.value(counter, 1);
+    std::int64_t automatic = 0;
+    std::unordered_set<int> seen;
+    if (const auto entries = document.find(key); entries != document.end()) {
+        for (std::size_t i = 0; i < entries->size(); ++i) {
+            const auto& entity = (*entries)[i];
+            const auto id = entity.find("id");
+            const auto path = std::string("/") + key + "/" + std::to_string(i) + "/id";
+            if (id == entity.end()) { ++automatic; continue; }
+            if (!validID(*id, true)) { error = path + ": invalid entity ID"; return; }
+            const int value = id->get<int>();
+            if (value == -1) { ++automatic; continue; }
+            if (!seen.insert(value).second) { error = path + ": duplicate entity ID"; return; }
+            if (value >= next) next = static_cast<std::int64_t>(value) + 1;
+        }
+    }
+    // Add*WithID 和自动编号都会递增；读档后也必须仍有可分配的 ID。
+    if (next + automatic >= std::numeric_limits<int>::max())
+        error = std::string("/") + counter + ": entity ID space exhausted";
 }
 }
 
@@ -172,5 +209,10 @@ bool LevelDocumentValidation::Validate(const nlohmann::json& document, std::stri
     if (const auto it = document.find("spawnList"); it != document.end() && it->is_array()) {
         for (const auto& value : *it) if (!value.is_number()) { error = "/spawnList: invalid numeric element"; break; }
     }
+    EntityIDs(document, "plants", "nextPlantID", error);
+    EntityIDs(document, "zombies", "nextZombieID", error);
+    EntityIDs(document, "bullets", "nextBulletID", error);
+    EntityIDs(document, "suns", "nextCoinID", error);
+    EntityIDs(document, "mowers", "nextMowerID", error);
     return error.empty();
 }

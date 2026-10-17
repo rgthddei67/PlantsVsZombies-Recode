@@ -41,6 +41,7 @@ void Coin::Start()
 
 void Coin::Update()
 {
+	if (mIsDestroyed) return;
 	UpdateScale();
 
 	AnimatedObject::Update();
@@ -73,8 +74,7 @@ void Coin::Update()
 		mVanlishTimer += DeltaTime::GetDeltaTime();
 		if (mVanlishTimer >= mVanlishTime)
 		{
-			mVanlishTimer = 0.0f;
-			GameObjectManager::GetInstance().DestroyGameObject(this);
+			Retire();
 		}
 	}
 }
@@ -90,6 +90,7 @@ void Coin::SetOnClickBack(ClickableComponent* clickComponent)
 void Coin::StartMoveToTarget(const Vector& target, float fastSpeed,
 	float slowSpeed, float slowdownDist)
 {
+	if (mIsDestroyed) return;
 	PauseAnimation();
 	if (auto clickable = GetClickable()) {
 		clickable->IsClickable = false;
@@ -119,9 +120,16 @@ void Coin::SetTargetPosition(const Vector& target)
 
 void Coin::OnReachTargetBack()
 {
+	Retire();
+}
+
+void Coin::Retire()
+{
 	if (mIsDestroyed) return;
 	isMovingToTarget = false;
 	mIsDestroyed = true;
+	// GOM 下一步才移除对象；本步结算后的快照和输入必须立即把它视为已消失。
+	SetActive(false);
 	GameObjectManager::GetInstance().DestroyGameObject(this);
 }
 

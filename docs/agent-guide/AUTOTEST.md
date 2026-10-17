@@ -17,6 +17,8 @@
 
 ## 框架阶段与 Board 子域
 
+`smoke_sun_collection_resume/commit` 覆盖大小阳光在途领取与入账同一步的存档边界；`set_auto_collect` 只切换测试进程的自动收集偏好，以验证手动点击后的恢复。`smoke_entity_id_rejection/legacy` 覆盖重复身份拒绝、失败场景恢复和显式/自动 ID 混合旧档的编号。纯文档的身份边界与阳光迁移分别由 `board-domain-state`、`save-schema` CTest 验证。
+
 `smoke_framework_pipeline` 还覆盖 Start 前取消创建（包括较早对象在 Start 中取消后续对象），以及串行/worker 路径中宿主失活后丢弃旧事件。`file-manager` CTest 验证原子替换、原始字节/UTF-8/JSON 往返和失败保留旧档；Windows 上用允许读写但禁止替换的真实句柄触发提交失败。
 
 `expected_failure_vulkan_begin/end/submit` 是预期失败脚本：用 `-Renderer=vulkan` 运行，分别在命令缓冲开始、结束和帧提交阶段注入错误。应及时退出且返回非零，`status.json` 为 `failed`，`detail` 包含对应 API 的 `render failure`；超时、退出零或仍为 running 都算回归。普通渲染回归仍使用 `smoke_renderer_vulkan`、`smoke_renderer_vulkan_noinstance` 和 `smoke_renderer_opengl`。故障注入仅由显式 AutoTest 命令启用。

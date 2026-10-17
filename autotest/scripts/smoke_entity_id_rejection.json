@@ -1,0 +1,25 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 61, "resetTestState": true},
+    {"op": "choose_cards", "cards": ["PLANT_PEASHOOTER"]},
+    {"op": "wait_state", "state": "GAME", "timeout": 30},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 1, "col": 1},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 2, "col": 1},
+    {"op": "set_sun", "value": 777},
+    {"op": "set_timescale", "value": 0},
+    {"op": "save_level_snapshot", "name": "good"},
+    {"op": "reload_level_snapshot", "name": "good", "patch": [{"op": "copy", "from": "/plants/0/id", "path": "/plants/1/id"}], "expectedSuccess": false},
+    {"op": "assert_state", "path": "plantCount", "equals": 0},
+    {"op": "assert_state", "path": "recoveredFromLevelLoadFailure", "equals": true},
+    {"op": "reload_level_snapshot", "name": "good"},
+    {"op": "assert_state", "path": "plantCount", "equals": 2},
+    {"op": "assert_state", "path": "sun", "equals": 777},
+    {"op": "reload_level_snapshot", "name": "good", "patch": [{"op": "replace", "path": "/plants/0/id", "value": 1.5}], "expectedSuccess": false},
+    {"op": "assert_state", "path": "plantCount", "equals": 0},
+    {"op": "reload_level_snapshot", "name": "good"},
+    {"op": "assert_state", "path": "plantCount", "equals": 2},
+    {"op": "assert_state", "path": "sun", "equals": 777},
+    {"op": "quit"}
+  ]
+}
