@@ -107,9 +107,9 @@ protected:
 	/** 按对象池固定弹型恢复碰撞阵营与回调，避免篮球槽位复用后沿用僵尸掩码。 */
 	void ConfigureCollisionTarget();
 
-	// 按 C# Projectile.DrawShadow 的类型尺寸与棋盘行位置刷新阴影布局。
+	/** 按弹型刷新阴影尺寸与位置；星弹连续跟随弹心，其余弹丸使用地形基线。 */
 	void UpdateShadowLayout(const Vector& position);
-	/** 返回当前弹丸在地形上的阴影基线；屋顶碰撞与阴影绘制必须共用同一采样。 */
+	/** 返回按碰撞行采样的地形基线；星弹的连续视觉阴影独立于这条离散基线。 */
 	float GetTerrainShadowY(const Vector& position) const;
 	/** 按经典弹型离地阈值判断平射弹是否撞上屋顶抬高区域。 */
 	bool HitsRoofTerrain(const Vector& position) const;

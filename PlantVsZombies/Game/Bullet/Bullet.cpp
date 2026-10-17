@@ -59,6 +59,7 @@ namespace {
 	constexpr float kStarSpinSpeedMin = 286.0f;         // 原版 0.05rad/厘秒换算后的最小自旋，单位：度/秒
 	constexpr float kStarSpinSpeedMax = 573.0f;         // 原版 0.10rad/厘秒换算后的最大自旋，单位：度/秒
 	constexpr float kStarShadowExtraOffsetY = 15.0f;    // C# 星弹初始化时额外下移阴影 15px
+	constexpr float kStarVisualShadowOffsetY = 68.0f;  // 星弹影子相对弹心的 Y 偏移，px；保留发射时的 25+28+15 高差
 	constexpr float kCabbageInitialRotation = -50.4f;   // C# -0.8796rad 的初始朝向，单位：度
 	constexpr float kMelonInitialRotation = -72.0f;     // C# -1.2566rad 的初始朝向，单位：度
 	constexpr float kCabbageSpinSpeedMin = -458.4f;     // C# -0.08rad/厘秒换算后的自旋下限，单位：度/秒
@@ -655,7 +656,10 @@ void Bullet::UpdateShadowLayout(const Vector& position)
 					|| mBulletType == BulletType::BULLET_TOXICFIREBALL
 					|| mBulletType == BulletType::BULLET_SPIKE
 					|| IsClassicLobbedBullet(mBulletType)) ? 0.0f : 3.0f));
-	const float shadowOffsetY = GetTerrainShadowY(position) - position.y;
+	// 星弹的纵向位移是跨行飞行，不能把影子吸附到离散碰撞行，否则跨行时会跳一整格。
+	// 仅展示使用固定相对偏移；屋顶遮挡继续由独立的地形基线决定。
+	const float shadowOffsetY = mBulletType == BulletType::BULLET_STAR
+		? kStarVisualShadowOffsetY : GetTerrainShadowY(position) - position.y;
 	shadow->SetOffset(Vector(
 		shadowLeftOffset + shadowWidth * 0.5f,
 		shadowOffsetY));
