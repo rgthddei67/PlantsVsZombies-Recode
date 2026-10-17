@@ -5387,9 +5387,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		ice["trainingAllUnits"] = ColdStoragePolicy::AllUnits();
 		ice["availableUnits"] = nlohmann::json::array();
 		ice["zombieCosts"] = nlohmann::json::object();
+		ice["purchaseUnlocked"] = nlohmann::json::object();
 		for (auto type : board->GetSpawnZombieList()) {
 			const auto name=GameDataManager::GetInstance().ZombieTypeToEnumName(type);
 			ice["availableUnits"].push_back(name);
+			ice["purchaseUnlocked"][name]=board->IsColdStorageZombieUnlocked(type);
 			ice["zombieCosts"][name]=board->GetZombieIceCost(type); // 经营验收按正式价格核对投资，不在脚本复制数值。
 		}
 		for(auto& paid:ice["pending"])

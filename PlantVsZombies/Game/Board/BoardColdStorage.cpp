@@ -98,6 +98,7 @@ namespace {
 	constexpr float kPlanningMaxAge = 3.0f; // 后台快照允许的最大游戏时差，秒；超时必须重采
     constexpr double kPlanningWallBudgetMs = 600; // 1倍速下实时搜索的墙钟预算，毫秒；倍速时同比缩短
 	constexpr double kPlanningRecoveryBudgetMs = 1800; // 空场限时等待后的计算上限，按1倍速毫秒计，给3秒过期门禁留余量
+	constexpr float kEarlyStationCatapultSeconds = 180; // 11-3至11-5普通投篮增援最早开放时间，本局游戏秒；另需满足配置的解锁波次
 	constexpr float kPlanningSurvivingFraction = .75f; // 原部队剩余有效生命低于快照此比例时重采，避免沿用已被炸掉的护卫
 	constexpr int kStallWaitDecisions = 3; // 最终复查前至少连续采用的空行动决策次数，不含失败或过期结果
 	/** 只统计主线程入口时间；后台耗时由任务自己计时，不能跨线程调用 Profiler。 */
@@ -951,12 +952,24 @@ int Board::GetColdStorageUnlockWave(ZombieType type) const
 	return GameDataManager::GetInstance().GetZombieAppearWave(type);
 }
 
+float Board::GetColdStorageUnlockSeconds(ZombieType type) const
+{
+	return !mIsSurvival && mLevel>=93 && mLevel<=95 && type==ZombieType::ZOMBIE_CATAPULT
+		? kEarlyStationCatapultSeconds : 0;
+}
+
+bool Board::IsColdStorageZombieUnlocked(ZombieType type) const
+{
+	return mColdStorage.elapsed>=GetColdStorageUnlockSeconds(type)
+		&& GetColdStorageUnlockWave(type)<=mColdStorage.decisions+1;
+}
+
 bool Board::QueueColdStorageZombie(ZombieType type, int row, float delay)
 {
 	if (!IsColdStorage() || mBoardState != BoardState::GAME || mTrophySpawned
 		|| row < 0 || row >= mRows || !IsSpawnRowCompatible(type, row)
 		|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits())
-			&& GetColdStorageUnlockWave(type) > mColdStorage.decisions + 1)
+			&& !IsColdStorageZombieUnlocked(type))
 		|| std::find(mSpawnZombieList.begin(), mSpawnZombieList.end(), type) == mSpawnZombieList.end()
 		|| GetColdStorageHostileCount() + static_cast<int>(mColdStorage.pending.size()) >= GetColdStorageDeploymentLimit()) return false;
 	const int cost = GetZombieIceCost(type);
@@ -994,7 +1007,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		return static_cast<float>(GetPlantCardRechargeMultiplier(card->GetGameplayPlantType()));
 	};
 	const auto isUnlocked = [&](ZombieType type) {
-		return allUnitsUnlocked || GetColdStorageUnlockWave(type) <= s.decisions + 1;
+		return allUnitsUnlocked || IsColdStorageZombieUnlocked(type);
 	};
 	const auto blastReach = [&](const EconomyBlast& blast, int row) {
 		return EconomyBlastReach(blast,row,GetZombieSpawnY(row,blast.x)-GetCellCenterPosition(blast.row,0).y);
@@ -1458,10 +1471,12 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			for (auto type : mSpawnZombieList) {
 				bool compatible=false;
 				for(int row=0;row<mRows;++row) compatible|=IsSpawnRowCompatible(type,row);
-				if (compatible && GetColdStorageUnlockWave(type) <= s.decisions + 1)
+				if (compatible && IsColdStorageZombieUnlocked(type))
 					probeCost = std::min(probeCost,GetZombieIceCost(type));
 			}
 			if (probeCost > 0 && probeCost<kMaxIce) for (auto type : mSpawnZombieList) {
+				// 等待游戏时间不能靠付费刷波跳过，不为尚未到时的增援强制探路。
+				if(s.elapsed<GetColdStorageUnlockSeconds(type)) continue;
 				const int wavesNeeded = GetColdStorageUnlockWave(type) - (s.decisions + 1);
 				if (wavesNeeded > 0 && static_cast<long long>(wavesNeeded)*probeCost + GetZombieIceCost(type)
 					+ ColdStorageState::RecoveryReserveIce <= s.enemyIce) {
@@ -2908,7 +2923,7 @@ void Board::ApplyColdStoragePlan(const ColdStorageSearch::Snapshot& search, Cold
 			const auto type=static_cast<ZombieType>(option.type);
 			if(option.row<0 || option.row>=mRows || !IsSpawnRowCompatible(type,option.row)
 				|| GetZombieIceCost(type)!=option.cost || std::find(mSpawnZombieList.begin(),mSpawnZombieList.end(),type)==mSpawnZombieList.end()
-				|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits()) && GetColdStorageUnlockWave(type)>mColdStorage.decisions+1)) {
+				|| (!(GameAPP::mAutoTestMode && ColdStoragePolicy::AllUnits()) && !IsColdStorageZombieUnlocked(type))) {
 				mColdStorage.decisionRemaining=0; return;
 			}
 			++newTroops;
@@ -3243,6 +3258,8 @@ std::uint64_t Board::ColdStoragePlanningStamp() const
 	std::uint64_t stamp = 1469598103934665603ULL;
 	const auto mix = [&](std::uint64_t value) { stamp = (stamp ^ value)*1099511628211ULL; };
 	mix(mColdStorageResponse.Revision());
+	// 跨过增援开放边沿后重采候选，不把未开放时的等待方案当成当前完整兵池结论。
+	mix(IsColdStorageZombieUnlocked(ZombieType::ZOMBIE_CATAPULT));
 	// 即使瞬发植物在领取前已消失，创建序号也留下痕迹。
 	mix(mEntityRegistry.GetNextPlantID());
 	// 玉米炮 READY 的能力余时含前摇/飞行而大于零，不能用“<=0”辨认开火边沿。
@@ -3320,7 +3337,7 @@ bool Board::CanReviewColdStorageStall() const
 	// 后续兵种尚未开放时继续沿原探路规则推进，不把当前弱兵池判成最终败局。
 	if(ColdStoragePolicy::AllUnits()) return true;
 	return std::none_of(mSpawnZombieList.begin(),mSpawnZombieList.end(),[&](ZombieType type) {
-		if(GetColdStorageUnlockWave(type)<=s.decisions+1) return false;
+		if(IsColdStorageZombieUnlocked(type)) return false;
 		for(int row=0;row<mRows;++row) if(IsSpawnRowCompatible(type,row)) return true;
 		return false;
 	});

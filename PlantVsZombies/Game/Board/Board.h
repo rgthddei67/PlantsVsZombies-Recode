@@ -292,6 +292,10 @@ public:
 	int GetZombieIceCost(ZombieType type) const;
 	/** 冷藏站指挥官的兵种解锁波次；独立于普通关卡刷新，搜索与付款共用。 */
 	int GetColdStorageUnlockWave(ZombieType type) const;
+	/** 冒险增援最早可购买的本局游戏秒；其余兵种/无尽返回零，读档沿用已保存的 elapsed。 */
+	float GetColdStorageUnlockSeconds(ZombieType type) const;
+	/** 只检查波次与时间资格；调用方仍须验证本关兵池、行、钱包及名额。 */
+	bool IsColdStorageZombieUnlocked(ZombieType type) const;
 	bool CanAffordPlantIce(PlantType type) const;
 	/** 植物主动技能的原子付款；冷藏站用冰块，其他地图用阳光。 */
 	bool TrySpendPlantAbilityResource(int ice, int sun);

@@ -204,7 +204,7 @@ void Board::UpdateColdStorageResponse()
 
     int cheapest = (std::numeric_limits<int>::max)();
     for (ZombieType type : mSpawnZombieList) {
-        if (!ColdStoragePolicy::AllUnits() && GetColdStorageUnlockWave(type) > mColdStorage.decisions + 1) continue;
+        if (!ColdStoragePolicy::AllUnits() && !IsColdStorageZombieUnlocked(type)) continue;
         bool legal = false;
         for (int row = 0; row < mRows; ++row) legal |= IsSpawnRowCompatible(type, row);
         const int price = GetZombieIceCost(type);

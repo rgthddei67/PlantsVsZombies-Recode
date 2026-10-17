@@ -55,6 +55,8 @@
 
 `compare_commander_search.experiencedPlansWith` 可指定僵尸枚举名（例如 `ZOMBIE_PRESSURE_GUARD`），从正式经验生成器取包含该兵种的完整配方，连同真实成员和延迟写入 `candidatePlans` 并只读评分。该诊断按快照钱包、完整容量和完整预测时域枚举，报告的 `experiencedPlanScope` 保留这些边界；不代表限时搜索每轮都评估了全部候选，也不提交采购。可用 `budgetsMs: []` 仅检查配方。
 
+`smoke_station_catapult_reinforcement` 与同名 verifier 验证冒险投篮增援的时间/波次双门槛、暂停及存读档连续性，并检查相邻关卡原兵池规则。`coldStorage.purchaseUnlocked` 只投影本关兵池成员的正式时间与波次资格，不代表钱包、行或容量足够；`availableUnits` 仍表示本关完整兵池。AI 候选、观察与付款共用 `Board::IsColdStorageZombieUnlocked`，未来解锁探路不能把游戏时间当作可花钱跳过的波次。
+
 `smoke_commander_ladder_forecast` 与同名 verifier 验证当前资源的出生放梯时长、实际共享攀爬绕过仍完好的南瓜/冰坚果，以及正常付费辣椒整行拆梯。显式候选另导出 `ladderPlaced` / `ladderClimbs` / `ladderRemoved` 和只用于中间态探索的 `siegeAccessProgress`，不计收入或最终评分。该夹具不证明自主破阵；用真人布局复建的高库存残局也须注明准备期、预算、倍速、卡组与状态近似，不能与正常开局胜率混计。
 
 混合陪练金盏周转先尝试原首选格，已被阵型占用时再使用卡槽报告的其他合法空格；普通卡和模仿者各自冷却/付款，不能因固定格位堵塞而意外停掉双金盏经济。专项为 `smoke_commander_mixed_exchange_space` 与同名 verifier，检查原首选株未被铲、两个实际槽位使用及灰烬资金保留。修正前残局作为旧课程诊断保留，不与修正后成绩混计。

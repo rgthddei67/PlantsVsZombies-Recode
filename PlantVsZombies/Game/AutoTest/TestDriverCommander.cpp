@@ -781,8 +781,9 @@ void TestDriver::AttemptCommanderDiagnosticPurchase(Board& board,Json& record) {
 	if(state.elapsed<mEpisodeDiagnosticOpeningUntil) {reject("opening_preparation");return;}
 	// Busy 也包含已计算完但尚未领取的结果；拒绝而非取消/抢先领取，避免旧案在诊断后交错付款。
 	if(state.planning || (board.mColdStoragePlanner && board.mColdStoragePlanner->Busy())) {reject("planner_busy");return;}
-	// 即使其他诊断启用了 allZombies，这个入口也不借它越过正式采购波次。
-	for(size_t i=0;i<record["members"].size();++i) if(record["members"][i]["unlockWave"].get<int>()>state.decisions+1) {
+	// 即使其他诊断启用了 allZombies，这个入口也不借它越过正式采购波次与时间。
+	for(size_t i=0;i<record["members"].size();++i) if(!board.IsColdStorageZombieUnlocked(
+		static_cast<ZombieType>(record["members"][i]["typeID"].get<int>()))) {
 		record["failedMember"]=i; reject("locked");return;
 	}
 	ColdStorageSearch::Probe probe;
