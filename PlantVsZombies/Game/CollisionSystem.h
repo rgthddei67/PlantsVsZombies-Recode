@@ -79,6 +79,11 @@ public:
 		}
 	}
 
+	/** 为对象池的新实体换发接触身份，旧配对自然淘汰；保持注册、几何和回调不变。 */
+	void RestartContacts(ColliderComponent* collider) {
+		if (collider && collider->mRegistered) collider->colliderID = mNextColliderID++;
+	}
+
 	// 注销碰撞体
 	void UnregisterCollider(ColliderComponent* collider) {
 		auto it = std::find(colliders.begin(), colliders.end(), collider);
@@ -510,6 +515,8 @@ private:
 
 	// 处理新碰撞
 	void HandleNewCollision(ColliderComponent* a, ColliderComponent* b, uint64_t pairKey) {
+		// 检测后若槽位已复用，旧位置的配对不能落到新实体上。
+		if (pairKey != MakePairKey(a->colliderID, b->colliderID)) return;
 		if (currentCollisions.find(pairKey) == currentCollisions.end()) {
 			HandleCollisionEnter(a, b);
 			currentCollisions.insert(pairKey);

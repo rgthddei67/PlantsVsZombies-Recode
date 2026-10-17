@@ -2,6 +2,7 @@
 
 #include "Game/Board/Board.h"
 #include "../GameObjectManager.h"
+#include "../CollisionSystem.h"
 #include "../../Logger.h"
 
 #include <algorithm>
@@ -84,6 +85,8 @@ std::shared_ptr<Bullet> BulletPool::AcquireShared(Board* board, BulletType type,
 			if (bullet->mBulletID != NULL_BULLET_ID) {
 				board->mEntityRegistry.RemoveBullet(bullet->mBulletID);
 			}
+			// 同一槽位已是另一发弹丸；连续命中同一目标也必须重新收到 Enter。
+			CollisionSystem::GetInstance().RestartContacts(bullet->GetCollider());
 			bullet->SetActive(true);
 			bullet->Reset(board, row, colliderRadius, position);
 			ActivateSlot(idx);

@@ -1,0 +1,29 @@
+{
+  "commands": [
+    { "op": "goto_level", "level": 1, "resetTestState": true },
+    { "op": "choose_cards", "cards": [] },
+    { "op": "wait_state", "state": "GAME", "timeout": 15 },
+    { "op": "set_spawn_paused", "value": true },
+    { "op": "spawn_zombie", "type": "ZOMBIE_NORMAL", "row": 2, "x": 700, "stationary": true },
+    { "op": "set_timescale", "value": 0 },
+    { "op": "spawn_bullet", "type": "BULLET_PEA", "row": 2, "x": 700, "y": 308, "velocityX": 0, "damage": 10 },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "assert_state", "path": "bulletCount", "equals": 0 },
+    { "op": "dump_state", "name": "first_hit.json" },
+    { "op": "assert_state", "path": "zombiesByType.ZOMBIE_NORMAL.bodyHealth", "equals": 260 },
+    { "op": "spawn_bullet", "type": "BULLET_PEA", "row": 2, "x": 700, "y": 308, "velocityX": 0, "damage": 10 },
+    { "op": "assert_state", "path": "bulletPoolHitCount", "equals": 1 },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "dump_state", "name": "second_hit.json" },
+    { "op": "assert_state", "path": "bulletCount", "equals": 0 },
+    { "op": "assert_state", "path": "zombiesByType.ZOMBIE_NORMAL.bodyHealth", "equals": 250 },
+    { "op": "spawn_bullet", "type": "BULLET_PEA", "row": 2, "x": 700, "y": 308, "velocityX": 0, "damage": 10 },
+    { "op": "wait_frames", "value": 2 },
+    { "op": "assert_state", "path": "bulletCount", "equals": 0 },
+    { "op": "assert_state", "path": "zombiesByType.ZOMBIE_NORMAL.bodyHealth", "equals": 240 },
+    { "op": "assert_state", "path": "bulletPoolHitCount", "equals": 2 },
+    { "op": "assert_state", "path": "bulletPoolStorageCount", "equals": 1 },
+    { "op": "assert_state", "path": "bulletPoolActiveSlotsValid", "equals": true },
+    { "op": "quit" }
+  ]
+}
