@@ -733,6 +733,9 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		b["damage"] = bullet->GetBulletDamage();
 		b["velocityX"] = bullet->GetVelocityX();
 		b["velocityY"] = bullet->GetVelocityY();
+		if (bullet->mBulletType == BulletType::BULLET_STAR) {
+			b["starRoofReferenceY"] = bullet->GetStarRoofReferenceY();
+		}
 		b["rotationDegrees"] = bullet->GetRotationDegrees();
 		b["rotationSpeedDegrees"] = bullet->GetRotationSpeedDegrees();
 		b["hitTorchwoodColumn"] = bullet->GetHitTorchwoodColumn();
@@ -1834,6 +1837,9 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 			bullet->SetBulletDamage(b["damage"].get<int>());
 			bullet->SetVelocityX(b["velocityX"].get<float>());
 			bullet->SetVelocityY(b["velocityY"].get<float>());
+			if (type == BulletType::BULLET_STAR && b.at("starRoofReferenceY").is_number()) {
+				bullet->RestoreStarRoofReferenceY(b.at("starRoofReferenceY").get<float>());
+			}
 			bullet->SetRotationDegrees(b.value("rotationDegrees", 0.0f));
 			bullet->SetRotationSpeedDegrees(
 				b.value("rotationSpeedDegrees", 0.0f));

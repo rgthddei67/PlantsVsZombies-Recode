@@ -63,11 +63,11 @@ namespace {
 		if (!ClipContactTime(origin.x, velocity.x, -10.0f, SCENE_WIDTH + 20.0f, begin, end)
 			|| !ClipContactTime(origin.y, velocity.y, 0.0f, SCENE_HEIGHT, begin, end)) return 0.0f;
 		if (board.IsRoofBackground()) {
+			const float roofReferenceY = Bullet::CalculateStarRoofReferenceY(board, origin, sourceRow);
 			for (int index = 1; index * step <= end; ++index) {
 				const float time = index * step;
 				const Vector position = origin + velocity * time;
-				const int row = Bullet::GetStarRow(board, position, sourceRow, velocity.y);
-				if (Bullet::StarHitsRoof(board, position, row)) return time - step;
+				if (Bullet::StarHitsRoof(board, position, roofReferenceY)) return time - step;
 			}
 		}
 		return end;

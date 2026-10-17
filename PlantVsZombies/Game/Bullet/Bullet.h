@@ -29,11 +29,12 @@ class Bullet final : public GameObject
 private:
 	enum class TrajectoryKind : std::uint8_t {
 		LINEAR,
+		STAR_LINEAR,
 		LOBBED,
 		COB_CANNON,
 	};
 
-	/** 解析抛射与玉米棒轨迹互斥，共用起终点和时间轴以免普通子弹常驻两套状态。 */
+	/** 星弹、解析抛射与玉米棒轨迹互斥，共用存储以免普通子弹常驻多套状态。 */
 	struct TrajectoryState {
 		Vector start = Vector::zero();
 		Vector target = Vector::zero();
@@ -42,6 +43,7 @@ private:
 		union {
 			float apexHeight;
 			int targetRow;
+			float starRoofReferenceY; // 星弹发射 Y 相对本行平台中心的差值，px；跨行时保持不变
 		};
 		TrajectoryKind kind = TrajectoryKind::LINEAR;
 		bool targetsIceWall = false; // 抛射起手时是否已锁定冰墙；在途存档后继续忽略墙后僵尸
@@ -58,7 +60,14 @@ public:
 	static constexpr float DefaultColliderDiameter = 10.0f; // Board 创建普通弹丸的碰撞直径，单位 px
 	/** 星弹跨行与屋顶遮挡的无副作用查询，供实际飞行及植物弹道预判共用。 */
 	static int GetStarRow(const Board& board, const Vector& position, int sourceRow, float velocityY);
-	static bool StarHitsRoof(const Board& board, const Vector& position, int row);
+	static bool StarHitsRoof(const Board& board, const Vector& position, float roofReferenceY);
+	/** 计算发射高度相对本行平台基线的差值，供预判与实际弹丸共用。 */
+	static float CalculateStarRoofReferenceY(const Board& board, const Vector& origin, int row);
+	float GetStarRoofReferenceY() const {
+		return mTrajectory.kind == TrajectoryKind::STAR_LINEAR ? mTrajectory.starRoofReferenceY : 0.0f;
+	}
+	/** 恢复星弹发射高度；复用互斥弹道状态，不改变速度、位置或碰撞行。 */
+	void RestoreStarRoofReferenceY(float referenceY);
 
 	BulletType mBulletType = BulletType::NUM_BULLETS;
 	PlantDamageOrigin mPlantDamageOrigin{}; // 原发射植物谱系；火炬转弹不得改写
@@ -109,7 +118,7 @@ protected:
 
 	/** 按弹型刷新阴影尺寸与位置；星弹连续跟随弹心，其余弹丸使用地形基线。 */
 	void UpdateShadowLayout(const Vector& position);
-	/** 返回按碰撞行采样的地形基线；星弹的连续视觉阴影独立于这条离散基线。 */
+	/** 返回地形基线；星弹按发射高度与坡面变化连续投影，视觉阴影仍独立跟随弹心。 */
 	float GetTerrainShadowY(const Vector& position) const;
 	/** 按经典弹型离地阈值判断平射弹是否撞上屋顶抬高区域。 */
 	bool HitsRoofTerrain(const Vector& position) const;

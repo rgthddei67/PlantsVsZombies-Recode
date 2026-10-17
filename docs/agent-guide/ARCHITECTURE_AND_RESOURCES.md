@@ -87,6 +87,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 两类 JSON 根节点都写入独立的 `schemaVersion`，并在任何运行状态被修改前由纯逻辑 `SaveSchema` 事务式升级。缺版本的历史档视为 v0；高于当前程序的未来版本、非对象根节点或非法版本字段一律拒绝加载，失败时输入文档和游戏状态均不应被部分修改。新增持久化结构变化时，应在 `SaveSchema` 增加逐版本迁移并同步 `SaveSchemaTests`，不要把一次性兼容分支继续散落到对象恢复过程。
 
+关卡 schema v33 为在途星弹保存 `starRoofReferenceY`，把发射高度与跨行位置分离；屋顶遮挡只随横向坡面高差改变。旧档缺少该信息时由迁移写入 null，按保存位置重新建立基准，不反推原发射植物；对象池复用必须按新发射点重算。入口为 `Bullet::CalculateStarRoofReferenceY` 与 `StarHitsRoof`。
+
 关卡 schema v32 新增冷藏站 `troopNoKillSeconds`，独立记录距部队击杀的游戏时间，不能由狙击收入、派兵或总局长推定。旧档仅继承原 `plantKillIdleSeconds` 可证明的下界（旧计时最多90秒）；缺失则从零开始。新档按剩余时限恢复，撤军凭据不单独入档，达到截止时通过正式 Board 收尾重新结算。入口为 `ColdStorageDefenseRules` 与 `Board::ConcedeColdStorageDefense`。
 
 玩家 schema v5 在 v4 `lastSelectedCards` 之外增加 `crazyDaveTutorialsSeen`，按稳定冒险关卡号保存已经完整看完或主动跳过的戴夫闲聊；v4 及更早旧档迁移为空数组。恢复时闲聊记录只接收当前冒险流程内的整数并排序去重；上次选卡仍只从当前选卡面板已有卡中按名解析、去重并遵守 11 张上限，未知、未注册或未拥有的卡会跳过；按钮恢复必须复用 `Card::SetTargetPosition` 的既有飞行动画，不能直接改卡片坐标。

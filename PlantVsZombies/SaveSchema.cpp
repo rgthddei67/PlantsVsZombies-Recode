@@ -1,6 +1,7 @@
 #include "SaveSchema.h"
 #include "Game/Plant/PlantType.h"
 #include "Game/Zombie/ZombieType.h"
+#include "Game/Bullet/BulletType.h"
 #include "Game/AI/ColdStorageTrialPersistence.h"
 
 #include <algorithm>
@@ -572,6 +573,15 @@ namespace {
 					ice["troopNoKillSeconds"]=std::isfinite(seconds) ? std::clamp(seconds,0.0f,90.0f) : 0;
 				}
 				version=32;upgraded["schemaVersion"]=version;break;
+			case 32:
+				// 旧星弹没有发射高度。null 明确表示未知，由创建入口按保存位置重建，不能猜原植物格位。
+				if (kind == DocumentKind::Level && upgraded.contains("bullets") && upgraded["bullets"].is_array()) {
+					for (auto& bullet : upgraded["bullets"]) {
+						if (bullet.is_object() && bullet.value("type", -1) == static_cast<int>(BulletType::BULLET_STAR)
+							&& !bullet.contains("starRoofReferenceY")) bullet["starRoofReferenceY"] = nullptr;
+					}
+				}
+				version = 33; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

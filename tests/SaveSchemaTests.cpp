@@ -1,6 +1,7 @@
 #include "SaveSchema.h"
 #include "Game/Plant/PlantType.h"
 #include "Game/Zombie/ZombieType.h"
+#include "Game/Bullet/BulletType.h"
 
 #include <algorithm>
 #include <iostream>
@@ -175,6 +176,25 @@ namespace {
 		Expect(prereleaseDocument["crazyDaveTutorialsSeen"]
 			== nlohmann::json::array({ 10, 29, 55 }),
 			"迁移不得覆盖预发布玩家已有的戴夫闲聊记录");
+	}
+
+	/** 旧星弹缺少发射高度时显式标记未知，已有基准与其他弹种必须原样保留。 */
+	void TestStarRoofReferenceMigration() {
+		const int star = static_cast<int>(BulletType::BULLET_STAR);
+		nlohmann::json document = {{"schemaVersion", 32}, {"bullets", {
+			{{"type", star}, {"x", 650.0f}, {"y", 320.0f}, {"row", 2}},
+			{{"type", star}, {"starRoofReferenceY", -5.0f}},
+			{{"type", static_cast<int>(BulletType::BULLET_PEA)}}
+		}}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(document, error), "星弹旧档迁移应成功");
+		Expect(document["bullets"][0]["starRoofReferenceY"].is_null(), "旧星弹不猜测发射高度");
+		Expect(document["bullets"][0]["x"] == 650.0f && document["bullets"][0]["row"] == 2,
+			"迁移不移动在途星弹或修改碰撞行");
+		Expect(document["bullets"][1]["starRoofReferenceY"] == -5.0f, "保留已经存在的星弹基准");
+		Expect(!document["bullets"][2].contains("starRoofReferenceY"), "其他弹种不加入星弹字段");
+		const auto once = document;
+		Expect(SaveSchema::UpgradeLevelDocument(document, error) && document == once, "星弹迁移应幂等");
 	}
 
 	void TestCurrentLevelDocumentIsStable() {
@@ -882,6 +902,7 @@ int main() {
         Expect(SaveSchema::UpgradePlayerDocument(player,error) && player["havecards"].size()==1,"bamboo reward migration is idempotent");
     }
 	TestCurrentLevelDocumentIsStable();
+	TestStarRoofReferenceMigration();
 	TestLegacyLevelUpgradePreservesGameplayState();
 	TestVersionOneLevelUpgradeDefersFogInitializationToBoard();
 	TestVersionTwoLevelUpgradePreservesFogStrength();

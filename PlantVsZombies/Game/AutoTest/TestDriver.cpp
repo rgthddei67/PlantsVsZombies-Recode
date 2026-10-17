@@ -9777,6 +9777,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "windAffected", bullet->IsTyphoonWindAffected() },
 			{ "baseVelocityX", static_cast<int>(std::lround(bullet->GetVelocityX())) },
 			{ "baseVelocityY", static_cast<int>(std::lround(bullet->GetVelocityY())) },
+			{ "starRoofReferenceYOn1000", static_cast<int>(std::lround(bullet->GetStarRoofReferenceY() * 1000.0f)) },
 			{ "rotationDegrees", static_cast<int>(std::lround(
 				bullet->GetRotationDegrees())) },
 			{ "rotationSpeedDegrees", static_cast<int>(std::lround(

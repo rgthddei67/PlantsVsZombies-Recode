@@ -60,6 +60,7 @@ namespace {
 	constexpr float kStarSpinSpeedMax = 573.0f;         // 原版 0.10rad/厘秒换算后的最大自旋，单位：度/秒
 	constexpr float kStarShadowExtraOffsetY = 15.0f;    // C# 星弹初始化时额外下移阴影 15px
 	constexpr float kStarVisualShadowOffsetY = 68.0f;  // 星弹影子相对弹心的 Y 偏移，px；保留发射时的 25+28+15 高差
+
 	constexpr float kCabbageInitialRotation = -50.4f;   // C# -0.8796rad 的初始朝向，单位：度
 	constexpr float kMelonInitialRotation = -72.0f;     // C# -1.2566rad 的初始朝向，单位：度
 	constexpr float kCabbageSpinSpeedMin = -458.4f;     // C# -0.08rad/厘秒换算后的自旋下限，单位：度/秒
@@ -86,6 +87,13 @@ namespace {
 	constexpr float kCobTransferEndProgress = 0.58f;    // 画面外横移到目标上方所占总飞行进度
 	constexpr float kCobSkyY = -120.0f;                 // 升空与垂降衔接高度，单位：世界 px
 
+	/** 星弹跨行不改变离地高度；只有当前 X 相对平台的坡面高差参与净空计算。 */
+	float StarRoofClearance(const Board& board, float x, float referenceY)
+	{
+		const float slopeOffset = board.GetRowCenterYAtX(0, x)
+			- board.GetRowCenterYAtX(0, board.GetRoofSlopeEndX());
+		return slopeOffset + 28.0f + kStarShadowExtraOffsetY - referenceY;
+	}
 	enum class BulletWindResponse {
 		NONE,
 		LIGHT_PROJECTILE
@@ -261,6 +269,9 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	this->mDamage = DefaultDamageForBullet(bulletType);
 	this->mRow = row;
 	if (!mBoard) return;
+	if (mBulletType == BulletType::BULLET_STAR) {
+		RestoreStarRoofReferenceY(CalculateStarRoofReferenceY(*mBoard, position, row));
+	}
 
 	CreateTransform(position);
 	CreateCollider
@@ -320,6 +331,9 @@ void Bullet::Reset(Board* board, int row,
 	mThreepeaterMotion = false;
 	mTargetsFlying = false;
 	mTrajectory = TrajectoryState{};
+	if (mBoard && mBulletType == BulletType::BULLET_STAR) {
+		RestoreStarRoofReferenceY(CalculateStarRoofReferenceY(*mBoard, position, row));
+	}
 	mThermalEndpointX = 0.0f;
 	mThermalEndpointY = 0.0f;
 	mThermalOriginalPlantID = NULL_PLANT_ID;
@@ -667,6 +681,9 @@ void Bullet::UpdateShadowLayout(const Vector& position)
 
 float Bullet::GetTerrainShadowY(const Vector& position) const
 {
+	if (mBoard && mBulletType == BulletType::BULLET_STAR) {
+		return position.y + StarRoofClearance(*mBoard, position.x, GetStarRoofReferenceY());
+	}
 	const float rowCenterY = mBoard
 		? mBoard->GetRowCenterYAtX(mRow, position.x)
 		: CELL_INITALIZE_POS_Y + static_cast<float>(mRow) * CELL_COLLIDER_SIZE_Y
@@ -696,7 +713,7 @@ bool Bullet::HitsRoofTerrain(const Vector& position) const
 		minimumClearance = 0.0f;
 		break;
 	case BulletType::BULLET_STAR:
-		return StarHitsRoof(*mBoard, position, mRow);
+		return StarHitsRoof(*mBoard, position, GetStarRoofReferenceY());
 	default:
 		// 卷心菜、玉米、篮球等拥有独立抛射高度，不能套用平射弹的屋顶阈值。
 		return false;
@@ -758,12 +775,23 @@ int Bullet::GetStarRow(const Board& board, const Vector& position, int sourceRow
 	return std::clamp(row, 0, board.mRows - 1);
 }
 
-bool Bullet::StarHitsRoof(const Board& board, const Vector& position, int row)
+bool Bullet::StarHitsRoof(const Board& board, const Vector& position, float roofReferenceY)
 {
-	if (!board.IsRoofBackground() || row < 0 || row >= board.mRows) return false;
+	if (!board.IsRoofBackground()) return false;
 	constexpr float minimumClearance = 23.0f; // 星弹阴影到弹心的最小屋顶净空，单位 px
-	return board.GetRowCenterYAtX(row, position.x) + 28.0f
-		+ kStarShadowExtraOffsetY - position.y < minimumClearance;
+	return StarRoofClearance(board, position.x, roofReferenceY) < minimumClearance;
+}
+
+float Bullet::CalculateStarRoofReferenceY(const Board& board, const Vector& origin, int row)
+{
+	return origin.y - board.GetRowCenterYAtX(row, board.GetRoofSlopeEndX());
+}
+
+void Bullet::RestoreStarRoofReferenceY(float referenceY)
+{
+	if (mBulletType != BulletType::BULLET_STAR || !std::isfinite(referenceY)) return;
+	mTrajectory.kind = TrajectoryKind::STAR_LINEAR;
+	mTrajectory.starRoofReferenceY = referenceY;
 }
 
 void Bullet::EnableThreepeaterMotion(int sourceRow)
@@ -1308,6 +1336,7 @@ float Bullet::GetLobProgress() const
 
 float Bullet::GetLobArcHeight() const
 {
+	if (!IsLobbedMotion()) return 0.0f;
 	const float progress = GetLobProgress();
 	return 4.0f * mTrajectory.apexHeight * progress * (1.0f - progress);
 }
