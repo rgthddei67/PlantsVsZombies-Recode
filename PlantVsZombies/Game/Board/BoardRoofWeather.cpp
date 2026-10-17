@@ -30,19 +30,7 @@ namespace {
 		ZombieControlBit(ZombieControlEffect::SLOW)
 		| ZombieControlBit(ZombieControlEffect::FROZEN)
 		| ZombieControlBit(ZombieControlEffect::BUTTER); // 接地编队免疫三类植物控制，保留麻痹和伤害反制
-	constexpr float kRoofRunoffChargeMaximum = 100.0f;    // 坡面径流进入锁行预警所需的满积累值
-	constexpr float kRoofRunoffLightChargePerSecond = 1.00f; // 小雨每游戏秒增加的径流积累点数
-	constexpr float kRoofRunoffMediumChargePerSecond = 2.00f; // 中雨每游戏秒增加的径流积累点数
-	constexpr float kRoofRunoffHeavyChargePerSecond = 3.50f; // 大雨每游戏秒增加的径流积累点数
-	constexpr float kRoofRunoffClearDrainPerSecond = 0.30f; // 晴天每游戏秒自然排走的径流积累点数
-	constexpr float kRoofRunoffWarningDuration = 3.0f;    // 满积累后锁行预警的持续游戏秒
-	constexpr float kRoofRunoffFlowDuration = 2.20f;      // 单次目标行冲刷的持续游戏秒
 	constexpr float kRoofRunoffZombieDriftSpeed = -60.0f; // 地面僵尸顺坡冲向屋檐的附加速度，像素/游戏秒
-	constexpr int kRoofRunoffRetainedChargeMin = 30;      // 冲刷结束后保留湿度的均匀随机下限（百分比）
-	constexpr int kRoofRunoffRetainedChargeMax = 60;      // 冲刷结束后保留湿度的均匀随机上限（百分比）
-	constexpr int kRoofRunoffOneRowWeight = 50;           // 满积累事件只冲刷一行的相对权重
-	constexpr int kRoofRunoffTwoRowWeight = 35;           // 满积累事件同时冲刷两行的相对权重
-	constexpr int kRoofRunoffThreeRowWeight = 15;         // 满积累事件同时冲刷三行的相对权重
 	using namespace NightRoofChargeRules;
 
 }
@@ -105,83 +93,9 @@ bool Board::IsPlantPausedByRoofRunoff(const Plant* plant) const
  */
 void Board::UpdateRoofRunoff(float deltaTime)
 {
-	if (!SupportsRoofRunoff()) {
-		mRoofRunoffCharge = 0.0f;
-		mRoofRunoffRetainedCharge = 0.0f;
-		mRoofRunoffPhase = RoofRunoffPhase::IDLE;
-		mRoofRunoffPhaseTimer = 0.0f;
-		mRoofRunoffRowMask = 0;
-		return;
-	}
-	if (deltaTime <= 0.0f) return;
-
-	if (mRoofRunoffPhase == RoofRunoffPhase::WARNING
-		|| mRoofRunoffPhase == RoofRunoffPhase::FLOWING) {
-		mRoofRunoffPhaseTimer = std::max(0.0f,
-			mRoofRunoffPhaseTimer - deltaTime);
-		if (mRoofRunoffPhaseTimer > 0.0f) return;
-
-		if (mRoofRunoffPhase == RoofRunoffPhase::WARNING) {
-			mRoofRunoffPhase = RoofRunoffPhase::FLOWING;
-			mRoofRunoffPhaseTimer = kRoofRunoffFlowDuration;
-			return;
-		}
-
-		mRoofRunoffCharge = mRoofRunoffRetainedCharge;
-		mRoofRunoffRetainedCharge = 0.0f;
-		mRoofRunoffPhase = RoofRunoffPhase::IDLE;
-		mRoofRunoffRowMask = 0;
-		return;
-	}
-
-	float chargeDelta = 0.0f;
-	switch (mRainIntensity) {
-	case RainIntensity::CLEAR:
-		chargeDelta = -kRoofRunoffClearDrainPerSecond;
-		break;
-	case RainIntensity::LIGHT:
-		chargeDelta = kRoofRunoffLightChargePerSecond;
-		break;
-	case RainIntensity::MEDIUM:
-		chargeDelta = kRoofRunoffMediumChargePerSecond;
-		break;
-	case RainIntensity::HEAVY:
-		chargeDelta = kRoofRunoffHeavyChargePerSecond;
-		break;
-	}
-	mRoofRunoffCharge = std::clamp(mRoofRunoffCharge
-		+ chargeDelta * deltaTime, 0.0f, kRoofRunoffChargeMaximum);
-	if (mRoofRunoffCharge < kRoofRunoffChargeMaximum || mRows <= 0) return;
-
-	// 锁行组只抽一次并随档保存；不按敌我密度选行，避免系统暗中追打当前最拥挤防线。
-	mRoofRunoffPhase = RoofRunoffPhase::WARNING;
-	mRoofRunoffPhaseTimer = kRoofRunoffWarningDuration;
-	// 下一轮起点和行组同时预抽并入档，避免活动阶段读档改变后续湿度。
-	mRoofRunoffRetainedCharge = static_cast<float>(GameRandom::Range(
-		kRoofRunoffRetainedChargeMin, kRoofRunoffRetainedChargeMax));
-	const int rowCountRoll = GameRandom::Range(1,
-		kRoofRunoffOneRowWeight + kRoofRunoffTwoRowWeight + kRoofRunoffThreeRowWeight);
-	int rowCount = rowCountRoll <= kRoofRunoffOneRowWeight ? 1
-		: (rowCountRoll <= kRoofRunoffOneRowWeight + kRoofRunoffTwoRowWeight ? 2 : 3);
-	rowCount = std::min(rowCount, mRows);
-	mRoofRunoffRowMask = 0;
-	while (GetRoofRunoffRowCount() < rowCount) {
-		mRoofRunoffRowMask |= 1 << GameRandom::Range(0, mRows - 1);
-	}
-
-	// 导流车只能替换本次已经抽中的一行，不能扩充冲刷规模；最终掩码仍是唯一入档事实。
-	const int guideRow = GetRoofRunoffGuideCandidateRow();
-	if (guideRow >= 0 && !IsRoofRunoffRowSelected(guideRow)) {
-		const int replacedIndex = GameRandom::Range(0, rowCount - 1);
-		int selectedIndex = 0;
-		for (int row = 0; row < mRows; ++row) {
-			if (!IsRoofRunoffRowSelected(row)) continue;
-			if (selectedIndex++ != replacedIndex) continue;
-			mRoofRunoffRowMask &= ~(1 << row);
-			break;
-		}
-		mRoofRunoffRowMask |= 1 << guideRow;
-	}
+    if (mRoofRunoff.Advance(deltaTime, SupportsRoofRunoff(), mRows, mRainIntensity)) {
+        mRoofRunoff.LockRows(mRows, GetRoofRunoffGuideCandidateRow());
+    }
 }
 
 /**
@@ -209,35 +123,6 @@ int Board::GetRoofRunoffGuideCandidateRow() const
 		}
 	}
 	return bestRow;
-}
-
-/** 校验并恢复径流状态；损坏组合和非屋顶存档都回到中性状态。 */
-void Board::RestoreRoofRunoffState(float charge, RoofRunoffPhase phase,
-	int rowMask, float phaseTimer, float retainedCharge)
-{
-	mRoofRunoffCharge = 0.0f;
-	mRoofRunoffRetainedCharge = 0.0f;
-	mRoofRunoffPhase = RoofRunoffPhase::IDLE;
-	mRoofRunoffPhaseTimer = 0.0f;
-	mRoofRunoffRowMask = 0;
-	if (!SupportsRoofRunoff() || !std::isfinite(charge)
-		|| !std::isfinite(phaseTimer) || !std::isfinite(retainedCharge)) return;
-
-	mRoofRunoffCharge = std::clamp(charge, 0.0f, kRoofRunoffChargeMaximum);
-	if (phase != RoofRunoffPhase::WARNING && phase != RoofRunoffPhase::FLOWING) return;
-	const int validRowMask = mRows > 0 ? (1 << mRows) - 1 : 0;
-	rowMask &= validRowMask;
-	if (rowMask == 0 || phaseTimer < 0.0f) {
-		mRoofRunoffCharge = 0.0f;
-		return;
-	}
-	mRoofRunoffCharge = kRoofRunoffChargeMaximum;
-	mRoofRunoffPhase = phase;
-	mRoofRunoffPhaseTimer = phaseTimer;
-	mRoofRunoffRowMask = rowMask;
-	mRoofRunoffRetainedCharge = std::clamp(retainedCharge,
-		static_cast<float>(kRoofRunoffRetainedChargeMin),
-		static_cast<float>(kRoofRunoffRetainedChargeMax));
 }
 
 /** 返回仍满足能力门禁的锁定实体；平时只按稳定 ID 查表，不扫描僵尸集合。 */
@@ -1033,8 +918,7 @@ bool Board::SetRoofRunoffForTesting(float charge, RoofRunoffPhase phase,
 		const int validRowMask = mRows > 0 ? (1 << mRows) - 1 : 0;
 		if ((rowMask & validRowMask) == 0 || (rowMask & ~validRowMask) != 0) return false;
 		if (phaseTimer <= 0.0f) {
-			phaseTimer = phase == RoofRunoffPhase::WARNING
-				? kRoofRunoffWarningDuration : kRoofRunoffFlowDuration;
+			phaseTimer = RoofRunoff::DefaultDuration(phase);
 		}
 	}
 	else {
@@ -1042,8 +926,8 @@ bool Board::SetRoofRunoffForTesting(float charge, RoofRunoffPhase phase,
 		phaseTimer = 0.0f;
 		retainedCharge = 0.0f;
 	}
-	RestoreRoofRunoffState(charge, phase, rowMask, phaseTimer, retainedCharge);
-	return mRoofRunoffPhase == phase;
+	mRoofRunoff.Restore(SupportsRoofRunoff(), mRows, charge, phase, rowMask, phaseTimer, retainedCharge);
+	return mRoofRunoff.Phase() == phase;
 }
 
 bool Board::SetNightRoofChargeForTesting(float charge, NightRoofChargePhase phase,
@@ -1089,21 +973,9 @@ float Board::GetRoofRunoffZombieDriftVelocity(int row, float worldX) const
 	return kRoofRunoffZombieDriftSpeed;
 }
 
-int Board::GetRoofRunoffRowCount() const
-{
-	int count = 0;
-	for (int row = 0; row < mRows; ++row) {
-		if (IsRoofRunoffRowSelected(row)) ++count;
-	}
-	return count;
-}
+int Board::GetRoofRunoffRowCount() const { return mRoofRunoff.RowCount(); }
 
-float Board::GetRoofRunoffFlowProgress() const
-{
-	if (!IsRoofRunoffFlowing()) return 0.0f;
-	return std::clamp(1.0f - mRoofRunoffPhaseTimer / kRoofRunoffFlowDuration,
-		0.0f, 1.0f);
-}
+float Board::GetRoofRunoffFlowProgress() const { return mRoofRunoff.FlowProgress(); }
 
 float Board::GetNightRoofChargeDischargeProgress() const
 {
@@ -1120,4 +992,9 @@ bool Board::TryGetNightRoofChargeGuideAnchor(Vector& anchor) const
 	}
 	const Zombie* guide = mEntityRegistry.GetZombie(mNightRoofChargeGuideID);
 	return guide && guide->TryGetNightRoofChargeGuideAnchor(anchor);
+}
+
+void Board::SaveRoofRunoff(nlohmann::json& document) const { mRoofRunoff.Save(document); }
+void Board::LoadRoofRunoff(const nlohmann::json& document) {
+    mRoofRunoff.Load(document, SupportsRoofRunoff(), mRows);
 }

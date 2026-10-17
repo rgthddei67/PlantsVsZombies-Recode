@@ -1162,11 +1162,7 @@ void Board::InitializeWeather()
 	mRainVisualEffectName.clear();
 	mWeakWeatherPhasesSinceHeavy = 0;
 	mHeavyPhasesWithoutTyphoon = 0;
-	mRoofRunoffCharge = 0.0f;
-	mRoofRunoffRetainedCharge = 0.0f;
-	mRoofRunoffPhase = RoofRunoffPhase::IDLE;
-	mRoofRunoffPhaseTimer = 0.0f;
-	mRoofRunoffRowMask = 0;
+	mRoofRunoff.Reset();
 	mNightRoofCharge = 0.0f;
 	mNightRoofOvercharge = 0.0f;
 	mNightRoofChargePhase = NightRoofChargePhase::CHARGING;

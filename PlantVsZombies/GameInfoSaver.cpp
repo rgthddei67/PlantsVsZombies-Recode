@@ -492,11 +492,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["stormyNightInitialized"] = board->mStormyNightInitialized;
 	j["stormyNightFlashPattern"] = board->mStormyNightFlashPattern;
 	j["stormyNightFlashTimer"] = board->mStormyNightFlashTimer;
-	j["roofRunoffCharge"] = board->mRoofRunoffCharge;
-	j["roofRunoffRetainedCharge"] = board->mRoofRunoffRetainedCharge;
-	j["roofRunoffPhase"] = static_cast<int>(board->mRoofRunoffPhase);
-	j["roofRunoffPhaseTimer"] = board->mRoofRunoffPhaseTimer;
-	j["roofRunoffRowMask"] = board->mRoofRunoffRowMask;
+	board->SaveRoofRunoff(j);
 	j["nightRoofCharge"] = board->mNightRoofCharge;
 	j["nightRoofOvercharge"] = board->mNightRoofOvercharge;
 	j["nightRoofChargePhase"] = static_cast<int>(board->mNightRoofChargePhase);
@@ -544,43 +540,15 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["activeGustPlantMoved"] = board->mActiveGustPlantMoved;
 	j["weakWeatherPhasesSinceHeavy"] = board->mWeakWeatherPhasesSinceHeavy;
 	j["heavyPhasesWithoutTyphoon"] = board->mHeavyPhasesWithoutTyphoon;
-	j["eliteDancersSpawnedThisWave"] = board->mEliteDancersSpawnedThisWave;
-	j["reinforcedDoorsSpawnedThisWave"] = board->mReinforcedDoorsSpawnedThisWave;
-	j["elitePolevaultersSpawnedThisWave"] = board->mElitePolevaultersSpawnedThisWave;
-	j["gildedZambonisSpawnedThisWave"] = board->mGildedZambonisSpawnedThisWave;
-	j["eliteDolphinRidersSpawnedThisWave"] = board->mEliteDolphinRidersSpawnedThisWave;
-	j["eliteJackInTheBoxesSpawnedThisWave"] =
-		board->mEliteJackInTheBoxesSpawnedThisWave;
-	j["eliteDiggersSpawnedThisWave"] = board->mEliteDiggersSpawnedThisWave;
-	j["elitePogosSpawnedThisWave"] = board->mElitePogosSpawnedThisWave;
-	j["eliteLaddersSpawnedThisWave"] = board->mEliteLaddersSpawnedThisWave;
-	j["eliteCatapultsSpawnedThisWave"] = board->mEliteCatapultsSpawnedThisWave;
-	j["redeyeGargantuarsSpawnedThisWave"] = board->mRedeyeGargantuarsSpawnedThisWave;
-	j["insulatorsSpawnedThisWave"] = board->mInsulatorsSpawnedThisWave;
-	j["hijackersSpawnedThisWave"] = board->mHijackersSpawnedThisWave;
+	board->SaveWaveSpawnCounts(j);
 	j["hijackerSpawnCooldownWavesRemaining"] =
 		board->mHijackerSpawnCooldownWavesRemaining;
 	j["hijackerSpawnBlockedThisWave"] = board->mHijackerSpawnBlockedThisWave;
-	j["groundingZombiesSpawnedThisWave"] = board->mGroundingZombiesSpawnedThisWave;
-	j["bobsledTeamsSpawnedThisWave"] = board->mBobsledTeamsSpawnedThisWave;
-	j["iceWallEngineersSpawnedThisWave"] = board->mIceWallEngineersSpawnedThisWave;
-	j["iceCrackDrillsSpawnedThisWave"] = board->mIceCrackDrillsSpawnedThisWave;
-	j["weatherJammersSpawnedThisWave"] = board->mWeatherJammersSpawnedThisWave;
-	j["iceStatueExecutionersSpawnedThisWave"] =
-		board->mIceStatueExecutionersSpawnedThisWave;
-	j["snowBurrowsSpawnedThisWave"] = board->mSnowBurrowsSpawnedThisWave;
 	j["snowBurrowTutorialHoleSpawnConsumed"] =
 		board->mSnowBurrowTutorialHoleSpawnConsumed;
-	j["adaptiveHelmetsSpawnedThisWave"] = board->mAdaptiveHelmetsSpawnedThisWave;
 	j["adaptiveHelmetTutorialWaveSpawned"] =
 		board->mAdaptiveHelmetTutorialWaveSpawned;
-	j["thermalSnipersSpawnedThisWave"] = board->mThermalSnipersSpawnedThisWave;
 	j["thermalSniperTutorialSpawned"] = board->mThermalSniperTutorialSpawned;
-	j["auroraPriestsSpawnedThisWave"] = board->mAuroraPriestsSpawnedThisWave;
-	j["clockmakersSpawnedThisWave"] = board->mClockmakersSpawnedThisWave;
-	j["crystalDrummersSpawnedThisWave"] = board->mCrystalDrummersSpawnedThisWave;
-	j["crystalMinersSpawnedThisWave"] = board->mCrystalMinersSpawnedThisWave;
-	j["sunThievesSpawnedThisWave"] = board->mSunThievesSpawnedThisWave;
 	j["sunTheftLedger"] = nlohmann::json::array();
 	for (const auto& [id, record] : board->mSunTheftLedger) j["sunTheftLedger"].push_back({
 		{"id",id},{"stolen",record.stolen},{"carried",record.carried},{"escaped",record.escaped},{"disabled",record.disabled}});
@@ -1426,18 +1394,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 		board->mStormyNightFlashPattern = 0;
 		board->mStormyNightFlashTimer = 0.0f;
 	}
-	const int roofRunoffPhaseValue = j.value("roofRunoffPhase",
-		static_cast<int>(RoofRunoffPhase::IDLE));
-	const RoofRunoffPhase roofRunoffPhase = roofRunoffPhaseValue
-		>= static_cast<int>(RoofRunoffPhase::IDLE)
-		&& roofRunoffPhaseValue <= static_cast<int>(RoofRunoffPhase::FLOWING)
-		? static_cast<RoofRunoffPhase>(roofRunoffPhaseValue)
-		: RoofRunoffPhase::IDLE;
-	// 锁定行组和倒计时会影响后续冲刷；旧档缺字段时从空积累开始，不伪造一次事件。
-	board->RestoreRoofRunoffState(j.value("roofRunoffCharge", 0.0f),
-		roofRunoffPhase, j.value("roofRunoffRowMask", 0),
-		j.value("roofRunoffPhaseTimer", 0.0f),
-		j.value("roofRunoffRetainedCharge", 30.0f));
+	board->LoadRoofRunoff(j);
 	const int nightRoofChargePhaseValue = j.value("nightRoofChargePhase",
 		static_cast<int>(NightRoofChargePhase::CHARGING));
 	const NightRoofChargePhase nightRoofChargePhase = nightRoofChargePhaseValue
@@ -1558,65 +1515,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	board->RestoreWeakWeatherPity(j.value("weakWeatherPhasesSinceHeavy", 0));
 	// 台风保底计数影响下一次大雨的概率，必须随档恢复；旧档默认从零开始。
 	board->RestoreTyphoonPity(j.value("heavyPhasesWithoutTyphoon", 0));
-	// 每波生成计数必须随当前波恢复；旧版单台风布尔字段按已生成 1 只迁移。
-	const int legacyEliteDancerCount = j.value("eliteDancerSpawnedThisTyphoon", false) ? 1 : 0;
-	board->RestoreEliteDancerWaveSpawnCount(
-		j.value("eliteDancersSpawnedThisWave", legacyEliteDancerCount));
-	board->RestoreReinforcedDoorWaveSpawnCount(
-		j.value("reinforcedDoorsSpawnedThisWave", 0));
-	board->RestoreElitePolevaulterWaveSpawnCount(
-		j.value("elitePolevaultersSpawnedThisWave", 0));
-	board->RestoreGildedZamboniWaveSpawnCount(
-		j.value("gildedZambonisSpawnedThisWave", 0));
-	board->RestoreEliteDolphinRiderWaveSpawnCount(
-		j.value("eliteDolphinRidersSpawnedThisWave", 0));
-	board->RestoreEliteJackInTheBoxWaveSpawnCount(
-		j.value("eliteJackInTheBoxesSpawnedThisWave", 0));
-	board->RestoreEliteDiggerWaveSpawnCount(
-		j.value("eliteDiggersSpawnedThisWave", 0));
-	board->RestoreElitePogoWaveSpawnCount(
-		j.value("elitePogosSpawnedThisWave", 0));
-	board->RestoreEliteLadderWaveSpawnCount(
-		j.value("eliteLaddersSpawnedThisWave", 0));
-	board->RestoreEliteCatapultWaveSpawnCount(
-		j.value("eliteCatapultsSpawnedThisWave", 0));
-	board->RestoreRedeyeGargantuarWaveSpawnCount(
-		j.value("redeyeGargantuarsSpawnedThisWave", 0));
-	board->RestoreInsulatorWaveSpawnCount(
-		j.value("insulatorsSpawnedThisWave", 0));
-	board->RestoreHijackerWaveSpawnCount(
-		j.value("hijackersSpawnedThisWave", 0));
-	board->RestoreHijackerSpawnCooldown(
-		j.value("hijackerSpawnCooldownWavesRemaining", 0),
-		j.value("hijackerSpawnBlockedThisWave", false));
-	board->RestoreGroundingZombieWaveSpawnCount(
-		j.value("groundingZombiesSpawnedThisWave", 0));
-	board->RestoreBobsledTeamWaveSpawnCount(
-		j.value("bobsledTeamsSpawnedThisWave", 0));
-	board->RestoreIceWallEngineerWaveSpawnCount(
-		j.value("iceWallEngineersSpawnedThisWave", 0));
-	board->RestoreIceCrackDrillWaveSpawnCount(
-		j.value("iceCrackDrillsSpawnedThisWave", 0));
-	board->RestoreWeatherJammerWaveSpawnCount(
-		j.value("weatherJammersSpawnedThisWave", 0));
-	board->RestoreIceStatueExecutionerWaveSpawnCount(
-		j.value("iceStatueExecutionersSpawnedThisWave", 0));
-	board->RestoreSnowBurrowSpawnState(
-		j.value("snowBurrowsSpawnedThisWave", 0),
-		j.value("snowBurrowTutorialHoleSpawnConsumed", false));
-	board->RestoreAdaptiveHelmetSpawnState(
-		j.value("adaptiveHelmetsSpawnedThisWave", 0),
-		j.value("adaptiveHelmetTutorialWaveSpawned", false));
-	board->RestoreThermalSniperSpawnState(
-		j.value("thermalSnipersSpawnedThisWave", 0),
-		j.value("thermalSniperTutorialSpawned", false));
-	board->mAuroraPriestsSpawnedThisWave = std::clamp(
-		j.value("auroraPriestsSpawnedThisWave", 0), 0, 3);
-	board->mClockmakersSpawnedThisWave = std::clamp(
-		j.value("clockmakersSpawnedThisWave", 0), 0, 3);
-	board->mCrystalDrummersSpawnedThisWave = std::clamp(j.value("crystalDrummersSpawnedThisWave",0),0,1);
-	board->mCrystalMinersSpawnedThisWave = std::clamp(j.value("crystalMinersSpawnedThisWave",0),0,1);
-	board->mSunThievesSpawnedThisWave = std::clamp(j.value("sunThievesSpawnedThisWave",0),0,2);
+	board->LoadWaveSpawnCounts(j);
 	board->mSunTheftLedger.clear();
 	for (const auto& saved : j.value("sunTheftLedger",nlohmann::json::array())) {
 		const int id = saved.value("id",0);

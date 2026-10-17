@@ -445,6 +445,18 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME cold-storage-strategy COMMAND ColdStorageStrategyTests)
 
+    add_executable(BoardDomainsTests tests/BoardDomainsTests.cpp
+        PlantVsZombies/Game/Board/RoofRunoff.cpp
+        PlantVsZombies/Game/Board/WaveSpawnCounts.cpp)
+    target_include_directories(BoardDomainsTests PRIVATE ${SRC_DIR})
+    target_compile_options(BoardDomainsTests PRIVATE /utf-8 /W3 /sdl /EHsc)
+    target_link_libraries(BoardDomainsTests PRIVATE nlohmann_json::nlohmann_json
+        $<$<PLATFORM_ID:Windows>:pvz_win7_compat>)
+    if(WIN32)
+        pvz_assert_win7_imports(BoardDomainsTests)
+    endif()
+    add_test(NAME board-domain-state COMMAND BoardDomainsTests)
+
     add_executable(ThreadPoolTests tests/ThreadPoolTests.cpp)
     target_include_directories(ThreadPoolTests PRIVATE ${SRC_DIR})
     target_compile_options(ThreadPoolTests PRIVATE /utf-8 /W3 /sdl /EHsc)

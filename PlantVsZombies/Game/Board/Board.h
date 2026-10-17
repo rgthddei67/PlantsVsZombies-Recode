@@ -1,5 +1,7 @@
 #pragma once
 #include "WeatherStationRules.h"
+#include "RoofRunoff.h"
+#include "WaveSpawnCounts.h"
 #include "ColdStorageState.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
 #include "../MiniGameDefinition.h"
@@ -404,6 +406,8 @@ public:
 	std::array<float, 8> mGoldenIceTimer{}; // 每行黄色冰道剩余寿命，单位秒
 
 private:
+	WaveSpawnCounts mWaveSpawnCounts; // 每波累计；不保存同时在场数或教程/跨波冷却
+	RoofRunoff mRoofRunoff; // 独占径流状态、阶段推进与序列化；Board 只协调地形和实体
 	std::vector<std::unordered_map<int,int>> mPressureAshProtection; // 同步灰烬事务栈，不存档；冻结目标ID及有效保护人数
 	/** 主线程一次性捕获已确认的后台停滞；失败也不重试写盘，不改变钱包、出兵或玩家存档。 */
 	void CaptureColdStorageStall(const ColdStorageSearch::Snapshot& search,
@@ -579,19 +583,9 @@ private:
 	std::vector<PendingAuroraRift> mPendingAuroraRifts; // 已提交、等待展开的裂隙出生事务
 	std::vector<TemporalAnchor> mTemporalAnchors; // 已提交、等待回溯的独立时间锚
 	int mNextDiscontinuousTransactionID = 1; // 非连续入场事务稳定排序 ID
-	int mAuroraPriestsSpawnedThisWave = 0; // 本波累计创建的敌对极光祭司
-	int mClockmakersSpawnedThisWave = 0; // 本波累计创建的敌对极夜钟匠
-	int mSunThievesSpawnedThisWave = 0; // 本波累计盗晶；读档与正式生成共用
-	int mCrystalDrummersSpawnedThisWave = 0; // 本波累计鼓手；最多一只，场上同时最多两只
-	int mCrystalMinersSpawnedThisWave = 0; // 本波累计晶角矿工，限制为一只
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
 	float mDawnNavigationTimer = 0.0f; // 曙光莲强风模块全场导航剩余游戏秒
-	float mRoofRunoffCharge = 0.0f;     // 昼夜屋顶坡面径流积累值（0～100）
-	float mRoofRunoffRetainedCharge = 0.0f; // 本次冲刷结束后兑现的预抽残留湿度（30～60）
-	RoofRunoffPhase mRoofRunoffPhase = RoofRunoffPhase::IDLE; // 当前径流所处的待机、预警或冲刷阶段
-	float mRoofRunoffPhaseTimer = 0.0f; // 当前预警或冲刷阶段剩余游戏秒
-	int mRoofRunoffRowMask = 0;         // 已锁定的冲刷行 bitmask；待机阶段为 0
 	float mNightRoofCharge = 0.0f;      // 黑夜屋顶独立雷荷积累值（0～100）
 	float mNightRoofOvercharge = 0.0f;  // 满电活动阶段截留、放电结束后兑现的余电（0～25）
 	NightRoofChargePhase mNightRoofChargePhase = NightRoofChargePhase::CHARGING; // 当前积累、预警或放电阶段
@@ -651,32 +645,10 @@ private:
 	bool mActiveGustPlantMoved = false; // 本次阵风是否已结算植物，防读档后重复移动
 	int mWeakWeatherPhasesSinceHeavy = 0; // 后期连续非大雨新天气数；达到上限后下轮保底大雨并进入存档
 	int mHeavyPhasesWithoutTyphoon = 0; // 连续未命中台风的新大雨阶段数；用于保底并进入存档
-	int mEliteDancersSpawnedThisWave = 0; // 当前波已生成的精英舞王数量；用于每波上限并进入存档
-	int mReinforcedDoorsSpawnedThisWave = 0; // 当前波正式生成的加固铁门数量；上限计数并进入存档
-	int mElitePolevaultersSpawnedThisWave = 0; // 当前波正式生成的精英撑杆数量；上限计数并进入存档
-	int mGildedZambonisSpawnedThisWave = 0; // 当前波正式生成的鎏金冰车数量；每波至多一只并进入存档
-	int mEliteDolphinRidersSpawnedThisWave = 0; // 当前波正式生成的精英海豚数量；每波至多一只并进入存档
-	int mEliteJackInTheBoxesSpawnedThisWave = 0; // 当前波正式生成的精英小丑数量；每波至多一只并进入存档
-	int mEliteDiggersSpawnedThisWave = 0; // 当前波正式生成的爆破工头数量；每波至多一只并进入存档
-	int mElitePogosSpawnedThisWave = 0; // 当前波正式生成的精英跳跳数量；每波至多一只并进入存档
-	int mEliteLaddersSpawnedThisWave = 0; // 当前波正式生成的精英扶梯数量；每波至多一只并进入存档
-	int mEliteCatapultsSpawnedThisWave = 0; // 当前波正式生成的导流投篮车数量；每波至多一只并进入存档
-	int mRedeyeGargantuarsSpawnedThisWave = 0; // 当前冒险波正式生成的红眼巨人数量；每波至多三只并进入存档，无尽不消费
-	int mInsulatorsSpawnedThisWave = 0; // 当前波正式生成的绝缘僵尸数量；所有正式波次统一至多两只并进入存档
-	int mHijackersSpawnedThisWave = 0; // 当前波正式生成的劫持者数量；所有正式波次统一至多两只并进入存档
 	int mHijackerSpawnCooldownWavesRemaining = 0; // 当前波之后仍需封锁劫持者刷新的完整正式波次数
 	bool mHijackerSpawnBlockedThisWave = false; // 当前波是否承接成功处决后的刷新封锁；与剩余波数一起入档
-	int mGroundingZombiesSpawnedThisWave = 0; // 当前波正式生成的接地僵尸数量；所有正式波次统一至多两只并进入存档
-	int mBobsledTeamsSpawnedThisWave = 0; // 当前波正式生成的雪橇车队数量；跟随者不重复计数
-	int mIceWallEngineersSpawnedThisWave = 0; // 当前波正式生成的冰墙工程师数量；所有正式波次统一至多一只
-	int mIceCrackDrillsSpawnedThisWave = 0; // 当前波正式生成的冰裂钻机数量；所有正式波次统一至多三只
-	int mWeatherJammersSpawnedThisWave = 0; // 当前波正式生成的气象干扰僵尸数量；所有正式波次统一至多一只
-	int mIceStatueExecutionersSpawnedThisWave = 0; // 当前波正式生成的冰像处刑者数量；所有正式波次统一至多一只
-	int mSnowBurrowsSpawnedThisWave = 0; // 当前波已接受的潜雪僵尸数量；8-1 上限一只，其后上限两只
 	bool mSnowBurrowTutorialHoleSpawnConsumed = false; // 8-1 是否已有一只潜雪僵尸真正从雪穴提交出生
-	int mAdaptiveHelmetsSpawnedThisWave = 0; // 当前波已接受的适应头盔僵尸数量；8-3 起每波至多四只
 	bool mAdaptiveHelmetTutorialWaveSpawned = false; // 8-3 首轮白毛风结束后的独立教学出场是否已提交
-	int mThermalSnipersSpawnedThisWave = 0; // 当前波已接受的热感狙击僵尸数量；8-5/8-6 上限分别为三/四只
 	bool mThermalSniperTutorialSpawned = false; // 当前关要求的独立保底是否已经提交
 	int mEliteScaredyShroomsPlanted = 0; // 本关累计种下的精英胆小菇数量；死亡或铲除不返还次数
 	int mLastTyphoonMovedPlants = 0;    // 最近一次阵风移动的植物数，仅供观测和测试
@@ -753,9 +725,6 @@ private:
 	void UpdateWinterTemperature(float deltaTime);
 	/** 推进昼夜屋顶雨水积累、锁行预警与短时冲刷状态机。 */
 	void UpdateRoofRunoff(float deltaTime);
-	/** 从存档恢复已经判定的积累值、阶段、锁定行、残留湿度与剩余时间，不重新抽取。 */
-	void RestoreRoofRunoffState(float charge, RoofRunoffPhase phase,
-		int rowMask, float phaseTimer, float retainedCharge);
 	/** 推进黑夜屋顶独立雷荷的积累、锁行预警与基础放电状态机。 */
 	void UpdateNightRoofCharge(float deltaTime);
 	/** 统一接收正向雷荷；积累阶段跨阈值的溢出和活动阶段新增量都转入余电。 */
@@ -840,26 +809,7 @@ private:
 		TyphoonStrength strength,
 		WindDirection direction, float strengthTimer, float gustTimer,
 		float directionTimer, int gustsRemaining, int promptVariant);
-	void RestoreEliteDancerWaveSpawnCount(int count);
-	void RestoreReinforcedDoorWaveSpawnCount(int count);
-	void RestoreElitePolevaulterWaveSpawnCount(int count);
-	void RestoreGildedZamboniWaveSpawnCount(int count);
-	void RestoreEliteDolphinRiderWaveSpawnCount(int count);
-	void RestoreEliteJackInTheBoxWaveSpawnCount(int count);
-	void RestoreEliteDiggerWaveSpawnCount(int count);
-	void RestoreElitePogoWaveSpawnCount(int count);
-	void RestoreEliteLadderWaveSpawnCount(int count);
-	void RestoreEliteCatapultWaveSpawnCount(int count);
-	void RestoreRedeyeGargantuarWaveSpawnCount(int count);
-	void RestoreInsulatorWaveSpawnCount(int count);
-	void RestoreHijackerWaveSpawnCount(int count);
 	void RestoreHijackerSpawnCooldown(int wavesRemaining, bool blockedThisWave);
-	void RestoreGroundingZombieWaveSpawnCount(int count);
-	void RestoreBobsledTeamWaveSpawnCount(int count);
-	void RestoreIceWallEngineerWaveSpawnCount(int count);
-	void RestoreIceCrackDrillWaveSpawnCount(int count);
-	void RestoreWeatherJammerWaveSpawnCount(int count);
-	void RestoreIceStatueExecutionerWaveSpawnCount(int count);
 	/** 成功处决后立即封锁本波后续候选，并预留后续完整波次的刷新冷却。 */
 	void BeginHijackerSpawnCooldown();
 	/** 新波开始时把一份未来冷却转为覆盖整个当前波的封锁。 */
@@ -1068,9 +1018,9 @@ public:
 	/** 死亡/魅惑返还剩余携款，逃走则结清为损失；重复调用不重复返钱。 */
 	void CloseSunTheft(int zombieID, bool escaped);
 	void DisableSunTheft(int zombieID);
-	int GetSunThievesSpawnedThisWave() const { return mSunThievesSpawnedThisWave; }
-	int GetCrystalMinersSpawnedThisWave() const { return mCrystalMinersSpawnedThisWave; }
-	int GetCrystalDrummersSpawnedThisWave() const { return mCrystalDrummersSpawnedThisWave; }
+	int GetSunThievesSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SUN_THIEF); }
+	int GetCrystalMinersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER); }
+	int GetCrystalDrummersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_CRYSTAL_DRUMMER); }
 	/** 取得雾区及其右侧场外敌方僵尸的减伤比例；魅惑与棱镜标记目标不受保护。 */
 	float GetMineFogProtection(const Zombie* zombie) const;
 	int ScaleMineFogDamage(int damage, const Zombie* zombie) const;
@@ -1220,8 +1170,8 @@ public:
 		for (const TemporalAnchor& anchor : mTemporalAnchors) count += anchor.targets.size();
 		return static_cast<int>(count);
 	}
-	int GetAuroraPriestsSpawnedThisWave() const { return mAuroraPriestsSpawnedThisWave; }
-	int GetClockmakersSpawnedThisWave() const { return mClockmakersSpawnedThisWave; }
+	int GetAuroraPriestsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_AURORA_PRIEST); }
+	int GetClockmakersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_POLAR_CLOCKMAKER); }
 	bool HasConsumedAuroraPriestGuarantee() const { return mAuroraPriestGuaranteeConsumed; }
 	bool HasConsumedClockmakerGuarantee() const { return mClockmakerGuaranteeConsumed; }
 	/** 为一次即将提交的抛射动作取得现有领域或按稳定规则消费最近就绪北极星花。 */
@@ -1442,23 +1392,23 @@ public:
 	/** 返回僵尸被阵风吹向前线时的最大世界横坐标，避免越过既有出生侧清理线。 */
 	float GetZombieGustFrontLimit() const;
 	int GetHeavyPhasesWithoutTyphoon() const { return mHeavyPhasesWithoutTyphoon; }
-	int GetEliteDancersSpawnedThisWave() const { return mEliteDancersSpawnedThisWave; }
-	int GetReinforcedDoorsSpawnedThisWave() const { return mReinforcedDoorsSpawnedThisWave; }
-	int GetElitePolevaultersSpawnedThisWave() const { return mElitePolevaultersSpawnedThisWave; }
-	int GetGildedZambonisSpawnedThisWave() const { return mGildedZambonisSpawnedThisWave; }
-	int GetEliteDolphinRidersSpawnedThisWave() const { return mEliteDolphinRidersSpawnedThisWave; }
+	int GetEliteDancersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DANCER); }
+	int GetReinforcedDoorsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_REINFORCED_DOOR); }
+	int GetElitePolevaultersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_POLEVAULTER); }
+	int GetGildedZambonisSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_GILDED_ZAMBONI); }
+	int GetEliteDolphinRidersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER); }
 	int GetEliteJackInTheBoxesSpawnedThisWave() const {
-		return mEliteJackInTheBoxesSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX);
 	}
-	int GetEliteDiggersSpawnedThisWave() const { return mEliteDiggersSpawnedThisWave; }
-	int GetElitePogosSpawnedThisWave() const { return mElitePogosSpawnedThisWave; }
-	int GetEliteLaddersSpawnedThisWave() const { return mEliteLaddersSpawnedThisWave; }
-	int GetEliteCatapultsSpawnedThisWave() const { return mEliteCatapultsSpawnedThisWave; }
+	int GetEliteDiggersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DIGGER); }
+	int GetElitePogosSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_POGO); }
+	int GetEliteLaddersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_LADDER); }
+	int GetEliteCatapultsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_CATAPULT); }
 	int GetRedeyeGargantuarsSpawnedThisWave() const {
-		return mRedeyeGargantuarsSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_REDEYE_GARGANTUAR);
 	}
-	int GetInsulatorsSpawnedThisWave() const { return mInsulatorsSpawnedThisWave; }
-	int GetHijackersSpawnedThisWave() const { return mHijackersSpawnedThisWave; }
+	int GetInsulatorsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_INSULATOR); }
+	int GetHijackersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_HIJACKER); }
 	int GetHijackerSpawnCooldownWavesRemaining() const {
 		return mHijackerSpawnCooldownWavesRemaining;
 	}
@@ -1468,32 +1418,32 @@ public:
 			|| mHijackerSpawnCooldownWavesRemaining > 0;
 	}
 	int GetGroundingZombiesSpawnedThisWave() const {
-		return mGroundingZombiesSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_GROUNDING);
 	}
-	int GetBobsledTeamsSpawnedThisWave() const { return mBobsledTeamsSpawnedThisWave; }
+	int GetBobsledTeamsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_BOBSLED_TEAM); }
 	int GetIceWallEngineersSpawnedThisWave() const {
-		return mIceWallEngineersSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_WALL_ENGINEER);
 	}
 	int GetIceCrackDrillsSpawnedThisWave() const {
-		return mIceCrackDrillsSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_CRACK_DRILL);
 	}
 	int GetWeatherJammersSpawnedThisWave() const {
-		return mWeatherJammersSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_WEATHER_JAMMER);
 	}
 	int GetIceStatueExecutionersSpawnedThisWave() const {
-		return mIceStatueExecutionersSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
-	int GetSnowBurrowsSpawnedThisWave() const { return mSnowBurrowsSpawnedThisWave; }
+	int GetSnowBurrowsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SNOW_BURROW); }
 	bool HasConsumedSnowBurrowTutorialHoleSpawn() const {
 		return mSnowBurrowTutorialHoleSpawnConsumed;
 	}
 	int GetAdaptiveHelmetsSpawnedThisWave() const {
-		return mAdaptiveHelmetsSpawnedThisWave;
+		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ADAPTIVE_HELMET);
 	}
 	bool HasSpawnedAdaptiveHelmetTutorialWave() const {
 		return mAdaptiveHelmetTutorialWaveSpawned;
 	}
-	int GetThermalSnipersSpawnedThisWave() const { return mThermalSnipersSpawnedThisWave; }
+	int GetThermalSnipersSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER); }
 	bool HasSpawnedThermalSniperTutorial() const { return mThermalSniperTutorialSpawned; }
 	/** 恢复热感狙击僵尸的当前波上限计数与本关保底提交状态。 */
 	void RestoreThermalSniperSpawnState(int waveCount, bool tutorialSpawned);
@@ -1574,28 +1524,34 @@ public:
 	bool SupportsWeather() const;
 	/** 昼夜屋顶场景共用坡面径流，不依赖关卡编号。 */
 	bool SupportsRoofRunoff() const;
-	float GetRoofRunoffCharge() const { return mRoofRunoffCharge; }
-	float GetRoofRunoffChargeRatio() const { return mRoofRunoffCharge / 100.0f; }
-	float GetRoofRunoffRetainedCharge() const { return mRoofRunoffRetainedCharge; }
-	RoofRunoffPhase GetRoofRunoffPhase() const { return mRoofRunoffPhase; }
-	float GetRoofRunoffPhaseTimer() const { return mRoofRunoffPhaseTimer; }
+	/** 存档器只组织文档，径流子域自己保存/校验状态，保持原有 JSON 键。 */
+	void SaveRoofRunoff(nlohmann::json& document) const;
+	/** 保存当波累计，读取同时恢复原有教程和跨波门禁；不改变 JSON 键。 */
+	void SaveWaveSpawnCounts(nlohmann::json& document) const;
+	void LoadWaveSpawnCounts(const nlohmann::json& document);
+	void LoadRoofRunoff(const nlohmann::json& document);
+	float GetRoofRunoffCharge() const { return mRoofRunoff.Charge(); }
+	float GetRoofRunoffChargeRatio() const { return mRoofRunoff.Charge() / 100.0f; }
+	float GetRoofRunoffRetainedCharge() const { return mRoofRunoff.RetainedCharge(); }
+	RoofRunoffPhase GetRoofRunoffPhase() const { return mRoofRunoff.Phase(); }
+	float GetRoofRunoffPhaseTimer() const { return mRoofRunoff.Timer(); }
 	/** 正式冲刷从 0 到 1 的归一化进度；非冲刷阶段返回 0。 */
 	float GetRoofRunoffFlowProgress() const;
 	/** 返回本次锁定行集合的 bitmask；待机阶段为 0。 */
-	int GetRoofRunoffRowMask() const { return mRoofRunoffRowMask; }
+	int GetRoofRunoffRowMask() const { return mRoofRunoff.RowMask(); }
 	/** 判断指定逻辑行是否属于当前锁定行组。 */
 	bool IsRoofRunoffRowSelected(int row) const {
-		return row >= 0 && row < mRows && (mRoofRunoffRowMask & (1 << row)) != 0;
+		return row >= 0 && row < mRows && (mRoofRunoff.RowMask() & (1 << row)) != 0;
 	}
 	/** 返回当前锁定的不重复行数。 */
 	int GetRoofRunoffRowCount() const;
 	/** 返回当前最靠房屋且能参与下一次自然锁行的导流僵尸行；没有候选时返回 -1。 */
 	int GetRoofRunoffGuideCandidateRow() const;
 	bool IsRoofRunoffWarning() const {
-		return mRoofRunoffPhase == RoofRunoffPhase::WARNING;
+		return mRoofRunoff.Phase() == RoofRunoffPhase::WARNING;
 	}
 	bool IsRoofRunoffFlowing() const {
-		return mRoofRunoffPhase == RoofRunoffPhase::FLOWING;
+		return mRoofRunoff.Phase() == RoofRunoffPhase::FLOWING;
 	}
 	/** 返回目标行坡段地面僵尸承受的有符号径流速度；负值表示顺坡冲向屋檐/房屋。 */
 	float GetRoofRunoffZombieDriftVelocity(int row, float worldX) const;

@@ -1,0 +1,232 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 68,
+      "background": "POLAR_NIGHT_SNOWFIELD",
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [],
+      "timeout": 20
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 0,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 1,
+      "x": 900
+    },
+    {
+      "op": "assert_state",
+      "path": "thermalSniperZombieCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSnipersSpawnedThisWave",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "wave",
+      "equals": 0
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "wave",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSniperTutorialSpawned",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "thermalSniperZombieCount",
+      "equals": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 1,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 2,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 3,
+      "x": 900
+    },
+    {
+      "op": "assert_state",
+      "path": "thermalSniperZombieCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSnipersSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "goto_level",
+      "level": 69,
+      "background": "POLAR_NIGHT_SNOWFIELD",
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [],
+      "timeout": 20
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 20
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 0,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 1,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 2,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 3,
+      "x": 900
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 4,
+      "x": 900
+    },
+    {
+      "op": "assert_state",
+      "path": "thermalSniperZombieCount",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSnipersSpawnedThisWave",
+      "equals": 4
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "thermal_wave_cap"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "thermal_wave_cap"
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSnipersSpawnedThisWave",
+      "equals": 4
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 0,
+      "x": 1010
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 1,
+      "x": 1010
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 2,
+      "x": 1010
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 3,
+      "x": 1010
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_THERMAL_SNIPER",
+      "mutationRoll": 50,
+      "row": 4,
+      "x": 1010
+    },
+    {
+      "op": "assert_state",
+      "path": "thermalSniperZombieCount",
+      "equals": 8
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.thermalSnipersSpawnedThisWave",
+      "equals": 4
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

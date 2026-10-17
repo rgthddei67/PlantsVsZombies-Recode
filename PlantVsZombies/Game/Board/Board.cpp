@@ -1,3 +1,4 @@
+#include "WaveSpawnRules.h"
 #include "Game/Board/Board.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "Game/Board/ColdStorageSkillRules.h"
@@ -52,6 +53,7 @@
 #include <limits>
 
 namespace {
+	using namespace WaveSpawnRules;
 	constexpr float kHxyWaveBudgetMultiplier = 0.7f; // HXY专属出怪预算相对难度1的倍率
 	constexpr int kHxyStartingSunBonus = 300; // HXY专属每次新开局额外阳光，续局与生存换轮不重复发放
 	constexpr double kHxyArmorHealthMultiplier = ZombieBirthVitalsRules::HxyArmorHealthMultiplier; // HXY出生防具倍率与预测共用
@@ -135,40 +137,13 @@ namespace {
 	constexpr float kMistFuelEarlyHeavyCarrierBonus = 0.25f; // 首波高耐久僵尸相对普通僵尸最多追加的累计份额
 	constexpr float kMistFuelLateHeavyCarrierBonus = 0.15f; // 最终波高耐久僵尸相对普通僵尸最多追加的累计份额
 	constexpr int kEliteDancerMutationChancePercent = 50; // 台风以上普通舞王变异为精英舞王的概率（百分比）
-	constexpr int kEliteDancerMaxPerWave = 2;             // 每波最多允许生成的精英舞王数量；超额候选直接跳过
-	constexpr int kReinforcedDoorMaxPerWave = 2;          // 每波最多正式生成的加固铁门数量；超额候选直接跳过
-	constexpr int kElitePolevaulterMaxPerWave = 2;        // 每波最多正式生成的精英撑杆数量；超额候选直接跳过
-	constexpr int kGildedZamboniMaxPerWave = 1;           // 每波最多正式生成的鎏金冰车数量；超额候选直接跳过
-	constexpr int kEliteDolphinRiderMaxPerWave = 1;       // 每波最多正式生成的精英海豚数量；超额候选直接跳过
-	constexpr int kEliteJackInTheBoxMaxPerWave = 2;       // 每波最多正式生成的精英小丑数量；超额候选直接跳过
-	constexpr int kEliteDiggerMaxPerWave = 1;             // 每波最多正式生成的爆破工头数量；超额候选直接跳过
-	constexpr int kElitePogoMaxPerWave = 1;               // 每波最多正式生成的精英跳跳数量；超额候选直接跳过
-	constexpr int kEliteLadderMaxPerWave = 1;             // 每波最多正式生成的精英扶梯数量；超额候选直接跳过
-	constexpr int kEliteCatapultMaxPerWave = 1;           // 每波最多正式生成的导流投篮车数量；超额候选直接跳过
-	constexpr int kRedeyeGargantuarMaxPerAdventureWave = 3; // 冒险每波最多正式生成的红眼巨人数量；无尽不启用此上限
-	constexpr int kInsulatorMaxPerWave = 2;               // 每个正式波次最多成功生成的绝缘僵尸数量
-	constexpr int kHijackerMaxPerWave = 2;                // 每个正式波次最多成功生成的劫持者数量
 	constexpr int kHijackerSpawnCooldownWaves = 2;        // 成功处决后封锁的后续完整正式波次数
-	constexpr int kGroundingZombieMaxPerWave = 2;         // 每个正式波次最多成功生成的接地僵尸数量
-	constexpr int kBobsledTeamMaxPerWave = 3;             // 一次候选四人同乘；正式波次最多接纳三队
-	constexpr int kIceWallEngineerMaxPerWave = 1;         // 每个正式波次最多成功生成一只冰墙工程师
-	constexpr int kIceCrackDrillMaxPerWave = 3;           // 每个正式波次最多成功生成三只冰裂钻机
-	constexpr int kWeatherJammerMaxPerWave = 2;           // 每个正式波次最多成功生成两只气象干扰僵尸
-	constexpr int kIceStatueExecutionerMaxPerWave = 5;   // 每个正式波次最多成功生成五只冰像处刑者
-	constexpr int kSnowBurrowTutorialMaxPerWave = 1;      // 8-1 每波与同时最多一只潜雪僵尸
-	constexpr int kSnowBurrowCompositeMaxPerWave = 2;     // 8-2 起每波与同时最多两只潜雪僵尸
-	constexpr int kSnowBurrowTutorialLevel = 64;           // 内部 64 即 8-1，雪穴形成后保底一次潜雪出生
 	constexpr int kAdaptiveHelmetTutorialLevel = 66;      // 内部 66 即 8-3，首轮白毛风结束后独立教学
-	constexpr int kAdaptiveHelmetMaxPerWave = 4;          // 8-3 起每波最多四只，不设同时或累计上限
-	constexpr int kThermalSniperTutorialLevel = 68;       // 内部 68 即 8-5，第三波独立保底后开放自然候选
 	constexpr int kThermalSniperCompositeLevel = 69;      // 内部 69 即 8-6，第一波开放且第二波额外保底
 	constexpr int kThermalSniperTutorialWave = 3;         // 8-5 首次教学的额外保底波次
 	constexpr int kThermalSniperCompositeWave = 2;        // 8-6 组合教学的额外保底波次
-	constexpr int kThermalSniperTutorialMaxPerWave = 3;   // 8-5 每波最多三只
-	constexpr int kThermalSniperCompositeMaxPerWave = 4;  // 8-6 每波最多四只
 	constexpr int kAuroraPriestLevel = 70;                 // 内部 70 即 8-7
 	constexpr int kAuroraPriestGuaranteeWave = 3;         // 8-7 第三波额外保底
-	constexpr int kAuroraPriestMaxPerWave = 3;             // 极光祭司每波累计上限
 	constexpr int kAuroraPriestMaxActive = 4;              // 敌对同时上限
 	constexpr int kPolarClockmakerLevel = 71;              // 内部 71 即 8-8
 	constexpr int kPolarClockmakerGuaranteeWave = 2;       // 8-8 第二波额外保底
@@ -352,87 +327,6 @@ void Board::CompleteLoadRestore()
 	}
 }
 
-/** 夹紧并恢复当前波已经成功生成的精英舞王数量。 */
-void Board::RestoreEliteDancerWaveSpawnCount(int count)
-{
-	mEliteDancersSpawnedThisWave = std::clamp(count, 0, kEliteDancerMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的加固铁门数量。 */
-void Board::RestoreReinforcedDoorWaveSpawnCount(int count)
-{
-	mReinforcedDoorsSpawnedThisWave = std::clamp(count, 0, kReinforcedDoorMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的精英撑杆数量。 */
-void Board::RestoreElitePolevaulterWaveSpawnCount(int count)
-{
-	mElitePolevaultersSpawnedThisWave = std::clamp(count, 0, kElitePolevaulterMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的鎏金冰车数量。 */
-void Board::RestoreGildedZamboniWaveSpawnCount(int count)
-{
-	mGildedZambonisSpawnedThisWave = std::clamp(count, 0, kGildedZamboniMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的精英海豚骑士数量。 */
-void Board::RestoreEliteDolphinRiderWaveSpawnCount(int count)
-{
-	mEliteDolphinRidersSpawnedThisWave =
-		std::clamp(count, 0, kEliteDolphinRiderMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的精英小丑数量。 */
-void Board::RestoreEliteJackInTheBoxWaveSpawnCount(int count)
-{
-	mEliteJackInTheBoxesSpawnedThisWave =
-		std::clamp(count, 0, kEliteJackInTheBoxMaxPerWave);
-}
-
-void Board::RestoreEliteDiggerWaveSpawnCount(int count)
-{
-	mEliteDiggersSpawnedThisWave = std::clamp(count, 0, kEliteDiggerMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的精英跳跳数量。 */
-void Board::RestoreElitePogoWaveSpawnCount(int count)
-{
-	mElitePogosSpawnedThisWave = std::clamp(count, 0, kElitePogoMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的精英扶梯数量。 */
-void Board::RestoreEliteLadderWaveSpawnCount(int count)
-{
-	mEliteLaddersSpawnedThisWave = std::clamp(count, 0, kEliteLadderMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的导流投篮车数量。 */
-void Board::RestoreEliteCatapultWaveSpawnCount(int count)
-{
-	mEliteCatapultsSpawnedThisWave = std::clamp(
-		count, 0, kEliteCatapultMaxPerWave);
-}
-
-/** 恢复冒险红眼的波次名额；无尽不消费也不保留该上限计数。 */
-void Board::RestoreRedeyeGargantuarWaveSpawnCount(int count)
-{
-	mRedeyeGargantuarsSpawnedThisWave = mIsSurvival ? 0 : std::clamp(
-		count, 0, kRedeyeGargantuarMaxPerAdventureWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的绝缘僵尸数量。 */
-void Board::RestoreInsulatorWaveSpawnCount(int count)
-{
-	mInsulatorsSpawnedThisWave = std::clamp(count, 0, kInsulatorMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的劫持者数量。 */
-void Board::RestoreHijackerWaveSpawnCount(int count)
-{
-	mHijackersSpawnedThisWave = std::clamp(count, 0, kHijackerMaxPerWave);
-}
-
 /** 恢复成功处决后的波次冷却；旧档缺字段时由调用方传入中性零值。 */
 void Board::RestoreHijackerSpawnCooldown(int wavesRemaining, bool blockedThisWave)
 {
@@ -457,53 +351,12 @@ void Board::AdvanceHijackerSpawnCooldownForNewWave()
 	}
 }
 
-/** 夹紧并恢复当前波已经正式生成的接地僵尸数量。 */
-void Board::RestoreGroundingZombieWaveSpawnCount(int count)
-{
-	mGroundingZombiesSpawnedThisWave = std::clamp(
-		count, 0, kGroundingZombieMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的雪橇车队数量；三名跟随者不计入此值。 */
-void Board::RestoreBobsledTeamWaveSpawnCount(int count)
-{
-	mBobsledTeamsSpawnedThisWave = std::clamp(count, 0, kBobsledTeamMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的冰墙工程师数量。 */
-void Board::RestoreIceWallEngineerWaveSpawnCount(int count)
-{
-	mIceWallEngineersSpawnedThisWave = std::clamp(
-		count, 0, kIceWallEngineerMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的冰裂钻机数量。 */
-void Board::RestoreIceCrackDrillWaveSpawnCount(int count)
-{
-	mIceCrackDrillsSpawnedThisWave = std::clamp(
-		count, 0, kIceCrackDrillMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的气象干扰僵尸数量。 */
-void Board::RestoreWeatherJammerWaveSpawnCount(int count)
-{
-	mWeatherJammersSpawnedThisWave = std::clamp(
-		count, 0, kWeatherJammerMaxPerWave);
-}
-
-/** 夹紧并恢复当前波已经正式生成的冰像处刑者数量。 */
-void Board::RestoreIceStatueExecutionerWaveSpawnCount(int count)
-{
-	mIceStatueExecutionersSpawnedThisWave = std::clamp(
-		count, 0, kIceStatueExecutionerMaxPerWave);
-}
-
 /** 旧档缺字段时以零值恢复；本波计数按当前关卡的实际限额夹紧。 */
 void Board::RestoreSnowBurrowSpawnState(int count, bool tutorialHoleSpawnConsumed)
 {
 	const int maxPerWave = mLevel == kSnowBurrowTutorialLevel
 		? kSnowBurrowTutorialMaxPerWave : kSnowBurrowCompositeMaxPerWave;
-	mSnowBurrowsSpawnedThisWave = std::clamp(count, 0, maxPerWave);
+	mWaveSpawnCounts.RestoreCount(ZombieType::ZOMBIE_SNOW_BURROW, std::clamp(count, 0, maxPerWave));
 	mSnowBurrowTutorialHoleSpawnConsumed = tutorialHoleSpawnConsumed;
 }
 
@@ -512,8 +365,8 @@ void Board::RestoreAdaptiveHelmetSpawnState(
 {
 	const bool tutorialLevel = !mIsSurvival
 		&& mLevel == kAdaptiveHelmetTutorialLevel;
-	mAdaptiveHelmetsSpawnedThisWave = std::clamp(
-		waveCount, 0, kAdaptiveHelmetMaxPerWave);
+	mWaveSpawnCounts.RestoreCount(ZombieType::ZOMBIE_ADAPTIVE_HELMET, std::clamp(
+		waveCount, 0, kAdaptiveHelmetMaxPerWave));
 	mAdaptiveHelmetTutorialWaveSpawned = tutorialLevel
 		&& tutorialWaveSpawned;
 }
@@ -522,7 +375,7 @@ void Board::RestoreThermalSniperSpawnState(int waveCount, bool tutorialSpawned)
 {
 	const int maxPerWave = mLevel == kThermalSniperTutorialLevel
 		? kThermalSniperTutorialMaxPerWave : kThermalSniperCompositeMaxPerWave;
-	mThermalSnipersSpawnedThisWave = std::clamp(waveCount, 0, maxPerWave);
+	mWaveSpawnCounts.RestoreCount(ZombieType::ZOMBIE_THERMAL_SNIPER, std::clamp(waveCount, 0, maxPerWave));
 	mThermalSniperTutorialSpawned = !mIsSurvival
 		&& (mLevel == kThermalSniperTutorialLevel
 			|| mLevel == kThermalSniperCompositeLevel)
@@ -531,7 +384,7 @@ void Board::RestoreThermalSniperSpawnState(int waveCount, bool tutorialSpawned)
 
 /**
  * 将正式波次选中的普通舞王按当前黑夜强天气变异为精英舞王。
- * 每波至多成功三次；失败点数不消费上限，天气减弱后既有精英仍保留。
+ * 遵守当前每波累计上限；失败点数不消费上限，天气减弱后既有精英仍保留。
  */
 ZombieType Board::ResolveRainMutationType(ZombieType selected, int mutationRoll)
 {
@@ -545,10 +398,10 @@ ZombieType Board::ResolveRainMutationType(ZombieType selected, int mutationRoll)
 	const int roll = mutationRoll > 0 ? mutationRoll : GameRandom::Range(1, 100);
 	if (roll < 1 || roll > 100 || roll > kEliteDancerMutationChancePercent) return selected;
 	// 已达上限的成功变异候选直接作废，由正式挑选循环继续抽取；不能退回普通舞王占掉本次刷新。
-	if (mEliteDancersSpawnedThisWave >= kEliteDancerMaxPerWave) {
+	if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DANCER) >= kEliteDancerMaxPerWave) {
 		return ZombieType::NUM_ZOMBIE_TYPES;
 	}
-	++mEliteDancersSpawnedThisWave;
+	mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_DANCER);
 	return ZombieType::ZOMBIE_ELITE_DANCER;
 }
 
@@ -558,173 +411,173 @@ ZombieType Board::ResolveRainMutationType(ZombieType selected, int mutationRoll)
 ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 {
 	if (selected == ZombieType::ZOMBIE_REINFORCED_DOOR) {
-		if (mReinforcedDoorsSpawnedThisWave >= kReinforcedDoorMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_REINFORCED_DOOR) >= kReinforcedDoorMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mReinforcedDoorsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_REINFORCED_DOOR);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_POLEVAULTER) {
-		if (mElitePolevaultersSpawnedThisWave >= kElitePolevaulterMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_POLEVAULTER) >= kElitePolevaulterMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mElitePolevaultersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_POLEVAULTER);
 	}
 	if (selected == ZombieType::ZOMBIE_GILDED_ZAMBONI) {
-		if (mGildedZambonisSpawnedThisWave >= kGildedZamboniMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_GILDED_ZAMBONI) >= kGildedZamboniMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mGildedZambonisSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_GILDED_ZAMBONI);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER) {
-		if (mEliteDolphinRidersSpawnedThisWave >= kEliteDolphinRiderMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER) >= kEliteDolphinRiderMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mEliteDolphinRidersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_DOLPHIN_RIDER);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX) {
-		if (mEliteJackInTheBoxesSpawnedThisWave >= kEliteJackInTheBoxMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX) >= kEliteJackInTheBoxMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mEliteJackInTheBoxesSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_JACK_IN_THE_BOX);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_DIGGER) {
-		if (mEliteDiggersSpawnedThisWave >= kEliteDiggerMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_DIGGER) >= kEliteDiggerMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mEliteDiggersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_DIGGER);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_POGO) {
-		if (mElitePogosSpawnedThisWave >= kElitePogoMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_POGO) >= kElitePogoMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mElitePogosSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_POGO);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_LADDER) {
-		if (mEliteLaddersSpawnedThisWave >= kEliteLadderMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_LADDER) >= kEliteLadderMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mEliteLaddersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_LADDER);
 	}
 	if (selected == ZombieType::ZOMBIE_ELITE_CATAPULT) {
-		if (mEliteCatapultsSpawnedThisWave >= kEliteCatapultMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ELITE_CATAPULT) >= kEliteCatapultMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mEliteCatapultsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ELITE_CATAPULT);
 	}
 	// 红眼只在冒险波次限额；无尽刻意不读写此计数，保留其原有的无限压力曲线。
 	if (!mIsSurvival && selected == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) {
-		if (mRedeyeGargantuarsSpawnedThisWave >= kRedeyeGargantuarMaxPerAdventureWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_REDEYE_GARGANTUAR) >= kRedeyeGargantuarMaxPerAdventureWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mRedeyeGargantuarsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_REDEYE_GARGANTUAR);
 	}
 	if (selected == ZombieType::ZOMBIE_INSULATOR) {
-		if (mInsulatorsSpawnedThisWave >= kInsulatorMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_INSULATOR) >= kInsulatorMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mInsulatorsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_INSULATOR);
 	}
 	if (selected == ZombieType::ZOMBIE_HIJACKER) {
 		const bool forcedTutorialWave = !mIsSurvival
 			&& mLevel == kHijackerTutorialLevel
 			&& mCurrentWave == kHijackerTutorialWave;
 		if ((!forcedTutorialWave && IsHijackerSpawnBlocked())
-			|| mHijackersSpawnedThisWave >= kHijackerMaxPerWave) {
+			|| mWaveSpawnCounts.Get(ZombieType::ZOMBIE_HIJACKER) >= kHijackerMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mHijackersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_HIJACKER);
 	}
 	if (selected == ZombieType::ZOMBIE_GROUNDING) {
-		if (mGroundingZombiesSpawnedThisWave >= kGroundingZombieMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_GROUNDING) >= kGroundingZombieMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mGroundingZombiesSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_GROUNDING);
 	}
 	if (selected == ZombieType::ZOMBIE_BOBSLED_TEAM) {
-		if (mBobsledTeamsSpawnedThisWave >= kBobsledTeamMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_BOBSLED_TEAM) >= kBobsledTeamMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mBobsledTeamsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_BOBSLED_TEAM);
 	}
 	if (selected == ZombieType::ZOMBIE_ICE_WALL_ENGINEER) {
-		if (mIceWallEngineersSpawnedThisWave >= kIceWallEngineerMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_WALL_ENGINEER) >= kIceWallEngineerMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mIceWallEngineersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_WALL_ENGINEER);
 	}
 	if (selected == ZombieType::ZOMBIE_ICE_CRACK_DRILL) {
-		if (mIceCrackDrillsSpawnedThisWave >= kIceCrackDrillMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_CRACK_DRILL) >= kIceCrackDrillMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mIceCrackDrillsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_CRACK_DRILL);
 	}
 	if (selected == ZombieType::ZOMBIE_WEATHER_JAMMER) {
-		if (mWeatherJammersSpawnedThisWave >= kWeatherJammerMaxPerWave) {
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_WEATHER_JAMMER) >= kWeatherJammerMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mWeatherJammersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_WEATHER_JAMMER);
 	}
 	if (selected == ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER) {
-		if (mIceStatueExecutionersSpawnedThisWave
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER)
 			>= kIceStatueExecutionerMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mIceStatueExecutionersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
 	if (selected == ZombieType::ZOMBIE_SNOW_BURROW) {
 		const int maxPerWave = mLevel == kSnowBurrowTutorialLevel
 			? kSnowBurrowTutorialMaxPerWave : kSnowBurrowCompositeMaxPerWave;
-		if (mSnowBurrowsSpawnedThisWave >= maxPerWave
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SNOW_BURROW) >= maxPerWave
 			|| CountActiveOrPendingZombieType(selected) >= maxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mSnowBurrowsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_SNOW_BURROW);
 	}
 	if (selected == ZombieType::ZOMBIE_ADAPTIVE_HELMET) {
 		const bool tutorialLevel = !mIsSurvival
 			&& mLevel == kAdaptiveHelmetTutorialLevel;
 		if ((tutorialLevel && !mPolarFirstWhiteoutCompleted)
-			|| mAdaptiveHelmetsSpawnedThisWave >= kAdaptiveHelmetMaxPerWave) {
+			|| mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ADAPTIVE_HELMET) >= kAdaptiveHelmetMaxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mAdaptiveHelmetsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ADAPTIVE_HELMET);
 	}
 	if (selected == ZombieType::ZOMBIE_THERMAL_SNIPER && !mIsSurvival) {
 		const int maxPerWave = mLevel == kThermalSniperTutorialLevel
 			? kThermalSniperTutorialMaxPerWave : kThermalSniperCompositeMaxPerWave;
 		if ((mLevel == kThermalSniperTutorialLevel
 				&& !mThermalSniperTutorialSpawned)
-			|| mThermalSnipersSpawnedThisWave >= maxPerWave) {
+			|| mWaveSpawnCounts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER) >= maxPerWave) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mThermalSnipersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_THERMAL_SNIPER);
 	}
 	if (selected == ZombieType::ZOMBIE_AURORA_PRIEST) {
-		if (mAuroraPriestsSpawnedThisWave >= kAuroraPriestMaxPerWave
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_AURORA_PRIEST) >= kAuroraPriestMaxPerWave
 			|| CountActiveOrPendingZombieType(selected) >= kAuroraPriestMaxActive) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mAuroraPriestsSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_AURORA_PRIEST);
 	}
 	if (selected == ZombieType::ZOMBIE_POLAR_CLOCKMAKER) {
-		if (mClockmakersSpawnedThisWave >= kPolarClockmakerMaxPerWave
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_POLAR_CLOCKMAKER) >= kPolarClockmakerMaxPerWave
 			|| CountActiveOrPendingZombieType(selected) >= kPolarClockmakerMaxActive) {
 			return ZombieType::NUM_ZOMBIE_TYPES;
 		}
-		++mClockmakersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_POLAR_CLOCKMAKER);
 	}
 	if (selected == ZombieType::ZOMBIE_CRYSTAL_DRUMMER) {
-		if (mCrystalDrummersSpawnedThisWave >= 1 || CountActiveOrPendingZombieType(selected) >= 2) return ZombieType::NUM_ZOMBIE_TYPES;
-		++mCrystalDrummersSpawnedThisWave;
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_CRYSTAL_DRUMMER) >= 1 || CountActiveOrPendingZombieType(selected) >= 2) return ZombieType::NUM_ZOMBIE_TYPES;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_CRYSTAL_DRUMMER);
 	}
 	if (selected == ZombieType::ZOMBIE_SUN_THIEF) {
-		if (mSunThievesSpawnedThisWave >= 2 || CountActiveOrPendingZombieType(selected) >= 3) return ZombieType::NUM_ZOMBIE_TYPES;
-		++mSunThievesSpawnedThisWave;
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SUN_THIEF) >= 2 || CountActiveOrPendingZombieType(selected) >= 3) return ZombieType::NUM_ZOMBIE_TYPES;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_SUN_THIEF);
 	}
 	if (selected == ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) {
-		if (mCrystalMinersSpawnedThisWave >= 1 || CountActiveOrPendingZombieType(selected) >= 2)
+		if (mWaveSpawnCounts.Get(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER) >= 1 || CountActiveOrPendingZombieType(selected) >= 2)
 			return ZombieType::NUM_ZOMBIE_TYPES;
-		++mCrystalMinersSpawnedThisWave;
+		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_CRYSTAL_HORN_MINER);
 	}
 	return ResolveRainMutationType(selected, mutationRoll);
 }
@@ -835,7 +688,7 @@ void Board::TrySpawnAdaptiveHelmetTutorialWave()
 	Zombie* zombie = CreateResolvedWaveZombie(actualType, row,
 		static_cast<float>(SCENE_WIDTH) + 40.0f);
 	if (!zombie) {
-		--mAdaptiveHelmetsSpawnedThisWave;
+		mWaveSpawnCounts.CancelReservation(ZombieType::ZOMBIE_ADAPTIVE_HELMET);
 		return;
 	}
 	mAdaptiveHelmetTutorialWaveSpawned = true;
@@ -2778,33 +2631,7 @@ void Board::SummonNextWave()
 	}
 	// 普通关压力随波次推进；先刷新存活僵尸，再生成使用同一新倍率的本波僵尸。
 	RefreshZombieWeatherSpeeds();
-	mEliteDancersSpawnedThisWave = 0;
-	mReinforcedDoorsSpawnedThisWave = 0;
-	mElitePolevaultersSpawnedThisWave = 0;
-	mGildedZambonisSpawnedThisWave = 0;
-	mEliteDolphinRidersSpawnedThisWave = 0;
-	mEliteJackInTheBoxesSpawnedThisWave = 0;
-	mEliteDiggersSpawnedThisWave = 0;
-	mElitePogosSpawnedThisWave = 0;
-	mEliteLaddersSpawnedThisWave = 0;
-	mEliteCatapultsSpawnedThisWave = 0;
-	mRedeyeGargantuarsSpawnedThisWave = 0;
-	mInsulatorsSpawnedThisWave = 0;
-	mHijackersSpawnedThisWave = 0;
-	mGroundingZombiesSpawnedThisWave = 0;
-	mBobsledTeamsSpawnedThisWave = 0;
-	mIceWallEngineersSpawnedThisWave = 0;
-	mIceCrackDrillsSpawnedThisWave = 0;
-	mWeatherJammersSpawnedThisWave = 0;
-	mIceStatueExecutionersSpawnedThisWave = 0;
-	mSnowBurrowsSpawnedThisWave = 0;
-	mAdaptiveHelmetsSpawnedThisWave = 0;
-	mThermalSnipersSpawnedThisWave = 0;
-	mAuroraPriestsSpawnedThisWave = 0;
-	mClockmakersSpawnedThisWave = 0;
-	mCrystalMinersSpawnedThisWave = 0;
-	mCrystalDrummersSpawnedThisWave = 0;
-	mSunThievesSpawnedThisWave = 0;
+	mWaveSpawnCounts.Reset();
 	mMistFuelAssignedThisWave = 0;
 	if (mCurrentWave == 1)
 	{
@@ -3264,16 +3091,16 @@ inline void Board::TrySummonZombie()
 				&& mCurrentWave == kThermalSniperCompositeWave));
 	const int thermalWaveCap = mLevel == kThermalSniperTutorialLevel
 		? kThermalSniperTutorialMaxPerWave : kThermalSniperCompositeMaxPerWave;
-	if (thermalTutorialEdge && mThermalSnipersSpawnedThisWave < thermalWaveCap) {
+	if (thermalTutorialEdge && mWaveSpawnCounts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER) < thermalWaveCap) {
 		const int row = SelectSpawnRow(ZombieType::ZOMBIE_THERMAL_SNIPER);
 		if (row >= 0) {
-			++mThermalSnipersSpawnedThisWave;
+			mWaveSpawnCounts.Record(ZombieType::ZOMBIE_THERMAL_SNIPER);
 			if (CreateResolvedWaveZombie(ZombieType::ZOMBIE_THERMAL_SNIPER,
 				row, x)) {
 				mThermalSniperTutorialSpawned = true;
 			}
 			else {
-				--mThermalSnipersSpawnedThisWave;
+				mWaveSpawnCounts.CancelReservation(ZombieType::ZOMBIE_THERMAL_SNIPER);
 			}
 		}
 	}
@@ -3736,35 +3563,9 @@ void Board::OnSurvivalRoundClear()
 	mNextWaveSpawnZombieHP = 0;
 	mCurrectWaveZombieHP = 0;
 	mTotalZombieHP = 0;
-	mEliteDancersSpawnedThisWave = 0;
-	mReinforcedDoorsSpawnedThisWave = 0;
-	mElitePolevaultersSpawnedThisWave = 0;
-	mGildedZambonisSpawnedThisWave = 0;
-	mEliteDolphinRidersSpawnedThisWave = 0;
-	mEliteJackInTheBoxesSpawnedThisWave = 0;
-	mEliteDiggersSpawnedThisWave = 0;
-	mElitePogosSpawnedThisWave = 0;
-	mEliteLaddersSpawnedThisWave = 0;
-	mEliteCatapultsSpawnedThisWave = 0;
-	mRedeyeGargantuarsSpawnedThisWave = 0;
-	mInsulatorsSpawnedThisWave = 0;
-	mHijackersSpawnedThisWave = 0;
-	mGroundingZombiesSpawnedThisWave = 0;
-	mBobsledTeamsSpawnedThisWave = 0;
-	mIceWallEngineersSpawnedThisWave = 0;
-	mIceCrackDrillsSpawnedThisWave = 0;
-	mWeatherJammersSpawnedThisWave = 0;
-	mIceStatueExecutionersSpawnedThisWave = 0;
-	mSnowBurrowsSpawnedThisWave = 0;
-	mAdaptiveHelmetsSpawnedThisWave = 0;
+	mWaveSpawnCounts.Reset();
 	mAdaptiveHelmetTutorialWaveSpawned = false;
-	mThermalSnipersSpawnedThisWave = 0;
 	mThermalSniperTutorialSpawned = false;
-	mAuroraPriestsSpawnedThisWave = 0;
-	mClockmakersSpawnedThisWave = 0;
-	mCrystalMinersSpawnedThisWave = 0;
-	mCrystalDrummersSpawnedThisWave = 0;
-	mSunThievesSpawnedThisWave = 0;
 	if (IsMineBackground()) {
 		// 岩壁/开凿进度继续保留；上一轮的雾潮和冻结预报不能占用新一轮波号。
 		mMineFogElapsed = -1.0f;
@@ -4212,4 +4013,20 @@ float Board::GetZombieSpawnY(int row, float worldX) const
 
 	// 水路身体需要继续保持主人校对过的下沉画面，但该偏移只影响生成/绘制基准。
 	return collisionY + (IsPoolRow(row) ? kPoolRowZombieSpawnYOffset : 0.0f);
+}
+
+void Board::SaveWaveSpawnCounts(nlohmann::json& document) const { mWaveSpawnCounts.Save(document); }
+
+/** 恢复当波累计与既有教程/跨波门禁；不会创建实体或消费自然刷新预算。 */
+void Board::LoadWaveSpawnCounts(const nlohmann::json& document) {
+    mWaveSpawnCounts.Load(document, mLevel, mIsSurvival);
+	RestoreHijackerSpawnCooldown(
+		document.value("hijackerSpawnCooldownWavesRemaining", 0),
+		document.value("hijackerSpawnBlockedThisWave", false));
+	RestoreSnowBurrowSpawnState(mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SNOW_BURROW),
+		document.value("snowBurrowTutorialHoleSpawnConsumed", false));
+	RestoreAdaptiveHelmetSpawnState(mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ADAPTIVE_HELMET),
+		document.value("adaptiveHelmetTutorialWaveSpawned", false));
+	RestoreThermalSniperSpawnState(mWaveSpawnCounts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER),
+		document.value("thermalSniperTutorialSpawned", false));
 }
