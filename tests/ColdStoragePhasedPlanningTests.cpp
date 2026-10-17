@@ -1,4 +1,5 @@
 #include "Game/AI/ColdStoragePhasedPlanning.h"
+#include "Game/AI/ColdStorageFormationSeeds.h"
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
@@ -32,6 +33,56 @@ void RunColdStoragePhasedPlanningTests() {
     const Weights tactical{0,0,500,0,0,-1,0,0};
     FollowupPolicy policy; policy.actions={{1,0}}; policy.earliestSeconds=2; policy.expirySeconds=8;
     const PhasedPlan plan{{{0,0}},policy};
+    {
+        auto s=ProgramArena();s.rows=3;s.capacity=24;s.budget=1000;s.netEconomy=true;s.houseX=-10000;
+        s.cellWidth=80;s.gridLeft=0;s.columns=9;
+        auto guard=s.options[0];guard.type=73001;guard.cost=35;
+        guard.unit.body.economic=false;guard.unit.body.health=4100;guard.unit.maximumBody=600;
+        guard.unit.pressureGuard=true;guard.unit.helmHealth=guard.unit.maximumHelm=3500;
+        guard.unit.body.speed=12;guard.unit.body.purchaseCost=35;
+        auto mortar=s.options[1];mortar.type=73002;mortar.cost=30;
+        mortar.unit.body.purchaseCost=30;mortar.unit.body.health=mortar.unit.maximumBody=1800;
+        mortar.unit.floodMortar=true;mortar.unit.body.speed=15;
+        s.options={guard,mortar};
+        Plant target;target.id=1;target.row=0;target.column=3;target.x=280;target.health=1000;target.assetValue=100;target.reward=12;
+        s.plants={target};
+        const auto formations=BuildPressureCoverFormations(s,24,1000);
+        CheckPhasedPlanning(!formations.empty() && formations.size()<=24,"coverage candidates stay bounded");
+        bool staged=false,guardOnly=false;
+        for(const auto& actions:formations) {
+            int bill=0;float lastGuard=0,firstRear=1000;bool rear=false;
+            for(const auto& a:actions) {
+                bill+=s.options[a.option].cost;
+                if(s.options[a.option].unit.pressureGuard) lastGuard=std::max(lastGuard,a.delay);
+                else {rear=true;firstRear=std::min(firstRear,a.delay);}
+            }
+            CheckPhasedPlanning(bill<=1000 && actions.size()<=24,"whole coverage candidate must be affordable");
+            staged|=rear && firstRear>0 && lastGuard>firstRear;guardOnly|=!rear;
+        }
+        CheckPhasedPlanning(staged && guardOnly,"later guards must maintain the rear cover, with an independent guard-only alternative");
+        const auto menu=BuildPhasedPlanningMenu(s,{});
+        CheckPhasedPlanning(!menu.plans.empty() && menu.plans.size()<=6
+            && std::all_of(menu.plans[0].first.begin(),menu.plans[0].first.end(),[&](const auto& a){return s.options[a.option].unit.pressureGuard;})
+            && menu.plans[0].followup.actions[0].option==1,"guard-first menu must keep mortars unpaid until the followup");
+        auto live=guard.unit;live.id=9;live.body.x=740;s.current={live};
+        const auto hasRearOnly=[&](const auto& options) {return std::any_of(options.begin(),options.end(),[](const auto& a) {
+            return !a.empty() && std::all_of(a.begin(),a.end(),[](const auto& member){return member.option==1;});
+        });};
+        CheckPhasedPlanning(hasRearOnly(BuildPressureCoverFormations(s,24,1000)),"existing shield coverage opens direct reinforcement");
+        s.current[0].helmHealth=0;
+        CheckPhasedPlanning(!hasRearOnly(BuildPressureCoverFormations(s,24,1000)),"broken guards cannot certify current cover");
+        s.current.clear();s.budget=30;
+        FollowupPolicy tail;tail.actions={{1,0}};tail.earliestSeconds=2;tail.expirySeconds=3;
+        ConstructionStats fired,disabled;
+        Evaluate(s,{},&fired,0,0,0,false,false,-1,false,false,false,false,&tail);
+        Evaluate(s,{},&disabled);
+        CheckPhasedPlanning(fired.followup.status==FollowupForecast::Status::Purchased && fired.followup.spent==30
+            && fired.opponentAssets<disabled.opponentAssets,"funded mortar followup must execute its own attack instead of remaining a placeholder");
+        s.budget=29;
+        ConstructionStats unpaid;Evaluate(s,{},&unpaid,0,0,0,false,false,-1,false,false,false,false,&tail);
+        CheckPhasedPlanning(unpaid.followup.spent==0 && unpaid.followup.status==FollowupForecast::Status::Expired,
+            "unfunded mortar followup cannot attack or create an unpaid unit");
+    }
     {
         const auto s=ProgramArena();
         const auto comparison=ComparePhasedPlan(s,tactical,plan,plan.first);

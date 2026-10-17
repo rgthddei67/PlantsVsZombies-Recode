@@ -1332,12 +1332,18 @@ float Score(const Weights& f, const Weights& w) {
 	return value;
 }
 
-/** 先比较是否突破和首次进屋时间，避免拖延胜利赚取更多中间收益。 */
+/** 先比较突破，再比较能否避免最后攻势认输；有真实战果的续战不能输给囤冰等败。 */
 int CompareVictory(const Result& a, const Result& b) {
 	const bool aWins = a.features[2] > 0, bWins = b.features[2] > 0;
 	if (aWins != bWins) return aWins ? 1 : -1;
 	if (aWins && a.construction.breachSeconds != b.construction.breachSeconds)
 		return a.construction.breachSeconds < b.construction.breachSeconds ? 1 : -1;
+	if(!aWins) {
+		const auto imminent=[](const Result& r) {return r.construction.defenseVictorySeconds>=0
+			&& r.construction.defenseVictorySeconds<=ColdStorageDefenseRules::FinalAssaultSeconds;};
+		// 使用同一胜负层级保持排序传递性，不能只为“认输/无认输”这一对写特殊比较。
+		if(imminent(a)!=imminent(b)) return imminent(a) ? -1 : 1;
+	}
 	return 0;
 }
 
@@ -4349,7 +4355,7 @@ bool CanForecastFollowup(const Option& option) {
         && !u.goldenDrive.enabled && !u.clock.present && !u.dance.leader && !u.dance.backup
         && u.throwHealth<=0 && !u.healer.present && !u.catapult.present && !u.jack.present
         && !u.balloon.present && !u.digger.present && !u.ladder.present && !u.jammer
-        && !u.hijacker && !u.pressure && !u.floodMortar && !u.ferry.present;
+        && !u.hijacker && !u.pressure && !u.ferry.present;
 }
 
 /** 条件与成员必须全部合法；付款失败只能继续等待，不能先创建付不起的部分成员。 */
@@ -4616,6 +4622,11 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
     }
     // 未进入数值画像的真实占位仍占名额；未来死亡/收入只在本世界实际发生后计入。
     const int unprojectedOccupied=std::max(0,s.deploymentOccupied-sampledLiving);
+    // 预测出生ID使用负数，0才是未锁定哨兵；潜在后队也可能首次带来护卫。
+    const bool pressureGroupPresent=std::any_of(units.begin(),units.end(),[](const Unit& u){return u.pressureGuard;})
+        || (followup && std::any_of(followup->actions.begin(),followup->actions.end(),[&](const Action& a) {
+            return a.option>=0 && a.option<static_cast<int>(s.options.size()) && s.options[a.option].unit.pressureGuard;
+        }));
     const auto advanceFollowup=[&](float t) {
         auto& forecast=constructionStats.followup;
         if(!followupValid || forecast.status!=FollowupForecast::Status::Pending) return;
@@ -4666,6 +4677,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
             const size_t index=followupBegin+n;
             const int stableID=units[index].id;
             units[index]=option.unit; auto& unit=units[index]; unit.id=stableID;
+            unit.pressureGroupPresent=pressureGroupPresent; // 当步出生即享受已有护卫保护，不能等下一逻辑步才打开查询。
             unit.body.purchaseCost=static_cast<float>(option.cost); unit.body.spawnAt=t+action.delay;
             if(economicTail && (unit.birthMovementKnown || unit.minimumMoveSpeed>0)
                 && unit.maximumMoveSpeed>=unit.minimumMoveSpeed) {
@@ -4691,11 +4703,6 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         }
     };
 	bool orderArrived = false;
-    // 预测出生ID使用负数，0才是未锁定哨兵；潜在的后续真实增援也可能首次带来护卫。
-    const bool pressureGroupPresent=std::any_of(units.begin(),units.end(),[](const Unit& u){return u.pressureGuard;})
-        || (followup && std::any_of(followup->actions.begin(),followup->actions.end(),[&](const Action& a) {
-            return a.option>=0 && a.option<static_cast<int>(s.options.size()) && s.options[a.option].unit.pressureGuard;
-        }));
 	float defenseDeadline=s.troopNoKillSeconds<0 ? std::numeric_limits<float>::max()
 		: std::max(0.0f,ColdStorageDefenseRules::SurrenderSeconds-s.troopNoKillSeconds);
 	for (float t = 0; t < Horizon(s); t += kStep) {

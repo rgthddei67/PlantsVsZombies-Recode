@@ -29,4 +29,18 @@ void RunColdStorageDefenseVictoryTests() {
     s.precisionTargetID=0;s.troopNoKillSeconds=360;
     ConstructionStats immediate;const auto alreadyEnded=Evaluate(s,{},&immediate);
     Check(immediate.defenseVictorySeconds==0 && alreadyEnded[4]==0,"expired saves must not grant an extra forecast step");
+    // 同样亏冰的普通进攻，在等待将认输时必须优先比较真实部队击杀；不凭出兵或生产续期。
+    Snapshot last;last.rows=1;last.searchVersion=2;last.capacity=3;last.budget=100;last.houseX=-10000;
+    last.troopNoKillSeconds=350;
+    p.x=880;p.health=p.initialHealth=1;p.reward=0;last.plants={p};
+    Option attack;attack.type=74001;attack.cost=10;attack.unit=biter;attack.unit.body.purchaseCost=10;
+    last.options={attack};
+    const Weights expense{0,0,0,0,0,-1,0,0};
+    const auto active=Search(last,expense,42);
+    Check(!active.actions.empty() && active.score<0 && active.construction.defenseVictorySeconds<0,
+        "a real troop kill avoiding imminent surrender must beat a zero-score waiting loss");
+    last.troopNoKillSeconds=0;
+    Check(Search(last,expense,42).actions.empty(),"without an imminent loss the same uneconomic purchase must still wait");
+    last.troopNoKillSeconds=350;last.options[0].unit.biteDps=0;
+    Check(Search(last,expense,42).actions.empty(),"merely spawning guards or workers cannot manufacture an escape from surrender");
 }

@@ -1,4 +1,5 @@
 #include "Game/Zombie/FogFerryRules.h"
+#include "Game/Zombie/CatapultRules.h"
 #include "ColdStorageFormationSeeds.h"
 #include "ColdStorageSearch.h"
 #include <algorithm>
@@ -17,6 +18,8 @@ constexpr float kContactPadding=55; // 旧攻坚先行估计的前墙接触距�
 constexpr float kMaxLeadDelay=60; // 完整编队允许比较的最大快兵跟进延后，游戏秒；小队阶段另由搜索修复限制
 constexpr float kShooterCoverCells=.5f; // 前排接敌时希望领先射手的距离，逻辑格；只是提案目标，不承诺能存活
 constexpr std::array<float,3> kGuardCatapultGaps{8,16,0}; // 多路投篮护卫队的相邻队出生间隔，游戏秒；含同步对照
+constexpr size_t kPressureCoverSeeds=24; // 护卫覆盖候选的有界数量，沿用原搜索预算
+constexpr float kPressureCoverSpacing=.6f; // 相邻护卫目标距离，按保护半径的比例估算出生间隔
 
 bool Specialist(const Unit& u) {
     return u.engineer || u.clock.present || u.healer.present || u.drum.enabled || u.pressure || u.floodMortar || u.ferry.present;
@@ -315,6 +318,62 @@ std::vector<std::vector<Action>> LightAshAssaults(const Snapshot& s,int limit,in
 }
 }
 
+std::vector<std::vector<Action>> BuildPressureCoverFormations(const Snapshot& s,int actionLimit,int budget) {
+    std::vector<std::vector<Action>> plans;
+    if(!s.experiencedFormations || !s.netEconomy || actionLimit<2 || budget<=0) return plans;
+    for(int route=0; route<s.rows && plans.size()<kPressureCoverSeeds; ++route) {
+        // 跨次搜索轮转路线；当前已付/活体仍由完整快照参与后续结算，不承诺新兵永久受保护。
+        const int row=(route+s.searchRound)%s.rows;
+        const auto roles=FindRoles(s,row,budget);
+        if(roles.pressureGuard<0) continue;
+        const auto& guard=s.options[roles.pressureGuard].unit;
+        const float speed=MoveSpeed(guard,false);
+        if(speed<=0) continue;
+        const float origin=guard.body.x+guard.body.blastAnchorOffset;
+        const float radius=s.cellWidth*PressureGuardRules::RadiusCells;
+        const float gap=std::clamp(radius*kPressureCoverSpacing/speed,2.0f,8.0f);
+        float front=s.houseX; bool target=false;
+        for(const auto& p:s.plants) if(p.health>0 && p.row==row) {front=std::max(front,p.x+kContactPadding);target=true;}
+        if(!target) continue;
+        for(const int partner:{roles.mortar,roles.worker,roles.ranged}) {
+            if(partner<0) continue;
+            const auto& rear=s.options[partner].unit;
+            float meeting=front;
+            if(rear.floodMortar) {
+                float aim=s.houseX;
+                for(const auto& p:s.plants) if(p.health>0 && std::abs(p.row-row)<=1) aim=std::max(aim,p.x);
+                meeting=std::min(origin,aim+FloodMortarRules::RangeCells*s.cellWidth);
+            } else if(rear.catapult.present) meeting=s.gridLeft+s.columns*s.cellWidth-CatapultRules::kShootStartInsideBoard;
+            const float rearOrigin=rear.body.x+rear.body.blastAnchorOffset;
+            const float lead=std::max(0.0f,(origin-meeting)/speed
+                -std::max(0.0f,rearOrigin-meeting)/std::max(1.0f,MoveSpeed(rear,true)));
+            const bool liveCover=std::any_of(s.current.begin(),s.current.end(),[&](const Unit& u) {
+                return u.pressureGuard && u.helmHealth>0 && u.body.health>0 && u.body.spawnAt<=0
+                    && !u.headless && u.body.stopped<=0 && std::abs(u.body.row-row)<=1
+                    && std::abs(u.body.x+u.body.blastAnchorOffset-meeting)<=radius;
+            });
+            if(liveCover) {
+                Recipe reinforce{s,actionLimit,budget};reinforce.Add(partner,2,0);
+                if(reinforce.valid) plans.push_back(std::move(reinforce.actions));
+                if(plans.size()>=kPressureCoverSeeds) return plans;
+            }
+            for(int count:{3,6}) {
+                Recipe plan{s,actionLimit,budget};
+                for(int i=0;i<count;++i) plan.Add(roles.pressureGuard,1,i*gap);
+                // 慢护卫先铺开；后续护卫仍可在后排入场后继续补齐，避免第一批全走离炮手。
+                const float tailAt=std::clamp(std::max(lead,gap),0.0f,30.0f);
+                plan.Add(partner,count==3 ? 2 : 4,tailAt);
+                if(plan.valid) plans.push_back(std::move(plan.actions));
+                if(plans.size()>=kPressureCoverSeeds) return plans;
+            }
+        }
+        Recipe screen{s,actionLimit,budget};
+        for(int i=0;i<3;++i) screen.Add(roles.pressureGuard,1,i*gap);
+        if(screen.valid && plans.size()<kPressureCoverSeeds) plans.push_back(std::move(screen.actions));
+    }
+    return plans;
+}
+
 std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,int actionLimit,int budget) {
     std::vector<std::vector<Action>> seeds;
     if(!s.experiencedFormations || !s.netEconomy || actionLimit<2 || budget<=0) return seeds;
@@ -331,10 +390,12 @@ std::vector<std::vector<Action>> BuildExperiencedFormations(const Snapshot& s,in
     auto runnerAssaults=RunnerAssaults(s,actionLimit,budget,rows,roles,pressure);
     auto pressureAssaults=PressureGuardAssaults(s,actionLimit,budget,rows,roles);
     auto catapultAssaults=GuardCatapultAssaults(s,actionLimit,budget,roles);
+    auto coverAssaults=BuildPressureCoverFormations(s,actionLimit,budget);
     std::vector<std::vector<Action>> extraAssaults;
-    for(size_t i=0;i<std::max({lightAssaults.size(),runnerAssaults.size(),pressureAssaults.size(),catapultAssaults.size()});++i) {
+    for(size_t i=0;i<std::max({lightAssaults.size(),runnerAssaults.size(),pressureAssaults.size(),catapultAssaults.size(),coverAssaults.size()});++i) {
         if(i<catapultAssaults.size()) extraAssaults.push_back(std::move(catapultAssaults[i]));
         if(i<pressureAssaults.size()) extraAssaults.push_back(std::move(pressureAssaults[i]));
+        if(i<coverAssaults.size()) extraAssaults.push_back(std::move(coverAssaults[i]));
         if(i<runnerAssaults.size()) extraAssaults.push_back(std::move(runnerAssaults[i]));
         if(i<lightAssaults.size()) extraAssaults.push_back(std::move(lightAssaults[i]));
     }

@@ -1,4 +1,5 @@
 #include "ColdStoragePhasedPlanning.h"
+#include "ColdStorageFormationSeeds.h"
 #include "Game/Board/ColdStorageDeploymentRules.h"
 #include <algorithm>
 #include <cmath>
@@ -28,6 +29,23 @@ std::vector<Action> MapProposal(const Snapshot& state,const Proposal& proposal) 
 PhasedPlanningMenu BuildPhasedPlanningMenu(const Snapshot& state,const Result& incumbent) {
     PhasedPlanningMenu menu;
     if(state.capacity<1 || state.budget<=0) return menu;
+    // 护卫前置案保留真正的支援分界，不能按总人数的三分之一把后排混进先遣队。
+    const auto covers=BuildPressureCoverFormations(state,state.capacity,state.budget);
+    for(size_t n=0;n<covers.size();++n) {
+        const auto& cover=covers[(n+state.searchRound/2)%covers.size()];
+        PhasedPlan staged;float tailAt=300;
+        for(const auto& action:cover) {
+            if(!CanForecastFollowup(state.options[action.option])) {staged={};break;}
+            if(state.options[action.option].unit.pressureGuard) staged.first.push_back(action);
+            else {staged.followup.actions.push_back(action);tailAt=std::min(tailAt,action.delay);}
+        }
+        if(staged.first.empty() || staged.followup.actions.empty()) continue;
+        for(auto& action:staged.followup.actions) action.delay-=tailAt;
+        staged.followup.earliestSeconds=tailAt;
+        staged.followup.expirySeconds=std::min(45.0f,tailAt+15.0f);
+        menu.plans.push_back(std::move(staged));
+        if(menu.plans.size()>=2) break; // 保留通用分批/观察候选的菜单槽。
+    }
     std::vector<std::vector<Action>> seeds;
     if(incumbent.actions.size()>1) seeds.push_back(incumbent.actions);
     for(const auto& proposal:incumbent.assaultProposals) seeds.push_back(MapProposal(state,proposal));
