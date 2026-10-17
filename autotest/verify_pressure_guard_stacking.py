@@ -23,17 +23,17 @@ def bucket(name):
 
 assert read('status')['status'] == 'passed'
 assert len(guards('birth')) == 8
-assert all(z['bodyHealth'] == 600 and z['helmHealth'] == 3500 for z in guards('birth'))
-# 1000 -> transfers 800,100,50,25,12,6,3,2; the first guard accepts only 600.
-losses = [600, 100, 50, 25, 12, 6, 3, 2]
-assert [z['helmHealth'] for z in guards('ordinary')] == [3500 - n for n in losses]
+assert all(z['bodyHealth'] == 600 and z['helmHealth'] == 3000 for z in guards('birth'))
+# 1000 -> transfers 800,100,50,25,12,6,3,2; the first guard accepts only 350.
+losses = [350, 100, 50, 25, 12, 6, 3, 2]
+assert [z['helmHealth'] for z in guards('ordinary')] == [3000 - n for n in losses]
 assert bucket('ordinary')['helmHealth'] == 1098
 # 1800 -> 360 -> 180 -> 90 -> 45 -> 23 -> 12 -> 6 -> 3; ash never transfers.
 assert bucket('ash')['helmHealth'] == 1095 and bucket('ash')['bodyHealth'] == 270
-assert [z['helmHealth'] for z in guards('ash')] == [3500 - n for n in losses]
-# Hitting the first guard excludes itself; guard 2 caps at 600, the others share once.
-assert [z['helmHealth'] for z in guards('peer')] == [2900, 2900, 3350, 3425, 3463, 3482, 3491, 3495]
-assert [z['pressureWindowUsed'] for z in guards('peer')] == [600, 600, 150, 75, 37, 18, 9, 5]
+assert [z['helmHealth'] for z in guards('ash')] == [3000 - n for n in losses]
+# Hitting the first guard excludes itself; guard 2 caps at 350, the others share once.
+assert [z['helmHealth'] for z in guards('peer')] == [2650, 2650, 2850, 2925, 2963, 2982, 2991, 2995]
+assert [z['pressureWindowUsed'] for z in guards('peer')] == [350, 350, 150, 75, 37, 18, 9, 5]
 fields = ('id', 'bodyHealth', 'helmHealth', 'pressureWindowUsed')
 assert [tuple(z[k] for k in fields) for z in guards('restored')] == [
     tuple(z[k] for k in fields) for z in guards('peer')]

@@ -1,5 +1,6 @@
 """Check actual rain-weapon damage, persistence and player-disabled targeting."""
 import json
+import sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]/'build/clang-release/autotest/out'
@@ -16,12 +17,19 @@ def mortar(state):
 bamboo='smoke_area11_bamboo'
 first=read(bamboo,'bamboo_five')
 health=[z['bodyHealth'] for z in sorted(first['zombies'],key=lambda z:z['id'])]
-assert health==[5500,5600,5700,5800,5900,6000],health
+assert health==[5800,5840,5880,5920,5960,6000],health
 restored=read(bamboo,'bamboo_restored')
 assert plant(first,2,0)['bambooShots']==plant(restored,2,0)['bambooShots']==1
 assert abs(plant(first,2,0)['bambooChargeMilli']-plant(restored,2,0)['bambooChargeMilli'])<=15
 for rain in ['light','medium','heavy']:
     assert plant(read(bamboo,'bamboo_'+rain),2,0)['bambooShots']==1
+
+# 纯穿雨竹调参只读取本次重跑的专项产物，不依赖无关蓄洪夹具的历史输出。
+if '--bamboo-only' in sys.argv:
+    assert read(bamboo,'status')['exitCode']==0
+    assert 'script finished OK' in (ROOT/bamboo/'run.log').read_text(encoding='utf-8')
+    print('Rain bamboo: five-hit damage, four rain cadences and charge save passed')
+    sys.exit(0)
 
 for mode in ['greedy','mc']:
     test='smoke_area11_flood_'+mode
@@ -50,7 +58,7 @@ assert plant(umbrella,2,2)['health']==300 and plant(umbrella,2,2)['floodSlowMs']
 edges='smoke_area11_rain_edges'
 mid,restore,complete=[read(edges,n) for n in ['pierce_midflight','pierce_restored','pierce_complete']]
 assert mid['bullets'][0]['bambooHitIDs']==restore['bullets'][0]['bambooHitIDs']==[1,2]
-assert [z['bodyHealth'] for z in sorted(complete['zombies'],key=lambda z:z['id'])]==[5500,5600,5700,5800,5900,6000]
+assert [z['bodyHealth'] for z in sorted(complete['zombies'],key=lambda z:z['id'])]==[5800,5840,5880,5920,5960,6000]
 assert not complete['bullets']
 broken,after=[read(edges,n) for n in ['shell_broken','after_shell']]
 assert '2_3' not in broken['pumpkinPlantsByCell']

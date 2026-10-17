@@ -176,11 +176,11 @@ void RunColdStoragePressureGuardTests()
         }
     }
     PressureGuardRules::DamageWindow window;
-    Check(Near(window.Consume(400,0),400) && Near(window.Consume(400,.25),200),"pressure shared budget must cap at 600");
+    Check(Near(window.Consume(200,0),200) && Near(window.Consume(200,.25),150),"pressure shared budget must cap at 350");
     Check(Near(window.Consume(3000,.99),0),"pressure cap cannot reset at a frame or fixed boundary");
     auto saved=window.RelativeTo(.5);
-    Check(Near(saved.Used(0),600) && Near(saved.Consume(600,.5),400),"saved pressure window must keep independent hit expiries");
-    Check(Near(saved.Consume(600,.75),200),"rolling pressure window must release only expired damage");
+    Check(Near(saved.Used(0),350) && Near(saved.Consume(600,.5),200),"saved pressure window must keep independent hit expiries");
+    Check(Near(saved.Consume(600,.75),150),"rolling pressure window must release only expired damage");
 
     Snapshot s; s.rows=3; s.columns=9; s.cellWidth=80; s.gridLeft=242;
     s.current={Guard(1,1)};
@@ -198,7 +198,7 @@ void RunColdStoragePressureGuardTests()
 
     // 用完整爆炸事务检查护卫先死、保护不叠加、下一爆失去保护及防具先承伤。
     Snapshot ash; ash.rows=3; ash.columns=9; ash.cellWidth=80; ash.houseX=-10000; ash.traceCombat=true;
-    auto guard=Guard(10,1); guard.body.health=500; guard.helmHealth=100;
+    auto guard=Guard(10,1); guard.body.health=300; guard.helmHealth=100;
     Unit ally; ally.id=11; ally.body.row=0; ally.body.x=730; ally.body.health=ally.maximumBody=1000;
     ash.current={guard,ally};
     Counter blast; blast.source=0; blast.blast.committed=true; blast.blast.ready=1;
@@ -214,7 +214,7 @@ void RunColdStoragePressureGuardTests()
     auto protectedHits=impacts(ash,11);
     Check(!protectedHits.empty() && Near(protectedHits[0],640),"same-blast guard death must still reduce ally ash to 360");
     auto guardHits=impacts(ash,10);
-    Check(!guardHits.empty() && Near(guardHits[0],0),"allowed ash must still kill a guard with less than 600 total durability");
+    Check(!guardHits.empty() && Near(guardHits[0],0),"allowed ash must still kill a guard with less than 350 total durability");
     auto secondGuard=guard; secondGuard.id=12; ash.current.insert(ash.current.begin(),secondGuard);
     Check(Near(impacts(ash,11)[0],820),"second guard must halve the remaining ash even when both die in that blast");
     for (int count : {3,4,8}) {
@@ -254,10 +254,10 @@ void RunColdStoragePressureGuardTests()
     capped.counters={huge,overlap,expired};
     const auto cappedHits=impacts(capped,10);
     const float guardHealth=PressureGuardRules::BodyHealth+PressureGuardRules::ShieldHealth;
-    Check(cappedHits.size()==3 && Near(cappedHits[0],guardHealth-600) && Near(cappedHits[1],guardHealth-600) && Near(cappedHits[2],guardHealth-1200),
-        "ash must share a rolling 600 budget and release only expired damage");
-    capped.current[0].body.health=guardHealth-400; capped.current[0].helmHealth=PressureGuardRules::ShieldHealth-400;
-    capped.current[0].pressureWindow.Consume(400,0);
+    Check(cappedHits.size()==3 && Near(cappedHits[0],guardHealth-350) && Near(cappedHits[1],guardHealth-350) && Near(cappedHits[2],guardHealth-700),
+        "ash must share a rolling 350 budget and release only expired damage");
+    capped.current[0].body.health=guardHealth-200; capped.current[0].helmHealth=PressureGuardRules::ShieldHealth-200;
+    capped.current[0].pressureWindow.Consume(200,0);
     Check(impacts(capped,10)==cappedHits,"ordinary damage already paid must reduce the same ash allowance");
 
     // 没有可治本体损伤时，急救员不为不可修复的装置施法。
