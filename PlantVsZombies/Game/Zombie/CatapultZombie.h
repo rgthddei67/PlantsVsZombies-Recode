@@ -65,6 +65,8 @@ public:
 	static bool CanCrushPlantType(PlantType type,bool asleep);
 
 protected:
+	/** 车辆没有倒地轨道；包括劫持者处决在内的死亡入口直接走专属爆炸。 */
+	bool ShouldPlayDeathAnimation() const override { return false; }
 	void SetupZombie() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;
 	void SaveExtraData(nlohmann::json& j) const override;
