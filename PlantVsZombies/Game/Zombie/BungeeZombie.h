@@ -77,6 +77,8 @@ protected:
 	void ZombieUpdate(float scaledTime) override;
 	void ZombieMove(float, Transform*) override {}
 	void TakeBodyDamage(int damage) override;
+	/** 蹦极素材没有死亡轨道；普通死亡和处决都直接走 Die，正确释放抓取关系。 */
+	bool ShouldPlayDeathAnimation() const override { return false; }
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	bool CanUseGroundPoolState() const override { return false; }
