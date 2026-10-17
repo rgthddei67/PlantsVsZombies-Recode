@@ -4,14 +4,40 @@
 #include "Game/Plant/GameDataManager.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/Zombie/FloodMortarRules.h"
+#include "Game/Zombie/FloodMortarZombie.h"
 #include "Game/AudioSystem.h"
 #include "ParticleSystem/ParticleSystem.h"
 #include "GameApp.h"
+#include "Profiler.h"
 #include <algorithm>
 #include <set>
 
+namespace {
+constexpr int kTargetDecisionSpacingSteps=3; // 两次蓄洪推演间隔的固定逻辑步，覆盖一帧最多三步追帧
+constexpr int kTargetScenarioBudget=96; // 每次开炮的候选与等待基线场景总预算，不扩大到其他决策族
+constexpr int kTargetRolloutLimit=16; // 少量候选时的每候选抽样上限，避免单格目标反而重复数百次
+}
+
+bool Board::TryClaimFloodMortarTargetSlot(const Zombie& source) {
+    if(source.IsMindControlled() || !GameAPP::GetInstance().mEnableMonteCarloAI) return true;
+    if(mMonteCarloFloodMortarDecisionCooldownSteps>0) return false;
+    int first=-1,next=-1;
+    for(int id:mEntityRegistry.GetAllZombieIDs()) {
+        const auto* gun=dynamic_cast<const FloodMortarZombie*>(mEntityRegistry.GetZombie(id));
+        if(!gun || gun->IsMindControlled() || !gun->IsTargetDecisionReady()) continue;
+        if(first<0 || id<first) first=id;
+        if(id>mMonteCarloFloodMortarLastSourceID && (next<0 || id<next)) next=id;
+    }
+    // 只在名额空闲时找下一位，不能让已经再次装填完的低ID炮手饿死队尾。
+    if(source.mZombieID!=(next>=0 ? next : first)) return false;
+    mMonteCarloFloodMortarDecisionCooldownSteps=kTargetDecisionSpacingSteps;
+    mMonteCarloFloodMortarLastSourceID=source.mZombieID;
+    return true;
+}
+
 /** 在同一合法候选集合上选择最大损失；关闭模拟时不构建未来卡牌世界。 */
 bool Board::PickFloodMortarTarget(const Zombie& source,Vector& target,int& row,int& column,bool& usedMonteCarlo,int& rollouts) {
+    PROFILE_SCOPE("MC.FloodMortar.Total");
     usedMonteCarlo=false;rollouts=0;
     const int damage=FloodMortarRules::Damage(static_cast<int>(GetRainIntensity()));
     const float direction=source.IsMindControlled()?1.0f:-1.0f;
@@ -61,14 +87,25 @@ bool Board::PickFloodMortarTarget(const Zombie& source,Vector& target,int& row,i
     if(best<0) return false;
     if(!source.IsMindControlled() && GameAPP::GetInstance().mEnableMonteCarloAI) {
         PlantDefenseMonteCarlo::Snapshot snapshot;
-        if(BuildMonteCarloCombatSnapshot(snapshot,false,false)) {
+        bool captured=false;
+        {
+            PROFILE_SCOPE("MC.FloodMortar.Snapshot");
+            captured=BuildMonteCarloCombatSnapshot(snapshot,false,false);
+        }
+        if(captured) {
             snapshot.candidates=candidates;
             PlantDefenseMonteCarlo::Config config;
-            ConfigureMonteCarloPlantImpactConfig(config,std::max(1,384/static_cast<int>(candidates.size())),16,damage,0);
+            // 每个样本同时推进等待基线，预算包含这一份；保留全部合法落点和原16秒时域。
+            const int samples=std::clamp(kTargetScenarioBudget/(1+static_cast<int>(candidates.size())),1,kTargetRolloutLimit);
+            ConfigureMonteCarloPlantImpactConfig(config,samples,16,damage,0);
             config.floodMortar=true;config.pumpkinProtectionCellRadius=0;config.impactDelay=FloodMortarRules::FlightSeconds;
             config.pumpkinImpactDamageMultiplier=FloodMortarRules::PumpkinMultiplier;
-            const auto result=PlantDefenseMonteCarlo::ChooseTarget(snapshot,config,
-                static_cast<unsigned>(mBoardFrame)^static_cast<unsigned>(source.mZombieID)*16777619u);
+            PlantDefenseMonteCarlo::Result result;
+            {
+                PROFILE_SCOPE("MC.FloodMortar.Rollouts");
+                result=PlantDefenseMonteCarlo::ChooseTarget(snapshot,config,
+                    static_cast<unsigned>(mBoardFrame)^static_cast<unsigned>(source.mZombieID)*16777619u);
+            }
             if(result.candidateIndex>=0 && result.candidateIndex<static_cast<int>(candidates.size())) {
                 best=result.candidateIndex;usedMonteCarlo=true;rollouts=result.rolloutCount;
             }

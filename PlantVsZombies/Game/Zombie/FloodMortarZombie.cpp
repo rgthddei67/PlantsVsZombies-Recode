@@ -40,13 +40,20 @@ void FloodMortarZombie::ZombieMove(float dt,Transform* transform) {
     }
 }
 
+bool FloodMortarZombie::IsTargetDecisionReady() const {
+    return mBoard && !mIsPreview && IsActive() && HasHead() && !IsDying() && !IsImmobilized()
+        && !IsTangleKelpTarget() && mReload<=0 && mCheckRemaining<=0 && HasTarget();
+}
+
 /** 首装与后续装填按有效游戏秒推进；雨势只在发射边沿锁定下一周期及伤害。 */
 void FloodMortarZombie::ZombieUpdate(float) {
     if(!mBoard || mIsPreview || !HasHead() || IsDying() || IsImmobilized() || IsTangleKelpTarget()) return;
     const float dt=DeltaTime::GetDeltaTime();
     mReload=std::max(0.0f,mReload-dt);
     mCheckRemaining=std::max(0.0f,mCheckRemaining-dt);
-    if(mReload>0 || mCheckRemaining>0 || !HasTarget()) return;
+    if(!IsTargetDecisionReady()) return;
+    // 未领到名额保持装填就绪，下个固定步重试；不重置装填或进入0.25秒的无目标退避。
+    if(!mBoard->TryClaimFloodMortarTargetSlot(*this)) return;
     mCheckRemaining=.25f;
     Vector target;
     mUsedMonteCarlo=false;mRollouts=0;

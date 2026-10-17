@@ -493,6 +493,8 @@ private:
 		float& survivalExecutionLineCap) const;
 	int mMonteCarloHealerDecisionCooldownSteps = 0; // 下次急救员推演前需经过的固定逻辑步数，不入存档
 	int mMonteCarloBungeeDecisionCooldownSteps = 0; // 下次蹦极选点推演前需经过的固定逻辑步数，不入存档
+	int mMonteCarloFloodMortarDecisionCooldownSteps = 0; // 下次蓄洪选点前需经过的固定逻辑步数，不入存档
+	int mMonteCarloFloodMortarLastSourceID = -1; // 就绪炮手按稳定ID轮转，避免高倍速/短装填时前排实例反复抢占名额
 	std::vector<ZombieType> mSpawnZombieList;	// 本关出怪表
 	float mHugeWaveCountDown = 0.0f;	// 一大波倒计时
 	float mUpdateZombieMetricsTimer = 0.0f;	// 僵尸血量与音乐敌对数的合并采样计时器
@@ -959,6 +961,8 @@ public:
 	 * 名额尚未恢复时调用者停留在屏幕外等待，避免同波蹦极把多次长时域推演叠到一帧。
 	 */
 	bool TryClaimMonteCarloBungeeDecisionSlot();
+	/** 蓄洪炮共享固定逻辑步推演名额；关闭AI或魅惑分支无昂贵推演，立即放行。 */
+	bool TryClaimFloodMortarTargetSlot(const Zombie& source);
 	/** 完成一次读档恢复，并在实体全部还原后立即同步派生的逐格迷雾。 */
 	void CompleteLoadRestore();
 	/** 返回 Board 是否仍处于关卡存档恢复生命周期。 */

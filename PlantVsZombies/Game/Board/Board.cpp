@@ -3498,6 +3498,9 @@ void Board::Update()
 		if (mMonteCarloBungeeDecisionCooldownSteps > 0) {
 			--mMonteCarloBungeeDecisionCooldownSteps;
 		}
+		if (mMonteCarloFloodMortarDecisionCooldownSteps > 0) {
+			--mMonteCarloFloodMortarDecisionCooldownSteps;
+		}
 	}
 	// 节拍帧随游戏时间而非逻辑步推进：暂停时逻辑步照跑（UI 要消费点击）但 dt=0，
 	// 若无条件 ++，暂停中舞王/伴舞会随节拍翻转瞬间切轨；倍速下也与 Animator 的缩放 dt 同步。

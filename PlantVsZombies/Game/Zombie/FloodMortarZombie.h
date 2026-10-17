@@ -15,6 +15,8 @@ public:
     int GetTargetColumn() const { return mTargetColumn; }
     int GetRollouts() const { return mRollouts; }
     bool UsedMonteCarlo() const { return mUsedMonteCarlo; }
+    /** 只读查询当前能否申请选点；共享调度用它排除死亡、硬控、装填中及已失去目标的实例。 */
+    bool IsTargetDecisionReady() const;
 protected:
     void SetupZombie() override;
     void ZombieMove(float dt,Transform* transform) override;
