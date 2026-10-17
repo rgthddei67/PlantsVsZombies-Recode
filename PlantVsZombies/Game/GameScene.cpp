@@ -766,6 +766,7 @@ void GameScene::UpdateAfterGameObjects()
 
 void GameScene::Draw(Graphics* g)
 {
+    if (mLevelLoadFailed) return; // 失败场景只等待销毁，不展示半恢复对象。
 	// 屏幕抖动走相机（m_viewMatrix → projView push constant）而非变换栈：
 	// reanim/血量字形的 GPU instancing 快路径不消费变换栈（InstanceRecord 直写世界坐标，
 	// 见 Animator::DrawInternalInstanced / AppendReanimInstance），栈方案只能平移 batch
@@ -892,6 +893,7 @@ void GameScene::DrawFog(Graphics* g) const
 
 void GameScene::DrawWorldOverlay(Graphics* g)
 {
+    if (mLevelLoadFailed) return;
 	if (!g || !mBoard) return;
 	mBoard->DrawEchoWaves(g);
 	mBoard->DrawPrismRangePreview(g);
@@ -2168,8 +2170,22 @@ void GameScene::OnEnter() {
 
 	// 原版在选卡前铺好屋顶初始花盆；只给没有关卡存档的新局生成，避免读档重复叠加。
 	mResumeMenuAfterAlmanac = GameAPP::GetInstance().mGameInfoSaver.IsAlmanacReturnQueued();
-	GameAPP::GetInstance().mGameInfoSaver.LoadLevelData(
-		mBoard.get(), mCardSlotManager.get());
+    auto& saver = GameAPP::GetInstance().mGameInfoSaver;
+    if (!saver.LoadLevelData(mBoard.get(), mCardSlotManager.get())) {
+        // 即使错误发生在最后一张卡，半恢复场景也绝不进入 StartGame/Update/Save。
+        // 下一次 Update 沿用安全切场边界，销毁完整 GameScene 后再创建全新实例。
+        mLevelLoadFailed = true;
+        return;
+    }
+    mRecoveredFromLevelLoadFailure = saver.DidRestartAfterFailedLevelLoad();
+    if (mRecoveredFromLevelLoadFailure) {
+        mResumeMenuAfterAlmanac = false;
+        DeltaTime::SetPaused(false);
+        ShowTextPrompt(saver.IsLevelSaveProtected(enterLevel)
+            ? "读档失败，已重新开始。原档已保护，本关暂不能保存。"
+            : "读档失败，已重新开始。失败存档已保留。",
+            glm::vec4(255, 225, 130, 255), 24, 0.3f, 8.0f, 0.6f, true);
+    }
 	if (mResumeMenuAfterAlmanac) DeltaTime::SetPaused(true);
 	// AutoTest 的无存档路径按契约返回 true，但不会置 mIsLoadSave；以读档生命周期标记判定新局。
 	if (!mBoard->IsLoadRestoreActive()) {
@@ -2235,17 +2251,17 @@ void GameScene::OnExit() {
 	// 才翻成 GAME 的这 3 秒窗口里退出——此刻卡已提交、本轮在即，逻辑上已"进入游戏"。
 	// 按 GAME 持久化，避免重进被误判为"仍在选卡"而重播选卡（卡槽还原committed卡 → 可重复选卡的错乱）。
 	// 仅 survival 分支：普通模式过场期 mBoardState 同为 CHOOSE_CARD，但 mIsSurvival=false 不进此分支，行为零改动。
-	if (mBoard->mIsSurvival && mBoard->GetState() == BoardState::CHOOSE_CARD
+	if (!mLevelLoadFailed && mBoard->mIsSurvival && mBoard->GetState() == BoardState::CHOOSE_CARD
 		&& mCurrentStage == IntroStage::READY_SET_PLANT) {
 		mBoard->MarkSurvivalRoundCommittedForSave();
 	}
 	const bool saveState = (mBoard->GetState() == BoardState::GAME) ||
 		(mBoard->mIsSurvival && mBoard->GetState() == BoardState::CHOOSE_CARD);
-	if (saveState && !mReadyToRestart) {
+	if (!mLevelLoadFailed && saveState && !mReadyToRestart) {
 		gameApp.mGameInfoSaver.SaveLevelData
 		(mBoard.get(), mCardSlotManager.get());
 	}
-	gameApp.mGameInfoSaver.SavePlayerInfo();
+	if (!mLevelLoadFailed) gameApp.mGameInfoSaver.SavePlayerInfo();
 
 	mBoard->BindCardSlotManager(nullptr);
 	mCardSlotManager.reset();
@@ -2384,6 +2400,12 @@ void GameScene::OpenQuitMenu()
 }
 
 void GameScene::Update() {
+    if (mLevelLoadFailed) {
+        auto& saver = GameAPP::GetInstance().mGameInfoSaver;
+        saver.RestartAfterFailedLevelLoad(mBoard->mLevel);
+        SceneManager::GetInstance().SwitchTo("GameScene");
+        return; // 切场已销毁 this，不能再访问任何成员。
+    }
 	if (mPendingEntryNoticeChoice >= 0) {
 		// 模态按钮回调已退出控件遍历，场景切换可安全销毁当前 this。
 		CompleteAdventureEntryNotice();

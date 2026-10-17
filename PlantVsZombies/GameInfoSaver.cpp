@@ -9,6 +9,8 @@
 #include <atomic>
 #include <chrono>
 #include <filesystem>
+#include <utility>
+#include <stdexcept>
 #include "GameApp.h"
 #include "Game/Board/Board.h"
 #include "Game/Board/BoardPresentation.h"
@@ -883,10 +885,18 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 	}
 
     // 阶段顺序是加载契约：公共数据预检成功后才开始修改场景。
-    RestoreBoardDocument(board, j);
-    RestoreActorDocument(board, j);
-    ResolveRestoredActorReferences(board);
-    RestoreRemainingDocument(board, manager, j);
+    const char* stage = "Board/environment";
+    try {
+        RestoreBoardDocument(board, j);
+        stage = "actors/extraData";
+        RestoreActorDocument(board, j);
+        stage = "actor references";
+        ResolveRestoredActorReferences(board);
+        stage = "remaining objects/cards";
+        RestoreRemainingDocument(board, manager, j);
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::string("level restore [") + stage + "]: " + e.what());
+    }
     // CompleteLoadRestore 仍由 GameScene 在 StartGame/界面恢复后调用，避免提前重建展示缓存。
 
 	return true;
@@ -1856,6 +1866,7 @@ bool GameInfoSaver::LoadLevelDataImpl(Board* board, CardSlotManager* manager)
 		}
 		catch (const std::exception& e) {
 			mAutoTestSnapshotLoadError = e.what();
+            mLevelLoadError = e.what();
 		}
 		return mAutoTestSnapshotLoadSucceeded;
 	}
@@ -1865,7 +1876,11 @@ bool GameInfoSaver::LoadLevelDataImpl(Board* board, CardSlotManager* manager)
 	if (GameAPP::mAutoTestMode && !GameAPP::mAutoTestLoadSave) return true;
 	const std::string filename = GetSaveFileForRead(
 		"level" + std::to_string(board->mLevel) + "_data.json");
-	return DeserializeLevelDataFromPath(board, manager, filename);
+    mLevelLoadSourcePath = filename;
+    std::error_code error;
+    const bool exists = std::filesystem::exists(Utf8::ToPath(filename), error);
+    if (!error && !exists) return true; // 无存档是正常的新局，不能触发失败重建。
+    return DeserializeLevelDataFromPath(board, manager, filename);
 }
 
 bool GameInfoSaver::DeleteLevelData(Board* board)
@@ -1875,6 +1890,7 @@ bool GameInfoSaver::DeleteLevelData(Board* board)
 
 bool GameInfoSaver::DeleteLevelData(int level)
 {
+    if (level == mFailedLoadLevel || IsLevelSaveProtected(level)) return false;
 	if (GameAPP::mAutoTestMode) return true;   // AutoTest（包括读档复现模式）绝不删除真实存档
 	return DeleteSaveFile("level" + std::to_string(level) + "_data.json");
 }
@@ -1884,7 +1900,7 @@ bool GameInfoSaver::DeleteLevelData(int level)
 // parse_error、缺键、类型不符等，均派生自 std::exception）都转成返回 false（沿用既有
 // “失败”契约），不再逸出到 CrashHandler 直接崩坏整个游戏。
 // 根字段/公共实体外壳先预检；品种 extraData 或资源创建中途抛异常时仍可能部分加载，
-// 返回 false 仅保证“不崩”；调用方应把 false 视为读档失败、按全新关卡处理。
+// GameScene 收到 false 后不再更新/保存该场景，而是销毁后一次性跳过读档重建。
 bool GameInfoSaver::SavePlayerInfo()
 {
 	try { return SavePlayerInfoImpl(); }
@@ -1905,6 +1921,11 @@ bool GameInfoSaver::LoadPlayerInfo()
 
 bool GameInfoSaver::SaveLevelData(Board* board, CardSlotManager* manager)
 {
+    // Android 后台等外部入口也可能在切场前请求保存，不能只依赖 GameScene::OnExit 的门禁。
+    if (board && (board->mLevel == mFailedLoadLevel || IsLevelSaveProtected(board->mLevel))) {
+        LOG_ERROR("Save") << "拒绝保存失败场景或覆盖未备份原档，level=" << board->mLevel;
+        return false;
+    }
 	try { return SaveLevelDataImpl(board, manager); }
 	catch (const std::exception& e) {
 		LOG_ERROR("GameInfoSaver") << "SaveLevelData 异常，已跳过保存: " << e.what();
@@ -1912,13 +1933,50 @@ bool GameInfoSaver::SaveLevelData(Board* board, CardSlotManager* manager)
 	}
 }
 
+void GameInfoSaver::RestartAfterFailedLevelLoad(int level)
+{
+    if (level == mFailedLoadLevel) mRestartAfterFailedLoadLevel = level;
+}
+
 bool GameInfoSaver::LoadLevelData(Board* board, CardSlotManager* manager)
 {
-	try { return LoadLevelDataImpl(board, manager); }
-	catch (const std::exception& e) {
-		LOG_ERROR("GameInfoSaver") << "LoadLevelData 异常，已放弃读档（关卡将重新开始）: " << e.what();
-		return false;
-	}
+    mRestartedAfterLoadFailure = false;
+    const int restartLevel = std::exchange(mRestartAfterFailedLoadLevel, -1);
+    if (restartLevel == board->mLevel) {
+        mRestartedAfterLoadFailure = true;
+        mFailedLoadLevel = -1; // 旧实例已销毁；新局只继续遵守原档备份保护。
+        return true;
+    }
+    mLevelLoadError.clear();
+    mLevelLoadSourcePath.clear();
+    try {
+        if (LoadLevelDataImpl(board, manager)) {
+            mFailedLoadLevel = -1;
+            mProtectedFailedLevels.erase(board->mLevel); // 用户修复/移除原档后的正常加载解除旧保护。
+            return true;
+        }
+    } catch (const std::exception& e) {
+        mLevelLoadError = e.what();
+    }
+    mFailedLoadLevel = board->mLevel;
+    if (mLevelLoadError.empty()) mLevelLoadError = "存档解析、版本或字段校验失败";
+    LOG_ERROR("Save") << "关卡恢复失败，将丢弃整个场景: " << mLevelLoadError;
+    if (!GameAPP::mAutoTestMode && !mLevelLoadSourcePath.empty()) {
+        // 先设保护，再尝试备份；I/O 或分配异常同样不能打开覆盖窗口。
+        mProtectedFailedLevels.insert(board->mLevel);
+        try {
+            std::filesystem::path backup;
+            if (SaveMigration::PreserveRejectedFile(Utf8::ToPath(mLevelLoadSourcePath), backup)) {
+                mProtectedFailedLevels.erase(board->mLevel);
+                LOG_ERROR("Save") << "原存档已备份: " << Utf8::ToString(backup.u8string());
+            } else {
+                LOG_ERROR("Save") << "备份失败，已禁止覆盖/删除原存档: " << mLevelLoadSourcePath;
+            }
+        } catch (const std::exception& e) {
+            LOG_ERROR("Save") << "备份异常，保持原存档写保护: " << e.what();
+        }
+    }
+    return false;
 }
 
 bool GameInfoSaver::SaveAutoTestLevelSnapshot(Board* board, CardSlotManager* manager,

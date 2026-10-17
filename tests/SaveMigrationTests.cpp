@@ -78,6 +78,30 @@ namespace {
 		Expect(result.errorCount > 0, "目标目录不可创建时应报告错误");
 		Expect(ReadFile(source / "PlayerInfo.json") == "player", "迁移失败时源存档必须保留");
 	}
+    /** 失败存档必须原样保留，包括非 JSON 字节；同名不同内容绝不覆盖历史备份。 */
+    void TestRejectedBackup(const std::filesystem::path& root) {
+        const auto source = root / "rejected-test" / std::filesystem::path(u8"关卡.json");
+        const std::string damaged("{broken\0json", 12);
+        WriteFile(source, damaged);
+        std::filesystem::path first, repeated, second;
+        Expect(SaveMigration::PreserveRejectedFile(source, first), "拒绝档应能备份");
+        Expect(ReadFile(first) == damaged && ReadFile(source) == damaged, "备份应保留原始字节和源文件");
+        Expect(SaveMigration::PreserveRejectedFile(source, repeated) && first == repeated,
+            "重复失败不得无限复制同一个坏档");
+        WriteFile(source, "changed");
+        Expect(SaveMigration::PreserveRejectedFile(source, second) && second != first,
+            "不同坏档应另编号");
+        Expect(ReadFile(first) == damaged && ReadFile(second) == "changed", "历史备份不得覆盖");
+        const auto blocked = root / "blocked-backup" / "level.json";
+        WriteFile(blocked, "keep");
+        WriteFile(blocked.parent_path() / "rejected", "not a directory");
+        Expect(!SaveMigration::PreserveRejectedFile(blocked, second) && second.empty(),
+            "目标不可写时必须返回失败");
+        Expect(ReadFile(blocked) == "keep", "备份失败不得删除或修改源文件");
+        Expect(!SaveMigration::PreserveRejectedFile(root / "missing.json", second),
+            "源文件缺失不得报告已备份");
+    }
+
 }
 
 int main() {
@@ -86,6 +110,7 @@ int main() {
 	const auto root = std::filesystem::temp_directory_path() /
 		("pvz-save-migration-tests-" + unique);
 
+    TestRejectedBackup(root);
 	TestMovesFilesAndRemovesEmptySource(root);
 	TestPreservesConflictingFiles(root);
 	TestRemovesMatchingDuplicate(root);

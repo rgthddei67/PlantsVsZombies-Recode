@@ -2,7 +2,7 @@
   "commands": [
     {
       "op": "goto_level",
-      "level": 99,
+      "level": 93,
       "resetTestState": true
     },
     {
@@ -283,6 +283,27 @@
     {
       "op": "set_spawn_paused",
       "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "weatherStation.controls.1.value",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "weatherStation.controls.1.protection",
+      "atLeast": 170
+    },
+    {
+      "op": "station_control",
+      "device": 1,
+      "value": 0,
+      "expected": false
+    },
+    {
+      "op": "assert_state",
+      "path": "weatherStation.controls.1.pending",
+      "equals": -1
     },
     {
       "op": "plant",

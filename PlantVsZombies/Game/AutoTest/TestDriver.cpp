@@ -3691,13 +3691,24 @@ bool TestDriver::ExecuteCurrent() {
 			Fail("reload_level_snapshot: GameScene、Board 或 CardSlotManager 无效");
 			return false;
 		}
-		const std::string path = (std::filesystem::path(mOutDir) / "snapshots"
+		std::string path = (std::filesystem::path(mOutDir) / "snapshots"
 			/ (name + ".json")).string();
 		nlohmann::json snapshot;
 		if (!FileManager::LoadJsonFile(path, snapshot)) {
 			Fail("reload_level_snapshot: 快照缺失、为空或 JSON 损坏");
 			return false;
 		}
+
+        // 损坏副本只写入当前测试输出目录，原始好档保留供下一次正式恢复。
+        if (cmd.contains("patch")) {
+            snapshot = snapshot.patch(cmd.at("patch"));
+            path = (std::filesystem::path(mOutDir) / "snapshots" / (name + "_rejected.json")).string();
+            if (!FileManager::SaveJsonFile(path, snapshot)) {
+                Fail("reload_level_snapshot: 无法写入损坏副本");
+                return false;
+            }
+        }
+        const std::string sourceBytes = FileManager::LoadFileAsString(path);
 
 		const int level = oldScene->GetBoard()->mLevel;
 		auto& saver = GameAPP::GetInstance().mGameInfoSaver;
@@ -3713,10 +3724,39 @@ bool TestDriver::ExecuteCurrent() {
 			return false;
 		}
 		std::string loadError;
-		if (!saver.ConsumeAutoTestLevelSnapshotLoadResult(loadError)) {
-			Fail("reload_level_snapshot: " + loadError);
-			return false;
-		}
+        const bool loaded = saver.ConsumeAutoTestLevelSnapshotLoadResult(loadError);
+        if (loaded != cmd.value("expectedSuccess", true)) {
+            Fail("reload_level_snapshot: unexpected result: " + loadError);
+            return false;
+        }
+        if (!loaded) {
+            const std::string expectedError = cmd.value("errorContains", "");
+            if (loadError.empty() || loadError.find(expectedError) == std::string::npos) {
+                Fail("reload_level_snapshot: unexpected failure reason: " + loadError);
+                return false;
+            }
+            auto* failed = CurrentGameScene();
+            // AutoTest 正常保存本会返回 true；此处必须由失败门禁提前拒绝，包括后台保存入口。
+            if (!failed || saver.SaveLevelData(failed->GetBoard(), failed->GetCardSlotManager())
+                || saver.DeleteLevelData(level)) {
+                Fail("reload_level_snapshot: failed scene allowed save/delete");
+                return false;
+            }
+            // 只推进失败场景的安全切换分支；新场景尚未执行玩法 Update。
+            sm.Update();
+            auto* recovered = CurrentGameScene();
+            if (!recovered || !recovered->RecoveredFromLevelLoadFailure()
+                || recovered->GetBoard()->IsLoadRestoreActive()
+                || recovered->GetBoard()->GetState() != BoardState::CHOOSE_CARD) {
+                Fail("reload_level_snapshot: failed scene was not discarded");
+                return false;
+            }
+            Log("expected load rejection and clean scene recovery: " + loadError);
+        }
+        if (FileManager::LoadFileAsString(path) != sourceBytes) {
+            Fail("reload_level_snapshot: source snapshot was modified");
+            return false;
+        }
 		GameScene* newScene = CurrentGameScene();
 		if (!newScene || !newScene->GetBoard() || !newScene->GetCardSlotManager()
 			|| newScene->GetBoard()->mLevel != level) {
@@ -7004,6 +7044,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 
 	out["survivalRound"] = board->mIsSurvival ? board->mSurvivalRound : -1;
 	out["loadRestoreActive"] = board->IsLoadRestoreActive();
+    out["recoveredFromLevelLoadFailure"] = gs->RecoveredFromLevelLoadFailure();
 	out["eliteScaredyShroomsPlanted"] = board->GetEliteScaredyShroomsPlanted();
 	out["eliteScaredyShroomPlantLimit"] = board->GetEliteScaredyShroomPlantLimit();
 	out["eliteScaredyShroomTotalPlantLimit"] = board->GetEliteScaredyShroomTotalPlantLimit();

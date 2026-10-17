@@ -100,6 +100,7 @@ public:
 	// ---- AutoTest 钩子 ----
 	// GetBoard / GetChooseCardUI / IsChooseCardReady 本身只读；
 	// AutoTest 经由它们配合 ChooseCardComplete()（与 UI 共用）驱动选卡流程。
+    bool RecoveredFromLevelLoadFailure() const { return mRecoveredFromLevelLoadFailure; }
 	Board* GetBoard() const { return mBoard.get(); }
 	ChooseCardUI* GetChooseCardUI() const { return mChooseCardUI; }
 	CardSlotManager* GetCardSlotManager() const { return mCardSlotManager.get(); }
@@ -268,6 +269,8 @@ protected:
 	void BuildDrawCommands() override;
 
 private:
+    bool mLevelLoadFailed = false;
+    bool mRecoveredFromLevelLoadFailure = false;
 	/** 在背景与战场实体之间交叉淡入对应昼夜的屋顶雨景，不改变逻辑地形。 */
 	void DrawRoofRainBackground(Graphics* g);
 	/** 在世界层绘制已锁定径流行的预警边界或顺坡水痕。 */

@@ -3,6 +3,7 @@
 #define _GAMEINFOSAVER_H
 #include "FileManager.h"
 #include <string>
+#include <unordered_set>
 #include <nlohmann/json.hpp>
 
 class Board;
@@ -14,7 +15,13 @@ public:
 	bool LoadPlayerInfo();
 
 	bool SaveLevelData(Board* board, CardSlotManager* manager);
-	bool LoadLevelData(Board* board, CardSlotManager* manager);
+    /** 新场景专用：无档为成功的新局；失败后宿主必须销毁整场景，禁止继续更新或保存半成品。 */
+    bool LoadLevelData(Board* board, CardSlotManager* manager);
+    /** 仅为刚失败的同关卡消费一次无读档重建；不会删除原档或改变后续正常加载。 */
+    void RestartAfterFailedLevelLoad(int level);
+    bool DidRestartAfterFailedLevelLoad() const { return mRestartedAfterLoadFailure; }
+    const std::string& GetLevelLoadError() const { return mLevelLoadError; }
+    bool IsLevelSaveProtected(int level) const { return mProtectedFailedLevels.contains(level); }
 	bool DeleteLevelData(Board* board);
 	/** 按关卡号清除续局存档，供没有 Board 的选关结算使用；仍遵守 AutoTest 隔离。 */
 	bool DeleteLevelData(int level);
@@ -84,6 +91,13 @@ private:
 	nlohmann::json mAlmanacReturnDocument;
 	int mAlmanacReturnLevel = -1;
 	bool mAlmanacReturnQueued = false;
+    int mFailedLoadLevel = -1;
+    int mRestartAfterFailedLoadLevel = -1;
+    bool mRestartedAfterLoadFailure = false;
+    std::string mLevelLoadError;
+    std::string mLevelLoadSourcePath;
+    // 备份失败时保存/删除都保持失败关闭，避免新局覆盖唯一可诊断原档。
+    std::unordered_set<int> mProtectedFailedLevels;
 	std::string mAutoTestSnapshotLoadPath;
 	bool mAutoTestSnapshotLoadAttempted = false;
 	bool mAutoTestSnapshotLoadSucceeded = false;

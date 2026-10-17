@@ -157,3 +157,33 @@ SaveMigration::Result SaveMigration::MigrateDirectory(
 
 	return result;
 }
+
+
+bool SaveMigration::PreserveRejectedFile(const std::filesystem::path& source,
+    std::filesystem::path& backup)
+{
+    backup.clear();
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(source, error) || error) return false;
+    const auto directory = source.parent_path() / "rejected";
+    std::filesystem::create_directories(directory, error);
+    if (error) return false;
+    // 不覆盖历史诊断；同一坏档反复进入时复用已经验证的备份。
+    for (unsigned index = 0; index < 10000; ++index) {
+        auto name = source.filename();
+        if (index != 0) name += "." + std::to_string(index);
+        const auto candidate = directory / name;
+        const bool exists = std::filesystem::exists(candidate, error);
+        if (error) return false;
+        if (exists) {
+            if (!FilesMatch(source, candidate)) continue;
+        } else {
+            if (!std::filesystem::copy_file(source, candidate,
+                std::filesystem::copy_options::none, error) || error) return false;
+            if (!FilesMatch(source, candidate)) return false;
+        }
+        backup = candidate;
+        return true;
+    }
+    return false;
+}

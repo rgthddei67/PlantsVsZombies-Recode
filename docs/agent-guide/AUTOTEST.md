@@ -21,6 +21,8 @@
 
 `smoke_framework_load_rejection` 在已运行场景中通过正式加载入口注入后段环境字段、第二株植物、僵尸和卡牌的坏类型，逐次比较完整快照、读档标记和对象数，随后验证正常往返。`smoke_framework_station_charge` 使用无开场锁定的气象站关卡，验证设备启动、雷荷命中和放电存档恢复。`smoke_framework_board_transitions` 走正式轮清、词条放弃和选卡恢复，验证跨读档保留植物与阳光。`board-domain-state` 同时覆盖寒潮固定开幕不消费 RNG、温度曲线恢复、雷荷余电与一次性阶段边沿，以及结构预检的缺字段/坏类型；可传实际旧快照路径补充兼容检查。
 
+`smoke_framework_load_recovery` 使用 `reload_level_snapshot` 的可选 JSON Patch 损坏输出目录内的副本，分别覆盖公共字段预检、第二株植物 `extraData` 和卡槽恢复后的失败；`expectedSuccess: false` 配合 `errorContains` 核实失败阶段，并通过正式场景更新完成销毁重建。同时直接调用保存/删除入口，确认失败实例被拒绝；重建后走选卡、种植、新档往返，再加载保留的好档，验证一次性跳过读档不会污染后续恢复。原快照和坏档副本均校验不被加载改写；`save-migration` CTest 另验证拒绝档原始字节备份、重名保留及备份失败。`smoke_weather_station_interactions` 的主动设备交互使用 11-3，11-9 场景单独验证当前浓雾开幕及保护期拒绝切档。
+
 ## AutoTest 测试套件
 
 ### 指挥官经济预测诊断

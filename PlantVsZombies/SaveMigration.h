@@ -12,6 +12,9 @@ namespace SaveMigration {
 		bool sourceDirectoryRemoved = false;
 	};
 
+	/** 逐字节备份拒绝加载的原文件到同级 rejected 目录；同内容复用，异内容另编号，失败不动源文件。 */
+	bool PreserveRejectedFile(const std::filesystem::path& source, std::filesystem::path& backup);
+
 	/**
 	 * \brief 将旧存档目录中的普通文件安全迁移到新的存档目录。
 	 *
