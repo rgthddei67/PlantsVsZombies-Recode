@@ -17,6 +17,7 @@ namespace {
 	constexpr float kPoolCleanerMoveSpeed = 230.0f * 2.5f / 3.33f; // 按原版水车/草车 2.5:3.33 的速度比换算
 	constexpr float kPoolTransitionDepth = 28.0f;           // 入水阶段最大视觉下沉距离，单位：像素
 	constexpr float kPoolCleanerInWaterLiftY = 13.0f;       // 水中稳态相对原下沉位置向上校正的像素数
+	constexpr float kGardenPoolCleanerExtraLiftY = 50.0f;   // 水岸植物园单行水池额外抬高车身，避免压到下方石岸，单位：像素
 	constexpr float kPoolTransitionSpeedRatio = 0.8f;       // 原版每横移 2.5 像素下沉/上浮 2 像素
 	constexpr float kPoolMowBlendTime = 0.1f;               // 吞噬轨道切换混合时间，单位：秒
 }
@@ -213,7 +214,9 @@ Vector Mower::GetVisualPosition() const
 		// 逻辑位置、碰撞和存档中的原始入水深度均保持不变。
 		const float immersion = std::clamp(
 			mPoolVisualOffsetY / kPoolTransitionDepth, 0.0f, 1.0f);
-		waterLiftY = kPoolCleanerInWaterLiftY * immersion;
+		const float gardenLiftY = mBoard && mBoard->IsWatersideGarden()
+			? kGardenPoolCleanerExtraLiftY : 0.0f;
+		waterLiftY = (kPoolCleanerInWaterLiftY + gardenLiftY) * immersion;
 	}
 	return AnimatedObject::GetVisualPosition()
 		+ Vector(0.0f, mPoolVisualOffsetY - waterLiftY);
