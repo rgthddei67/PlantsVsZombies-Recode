@@ -221,6 +221,12 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 `smoke_modal_navigation` 覆盖三层弹窗、背景按钮/滑块隔离、逐层取消与图鉴返回；`activeMessageBoxCount` 导出当前活动层数，图鉴索引/植物页的 `almanacReturnLevel` 为游戏来源关卡，首页来源为 -1。往返前后的 dump 与正式 snapshot 用于比较阳光、卡槽、对象和 Board 状态；不要把场景跳转成功当成原局恢复的充分证据。
 
+植物图鉴分页使用 `click target=plant_almanac_previous_page/plant_almanac_next_page` 走真实按钮输入；
+`plantAlmanacPageIndex/PageCount/EntryCount/VisibleEntries/VisibleEntryCount` 与前后按钮状态检查实际活动卡片和导航。
+`smoke_plant_almanac_pagination` 覆盖完整卡池、隐藏卡片不响应点击、重进首页以及空页/满页/刚溢出的边界；
+`smoke_plant_almanac_three_pages` 用 `set_owned_cards.cards` 在隔离内存中重复现有卡片，模拟未来超过两页的目录。
+该夹具只接受已注册植物，允许空列表，不读写真实玩家存档；正常完整卡池仍使用 `set_all_owned_cards`。
+
 ### 小游戏专项
 
 `smoke_minigame_last_savings.json` 从 `click target=main_menu_minigames` 进入独立选关页，以一次真实卡槽/草坪点击验证扣费，再用总成本 2875 阳光的固定阵型夹具与 125 余款验证卡池限制、无阳光掉落、快照往返、自然十波与奖杯返回；固定阵型夹具不代表完整卡槽布阵操作已被验证。输入阶段用正常倍速，只有等待战斗时加速；可见执行期间保持玩家输入与脚本分开，避免真实操作改变预算。`miniGame` 根投影由关卡号派生，沿用 `sun/normalSunCount/smallSunCount/nextWaveCountdownMs` 等现有权威投影。`smoke_minigame_navigation.json` 覆盖零预算不能落种、失败重开与冒险上次选卡隔离。

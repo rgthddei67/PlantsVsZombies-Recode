@@ -16,6 +16,12 @@ constexpr float CARD_INIT_POSITION_Y = 120.0f;
 constexpr int   ALMANAC_MAX_CARDS_PER_ROW = 12;
 constexpr int   ALMANAC_CARD_H_SPACING = 1;
 constexpr int   ALMANAC_CARD_V_SPACING = 4;
+constexpr int   ALMANAC_ROWS_PER_PAGE = 5; // 每页五行，底部留出导航区域
+constexpr int   ALMANAC_CARDS_PER_PAGE = ALMANAC_MAX_CARDS_PER_ROW * ALMANAC_ROWS_PER_PAGE; // 每页卡片容量
+constexpr float ALMANAC_PREVIOUS_PAGE_X = 570.0f; // 上一页按钮左上角 X，与僵尸图鉴一致，单位：UI px
+constexpr float ALMANAC_NEXT_PAGE_X = 650.0f; // 下一页按钮左上角 X，单位：UI px
+constexpr float ALMANAC_PAGE_BUTTON_Y = 535.0f; // 翻页按钮左上角 Y，单位：UI px
+constexpr float ALMANAC_PAGE_BUTTON_SIZE = 60.0f; // 翻页箭头边长，单位：UI px
 
 constexpr float PREVIEW_PLANT_X = 900.0f;
 constexpr float PREVIEW_PLANT_Y = 198.0f;
@@ -66,6 +72,23 @@ void PlantAlmanacScene::BuildDrawCommands()
 		nextButton->SetEnabled(AdventureProgression::IsAdventureLevel(GameAPP::GetInstance().mAdventureLevel));
 		nextButton->SetClickCallBack([this](bool) { mReadyForNextLevel = true; });
 	}
+	else {
+		// 独立保留左右按钮槽位，中间页可以同时前进和后退。
+		auto createPageButton = [this](float x, int delta) {
+			auto button = mUIManager.CreateButton(Vector(x, ALMANAC_PAGE_BUTTON_Y),
+				Vector(ALMANAC_PAGE_BUTTON_SIZE, ALMANAC_PAGE_BUTTON_SIZE));
+			button->SetAsCheckbox(false);
+			button->SetImageKeys(ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN,
+				ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN,
+				ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN);
+			button->SetImageRotationDegrees(delta < 0 ? 180.0f : 0.0f);
+			button->SetClickCallBack([this, delta](bool) { ChangePage(delta); });
+			return button;
+		};
+		mPreviousPageButton = createPageButton(ALMANAC_PREVIOUS_PAGE_X, -1);
+		mNextPageButton = createPageButton(ALMANAC_NEXT_PAGE_X, 1);
+		RefreshCurrentPage();
+	}
 
 	RegisterDrawCommand("PlantInfo",
 		[this](Graphics* g) {
@@ -74,6 +97,11 @@ void PlantAlmanacScene::BuildDrawCommands()
 				app.DrawText(GameDataManager::GetInstance().IsSkillCard(mRewardPlant)
 					? "获得新技能卡！" : "获得新植物！", Vector(445, 65),
 					glm::vec4(255, 214, 104, 255), ResourceKeys::Fonts::FONT_FZJT, 32);
+			}
+			else if (GetPageCount() > 1) {
+				app.DrawText("第 " + std::to_string(mCurrentPage + 1) + " / "
+					+ std::to_string(GetPageCount()) + " 页", Vector(400, 553),
+					glm::vec4(52, 51, 93, 255), ResourceKeys::Fonts::FONT_FZJZ, 20);
 			}
 			if (mCurrentPlantType == PlantType::PLANT_ICEVOUCHER)
 				ColdStorageSkillRules::DrawVoucher(g, PREVIEW_PLANT_X + GetInfoOffsetX() - 75,
@@ -104,8 +132,9 @@ void PlantAlmanacScene::CreateAllCards()
 	int cardCount = 0;
 	for (const auto& plantType : haveCards) {
 		if (!gameMgr.HasPlant(plantType)) continue;
-		int row = cardCount / ALMANAC_MAX_CARDS_PER_ROW;
-		int col = cardCount % ALMANAC_MAX_CARDS_PER_ROW;
+		const int pageSlot = cardCount % ALMANAC_CARDS_PER_PAGE;
+		int row = pageSlot / ALMANAC_MAX_CARDS_PER_ROW;
+		int col = pageSlot % ALMANAC_MAX_CARDS_PER_ROW;
 
 		float posX = CARD_INIT_POSITION_X + col * (CARD_WIDTH + ALMANAC_CARD_H_SPACING);
 		float posY = CARD_INIT_POSITION_Y + row * (CARD_HEIGHT + ALMANAC_CARD_V_SPACING);
@@ -123,14 +152,50 @@ void PlantAlmanacScene::CreateAllCards()
 		card->mIsUI = true;
 
 		if (auto clickable = card->GetClickable()) {
-			clickable->onClick = [this, plantType]() {
-				OnCardClicked(plantType);
+			clickable->onClick = [this, card, plantType]() {
+				if (card->IsActive()) OnCardClicked(plantType);
 				};
 		}
 
 		mCards.push_back(card);
 		cardCount++;
 	}
+	RefreshCurrentPage();
+}
+
+int PlantAlmanacScene::GetPageCount() const
+{
+	return std::max(1, static_cast<int>(
+		(mCards.size() + ALMANAC_CARDS_PER_PAGE - 1) / ALMANAC_CARDS_PER_PAGE));
+}
+
+void PlantAlmanacScene::RefreshCurrentPage()
+{
+	mCurrentPage = std::clamp(mCurrentPage, 0, GetPageCount() - 1);
+	const size_t first = static_cast<size_t>(mCurrentPage) * ALMANAC_CARDS_PER_PAGE;
+	const size_t last = std::min(first + ALMANAC_CARDS_PER_PAGE, mCards.size());
+	// 使用对象活动状态统一屏蔽更新、绘制和 Clickable 输入，避免页外卡片重叠命中。
+	for (size_t i = 0; i < mCards.size(); ++i) {
+		mCards[i]->SetActive(i >= first && i < last);
+	}
+	if (mPreviousPageButton) {
+		const bool hasPrevious = mCurrentPage > 0;
+		mPreviousPageButton->SetEnabled(hasPrevious);
+		mPreviousPageButton->SetSkipDraw(!hasPrevious);
+	}
+	if (mNextPageButton) {
+		const bool hasNext = mCurrentPage + 1 < GetPageCount();
+		mNextPageButton->SetEnabled(hasNext);
+		mNextPageButton->SetSkipDraw(!hasNext);
+	}
+}
+
+void PlantAlmanacScene::ChangePage(int delta)
+{
+	const int page = std::clamp(mCurrentPage + delta, 0, GetPageCount() - 1);
+	if (page == mCurrentPage) return;
+	mCurrentPage = page;
+	RefreshCurrentPage();
 }
 
 void PlantAlmanacScene::OnCardClicked(PlantType type)
@@ -175,7 +240,7 @@ void PlantAlmanacScene::Update()
 	}
 }
 
-/** 奖励页直接选中刚解锁的植物，普通入口仍展示全部已拥有卡片。 */
+/** 奖励页直接选中刚解锁的植物，普通入口从已拥有卡片的首页开始。 */
 void PlantAlmanacScene::OnEnter()
 {
 	Scene::OnEnter();
@@ -187,18 +252,20 @@ void PlantAlmanacScene::OnEnter()
 	}
 	CreateAllCards();
 
-	const auto& haveCards = GameAPP::GetInstance().mHaveCards;
-	if (!haveCards.empty()) {
-		CreatePreviewPlant(haveCards[0]);
-		UpdatePlantInfo(haveCards[0]);
+	if (!mCards.empty()) {
+		OnCardClicked(mCards.front()->GetPlantType());
 	}
 }
 
+/** 清理图鉴引用和页码，重新进入时从首页开始。 */
 void PlantAlmanacScene::OnExit()
 {
 	mCards.clear();
 	mPreviewPlant.reset();
 	mBackMenuButton.reset();
+	mPreviousPageButton.reset();
+	mNextPageButton.reset();
+	mCurrentPage = 0;
 	mInfoMap.clear();
 	mCurrentPlantName.clear();
 	mDescriptionLines.clear();

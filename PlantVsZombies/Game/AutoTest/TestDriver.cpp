@@ -1545,6 +1545,24 @@ bool TestDriver::ExecuteCurrent() {
 		}
 		return true;
 	}
+	if (op == "set_owned_cards") {
+		// 只替换隔离内存卡池；允许空列表和重复条目，以验证图鉴的空页及未来多页容量。
+		if (!cmd.contains("cards") || !cmd["cards"].is_array()) {
+			Fail("set_owned_cards: cards 必须为数组");
+			return false;
+		}
+		std::vector<PlantType> cards;
+		for (const auto& value : cmd["cards"]) {
+			const auto it = kPlantNames.find(value.is_string() ? value.get<std::string>() : "");
+			if (it == kPlantNames.end() || !GameDataManager::GetInstance().HasPlant(it->second)) {
+				Fail("set_owned_cards: cards 包含未知或未注册植物");
+				return false;
+			}
+			cards.push_back(it->second);
+		}
+		GameAPP::GetInstance().mHaveCards = std::move(cards);
+		return true;
+	}
 	if (op == "set_all_owned_cards") {
 		// 只在 AutoTest 内存中按正式冒险奖励顺序布置完整卡池，不读写真实 PlayerInfo。
 		auto& ownedCards = GameAPP::GetInstance().mHaveCards;
@@ -4042,6 +4060,19 @@ bool TestDriver::ExecuteCurrent() {
 			x = center.x;
 			y = center.y;
 		}
+		else if (target == "plant_almanac_previous_page" || target == "plant_almanac_next_page") {
+			auto* almanac = dynamic_cast<PlantAlmanacScene*>(
+				SceneManager::GetInstance().GetCurrentScene());
+			auto button = almanac ? (target == "plant_almanac_previous_page"
+				? almanac->GetPreviousPageButton() : almanac->GetNextPageButton()) : nullptr;
+			if (!button || !button->IsEnabled() || button->IsSkipDraw()) {
+				Fail("click target=" + target + ": 植物图鉴翻页按钮不存在或不可用");
+				return false;
+			}
+			const Vector center = button->GetCenter();
+			x = center.x;
+			y = center.y;
+		}
 		else if (target == "zombie_almanac_previous_page") {
 			auto* almanac = dynamic_cast<ZombieAlmanacScene*>(
 				SceneManager::GetInstance().GetCurrentScene());
@@ -5274,6 +5305,32 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		out["plantAlmanacName"] = almanac->GetPlantName();
 		out["plantAlmanacDescriptionLineCount"] = almanac->GetDescriptionLineCount();
 		out["plantAlmanacPreviewReady"] = almanac->HasPreviewPlant();
+		out["plantAlmanacPageIndex"] = almanac->GetCurrentPage();
+		out["plantAlmanacPageCount"] = almanac->GetPageCount();
+		out["plantAlmanacEntryCount"] = almanac->GetCards().size();
+		out["plantAlmanacVisibleEntries"] = nlohmann::json::array();
+		// 检查真正活动的 Card，而非用页码重新计算一份期望列表。
+		for (const auto* card : almanac->GetCards()) {
+			if (card->IsActive()) {
+				out["plantAlmanacVisibleEntries"].push_back(PlantTypeName(card->GetPlantType()));
+			}
+		}
+		out["plantAlmanacVisibleEntryCount"] = out["plantAlmanacVisibleEntries"].size();
+		auto pageButtonState = [](const std::shared_ptr<Button>& button) -> nlohmann::json {
+			if (!button) return nullptr;
+			const Vector center = button->GetCenter();
+			return {
+				{ "enabled", button->IsEnabled() },
+				{ "visible", !button->IsSkipDraw() },
+				{ "textureLoaded", ResourceManager::GetInstance().GetTexture(
+					ResourceKeys::Textures::IMAGE_ZEN_NEXTGARDEN, false) != nullptr },
+				{ "rotationDegrees", static_cast<int>(std::lround(button->GetImageRotationDegrees())) },
+				{ "centerXInt", static_cast<int>(std::lround(center.x)) },
+				{ "centerYInt", static_cast<int>(std::lround(center.y)) },
+			};
+		};
+		out["plantAlmanacPreviousPageButton"] = pageButtonState(almanac->GetPreviousPageButton());
+		out["plantAlmanacNextPageButton"] = pageButtonState(almanac->GetNextPageButton());
 		out["almanacReturnLevel"] = gameApp.mGameInfoSaver.GetAlmanacReturnLevel();
 		return true;
 	}
