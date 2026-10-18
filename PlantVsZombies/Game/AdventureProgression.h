@@ -9,8 +9,8 @@
 namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
-	inline constexpr int ADVENTURE_AREA_COUNT = 11;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 99; // 第十一大关气象站沿用冰块经济胜负
+	inline constexpr int ADVENTURE_AREA_COUNT = 12;
+	inline constexpr int LAST_ADVENTURE_LEVEL = 100; // 第十二大关先开放 12-1 水岸植物园
 	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * 9;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
@@ -145,6 +145,7 @@ namespace AdventureProgression
 		NO_PLANT_REWARD, PlantType::PLANT_THUNDERFLOWER, NO_PLANT_REWARD,
 		PlantType::PLANT_MENDINGCOTTON, PlantType::PLANT_RAINBAMBOO, NO_PLANT_REWARD,
 		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
+		NO_PLANT_REWARD, // 12-1 混合地形与肥沃土地教学
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */

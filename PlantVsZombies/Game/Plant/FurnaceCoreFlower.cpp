@@ -49,6 +49,7 @@ void FurnaceCoreFlower::SetupPlant()
 	RefreshPresentation();
 }
 
+/** 温度条件满足时积累炉芯，肥沃加快充能但不改变储量。 */
 void FurnaceCoreFlower::PlantUpdate()
 {
 	if (mIsPreview || !mBoard) return;
@@ -59,7 +60,7 @@ void FurnaceCoreFlower::PlantUpdate()
 	if (mBoard->GetAmbientTemperatureC()
 		<= mBoard->GetWinterFreezingTemperatureC()) return;
 
-	mChargeProgress += DeltaTime::GetDeltaTime();
+	mChargeProgress += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	while (mChargeProgress >= kCoreChargeDuration
 		&& mStoredCores < kMaximumStoredCores) {
 		mChargeProgress -= kCoreChargeDuration;

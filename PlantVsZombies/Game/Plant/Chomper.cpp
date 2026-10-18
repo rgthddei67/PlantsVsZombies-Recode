@@ -36,7 +36,7 @@ void Chomper::StartBite(int zombieID)
 	mState = State::BITING;
 	mTargetZombieID = zombieID;
 
-	PlayTrackOnce("anim_bite", "anim_chew", 1.4f * GetWeatherActionSpeedMultiplier(), 0.05f, 0.0f, 0.0f);
+	PlayTrackOnce("anim_bite", "anim_chew", 1.4f * GetPositiveActionSpeedMultiplier(), 0.05f, 0.0f, 0.0f);
 	mAnimator->AddFrameEvent(BITE_KILL_FRAME, [this]() {
 		OnBiteKillFrame();
 		});
@@ -78,7 +78,7 @@ void Chomper::EndDigest()
 {
 	mState = State::IDLE;
 	mDigestTimer = 0.0f;
-	PlayTrackOnce("anim_swallow", "anim_idle", 1.2f * GetWeatherActionSpeedMultiplier(), 0.05f, 0.0f, 0.0f);
+	PlayTrackOnce("anim_swallow", "anim_idle", 1.2f * GetPositiveActionSpeedMultiplier(), 0.05f, 0.0f, 0.0f);
 }
 
 void Chomper::PlantUpdate()
@@ -86,7 +86,7 @@ void Chomper::PlantUpdate()
 	float dt = DeltaTime::GetDeltaTime();
 	switch (mState) {
 	case State::IDLE:
-		mDetectionTimer += dt;
+		mDetectionTimer += dt * GetFertilitySpeedMultiplier();
 		if (mDetectionTimer >= DETECTION_INTERVAL) {
 			mDetectionTimer = 0.0f;
 			int targetID = FindTargetZombieID();
@@ -140,7 +140,7 @@ void Chomper::LoadExtraData(const nlohmann::json& j)
 		if (savedFrame >= static_cast<float>(BITE_KILL_FRAME)) {
 			savedFrame = 0.0f;
 		}
-		PlayTrackOnce("anim_bite", "anim_chew", 1.4f * GetWeatherActionSpeedMultiplier(), 0.05f);
+		PlayTrackOnce("anim_bite", "anim_chew", 1.4f * GetPositiveActionSpeedMultiplier(), 0.05f);
 		mAnimator->SetCurrentFrame(savedFrame);
 		mAnimator->AddFrameEvent(BITE_KILL_FRAME, [this]() {
 			OnBiteKillFrame();

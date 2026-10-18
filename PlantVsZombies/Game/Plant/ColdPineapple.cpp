@@ -15,6 +15,7 @@ void ColdPineapple::SetupPlant()
 	PlayTrack("anim_idle");
 }
 
+/** 领域持续时间不变，剩余能力冷却消费土壤加速。 */
 void ColdPineapple::Update()
 {
 	// 领域与冷却按游戏时间推进；自身停机不能把已付款的强化无限延长。
@@ -27,7 +28,7 @@ void ColdPineapple::Update()
 			delta -= consumed;
 			if (mActiveRemaining <= 0.0f) mCooldownRemaining = kCooldown;
 		}
-		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta);
+		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetFertilitySpeedMultiplier());
 	}
 	Plant::Update();
 }

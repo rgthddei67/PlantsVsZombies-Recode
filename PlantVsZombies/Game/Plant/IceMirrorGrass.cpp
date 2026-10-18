@@ -89,10 +89,11 @@ void IceMirrorGrass::SetupPlant()
 	}
 }
 
+/** 按土壤倍率形成镜片，达到容量后停止积累。 */
 void IceMirrorGrass::PlantUpdate()
 {
 	if (mIsPreview || mMirrorCount >= kMaximumMirrors) return;
-	mFormationProgress += DeltaTime::GetDeltaTime();
+	mFormationProgress += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	while (mFormationProgress >= kMirrorFormationSeconds
 		&& mMirrorCount < kMaximumMirrors) {
 		mFormationProgress -= kMirrorFormationSeconds;

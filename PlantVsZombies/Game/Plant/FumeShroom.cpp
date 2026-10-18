@@ -44,7 +44,8 @@ bool FumeShroom::HasZombieInRow()
 {
 	if (mBoard)
 	{
-		mCheckZombieTimer += DeltaTime::GetDeltaTime();
+		// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
+		mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 		if (mCheckZombieTimer >= 0.6f)
 		{
 			mCheckZombieTimer = 0.0f;

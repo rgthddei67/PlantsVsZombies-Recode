@@ -102,8 +102,8 @@ void Cactus::PlantUpdate()
 		? mHasFlyingTarget : mHasGroundTarget;
 	if (mShootTimer < kShootIntervalSeconds) return;
 
-	// 保留既有射手节奏：攻击冷却完成后才开始按固定间隔确认目标。
-	mAttackCheckTimer += DeltaTime::GetDeltaTime();
+	// 攻击冷却完成后再确认目标；肥沃同步缩短确认间隔。
+	mAttackCheckTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	if (mAttackCheckTimer < kTargetCheckIntervalSeconds) return;
 	mAttackCheckTimer = 0.0f;
 	if (!hasTarget) return;
@@ -127,7 +127,8 @@ void Cactus::UpdateTargetCache()
 		return;
 	}
 
-	mCheckZombieTimer += DeltaTime::GetDeltaTime();
+	// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
+	mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	if (mCheckZombieTimer < kTargetCheckIntervalSeconds) return;
 	mCheckZombieTimer = 0.0f;
 

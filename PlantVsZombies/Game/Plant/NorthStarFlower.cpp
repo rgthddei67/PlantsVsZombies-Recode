@@ -88,6 +88,7 @@ void NorthStarFlower::SetupPlant()
 	}
 }
 
+/** 导航持续时间使用游戏秒，待机充能受肥沃加速。 */
 void NorthStarFlower::PlantUpdate()
 {
 	if (mIsPreview) return;
@@ -96,7 +97,7 @@ void NorthStarFlower::PlantUpdate()
 		mActiveRemaining = std::max(0.0f, mActiveRemaining - deltaTime);
 		return;
 	}
-	mChargeSeconds = std::min(kChargeDurationSeconds, mChargeSeconds + deltaTime);
+	mChargeSeconds = std::min(kChargeDurationSeconds, mChargeSeconds + deltaTime * GetFertilitySpeedMultiplier());
 }
 
 bool NorthStarFlower::CoversPolarNavigationCell(int row, int column) const

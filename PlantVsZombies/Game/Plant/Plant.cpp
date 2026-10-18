@@ -318,7 +318,7 @@ Vector Plant::GetVisualPosition() const {
 Vector Plant::GetVisualAnchorPosition() const
 {
 	Vector visual = GetPosition() + mGridMoveVisualOffset;
-	if (!mIsPreview && mBoard && mBoard->IsPoolRow(mRow)) {
+	if (!mIsPreview && mBoard && mBoard->IsPoolSquare(mRow, mColumn)) {
 		const float phase = static_cast<float>(mBoard->mBoardFrame) * kPoolBobRadiansPerFrame
 			+ static_cast<float>(mRow) * kPoolBobRowPhase
 			+ static_cast<float>(mColumn) * kPoolBobColumnPhase;
@@ -560,9 +560,19 @@ float Plant::GetWeatherActionSpeedMultiplier() const
 		? 0.0f : mBoard->GetPlantRainActionSpeedMultiplier();
 }
 
+float Plant::GetFertilitySpeedMultiplier() const
+{
+	return mBoard ? mBoard->GetPlantFertilityMultiplier(this) : 1.0f;
+}
+
+float Plant::GetPositiveActionSpeedMultiplier() const
+{
+	return GetWeatherActionSpeedMultiplier() * GetFertilitySpeedMultiplier();
+}
+
 float Plant::GetWeatherActionDeltaTime() const
 {
-	return DeltaTime::GetDeltaTime() * GetWeatherActionSpeedMultiplier();
+	return DeltaTime::GetDeltaTime() * GetPositiveActionSpeedMultiplier();
 }
 
 float Plant::GetSunProductionDeltaTime() const
@@ -583,7 +593,7 @@ float Plant::GetSkillSpeedMultiplier() const
 	const float perkMultiplier = mBoard
 		? static_cast<float>(mBoard->GetPerkManager().GetPlantAttackSpeedMultiplier())
 		: 1.0f;
-	return perkMultiplier * GetWeatherActionSpeedMultiplier();
+	return perkMultiplier * GetPositiveActionSpeedMultiplier();
 }
 
 Vector Plant::GetPosition() const

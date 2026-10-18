@@ -98,7 +98,7 @@ void CobCannon::BeginCharge()
 {
 	mPhase = Phase::CHARGING;
 	const float speed = (kChargeFramesPerSecond / kReanimationFramesPerSecond)
-		* GetWeatherActionSpeedMultiplier();
+		* GetPositiveActionSpeedMultiplier();
 	PlayTrackOnce("anim_charge", "anim_idle", speed,
 		kTrackBlendSeconds, speed, kTrackBlendSeconds);
 	UpdateCobTrackColor();
@@ -115,7 +115,7 @@ bool CobCannon::FireAt(const Vector& target, int targetRow)
 	mPhase = Phase::FIRING;
 	UpdateCobTrackColor();
 	const float speed = (kShootingFramesPerSecond / kReanimationFramesPerSecond)
-		* GetWeatherActionSpeedMultiplier();
+		* GetPositiveActionSpeedMultiplier();
 	if (PlayTrackOnce("anim_shooting", "anim_unarmed_idle", speed,
 		kTrackBlendSeconds, speed, kTrackBlendSeconds)) {
 		if(GameAPP::mAutoTestMode && TestDriver::GetInstance().CommanderCombatTrace())

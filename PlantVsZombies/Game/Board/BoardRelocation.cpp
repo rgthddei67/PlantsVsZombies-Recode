@@ -39,6 +39,34 @@ int Board::GetRelocationSourceID(int row, int col)
 	return anchor->mPlantID;
 }
 
+bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetRow, int targetCol)
+{
+	Cell* source = GetCell(sourceRow, sourceCol);
+	if (!source || !GetCell(targetRow, targetCol)) return false;
+	Plant* under = GetUnderPlantAt(sourceRow, sourceCol);
+	const bool water = IsPoolSquare(targetRow, targetCol);
+	const bool lily = under && under->GetPlacementType() == PlantType::PLANT_LILYPAD;
+	const bool pot = under && under->IsRoofSupportPlant();
+	for (int id : GetStackIDs(*source)) {
+		Plant* member = mEntityRegistry.GetPlant(id);
+		if (!member || !member->IsActive()) continue;
+		const PlantType type = member->GetPlacementType();
+		if (type == PlantType::PLANT_LILYPAD) {
+			if (!water) return false;
+		} else if (member->IsRoofSupportPlant()) {
+			if (water) return false;
+		} else if (type == PlantType::PLANT_TANGLEKELP || type == PlantType::PLANT_SEASHROOM) {
+			if (!water || under) return false;
+		} else {
+			if ((type == PlantType::PLANT_SPIKEWEED || type == PlantType::PLANT_SPIKEROCK)
+				&& (water || RequiresFlowerPotAt(targetRow, targetCol))) return false;
+			if (water && (!lily || type == PlantType::PLANT_POTATOMINE)) return false;
+			if (RequiresFlowerPotAt(targetRow, targetCol) && !pot) return false;
+		}
+	}
+	return true;
+}
+
 bool Board::CanRelocatePlantGroup(int sourceID, int row, int col)
 {
 	Plant* anchor = mEntityRegistry.GetPlant(sourceID);
@@ -56,29 +84,7 @@ bool Board::CanRelocatePlantGroup(int sourceID, int row, int col)
 			|| HasLadderAt(targetRow, targetCol)) return false;
 		const int sourceRow = anchor->mRow + footprint.cells[i].rowOffset;
 		const int sourceCol = anchor->mColumn + footprint.cells[i].columnOffset;
-		Cell* source = GetCell(sourceRow, sourceCol);
-		if (!source) return false;
-		Plant* under = GetUnderPlantAt(sourceRow, sourceCol);
-		const bool water = IsPoolSquare(targetRow, targetCol);
-		const bool lily = under && under->GetPlacementType() == PlantType::PLANT_LILYPAD;
-		const bool pot = under && under->IsRoofSupportPlant();
-		for (int id : GetStackIDs(*source)) {
-			Plant* member = mEntityRegistry.GetPlant(id);
-			if (!member) continue;
-			const PlantType type = member->GetPlacementType();
-			if (type == PlantType::PLANT_LILYPAD) {
-				if (!water) return false;
-			} else if (member->IsRoofSupportPlant()) {
-				if (water) return false;
-			} else if (type == PlantType::PLANT_TANGLEKELP || type == PlantType::PLANT_SEASHROOM) {
-				if (!water || under) return false;
-			} else {
-				if ((type == PlantType::PLANT_SPIKEWEED || type == PlantType::PLANT_SPIKEROCK)
-					&& (water || IsRoofBackground())) return false;
-				if (water && (!lily || type == PlantType::PLANT_POTATOMINE)) return false;
-				if (IsRoofBackground() && !pot) return false;
-			}
-		}
+		if (!CanPlantStackOccupyTerrain(sourceRow, sourceCol, targetRow, targetCol)) return false;
 	}
 	return true;
 }

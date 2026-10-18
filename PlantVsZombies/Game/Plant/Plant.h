@@ -68,8 +68,10 @@ public:
 	int mEaterCount = 0;			// 正在啃食此植物的僵尸数量
 
 protected:
-	/** 技能冷却使用原有词条与天气倍率，不消费临时攻击领域加成。 */
+	/** 技能冷却合成词条、天气与土壤倍率，不消费临时攻击领域加成。 */
 	float GetSkillSpeedMultiplier() const;
+	/** 仅肥沃土壤的能力倍率，供拥有独立天气规则的植物复用。 */
+	float GetFertilitySpeedMultiplier() const;
 	bool mIsSleeping = false;	// 白天蘑菇睡眠权威状态
 	std::shared_ptr<Animator> mSleepIndicatorAnimator; // 原版 Z.reanim 睡眠标识；由睡眠状态派生，不单独入档
 	float mWakeUpTimer = 0.0f;	// 咖啡豆唤醒倒计时，单位：秒；大于 0 时仍保持睡眠
@@ -375,12 +377,14 @@ protected:
 	void RetireAfterReplacement();
 	/** 雨势对正向植物行动的倍率；不包含生存攻速词条。 */
 	float GetWeatherActionSpeedMultiplier() const;
-	/** 仅供攻击/生产/成长/恢复计时使用，禁止替代整个 Plant::Update 的 deltaTime。 */
+	/** 天气与当前土壤的正向能力倍率；不可用于控制状态或引爆等待。 */
+	float GetPositiveActionSpeedMultiplier() const;
+	/** 天气与土壤共同加速攻击/生产/成长/恢复；禁止替代整个 Plant::Update 的 deltaTime。 */
 	float GetWeatherActionDeltaTime() const;
-	/** 产光专用计时增量 = 雨势行动倍率 × 路灯花局部照明倍率。 */
+	/** 产光专用计时增量 = 天气 × 土壤 × 路灯花局部照明倍率。 */
 	float GetSunProductionDeltaTime() const;
 public:
-	/** 攻击专用组合倍率 = 生存攻速词条 × 雨势行动倍率 × (1 + 九格领域加成) × 水压攻击倍率。 */
+	/** 攻击倍率 = 生存词条 × 天气 × 土壤 × (1 + 九格领域加成) × 水压攻击倍率。 */
 	float GetAttackSpeedMultiplier() const;
     /** 水压只减慢攻击；计时不随停机/睡眠延长，重复命中刷新而不叠加。 */
     void ApplyFloodSlow();

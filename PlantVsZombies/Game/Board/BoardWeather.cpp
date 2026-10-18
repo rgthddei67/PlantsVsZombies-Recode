@@ -2004,6 +2004,13 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 							}
 						}
 						if (blocked) break;
+						// 混合地形先逐格检查完整占地，任一承载不兼容就保持整组原位。
+						if (IsWatersideGarden() && !CanPlantStackOccupyTerrain(
+							stack.row, stack.column, stack.row, targetColumn)) {
+							blocked = true;
+							++mLastTyphoonBlockedPlantSteps;
+							break;
+						}
 					}
 					if (lost) {
 						for (const int id : sourcePlantIDs) {
@@ -2110,6 +2117,12 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						lostPlantIDs.insert(overlayID);
 						overlay->Die();
 					}
+					continue;
+				}
+				// 石岸/水岸是承载边界；不兼容时停住，不拆开睡莲、花盆与上层植物。
+				if (IsWatersideGarden()
+					&& !CanPlantStackOccupyTerrain(row, column, row, targetColumn)) {
+					++mLastTyphoonBlockedPlantSteps;
 					continue;
 				}
 				source->ClearUnderPlantID();

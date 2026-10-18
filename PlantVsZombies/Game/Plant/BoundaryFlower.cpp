@@ -25,10 +25,11 @@ void BoundaryFlower::SetupPlant()
 	RefreshPresentation();
 }
 
+/** 积累界碑碎片；肥沃仅加速充能，不改变碎片容量。 */
 void BoundaryFlower::PlantUpdate()
 {
 	if (mIsPreview || IsShutdown() || mShardCount >= BoundaryFlowerRules::MaxShards) return;
-	mShardCharge += DeltaTime::GetDeltaTime();
+	mShardCharge += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	while (mShardCharge >= BoundaryFlowerRules::ShardSeconds && mShardCount < BoundaryFlowerRules::MaxShards) {
 		mShardCharge -= BoundaryFlowerRules::ShardSeconds;
 		++mShardCount;

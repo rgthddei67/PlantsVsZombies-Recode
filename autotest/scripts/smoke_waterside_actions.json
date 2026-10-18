@@ -1,0 +1,26 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 100},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_weather", "intensity": "CLEAR", "duration": 600},
+    {"op": "wait_seconds", "value": 2.2},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 0, "col": 5},
+    {"op": "plant", "type": "PLANT_PEASHOOTER", "row": 1, "col": 5},
+    {"op": "plant", "type": "PLANT_MENDINGCOTTON", "row": 0, "col": 1},
+    {"op": "plant", "type": "PLANT_MENDINGCOTTON", "row": 3, "col": 6},
+    {"op": "plant", "type": "PLANT_WALLNUT", "row": 0, "col": 2},
+    {"op": "plant", "type": "PLANT_FLOWERPOT", "row": 3, "col": 7},
+    {"op": "plant", "type": "PLANT_WALLNUT", "row": 3, "col": 7},
+    {"op": "set_plant_health", "row": 0, "col": 2, "value": 1000},
+    {"op": "set_plant_health", "row": 3, "col": 7, "value": 1000},
+    {"op": "spawn_zombie", "type": "ZOMBIE_BUCKET", "row": 0, "x": 970, "stationary": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_POOL_BUCKET", "row": 1, "x": 970, "stationary": true},
+    {"op": "dump_state", "name": "before.json"},
+    {"op": "wait_seconds", "value": 8, "timeout": 20},
+    {"op": "dump_state", "name": "after.json"},
+    {"op": "screenshot", "name": "garden_actions.png"},
+    {"op": "quit"}
+  ]
+}

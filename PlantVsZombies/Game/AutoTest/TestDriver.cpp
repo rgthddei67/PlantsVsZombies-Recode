@@ -740,6 +740,7 @@ namespace {
 		case Background::NIGHT_ROOF:       return "NIGHT_ROOF";
 		case Background::WINTER_GARDEN:    return "WINTER_GARDEN";
 		case Background::GLOOMCRYSTAL_MINE: return "GLOOMCRYSTAL_MINE";
+		case Background::WATERSIDE_GARDEN: return "WATERSIDE_GARDEN";
 		case Background::WEATHER_STATION: return "WEATHER_STATION";
 		case Background::HOT_COLD_STORAGE: return "HOT_COLD_STORAGE";
 		case Background::POLAR_NIGHT_SNOWFIELD: return "POLAR_NIGHT_SNOWFIELD";
@@ -754,7 +755,7 @@ namespace {
 			|| name == "ROOF"
 			|| name == "NIGHT_ROOF"
 			|| name == "WINTER_GARDEN"
-			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE" || name == "HOT_COLD_STORAGE" || name == "WEATHER_STATION";
+			|| name == "POLAR_NIGHT_SNOWFIELD" || name == "GLOOMCRYSTAL_MINE" || name == "HOT_COLD_STORAGE" || name == "WEATHER_STATION" || name == "WATERSIDE_GARDEN";
 	}
 	const char* BossSlotName(AdventureProgression::BossSlot slot) {
 		switch (slot) {
@@ -8907,6 +8908,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "renderOrder", p->GetRenderOrder() },
 			{ "renderLayer", static_cast<int>(p->GetLayer()) },
 			{ "health", p->mPlantHealth }, { "maxHealth", p->mPlantMaxHealth },
+            { "fertilityRateMilli", static_cast<int>(std::lround(board->GetPlantFertilityMultiplier(p) * 1000)) },
+            { "attackRateMilli", static_cast<int>(std::lround(p->GetAttackSpeedMultiplier() * 1000)) },
 			{ "unyieldingRootsSpent", p->HasSpentUnyieldingRoots() },
 			{ "unyieldingRootsTimerMs", static_cast<int>(std::lround(
 				p->GetUnyieldingRootsTimeRemaining() * 1000.0f)) },
@@ -9796,6 +9799,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	}
 	out["animatedObjectCount"] = static_cast<int>(out["animatedObjects"].size());
 
+	out["garden"] = {{"active", board->IsWatersideGarden()},
+        {"resourcesReady", !board->IsWatersideGarden() || ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_WATERSIDE_GARDEN", false) != nullptr}};
 	out["cells"] = nlohmann::json::array();
 	for (int row = 0; row < board->mRows; ++row) {
 		nlohmann::json rowState = nlohmann::json::array();
@@ -9808,6 +9813,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			Plant* overlay = cell ? board->mEntityRegistry.GetPlant(cell->GetOverlayPlantID()) : nullptr;
 			Plant* top = board->GetTopPlantAt(row, col);
 			rowState.push_back({
+                { "water", board->IsPoolSquare(row, col) },
+                { "requiresFlowerPot", board->RequiresFlowerPotAt(row, col) },
+                { "fertile", board->IsFertileSquare(row, col) },
 				{ "centerXInt", static_cast<int>(std::lround(center.x)) },
 				{ "centerYInt", static_cast<int>(std::lround(center.y)) },
 				{ "under", under ? PlantTypeName(under->mPlantType) : "NONE" },

@@ -1,6 +1,6 @@
 # 第十二大关：水岸植物园
 
-状态：2026-10-18 玩法方向与肥沃机制已由主人确认；12-1 布局按主人授权确定。当前仅为设计，尚未制作正式背景或接入游戏，倍率未经过实战平衡验证。
+状态：2026-10-18 已接入公共地形机制、正式背景与 12-1。以下为已确认的设计记录；当前布局与倍率以 [WatersideGardenRules.h](../../../PlantVsZombies/Game/Board/WatersideGardenRules.h) 为准。专项验证覆盖行为与表现，不代表整章实战平衡验收。
 
 ## 已确认的章节方向
 
@@ -9,6 +9,7 @@
 - 沿用正常天气系统，不使用气象站付费控制台。地形整场固定，不涨退水、不由玩家开闸改变。
 - 水路可以只占一行中的部分格子。保留全陆路线供纯陆地单位通过；混合路线使用能够下水、上岸的僵尸，普通、路障、铁桶沿用对应泳圈版本。路线保持同行直线，不引入换行寻路。
 - 睡莲和花盆照常占用普通选卡位，按原规则支付费用和等待冷却，不增加专用底座卡位。
+- 台风按整组承载判断地形兼容性：兼容则正常移动，不兼容就停在边界；多格植物任一占格不兼容时整株停住。原有锚定、弹坑和吹出棋盘规则继续适用。
 - 地图格子分布由 Codex 自主安排；肥沃土地必须靠前，不能安排在安全后排。
 
 ## 水岸灌溉
@@ -49,9 +50,12 @@
 - 当前几何入口为 [Board::InitializeCell](../../../PlantVsZombies/Game/Board/Board.cpp)、`Board::GetCellCenterPosition` 与 [Cell 常量](../../../PlantVsZombies/Game/Cell.h)。设计时核对的泳池 Cell 为宽 80、高 85，逻辑边界 `x=242..962`、`y=85..595`；这是设计取样，制作时仍以当前源码为准。
 - [GameScene 背景绘制](../../../PlantVsZombies/Game/GameScene.cpp) 还包含 `mStartX`、`mBackgroundY` 和镜头过程。必须把这些变换计入图片坐标换算，不能直接把世界坐标当成原图像素坐标。
 - 每个水岸、土石交界和肥沃格都必须与实际 Cell 对齐；不移动 Cell 迎合图像。格线只用于临时校准，不烘进正式地图。
+- 棋盘右侧场外保留陆地供选卡预览僵尸站立，水域止于棋盘石岸。
 - 同时保护左侧建筑与推车、右侧水陆出生入口、上方卡槽和下方字幕。中段水域与右侧水域的动态水面、裁剪和上下岸语义应按逐格/连续水段实现，不能继续假定整行都是水。
 - 正式接入时用完整 1100×600 实机截图核对四角、中心、所有肥沃格和水陆边界；资源须完成文件、注册、实际键与运行时强加载断言闭环。
 
 ## 后续工作边界
 
-本轮不确定新植物、新僵尸、奖励序列和各关波次配方。上述设计不能被解释为已经完成游戏接入或平衡验收。后续实施复用现有植物能力与天气计时接口，只扩展实际需要的地形、放置、上下岸、出生与表现契约；若确需新增动画帧事件，仍须按仓库规则先询问主人。
+本轮仅开放 12-1，使用现有植物与僵尸；后续关卡、新单位、奖励序列及整章平衡仍待设计。12-1 的可试玩波次配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+
+实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。

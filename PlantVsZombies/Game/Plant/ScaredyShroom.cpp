@@ -97,7 +97,8 @@ bool ScaredyShroom::HasZombieInRow()
 {
 	if (!mBoard) return false;
 
-	mCheckZombieTimer += DeltaTime::GetDeltaTime();
+	// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
+	mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	if (mCheckZombieTimer < kTargetCheckIntervalSeconds) return mTargetCached;
 	mCheckZombieTimer = 0.0f;
 

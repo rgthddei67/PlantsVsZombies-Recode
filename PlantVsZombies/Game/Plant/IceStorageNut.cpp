@@ -27,11 +27,12 @@ const std::string& IceStorageNut::GetCrackedTextureKey(int stage) const
 	return stage >= 2 ? second : first;
 }
 
+/** 加速修复能力冷却，保护窗口仍按普通游戏秒推进。 */
 void IceStorageNut::Update()
 {
 	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME && !DeltaTime::IsPaused()) {
 		const float delta = DeltaTime::GetDeltaTime();
-		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta);
+		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetFertilitySpeedMultiplier());
 		mProtection.Advance(delta);
 	}
 	WallNut::Update();

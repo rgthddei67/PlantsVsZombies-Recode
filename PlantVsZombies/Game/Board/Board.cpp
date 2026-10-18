@@ -1,5 +1,6 @@
 #include "WaveSpawnRules.h"
 #include "Game/Board/Board.h"
+#include "WatersideGardenRules.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "Game/Board/ColdStorageSkillRules.h"
 #include "Game/Zombie/GoldenIceRules.h"
@@ -68,6 +69,7 @@ namespace {
 		case Background::WEATHER_STATION:
 		case Background::GROUND_NIGHT:
 			return ResourceKeys::Music::MUSIC_NIGHT;
+		case Background::WATERSIDE_GARDEN:
 		case Background::WATER_POOL:
 			return ResourceKeys::Music::MUSIC_POOL;
 		case Background::NIGHT_WATER_POOL:
@@ -698,7 +700,7 @@ void Board::TrySpawnAdaptiveHelmetTutorialWave()
 bool Board::IsPoolBackground() const
 {
 	return mBackGround == Background::WATER_POOL
-		|| mBackGround == Background::NIGHT_WATER_POOL;
+		|| mBackGround == Background::NIGHT_WATER_POOL || IsWatersideGarden();
 }
 
 bool Board::IsRoofBackground() const
@@ -930,11 +932,17 @@ bool Board::AwardPlanternFuelForTesting(float amount)
 
 bool Board::IsPoolRow(int row) const
 {
+	if (IsWatersideGarden()) {
+		for (int col = 0; col < mColumns; ++col)
+			if (WatersideGardenRules::Terrain(row, col) == '~') return true;
+		return false;
+	}
 	return IsPoolBackground() && row >= kPoolFirstRow && row <= kPoolLastRow;
 }
 
 bool Board::IsPoolSquare(int row, int col) const
 {
+	if (IsWatersideGarden()) return WatersideGardenRules::Terrain(row, col) == '~';
 	return IsPoolRow(row) && col >= 0 && col < mColumns;
 }
 
@@ -942,7 +950,8 @@ bool Board::IsPoolWorldPosition(int row, float x) const
 {
 	const float poolRight = CELL_INITALIZE_POS_X
 		+ static_cast<float>(mColumns) * CELL_COLLIDER_SIZE_X;
-	return IsPoolRow(row) && x >= CELL_INITALIZE_POS_X && x < poolRight;
+	return x >= CELL_INITALIZE_POS_X && x < poolRight
+		&& IsPoolSquare(row, static_cast<int>((x - CELL_INITALIZE_POS_X) / CELL_COLLIDER_SIZE_X));
 }
 
 /** 返回指定类型能否被正式选行逻辑放进水路；无水路状态机的品种在此集中排除。 */
@@ -1760,7 +1769,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 		if (cell->GetPumpkinPlantID() != NULL_PLANT_ID && cell->GetPumpkinPlantID() != vacatedPlantID) return false;
 		if (normalPlant && IsMultiCellPlantType(normalPlant->mPlantType)) return false;
 		if (isWater) return hasLilyPad;
-		if (IsRoofBackground()) return hasFlowerPot;
+		if (RequiresFlowerPotAt(row, col)) return hasFlowerPot;
 		return true;
 	}
 	if (type == PlantType::PLANT_FLOWERPOT) {
@@ -1769,15 +1778,15 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	}
 	if ((type == PlantType::PLANT_SPIKEWEED
 		|| type == PlantType::PLANT_SPIKEROCK)
-		&& (isWater || IsSpikeweedTerrainRestricted(mBackGround))) {
+		&& (isWater || RequiresFlowerPotAt(row, col) || IsSpikeweedTerrainRestricted(mBackGround))) {
 		// 地刺系既不能隔着睡莲扎水面，也不能隔着花盆扎屋顶瓦片。
 		return false;
 	}
-	if (IsRoofBackground()
+	if (RequiresFlowerPotAt(row, col)
 		&& type != PlantType::PLANT_LILYPAD
 		&& type != PlantType::PLANT_TANGLEKELP
 		&& type != PlantType::PLANT_SEASHROOM) {
-		// 屋顶普通植物只占 normal 层，必须由 under 层的花盆承载。
+		// 屋顶与硬质裸地普通植物只占 normal 层，由 under 层花盆承载。
 		return hasFlowerPot && normalEmpty;
 	}
 	if (type == PlantType::PLANT_LILYPAD
@@ -2242,6 +2251,9 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 		&& !CanPlantAt(placementType, row, column)) return nullptr;
 	const bool consumesPlantingQuota = !isPreview && !skipsettings
 		&& (playerDeployment || !mIsLoadSave);
+	// 混合地图在正式落种边沿复核逐格承载；读档重建仍由专用入口恢复原实体。
+	if (IsWatersideGarden() && consumesPlantingQuota
+		&& !CanPlantAt(placementType, row, column)) return nullptr;
 	if (consumesPlantingQuota && !HasPlantingQuota(placementType)) {
 		return nullptr;
 	}
@@ -2519,7 +2531,7 @@ void Board::UpdateLevel()
 	float deltaTime = DeltaTime::GetDeltaTime();
 
 	if (mBackGround == Background::GROUND_DAY || mBackGround == Background::WATER_POOL ||
-		mBackGround == Background::ROOF || (IsColdStorage() && !IsWeatherStation())) {
+		mBackGround == Background::ROOF || IsWatersideGarden() || (IsColdStorage() && !IsWeatherStation())) {
 		UpdateSunFalling(deltaTime);
 	}
 	if (mBackGround == Background::WATER_POOL || mBackGround == Background::NIGHT_WATER_POOL) {
@@ -4012,7 +4024,8 @@ float Board::GetZombieSpawnY(int row, float worldX) const
 	if (collisionY < 0.0f) return collisionY;
 
 	// 水路身体需要继续保持主人校对过的下沉画面，但该偏移只影响生成/绘制基准。
-	return collisionY + (IsPoolRow(row) ? kPoolRowZombieSpawnYOffset : 0.0f);
+	// 混合地形的上下岸只改变视觉，不让 Transform 随每次过岸跳变。
+	return collisionY + (!IsWatersideGarden() && IsPoolRow(row) ? kPoolRowZombieSpawnYOffset : 0.0f);
 }
 
 void Board::SaveWaveSpawnCounts(nlohmann::json& document) const { mWaveSpawnCounts.Save(document); }

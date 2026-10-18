@@ -42,7 +42,7 @@ namespace {
 	};
 
 	// 保留戴夫的闲聊口吻；复杂规则分句说明，让玩家能据此完成第一次操作。
-	const std::array<Conversation, 22> kConversations = {{
+	const std::array<Conversation, 23> kConversations = {{
 		{ -1, {
 			{ "看，僵尸刚花了自己的冰块改天气！它买天气的钱，就不能再拿来买兵。", "anim_smalltalk" },
 			{ "看看你的阵容适不适合新雨势。等设备解锁再改，或者把冰留给防守，都可以。", "anim_mediumtalk" },
@@ -54,6 +54,12 @@ namespace {
 		{ -3, {
 			{ "对面动了雷荷设备！留意雨势、电量和劫持者，它们可能在准备配合。", "anim_smalltalk" },
 			{ "切换要等八秒，放电预警不能撤销。用接地植物防守，也可能比抢设备更划算！", "anim_mediumtalk" },
+		} },
+		{ 100, {
+			{ "欢迎来到水岸植物园！今天按波次守住院子，不用和僵尸比钱包。", "anim_smalltalk" },
+			{ "带好睡莲和花盆！水面用睡莲，石板用花盆，草地直接种。", "anim_mediumtalk" },
+			{ "前面的四块深色土地紧挨水边，直接种下的植物行动速度变成四倍！", "anim_crazy" },
+			{ "隔着花盆可吸不到养分。肥地很靠前，发财之前记得先守住！", "anim_blahblah" },
 		} },
 		{ 91, {
 			{ "欢迎来到夜间气象站！这里的天气听钱包的，僵尸的钱包也算。", "anim_smalltalk" },

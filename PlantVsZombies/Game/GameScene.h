@@ -267,6 +267,8 @@ protected:
 	/** 保持卡槽控制器位于 GameObject 更新后、点击和碰撞分发前。 */
 	void UpdateAfterGameObjects() override;
 	void BuildDrawCommands() override;
+	/** 按实际 Cell 分片校准水岸植物园原画，并绘制独立连续水段。 */
+	void DrawWatersideGarden(Graphics* g);
 
 private:
     bool mLevelLoadFailed = false;

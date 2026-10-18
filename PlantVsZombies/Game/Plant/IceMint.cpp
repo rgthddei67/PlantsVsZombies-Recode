@@ -14,10 +14,11 @@ void IceMint::SetupPlant()
 	mAnimator->SetTrackFollowerVisible("anim_face", "ice_mint_crystal", true);
 }
 
+/** 推进制冰或产光周期，肥沃只提高频率而不改变单次产量。 */
 void IceMint::PlantUpdate()
 {
 	if (mIsPreview || !mBoard || mBoard->GetState() != BoardState::GAME || mBoard->mTrophySpawned) return;
-	mProductionRemaining -= DeltaTime::GetDeltaTime();
+	mProductionRemaining -= DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 	const bool ice = mBoard->IsColdStorage();
 	while (mProductionRemaining <= 0.0f) {
 		mProductionRemaining += ice ? IceProduction::MintInterval : IceProduction::MintSunInterval;

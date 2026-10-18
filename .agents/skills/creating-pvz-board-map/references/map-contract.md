@@ -95,3 +95,9 @@
 - 分组布局由 `MineGrid::Initialize(layoutGroup, revision)` 初始化，正式新局显式使用当前版本，旧档保留版本0的地形与入口；存档先恢复对应模板，再叠加已开凿结果，禁止直接把旧植物、行进节点或波次预报放进新版岩壁。入口、普通/魅惑距离、生成行资格和画面使用同一份地形。固定拓扑的机制 AutoTest 可显式设置根字段 `mineLayoutRevision: 0`，新关卡验收必须保留默认当前版本。相邻洞口要按真实行高缩放并保持底部锚点，不能相互盖住预告。定时雾的背景覆盖应延伸到画面边缘，不能复用最右格边界剪掉洞口后的雾。
 - 攻击预览按格中心投影，不能把预览色块当作真实碰撞范围。新增植物需核对 `CoversMinePreview` 与原攻击方向/射程。
 - 冒烟：`smoke_gloomcrystal_mine`、`smoke_mine_movement`、`smoke_mine_combat`；覆盖 UI / 存档、转弯 / 魅惑、攻击阻挡。
+
+## 混合水陆与硬质裸地
+
+水岸植物园把水域资格拆为三个用途：`IsPoolRow` 只表达该路线经过水域，用于出生兼容；种植和植物浮动使用 `IsPoolSquare`；移动对象与清扫车使用 `IsPoolWorldPosition`，海豚从 `GetNextPoolRightEdge` 找实际入水岸口。不要用整行资格替代当前位置介质。`RequiresFlowerPotAt` 覆盖屋顶及逐格硬地，正式落种与搬运都要消费同一规则；整组移动的地形适配入口为 `CanPlantStackOccupyTerrain`，目标占用、危险格和移动权限由调用方另行判定。
+
+ImageGen 原稿的规则网格仍可能与实际 Cell 有累计偏差。`GameSceneWatersideGarden.cpp` 展示沿原画接缝分片、映射到 Board 实际格边的校准方式：保持玩法网格不动，场外建筑和右侧选卡预览站立区保留完整。原稿采样坐标与该具体资产绑定，不复制成其他地图的通用常量。检查选卡时先确认 `chooseCardReady`，否则会把平移途中、面板尚未展开的截图误当成最终预览。

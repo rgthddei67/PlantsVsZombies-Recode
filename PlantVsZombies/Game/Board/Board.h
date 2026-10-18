@@ -105,7 +105,8 @@ enum class Background {
 	POLAR_NIGHT_SNOWFIELD,
 	GLOOMCRYSTAL_MINE,
 	HOT_COLD_STORAGE,
-	WEATHER_STATION
+	WEATHER_STATION,
+	WATERSIDE_GARDEN
 };
 
 inline constexpr int SURVIVAL_ENDLESS_LEVEL = 1000; // 白天无尽专用 level 号
@@ -1515,6 +1516,17 @@ public:
 	void InitializeCell(int rows = 4, int cols = 8);
 	/** 当前地图是否使用泳池地形与六行网格。 */
 	bool IsPoolBackground() const;
+	bool IsWatersideGarden() const { return mBackGround == Background::WATERSIDE_GARDEN; }
+	/** 当前格是否要求花盆承载，涵盖屋顶与混合地图的硬质裸地。 */
+	bool RequiresFlowerPotAt(int row, int column) const;
+	/** 检查源格整组植物是否适合目标地形；不检查目标占用、弹坑、锚定或移动权限。 */
+	bool CanPlantStackOccupyTerrain(int sourceRow, int sourceColumn, int targetRow, int targetColumn);
+	/** 四邻水格的天然土地；仅由固定地形派生。 */
+	bool IsFertileSquare(int row, int column) const;
+	/** 全部占地直接接触肥沃土壤时返回能力倍率，不影响状态持续时间。 */
+	float GetPlantFertilityMultiplier(const Plant* plant) const;
+	/** 返回向左行走即将遇到的水段右岸世界 X；不存在时为 -1。 */
+	float GetNextPoolRightEdge(int row, float worldX) const;
 	/** 当前地图是否使用屋顶五行网格与连续斜坡。 */
 	bool IsRoofBackground() const;
 	/** 返回屋顶斜坡与平台交界的世界 X；非屋顶也返回同一网格派生位置。 */
@@ -1619,8 +1631,11 @@ public:
 	bool SupportsStageFog() const;
 	/** 当前基础迷雾关卡是否抽取独立增强雾势。 */
 	bool SupportsFogWeather() const;
+	/** 该行是否经过水域，供完整路线的出生兼容性判断；不代表每格都在水中。 */
 	bool IsPoolRow(int row) const;
+	/** 当前逻辑格是否为水域，供种植、浮动和承载查询。 */
 	bool IsPoolSquare(int row, int col) const;
+	/** 世界 X 是否落在该行真实水段内，供上下岸与清扫车查询。 */
 	bool IsPoolWorldPosition(int row, float x) const;
 	/** 水路出怪扩展点：集中列出冰车、跳跳等禁水类型。 */
 	bool CanZombieTypeSpawnInPool(ZombieType type) const;

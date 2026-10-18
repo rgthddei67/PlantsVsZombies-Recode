@@ -241,10 +241,9 @@ void DolphinRiderZombie::FinishJump(bool blocked, Plant* blockingPlant)
 void DolphinRiderZombie::ZombieUpdate(float)
 {
 	if (mPhase == Phase::APPROACHING && mBoard && mBoard->IsPoolRow(mRow)) {
-		const float poolRight = CELL_INITALIZE_POS_X
-			+ static_cast<float>(mBoard->mColumns) * CELL_COLLIDER_SIZE_X;
 		const float x = GetPosition().x;
-		if (x >= poolRight && x <= poolRight + kEntryShoreLead) {
+		const float poolRight = mBoard->GetNextPoolRightEdge(mRow, x);
+		if (poolRight >= 0.0f && x >= poolRight && x <= poolRight + kEntryShoreLead) {
 			BeginEnteringPool();
 			return;
 		}
@@ -259,7 +258,7 @@ void DolphinRiderZombie::ZombieUpdate(float)
 		if (!mEntrySplashPlayed && progress >= kEntrySplashProgress) {
 			mEntrySplashPlayed = true;
 			ApplyPhasePresentation();
-			PlayPoolSplashVisual(GetPosition() + Vector(kEntrySplashOffsetX, 0.0f));
+			PlayPoolSplashVisual(Vector(GetPosition().x + kEntrySplashOffsetX, GetPoolTransitionSplashOrigin().y));
 			AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ZOMBIE_ENTERING_WATER, 0.4f);
 		}
 		if (GetCurrentTrackName() == "anim_ride") FinishEnteringPool();
@@ -472,7 +471,7 @@ bool DolphinRiderZombie::TryGetDrawClipBottom(float& clipBottom) const
 		return false;
 	}
 	clipBottom = static_cast<float>(static_cast<int>(
-		std::lround(GetPosition().y + bottomOffset)));
+		std::lround(GetPoolTransitionSplashOrigin().y + bottomOffset)));
 	return true;
 }
 

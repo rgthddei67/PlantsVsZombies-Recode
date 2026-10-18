@@ -165,6 +165,7 @@ namespace {
 			SceneManager::GetInstance().GetGlobalData("AutoTestBackground");
 		if (overrideName == "GROUND_DAY") return Background::GROUND_DAY;
 		if (overrideName == "GROUND_NIGHT") return Background::GROUND_NIGHT;
+		if (overrideName == "WATERSIDE_GARDEN") return Background::WATERSIDE_GARDEN;
 		if (overrideName == "WATER_POOL") return Background::WATER_POOL;
 		if (overrideName == "NIGHT_WATER_POOL") return Background::NIGHT_WATER_POOL;
 		if (overrideName == "ROOF") return Background::ROOF;
@@ -1939,6 +1940,9 @@ void GameScene::BuildDrawCommands()
 	else if (background == Background::GLOOMCRYSTAL_MINE) {
 		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_GLOOMCRYSTAL_MINE,
 			mStartX, mBackgroundY, 1.0f, 1.0f, LAYER_BACKGROUND, false);
+	}
+	else if (background == Background::WATERSIDE_GARDEN) {
+		RegisterDrawCommand("WatersideGarden", [this](Graphics* g) { DrawWatersideGarden(g); }, LAYER_BACKGROUND);
 	}
 	else if (background == Background::POLAR_NIGHT_SNOWFIELD) {
 		AddTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_POLAR_NIGHT,

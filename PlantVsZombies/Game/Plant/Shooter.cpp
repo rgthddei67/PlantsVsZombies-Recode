@@ -132,7 +132,7 @@ void Shooter::LoadHeadAnimatorState(
 
 void Shooter::PlantUpdate()
 {
-	// 生存攻速词条 × 雨势行动倍率；二者都是单位元起步，普通晴天自动 no-op。
+	// 攻击统一合成天气、土壤和既有词条倍率，射击计时与发弹动画使用同一速度。
 	float mult = GetAttackSpeedMultiplier();
 	this->mShootTimer += (DeltaTime::GetDeltaTime() * mult);
 	if (this->mShootTimer >= this->mShootTime)
@@ -150,7 +150,8 @@ bool Shooter::HasZombieInRow()
 {
 	if (mBoard)
 	{
-		mCheckZombieTimer += DeltaTime::GetDeltaTime();
+		// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
+		mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
 		if (mCheckZombieTimer >= ShooterRules::TargetCheckSeconds)
 		{
 			mCheckZombieTimer = 0.0f;

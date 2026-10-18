@@ -183,8 +183,8 @@ void BalloonZombie::PopBalloon()
 	mBloverBlowRemaining = 0.0f;
 	mBalloonHealth = 0;
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BALLOON_POP, kOneShotVolume);
-	// 原版在泳池行击破气球后直接清除，避免没有水上落地轨道的僵尸站在水面。
-	if (mBoard && mBoard->IsPoolRow(mRow)) {
+	// 原版泳池行保持直接清除；混合地图只在实际水面上击破才清除，岸上可以落地。
+	if (mBoard && (mBoard->IsWatersideGarden() ? mBoard->IsPoolWorldPosition(mRow, GetPosition().x) : mBoard->IsPoolRow(mRow))) {
 		Die();
 		return;
 	}
@@ -482,7 +482,7 @@ BalloonRules::Forecast BalloonZombie::GetBalloonForecast() const
 	result.walkSpeed = mAnimator ? GetSimulationRootMoveSpeed("anim_walk",mAnimator->GetSpeed()) : 0;
 	result.flightSpeed = mFlightVelocity;
 	result.windMultiplier = mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
-	result.poolRow = mBoard && mBoard->IsPoolRow(mRow);
+	result.poolRow = mBoard && (mBoard->IsWatersideGarden() ? mBoard->IsPoolWorldPosition(mRow, GetPosition().x) : mBoard->IsPoolRow(mRow));
 	result.blowing = mBloverBlowing; result.towardHouse = mBloverBlowDirection == WindDirection::TOWARD_HOUSE;
 	result.blowRemaining = mBloverBlowRemaining;
 	return result;

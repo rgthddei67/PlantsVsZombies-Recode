@@ -39,12 +39,13 @@ void ListeningGrass::SetupPlant()
 	}
 }
 
+/** 按肥沃倍率恢复监听能力，再处理可用目标。 */
 void ListeningGrass::PlantUpdate()
 {
 	if (mIsPreview || !mBoard) return;
 	if (mListenCooldownRemaining > 0.0f) {
 		mListenCooldownRemaining = std::max(0.0f,
-			mListenCooldownRemaining - DeltaTime::GetDeltaTime());
+			mListenCooldownRemaining - DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier());
 		return;
 	}
 

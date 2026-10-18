@@ -42,10 +42,11 @@ float DawnLotus::GetEnergyRate() const
 		+ DawnLotusRules::DangerEnergyRate * dangerousGauges;
 }
 
+/** 按环境与土壤推进能量，充满时只提交一次就绪反馈。 */
 void DawnLotus::PlantUpdate()
 {
 	if (mIsPreview || !mBoard || IsShutdown() || IsFullyCharged()) return;
-	mEnergy = std::min(DawnLotusRules::MaxEnergy,mEnergy + DeltaTime::GetDeltaTime() * GetEnergyRate());
+	mEnergy = std::min(DawnLotusRules::MaxEnergy,mEnergy + DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier() * GetEnergyRate());
 	if (IsFullyCharged() && g_particleSystem) {
 		g_particleSystem->EmitEffect("DawnLotusReady", GetVisualPosition());
 	}

@@ -54,13 +54,14 @@ void Imitater::SetInheritedBloverDirection(WindDirection direction)
 	}
 }
 
+/** 肥沃加快变身成长，目标植物的引爆与状态持续时间仍由目标自行管理。 */
 void Imitater::PlantUpdate()
 {
 	if (!HasValidTarget() || !mBoard) return;
 
 	if (!mMorphing) {
 		mMorphCountdown = std::max(0.0f,
-			mMorphCountdown - static_cast<float>(DeltaTime::GetDeltaTime()));
+			mMorphCountdown - static_cast<float>(DeltaTime::GetDeltaTime()) * GetFertilitySpeedMultiplier());
 		if (mMorphCountdown <= 0.0f) BeginMorph();
 		return;
 	}
@@ -76,11 +77,12 @@ void Imitater::PlantUpdate()
 	}
 }
 
+/** 以当前土壤倍率开始既有变身轨道，不新增帧事件。 */
 void Imitater::BeginMorph()
 {
 	if (mMorphing) return;
 	mMorphing = PlayTrackOnce("anim_explode", "",
-		kMorphPlaybackFps / kImitaterReanimFps, 0.0f);
+		kMorphPlaybackFps / kImitaterReanimFps * GetFertilitySpeedMultiplier(), 0.0f);
 }
 
 void Imitater::EmitMorphParticle()
