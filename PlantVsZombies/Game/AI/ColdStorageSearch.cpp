@@ -398,10 +398,11 @@ float ApplyDamage(Unit& unit, float damage, bool penetrate = false, bool bypass 
     if (origin != PlantDamageOrigin::Ash() && group && state && unit.pressureGroupPresent) {
         std::vector<Unit*> guards;
         const float targetX=unit.body.x+unit.body.blastAnchorOffset;
+        // 保护由未破装置被动提供，定身与水草束缚只影响行动，不影响承伤资格。
         for (auto& candidate : *group) {
             if (&candidate != &unit && candidate.pressureGuard && candidate.helmHealth > 0 && !candidate.headless
-                && candidate.body.health > 0 && candidate.body.spawnAt <= time && candidate.body.stopped <= 0
-                && candidate.ferryPassengerEligible && std::abs(candidate.body.row-unit.body.row) <= 1
+                && candidate.body.health > 0 && candidate.body.spawnAt <= time
+                && std::abs(candidate.body.row-unit.body.row) <= 1
                 && std::abs(candidate.body.x+candidate.body.blastAnchorOffset-targetX)
                     <= state->cellWidth*PressureGuardRules::RadiusCells) guards.push_back(&candidate);
         }
@@ -462,12 +463,12 @@ PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction =
 	const float reduction = cap > 0 && hit > 0 ? std::min(1.0f,cap/hit) : 1;
 	return {plant.dps*fraction*multiplier*reduction,plant.melon || (plant.fume && !blocksFume),bypass,blocksFume};
 }
-/** 使用攻击开始时的群体状态判断承压保护；逻辑对象坐标与实体范围一致。 */
+/** 使用攻击开始时的群体状态判断承压保护；控制不暂停保护，逻辑对象坐标与实体范围一致。 */
 int PressureAshProtectionCount(const Unit& target, const std::vector<Unit>& units, const Snapshot& state, float time) {
     if(target.pressureGuard) return 0;
     return static_cast<int>(std::count_if(units.begin(),units.end(),[&](const Unit& guard) {
         return guard.pressureGuard && guard.helmHealth>0 && !guard.headless && guard.body.health>0
-            && guard.body.spawnAt<=time && guard.body.stopped<=0 && guard.ferryPassengerEligible
+            && guard.body.spawnAt<=time
             && std::abs(guard.body.row-target.body.row)<=1
             && std::abs(guard.body.x+guard.body.blastAnchorOffset-target.body.x-target.body.blastAnchorOffset)
                 <=state.cellWidth*PressureGuardRules::RadiusCells;

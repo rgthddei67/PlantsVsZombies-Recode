@@ -23,8 +23,7 @@ bool PressureGuardZombie::HasPressureShield() const
 
 bool PressureGuardZombie::CanProtect() const
 {
-    return IsActive() && !IsDying() && HasHead() && HasPressureShield()
-        && !IsImmobilized() && !IsTangleKelpTarget();
+    return IsActive() && !IsDying() && HasHead() && HasPressureShield();
 }
 
 int PressureGuardZombie::LimitFinalIncomingDamage(int damage, DamageSource source, PlantDamageOrigin origin)

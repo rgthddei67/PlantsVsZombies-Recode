@@ -9,6 +9,7 @@ public:
     bool HasMagneticItem() const override { return false; }
     bool CanRepairHelm() const override { return false; }
     bool HasPressureShield() const;
+    /** 有头存活且装置未破时持续保护；冻结、黄油、麻痹和水草束缚均不暂停。 */
     bool CanProtect() const;
     /** 接收已经完成来源增伤的代伤；不再次转移、缩放或触发植物攻击副作用。 */
     void TakeTransferredDamage(int damage);

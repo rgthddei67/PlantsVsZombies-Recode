@@ -33,7 +33,8 @@ assert units('cap_expired', 'PRESSURE_GUARD')[0]['helmHealth'] == 2300
 assert units('cap_reloaded', 'PRESSURE_GUARD')[0]['helmHealth'] == 2300
 assert units('cap_reloaded', 'PRESSURE_GUARD')[0]['pressureWindowUsed'] == 600
 assert not units('range', 'BOILER', 4) and not units('range', 'BOILER', 2)
-assert not units('controlled', 'BOILER', 3)
+assert units('controlled', 'BOILER', 3)[0]['bodyHealth'] == units('range', 'BOILER', 3)[0]['bodyHealth'] - 180
+assert all(z['pressureCanProtect'] and z['paralyzed'] for z in units('controlled', 'PRESSURE_GUARD'))
 assert units('other_faction', 'BOILER')[0]['bodyHealth'] == 500
 assert units('same_faction', 'BOILER')[0]['bodyHealth'] == 400
 assert units('broken', 'PRESSURE_GUARD')[0]['helmHealth'] == 0

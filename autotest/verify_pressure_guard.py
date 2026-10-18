@@ -39,7 +39,9 @@ def check_entity():
     assert zombies(load('tiny_hits'), 'PRESSURE_GUARD')[0]['helmHealth'] == 2496
     assert zombies(load('tiny_hits'), 'BUCKET', 1)[0]['helmHealth'] == 949
     controlled = zombies(load('controlled'), 'PRESSURE_GUARD')
-    assert not controlled[0]['pressureCanProtect'] and controlled[1]['helmHealth'] == 2450
+    assert controlled[0]['pressureCanProtect'] and controlled[0]['paralyzed']
+    assert controlled[1]['helmHealth'] == zombies(load('tiny_hits'), 'PRESSURE_GUARD')[1]['helmHealth'] - 50
+    assert zombies(load('controlled'), 'BUCKET', 3)[0]['helmHealth'] == zombies(shared, 'BUCKET', 3)[0]['helmHealth'] - 50
     survivor = zombies(load('ash_survivor'), 'PRESSURE_GUARD')[0]
     assert survivor['helmHealth'] == 2900 and survivor['bodyHealth'] == 600
     assert survivor['pressureWindowUsed'] == 600 and survivor['pressureCanProtect']

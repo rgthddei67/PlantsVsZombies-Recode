@@ -193,8 +193,10 @@ void RunColdStoragePressureGuardTests()
     const auto exposedResult=Evaluate(s,{});
     Check(protectedResult[4]>exposedResult[4],"pressure guard must extend the adjacent worker's actual forecast income");
     s.current[0].pressureGuard=true; s.current[0].body.stopped=300;
-    const auto frozenResult=Evaluate(s,{});
-    Check(frozenResult==exposedResult,"hard-controlled guard must not protect adjacent allies");
+    const auto controlledResult=Evaluate(s,{});
+    Check(controlledResult==protectedResult,"hard-controlled guard must keep protecting adjacent allies");
+    s.current[0].ferryPassengerEligible=false;
+    Check(Evaluate(s,{})==protectedResult,"kelp-bound guard must keep protecting adjacent allies");
 
     // 用完整爆炸事务检查护卫先死、保护不叠加、下一爆失去保护及防具先承伤。
     Snapshot ash; ash.rows=3; ash.columns=9; ash.cellWidth=80; ash.houseX=-10000; ash.traceCombat=true;
@@ -225,7 +227,9 @@ void RunColdStoragePressureGuardTests()
             "all valid guards must contribute to the frozen ash count without a two-guard ceiling");
     }
     ash.current={guard,ally}; ash.current[0].body.stopped=300;
-    Check(Near(impacts(ash,11)[0],0),"hard control must disable ash protection");
+    Check(Near(impacts(ash,11)[0],640),"hard control must preserve ash protection");
+    ash.current[0].ferryPassengerEligible=false;
+    Check(Near(impacts(ash,11)[0],640),"kelp binding must preserve ash protection");
     ash.current[0]=guard; ash.current[0].helmHealth=0;
     Check(Near(impacts(ash,11)[0],0),"broken guard must not protect from ash");
     ash.current[0]=guard; ash.current[1].body.x=781;
@@ -239,7 +243,7 @@ void RunColdStoragePressureGuardTests()
     Check(Near(impacts(ash,11)[0],110),"broken helmet must pass only its 160 overflow to the body");
     ash.current[1].helmHealth=90; ash.current[1].body.health=360;
     Check(Near(impacts(ash,11)[0],0),"ash overflow equal to remaining body must still kill");
-    ash.current[1].helmHealth=1100; ash.current[1].body.health=1370; ash.current[0].body.stopped=300;
+    ash.current[1].helmHealth=1100; ash.current[1].body.health=1370; ash.current[0].helmHealth=0;
     ash.counters[0].blast.damage=500;
     Check(Near(impacts(ash,11)[0],0),"unprotected ash must retain its ordinary armor-bypassing char threshold");
     ash.current[0]=guard; ash.counters[0].blast.damage=1800;
