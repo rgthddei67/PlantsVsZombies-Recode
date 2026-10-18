@@ -608,6 +608,7 @@ struct Result {
 	std::vector<Action> actions;
 	Weights features{}, baselineFeatures{};
 	float baselineBreachSeconds=-1; // 同一完整等待世界的首次进屋秒，仅供本次搜索复用，不跨快照或存档
+	float baselineDefenseVictorySeconds=-1; // 同一等待世界的久守撤军秒；复用技能基线时不能遗漏失败结果
 	Weights effectiveWeights{};
 	StateFeatures stateInputs{};
 	float score = 0, blastLoss = 0, preferenceScore = 0;

@@ -863,6 +863,14 @@ void RunColdStorageSiegePreparationTests()
         && prepared.features[2]==0 && prepared.features[0]==20
         && prepared.opponentAssets<prepared.baselineOpponentAssets,
         "proactive fire removal is an actual favorable asset exchange even while another shooter prevents immediate breakthrough");
+    // 等待与清除都仍会进入久守截止，不能因复用基线时丢失撤军结果而只否决技能一方。
+    auto timed=state;timed.troopNoKillSeconds=170;
+    const auto timedPreparation=Search(timed,values,42);
+    const auto timedWait=EvaluateCandidate(timed,values,{});
+    Check(timedPreparation.precisionTargetID>0 && timedPreparation.construction.precisionHits==1
+        && timedPreparation.baselineDefenseVictorySeconds==timedWait.construction.defenseVictorySeconds
+        && timedPreparation.construction.defenseVictorySeconds==timedWait.construction.defenseVictorySeconds,
+        "precision preparation must retain the same waiting defeat instead of comparing against an imaginary safe baseline");
     for(auto& plant:state.plants) plant.dps=0;
     state.options.clear();
     Check(Search(state,values,42).precisionTargetID==0,

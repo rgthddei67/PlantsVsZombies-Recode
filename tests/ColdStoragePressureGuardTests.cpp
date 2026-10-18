@@ -2,6 +2,7 @@
 #include "Game/AI/ColdStorageHealerForecast.h"
 #include "Game/AI/ColdStorageFormationSeeds.h"
 #include "Game/Zombie/PressureGuardRules.h"
+#include "Game/Plant/RainBambooRules.h"
 #include <algorithm>
 #include <set>
 #include <cmath>
@@ -131,6 +132,36 @@ void CheckGuardCatapultFormations() {
     Check(std::none_of(oneRoute.begin(),oneRoute.end(),[&](const auto& p){return isConvoy(p,5,8);}),
         "missing legal catapult roles must not be fabricated");
 }
+
+/** 独立已离膛竹矛检验普通受击链，避免把邻兵保护和滚动额度误当成植物持续 DPS。 */
+void CheckBambooProtection() {
+    using namespace ColdStorageSearch;
+    Snapshot s;s.rows=3;s.houseX=-10000;s.cellWidth=80;
+    auto guard=Guard(1,1);guard.body.purchaseCost=0;
+    Unit ally;ally.id=2;ally.body.row=0;ally.body.x=700;
+    ally.body.health=ally.maximumBody=1000;ally.body.purchaseCost=20;
+    s.current={guard,ally};
+    const auto origin=PlantDamageOrigin::FromPlant(PlantType::PLANT_RAINBAMBOO);
+    s.bambooRays={{600,0,origin,{}}};
+    const float hit=RainBambooRules::Damage[0];
+    Check(Near(Evaluate(s,{})[3],20*(1-hit*(1-PressureGuardRules::Share)/1000)),
+        "bamboo must share ordinary damage with a nearby pressure guard");
+    s.current[0].pressureGuard=false;
+    Check(Near(Evaluate(s,{})[3],20*(1-hit/1000)),
+        "the same bamboo hit must remain full damage without guard protection");
+    s.current={Guard(1,0)};s.current[0].body.purchaseCost=36;
+    s.bambooRays={{600,0,origin,{}},{-700,0,origin,{}}};
+    const float total=PressureGuardRules::BodyHealth+PressureGuardRules::ShieldHealth;
+    Check(Near(Evaluate(s,{})[3],36*(1-2*std::min(hit,float(PressureGuardRules::DamageLimit))/total)),
+        "separated bamboo hits must consume newly released rolling guard capacity");
+    s.current={ally};s.current[0].shieldHealth=500;s.current[0].shieldedHitCap=20;
+    s.bambooRays={{600,0,origin,{}}};
+    Check(Near(Evaluate(s,{})[3],20*(1-20.0f/1000)),
+        "bamboo must respect the target's ordinary single-hit shield cap");
+    s.current[0].shieldHealth=0;
+    Check(Near(Evaluate(s,{})[3],20*(1-hit/1000)),
+        "a broken shield must no longer cap bamboo damage");
+}
 }
 
 /** 检查真正滚动窗口、保存余时以及完整战斗预测中的保护反事实。 */
@@ -139,6 +170,7 @@ void RunColdStoragePressureGuardTests()
     using namespace ColdStorageSearch;
     CheckGuardFormations();
     CheckGuardCatapultFormations();
+    CheckBambooProtection();
     // 邻行护卫共同保护单次打击；只给队友计价，以终点资产独立核对其剩余伤害。
     for (int count : {1,2,3,8}) {
         Snapshot stacked; stacked.rows=3; stacked.houseX=-10000;

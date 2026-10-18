@@ -5262,6 +5262,7 @@ static Result EvaluateCandidateInSession(const Snapshot& input,const Weights& ba
 	result.stateInputs=inputs; result.effectiveWeights=weights;
 	result.capitalUtilityInputs=DescribeCapitalUtility(state);
 	result.baselineBreachSeconds=baseline.construction.breachSeconds;
+	result.baselineDefenseVictorySeconds=baseline.construction.defenseVictorySeconds;
 	result.expandedForecast=expanded;
 	ExportFuturePrecision(state,result);
 	return result;
@@ -5354,6 +5355,7 @@ Result EvaluatePhasedCounterfactual(const Snapshot& input,const Weights& baseWei
         enableFollowup ? &followup : nullptr,envelope);
     result.effectiveWeights=weights; result.stateInputs=inputs; result.capitalUtilityInputs=DescribeCapitalUtility(state);
     result.baselineBreachSeconds=baseline.construction.breachSeconds; result.expandedForecast=expanded;
+    result.baselineDefenseVictorySeconds=baseline.construction.defenseVictorySeconds;
     return result;
 }
 
@@ -5383,6 +5385,7 @@ PhasedPlanComparison ComparePhasedPlan(const Snapshot& input,const Weights& weig
             nullptr,followup,envelope);
         result.effectiveWeights=full.effectiveWeights; result.stateInputs=full.stateInputs;
         result.capitalUtilityInputs=full.capitalUtilityInputs; result.baselineBreachSeconds=full.baselineBreachSeconds;
+        result.baselineDefenseVictorySeconds=full.baselineDefenseVictorySeconds;
         result.expandedForecast=full.expandedForecast;
         return result;
     };
@@ -5489,11 +5492,13 @@ ObservedPlanComparison CompareObservedPlan(const Snapshot& input,const Weights& 
         passive.baselineFeatures=passive.features;passive.baselineOpponentAssets=passive.opponentAssets;
         passive.effectiveWeights=weights;passive.stateInputs=inputs;passive.capitalUtilityInputs=DescribeCapitalUtility(state);
         passive.baselineBreachSeconds=passive.construction.breachSeconds;passive.expandedForecast=expanded;
+        passive.baselineDefenseVictorySeconds=passive.construction.defenseVictorySeconds;
         if(SearchTimeExpired(input)) return false;
         const auto evaluate=[&](const std::vector<Action>& actions,const FollowupPolicy* followup) {
             auto result=EvaluatePlan(world,weights,actions,passive.features,passive.opponentAssets,nullptr,followup,envelope);
             result.effectiveWeights=weights;result.stateInputs=inputs;result.capitalUtilityInputs=DescribeCapitalUtility(state);
             result.baselineBreachSeconds=passive.construction.breachSeconds;result.expandedForecast=expanded;
+            result.baselineDefenseVictorySeconds=passive.construction.defenseVictorySeconds;
             return result;
         };
         arms.full=evaluate(plan.first,enableFollowup ? &plan.followup : nullptr);
@@ -5604,7 +5609,9 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best = EvaluatePlan(s,weights,{}, {},0,&best);
 	const float baselineOpponentAssets = best.opponentAssets;
 	const float baselineBreachSeconds=best.construction.breachSeconds;
+	const float baselineDefenseVictorySeconds=best.construction.defenseVictorySeconds;
 	best.baselineBreachSeconds=baselineBreachSeconds;
+	best.baselineDefenseVictorySeconds=baselineDefenseVictorySeconds;
 	best.baselineOpponentAssets = baselineOpponentAssets; best.opponentScore = 0;
 	best.stateInputs = inputs; best.effectiveWeights = weights;
 	best.capitalUtilityInputs=DescribeCapitalUtility(s);
@@ -6165,6 +6172,7 @@ static Result SearchFormation(const Snapshot& s, const Weights& baseWeights, std
 	best.capitalUtilityInputs=DescribeCapitalUtility(s);
 	best.regrouping = best.actions.empty() && deferredInvestment;
 	best.baselineBreachSeconds=baselineBreachSeconds;
+	best.baselineDefenseVictorySeconds=baselineDefenseVictorySeconds;
     best.timeLimited=timeLimited;
 	// 小队没有预测到增量击杀、削血或生产时，才升级搜索范围与预测时域。
 	// 两次评估不能混加不同时间窗的分数：升级后整案及等待基线一起重算。
@@ -6241,10 +6249,11 @@ static Result SearchOrdinary(const Snapshot& input, const Weights& weights, std:
 	}
 	if (best.expandedForecast) state.searchVersion = 2;
 	// 编队阶段已经完整选过同一技能意图、同一时域的等待应对；直接复用其
-	// 特征/对手资产/进屋时刻，不能在选靶前再花一整套反制世界的时间。
+	// 特征、资产及完整胜负时刻；漏掉等待撤军会把有利清除误判成从安全等待走向失败。
 	Result baseline;
 	baseline.features=best.baselineFeatures; baseline.opponentAssets=best.baselineOpponentAssets;
 	baseline.construction.breachSeconds=best.baselineBreachSeconds;
+	baseline.construction.defenseVictorySeconds=best.baselineDefenseVictorySeconds;
 	baseline.score=Score(baseline.features,best.effectiveWeights);
 	const auto incumbent = best;
 	int experiencedEvaluated=incumbent.experiencedEvaluated;
@@ -6488,6 +6497,7 @@ static Result SearchOrdinary(const Snapshot& input, const Weights& weights, std:
 	best.evaluated = incumbent.evaluated+evaluated+best.pruningEvaluated;
 	best.effectiveWeights = incumbent.effectiveWeights; best.stateInputs = incumbent.stateInputs;
 	best.baselineBreachSeconds=incumbent.baselineBreachSeconds;
+	best.baselineDefenseVictorySeconds=incumbent.baselineDefenseVictorySeconds;
 	best.expandedForecast = incumbent.expandedForecast;
 	best.candidates = incumbent.candidates; // 统计窗口只包含精准清除前的编队搜索，不能混合不同技能费用的探测。
 	// EvaluatePlan 生成的是单案结果；技能胜出不能把之前确实做过的编队探索统计清零。
@@ -6652,6 +6662,7 @@ static Result SearchObservedCandidate(const Snapshot& input,const Weights& weigh
         best.effectiveWeights=comparison.robust.full.effectiveWeights;best.stateInputs=comparison.robust.full.stateInputs;
         best.capitalUtilityInputs=comparison.robust.full.capitalUtilityInputs;
         best.baselineBreachSeconds=comparison.robust.full.baselineBreachSeconds;
+        best.baselineDefenseVictorySeconds=comparison.robust.full.baselineDefenseVictorySeconds;
         best.expandedForecast=comparison.robust.full.expandedForecast;best.fallbackMode=0;best.regrouping=false;
     }
     best.observedDecision=diagnostics;best.timeLimited|=SearchTimeExpired(input);return best;
@@ -6711,6 +6722,7 @@ static Result SearchValueInSession(const Snapshot& input,const Weights& weights,
         best.effectiveWeights=comparison.full.effectiveWeights; best.stateInputs=comparison.full.stateInputs;
         best.capitalUtilityInputs=comparison.full.capitalUtilityInputs;
         best.baselineBreachSeconds=comparison.full.baselineBreachSeconds; best.regrouping=false;
+        best.baselineDefenseVictorySeconds=comparison.full.baselineDefenseVictorySeconds;
         best.expandedForecast=comparison.full.expandedForecast;
     }
     best.phasedPlanning=diagnostics; best.timeLimited|=SearchTimeExpired(input);
@@ -6999,8 +7011,10 @@ static bool EvaluateTrialPair(const Snapshot& state,const Weights& baseWeights,c
     CheckForecastCancellation(state);
     cart.effectiveWeights=weights;cart.stateInputs=inputs;cart.capitalUtilityInputs=DescribeCapitalUtility(state);
     cart.baselineBreachSeconds=wait.construction.breachSeconds;
+    cart.baselineDefenseVictorySeconds=wait.construction.defenseVictorySeconds;
     wait.effectiveWeights=weights;wait.stateInputs=inputs;wait.capitalUtilityInputs=cart.capitalUtilityInputs;
     wait.baselineBreachSeconds=wait.construction.breachSeconds;
+    wait.baselineDefenseVictorySeconds=wait.construction.defenseVictorySeconds;
     return true;
 }
 
@@ -7126,11 +7140,13 @@ static Result SearchInformationalTrial(const Snapshot& input,const Weights& weig
     auto& robust=comparison.robust.cart;
     const auto effective=robust.effectiveWeights;const auto inputs=robust.stateInputs;const auto capital=robust.capitalUtilityInputs;
     const auto baselineBreach=robust.baselineBreachSeconds;
+    const auto baselineDefeat=robust.baselineDefenseVictorySeconds;
     AdoptOutcome(best,std::move(robust));best.fallbackMode=1;
     best.forecastPrecisionTargetID=0;best.forecastPrecisionAdditionalTargetIDs.clear();
     best.forecastPrecisionIce=0;best.forecastPrecisionAimStartSeconds=0;
     best.effectiveWeights=effective;best.stateInputs=inputs;best.capitalUtilityInputs=capital;
     best.baselineBreachSeconds=baselineBreach;best.expandedForecast=expanded;best.regrouping=false;
+    best.baselineDefenseVictorySeconds=baselineDefeat;
     return finish();
 }
 
@@ -7171,6 +7187,7 @@ static bool ReconsiderStallProposal(const Snapshot& input,const Weights& baseWei
     candidate.capitalUtilityInputs=baseline.capitalUtilityInputs; candidate.expandedForecast=true;
     candidate.baselineFeatures=baseline.features; candidate.baselineOpponentAssets=baseline.opponentAssets;
     candidate.baselineBreachSeconds=baseline.construction.breachSeconds; candidate.evaluated=1;
+    candidate.baselineDefenseVictorySeconds=baseline.construction.defenseVictorySeconds;
     result=std::move(candidate); return true;
 }
 

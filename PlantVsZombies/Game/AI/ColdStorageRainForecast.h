@@ -78,7 +78,7 @@ static void AdvanceFloodMortars(const Snapshot& s,float time,int rain,std::vecto
     }
 }
 
-/** 竹矛按实际飞行方向消费至多五个稳定目标；已离膛竹矛不随植物死亡消失。 */
+/** 竹矛按飞行顺序命中至多五个目标，并沿用门盾单击上限、承压分担及当前滚动窗口。 */
 static void AdvanceBambooRays(const Snapshot& s,float time,std::vector<Unit>& units,std::vector<BambooRay>& rays) {
     for(auto it=rays.begin();it!=rays.end();) {
         const float next=it->x+RainBambooRules::Speed*kStep;
@@ -93,7 +93,12 @@ static void AdvanceBambooRays(const Snapshot& s,float time,std::vector<Unit>& un
         std::sort(hits.begin(),hits.end());
         for(const auto& [x,index]:hits) {
             if(it->hitIDs.size()>=5)break;
-            ApplyDamage(units[index],RainBambooRules::Damage[it->hitIDs.size()],false,false,false,it->origin);
+            auto& target=units[index];
+            const float damage=RainBambooRules::Damage[it->hitIDs.size()];
+            const float capped=target.shieldHealth>0 && target.shieldedHitCap>0
+                ? std::min(damage,target.shieldedHitCap) : damage;
+            // 与普通弹丸一样先限单击、再按命中时的邻兵分担；缺失时间会让护卫额度永不过期。
+            ApplyDamage(target,capped,false,false,false,it->origin,&units,&s,time);
             it->hitIDs.push_back(units[index].id);
         }
         it->x=next;
