@@ -2106,6 +2106,7 @@ void GameScene::BuildDrawCommands()
 		LAYER_UI + 90000);
 }
 
+/** 创建棋盘并恢复关卡进度，按开局阶段准备玩法对象与界面。 */
 void GameScene::OnEnter() {
 	Scene::OnEnter();
 	RestoreDevPanelSelection();
@@ -2228,11 +2229,10 @@ void GameScene::OnEnter() {
 	}
 	else {
 		AudioSystem::PlayMusic(ResourceKeys::Music::MUSIC_CHOOSEYOURSEEDS, -1);
-		// 生存第 1 轮的轮间存档（首次选卡，StartGame 从未运行过）里没有小推车数据，
-		// 需清掉读档标记，让随后选完卡的 StartGame 正常初始化小推车。
-		// 第 2 轮起的存档已含小推车（且可能因第 1 轮被用掉而合法地变少甚至为空），
-		// 保持 mIsLoadSave=true，由存档恢复，绝不重新生成。
-		if (mBoard->mIsSurvival && mBoard->mSurvivalRound == 1) {
+		// 首次选卡的快照尚未运行 StartGame，没有小推车；冒险/小游戏在图鉴往返时
+		// 也会恢复这种快照，必须结束读档阶段，让随后开战正常创建小推车。
+		// 只有生存第 2 轮起的选卡快照需要保留旧车（可能已全部耗尽），不可重新生成。
+		if (!mBoard->mIsSurvival || mBoard->mSurvivalRound == 1) {
 			mBoard->CompleteLoadRestore();
 		}
 	}
