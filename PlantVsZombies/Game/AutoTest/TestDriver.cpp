@@ -3803,6 +3803,57 @@ bool TestDriver::ExecuteCurrent() {
 		Log("snapshot reloaded into fresh GameScene: " + path);
 		return true;
 	}
+	if (op == "mixed_geometry_order_probe") {
+		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
+		if (!scene) { Fail("mixed_geometry_order_probe: scene 为空"); return false; }
+		if (!cmd.value("on", true)) {
+			scene->UnregisterDrawCommand("MixedGeometryOrderProbe");
+			return true;
+		}
+		const Texture* texture = ResourceManager::GetInstance().GetTexture(
+			ResourceKeys::Textures::IMAGE_PROJECTILEPEA, false);
+		if (!texture) { Fail("mixed_geometry_order_probe: pea texture 缺失"); return false; }
+		// 左列串行作为参照，右列把相同调用放入一个 worker 切片，固定两条队列的交错。
+		scene->RegisterDrawCommand("MixedGeometryOrderProbe", [texture](Graphics* g) {
+			const BlendMode savedBlend = g->GetBlendMode();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(100.0f, 120.0f, 900.0f, 400.0f, glm::vec4(32, 32, 32, 255));
+			const auto drawColumn = [g, texture](float x) {
+				for (int row = 0; row < 3; ++row) {
+					const float y = 140.0f + row * 120.0f;
+					const auto sprite = [g, texture, y](float spriteX) {
+						if (g->IsInstancePathEnabled()) {
+							g->DrawTextureInstanced(texture, spriteX, y, 100.0f, 100.0f);
+						}
+						else g->DrawTexture(texture, spriteX, y, 100.0f, 100.0f);
+					};
+					sprite(x);
+					// 中行模拟发光产生的分段；首/末行分别验证无发光和发光结束后的顺序。
+					if (row == 1) {
+						g->SetBlendMode(BlendMode::Add);
+						g->FillRect(x + 220.0f, y, 10.0f, 10.0f, glm::vec4(80, 80, 80, 255));
+						g->SetBlendMode(BlendMode::Alpha);
+					}
+					g->FillRect(x + 20.0f, y + 20.0f, 100.0f, 60.0f, glm::vec4(230, 30, 80, 255));
+					sprite(x + 80.0f);
+					g->FillCircle(x + 130.0f, y + 50.0f, 20.0f, glm::vec4(30, 100, 240, 255));
+				}
+				};
+			drawColumn(160.0f);
+			const bool parallel = g->IsParallelDrawEnabled();
+			if (parallel) {
+				g->BeginParallelRecord(1);
+				g->SetWorkerSlot(0);
+			}
+			drawColumn(640.0f);
+			if (parallel) {
+				g->ClearWorkerSlot();
+				g->ReplayAndEndParallel();
+			}
+			g->SetBlendMode(savedBlend);
+		}, LAYER_UI + 100);
+		return true;
+	}
 	if (op == "glyph_atlas_rebuild_probe") {
 		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
 		if (!scene) { Fail("glyph_atlas_rebuild_probe: scene 为空"); return false; }

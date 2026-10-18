@@ -117,6 +117,8 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 - 冷藏站指挥官：`smoke_cold_storage_commander.json` 与 `verify_cold_storage_commander.py` 验证实际付款队伍、反制牌可用性、支援前锋、总攻冷却读档及有限观望。`coldStorage` 下的 `commanderMode`、`commanderBudget`、`commanderSpent`、`commanderReserve`、`commanderFocusRow` 和 `responseWindowMs` 只解释最近一次计划，不是独立资源；每波名额是上限，不能再断言指挥官必须填满。完整平衡体验使用 `interactive_marigold_10_1_doom.json` 与 `play_cold_storage_marigold.py --focused-fire --deny-income`，`--until` 限定本段游戏时间，便于以 1 倍速观察和调整操作。
 
+`smoke_mixed_geometry_order.json` 用串行参照与同一 worker 切片中的交错 instance/batch 绘制，验证无发光、Add 分段及恢复 Alpha 后的遮挡顺序。运行 `python autotest/verify_mixed_geometry_order.py <输出目录>` 比较两列像素与前景颜色；后端回归覆盖默认 Vulkan、`-NoInstance` 和强制 OpenGL。worker 新增 batch 写入口必须先走 `PrepareSliceBatch`，不能只依赖混合模式变化记录顺序边界。
+
 `smoke_glyph_atlas_rebuild.json` 在同帧按血量串逐步扩充字形图集，并交错 Add 绘制；
 `glyph_atlas_rebuild_probe` 后必须立即截图，后续帧会掩盖旧纹理提前释放问题。
 运行 `python autotest/verify_glyph_atlas_rebuild.py <输出目录>`，比较重建帧与稳定帧的左右同串像素和绿色墨迹。

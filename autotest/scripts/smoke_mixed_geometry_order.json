@@ -1,0 +1,13 @@
+{
+  "commands": [
+    { "op": "wait_frames", "value": 10 },
+    { "op": "set_fullscreen", "value": false },
+    { "op": "wait_frames", "value": 3 },
+    { "op": "mixed_geometry_order_probe" },
+    { "op": "wait_frames", "value": 3 },
+    { "op": "screenshot", "name": "mixed_geometry.png" },
+    { "op": "dump_state", "name": "renderer_state.json" },
+    { "op": "mixed_geometry_order_probe", "on": false },
+    { "op": "quit" }
+  ]
+}

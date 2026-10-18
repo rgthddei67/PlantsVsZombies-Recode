@@ -181,16 +181,17 @@ enum class BlendMode {
 /**
  * @brief 录制命令类型。命令类型决定如何在回放时解释 RecordCmd 的字段。
  *        Phase 5：BatchVerts 已删除——worker 直接把顶点和矩阵写进 VkWorkerSlice 指向的
- *        持久映射 VBO/SSBO 切片，cmds 仅用于记录状态变更点（让回放知道在哪里切 vkCmdDraw）。
+ *        持久映射 VBO/SSBO 切片，cmds 记录状态和几何顺序边界，供回放切分 vkCmdDraw。
  */
 enum class RecCmdType : uint8_t {
+	GeometryBoundary, ///< 前一段实例必须先于后续 batch 提交；无 payload
 	SetBlend,       ///< 切换混合模式（payloadIdx 指向 blendModes）
 	DeferredText,   ///< DrawText 延迟到主线程执行（payloadIdx 指向 textCmds）
 	DeferredGlyphRun ///< DrawGlyphRun 延迟到主线程就地发射（payloadIdx 指向 glyphRunCmds）
 };
 
 /**
- * @brief 单条录制命令（16 字节，POD）。Phase 5 简化：只标记状态变更点。
+ * @brief 单条录制命令（16 字节，POD），标记状态变更或几何队列交错的边界。
  *        vertOffsetAtCmd 是命令插入时 slice.vboCount 的值，回放时配合 slice.vboBaseVert
  *        定位状态变更应该发生在哪个绝对顶点位置，并据此切分 vkCmdDraw 区段。
  *        instOffsetAtCmd 是命令插入时 slice.instCount 的值（Task 4），用于切分实例 draw 区段。
@@ -268,12 +269,12 @@ struct VkWorkerSlice {
 
 /**
  * @brief 每个 worker slot 一份的录制缓冲。Phase 5 起 verts/texList/matList 已删除——
- *        顶点和矩阵走 slice 直写 VBO/SSBO；cmds 只记录 blend 与延迟文字边界。
+ *        顶点和矩阵走 slice 直写 VBO/SSBO；cmds 记录几何队列交错、blend 与延迟文字边界。
  *        析构无 GL 资源，Reset 仅 clear()，capacity 跨帧复用以避免 realloc。
  */
 struct WorkerRecord {
 	VkWorkerSlice                slice;          ///< Phase 5：本帧的 VBO/SSBO 切片
-	std::vector<RecordCmd>       cmds;           ///< 仅状态变更命令流
+	std::vector<RecordCmd>       cmds;           ///< 状态变更与几何提交边界命令流
 	std::vector<BlendMode>       blendModes;     ///< SetBlend 的 payload
 	std::vector<DeferredTextCmd> textCmds;       ///< DeferredText 的 payload
 	std::vector<DeferredGlyphRunCmd> glyphRunCmds;  ///< DeferredGlyphRun 的 payload

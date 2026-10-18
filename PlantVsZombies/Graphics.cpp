@@ -2628,7 +2628,7 @@ void Graphics::BeginParallelRecord(int numRecordSlots) {
 	const glm::mat4& curTop = m_transformStack.back();
 	const bool       curId = m_transformIsIdentity.back() != 0;
 
-	// 默认把所有 slot 的切片置为"零容量 / 空指针"——SliceHasRoom 会直接拒绝写入，
+	// 默认把所有 slot 的切片置为"零容量 / 空指针"——PrepareSliceBatch 会直接拒绝写入，
 	// 工作线程不会 crash。下面如果检测到帧合法 + 容量充足，会重新填充实际指针。
 	for (int i = 0; i < numRecordSlots; ++i) {
 		WorkerRecord& r = m_workerRecords[i];
@@ -2650,7 +2650,7 @@ void Graphics::BeginParallelRecord(int numRecordSlots) {
 	m_numActiveWorkers = numRecordSlots;  // 永远 set；Replay 依赖此值遍历全部有序切片
 
 	// 没活动帧（构造期 / shutdown 期 / 切场景瞬间）就跳过切片填充——
-	// SliceHasRoom 在 worker 端会拒绝所有写入，replay 也会早退。
+	// PrepareSliceBatch 在 worker 端会拒绝所有写入，replay 也会早退。
 	if (!m_vk || !m_vk->frameOpen) return;
 	auto& fr = m_vk->frames[m_vk->frameIdx];
 
@@ -2822,7 +2822,7 @@ void Graphics::ClearWorkerSlot() {
 
 void Graphics::ReplayAndEndParallel() {
 	// Phase 5（cmd-based blend）：worker 已经把顶点和矩阵直写进每帧 mapped VBO/SSBO 切片，
-	// r.cmds 里只剩会切 draw 顺序的命令（SetBlend / DeferredText / DeferredGlyphRun）；
+	// r.cmds 记录几何队列交错、SetBlend 与延迟文字边界；
 	// ClipRect 已逐顶点/逐实例携带，不进入命令流。
 	//
 	// 关键：blend 分段走 cmd 流而非扫 per-vertex blendMode 字段。
@@ -2940,9 +2940,8 @@ void Graphics::ReplayAndEndParallel() {
 		uint32_t drawStart = sl.vboBaseVert;
 		uint32_t instStart = sl.instBaseIdx;
 
-		// Emit batch verts AND instance records up to the given absolute cutoffs.
-		// Order: batch first, then instance — matches PvZ z-order convention
-		// (shadow → reanim) within a single BlendMode segment in a slot.
+		// 每段只允许 batch → instance；再次写 batch 前必须记录 GeometryBoundary。
+		// 因此这里可以按两条连续范围提交，同时保留原调用顺序，不依赖发光触发 SetBlend。
 		auto emitUpTo = [&](uint32_t absVbo, uint32_t absInst) {
 			if (absVbo > drawStart) {
 				bindBatchForBlend(curBlend);
@@ -2967,6 +2966,9 @@ void Graphics::ReplayAndEndParallel() {
 			emitUpTo(cmdAbsVert, cmdAbsInst);
 
 			switch (cmd.type) {
+			case RecCmdType::GeometryBoundary:
+				// emitUpTo 已排空边界之前的两条队列，不改变混合状态。
+				break;
 			case RecCmdType::SetBlend: {
 				curBlend = r.blendModes[cmd.payloadIdx];
 				m_currentBlendMode = curBlend;
@@ -3085,18 +3087,29 @@ void Graphics::ReplayAndEndParallel() {
 // ----------------------------------------------------------------------------
 
 namespace {
-	// 容量检查：6 顶点 + 1 mat4。返回 false 表示溢出（slot 标记 overflowed，调用方早退）。
-	inline bool SliceHasRoom(VkWorkerSlice& sl, uint32_t addVerts, uint32_t addMats) {
+	// 为 batch 写入检查容量并保留其相对实例的顺序；溢出时只计需求，不添加边界。
+	inline bool PrepareSliceBatch(WorkerRecord& record, uint32_t addVerts, uint32_t addMats) {
+		VkWorkerSlice& sl = record.slice;
 		sl.vboDemand  += addVerts;   // 计入"想写"的量（含被容量拒绝的），供精确扩容 + 负载均衡权重
 		sl.ssboDemand += addMats;
 		bool fit = true;
 		if (sl.vboCount + addVerts > sl.vboCap)  { sl.vboOverflowed  = true; fit = false; }
 		if (sl.ssboCount + addMats > sl.ssboCap) { sl.ssboOverflowed = true; fit = false; }
+		// 只有最近边界之后新增过实例才分段；同一路径仍合批，已有 blend/文字边界直接复用。
+		// 否则回放的 batch-first 会把后画的弹丸放到本段先画的僵尸身体下面。
+		const uint32_t lastInst = record.cmds.empty() ? 0 : record.cmds.back().instOffsetAtCmd;
+		if (fit && sl.instCount > lastInst) {
+			RecordCmd boundary{};
+			boundary.type = RecCmdType::GeometryBoundary;
+			boundary.vertOffsetAtCmd = sl.vboCount;
+			boundary.instOffsetAtCmd = sl.instCount;
+			record.cmds.push_back(boundary);
+		}
 		return fit;
 	}
 
 	// 把一个矩阵推进切片 SSBO，返回它在整帧 SSBO 中的绝对下标。
-	// 调用方必须先 SliceHasRoom 通过。
+	// 调用方必须先 PrepareSliceBatch 通过。
 	inline uint32_t PushSliceMatrix(VkWorkerSlice& sl, const glm::mat4& m) {
 		const uint32_t abs = sl.ssboBaseMat + sl.ssboCount;
 		sl.ssboPtr[sl.ssboCount++] = m;
@@ -3156,7 +3169,7 @@ void Graphics::RecordDrawTexture(WorkerRecord& r,
 {
 	if (!tex) return;
 	VkWorkerSlice& sl = r.slice;
-	if (!SliceHasRoom(sl, 6, 1)) return;
+	if (!PrepareSliceBatch(r, 6, 1)) return;
 
 	glm::mat4 local = glm::mat4(1.0f);
 	local = glm::translate(local, glm::vec3(x, y, 0.0f));
@@ -3194,7 +3207,7 @@ void Graphics::RecordDrawTextureMatrix(WorkerRecord& r,
 	}
 
 	VkWorkerSlice& sl = r.slice;
-	if (!SliceHasRoom(sl, 6, 1)) {
+	if (!PrepareSliceBatch(r, 6, 1)) {
 		if (needSwitch) RecordSetBlendMode(r, savedBlend);   // 容量不足提前返回也要恢复
 		return;
 	}
@@ -3240,7 +3253,7 @@ void Graphics::RecordDrawTextureRegion(WorkerRecord& r,
 {
 	if (!tex || tex->BindingId() == 0) return;
 	VkWorkerSlice& sl = r.slice;
-	if (!SliceHasRoom(sl, 6, 1)) return;
+	if (!PrepareSliceBatch(r, 6, 1)) return;
 
 	const float u0 = srcX / tex->width;
 	const float v0 = srcY / tex->height;
@@ -3304,7 +3317,7 @@ void Graphics::RecordDrawCachedText(WorkerRecord& r,
 	}
 
 	VkWorkerSlice& sl = r.slice;
-	if (!SliceHasRoom(sl, 6, 1)) return;
+	if (!PrepareSliceBatch(r, 6, 1)) return;
 
 	glm::mat4 local = glm::mat4(1.0f);
 	// 超采样纹理：除回逻辑尺寸保证屏幕布局不变（handle.superSample=1 时等价）。
@@ -3499,7 +3512,7 @@ void Graphics::RecordFillRect(WorkerRecord& r,
 	float x, float y, float width, float height, const glm::vec4& color)
 {
 	VkWorkerSlice& sl = r.slice;
-	if (!SliceHasRoom(sl, 6, 1)) return;
+	if (!PrepareSliceBatch(r, 6, 1)) return;
 
 	glm::mat4 local = glm::mat4(1.0f);
 	local = glm::translate(local, glm::vec3(x, y, 0.0f));
@@ -3518,7 +3531,7 @@ void Graphics::RecordDrawLine(WorkerRecord& r,
 {
 	VkWorkerSlice& sl = r.slice;
 	// 单段线：6 顶点 + 1 单位矩阵
-	if (!SliceHasRoom(sl, 6, 1)) return;
+	if (!PrepareSliceBatch(r, 6, 1)) return;
 
 	const glm::mat4& transform = tl_transformStack->back();
 	const glm::vec4 p0 = transform * glm::vec4(x1, y1, 0.0f, 1.0f);
@@ -3536,7 +3549,7 @@ void Graphics::RecordDrawRect(WorkerRecord& r,
 {
 	VkWorkerSlice& sl = r.slice;
 	// 矩形边：4 个边段，每段 6 顶点 = 24 顶点 + 1 共享单位矩阵
-	if (!SliceHasRoom(sl, 24, 1)) return;
+	if (!PrepareSliceBatch(r, 24, 1)) return;
 
 	const glm::mat4& transform = tl_transformStack->back();
 	const glm::vec4 p[4] = {
@@ -3562,7 +3575,7 @@ void Graphics::RecordDrawCircle(WorkerRecord& r,
 	if (segments <= 0) return;
 	VkWorkerSlice& sl = r.slice;
 	// segments 个边段，每段 6 顶点 + 1 共享矩阵
-	if (!SliceHasRoom(sl, (uint32_t)segments * 6, 1)) return;
+	if (!PrepareSliceBatch(r, (uint32_t)segments * 6, 1)) return;
 
 	const glm::mat4& transform = tl_transformStack->back();
 	const uint32_t matAbs = PushSliceMatrix(sl, glm::mat4(1.0f));
@@ -3588,7 +3601,7 @@ void Graphics::RecordFillCircle(WorkerRecord& r,
 	// 注意 EmitDrawRange 是 6 顶点 stride，3 顶点会被对齐丢弃——但 FillCircle 几乎只在
 	// 调试路径（-Debug 显示 hitbox）使用，且原 RecordFillCircle 也是 3 顶点/段，对齐
 	// 行为与原实现一致（不会有人在并行 record 路径里画大量 FillCircle）。
-	if (!SliceHasRoom(sl, (uint32_t)segments * 3, 1)) return;
+	if (!PrepareSliceBatch(r, (uint32_t)segments * 3, 1)) return;
 
 	const glm::mat4& transform = tl_transformStack->back();
 	const glm::vec4 center = transform * glm::vec4(cx, cy, 0.0f, 1.0f);
