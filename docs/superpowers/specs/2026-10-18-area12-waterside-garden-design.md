@@ -1,6 +1,6 @@
 # 第十二大关：水岸植物园
 
-状态：2026-10-18 已接入公共地形机制、正式背景与 12-1。以下为已确认的设计记录；当前布局与倍率以 [WatersideGardenRules.h](../../../PlantVsZombies/Game/Board/WatersideGardenRules.h) 为准。专项验证覆盖行为与表现，不代表整章实战平衡验收。
+状态：2026-10-18 已接入公共地形机制、正式背景与 12-1；后续接入锚藕奖励及 12-2 重潜僵尸教学。以下为已确认的设计记录；当前布局与倍率以 [WatersideGardenRules.h](../../../PlantVsZombies/Game/Board/WatersideGardenRules.h) 为准。专项验证覆盖行为与表现，不代表整章实战平衡验收。
 
 ## 已确认的章节方向
 
@@ -56,6 +56,6 @@
 
 ## 后续工作边界
 
-本轮仅开放 12-1，使用现有植物与僵尸；后续关卡、新单位、奖励序列及整章平衡仍待设计。12-1 的可试玩波次配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+目前开放到 12-2。12-1 通关奖励锚藕，12-2 沿用同一混合地形、首次引入重潜僵尸；其余新单位与整章平衡仍待设计。单位参数只维护在 [锚藕规则](../../../PlantVsZombies/Game/Plant/AnchorLotusRules.h)、[重潜规则](../../../PlantVsZombies/Game/Zombie/HeavyDiverRules.h) 与权威 gamedata 中。两关的可试玩波次配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
 
 实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。

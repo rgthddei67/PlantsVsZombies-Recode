@@ -1785,14 +1785,16 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	if (RequiresFlowerPotAt(row, col)
 		&& type != PlantType::PLANT_LILYPAD
 		&& type != PlantType::PLANT_TANGLEKELP
-		&& type != PlantType::PLANT_SEASHROOM) {
+		&& type != PlantType::PLANT_SEASHROOM
+        && type != PlantType::PLANT_ANCHORLOTUS) {
 		// 屋顶与硬质裸地普通植物只占 normal 层，由 under 层花盆承载。
 		return hasFlowerPot && normalEmpty;
 	}
 	if (type == PlantType::PLANT_LILYPAD
 		|| type == PlantType::PLANT_TANGLEKELP
-		|| type == PlantType::PLANT_SEASHROOM) {
-		// 三种水生植物都直接落水；后两者占普通层，因此空格判断也禁止叠在睡莲上。
+		|| type == PlantType::PLANT_SEASHROOM
+        || type == PlantType::PLANT_ANCHORLOTUS) {
+		// 水生植物都直接落水；除睡莲外占普通层，因此空格判断也禁止叠在睡莲上。
 		return isWater && cell->IsEmpty();
 	}
 	if (isWater) {
@@ -2722,6 +2724,8 @@ void Board::CreatePreviewZombies()
 		}
 		else {
 			float spawnY = GameRandom::Range(mSpawnZombiePos1.y, mSpawnZombiePos2.y);
+            // 铜盔与悬垂船锚比普通身体高，预览留出上下边界，避免装备被窗口裁掉。
+            if (zombieType == ZombieType::ZOMBIE_HEAVY_DIVER) spawnY = std::clamp(spawnY, 180.0f, 520.0f);
 			// 红眼巨人的头部高于普通僵尸，9-9预览保留足够上沿空间。
 			if (mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL
 				&& zombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) spawnY = std::max(spawnY, 225.0f);
@@ -2805,6 +2809,8 @@ void Board::SetRowLoseMower(int row)
 
 bool Board::IsSpawnRowCompatible(ZombieType type, int row) const
 {
+    // 重潜只从含水路线入场，仍可沿混合路线正常上下岸。
+    if (type == ZombieType::ZOMBIE_HEAVY_DIVER) return row >= 0 && row < mRows && IsPoolRow(row);
 	// 车辆没有转弯能力；第二组唯一完整直道位于上入口。
 	if (SupportsMineFog() && type == ZombieType::ZOMBIE_ZAMBONI) return row == 0;
 	// 海豚僵尸依赖池沿入水状态机，只能在泳池背景的两条水路生成。

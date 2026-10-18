@@ -1,4 +1,5 @@
 #pragma once
+#include "HeavyDiverRules.h"
 #include "PressureShooterRules.h"
 #include "PressureGuardRules.h"
 #include "FloodMortarRules.h"
@@ -71,6 +72,7 @@ constexpr Stats Get(ZombieType type)
 {
     using Z = ZombieType;
     switch (type) {
+    case Z::ZOMBIE_HEAVY_DIVER: return Known(HeavyDiverRules::Health, 0, 0, HeavyDiverRules::SmashDamage);
     case Z::ZOMBIE_NORMAL: case Z::ZOMBIE_POOL_NORMAL: return Known(270); // 普通本体生命
     case Z::ZOMBIE_TRAFFIC_CONE: case Z::ZOMBIE_POOL_CONE: return Known(270, 370); // 普通路障的一类防具
     case Z::ZOMBIE_BUCKET: case Z::ZOMBIE_POOL_BUCKET: case Z::ZOMBIE_WEATHER_JAMMER: return Known(270, 1100); // 铁桶及干扰者同源防具

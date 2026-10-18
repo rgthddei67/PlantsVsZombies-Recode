@@ -55,7 +55,8 @@ bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetR
 			if (!water) return false;
 		} else if (member->IsRoofSupportPlant()) {
 			if (water) return false;
-		} else if (type == PlantType::PLANT_TANGLEKELP || type == PlantType::PLANT_SEASHROOM) {
+		} else if (type == PlantType::PLANT_TANGLEKELP || type == PlantType::PLANT_SEASHROOM
+            || type == PlantType::PLANT_ANCHORLOTUS) {
 			if (!water || under) return false;
 		} else {
 			if ((type == PlantType::PLANT_SPIKEWEED || type == PlantType::PLANT_SPIKEROCK)

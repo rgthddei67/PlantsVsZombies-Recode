@@ -1,0 +1,185 @@
+{
+  "commands": [
+    {
+      "op": "set_adventure_level",
+      "level": 100
+    },
+    {
+      "op": "goto_level",
+      "level": 100
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "click",
+      "target": "trophy",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_ANCHORLOTUS"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "lotus_reward.png"
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 30
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 101
+    },
+    {
+      "op": "assert_state",
+      "path": "background",
+      "equals": "WATERSIDE_GARDEN"
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "spawnTypeCount",
+      "equals": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "next_level.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "lotus_selection.png"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 400
+    },
+    {
+      "op": "click",
+      "x": 220,
+      "y": 35,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "cards.0.selected",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 762,
+      "y": 212
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 762,
+      "y": 212,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 275
+    },
+    {
+      "op": "assert_state",
+      "path": "cards.0.cooldown",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "card_placed.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "lotus_card.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

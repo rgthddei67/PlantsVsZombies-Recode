@@ -1,0 +1,901 @@
+{
+  "description": "Aquatic placement, 6s/3-cell root, immunity, damage classes, air, smash, kelp, lifecycle and saves.",
+  "commands": [
+    {
+      "op": "assert_state",
+      "path": "watersidePairResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true,
+      "background": "WATER_POOL"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 685,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "range_outside.json"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 675,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 3,
+      "x": 600,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 380,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "range_inside.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "plants.0.anchorResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_ANCHORLOTUS.simulationBaseHealth",
+      "equals": 4000
+    },
+    {
+      "op": "assert_can_plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 0,
+      "col": 2,
+      "expected": false
+    },
+    {
+      "op": "assert_can_plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3,
+      "expected": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "assert_can_plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3,
+      "expected": false
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true,
+      "background": "WATER_POOL"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 675,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "dump_state",
+      "name": "bound.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "rooted"
+    },
+    {
+      "op": "dump_state",
+      "name": "save_before.json"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "rooted"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "save_after.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.1
+    },
+    {
+      "op": "dump_state",
+      "name": "immune.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.8
+    },
+    {
+      "op": "dump_state",
+      "name": "cooldown_ready_but_immune.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2
+    },
+    {
+      "op": "dump_state",
+      "name": "rebound.json"
+    },
+    {
+      "op": "shovel_plant_at",
+      "row": 2,
+      "col": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "source_removed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "damage_before.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PEA",
+      "row": 2,
+      "x": 650,
+      "y": 280,
+      "velocityX": 0,
+      "damage": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "dump_state",
+      "name": "pea.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_CABBAGE",
+      "row": 2,
+      "x": 650,
+      "y": 280,
+      "velocityX": 0,
+      "damage": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "dump_state",
+      "name": "cabbage.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_FIREBALL",
+      "row": 2,
+      "x": 650,
+      "y": 280,
+      "velocityX": 0,
+      "damage": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "dump_state",
+      "name": "fireball.json"
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 100,
+      "source": "PLANT"
+    },
+    {
+      "op": "dump_state",
+      "name": "ordinary_damage.json"
+    },
+    {
+      "op": "ash_damage_zombie",
+      "row": 2,
+      "damage": 100
+    },
+    {
+      "op": "dump_state",
+      "name": "ash.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 7.6
+    },
+    {
+      "op": "dump_state",
+      "name": "breathing.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_PEA",
+      "row": 2,
+      "x": 650,
+      "y": 280,
+      "velocityX": 0,
+      "damage": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "dump_state",
+      "name": "breathing_hit.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.6
+    },
+    {
+      "op": "screenshot",
+      "name": "breathing_window.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "submerged_again.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "air"
+    },
+    {
+      "op": "dump_state",
+      "name": "air_before.json"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "air"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "air_after.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 615
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "dump_state",
+      "name": "windup.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "anchor_windup.png"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "windup"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "windup"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "windup_restored.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "smash_once.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "anchor_impact.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "smash_twice.json"
+    },
+    {
+      "op": "butter_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "buttered.json"
+    },
+    {
+      "op": "charm_zombie",
+      "row": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "charmed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_TANGLEKELP",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 603
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "dump_state",
+      "name": "kelp_grab.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "kelp_holding.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.2
+    },
+    {
+      "op": "dump_state",
+      "name": "kelp_released.json"
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "damage": 2500
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "headless.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6
+    },
+    {
+      "op": "dump_state",
+      "name": "death_completed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_TANGLEKELP"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 755
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_start.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_0.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_1.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_2.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_3.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_4.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_5.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_6.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_7.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_8.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "crossing_9.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 12,
+      "clearPrevious": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "natural_spawn.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

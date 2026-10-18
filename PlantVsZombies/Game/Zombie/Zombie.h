@@ -500,6 +500,17 @@ public:
 	bool HasRoofMarshalAssaultFlagAnimator() const;
 	/** 突击令红旗当前是否随目标僵尸显示。 */
 	bool IsRoofMarshalAssaultFlagVisible() const;
+	/** 水中活动地面目标接受锚藕；跳跃等品种阶段可拒绝或挣脱。 */
+    virtual bool CanHoldAnchorRoot() const { return mInPool && !IsFlying() && CanBeTargetedByProjectile(false); }
+    bool CanBeAnchorRooted() const;
+    /** 原子建立移动束缚；攻击和技能不受影响。 */
+    bool StartAnchorRoot(int plantID);
+    /** 挣脱后开始所有锚藕共享的免疫；只有原来源可以主动解除。 */
+    void ReleaseAnchorRoot(int plantID);
+    int GetAnchorRootPlantID() const { return mAnchorRootPlantID; }
+    float GetAnchorRootRemaining() const { return mAnchorRootRemaining; }
+    float GetAnchorRootImmunity() const { return mAnchorRootImmunity; }
+    bool IsAnchorRooted() const { return mAnchorRootRemaining > 0; }
 	/** 冻结、黄油或通用麻痹任一生效时，统一视为完全定身。 */
 	bool IsImmobilized() const { return IsFrozen() || IsButtered() || IsParalyzed(); }
 	/**
@@ -799,6 +810,11 @@ protected:
 	void ApplyCharmEffects();
 
 private:
+    /** 按游戏秒推进束缚与免疫，并清理死亡、魅惑及已移除来源。 */
+    void UpdateAnchorRoot(float deltaTime);
+    int mAnchorRootPlantID = -1024;
+    float mAnchorRootRemaining = 0;
+    float mAnchorRootImmunity = 0;
 	void WinGame() const;	// 植物胜利
 };
 

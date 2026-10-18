@@ -843,7 +843,7 @@ Background GameAPP::GetBackgroundID(int level) const
 	}
 	if (MiniGame::IsBrawl(level)) return Background::HOT_COLD_STORAGE;
 	if (level >= 91 && level <= 99) return Background::WEATHER_STATION;
-	if (level == 100) return Background::WATERSIDE_GARDEN;
+	if (level >= 100 && level <= 101) return Background::WATERSIDE_GARDEN;
 
 	const int area = AdventureProgression::GetAreaNumber(level);
 	switch (area) {

@@ -1,6 +1,7 @@
 {
   "plants": {
     "PLANT_RAINBAMBOO": { "cost": 325, "cooldown": 20.0, "offset": [-43.0, -65.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 30.769 } },
+    "PLANT_ANCHORLOTUS": { "cost": 125, "cooldown": 30.0, "offset": [-40.0, -47.0], "scale": 1.0, "simulation": { "baseHealth": 4000, "persistent": false } },
     "PLANT_MENDINGCOTTON": { "cost": 150, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } },
     "PLANT_THUNDERFLOWER": { "cost": 225, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 10.0, "attackRowRadius": 1, "paralysisApplicationsPerSecond": 0.5, "paralysisDuration": 0.4 } },
     "PLANT_ICEVOUCHER": { "cost": 100, "cooldown": 30.0, "offset": [0.0, 0.0], "scale": 1.0, "simulation": { "baseHealth": 0, "persistent": false, "futurePlantable": false } },
@@ -137,6 +138,7 @@
     "ZOMBIE_THERMAL_SNIPER":        { "weight": 3000, "appearWave": 4, "survivalRound": 17, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_AURORA_PRIEST":         { "mineFormationRole": 2, "weight": 3100, "appearWave": 10, "survivalRound": 20, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_POLAR_CLOCKMAKER":      { "mineFormationRole": 2, "weight": 3000, "appearWave": 9, "survivalRound": 22, "offset": [-50.0, -85.0], "scale": 1.0 },
+    "ZOMBIE_HEAVY_DIVER": { "weight": 4000, "appearWave": 10, "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_PRESSURE_GUARD": { "weight": 2800, "appearWave": 8, "survivalRound": 9999, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_FOG_FERRY":             { "weight": 2000, "appearWave": 5, "survivalRound": 9999, "offset": [-50.0, -85.0], "scale": 1.0 }
   }

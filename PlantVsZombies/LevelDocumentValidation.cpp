@@ -76,7 +76,12 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
     Fields(object,
         "auroraHitZombieIDs bambooHitIDs piercedZombieIDs spikeDamageRemainders ", Kind::Array, path, error);
     Fields(object,
-        "extraData ", Kind::Object, path, error);
+        "extraData anchorRoot ", Kind::Object, path, error);
+    if (const auto root = object.find("anchorRoot"); root != object.end() && root->is_object()) {
+        Fields(*root, "plantID remaining immunity", Kind::Number, path + "/anchorRoot", error);
+        if (root->contains("plantID") && !(*root)["plantID"].is_number_integer())
+            error = path + "/anchorRoot/plantID: invalid entity ID";
+    }
     // 所有者不共享生命周期；同名 ID 数组只允许有限数值，不允许嵌套对象。
     for (const char* key : {"piercedZombieIDs", "spikeDamageRemainders", "bambooHitIDs", "auroraHitZombieIDs"}) {
         const auto it = object.find(key);

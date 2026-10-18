@@ -599,6 +599,13 @@ namespace {
 					ice["randomWeatherRemaining"] = 45.0f;
 				}
 				version = 35; upgraded["schemaVersion"] = version; break;
+            case 35:
+                // 旧档没有锚藕束缚；只填中性关系，不推测来源或补发控制。
+                if (kind == DocumentKind::Level && upgraded.contains("zombies") && upgraded["zombies"].is_array()) {
+                    for (auto& zombie : upgraded["zombies"]) if (zombie.is_object() && !zombie.contains("anchorRoot"))
+                        zombie["anchorRoot"] = {{"plantID", -1024}, {"remaining", 0.0f}, {"immunity", 0.0f}};
+                }
+                version = 36; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

@@ -243,9 +243,9 @@ namespace {
 		for (const auto& [key, value] : legacy.items()) {
 			auto migrated=document[key];
 			if (key=="zombies") for (auto& zombie : migrated) {
-				zombie.erase("drumInspiration"); zombie.erase("thunderResistanceTimer");
+				zombie.erase("drumInspiration"); zombie.erase("thunderResistanceTimer"); zombie.erase("anchorRoot");
 			}
-			Expect(migrated == value, "旧玩法字段必须保留；允许新增中性的鼓舞和雷鸣花抗性字段");
+			Expect(migrated == value, "旧玩法字段必须保留；允许新增中性的鼓舞、雷鸣花抗性和锚藕字段");
 		}
 	}
 
@@ -641,7 +641,19 @@ namespace {
 	}
 }
 
+/** 旧档不凭空生成缠绕；再次加载新档保持已提交的剩余控制与免疫。 */
+void TestAnchorRootMigration() {
+    nlohmann::json document = {{"schemaVersion",35},{"zombies",nlohmann::json::array({{{"id",1},{"bodyHealth",3000}}})}};
+    std::string error;
+    Expect(SaveSchema::UpgradeLevelDocument(document,error), "v35 root migration succeeds");
+    Expect(document["zombies"][0]["anchorRoot"]["remaining"] == 0, "old zombie is not rooted");
+    document["zombies"][0]["anchorRoot"] = {{"plantID",7},{"remaining",1.25f},{"immunity",0.0f}};
+    const auto snapshot = document;
+    Expect(SaveSchema::UpgradeLevelDocument(document,error) && document == snapshot, "root snapshot upgrade is idempotent");
+}
+
 int main() {
+    TestAnchorRootMigration();
 	{
 		nlohmann::json previous={{"schemaVersion",17},{"coldStorage",{{"enemyIce",73},{"spent",500},
 			{"pending",nlohmann::json::array({{{"type",34},{"row",2},{"cost",16},{"remaining",2.5}}})}}}};

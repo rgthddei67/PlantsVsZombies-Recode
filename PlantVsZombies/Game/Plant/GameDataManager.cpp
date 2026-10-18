@@ -1,3 +1,5 @@
+#include "AnchorLotus.h"
+#include "Game/Zombie/HeavyDiverZombie.h"
 #include "MendingCotton.h"
 #include "RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
@@ -303,6 +305,10 @@ void GameDataManager::InitializeHardcodedData() {
         AnimationType::ANIM_FLOOD_MORTAR,"FloodMortarZombie",&MakeZombie<FloodMortarZombie>,&FloodMortarZombie::GetBirthMovementProfile);
     RegisterZombie(ZombieType::ZOMBIE_FOG_FERRY,"ZOMBIE_FOG_FERRY",
         AnimationType::ANIM_FOG_FERRY,"FogFerryZombie",&MakeZombie<FogFerryZombie>,&FogFerryZombie::GetBirthMovementProfile);
+	RegisterPlant(PlantType::PLANT_ANCHORLOTUS, "PLANT_ANCHORLOTUS", "IMAGE_ANCHORLOTUS",
+        AnimationType::ANIM_ANCHORLOTUS, "AnchorLotus", &MakePlant<AnchorLotus>);
+    RegisterZombie(ZombieType::ZOMBIE_HEAVY_DIVER, "ZOMBIE_HEAVY_DIVER",
+        AnimationType::ANIM_HEAVY_DIVER, "HeavyDiverZombie", &MakeZombie<HeavyDiverZombie>, &HeavyDiverZombie::GetBirthMovementProfile);
 	RegisterPlant(PlantType::PLANT_MENDINGCOTTON, "PLANT_MENDINGCOTTON", "IMAGE_MENDINGCOTTON",
         AnimationType::ANIM_MENDINGCOTTON, "MendingCotton", &MakePlant<MendingCotton>);
     RegisterZombie(ZombieType::ZOMBIE_PRESSURE_SHOOTER, "ZOMBIE_PRESSURE_SHOOTER",

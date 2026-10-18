@@ -1,5 +1,6 @@
 #include "PressureGuardRules.h"
 #include "Zombie.h"
+#include "Game/Plant/AnchorLotusRules.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "GoldenIceRules.h"
 #include "ZombieCharred.h"
@@ -282,6 +283,7 @@ void Zombie::SaveProtectedData(nlohmann::json& j) const {
 	j["butterTimer"] = mButterTimer;
 	j["paralysisTimer"] = mParalysisTimer;
 	j["thunderResistanceTimer"] = mThunderResistanceTimer;
+    j["anchorRoot"] = {{"plantID", mAnchorRootPlantID}, {"remaining", mAnchorRootRemaining}, {"immunity", mAnchorRootImmunity}};
 	j["controlImmunityTimers"] = mControlImmunityTimers;
 	j["roofMarshalAssaultTimer"] = GetRoofMarshalAssaultTimer();
 	j["roofMarshalAssaultMoveMultiplier"] = GetRoofMarshalAssaultMoveMultiplier();
@@ -316,6 +318,14 @@ void Zombie::SaveProtectedData(nlohmann::json& j) const {
 }
 
 void Zombie::LoadProtectedData(const nlohmann::json& j) {
+    mAnchorRootPlantID = NULL_PLANT_ID; mAnchorRootRemaining = mAnchorRootImmunity = 0;
+    if (const auto it = j.find("anchorRoot"); it != j.end() && it->is_object()) {
+        mAnchorRootPlantID = it->value("plantID", NULL_PLANT_ID);
+        const float hold = it->value("remaining", 0.0f), immunity = it->value("immunity", 0.0f);
+        mAnchorRootRemaining = std::isfinite(hold) ? std::clamp(hold, 0.0f, AnchorLotusRules::HoldSeconds) : 0;
+        mAnchorRootImmunity = std::isfinite(immunity) ? std::clamp(immunity, 0.0f, AnchorLotusRules::ImmunitySeconds) : 0;
+        if (mAnchorRootRemaining <= 0) mAnchorRootPlantID = NULL_PLANT_ID;
+    }
 	mPrismMarkRemaining = std::clamp(j.value("prismMarkRemaining",0.0f),0.0f,6.0f);
 	mMineTargetCell = (mBoard && mBoard->IsMineBackground()) ? j.value("mineTargetCell", -1) : -1;
 	if (mMineTargetCell < -1 || mMineTargetCell >= MineGrid::Count
@@ -613,6 +623,7 @@ void Zombie::Update()
 		if (!transform || !mBoard) return;
 
 		// 标记与毒素不受减速、冻结、啃食和水草早退影响，先推进目标自身的游戏时间。
+		UpdateAnchorRoot(deltaTime);
 		UpdateDrumInspiration(deltaTime);
 		mPrismMarkRemaining = std::max(0.0f, GetPrismMarkRemaining() - deltaTime);
 		UpdateToxin(deltaTime);
@@ -722,7 +733,7 @@ void Zombie::Update()
 
 		// 阵风是空气施加的独立位移：在冻结/啃食的早退前结算，使碰撞箱随 Transform 同帧移动。
 		// 水草关系同时充当水底锚点，束缚期间不允许阵风改变僵尸的位置。
-		if (mTangleKelpPlantID == NULL_PLANT_ID) {
+		if (mTangleKelpPlantID == NULL_PLANT_ID && !IsAnchorRooted()) {
 			ApplyTyphoonGustDrift(deltaTime, transform);
 			ApplyRoofRunoffDrift(deltaTime, transform);
 		}
@@ -827,7 +838,7 @@ void Zombie::Update()
 		if (IsGarlicRedirectPaused()) return;
 
         // 啃食只阻止水平移动；保留先位移、后阶段结算，避免跳跃/落地丢失最后一步位移。
-        if (!mIsEating) {
+        if (!mIsEating && !IsAnchorRooted()) {
             // 移动增益只进入位移，不能加速技能倒计时。
             ZombieMove(scaledDelta * (mBoard ? mBoard->GetStationFogMoveMultiplier(this) : 1.0f)
                 * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier(), transform);
@@ -2945,7 +2956,7 @@ void Zombie::TeleportWithinRow(float x)
 
 float Zombie::GetCurrentHorizontalMoveSpeed() const
 {
-	if (mIsDying || mIsDead || !mHasHead || mTangleKelpPlantID != NULL_PLANT_ID
+	if (IsAnchorRooted() || mIsDying || mIsDead || !mHasHead || mTangleKelpPlantID != NULL_PLANT_ID
 		|| IsImmobilized() || IsGarlicRedirectPaused()
 		|| !mAnimator || !mAnimator->IsPlaying()) {
 		return 0.0f;

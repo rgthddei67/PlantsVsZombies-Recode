@@ -1,0 +1,128 @@
+{
+  "commands": [
+    {
+      "op": "set_adventure_level",
+      "level": 101
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 30
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "preview.png"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_TANGLEKELP",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL",
+        "PLANT_CABBAGEPULT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 1,
+      "x": 895
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 820
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 3,
+      "x": 630
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "visible.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "submerged.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_cycle.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6
+    },
+    {
+      "op": "dump_state",
+      "name": "breathing.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "breathing.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

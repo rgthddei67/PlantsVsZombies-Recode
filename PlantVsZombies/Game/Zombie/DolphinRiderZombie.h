@@ -46,6 +46,8 @@ public:
 	bool CanBeCharmed() const override;
 	bool CanBeFrozen() const override;
 	bool CanBeGrabbedByTangleKelp() const override;
+    bool CanHoldAnchorRoot() const override { return Zombie::CanHoldAnchorRoot()
+        && (mPhase == Phase::RIDING || mPhase == Phase::SWIMMING); }
 
 protected:
 	void SetupZombie() override;

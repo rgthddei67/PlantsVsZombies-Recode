@@ -1898,7 +1898,7 @@ void Bullet::HitFireballZombie(Zombie* zombie)
 	const bool toxicFireball = IsToxicFireball();
 	if (zombie->IsFireResistant() && !bypassShield) {
 		PlayStandardImpactSound(zombie, false);
-		zombie->TakeProjectileDamage(directDamage, DamageSource::PLANT, mVelocityX,
+		zombie->TakeProjectileDamage(zombie->ModifyProjectileDamage(directDamage, mBulletType), DamageSource::PLANT, mVelocityX,
 			false, false, false, mPlantDamageOrigin);
 		if (toxicFireball) zombie->ApplyToxinStack();
 		return;
@@ -1945,7 +1945,7 @@ void Bullet::HitFireballZombie(Zombie* zombie)
 
 	// 原版 splash damage flag 会让二类护盾照常受损，同时把全额伤害继续传给本体。
 	zombie->TakeProjectileDamage(
-		directDamage, DamageSource::PLANT, mVelocityX, /*penetrateShield=*/true,
+		zombie->ModifyProjectileDamage(directDamage, mBulletType), DamageSource::PLANT, mVelocityX, /*penetrateShield=*/true,
 		/*discardShieldOverflow=*/false, /*requestsShieldBypass=*/false,
 		mPlantDamageOrigin);
 	// 紫焰豆以 30px 小范围限制铺毒规模；直击与实际受溅射的目标各叠一层。

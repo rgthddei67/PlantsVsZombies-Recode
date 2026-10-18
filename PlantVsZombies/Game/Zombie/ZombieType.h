@@ -105,6 +105,7 @@ enum class ZombieType {
 	ZOMBIE_FLOOD_MORTAR, // 蓄洪僵尸；11-5登场，雨势强化九格炮击
 	ZOMBIE_FOG_FERRY, // 雾渡僵尸：11-6登场，本行群体传送
 	ZOMBIE_PRESSURE_GUARD, // 承压护卫，11-1起第8波购买
+	ZOMBIE_HEAVY_DIVER, // 重潜僵尸；12-2首次登场，水下减伤与换气破绽
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

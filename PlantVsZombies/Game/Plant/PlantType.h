@@ -86,6 +86,7 @@ enum class PlantType
 	PLANT_THUNDERFLOWER, // 雷鸣花；11-2奖励，三行雷种伤害与短促麻痹
 	PLANT_MENDINGCOTTON, // 缝补棉花；11-4奖励，八邻格单体治疗
 	PLANT_RAINBAMBOO, // 穿雨竹；11-5奖励，雨势蓄能贯穿竹矛
+	PLANT_ANCHORLOTUS, // 锚藕；12-1奖励，水路单体移动束缚
 	NUM_PLANT_TYPES,
 };
 

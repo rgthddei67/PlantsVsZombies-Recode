@@ -32,7 +32,7 @@ void Bullet::UpdateRainBamboo(float dt) {
     for(const auto& [x,id]:hits) if(auto* z=mBoard->mEntityRegistry.GetZombie(id)) {
         const int damage=RainBambooRules::Damage[mBambooHitIDs.size()];
         mBambooHitIDs.push_back(id);
-        z->TakeProjectileDamage(damage,DamageSource::PLANT,mVelocityX,false,false,false,mPlantDamageOrigin);
+        z->TakeProjectileDamage(z->ModifyProjectileDamage(damage,mBulletType),DamageSource::PLANT,mVelocityX,false,false,false,mPlantDamageOrigin);
         if(g_particleSystem) g_particleSystem->EmitEffect(mBambooHitIDs.size()==5?"RainBambooFinish":"RainBambooHit",Vector(x,from.y));
         PlayStandardImpactSound(z);
         if(mBambooHitIDs.size()==5) {Die();return;}

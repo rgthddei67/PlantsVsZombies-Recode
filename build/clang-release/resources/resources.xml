@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/PlantImage/AnchorLotus.png</Image>
     <Image>./resources/image/reanim/Pressure_guard_equipment.png</Image>
     <Image>./resources/image/reanim/Pressure_guard_equipment_damaged1.png</Image>
     <Image>./resources/image/reanim/Pressure_guard_equipment_damaged2.png</Image>
@@ -664,6 +665,8 @@
     <Reanimation name="ThunderFlower">./resources/reanim/ThunderFlower.reanim</Reanimation>
     <Reanimation name="DisasterEngineerZombie">./resources/reanim/DisasterEngineerZombie.reanim</Reanimation>
     <Reanimation name="IceStorageNut">./resources/reanim/IceStorageNut.reanim</Reanimation>
+    <Reanimation name="HeavyDiverZombie">./resources/reanim/HeavyDiverZombie.reanim</Reanimation>
+    <Reanimation name="AnchorLotus">./resources/reanim/AnchorLotus.reanim</Reanimation>
     <Reanimation name="PressureGuardZombie">./resources/reanim/PressureGuardZombie.reanim</Reanimation>
     <Reanimation name="ColdChainGuardZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="ColdPineapple">./resources/reanim/ColdPineapple.reanim</Reanimation>

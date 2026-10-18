@@ -1,0 +1,198 @@
+{
+  "commands": [
+    {
+      "op": "assert_state",
+      "path": "watersidePairResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 102
+    },
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "wait_state",
+      "state": "CHOOSE_CARD",
+      "timeout": 30
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "complete_preview.png"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_ANCHORLOTUS",
+        "PLANT_LILYPAD",
+        "PLANT_WALLNUT",
+        "PLANT_PUMPKINSHELL"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 3,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 615
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 3,
+      "x": 775
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "dump_state",
+      "name": "raise.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "raise.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "dump_state",
+      "name": "apex.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "apex.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "dump_state",
+      "name": "impact.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "impact.png"
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 102
+    },
+    {
+      "op": "goto_zombie_almanac"
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "dump_state",
+      "name": "almanac_entry.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "almanac_entry.png"
+    },
+    {
+      "op": "click",
+      "target": "zombie_almanac_next_page"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "x": 508,
+      "y": 318,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieAlmanacSelected",
+      "equals": "ZOMBIE_HEAVY_DIVER"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieAlmanacInfo.name",
+      "equals": "重潜僵尸"
+    },
+    {
+      "op": "screenshot",
+      "name": "diver_almanac.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "almanac.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

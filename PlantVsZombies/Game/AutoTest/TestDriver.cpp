@@ -15,6 +15,8 @@
 #include "Game/AI/ColdStorageSearch.h"
 #include "Game/AI/ColdStorageFormationSeeds.h"
 #include "../../GameApp.h"
+#include "Game/Plant/AnchorLotus.h"
+#include "Game/Zombie/HeavyDiverZombie.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
@@ -496,7 +498,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_RAINBAMBOO),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_ANCHORLOTUS), PT(PLANT_RAINBAMBOO),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -532,7 +534,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_PRESSURE_GUARD),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_PRESSURE_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -4294,6 +4296,13 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	if (!currentScene) { Fail(opName + ": 当前 Scene 为空"); return false; }
 	auto& gameApp = GameAPP::GetInstance();
 	out["scene"] = currentScene->name;
+    bool watersidePairReady = ResourceManager::GetInstance().HasReanimation("HeavyDiverZombie")
+        && ResourceManager::GetInstance().HasReanimation("AnchorLotus");
+    for (const char* key : {"IMAGE_HEAVYDIVER_HELMET", "IMAGE_HEAVYDIVER_TANKS", "IMAGE_HEAVYDIVER_ANCHOR",
+        "IMAGE_HEAVYDIVER_BODY", "IMAGE_ANCHORLOTUS", "IMAGE_ANCHORLOTUS_BODY", "IMAGE_ANCHORLOTUS_LEFTLEAF",
+        "IMAGE_ANCHORLOTUS_RIGHTLEAF", "IMAGE_ANCHORLOTUS_ROOTS"})
+        watersidePairReady = watersidePairReady && ResourceManager::GetInstance().GetTexture(key, false);
+    out["watersidePairResourcesReady"] = watersidePairReady;
 	out["adventureLevel"] = gameApp.mAdventureLevel;
 	out["firstAreaEntryChoiceMade"] = gameApp.mFirstAreaEntryChoiceMade;
 	out["coldStorageEntryNoticeSeen"] = gameApp.mColdStorageEntryNoticeSeen;
@@ -7916,6 +7925,23 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED1", false)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_COLDCHAIN_SHIELD_CRACKED2", false);
 		}
+        zombieState["anchorRooted"] = z->IsAnchorRooted();
+        zombieState["anchorRootPlantID"] = z->GetAnchorRootPlantID();
+        zombieState["anchorRootMs"] = static_cast<int>(std::lround(z->GetAnchorRootRemaining()*1000));
+        zombieState["anchorRootImmunityMs"] = static_cast<int>(std::lround(z->GetAnchorRootImmunity()*1000));
+        if (const auto* diver = dynamic_cast<const HeavyDiverZombie*>(z)) {
+            zombieState["diverSubmerged"] = diver->IsSubmerged();
+            zombieState["diverBreathing"] = diver->IsBreathing();
+            zombieState["diverAirMs"] = static_cast<int>(std::lround(diver->GetAirRemaining()*1000));
+            zombieState["diverSmashMs"] = static_cast<int>(std::lround(diver->GetSmashRemaining()*1000));
+            zombieState["diverSmashCount"] = diver->GetSmashCount();
+            zombieState["diverPeaDamage100"] = diver->ModifyProjectileDamage(100, BulletType::BULLET_PEA);
+            zombieState["diverCabbageDamage100"] = diver->ModifyProjectileDamage(100, BulletType::BULLET_CABBAGE);
+            zombieState["diverResourcesReady"] = ResourceManager::GetInstance().HasReanimation("HeavyDiverZombie")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_HEAVYDIVER_HELMET", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_HEAVYDIVER_TANKS", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_HEAVYDIVER_ANCHOR", false);
+        }
 		zombieState["thunderResistanceMs"] = static_cast<int>(std::lround(z->GetThunderResistanceRemaining()*1000));
         if(auto* mortar=dynamic_cast<FloodMortarZombie*>(z)) {
             zombieState["floodReloadMs"]=static_cast<int>(std::round(mortar->GetReloadRemaining()*1000));
@@ -8992,6 +9018,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
             plantState["bambooResourcesReady"]=ResourceManager::GetInstance().HasReanimation("RainBamboo")
                 && ResourceManager::GetInstance().GetTexture("IMAGE_RAINBAMBOO",false)
                 && ResourceManager::GetInstance().GetTexture("IMAGE_RAIN_BAMBOO_DART",false);
+        }
+        if (const auto* lotus = dynamic_cast<const AnchorLotus*>(p)) {
+            plantState["anchorCooldownMs"] = static_cast<int>(std::lround(lotus->GetRootCooldown()*1000));
+            plantState["anchorTargetID"] = lotus->GetRootTargetID();
+            plantState["anchorCount"] = lotus->GetRootCount();
+            plantState["anchorResourcesReady"] = ResourceManager::GetInstance().HasReanimation("AnchorLotus")
+                && ResourceManager::GetInstance().GetTexture("IMAGE_ANCHORLOTUS", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_ANCHORLOTUS_BODY", false)
+                && ResourceManager::GetInstance().GetTexture("IMAGE_ANCHORLOTUS_ROOTS", false);
         }
         if(auto* cotton=dynamic_cast<MendingCotton*>(p)) {
             plantState["cottonHeals"]=cotton->GetHealCount();
