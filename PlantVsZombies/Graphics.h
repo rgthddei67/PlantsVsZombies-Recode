@@ -493,6 +493,14 @@ public:
 	/** 距离场表盘；value/overflow 为 0..1，warningPulse 为 0..1 呼吸亮度（0 无预警）；标签由调用方绘制。 */
 	bool DrawWaterGauge(float x, float y, float diameter, float value, float overflow = 0.0f, float warningPulse = 0.0f);
 
+	enum class ShaderPreviewEffect { EnergyShield, Frost, Dissolve };
+	/** 主线程材质演示，独立纹理且不支持图集；seconds 为演示秒数，参数随效果解释。
+	 *  Shield: x=强度，yz=命中UV，w=冲击年龄秒；Frost/Dissolve: x=0..1 进度。
+	 *  不改玩法、不保存状态；失败返回 false，不借空纹理掩盖缺失资源。
+	 */
+	bool DrawShaderPreview(const Texture* texture, ShaderPreviewEffect effect,
+		float x, float y, float width, float height, float seconds, const glm::vec4& parameters);
+
 	/**
 	 * @brief 绘制文字（**当前层**：与调用处的绘制顺序同 z-order）。
 	 *        在对象 Draw 循环内调用时，文字落在本对象之上、后续对象之下——参与正常 z-order。

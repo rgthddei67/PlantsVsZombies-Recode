@@ -3,6 +3,7 @@
 #include "Utf8.h"
 #include <chrono>
 #include <cstdlib>
+#include <mutex>
 #if defined(_WIN32)
 #include <Windows.h>
 #endif
@@ -3830,6 +3831,100 @@ bool TestDriver::ExecuteCurrent() {
 			return false;
 		}
 		Log("snapshot reloaded into fresh GameScene: " + path);
+		return true;
+	}
+	if (op == "shader_gallery") {
+		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
+		if (!scene) { Fail("shader_gallery: scene missing"); return false; }
+		if (!cmd.value("on", true)) {
+			scene->UnregisterDrawCommand("ShaderGallery");
+			return true;
+		}
+		const Texture* texture = ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_WALLNUT,false);
+		if (!texture || !texture->renderTexture || texture->atlasPage) {
+			Fail("shader_gallery: standalone IMAGE_WALLNUT missing"); return false;
+		}
+		const bool live = cmd.value("live", false);
+		const float time = cmd.value("time", 1.8f);
+		if (!std::isfinite(time) || time < 0 || time > 120) { Fail("shader_gallery: invalid time"); return false; }
+		struct GalleryState {
+			float seconds=0, impactAt=-100;
+			glm::vec2 hit{.77f,.48f};
+			Uint64 ticks=SDL_GetTicks64();
+			bool paused=false, watching=false;
+			std::mutex inputMutex;
+			bool togglePause=false, restart=false, clicked=false;
+			int clickX=0, clickY=0;
+			~GalleryState() { if (watching) SDL_DelEventWatch(OnEvent,this); }
+			/** 保留短按事件；SDL watch 可能跨线程，只在锁内记录，绘制线程消费。 */
+			static int SDLCALL OnEvent(void* context,SDL_Event* event) {
+				auto& self=*static_cast<GalleryState*>(context);
+				if (event->type==SDL_KEYDOWN && !event->key.repeat) {
+					std::lock_guard lock(self.inputMutex);
+					if (event->key.keysym.sym==SDLK_SPACE) self.togglePause=!self.togglePause;
+					if (event->key.keysym.sym==SDLK_r) self.restart=true;
+				} else if (event->type==SDL_MOUSEBUTTONDOWN && event->button.button==SDL_BUTTON_LEFT) {
+					std::lock_guard lock(self.inputMutex);
+					self.clicked=true; self.clickX=event->button.x; self.clickY=event->button.y;
+				}
+				return 1;
+			}
+		};
+		auto state = std::make_shared<GalleryState>();
+		state->seconds = time;
+		if (live) { SDL_AddEventWatch(GalleryState::OnEvent,state.get()); state->watching=true; }
+		// 演示只挂在当前场景上，退出/换场自然释放。独立时钟允许交互信箱冻结玩法后继续观看。
+		scene->RegisterDrawCommand("ShaderGallery", [texture,live,state](Graphics* g) {
+			const Uint64 ticks = SDL_GetTicks64();
+			const float elapsed = std::min(static_cast<float>(ticks-state->ticks)*.001f,.10f);
+			state->ticks=ticks;
+			if (live) {
+				std::lock_guard lock(state->inputMutex);
+				if (state->togglePause) state->paused=!state->paused;
+				if (state->restart) { state->seconds=0; state->impactAt=-100; }
+				if (!state->paused) state->seconds+=elapsed;
+				const auto mouse=g->ScreenToLogical(static_cast<float>(state->clickX),static_cast<float>(state->clickY));
+				if (state->clicked && mouse.x>=40 && mouse.x<=340 && mouse.y>=175 && mouse.y<=475) {
+					state->hit=glm::vec2((mouse.x-40)/300,(mouse.y-175)/300);
+					state->impactAt=state->seconds;
+				}
+				state->togglePause=state->restart=state->clicked=false;
+			}
+			const float t=state->seconds;
+			const float frost=.5f-.5f*std::cos(t*.8f);
+			const float dissolve=.5f-.5f*std::cos(t*1.05f);
+			const float age=t-state->impactAt<2.4f ? t-state->impactAt : std::fmod(t,2.4f);
+			const BlendMode previous=g->GetBlendMode();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(0,0,1100,600,glm::vec4(8,13,25,255));
+			for (int y=112;y<560;y+=24) g->DrawLine(0,static_cast<float>(y),1100,static_cast<float>(y),glm::vec4(25,40,62,70));
+			const auto& font=ResourceKeys::Fonts::FONT_FZCQ;
+			g->DrawText("材质实验室",font,34,glm::vec4(235,243,248,255),30,24);
+			g->DrawText("同一张坚果图片，三种不同的超能力。",font,16,glm::vec4(141,161,184,255),34,76);
+			g->DrawText("原始素材",font,12,glm::vec4(141,161,184,255),950,37);
+			g->DrawTexture(texture,1015,18,60,55);
+			const char* titles[]{"01 · 能量护盾","02 · 冰晶蔓延","03 · 燃烧溶解"};
+			const char* notes[]{"冲击涟漪沿命中点扩散","冰晶覆盖，随后缓慢融化","燃尽，再从余烬中重组"};
+			const glm::vec4 accents[]{glm::vec4(74,231,238,255),glm::vec4(144,204,255,255),glm::vec4(255,151,73,255)};
+			const float progress[]{1.0f,frost,dissolve};
+			for (int i=0;i<3;++i) {
+				const float x=25.0f+i*355.0f;
+				g->FillRect(x,126,330,402,glm::vec4(13,23,39,255));
+				g->DrawRect(x+.5f,126.5f,329,401,glm::vec4(48,66,89,255));
+				g->FillRect(x,126,330,3,accents[i]);
+				g->DrawText(titles[i],font,20,accents[i],x+20,144);
+				const glm::vec4 parameters(i==0 ? 1.0f : progress[i],state->hit.x,state->hit.y,age);
+				if (!g->DrawShaderPreview(texture,static_cast<Graphics::ShaderPreviewEffect>(i),x+15,175,300,300,t,parameters))
+					TestDriver::GetInstance().OnRenderFailure("shader_gallery: material submit failed");
+				g->DrawText(notes[i],font,14,glm::vec4(171,188,207,255),x+20,476);
+				g->FillRect(x+20,507,290,3,glm::vec4(39,53,73,255));
+				g->FillRect(x+20,507,290*progress[i],3,accents[i]);
+			}
+			g->DrawText(live ? "点击左侧护盾触发冲击  ·  空格暂停 / 继续  ·  R 重播" : "固定时刻预览",font,15,
+				glm::vec4(151,173,197,255),32,559);
+			g->DrawText(state->paused ? "已暂停" : "仅视觉演示",font,14,glm::vec4(103,129,156,255),960,559);
+			g->SetBlendMode(previous);
+		}, LAYER_UI + 500);
 		return true;
 	}
 	if (op == "rectangle_aa_probe") {

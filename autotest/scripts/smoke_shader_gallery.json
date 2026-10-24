@@ -1,0 +1,21 @@
+{
+  "description": "Shader-only materials on the registered WallNut image; two deterministic times and normal rendering restored.",
+  "commands": [
+    {"op": "goto_level", "level": 1},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_fullscreen", "value": false},
+    {"op": "shader_gallery", "time": 1.8},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "materials_a.png"},
+    {"op": "shader_gallery", "time": 3.7},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "materials_b.png"},
+    {"op": "dump_state", "name": "renderer_state.json"},
+    {"op": "shader_gallery", "on": false},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "restored.png"},
+    {"op": "quit"}
+  ]
+}

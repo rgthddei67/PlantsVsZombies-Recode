@@ -59,6 +59,9 @@ float causticAlphaAt(vec2 coord)
 
 #include "opengl/water_effects.glsl"
 
+vec4 previewSource(vec2 uv) { return texture(textures[nonuniformEXT(inTextureIndex)],uv); }
+#include "opengl/shader_preview.glsl"
+
 void main()
 {
     // 与通用 batch shader 共用逐顶点裁剪契约，不引入动态 scissor。
@@ -74,6 +77,7 @@ void main()
         }
     }
 
+    if (pc.poolLayer > 6.5) { outColor = shaderPreview(inTexCoord,inColor,pc.poolCounter,int(pc.poolLayer+.5)); return; }
     if (pc.poolLayer > 3.5 && pc.poolLayer < 4.5) { outColor = waterGaugeFace(inTexCoord, inColor.x, inColor.y, inColor.z); return; }
     if (pc.poolLayer > 2.5) {
         float mask = floodMask(inTexCoord,inColor,inPoolCoord,pc.poolCounter);

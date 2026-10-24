@@ -1,0 +1,12 @@
+{
+  "description": "Live shader gallery: click the shield, Space pauses visual time, R restarts. Gameplay stays frozen in the interactive inbox.",
+  "interactive": true,
+  "commands": [
+    {"op": "goto_level", "level": 1},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_fullscreen", "value": false},
+    {"op": "shader_gallery", "live": true, "time": 0}
+  ]
+}

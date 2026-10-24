@@ -59,6 +59,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 水岸水面与仪表的程序化片元函数统一放在 `Shader/opengl/water_effects.glsl`：Vulkan 在编译时 include，OpenGL 创建 pool program 时展开同一资源。`Graphics::DrawFloodSurface/DrawWaterGauge` 只在主线程场景绘制中使用，复用 pool pipeline 的六顶点提交、预乘 alpha、矩阵和 shader clip；先 flush batch/instances 保序，不能从 worker 直接调用。参数经顶点 color 通道传递的是效果数据（洪水为四角有符号深度），不能预乘或夹成颜色范围。世界范围裁剪要先用 `WorldToLogical`，以跟随开场、选卡和震屏镜头。修改共享函数须同时验证默认 Vulkan、`-NoInstance` 与 OpenGL，并保留普通三层泳池效果。
 
+`DrawShaderPreview` 是显式材质演示入口，复用同一提交路径的独立效果分支；共享函数在 `Shader/opengl/shader_preview.glsl`，仅接受独立纹理，拒绝缺图和图集子图。演示时钟、命中点与进度由调用方提供，不读取/改写玩法状态，也不自动作用于角色。把演示迁移到正式多部件角色时，须另行确定统一的特效坐标及完整角色合成边界，不能逐部件机械套用局部 UV。
+
 普通 `DrawLine/DrawCircle/FillCircle` 使用 `Shader/opengl/primitive_coverage.glsl` 的解析覆盖率，主线程与 worker 共用六顶点提交。`BatchVertex` 保持 52 字节，`blendMode` 的整数低两位表示混合模式，高位表示图元类型；CPU 只按实际混合状态分段，不能把图元类型变化误当作 blend 边界。线段保留平头，线与圆环在对象变换后保持 1 逻辑像素宽，镜头和 letterbox 缩放继续生效。圆接口的旧 `segments` 参数仅保留正值绘制、非正值跳过的兼容语义；正值不再控制多边形边数。承载矩形必须为屏幕抗锯齿边缘外扩，覆盖率导数在裁剪 discard 之前计算；小圆用径向函数的解析梯度，避免圆心对称的像素组导数为零。`DrawRect/FillRect` 按对象变换、相机及实际后端 viewport 判断屏幕像素对齐：对齐的实心框沿用原纹理快路，对齐的边框用不重叠硬边环带，其余使用解析覆盖率。边框保持 1 逻辑像素宽与方角，用外框减内框统一计算覆盖率；四片环带共用一个矩阵，避免转角重复混合与透明内区的大面积片元开销。支持负尺寸/镜像，零面积或退化变换不绘制。
 
 ### Board 内部子域

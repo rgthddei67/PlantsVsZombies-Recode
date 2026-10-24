@@ -94,6 +94,8 @@
 `smoke_cold_storage_defense_victory.json` 与 `verify_cold_storage_defense_victory.py` 验证独立的久守胜利规则：`troopNoKillSeconds` 仅由部队击杀清零，暂停/开发者暂停出怪不推进；`finalAssaultActive`、`finalAssaultRemainingMs` 与 HUD 共用 `ColdStorageDefenseRules`。达到时限后 `defenseSurrendered` 标记撤军，取消后台、付费队列、狙击、裂隙/复活与场上敌兵，经正式奖杯或无尽换轮入口结束，不产生撤军击杀奖励。专项覆盖暂停、存读档、狙击不续期、部队击杀、产冰与活体/在途事务；时钟边界由夹具设置，不作为实战强度证据。`smoke_cold_storage_defense_survival.json` 另验无尽撤军换轮、玩家资源保留与新轮时钟清零。`compare_commander_search` 的候选报告另导出 `defenseVictorySeconds`，可核对 AI 是否停止计算认输后的收入与残军资产。
 
 脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
+
+`interactive_shader_gallery.json` 打开纯视觉材质演示：同一张已注册的坚果图片展示能量护盾、冰晶蔓延、燃烧溶解；点击左侧护盾改变冲击落点，空格暂停演示时钟，R 重播。玩法在交互等待期间冻结，演示使用独立墙钟，不创建单位或修改存档。`shader_gallery` 可用 `time` 固定取证时刻，`on:false` 撤销当前场景的展示命令。`smoke_shader_gallery.json`、`smoke_shader_gallery_controls.json` 与 `verify_shader_gallery.py` 检查三个效果的颜色/可见源图、时间变化、暂停/重播/点击输入和撤销后正常场景；共享 pool shader 改动需覆盖 Vulkan、`-NoInstance`、OpenGL，并回归普通泳池/洪水仪表。
 普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
 仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。
 

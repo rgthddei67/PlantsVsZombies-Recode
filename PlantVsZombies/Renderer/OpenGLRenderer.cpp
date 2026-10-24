@@ -184,8 +184,8 @@ namespace pvz {
 		const char* fragmentPath, Program& output, std::string& error) {
 		const std::string vertexSource = FileManager::LoadFileAsString(vertexPath);
 		std::string fragmentSource = FileManager::LoadFileAsString(fragmentPath);
-		// GLSL 330 无 include 扩展；仅展开这两份由项目维护的共用片元函数。
-		for (const char* file : { "water_effects.glsl", "primitive_coverage.glsl" }) {
+		// GLSL 330 无 include 扩展；仅展开这些由项目维护的共用片元函数。
+		for (const char* file : { "water_effects.glsl", "primitive_coverage.glsl", "shader_preview.glsl" }) {
 			const std::string directive = std::string("#include \"") + file + "\"";
 			if (const auto at = fragmentSource.find(directive); at != std::string::npos) {
 				const std::string shared = FileManager::LoadFileAsString(std::string("Shader/opengl/") + file);

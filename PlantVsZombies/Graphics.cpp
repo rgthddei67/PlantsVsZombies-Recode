@@ -1369,6 +1369,13 @@ bool Graphics::DrawWaterGauge(float x, float y, float diameter, float value, flo
 	return DrawWaterEffectQuad(4, x, y, diameter, diameter, glm::vec4(value, overflow, warningPulse, 0), 0);
 }
 
+bool Graphics::DrawShaderPreview(const Texture* texture, ShaderPreviewEffect effect,
+	float x, float y, float width, float height, float seconds, const glm::vec4& parameters) {
+	const int kind = static_cast<int>(effect);
+	if (!texture || kind < 0 || kind > 2 || !std::isfinite(seconds)) return false;
+	return DrawWaterEffectQuad(7 + kind, x, y, width, height, parameters, seconds, texture);
+}
+
 bool Graphics::DrawWaterEffectQuad(int effect, float x, float y, float width, float height,
 	const glm::vec4& parameters, float counter, const Texture* texture) {
 	if (tl_record || width <= 0 || height <= 0 || !m_whiteTextureHandle) return false;

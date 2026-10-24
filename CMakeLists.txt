@@ -503,7 +503,8 @@ foreach(entry IN LISTS SHADER_SOURCES)
         list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/primitive_coverage.glsl)
     endif()
     if(shader STREQUAL "pool.frag.glsl")
-        list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/water_effects.glsl)
+        list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/water_effects.glsl
+            ${SRC_DIR}/Shader/opengl/shader_preview.glsl)
     endif()
     add_custom_command(
         OUTPUT ${spv}

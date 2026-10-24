@@ -1,0 +1,23 @@
+{
+  "description": "Shader gallery input event regression: pause, reset, retained paused frame, hit position and resume.",
+  "commands": [
+    {"op": "goto_level", "level": 1},
+    {"op": "choose_cards", "cards": []},
+    {"op": "wait_state", "state": "GAME", "timeout": 20},
+    {"op": "set_spawn_paused", "value": true},
+    {"op": "set_fullscreen", "value": false},
+    {"op": "shader_gallery", "live": true, "time": 2},
+    {"op": "key", "name": "space"},
+    {"op": "key", "name": "r"},
+    {"op": "screenshot", "name": "controls_reset_a.png"},
+    {"op": "wait_frames", "value": 20},
+    {"op": "screenshot", "name": "controls_reset_b.png"},
+    {"op": "click", "x": 160, "y": 275},
+    {"op": "screenshot", "name": "controls_hit.png"},
+    {"op": "key", "name": "space"},
+    {"op": "wait_frames", "value": 40},
+    {"op": "screenshot", "name": "controls_resumed.png"},
+    {"op": "shader_gallery", "on": false},
+    {"op": "quit"}
+  ]
+}
