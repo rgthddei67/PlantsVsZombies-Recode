@@ -5,6 +5,7 @@
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
 #include "Bullet.h"
+#include "Game/Plant/LotusPultRules.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "../GameObjectManager.h"
@@ -130,6 +131,8 @@ namespace {
         { BulletType::BULLET_PRESSURE, BulletWindResponse::NONE },
         { BulletType::BULLET_RAIN_BAMBOO, BulletWindResponse::NONE },
         { BulletType::BULLET_FLOOD_MORTAR, BulletWindResponse::NONE },
+        { BulletType::BULLET_LOTUS_SEED, BulletWindResponse::NONE },
+        { BulletType::BULLET_LOTUS_FRAGMENT, BulletWindResponse::NONE },
 	};
 
 	constexpr bool BulletWindProfilesCoverEveryType()
@@ -159,6 +162,8 @@ namespace {
 	{
 		if(type==BulletType::BULLET_RAIN_BAMBOO) return RainBambooRules::Damage[0];
         if(type==BulletType::BULLET_FLOOD_MORTAR) return FloodMortarRules::Damage(0);
+        if (type == BulletType::BULLET_LOTUS_SEED) return LotusPultRules::Damage;
+        if (type == BulletType::BULLET_LOTUS_FRAGMENT) return LotusPultRules::FragmentDamage;
         if (type == BulletType::BULLET_PRESSURE) return PressureShooterRules::Damage;
 		if (type == BulletType::BULLET_THUNDER_SEED) return ThunderFlowerRules::Damage;
 		if (type == BulletType::BULLET_FIREBALL
@@ -186,6 +191,7 @@ namespace {
 	bool IsClassicLobbedBullet(BulletType type)
 	{
 		return type == BulletType::BULLET_CABBAGE
+			|| type == BulletType::BULLET_LOTUS_SEED || type == BulletType::BULLET_LOTUS_FRAGMENT
 			|| IsMelonBullet(type)
 			|| type == BulletType::BULLET_KERNEL
 			|| type == BulletType::BULLET_BUTTER
@@ -342,6 +348,7 @@ void Bullet::Reset(Board* board, int row,
 	mHitAuroraTorchwoodColumn = -1;
 	if (mSpikeState) mSpikeState->count = 0;
 	mAuroraState.reset();
+	mLotusState.reset();
     mBambooHitIDs.clear();mWaterTrailRemaining=0;mFloodCharmed=false;
 	mAnimatorAdvancedInParallel = false;
 	ConfigurePresentation();
@@ -399,6 +406,7 @@ void Bullet::Update()
         if(mBulletType==BulletType::BULLET_RAIN_BAMBOO) { UpdateRainBamboo(deltaTime); return; }
         if(mBulletType==BulletType::BULLET_FLOOD_MORTAR) { UpdateFloodMortar(deltaTime); return; }
         if(mBulletType==BulletType::BULLET_PRESSURE) { UpdatePressureProjectile(deltaTime); return; }
+        if (mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) { UpdateLotusFragment(deltaTime); return; }
 		if (mBulletType == BulletType::BULLET_THERMAL_PULSE
 			&& mThermalConfigured) {
 			const float direction = mVelocityX >= 0.0f ? 1.0f : -1.0f;
@@ -812,6 +820,7 @@ void Bullet::EnableThreepeaterMotion(int sourceRow)
 void Bullet::BulletHitZombie(Zombie* zombie)
 {
 	if (!zombie) return;
+	if (mBulletType == BulletType::BULLET_LOTUS_SEED) SplitLotusSeed(zombie);
 	if (mBulletType == BulletType::BULLET_THUNDER_SEED) {
 		mBoard->CreateThunderImpact(GetPosition(), mRow, mDamage);
 		return;
@@ -866,6 +875,10 @@ void Bullet::BulletHitZombie(Zombie* zombie)
 	else if (mBulletType == BulletType::BULLET_BUTTER) {
 		zombie->ApplyButter();
 	}
+	if (mBulletType == BulletType::BULLET_LOTUS_SEED || mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) {
+        if (g_particleSystem) g_particleSystem->EmitEffect(
+            mBulletType == BulletType::BULLET_LOTUS_SEED ? "LotusSeedHit" : "LotusFragmentHit", GetPosition());
+    }
 
 	if (mBulletType == BulletType::BULLET_SNOWPEA) {
 		if (canBeChilled) {
@@ -1034,6 +1047,15 @@ void Bullet::ConfigurePresentation()
 		break;
     case BulletType::BULLET_RAIN_BAMBOO:
         mTexture=resources.GetTexture("IMAGE_RAIN_BAMBOO_DART",false);mScale=1;break;
+    case BulletType::BULLET_LOTUS_SEED:
+        mTexture = resources.GetTexture(mLotusState && mLotusState->split
+            ? "IMAGE_LOTUSPULT_CLUSTER" : "IMAGE_LOTUSPULT_SEED", false);
+        mScale = 1.0f;
+        break;
+    case BulletType::BULLET_LOTUS_FRAGMENT:
+        mTexture = resources.GetTexture("IMAGE_LOTUSPULT_SEED", false);
+        mScale = .55f;
+        break;
     case BulletType::BULLET_FLOOD_MORTAR:
         mTexture=resources.GetTexture("PARTICLE_WATER_DROPLETS",false);mScale=.45f;break;
 	case BulletType::BULLET_PRESSURE:
@@ -1390,6 +1412,10 @@ void Bullet::HitLobbedGround()
 
 void Bullet::PlayLobbedImpactFeedback()
 {
+	if (mBulletType == BulletType::BULLET_LOTUS_SEED) {
+        if (g_particleSystem) g_particleSystem->EmitEffect("LotusSeedHit", GetPosition());
+        return;
+    }
 	if (mBulletType == BulletType::BULLET_KERNEL) {
 		PlayKernelImpactSound();
 	}
@@ -1531,6 +1557,7 @@ void Bullet::HandlePlantContact(ColliderComponent* other)
 
 void Bullet::HandleZombieContact(ColliderComponent* other)
 {
+    if (mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) return;
     if(mBulletType==BulletType::BULLET_RAIN_BAMBOO || mBulletType==BulletType::BULLET_FLOOD_MORTAR) return;
 	if (!IsActive() || !other) return;
 	if (TargetsIceWall()) return;

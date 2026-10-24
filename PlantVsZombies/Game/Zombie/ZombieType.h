@@ -106,6 +106,7 @@ enum class ZombieType {
 	ZOMBIE_FOG_FERRY, // 雾渡僵尸：11-6登场，本行群体传送
 	ZOMBIE_PRESSURE_GUARD, // 承压护卫，11-1起第8波购买
 	ZOMBIE_HEAVY_DIVER, // 重潜僵尸；12-2首次登场，水下减伤与换气破绽
+	ZOMBIE_SALVAGE, // 打捞僵尸；12-3首次登场，远距拆除单个基座
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

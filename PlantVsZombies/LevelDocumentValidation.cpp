@@ -82,6 +82,20 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
         if (root->contains("plantID") && !(*root)["plantID"].is_number_integer())
             error = path + "/anchorRoot/plantID: invalid entity ID";
     }
+    if (const auto lotus = object.find("lotus"); lotus != object.end() && !lotus->is_null()) {
+        if (!lotus->is_object()) { error = path + "/lotus: invalid field type"; return; }
+        Fields(*lotus, "split", Kind::Bool, path + "/lotus", error);
+        Fields(*lotus, "targetID elapsed arcHeight", Kind::Number, path + "/lotus", error);
+        if (lotus->contains("targetID") && !(*lotus)["targetID"].is_number_integer())
+            error = path + "/lotus/targetID: invalid entity ID";
+        for (const char* key : {"start", "target"}) {
+            const auto point = lotus->find(key);
+            if (point == lotus->end()) continue;
+            if (!point->is_array() || point->size() != 2) { error = path + "/lotus: invalid point"; return; }
+            for (const auto& coordinate : *point) if (!coordinate.is_number()
+                || !std::isfinite(coordinate.get<double>())) { error = path + "/lotus: invalid coordinate"; return; }
+        }
+    }
     // 所有者不共享生命周期；同名 ID 数组只允许有限数值，不允许嵌套对象。
     for (const char* key : {"piercedZombieIDs", "spikeDamageRemainders", "bambooHitIDs", "auroraHitZombieIDs"}) {
         const auto it = object.find(key);
@@ -186,7 +200,7 @@ bool LevelDocumentValidation::Validate(const nlohmann::json& document, std::stri
         "polarStartWindSpeedMps polarTargetHumidityPercent polarTargetTemperatureC polarTargetWindSpeedMps "
         "polarTemperatureC polarVerticalWindDirection polarWhiteoutTimer polarWindSpeedMps poolGridVersion "
         "poolSunCountDown previousRainIntensity rainIntensity redeyeGargantuarsSpawnedThisWave "
-        "reinforcedDoorsSpawnedThisWave roofRunoffCharge roofRunoffPhase roofRunoffPhaseTimer "
+        "reinforcedDoorsSpawnedThisWave salvageZombiesSpawnedThisWave roofRunoffCharge roofRunoffPhase roofRunoffPhaseTimer "
         "roofRunoffRetainedCharge roofRunoffRowMask schemaVersion snowBurrowsSpawnedThisWave "
         "stormyNightFlashPattern stormyNightFlashTimer sun sunCountDown sunThievesSpawnedThisWave survivalRound "
         "thermalSnipersSpawnedThisWave totalZombieHP typhoonGustsRemaining typhoonStrength typhoonStrengthTimer "

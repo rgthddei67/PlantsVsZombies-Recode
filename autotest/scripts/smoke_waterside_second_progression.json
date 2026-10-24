@@ -1,0 +1,353 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 101,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 101
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.6
+    },
+    {
+      "op": "click",
+      "target": "trophy",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_LOTUSPULT"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "reward.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "reward.json"
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 102
+    },
+    {
+      "op": "dump_state",
+      "name": "unlocked.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 102,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 30
+    },
+    {
+      "op": "set_wave_spawn_list",
+      "types": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 6,
+      "clearPrevious": true
+    },
+    {
+      "op": "dump_state",
+      "name": "level_102_wave6.json"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "level_102_capped.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_102_capped.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "quota_102"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "quota_102"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 1
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "level_102_simultaneous.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 40
+    },
+    {
+      "op": "set_wave_spawn_list",
+      "types": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 6,
+      "clearPrevious": true
+    },
+    {
+      "op": "dump_state",
+      "name": "level_103_wave6.json"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "level_103_capped.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_103_capped.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "quota_103"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "quota_103"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 2
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.salvageZombiesSpawnedThisWave",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "level_103_simultaneous.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -1,0 +1,966 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_LOTUSPULT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersidePairTwoResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_LOTUSPULT.sunCost",
+      "equals": 225
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_LOTUSPULT.cooldownMs",
+      "equals": 15000
+    },
+    {
+      "op": "assert_state",
+      "path": "plantDefinitions.PLANT_LOTUSPULT.simulationBaseHealth",
+      "equals": 300
+    },
+    {
+      "op": "assert_can_plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 0,
+      "col": 6,
+      "expected": false
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "screenshot",
+      "name": "forms.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "forms.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.37
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_0.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "idle_0.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.51
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_1.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "idle_1.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.62
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_2.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "idle_2.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.71
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_3.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "idle_3.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.95
+    },
+    {
+      "op": "screenshot",
+      "name": "idle_4.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "idle_4.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.2_3.lotusWaterForm",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.1_5.attackMultiplierMilli",
+      "equals": 4000
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 100
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "screenshot",
+      "name": "flooded.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "flooded.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_2.watersideHazard",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_2.lotusWaterForm",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.1_5.attackMultiplierMilli",
+      "equals": 1000
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "dump_state",
+      "name": "retreated.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "x": 820,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 0,
+      "col": 2,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 1,
+      "timeout": 8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "ground_launch.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "ground_launch.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "bullets.0.lotus.split",
+      "equals": false
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 190
+    },
+    {
+      "op": "dump_state",
+      "name": "ground_hit.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 2,
+      "col": 3,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 6,
+      "timeout": 8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "split_flying.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "split_flying.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "split"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "split"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "dump_state",
+      "name": "split_restored.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.65
+    },
+    {
+      "op": "screenshot",
+      "name": "split_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "split_hit.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletCount",
+      "equals": 0
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 2,
+      "col": 3,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 6,
+      "timeout": 8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "lost_target_flying.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "lost_target_flying.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "lost_target"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "lost_target"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "dump_state",
+      "name": "lost_target_restored.json"
+    },
+    {
+      "op": "kill_zombie",
+      "row": 1,
+      "index": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.65
+    },
+    {
+      "op": "screenshot",
+      "name": "lost_target_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "lost_target_hit.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletCount",
+      "equals": 0
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "damage_zombie",
+      "row": 2,
+      "index": 0,
+      "damage": 160
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 2,
+      "col": 3,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 6,
+      "timeout": 8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "kill_primary_flying.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "kill_primary_flying.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "kill_primary"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "kill_primary"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "dump_state",
+      "name": "kill_primary_restored.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.65
+    },
+    {
+      "op": "screenshot",
+      "name": "kill_primary_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "kill_primary_hit.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletCount",
+      "equals": 0
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 100
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 0,
+      "col": 2
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 0,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 0,
+      "col": 2,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 1,
+      "timeout": 8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "bullets.0.lotus.split",
+      "equals": true
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "parent"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "parent"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.9
+    },
+    {
+      "op": "dump_state",
+      "name": "parent_form_preserved.json"
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 1,
+      "timeout": 5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "bullets.0.lotus.split",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletPoolHitCount",
+      "atLeast": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "reused_dry_parent.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.5
+    },
+    {
+      "op": "dump_state",
+      "name": "reused_dry_hit.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -87,7 +87,11 @@ enum class PlantType
 	PLANT_MENDINGCOTTON, // 缝补棉花；11-4奖励，八邻格单体治疗
 	PLANT_RAINBAMBOO, // 穿雨竹；11-5奖励，雨势蓄能贯穿竹矛
 	PLANT_ANCHORLOTUS, // 锚藕；12-1奖励，水路单体移动束缚
+	PLANT_LOTUSPULT, // 莲蓬投手；12-2奖励，两栖投掷与水中分裂
 	NUM_PLANT_TYPES,
 };
+
+/** 落种前的两栖资格，供占格、搬运与实体受灾判断共用。 */
+constexpr bool IsAmphibiousPlantType(PlantType type) { return type == PlantType::PLANT_LOTUSPULT; }
 
 #endif

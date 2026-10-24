@@ -1,5 +1,6 @@
 #include "WaveSpawnCounts.h"
 #include "WaveSpawnRules.h"
+#include "Game/Zombie/SalvageZombieRules.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 
@@ -9,6 +10,7 @@ namespace {
     // 新增限额类型只需登记持久化身份；正式生成门禁仍由 Board resolver 负责。
     // 钟匠历史读档夹紧为3（正式生成上限4），本次结构迁移保留原兼容语义。
     constexpr Entry entries[] = {
+    {ZombieType::ZOMBIE_SALVAGE, "salvageZombiesSpawnedThisWave", SalvageZombieRules::CompositeLimit},
     {ZombieType::ZOMBIE_ELITE_DANCER, "eliteDancersSpawnedThisWave", kEliteDancerMaxPerWave},
     {ZombieType::ZOMBIE_REINFORCED_DOOR, "reinforcedDoorsSpawnedThisWave", kReinforcedDoorMaxPerWave},
     {ZombieType::ZOMBIE_ELITE_POLEVAULTER, "elitePolevaultersSpawnedThisWave", kElitePolevaulterMaxPerWave},
@@ -47,6 +49,8 @@ void WaveSpawnCounts::Load(const nlohmann::json& document, int level, bool survi
     Reset();
     for (const auto& entry : entries) {
         int limit = entry.restoreLimit;
+        if (entry.type == ZombieType::ZOMBIE_SALVAGE && !survival && level == SalvageZombieRules::TutorialLevel)
+            limit = SalvageZombieRules::TutorialLimit;
         if (entry.type == ZombieType::ZOMBIE_REDEYE_GARGANTUAR && survival) limit = 0;
         if (entry.type == ZombieType::ZOMBIE_SNOW_BURROW && level == kSnowBurrowTutorialLevel)
             limit = kSnowBurrowTutorialMaxPerWave;

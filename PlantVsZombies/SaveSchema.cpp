@@ -402,6 +402,13 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 11:
+                // 已完成12-2的旧玩家补领莲蓬，未通关与已有卡保持不变。
+                if (kind == DocumentKind::Player && upgraded.value("adventureLevel", 0) >= 102
+                    && upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+                    const int reward = static_cast<int>(PlantType::PLANT_LOTUSPULT);
+                    auto& cards = upgraded["havecards"];
+                    if (std::find(cards.begin(), cards.end(), reward) == cards.end()) cards.push_back(reward);
+                }
 				if (kind == DocumentKind::Level) {
 					// 关卡 v12 把压轴僵尸的永久提交态升级为从提交边沿开始的循环冷却。
 					MigrateRepeatableFinaleCooldowns(upgraded);
@@ -626,6 +633,10 @@ namespace {
                     flood["surgeCount"] = 0;
                 }
                 version = 38; upgraded["schemaVersion"] = version; break;
+            case 38:
+                // 旧局没有打捞配额或莲子弹；只补零台账，不补生或改写其他在途弹丸。
+                if (kind == DocumentKind::Level) upgraded["salvageZombiesSpawnedThisWave"] = 0;
+                version = 39; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

@@ -60,7 +60,7 @@ bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetR
 		} else {
 			if ((type == PlantType::PLANT_SPIKEWEED || type == PlantType::PLANT_SPIKEROCK)
 				&& (water || RequiresFlowerPotAt(targetRow, targetCol))) return false;
-			if (water && (!lily || type == PlantType::PLANT_POTATOMINE)) return false;
+			if (water && ((!lily && !member->CanGrowDirectlyInWater()) || type == PlantType::PLANT_POTATOMINE)) return false;
 			if (RequiresFlowerPotAt(targetRow, targetCol) && !pot) return false;
 		}
 	}

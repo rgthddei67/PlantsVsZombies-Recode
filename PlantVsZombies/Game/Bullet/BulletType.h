@@ -29,6 +29,8 @@ enum class BulletType {
 	BULLET_PRESSURE, // 气压弹；独立单体直射，追加保持旧档弹型
 	BULLET_RAIN_BAMBOO, // 穿雨竹五目标贯穿
 	BULLET_FLOOD_MORTAR, // 独立在途水弹
+	BULLET_LOTUS_SEED, // 莲蓬投手主弹；水中发射时命中后分裂
+	BULLET_LOTUS_FRAGMENT, // 一次锁定的小莲子；不重选目标、不递归分裂
 	NUM_BULLETS,
 };
 

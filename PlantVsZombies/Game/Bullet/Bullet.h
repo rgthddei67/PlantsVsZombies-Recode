@@ -55,6 +55,14 @@ private:
 
 	struct SpikeState;
 	struct AuroraState;
+	struct LotusState {
+		bool split = false;
+		int targetID = NULL_ZOMBIE_ID;
+		Vector start = Vector::zero();
+		Vector target = Vector::zero();
+		float elapsed = 0.0f;
+		float arcHeight = 0.0f;
+	};
 
 public:
 	static constexpr float DefaultColliderDiameter = 10.0f; // Board 创建普通弹丸的碰撞直径，单位 px
@@ -94,6 +102,9 @@ protected:
 	int mHitAuroraTorchwoodColumn = -1; // 最近处理过本子弹的极光树桩列
 	std::unique_ptr<SpikeState> mSpikeState; // 仅尖刺首次接触目标时分配，固定四槽且随池槽复用
 	std::unique_ptr<AuroraState> mAuroraState; // 首次变为极光弹时分配，保存四目标历史与单次音效状态
+	std::unique_ptr<LotusState> mLotusState; // 仅莲子弹型持有分裂承诺或独立追踪状态
+	void SplitLotusSeed(const Zombie* primary);
+	void UpdateLotusFragment(float seconds);
 	std::shared_ptr<Animator> mProjectileAnimator;
 	bool mAnimatorAdvancedInParallel = false;
 	float mThermalEndpointX = 0.0f; // 热脉冲发射时锁定的原落种位置，单位世界 px
@@ -199,6 +210,12 @@ public:
 	static int GetBaseDamage(BulletType type);
 	int GetBulletDamage() const { return mDamage; }
 	void SetBulletDamage(int damage) { this->mDamage = damage; }
+	/** 在主弹离膛时固定分裂资格，不再读取母株或后续水位。 */
+	void ConfigureLotusSeed(bool split);
+	/** 小莲子只接受一个稳定目标 ID；目标失效不重选，所有伤害仍走正式入口。 */
+	void ConfigureLotusFragment(int targetID, float arcHeight);
+	nlohmann::json SaveLotusState() const;
+	void RestoreLotusState(const nlohmann::json& value);
 	void SetPlantDamageOrigin(PlantDamageOrigin origin) { mPlantDamageOrigin = origin; }
 	float GetVelocityX() const { return mVelocityX; }
 	void SetVelocityX(float x);

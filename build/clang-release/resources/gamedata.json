@@ -1,5 +1,6 @@
 {
   "plants": {
+    "PLANT_LOTUSPULT": { "cost": 225, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_RAINBAMBOO": { "cost": 325, "cooldown": 20.0, "offset": [-43.0, -65.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 30.769 } },
     "PLANT_ANCHORLOTUS": { "cost": 125, "cooldown": 30.0, "offset": [-40.0, -47.0], "scale": 1.0, "simulation": { "baseHealth": 4000, "persistent": false } },
     "PLANT_MENDINGCOTTON": { "cost": 150, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } },
@@ -76,6 +77,7 @@
     "PLANT_ICEMIRRORGRASS":  { "cost": 100, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } }
   },
   "zombies": {
+    "ZOMBIE_SALVAGE": { "weight": 1000, "appearWave": 6, "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_FLOOD_MORTAR": { "weight": 2000, "appearWave": 5, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_PRESSURE_SHOOTER": { "weight": 2400, "appearWave": 4, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_DISASTER_ENGINEER": { "weight": 2200, "appearWave": 3, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },

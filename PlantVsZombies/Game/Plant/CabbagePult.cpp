@@ -57,8 +57,7 @@ void CabbagePult::PlantUpdate()
 
 	// 到期即开始下一周期；无目标时不会每个逻辑帧重复遍历行桶。
 	mShootTimer = 0.0f;
-	mShootInterval = GameRandom::Range(
-		kRepeatShootIntervalMin, kRepeatShootIntervalMax);
+	mShootInterval = NextShootInterval();
 	if ((!mBoard || (!mBoard->GetIceWallInRow(mRow) && !FindTarget()))
 		|| !mAnimator) return;
 
@@ -67,6 +66,11 @@ void CabbagePult::PlantUpdate()
 	mAnimator->PlayTrackOnce(
 		"anim_shooting", "anim_idle", shootSpeed,
 		kShootBlendSeconds, 0.0f, kShootBlendSeconds);
+}
+
+float CabbagePult::NextShootInterval() const
+{
+	return GameRandom::Range(kRepeatShootIntervalMin, kRepeatShootIntervalMax);
 }
 
 Zombie* CabbagePult::FindTarget() const

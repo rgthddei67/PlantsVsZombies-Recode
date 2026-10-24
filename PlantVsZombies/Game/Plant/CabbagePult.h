@@ -5,7 +5,7 @@
 /**
  * 经典卷心菜投手：优先攻击同行冰墙，否则按僵尸预计落点投掷卷心菜。
  */
-class CabbagePult final : public Plant
+class CabbagePult : public Plant
 {
 public:
 	using Plant::Plant;
@@ -24,13 +24,13 @@ public:
 protected:
 	/** 设置待机、随机首轮相位和主人确认的第 43 帧发射事件。 */
 	void SetupPlant() override;
+	/** 同时间轴变体复用已确认的发射帧，只覆写实际弹丸提交。 */
+	virtual void FireCabbage();
+	virtual float NextShootInterval() const;
+	class Zombie* FindTarget() const;
 
 private:
 	float mShootTimer = 0.0f;
 	float mShootInterval = 3.0f;
 
-	/** 返回同行最近的合法地面目标；未找到时返回 nullptr。 */
-	class Zombie* FindTarget() const;
-	/** 在动画发射帧重新预测落点并创建卷心菜。 */
-	void FireCabbage();
 };

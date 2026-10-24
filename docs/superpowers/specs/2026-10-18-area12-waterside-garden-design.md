@@ -56,7 +56,7 @@
 
 ## 后续工作边界
 
-目前开放到 12-2。12-1 通关奖励锚藕，12-2 沿用同一混合地形、首次引入重潜僵尸；12-3、12-4 的莲蓬投手与打捞僵尸已确认设计，见本文末节，尚未实现。其余新单位与整章平衡仍待设计。已实现单位参数只维护在 [锚藕规则](../../../PlantVsZombies/Game/Plant/AnchorLotusRules.h)、[重潜规则](../../../PlantVsZombies/Game/Zombie/HeavyDiverRules.h) 与权威 gamedata 中。两关的可试玩波次配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+目前开放到 12-4。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
 
 实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。
 
@@ -90,13 +90,13 @@
 
 ## 2026-10-24 12-3 / 12-4 新单位设计
 
-状态：主人已确认以下玩法与初始参数；本节为待实现设计，尚未修改游戏、制作资源或进行实战平衡验证。开始实现仍需主人明确指令。实现后将本节数值作为设计记录，当前参数以源码和权威配置为准。
+状态：2026-10-24 已实现，以下数值保留为当时的设计记录。当前植物参数见 [LotusPultRules.h](../../../PlantVsZombies/Game/Plant/LotusPultRules.h)，僵尸参数见 [SalvageZombieRules.h](../../../PlantVsZombies/Game/Zombie/SalvageZombieRules.h)，费用、卡牌冷却与出怪权重见权威 gamedata。完成 clang-release 构建与专项行为、存档、资源和可见截图验证；尚不代表整章实战平衡验收。
 
 ### 关卡安排
 
-- 两关合计新增一株植物和一种僵尸。12-3 首次引入打捞僵尸，通关奖励莲蓬投手；12-4 使用新植物，应对打捞与重潜的加强混编。
+- 两关合计新增一株植物和一种僵尸。按主人实施时的修订，莲蓬投手改为通关 12-2 获得；12-3 首次引入打捞僵尸，12-4 应对打捞与重潜的加强混编。
 - 12-3 第 6 波首次出现打捞僵尸，每波最多 1 只、场上同时最多 1 只；12-4 每波最多 2 只、同时最多 2 只。两关均无全关累计上限；每波限制和同时限制须分别生效。
-- 本轮确认的是单位与教学顺序。关卡总波数、起始阳光及其余旧单位混编尚未编排。
+- 可试玩波次与旧单位混编已接入 spawnlists，仍需后续实战调平。
 
 ### 打捞僵尸
 
@@ -123,9 +123,11 @@
 - 只分裂一层，小莲子命中后消失，不再分裂。大莲子击杀主目标仍可分裂；大莲子落空不分裂。
 - 形态跟随植物当前所在格的真实水陆状态，切换保留生命与攻击进度；已经发出的弹丸保持发射时的形态。退到天然土地后正常工作，退到缺盆石地则进入现有补盆救援，花盆被打捞拆掉仍有实际后果。
 - 外观方向：弯曲荷梗带动莲蓬甩出莲子；陆地叶片收拢，水中展开浮叶，水中主弹带一圈小莲子，命中时展开可见的独立飞行与二次命中过程。
+- 按主人追加要求，大莲子命中使用汁液溅斑和种壳碎屑，小莲子独立命中使用少量碎屑；粒子只在实际结算时发射，读档不重播。
 
 ### 实现接续边界
 
-- 本轮没有选定动画时间轴或发射帧。制作实际动画时如需新增帧事件，必须按项目规则先询问主人，不把玩法确认当作帧事件授权。
+- 莲蓬投手复用 CabbagePult 的分件时间轴与既有第 43 帧回调；打捞复用普通僵尸骨架，通过钩索绘制表现计时动作，没有新增帧事件。资源来源和可重建脚本见 [生成记录](../../../scripts/assets/waterside_second_prompts.md)。
 - 基座拆除接现有植物分层生命周期与洪水救援入口；形态与受灾资格读取 Board 真实地形，不复制一套水位或救援规则。
 - 目标身份、尚未完成动作、能力计时及在途分裂弹需遵守现有稳定实体 ID 和存档契约；恢复不能补发分裂弹、重复拆除或重置救援时间。
+- 验证入口为 `smoke_lotus_pult`、`smoke_salvage_zombie`、`smoke_waterside_second_progression`、`smoke_waterside_second_edges`，状态交叉检查见 [verify_waterside_second.py](../../../autotest/verify_waterside_second.py)。

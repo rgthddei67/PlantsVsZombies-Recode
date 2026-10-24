@@ -1,4 +1,5 @@
 #include "WaveSpawnRules.h"
+#include "Game/Zombie/SalvageZombieRules.h"
 #include "Game/Board/Board.h"
 #include "WatersideGardenRules.h"
 #include "Game/AutoTest/TestDriver.h"
@@ -526,6 +527,14 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 		}
 		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
+    if (selected == ZombieType::ZOMBIE_SALVAGE) {
+        const int limit = !mIsSurvival && mLevel == SalvageZombieRules::TutorialLevel
+            ? SalvageZombieRules::TutorialLimit : SalvageZombieRules::CompositeLimit;
+        if ((!mIsSurvival && mCurrentWave < SalvageZombieRules::TutorialWave)
+            || mWaveSpawnCounts.Get(selected) >= limit || CountActiveOrPendingZombieType(selected) >= limit)
+            return ZombieType::NUM_ZOMBIE_TYPES;
+        mWaveSpawnCounts.Record(selected);
+    }
 	if (selected == ZombieType::ZOMBIE_SNOW_BURROW) {
 		const int maxPerWave = mLevel == kSnowBurrowTutorialLevel
 			? kSnowBurrowTutorialMaxPerWave : kSnowBurrowCompositeMaxPerWave;
@@ -1823,7 +1832,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	if (isWater) {
 		// 土豆雷没有水面形态；即使已有睡莲也不能落在水路。
 		if (type == PlantType::PLANT_POTATOMINE) return false;
-		return hasLilyPad
+		return (hasLilyPad || IsAmphibiousPlantType(type))
 			&& normalEmpty;
 	}
 	return normalEmpty
@@ -3203,6 +3212,19 @@ inline void Board::TrySummonZombie()
 
 	int remainingPoints = CalculateWaveZombiePoints();
 	int zombiesSpawned = 0;
+    // 教学保底仍消费正式预算与双重名额，不额外补生或绕过统一 resolver。
+    if (!mIsSurvival && mLevel == SalvageZombieRules::TutorialLevel
+        && mCurrentWave == SalvageZombieRules::TutorialWave) {
+        const int cost = GameDataManager::GetInstance().GetZombieWeight(ZombieType::ZOMBIE_SALVAGE);
+        if (remainingPoints >= cost) {
+            const auto actual = ResolveWaveZombieType(ZombieType::ZOMBIE_SALVAGE);
+            const int row = actual == ZombieType::NUM_ZOMBIE_TYPES ? -1 : SelectSpawnRow(actual);
+            if (row >= 0 && CreateOrQueueWaveZombie(actual, row, x)) {
+                remainingPoints -= cost;
+                ++zombiesSpawned;
+            }
+        }
+    }
 	int candidatesExamined = 0;
 
 	while (remainingPoints > 0 && zombiesSpawned < MAX_ZOMBIES_PER_WAVE

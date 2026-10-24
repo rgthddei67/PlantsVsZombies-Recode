@@ -184,6 +184,8 @@ public:
 	virtual bool AnchorsPlantCellAgainstTyphoon() const { return false; }
 	/** 是否占据屋顶承载层并能托起普通植物；花盆及其承载层升级覆写。 */
 	virtual bool IsRoofSupportPlant() const { return false; }
+	/** 两栖普通层能力植物可直接在水中生长；仍遵守干地花盆与正常占格规则。 */
+	virtual bool CanGrowDirectlyInWater() const { return IsAmphibiousPlantType(GetPlacementType()); }
 	/** 是否能保护指定逻辑格免受蹦极、篮球等来自上方的威胁。 */
 	virtual bool ProtectsCellFromAirborneThreat(int, int) const { return false; }
 	/** 请求启动或复用当前空中防御动作；默认植物不响应。 */

@@ -956,6 +956,29 @@ int main() {
         Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved, "pending surge snapshot remains stable");
     }
 	TestCurrentLevelDocumentIsStable();
+    {
+        std::string error;
+        for (int progress : {101, 102}) {
+            nlohmann::json player = {{"schemaVersion", 11}, {"adventureLevel", progress},
+                {"havecards", nlohmann::json::array({static_cast<int>(PlantType::PLANT_PEASHOOTER)})}};
+            Expect(SaveSchema::UpgradePlayerDocument(player, error), "lotus reward migration succeeds");
+            Expect(player["havecards"].size() == (progress == 102 ? 2 : 1),
+                "only completed 12-2 players receive lotus reward");
+            const auto saved = player;
+            Expect(SaveSchema::UpgradePlayerDocument(player, error) && player == saved,
+                "lotus reward migration does not duplicate cards");
+        }
+        nlohmann::json level = {{"schemaVersion", 38},
+            {"bullets", nlohmann::json::array({{{"type", 0}, {"damage", 47}}})}};
+        const auto bullets = level["bullets"];
+        Expect(SaveSchema::UpgradeLevelDocument(level, error)
+            && level["salvageZombiesSpawnedThisWave"] == 0 && level["bullets"] == bullets,
+            "salvage migration initializes quota without altering existing projectiles");
+        level["salvageZombiesSpawnedThisWave"] = 1;
+        const auto saved = level;
+        Expect(SaveSchema::UpgradeLevelDocument(level, error) && level == saved,
+            "current salvage quota remains consumed after migration");
+    }
 	{
 		std::string error;
 		nlohmann::json old = {{"schemaVersion", 34}, {"coldStorage", {

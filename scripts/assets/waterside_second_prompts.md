@@ -1,0 +1,19 @@
+# 水岸第二对单位素材
+
+使用内置 ImageGen 生成透明分件母图，运行素材由 `scripts/generate_waterside_second_assets.py` 确定性裁切、缩放并适配既有时间轴。实际输出和输入哈希见同名 `.sha256.json`。保留经典完整茎叶、肢体与原事件；卡图由运行时同一首帧合成。
+
+## 莲蓬投手母图
+
+保存为 `scripts/assets/lotus_pult_source.png`，透明背景。
+
+> Create a clean transparent sprite parts atlas for an original Plants vs Zombies classic 2D hand-painted cartoon plant named Lotus Pod Pult. This is production game art, not a mockup. Square canvas, four separate isolated parts in a strict 2 by 2 layout, with ample fully transparent gaps and no labels/text/shadows outside the objects. Top left: compact green lotus seedpod character HEAD ONLY, a squat rounded tapered cup with flat oval crown containing seven dark seed holes, large appealing classic PvZ white eyes looking to the right on its FRONT side, slightly grumpy determined expression, thick dark olive irregular hand-inked outline, light lime highlights and darker olive underside. No stalk, arms or feet. The head will replace a 59x47 pixel cabbage head and must read well at that size; neck attachment bottom center. Top right: green shallow lotus seedpod launch cup/basket, facing upward, oblique side view with dark seed holes and thick outline, no face or stalk, will hold a projectile and attach to an existing flexible vine launcher. Bottom left: one large pale pistachio green oval lotus seed projectile with a dark olive outline and cream shine, simple and readable at 22px. Bottom right: a single complete horizontal circular lotus leaf for the floating base, irregular notch at right, veins converging near center, oblique overhead perspective, chunky outline, yellow-green rim and deep green central leaf. Consistent hand-painted cartoon game sprite style, neutral flat illumination; absolutely no photorealism, gradients into background, borders, captions, watermark or background. All four parts entirely inside their own quadrant. Preserve alpha.
+
+## 打捞僵尸装备母图
+
+保存为 `scripts/assets/salvage_zombie_source.png`，透明背景，采用下述清理后的版本。
+
+> Create one production transparent game equipment sprite atlas for a classic hand-painted 2D Plants vs Zombies salvage worker zombie. A strict 2x2 layout of four isolated objects in separate quadrants with generous transparent margins, no characters, no words, no labels, no background. Thick irregular dark cartoon ink outlines and simple hand painted shading readable at tiny size. Top left: a compact orange life buoy seen front-on, oval ring with 4 off-white rope wraps, open transparent hole, dimensions wider than tall, weathered cartoon nautical prop. Top right: a tan circular coiled rope reel seen obliquely from the side, 3 visible concentric coils around a dark center and a short loose rope end, compact shoulder backpack equipment. Bottom left: one dark steel salvage grappling hook with a short weathered wooden handle and a visible metal ring, long curved single J-shaped hook opening to the right, vertical orientation, entire hook separated from other objects. Bottom right: a small teal-green fisherman's rain hat, brim wider than crown, simple side/front view suitable for a zombie head. Consistent warm orange/teal nautical costume accents, moderately rough hand-painted classic PvZ game sprite aesthetic, flat neutral lighting, no realistic materials, no white highlights outside art. All four props fully visible and bounded within respective quadrant; genuinely transparent alpha.
+
+透明边缘整理使用内置 ImageGen 编辑同一母图：
+
+> Clean the alpha background of this exact 2x2 game equipment atlas. Preserve the four equipment objects, their placement, shapes, colors, outlines and details exactly. Remove ALL soft glows, halos, smoke and shadow clouds outside the thick black object contours. Fully opaque solid painted objects, fully transparent background, including the open center of the life ring and gaps inside the hook and rope. Keep anti-aliasing only within one pixel of the dark outlines, no feathered glows. No new art, no text, no background.

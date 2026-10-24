@@ -297,7 +297,8 @@ namespace {
         counts.CancelReservation(ZombieType::ZOMBIE_REINFORCED_DOOR);
         nlohmann::json saved;
         counts.Save(saved);
-        Check(saved.size() == 27 && saved["reinforcedDoorsSpawnedThisWave"] == 1, "all legacy keys saved together");
+        Check(saved.size() == 28 && saved["reinforcedDoorsSpawnedThisWave"] == 1
+            && saved["salvageZombiesSpawnedThisWave"] == 0, "legacy and salvage keys saved together");
         counts.Reset();
         nlohmann::json empty;
         counts.Save(empty);
@@ -309,6 +310,10 @@ namespace {
         Check(counts.Get(ZombieType::ZOMBIE_POLAR_CLOCKMAKER) == 3, "retain existing clockmaker restore semantics");
         counts.Load(saved,68,false);
         Check(counts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER) == 3, "tutorial sniper cap");
+        counts.Load(saved,102,false);
+        Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 1, "salvage tutorial restores per-wave cap one");
+        counts.Load(saved,103,false);
+        Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 2, "salvage composite restores per-wave cap two");
         counts.Load(saved,69,true);
         Check(counts.Get(ZombieType::ZOMBIE_SNOW_BURROW) == 2
             && counts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER) == 4

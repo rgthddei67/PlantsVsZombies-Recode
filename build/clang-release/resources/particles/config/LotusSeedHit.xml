@@ -1,0 +1,31 @@
+<!-- 大莲子直击：短促汁液溅斑与种壳碎屑；锚点完全由弹丸提供。 -->
+<Emitter>
+  <Name>LotusSeedHit</Name>
+  <Image>PARTICLE_PEA_SPLATS_PART_0,PARTICLE_PEA_SPLATS_PART_1,PARTICLE_PEA_SPLATS_PART_2,PARTICLE_PEA_SPLATS_PART_3</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <ParticleDuration>0.38</ParticleDuration>
+  <SystemDuration>0.6</SystemDuration>
+  <ParticleScale>1.05 0.35</ParticleScale>
+  <ParticleAlpha>0.9,35 0</ParticleAlpha>
+  <ParticleRed>0.9</ParticleRed>
+  <ParticleGreen>1</ParticleGreen>
+  <ParticleBlue>0.7</ParticleBlue>
+  <ParticleBrightness>1.3</ParticleBrightness>
+  <ParticleRotation>[0 360]</ParticleRotation>
+</Emitter>
+<Emitter>
+  <Name>LotusSeedShells</Name>
+  <Image>IMAGE_LOTUSPULT_SEED</Image>
+  <SpawnMinActive>[6 8]</SpawnMinActive>
+  <ParticleDuration>[0.35 0.55]</ParticleDuration>
+  <SystemDuration>0.6</SystemDuration>
+  <ParticleScale>[0.18 0.32]</ParticleScale>
+  <ParticleStretch>0.6</ParticleStretch>
+  <ParticleAlpha>1,65 0</ParticleAlpha>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 4]</EmitterRadius>
+  <LaunchSpeed>[40 80]</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>90</ParticleGravity>
+  <ParticleSpinSpeed>[-260 260]</ParticleSpinSpeed>
+</Emitter>

@@ -693,6 +693,8 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		b["hitAuroraTorchwoodColumn"] = bullet->GetHitAuroraTorchwoodColumn();
 		b["auroraHitZombieIDs"] = bullet->GetAuroraHitZombieIDs();
         b["bambooHitIDs"]=bullet->GetBambooHitIDs();b["floodCharmed"]=bullet->GetFloodCharmed();
+        if (bullet->mBulletType == BulletType::BULLET_LOTUS_SEED
+            || bullet->mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) b["lotus"] = bullet->SaveLotusState();
 		b["auroraPlayedHitSound"] = bullet->HasPlayedAuroraHitSound();
 		b["piercedZombieIDs"] = bullet->GetPiercedZombieIDs();
 		b["spikeDamageRemainders"] = bullet->GetSpikeDamageRemainders();
@@ -1679,6 +1681,7 @@ void GameInfoSaver::RestoreRemainingDocument(Board* board, CardSlotManager* mana
 				b.value("spikeDamageRemainders", std::vector<float>{}));
 			bullet->RestoreBambooHitIDs(b.value("bambooHitIDs",std::vector<int>{}));
             bullet->SetFloodCharmed(b.value("floodCharmed",false));
+            bullet->RestoreLotusState(b.value("lotus", nlohmann::json{}));
             bullet->RestoreAuroraState(
 				b.value("auroraHitZombieIDs", std::vector<int>{}),
 				b.value("auroraPlayedHitSound", false));

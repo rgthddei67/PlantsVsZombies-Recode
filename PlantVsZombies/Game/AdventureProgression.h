@@ -10,7 +10,7 @@ namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
 	inline constexpr int ADVENTURE_AREA_COUNT = 12;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 101; // 第十二大关开放至 12-2 重潜僵尸教学
+	inline constexpr int LAST_ADVENTURE_LEVEL = 103; // 第十二大关开放至 12-4 打捞与重潜混编
 	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * 9;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
@@ -146,7 +146,9 @@ namespace AdventureProgression
 		PlantType::PLANT_MENDINGCOTTON, PlantType::PLANT_RAINBAMBOO, NO_PLANT_REWARD,
 		NO_PLANT_REWARD, NO_PLANT_REWARD, NO_PLANT_REWARD,
 		PlantType::PLANT_ANCHORLOTUS, // 12-1 混合地形教学后获得水路防守工具
-		NO_PLANT_REWARD, // 12-2 重潜僵尸教学
+		PlantType::PLANT_LOTUSPULT, // 12-2通关获得莲蓬投手，12-3开始可用
+        NO_PLANT_REWARD, // 12-3 打捞僵尸教学
+        NO_PLANT_REWARD, // 12-4 水岸混编
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */

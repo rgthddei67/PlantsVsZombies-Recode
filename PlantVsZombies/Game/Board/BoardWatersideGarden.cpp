@@ -164,7 +164,8 @@ int Board::GetWatersidePlantHazard(const Plant* plant) const {
             continue;
         }
         const Plant* under = GetUnderPlantAt(row, col);
-        if (water && (!under || under->GetPlacementType() != PlantType::PLANT_LILYPAD)) return 1;
+        if (water && !plant->CanGrowDirectlyInWater()
+            && (!under || under->GetPlacementType() != PlantType::PLANT_LILYPAD)) return 1;
         if (!water && RequiresFlowerPotAt(row, col) && !GetFlowerPotAt(row, col)) hazard = 2;
     }
     return hazard;

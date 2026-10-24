@@ -84,3 +84,7 @@ reanim 无 `anim_walk2` 必须覆写 `PlayWalkAnimation`（啃完回走/读档�
 ### 出土/升起
 
 垂直位移用 `mVisualOffset.y`（存基准值，按计时线性还原）；地面遮挡用现成 `SetClipRect(0,0,SCENE_WIDTH, groundY+margin)`，**底边取 `Board::GetZombieSpawnY(row, currentX)` 当前 X 的行地面线**（换地图与连续坡面自适应），完成后 `ClearClipRect`；升起期不移动不啃食（覆写 StartEat 早退）。出土未完成前通过 `GetShadow()->SetVisible(false)` 隐藏显式阴影附件，并隐藏 reanim 自带 `_ground` 轨道，完整站起后才恢复两者；`ZombieItemUpdate()`/Load 必须重建双层显隐，防 Animator 恢复后 `_ground` 黑影提前出现。AutoTest 导出两者的可见状态并在出土中段、完成节点和读档后分别断言。死亡演出资格不得直接复用“是否已可索敌/啃食”的交互资格：只要升起阶段已经把本体画到地面以上，断头流血或致死伤害就应进入死亡轨，地下移动阶段才可无演出回收；专项用冻结中的无头目标锁定 `isDying + anim_death`、硬控解除和帧事件最终回收。默认让动画继续播放；若主人明确要求静态出土，**只能 `Animator::Pause()` 播放头，不得把 base/extra 速度层写成 0**——后续 `PlayTrack(anim_death)` 会自动恢复 playing，RISING 读档在 `RestoreAnimState` 后须重新 Pause，并必须专项实测升起中死亡不会卡帧。
+
+### 定向拆除支撑层
+
+打捞型攻击先确定本行第一组植物，再从该组选择当前支撑层；第一组没有可拆底座时仍遮挡后排，不能通过只遍历“可拆目标”跳过它。前摇锁定基座实体 ID，提交时复核它仍为当前合法基座；补种、搬运或目标消失不能让同一动作改打新实体。直接拆除走基座正式生命周期，保留上层身份、生命与能力进度，停工/救援由 Board 当前地形和支撑统一派生。动作提交前先释放自身阶段和目标，避免注销回调重入；硬控、磁吸、无头和魅惑取消未完成动作，已经拆掉的底座不回滚。锚藕只停移动，不能据此暂停可原地发动的技能。入口与验证见 `SalvageZombie`、`smoke_salvage_zombie` 与 `smoke_waterside_second_edges`。

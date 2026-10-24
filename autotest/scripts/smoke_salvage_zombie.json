@@ -1,0 +1,824 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 100
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.7
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "hook_windup.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "hook_windup.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "hook"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "hook"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "dump_state",
+      "name": "hook_restored.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.0
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.under",
+      "equals": "NONE"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.normal",
+      "equals": "PLANT_WALLNUT"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.pumpkin",
+      "equals": "PLANT_PUMPKINSHELL"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_6.watersideHazard",
+      "equals": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "base_removed.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "base_removed.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_6.watersideHazard",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "rescued.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "rescued.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12.6
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "repeat.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LIGHTNINGRODPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.8
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "NONE"
+    },
+    {
+      "op": "assert_state",
+      "path": "topPlantsByCell.0_6.watersideHazard",
+      "equals": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "upgraded_pot_removed.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "upgraded_pot_removed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 850
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.2
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.3.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "dump_state",
+      "name": "front_blocks.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 0,
+      "effect": "BUTTER"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageWindupMs",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.7
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "screenshot",
+      "name": "interrupt_BUTTER.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "interrupt_BUTTER.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 0,
+      "effect": "FROZEN"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageWindupMs",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.7
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "screenshot",
+      "name": "interrupt_FROZEN.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "interrupt_FROZEN.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ALARMBELLFLOWER",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageWindupMs",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "alarm_interrupt.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "damage_zombie",
+      "row": 0,
+      "damage": 700
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.15
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageWindupMs",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "headless.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "headless.json"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "charm_zombie",
+      "row": 0
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageWindupMs",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "charmed.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 10,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MAGNETSHROOM",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 2,
+      "x": 850
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.salvageHasHook",
+      "equals": false,
+      "timeout": 12
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "disarmed"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "disarmed"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageHasHook",
+      "equals": false
+    },
+    {
+      "op": "screenshot",
+      "name": "magnet_disarmed.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "magnet_disarmed.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

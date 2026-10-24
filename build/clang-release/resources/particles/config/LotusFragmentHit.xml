@@ -1,0 +1,17 @@
+<!-- 小莲子各自命中时的轻量碎屑，六次命中仍保留目标轮廓。 -->
+<Emitter>
+  <Name>LotusFragmentHit</Name>
+  <Image>IMAGE_LOTUSPULT_SEED</Image>
+  <SpawnMinActive>3</SpawnMinActive>
+  <ParticleDuration>0.3</ParticleDuration>
+  <SystemDuration>0.35</SystemDuration>
+  <ParticleScale>[0.14 0.22]</ParticleScale>
+  <ParticleStretch>0.65</ParticleStretch>
+  <ParticleAlpha>1,55 0</ParticleAlpha>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 2]</EmitterRadius>
+  <LaunchSpeed>[24 42]</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>65</ParticleGravity>
+  <ParticleSpinSpeed>[-190 190]</ParticleSpinSpeed>
+</Emitter>

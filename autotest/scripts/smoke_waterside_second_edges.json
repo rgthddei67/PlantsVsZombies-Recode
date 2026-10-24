@@ -1,0 +1,436 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "assert_state",
+      "path": "lotusHitResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 2,
+      "col": 3
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 840,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 2,
+      "col": 3,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_value",
+      "path": "bulletCount",
+      "equals": 1,
+      "timeout": 8
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.LotusSeedHit",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.LotusFragmentHit",
+      "equals": 0
+    },
+    {
+      "op": "wait_value",
+      "path": "particleEffectNameCounts.LotusSeedHit",
+      "equals": 1,
+      "timeout": 5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.LotusFragmentHit",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectsByName.LotusSeedHit.0.renderQuadCount",
+      "atLeast": 7
+    },
+    {
+      "op": "screenshot",
+      "name": "main_impact.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "main_impact.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "fragments_in_flight.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "fragments_in_flight.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_value",
+      "path": "particleEffectNameCounts.LotusFragmentHit",
+      "equals": 2,
+      "timeout": 3
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectsByName.LotusFragmentHit.0.renderQuadCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectsByName.LotusFragmentHit.1.renderQuadCount",
+      "equals": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "fragment_impacts.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "fragment_impacts.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "after_hits"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "after_hits"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.LotusSeedHit",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "particleEffectNameCounts.LotusFragmentHit",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "no_replayed_impacts.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LOTUSPULT",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 1,
+      "x": 950,
+      "stationary": true
+    },
+    {
+      "op": "set_cabbagepult_shoot_cycle",
+      "row": 1,
+      "col": 6,
+      "elapsed": 2.99
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.8
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.diverSubmerged",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.bodyHealth",
+      "equals": 2920
+    },
+    {
+      "op": "screenshot",
+      "name": "submerged_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "submerged_hit.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_ANCHORLOTUS",
+      "row": 1,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 1,
+      "col": 7
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 1,
+      "col": 7
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 1,
+      "x": 940
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.7
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.salvageCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombies.0.anchorRootMs",
+      "atLeast": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "root_does_not_interrupt.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "root_does_not_interrupt.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 20000
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 0,
+      "x": 930
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.4
+    },
+    {
+      "op": "damage_zombie",
+      "row": 0,
+      "damage": 2000
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "death_cancels.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

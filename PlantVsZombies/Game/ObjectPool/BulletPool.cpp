@@ -34,6 +34,8 @@ namespace {
 		case BulletType::BULLET_THERMAL_PULSE:
 		case BulletType::BULLET_RAIN_BAMBOO:
         case BulletType::BULLET_FLOOD_MORTAR:
+        case BulletType::BULLET_LOTUS_SEED:
+        case BulletType::BULLET_LOTUS_FRAGMENT:
         case BulletType::BULLET_PRESSURE:
 			return true;
 		case BulletType::BULLET_ZOMBIE_PEA:
