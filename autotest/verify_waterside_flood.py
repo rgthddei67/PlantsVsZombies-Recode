@@ -18,6 +18,7 @@ def verify():
     for suite in (main, weather):
         assert read(suite, "status.json")["status"] == "passed", suite
     initial = read(main, "initial.json")
+    assert initial["watersideFlood"]["drowningSeconds"] == 15
     saved, restored = read(main, "saved.json"), read(main, "restored.json")
     assert saved["watersideFlood"] == restored["watersideFlood"], "water changed during frozen restore"
     assert saved["cells"] == restored["cells"], "restored flooding/plant occupancy differs"
@@ -26,6 +27,8 @@ def verify():
         assert identity in b, "restored plant identity missing"
         for key in ("health", "watersideHazard", "watersideElapsedMs"):
             assert plant[key] == b[identity][key], (identity, key)
+    deadline = read(main, "before_deadline.json")["topPlantsByCell"]["0_2"]
+    assert 13000 <= deadline["watersideElapsedMs"] < 15000, "plant died before the new deadline"
     full = read(main, "drowned.json")
     assert full["cells"][0][2]["normal"] == "NONE", "unrescued land plant survived drowning"
     assert len(full["watersideFlood"]["fullRows"]) == 6
@@ -33,6 +36,12 @@ def verify():
     for row, col in ((1, 5), (0, 6), (0, 7), (5, 0), (5, 1)):
         assert retreat["cells"][row][col]["under"] == "NONE", "stranded lily survived"
         assert retreat["cells"][row][col]["normalID"] == initial["cells"][row][col]["normalID"], "upper plant replaced or lost"
+    late, restored_late = read(main, "late_grace_saved.json"), read(main, "late_grace_restored.json")
+    for cell, kind in (("0_7", 2), ("0_8", 3)):
+        a, b = late["topPlantsByCell"][cell], restored_late["topPlantsByCell"][cell]
+        assert a["watersideHazard"] == b["watersideHazard"] == kind
+        assert 17000 < a["watersideElapsedMs"] == b["watersideElapsedMs"] < 20000
+        assert a["watersideRemainingMs"] == b["watersideRemainingMs"], "restore extended the rescue window"
     finished = read(main, "finished.json")
     assert finished["cells"][0][6]["normalID"] == initial["cells"][0][6]["normalID"]
     assert finished["cells"][0][6]["under"] == "PLANT_FLOWERPOT"

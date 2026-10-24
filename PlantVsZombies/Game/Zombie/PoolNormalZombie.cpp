@@ -33,6 +33,13 @@ void PoolNormalZombie::PlayWalkAnimation(float blendTime)
 	PlayTrack(mInPool ? "anim_swim" : "anim_walk2", 0.0f, blendTime);
 }
 
+/** 洪水可以在啃食/定身期间涨退；只同步泳圈覆盖，不重播动作或改变咬合时机。 */
+void PoolNormalZombie::Update()
+{
+	Zombie::Update();
+	SetPoolEatingTubeVisual(mInPool && mIsEating);
+}
+
 /** 水中啃食轨道会换回无涟漪泳圈；腿部由基类水面 Clip 统一裁掉。 */
 void PoolNormalZombie::OnStartEating()
 {

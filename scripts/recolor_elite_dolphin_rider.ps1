@@ -63,7 +63,7 @@ $expectedHashes['image/reanim/Zombie_elitedolphinrider_outerleg_foot2.png'] = '9
 $expectedHashes['image/reanim/Zombie_elitedolphinrider_outerleg_lower.png'] = 'a5e5314fc41ad7ffff6550808c6ba4770826991622b00ef7335a5acbb5ee8000'
 $expectedHashes['image/reanim/Zombie_elitedolphinrider_outerleg_upper.png'] = 'bde452dda9976746e0c24f6becb9588008bef58ca5fe6d8420c24072ef72e0cf'
 $expectedHashes['particles/ZombieEliteDolphinRiderHead.png'] = '94ccdeb34e3a50e772dcc47a9977d94eb7444b1ac4441a51cff0bae5de15171d'
-$expectedHashes['reanim/EliteDolphinRider.reanim'] = '45ee041ab0b20ce9bb7b88a21bf448bcee09c4b5108fb138a063b7e3107841a0'
+$expectedHashes['reanim/EliteDolphinRider.reanim'] = '430816fc98e53b4051e980271c6c9a3a5571e1d805e2123e5df363293a34b3e8'
 
 function Convert-HsvToRgb {
     param(

@@ -14,7 +14,7 @@ namespace WatersideFloodRules {
     inline constexpr float StoneRise = 12.0f; // 石地相对同距离天然土的额外淹没阈值
     inline constexpr float ShoreBlend = 8.0f; // 水面越过一个格子的连续过渡水域值跨度
     inline constexpr float OuterShoreRise = 18.0f; // 场外每延伸一格的地势增量；上限保留满水淹没余量
-    inline constexpr float DrowningSeconds = 30.0f; // 陆生植物无睡莲时的溺亡宽限，游戏秒
+    inline constexpr float DrowningSeconds = 15.0f; // 陆生植物无睡莲时的溺亡宽限，游戏秒
     inline constexpr float PotGraceSeconds = 20.0f; // 退水后石地补花盆的宽限，游戏秒
     inline constexpr float AquaticDrySeconds = 20.0f; // 纯水生能力植物退水后的缺水宽限，游戏秒
     inline constexpr int TorrentChance = 35; // 水岸章节新大雨候选升级为暴雨的百分比

@@ -10,6 +10,7 @@ class PoolNormalZombie : public Zombie {
 public:
 	using Zombie::Zombie;
 
+	void Update() override;
 	void HeadDrop() override;
 	void ArmDrop() override;
 	void SaveExtraData(nlohmann::json& j) const override;

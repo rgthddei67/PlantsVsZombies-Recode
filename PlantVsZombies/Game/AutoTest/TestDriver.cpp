@@ -8157,6 +8157,28 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				static_cast<int>(std::lround(visualCompensation.x * 1000.0f));
 			zombieState["dolphinVisualCompensationYOn1000"] =
 				static_cast<int>(std::lround(visualCompensation.y * 1000.0f));
+			// 同时检查时间轴原生显隐、已加载材质与实例门控，避免仅 SetTrackVisible 掩盖缺腿资源。
+			const auto animator = z->GetAnimatorInternal();
+			const auto reanim = animator ? animator->GetReanimation() : nullptr;
+			const auto visibleTrack = [&](const char* name) {
+				const auto* track = reanim ? reanim->GetTrack(name) : nullptr;
+				if (!track || track->mFrames.empty() || !animator->GetTrackVisible(name)) return false;
+				const int frame = std::clamp(static_cast<int>(z->GetCurrentFrame()),
+					0, static_cast<int>(track->mFrames.size()) - 1);
+				const auto& pose = track->mFrames[frame];
+				return pose.f >= 0 && pose.a > 0.0f && pose.image != nullptr;
+			};
+			int landBodyTracks = 0;
+			for (const char* name : { "Zombie_dolphinrider_innerleg_foot", "Zombie_dolphinrider_innerleg_lower",
+				"Zombie_dolphinrider_innerleg_upper", "Zombie_dolphinrider_body2",
+				"Zombie_dolphinrider_outerleg_foot1", "Zombie_dolphinrider_outerleg_foot2",
+				"Zombie_dolphinrider_outerleg_lower", "Zombie_dolphinrider_outerleg_upper" }) {
+				landBodyTracks += visibleTrack(name) ? 1 : 0;
+			}
+			zombieState["dolphinLandBodyTracksVisible"] = landBodyTracks;
+			zombieState["dolphinWaterTracksVisible"] =
+				static_cast<int>(visibleTrack("Zombie_dolphinrider_watershadow"))
+				+ static_cast<int>(visibleTrack("Zombie_dolphinrider_whitewater"));
 		}
 		if (auto* pogo = dynamic_cast<PogoZombie*>(z)) {
 			const Vector visual = pogo->GetVisualPosition();
@@ -8520,6 +8542,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				gilded->GetAccelerationMultiplier() * 100.0f));
 		}
 		if (dynamic_cast<PoolNormalZombie*>(z)) {
+			const Texture* waterTube = ResourceManager::GetInstance().GetTexture(
+				ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_DUCKYTUBE_INWATER, false);
+			zombieState["poolEatingWaterTube"] = waterTube && anim
+				&& anim->GetTrackImageOverride("Zombie_duckytube") == waterTube;
 			zombieState["poolLegsVisible"] = anim && (
 				anim->GetTrackVisible("Zombie_innerleg_upper")
 				|| anim->GetTrackVisible("Zombie_innerleg_lower")

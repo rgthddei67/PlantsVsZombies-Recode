@@ -3,17 +3,26 @@
 #include "Game/Board/WatersideFlood.h"
 #include <cmath>
 
+namespace {
+    /** 各类救援窗口独立计时，读档不能用溺亡时限截短补盆或水生植物的已用时间。 */
+    float HazardDuration(int kind) {
+        switch (kind) {
+        case 1: return WatersideFloodRules::DrowningSeconds;
+        case 2: return WatersideFloodRules::PotGraceSeconds;
+        case 3: return WatersideFloodRules::AquaticDrySeconds;
+        default: return 0.0f;
+        }
+    }
+}
+
 void Plant::RestoreWatersideHazard(int kind, float elapsed) {
     mWatersideHazardKind = std::clamp(kind, 0, 3);
     mWatersideHazardElapsed = std::isfinite(elapsed)
-        ? std::clamp(elapsed, 0.0f, WatersideFloodRules::DrowningSeconds) : 0.0f;
+        ? std::clamp(elapsed, 0.0f, HazardDuration(mWatersideHazardKind)) : 0.0f;
 }
 
 float Plant::GetWatersideHazardRemaining() const {
-    if (mWatersideHazardKind == 0) return 0.0f;
-    const float limit = mWatersideHazardKind == 1 ? WatersideFloodRules::DrowningSeconds
-        : (mWatersideHazardKind == 2 ? WatersideFloodRules::PotGraceSeconds : WatersideFloodRules::AquaticDrySeconds);
-    return std::max(0.0f, limit - mWatersideHazardElapsed);
+    return std::max(0.0f, HazardDuration(mWatersideHazardKind) - mWatersideHazardElapsed);
 }
 
 /** 用真实游戏秒推进救援窗口；计时不受肥沃、雨势行动倍率或停机影响。 */

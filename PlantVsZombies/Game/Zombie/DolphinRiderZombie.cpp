@@ -37,6 +37,12 @@ namespace {
 	constexpr float kEntrySecondClipBeginProgress = 0.75f; // C# 入水末段裁剪开始进度
 	constexpr float kEntryFirstClipBottomOffsetY = 126.0f; // C# 首段裁剪底线相对逻辑 Y 的偏移，单位 px
 	constexpr float kEntrySecondClipBottomOffsetY = 136.0f; // C# 末段裁剪底线相对逻辑 Y 的偏移，单位 px
+	constexpr const char* kLandBodyTracks[] = {
+		"Zombie_dolphinrider_innerleg_foot", "Zombie_dolphinrider_innerleg_lower",
+		"Zombie_dolphinrider_innerleg_upper", "Zombie_dolphinrider_body2",
+		"Zombie_dolphinrider_outerleg_foot1", "Zombie_dolphinrider_outerleg_foot2",
+		"Zombie_dolphinrider_outerleg_lower", "Zombie_dolphinrider_outerleg_upper",
+	};
 
 	float SmoothStep(float value)
 	{
@@ -144,6 +150,14 @@ void DolphinRiderZombie::StartEat(ColliderComponent* other)
 	}
 	if (mPhase != Phase::SWIMMING && mPhase != Phase::WALKING_WITHOUT_DOLPHIN) return;
 	Zombie::StartEat(other);
+	UpdateWaterPresentation();
+}
+
+/** 基类在硬控中仍更新水域；视觉门控跟随实际介质，不受品种技能暂停影响。 */
+void DolphinRiderZombie::Update()
+{
+	Zombie::Update();
+	UpdateWaterPresentation();
 }
 
 void DolphinRiderZombie::BeginEnteringPool()
@@ -440,8 +454,25 @@ void DolphinRiderZombie::CheckDeferredArmDrop()
 	mHasArm = false;
 }
 
+void DolphinRiderZombie::UpdateWaterPresentation() const
+{
+	if (mAnimator) {
+		// anim_eat 保留原咬合事件，并补入陆地站姿；介质变化只切腿部/水纹，不能重播啃食。
+		// 不依赖 phase：啃食期间涨退水不会经过 PlayWalkAnimation，游泳阶段也可能已站上陆地。
+		const bool waterEating = mInPool && GetCurrentTrackName() == "anim_eat";
+		for (const char* track : kLandBodyTracks) {
+			mAnimator->SetTrackVisible(track, !waterEating);
+		}
+		// 入水片段从岸上起播，水纹早于逻辑根坐标入池出现，继续由原生时间轴控制。
+		const bool showWater = mInPool || mPhase == Phase::ENTERING_POOL;
+		mAnimator->SetTrackVisible("Zombie_dolphinrider_watershadow", showWater);
+		mAnimator->SetTrackVisible("Zombie_dolphinrider_whitewater", showWater);
+	}
+}
+
 void DolphinRiderZombie::ApplyPhasePresentation() const
 {
+	UpdateWaterPresentation();
 	if (mCollider && !mIsPreview) {
 		// reanim 的骑乘身体轨道自身已向左偏约 70 px；碰撞箱保持逻辑原点即可对齐可见身体。
 		mCollider->offset.x = mBaseColliderOffsetX;

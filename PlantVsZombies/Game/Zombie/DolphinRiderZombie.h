@@ -38,6 +38,7 @@ public:
 	Vector GetDolphinVisualCompensation() const;
 
 	void StartEat(ColliderComponent* other) override;
+	void Update() override;
 	void HeadDrop() override;
 	void ArmDrop() override;
 	void PlaySpawnSound() override;
@@ -72,6 +73,8 @@ private:
 	void BeginJump(Plant* target);
 	void FinishJump(bool blocked, Plant* blockingPlant = nullptr);
 	void ApplyPhasePresentation() const;
+	/** 按实际介质重建陆地啃食站姿与水纹；冻结、啃食和读档时同样适用。 */
+	void UpdateWaterPresentation() const;
 	void CheckDeferredArmDrop();
 	void MoveManually(float speed, float scaledDelta, Transform* transform);
 
