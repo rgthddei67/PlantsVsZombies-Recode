@@ -2800,8 +2800,14 @@ bool Zombie::IsPlantValidEatTarget(Plant* plant) const
 
 	// C# CanTargetPlant(Chew) 会递归询问 EatingOrder 顶层；顶层若 NotOnGround，
 	// 下层仍可成为目标。不能把 Cell 的物理顶层无条件当成唯一合法目标。
-	Plant* top = mBoard->GetTopPlantAt(plant->mRow, plant->mColumn);
-	return !top || top == plant || !IsPlantValidEatTarget(top);
+	for (Plant* higher : {mBoard->GetPumpkinAt(plant->mRow, plant->mColumn),
+		mBoard->GetNormalPlantAt(plant->mRow, plant->mColumn),
+		mBoard->GetUnderPlantAt(plant->mRow, plant->mColumn),
+		mBoard->GetFoundationPlantAt(plant->mRow, plant->mColumn)}) {
+		if (higher == plant) return true;
+		if (higher && IsPlantValidEatTarget(higher)) return false;
+	}
+	return true;
 }
 
 bool Zombie::RetargetPlantWithinCell(Plant* plant)
@@ -2842,6 +2848,7 @@ bool Zombie::IsCurrentPlantEatingTargetValid()
 			mBoard->GetPumpkinAt(plant->mRow, plant->mColumn),
 			mBoard->GetNormalPlantAt(plant->mRow, plant->mColumn),
 			mBoard->GetUnderPlantAt(plant->mRow, plant->mColumn),
+			mBoard->GetFoundationPlantAt(plant->mRow, plant->mColumn),
 		};
 		Plant* replacement = nullptr;
 		for (Plant* candidate : layers) {

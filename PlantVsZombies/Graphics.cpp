@@ -1357,8 +1357,8 @@ bool Graphics::DrawFloodSurface(const Texture* base, const Texture* shading, con
         && DrawWaterEffectQuad(6,x,y,width,height,data,counter,caustic);
 }
 
-bool Graphics::DrawWaterGauge(float x, float y, float diameter, float value) {
-	return DrawWaterEffectQuad(4, x, y, diameter, diameter, glm::vec4(value, 0, 0, 0), 0);
+bool Graphics::DrawWaterGauge(float x, float y, float diameter, float value, float overflow, float warningPulse) {
+	return DrawWaterEffectQuad(4, x, y, diameter, diameter, glm::vec4(value, overflow, warningPulse, 0), 0);
 }
 
 bool Graphics::DrawWaterEffectQuad(int effect, float x, float y, float width, float height,

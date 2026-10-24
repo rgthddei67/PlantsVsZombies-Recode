@@ -1756,7 +1756,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	const bool normalEmpty = cell->GetNormalPlantID() == NULL_PLANT_ID || cell->GetNormalPlantID() == vacatedPlantID;
 	const bool hasLilyPad = underPlant
 		&& underPlant->mPlantType == PlantType::PLANT_LILYPAD;
-	const bool hasFlowerPot = underPlant && underPlant->IsRoofSupportPlant();
+	const bool hasFlowerPot = GetFlowerPotAt(row, col) != nullptr;
 	if (type == PlantType::PLANT_INSTANT_COFFEE) {
 		// 原版 flying layer：只允许覆盖仍睡眠、尚未进入唤醒且未被蹦极抓取的普通层蘑菇。
 		return cell->GetOverlayPlantID() == NULL_PLANT_ID
@@ -1766,8 +1766,8 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	}
 	if (IsUpgradePlantType(type)) {
 		// 紫卡按规则选择 normal 或 under；承载层升级不会检查或覆盖上层植物。
-		Plant* basePlant = GetUpgradePlantLayer(type) == PlantUpgradeLayer::UNDER
-			? underPlant : normalPlant;
+		Plant* basePlant = UsesFoundationLayer(type) ? GetFoundationPlantAt(row, col)
+			: (GetUpgradePlantLayer(type) == PlantUpgradeLayer::UNDER ? underPlant : normalPlant);
 		return basePlant && basePlant->IsActive()
 			&& basePlant->mPlantHealth > 0 && !basePlant->IsSquished()
 			&& !basePlant->IsBungeeTargeted()
@@ -1782,6 +1782,11 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 		return true;
 	}
 	if (type == PlantType::PLANT_FLOWERPOT) {
+		if (IsWatersideStoneSquare(row, col)) {
+			const PlantType topType = normalPlant ? normalPlant->GetPlacementType() : PlantType::NUM_PLANT_TYPES;
+			return !GetFoundationPlantAt(row, col) && topType != PlantType::PLANT_TANGLEKELP
+				&& topType != PlantType::PLANT_SEASHROOM && topType != PlantType::PLANT_ANCHORLOTUS;
+		}
 		// 原版允许花盆落在任意非水地面；屋顶以外通常只是不推荐选择。
 		return !isWater && (cell->IsEmpty() || (SupportsWatersideFlood()
 			&& RequiresFlowerPotAt(row, col) && !underPlant));
@@ -1800,14 +1805,13 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 		// 屋顶与硬质裸地普通植物只占 normal 层，由 under 层花盆承载。
 		return hasFlowerPot && normalEmpty;
 	}
-    // 洪水救援允许补入睡莲或原子替换花盆，保留 normal/pumpkin/overlay。
+    // 洪水救援允许补入睡莲；花盆在独立 foundation 层，保留全部既有实体。
     if (SupportsWatersideFlood() && type == PlantType::PLANT_LILYPAD && isWater) {
         // 原本直接扎在水里的能力植物仍不允许垫睡莲，救援只扩展陆生上层。
         const PlantType normalType = normalPlant ? normalPlant->GetPlacementType() : PlantType::NUM_PLANT_TYPES;
         if (normalType == PlantType::PLANT_TANGLEKELP || normalType == PlantType::PLANT_SEASHROOM
             || normalType == PlantType::PLANT_ANCHORLOTUS) return false;
-        return !underPlant || (underPlant->IsRoofSupportPlant() && !underPlant->IsIceSealed()
-            && !underPlant->IsBungeeTargeted());
+        return !underPlant;
     }
 	if (type == PlantType::PLANT_LILYPAD
 		|| type == PlantType::PLANT_TANGLEKELP
@@ -1954,11 +1958,12 @@ Plant* Board::GetTopPlantAt(int row, int col) const
 
 Plant* Board::GetCatapultTargetPlantAt(int row, int col) const
 {
-	const std::array<Plant*, 4> layers = {
+	const std::array<Plant*, 5> layers = {
 		GetOverlayPlantAt(row, col),
 		GetNormalPlantAt(row, col),
 		GetPumpkinAt(row, col),
 		GetUnderPlantAt(row, col),
+		GetFoundationPlantAt(row, col),
 	};
 	for (Plant* plant : layers) {
 		if (plant && plant->IsActive() && plant->mPlantHealth > 0
@@ -1986,10 +1991,11 @@ Plant* Board::FindAirborneThreatProtector(int row, int col) const
 Plant* Board::GetJumpBlockingPlantAt(int row, int col, ZombieJumpType jumpType) const
 {
 	// 跳跃阻拦是格内植物能力，不等同于啃食顶层；南瓜等非阻拦外壳要继续向内查询。
-	const std::array<Plant*, 3> layers = {
+	const std::array<Plant*, 4> layers = {
 		GetPumpkinAt(row, col),
 		GetNormalPlantAt(row, col),
 		GetUnderPlantAt(row, col),
+		GetFoundationPlantAt(row, col),
 	};
 	for (Plant* plant : layers) {
 		if (plant && plant->IsActive() && plant->mPlantHealth > 0
@@ -2014,6 +2020,20 @@ Plant* Board::GetNormalPlantAt(int row, int col) const
 	return cell ? mEntityRegistry.GetPlant(cell->GetNormalPlantID()) : nullptr;
 }
 
+Plant* Board::GetFoundationPlantAt(int row, int col) const
+{
+	if (row < 0 || row >= mRows || col < 0 || col >= mColumns) return nullptr;
+	const Cell* cell = mCells[row][col];
+	return cell ? mEntityRegistry.GetPlant(cell->GetFoundationPlantID()) : nullptr;
+}
+
+Plant* Board::GetFlowerPotAt(int row, int col) const
+{
+	Plant* pot = GetFoundationPlantAt(row, col);
+	if (!pot) pot = GetUnderPlantAt(row, col);
+	return pot && pot->IsActive() && !pot->IsSquished() && pot->IsRoofSupportPlant() ? pot : nullptr;
+}
+
 Plant* Board::GetPumpkinAt(int row, int col) const
 {
 	if (row < 0 || row >= mRows || col < 0 || col >= mColumns) return nullptr;
@@ -2036,11 +2056,12 @@ void Board::ForEachActivePlantInCell(int row, int col,
 	const Cell* cell = mCells[row][col];
 	if (!cell) return;
 
-	const std::array<int, 4> plantIDs = {
+	const std::array<int, 5> plantIDs = {
 		cell->GetOverlayPlantID(),
 		cell->GetPumpkinPlantID(),
 		cell->GetNormalPlantID(),
 		cell->GetUnderPlantID(),
+		cell->GetFoundationPlantID(),
 	};
 	for (const int plantID : plantIDs) {
 		Plant* plant = mEntityRegistry.GetPlant(plantID);
@@ -2056,7 +2077,7 @@ void Board::ForEachActivePlantInCell(int row, int col,
 WinterGroundImpactResponse Board::ApplyWinterGroundImpactToCell(int row, int col,
 	WinterGroundImpactKind kind, int damage, DamageSource source)
 {
-	std::array<int, 4> plantIDs{};
+	std::array<int, 5> plantIDs{};
 	std::size_t plantCount = 0;
 	ForEachActivePlantInCell(row, col, [&](Plant& plant) {
 		plantIDs[plantCount++] = plant.mPlantID;
@@ -2208,8 +2229,9 @@ void Board::RefreshPlantStackRenderOrder(Cell* cell)
 	Plant* normal = mEntityRegistry.GetPlant(cell->GetNormalPlantID());
 	Plant* pumpkin = mEntityRegistry.GetPlant(cell->GetPumpkinPlantID());
 	Plant* overlay = mEntityRegistry.GetPlant(cell->GetOverlayPlantID());
+	Plant* foundation = mEntityRegistry.GetPlant(cell->GetFoundationPlantID());
 	std::vector<Plant*> stack;
-	for (Plant* plant : { under, normal, pumpkin, overlay }) {
+	for (Plant* plant : { foundation, under, normal, pumpkin, overlay }) {
 		if (plant) stack.push_back(plant);
 	}
 	// 按承载层次排列已有号，分配凭据随号转移；之后铲除任意层只释放该层自己的号。
@@ -2296,20 +2318,15 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 		return nullptr;
 	}
 
-    Plant* floodRescueBase = nullptr;
-    if (SupportsWatersideFlood() && !isPreview && !skipsettings
-        && placementType == PlantType::PLANT_LILYPAD && IsPoolSquare(row, column)) {
-        Plant* under = GetUnderPlantAt(row, column);
-        if (under && under->IsRoofSupportPlant()) floodRescueBase = under;
-    }
 	Plant* upgradeBasePlant = nullptr;
 	std::vector<Plant*> upgradeBasePlants;
 	bool inheritedSleeping = false;
 	float inheritedWakeUpTimer = 0.0f;
 	if (isUpgradePlant && !isPreview && !skipsettings) {
 		if (!CanPlantAt(placementType, row, column)) return nullptr;
-		upgradeBasePlant = GetUpgradePlantLayer(placementType) == PlantUpgradeLayer::UNDER
-			? GetUnderPlantAt(row, column) : GetNormalPlantAt(row, column);
+		upgradeBasePlant = UsesFoundationLayer(placementType) ? GetFoundationPlantAt(row, column)
+			: (GetUpgradePlantLayer(placementType) == PlantUpgradeLayer::UNDER
+				? GetUnderPlantAt(row, column) : GetNormalPlantAt(row, column));
 		if (!upgradeBasePlant) return nullptr;
 		upgradeBasePlants.push_back(upgradeBasePlant);
 		if (placementType == PlantType::PLANT_COBCANNON) {
@@ -2333,22 +2350,23 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 	if (plant && !isPreview && !skipsettings) {
 		Cell* cell = GetCell(row, column);
 		const bool isUnderPlant = IsUnderPlantLayerType(placementType);
+		const bool isFoundation = UsesFoundationLayer(placementType);
 		const bool isPumpkinPlant = placementType == PlantType::PLANT_PUMPKINSHELL;
 		const int occupiedID = isUnderPlant
-			? cell->GetUnderPlantID()
+			? (isFoundation ? cell->GetFoundationPlantID() : cell->GetUnderPlantID())
 			: (isPumpkinPlant ? cell->GetPumpkinPlantID()
 				: (isOverlayPlant ? cell->GetOverlayPlantID() : cell->GetNormalPlantID()));
 		const bool replacesExpectedBase = isUpgradePlant && upgradeBasePlant
 			&& occupiedID == upgradeBasePlant->mPlantID;
-		if (occupiedID != NULL_PLANT_ID && !replacesExpectedBase
-            && (!floodRescueBase || occupiedID != floodRescueBase->mPlantID)) {
+		if (occupiedID != NULL_PLANT_ID && !replacesExpectedBase) {
 			plant->Die();
 			return nullptr;
 		}
 		mEntityRegistry.AddPlant(plant);
 
 		// 将植物与格子关联
-		if (isUnderPlant) cell->SetUnderPlantID(plant->mPlantID);
+		if (isFoundation) cell->SetFoundationPlantID(plant->mPlantID);
+		else if (isUnderPlant) cell->SetUnderPlantID(plant->mPlantID);
 		else if (isPumpkinPlant) cell->SetPumpkinPlantID(plant->mPlantID);
 		else if (isOverlayPlant) cell->SetOverlayPlantID(plant->mPlantID);
 		else {
@@ -2363,7 +2381,6 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 				return nullptr;
 			}
 		}
-        if (floodRescueBase) floodRescueBase->Die();
 		if (replacesExpectedBase) {
 			// 先把格子切到新 ID，再让旧株死亡；ReleaseGridSlot 只清自己的 ID，因此替换原子化。
 			for (Plant* base : upgradeBasePlants) {
@@ -2513,6 +2530,8 @@ inline void Board::CleanPlantFromCells(int plantID)
 		for (size_t j = 0; j < mCells[i].size(); j++) {
 			if (mCells[i][j]->GetUnderPlantID() == plantID)
 				mCells[i][j]->ClearUnderPlantID();
+			if (mCells[i][j]->GetFoundationPlantID() == plantID)
+				mCells[i][j]->ClearFoundationPlantID();
 			if (mCells[i][j]->GetNormalPlantID() == plantID)
 				mCells[i][j]->ClearNormalPlantID();
 			if (mCells[i][j]->GetPumpkinPlantID() == plantID)
@@ -3811,10 +3830,11 @@ Plant* Board::CreatePlantWithIDInternal(PlantType actualType,
 {
 	Cell* cell = GetCell(row, col);
 	const bool isUnderPlant = IsUnderPlantLayerType(placementType);
+	const bool isFoundation = UsesFoundationLayer(placementType);
 	const bool isPumpkinPlant = placementType == PlantType::PLANT_PUMPKINSHELL;
 	const bool isOverlayPlant = placementType == PlantType::PLANT_INSTANT_COFFEE;
 	if (cell && (isUnderPlant
-		? cell->GetUnderPlantID()
+		? (isFoundation ? cell->GetFoundationPlantID() : cell->GetUnderPlantID())
 		: (isPumpkinPlant ? cell->GetPumpkinPlantID()
 			: (isOverlayPlant ? cell->GetOverlayPlantID() : cell->GetNormalPlantID()))) != NULL_PLANT_ID) {
 		return nullptr;
@@ -3842,7 +3862,8 @@ Plant* Board::CreatePlantWithIDInternal(PlantType actualType,
 	if (plant) {
 		mEntityRegistry.AddPlantWithID(plant, id);
 		if (cell) {
-			if (isUnderPlant) cell->SetUnderPlantID(id);
+			if (isFoundation) cell->SetFoundationPlantID(id);
+			else if (isUnderPlant) cell->SetUnderPlantID(id);
 			else if (isPumpkinPlant) cell->SetPumpkinPlantID(id);
 			else if (isOverlayPlant) cell->SetOverlayPlantID(id);
 			else if (!OccupyPlantFootprint(placementType, row, col, id)) {

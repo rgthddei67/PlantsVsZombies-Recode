@@ -23,7 +23,7 @@ void MendingCotton::PlantUpdate() {
             if (row==mRow && col==mColumn) continue;
             auto* cell=mBoard->GetCell(row,col);
             if (!cell) continue;
-            for (int id : {cell->GetNormalPlantID(),cell->GetPumpkinPlantID(),cell->GetUnderPlantID()}) {
+            for (int id : {cell->GetNormalPlantID(),cell->GetPumpkinPlantID(),cell->GetUnderPlantID(),cell->GetFoundationPlantID()}) {
                 auto* p=mBoard->mEntityRegistry.GetPlant(id);
                 if (!p || !p->CanReceiveHealing()) continue;
                 const int64_t lhs=target ? int64_t(p->mPlantHealth)*target->mPlantMaxHealth : 0;

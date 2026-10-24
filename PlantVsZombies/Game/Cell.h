@@ -8,6 +8,7 @@
 #include "GameObject.h"
 #include "GameObjectManager.h"
 #include "./Plant/PlantType.h"
+#include <array>
 
 constexpr float CELL_COLLIDER_SIZE_X = 80.0f;
 constexpr float CELL_COLLIDER_SIZE_Y = 100.0f;
@@ -22,6 +23,7 @@ private:
 	int mNormalPlantID = NULL_PLANT_ID;
 	int mPumpkinPlantID = NULL_PLANT_ID;
 	int mOverlayPlantID = NULL_PLANT_ID;
+	int mFoundationPlantID = NULL_PLANT_ID;
 
 public:
 	int mRow = 0;		// 行
@@ -81,15 +83,22 @@ public:
 	void SetNormalPlantID(int plantID) { mNormalPlantID = plantID; }
 	void SetPumpkinPlantID(int plantID) { mPumpkinPlantID = plantID; }
 	void SetOverlayPlantID(int plantID) { mOverlayPlantID = plantID; }
+	void SetFoundationPlantID(int plantID) { mFoundationPlantID = plantID; }
 
 	// 获取植物ID
 	int GetUnderPlantID() const { return mUnderPlantID; }
 	int GetNormalPlantID() const { return mNormalPlantID; }
 	int GetPumpkinPlantID() const { return mPumpkinPlantID; }
 	int GetOverlayPlantID() const { return mOverlayPlantID; }
+	int GetFoundationPlantID() const { return mFoundationPlantID; }
+	/** 全层快照；前四层顺序保持既有约定，末层为水岸花盆基座。 */
+	std::array<int, 5> GetPlantIDs() const {
+		return {mUnderPlantID, mNormalPlantID, mPumpkinPlantID, mOverlayPlantID, mFoundationPlantID};
+	}
 	int GetTopPlantID() const {
 		if (mPumpkinPlantID != NULL_PLANT_ID) return mPumpkinPlantID;
-		return mNormalPlantID != NULL_PLANT_ID ? mNormalPlantID : mUnderPlantID;
+		if (mNormalPlantID != NULL_PLANT_ID) return mNormalPlantID;
+		return mUnderPlantID != NULL_PLANT_ID ? mUnderPlantID : mFoundationPlantID;
 	}
 
 	// 清除植物ID
@@ -97,6 +106,7 @@ public:
 	void ClearNormalPlantID() { mNormalPlantID = NULL_PLANT_ID; }
 	void ClearPumpkinPlantID() { mPumpkinPlantID = NULL_PLANT_ID; }
 	void ClearOverlayPlantID() { mOverlayPlantID = NULL_PLANT_ID; }
+	void ClearFoundationPlantID() { mFoundationPlantID = NULL_PLANT_ID; }
 
 	// 检查格子是否为空
 	bool IsEmpty() const
@@ -104,7 +114,8 @@ public:
 		return mUnderPlantID == NULL_PLANT_ID
 			&& mNormalPlantID == NULL_PLANT_ID
 			&& mPumpkinPlantID == NULL_PLANT_ID
-			&& mOverlayPlantID == NULL_PLANT_ID;
+			&& mOverlayPlantID == NULL_PLANT_ID
+			&& mFoundationPlantID == NULL_PLANT_ID;
 	}
 
 	// 检查点是否在格子内

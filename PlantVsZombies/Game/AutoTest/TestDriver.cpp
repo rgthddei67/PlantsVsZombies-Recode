@@ -6856,6 +6856,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         {"waterMilli", static_cast<int>(std::lround(board->GetWatersideWater() * 1000))},
         {"rateMilli", static_cast<int>(std::lround(board->GetWatersideWaterRate() * 1000))},
         {"drowningSeconds", WatersideFloodRules::DrowningSeconds},
+        {"overflowMilli", static_cast<int>(std::lround(board->GetWatersideOverflow() * 1000))},
+        {"overflowCapacity", WatersideFloodRules::OverflowCapacity},
+        {"warningMs", static_cast<int>(std::lround(board->GetWatersideSurgeWarning() * 1000))},
+        {"surgeTargets", board->GetWatersideSurgeTargets()},
+        {"surgeTargetCount", board->GetWatersideSurgeTargets().size()},
+        {"surgeCount", board->GetWatersideSurgeCount()},
         {"potGraceSeconds", WatersideFloodRules::PotGraceSeconds},
         {"floodedCells", 0}, {"fullRows", nlohmann::json::array()}
     };
@@ -9540,6 +9546,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			if (board->GetUnderPlantAt(occupiedRow, occupiedColumn) == p) {
 				out["underPlantsByCell"][cellKey] = plantState;
 			}
+			if (board->GetFoundationPlantAt(occupiedRow, occupiedColumn) == p) {
+				out["foundationPlantsByCell"][cellKey] = plantState;
+			}
 			if (board->GetNormalPlantAt(occupiedRow, occupiedColumn) == p) {
 				out["normalPlantsByCell"][cellKey] = plantState;
 			}
@@ -9928,6 +9937,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			Cell* cell = board->GetCell(row, col);
 			const Vector center = board->GetCellCenterPosition(row, col);
 			Plant* under = cell ? board->mEntityRegistry.GetPlant(cell->GetUnderPlantID()) : nullptr;
+			Plant* foundation = board->GetFoundationPlantAt(row, col);
 			Plant* normal = cell ? board->mEntityRegistry.GetPlant(cell->GetNormalPlantID()) : nullptr;
 			Plant* pumpkin = cell ? board->mEntityRegistry.GetPlant(cell->GetPumpkinPlantID()) : nullptr;
 			Plant* overlay = cell ? board->mEntityRegistry.GetPlant(cell->GetOverlayPlantID()) : nullptr;
@@ -9938,6 +9948,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
                 { "floodCoverageMilli", static_cast<int>(std::lround(board->GetWatersideFloodCoverage(row,col)*1000)) },
                 { "requiresFlowerPot", board->RequiresFlowerPotAt(row, col) },
                 { "fertile", board->IsFertileSquare(row, col) },
+                { "lilyAnchored", board->IsWatersideLilyAnchored(under) },
+				{ "foundation", foundation ? PlantTypeName(foundation->mPlantType) : "NONE" },
+				{ "foundationID", foundation ? foundation->mPlantID : NULL_PLANT_ID },
+				{ "foundationHealth", foundation ? foundation->mPlantHealth : 0 },
 				{ "centerXInt", static_cast<int>(std::lround(center.x)) },
 				{ "centerYInt", static_cast<int>(std::lround(center.y)) },
 				{ "under", under ? PlantTypeName(under->mPlantType) : "NONE" },

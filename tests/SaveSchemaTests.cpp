@@ -940,6 +940,21 @@ int main() {
         const auto saved=old;
         Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved, "current flood save is stable");
     }
+    {
+        std::string error;
+        nlohmann::json old = {{"schemaVersion",37},{"watersideFlood",{{"water",91.5f}}},
+            {"plants",nlohmann::json::array({{{"id",17},{"health",120}}})}};
+        const auto plants = old["plants"];
+        Expect(SaveSchema::UpgradeLevelDocument(old,error), "v37 overflow migration");
+        Expect(old["watersideFlood"]["water"]==91.5f && old["watersideFlood"]["overflow"]==0
+            && old["watersideFlood"]["targets"].empty() && old["plants"]==plants,
+            "overflow migration preserves water and plant identity without historic surge debt");
+        old["watersideFlood"]["overflow"]=12.5f;
+        old["watersideFlood"]["warningRemaining"]=2.5f;
+        old["watersideFlood"]["targets"]={17,18};
+        const auto saved=old;
+        Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved, "pending surge snapshot remains stable");
+    }
 	TestCurrentLevelDocumentIsStable();
 	{
 		std::string error;

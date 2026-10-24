@@ -44,7 +44,7 @@ def verify():
         assert a["watersideRemainingMs"] == b["watersideRemainingMs"], "restore extended the rescue window"
     finished = read(main, "finished.json")
     assert finished["cells"][0][6]["normalID"] == initial["cells"][0][6]["normalID"]
-    assert finished["cells"][0][6]["under"] == "PLANT_FLOWERPOT"
+    assert finished["cells"][0][6]["foundation"] == "PLANT_FLOWERPOT"
     assert finished["cells"][0][7]["normal"] == "NONE", "missed pot deadline"
     assert finished["cells"][0][8]["normal"] == "NONE", "stranded aquatic plant survived"
     assert finished["cells"][5][0]["normalID"] == initial["cells"][5][0]["normalID"]

@@ -492,8 +492,8 @@ public:
 	bool DrawFloodSurface(const Texture* base, const Texture* shading, const Texture* caustic,
         float x, float y, float width, float height,
 		const glm::vec4& depths, float counter);
-	/** 绘制带像素导数抗锯齿的圆盘和连续指针；value 为 0..1，标签由调用方绘制。 */
-	bool DrawWaterGauge(float x, float y, float diameter, float value);
+	/** 距离场表盘；value/overflow 为 0..1，warningPulse 为 0..1 呼吸亮度（0 无预警）；标签由调用方绘制。 */
+	bool DrawWaterGauge(float x, float y, float diameter, float value, float overflow = 0.0f, float warningPulse = 0.0f);
 
 	/**
 	 * @brief 绘制文字（**当前层**：与调用处的绘制顺序同 z-order）。

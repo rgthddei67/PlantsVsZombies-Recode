@@ -516,9 +516,9 @@ void CardSlotManager::CreateCellPlantPreview(PlantType plantType, Cell* cell) {
 				cellPlantPreview->SetImitatedAppearance(true);
 			}
 			Vector centerPos = anchorCell->GetCenterPosition();          // 世界坐标
-			Plant* supportPlant = mBoard->GetUnderPlantAt(anchorRow, anchorColumn);
+			Plant* supportPlant = mBoard->GetFlowerPotAt(anchorRow, anchorColumn);
 			if (!cellPlantPreview->IsRoofSupportPlant() && supportPlant
-				&& supportPlant->IsRoofSupportPlant()) {
+				&& !mBoard->IsPoolSquare(anchorRow, anchorColumn)) {
 				// 预览实体没有真实 row/column，需在落点处显式复用花盆抬升口径。
 				centerPos.y += Plant::kFlowerPotVisualLiftY;
 			}

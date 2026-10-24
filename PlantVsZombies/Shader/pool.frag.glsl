@@ -74,7 +74,7 @@ void main()
         }
     }
 
-    if (pc.poolLayer > 3.5 && pc.poolLayer < 4.5) { outColor = waterGaugeFace(inTexCoord, inColor.x); return; }
+    if (pc.poolLayer > 3.5 && pc.poolLayer < 4.5) { outColor = waterGaugeFace(inTexCoord, inColor.x, inColor.y, inColor.z); return; }
     if (pc.poolLayer > 2.5) {
         float mask = floodMask(inTexCoord,inColor,inPoolCoord,pc.poolCounter);
         if (pc.poolLayer > 5.5) outColor = vec4(causticAlphaAt(floodCausticUV(inPoolCoord,pc.poolCounter))*.75)*mask;

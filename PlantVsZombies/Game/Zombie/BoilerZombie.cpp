@@ -31,7 +31,7 @@ bool BoilerZombie::HasPlantInRange() const
 	if (!mBoard || IsMindControlled()) return false;
 	for (int col = 0; col < mBoard->mColumns; ++col) {
 		// 暂时不可啃食的上层不能挡住同格仍合法的普通层或承载层。
-		for (const auto* plant : {mBoard->GetPumpkinAt(mRow, col), mBoard->GetNormalPlantAt(mRow, col), mBoard->GetUnderPlantAt(mRow, col)}) {
+		for (const auto* plant : {mBoard->GetPumpkinAt(mRow, col), mBoard->GetNormalPlantAt(mRow, col), mBoard->GetUnderPlantAt(mRow, col), mBoard->GetFoundationPlantAt(mRow, col)}) {
 			if (!plant || !plant->IsActive() || !plant->CanBeEaten()) continue;
 			const float distance = GetPosition().x - plant->GetPosition().x;
 			if (distance >= 0.0f && distance <= kTriggerCells * CELL_COLLIDER_SIZE_X) return true;
@@ -102,7 +102,7 @@ void BoilerZombie::ZombieMove(float delta, Transform* transform)
 		const auto bounds = mCollider->GetBoundingBox();
 		// 泄压不能啃食，也不能借此穿过防线；碰到植物后等待泄压结束再正常接敌。
 		for (int col = 0; col < mBoard->mColumns; ++col) {
-			for (auto* plant : {mBoard->GetPumpkinAt(mRow, col), mBoard->GetNormalPlantAt(mRow, col), mBoard->GetUnderPlantAt(mRow, col)}) {
+			for (auto* plant : {mBoard->GetPumpkinAt(mRow, col), mBoard->GetNormalPlantAt(mRow, col), mBoard->GetUnderPlantAt(mRow, col), mBoard->GetFoundationPlantAt(mRow, col)}) {
 				if (!plant || !plant->IsActive() || !plant->CanBeEaten() || !plant->GetCollider()) continue;
 				const auto target = plant->GetCollider()->GetBoundingBox();
 				if (bounds.x <= target.x + target.w + 1.0f && bounds.x + bounds.w >= target.x) return;

@@ -1939,14 +1939,20 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 				Cell* source = GetCell(row, column);
 				if (!source || source->IsEmpty()) continue;
 				Ladder* sourceLadder = GetLadderAt(row, column);
+				const int foundationID = source->GetFoundationPlantID();
 				const int underID = source->GetUnderPlantID();
 				const int normalID = source->GetNormalPlantID();
 				const int pumpkinID = source->GetPumpkinPlantID();
 				const int overlayID = source->GetOverlayPlantID();
+				Plant* foundation = mEntityRegistry.GetPlant(foundationID);
 				Plant* under = mEntityRegistry.GetPlant(underID);
 				Plant* normal = mEntityRegistry.GetPlant(normalID);
 				Plant* pumpkin = mEntityRegistry.GetPlant(pumpkinID);
 				Plant* overlay = mEntityRegistry.GetPlant(overlayID);
+				if (!foundation || !foundation->IsActive()) {
+					source->ClearFoundationPlantID();
+					foundation = nullptr;
+				}
 				if (!under || !under->IsActive()) {
 					source->ClearUnderPlantID();
 					under = nullptr;
@@ -1963,10 +1969,11 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 					source->ClearOverlayPlantID();
 					overlay = nullptr;
 				}
-				if (!under && !normal && !pumpkin && !overlay) continue;
+				if (!foundation && !under && !normal && !pumpkin && !overlay) continue;
 				// 冰像封存期间整个植物组合都与外部玩法隔离；台风不得先改 Cell 再让
 				// Plant::MoveToGridCell 拒绝，从而制造逻辑格与实体坐标分裂。
-				if ((under && under->IsIceSealed())
+				if ((foundation && foundation->IsIceSealed())
+					|| (under && under->IsIceSealed())
 					|| (normal && normal->IsIceSealed())
 					|| (pumpkin && pumpkin->IsIceSealed())
 					|| (overlay && overlay->IsIceSealed())) {
@@ -1980,8 +1987,8 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						Cell* cell = nullptr;
 						int row = -1;
 						int column = -1;
-						std::array<int, 4> ids{};
-						std::array<Plant*, 4> plants{};
+						std::array<int, 5> ids{};
+						std::array<Plant*, 5> plants{};
 						Ladder* ladder = nullptr;
 					};
 					const PlantFootprint footprint = GetPlantFootprint(normal->mPlantType);
@@ -1997,7 +2004,7 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						if (!stack.cell) continue;
 						stack.ids = { stack.cell->GetUnderPlantID(),
 							stack.cell->GetNormalPlantID(), stack.cell->GetPumpkinPlantID(),
-							stack.cell->GetOverlayPlantID() };
+							stack.cell->GetOverlayPlantID(), stack.cell->GetFoundationPlantID() };
 						for (std::size_t layer = 0; layer < stack.ids.size(); ++layer) {
 							Plant* member = mEntityRegistry.GetPlant(stack.ids[layer]);
 							if (!member || !member->IsActive()) {
@@ -2030,7 +2037,7 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						}
 						for (const int targetID : { target->GetUnderPlantID(),
 							target->GetNormalPlantID(), target->GetPumpkinPlantID(),
-							target->GetOverlayPlantID() }) {
+							target->GetOverlayPlantID(), target->GetFoundationPlantID() }) {
 							if (targetID != NULL_PLANT_ID
 								&& sourcePlantIDs.find(targetID) == sourcePlantIDs.end()) {
 								blocked = true;
@@ -2072,6 +2079,7 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						if (stack.cell->GetNormalPlantID() == stack.ids[1]) stack.cell->ClearNormalPlantID();
 						if (stack.cell->GetPumpkinPlantID() == stack.ids[2]) stack.cell->ClearPumpkinPlantID();
 						if (stack.cell->GetOverlayPlantID() == stack.ids[3]) stack.cell->ClearOverlayPlantID();
+						if (stack.cell->GetFoundationPlantID() == stack.ids[4]) stack.cell->ClearFoundationPlantID();
 					}
 					std::unordered_set<int> repositionedPlantIDs;
 					for (const FootprintStack& stack : stacks) {
@@ -2081,6 +2089,7 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 						if (stack.ids[1] != NULL_PLANT_ID) target->SetNormalPlantID(stack.ids[1]);
 						if (stack.ids[2] != NULL_PLANT_ID) target->SetPumpkinPlantID(stack.ids[2]);
 						if (stack.ids[3] != NULL_PLANT_ID) target->SetOverlayPlantID(stack.ids[3]);
+						if (stack.ids[4] != NULL_PLANT_ID) target->SetFoundationPlantID(stack.ids[4]);
 						for (Plant* member : stack.plants) {
 							if (member && repositionedPlantIDs.insert(member->mPlantID).second) {
 								const int memberTargetColumn = member == normal
@@ -2100,10 +2109,14 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 					: (normal && normal->AnchorsPlantCellAgainstTyphoon()
 						? normal
 						: (under && under->AnchorsPlantCellAgainstTyphoon() ? under : nullptr));
-				if (sourceAnchor) continue;
+				if (sourceAnchor || (foundation && foundation->AnchorsPlantCellAgainstTyphoon())) continue;
 
 				const int targetColumn = column + columnDelta;
 				if (targetColumn < 0 || targetColumn >= mColumns) {
+					if (foundation) {
+						lostPlantIDs.insert(foundationID);
+						foundation->Die();
+					}
 					if (under) {
 						lostPlantIDs.insert(underID);
 						under->Die();
@@ -2136,6 +2149,10 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 					continue;
 				}
 				if (HasCraterAt(row, targetColumn)) {
+					if (foundation) {
+						lostPlantIDs.insert(foundationID);
+						foundation->Die();
+					}
 					if (under) {
 						lostPlantIDs.insert(underID);
 						under->Die();
@@ -2160,10 +2177,16 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 					++mLastTyphoonBlockedPlantSteps;
 					continue;
 				}
+				source->ClearFoundationPlantID();
 				source->ClearUnderPlantID();
 				source->ClearNormalPlantID();
 				source->ClearPumpkinPlantID();
 				source->ClearOverlayPlantID();
+				if (foundation) {
+					target->SetFoundationPlantID(foundationID);
+					foundation->MoveToGridCell(row, targetColumn, kTyphoonPlantSlideDuration);
+					movedPlantIDs.insert(foundationID);
+				}
 				if (under) {
 					target->SetUnderPlantID(underID);
 					under->MoveToGridCell(row, targetColumn, kTyphoonPlantSlideDuration);

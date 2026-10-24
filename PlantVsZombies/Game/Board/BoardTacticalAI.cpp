@@ -155,7 +155,7 @@ bool Board::BuildMonteCarloCombatSnapshot(
 				CELL_COLLIDER_SIZE_X, CELL_COLLIDER_SIZE_Y
 			};
 		const Cell* cell = GetCell(plant->mRow, plant->mColumn);
-		const bool isUnder = cell && cell->GetUnderPlantID() == plantID;
+		const bool isUnder = cell && (cell->GetUnderPlantID() == plantID || cell->GetFoundationPlantID() == plantID);
 		const bool isNormal = cell && cell->GetNormalPlantID() == plantID;
 		const bool isPumpkin = cell && cell->GetPumpkinPlantID() == plantID;
 		const bool isOverlay = cell && cell->GetOverlayPlantID() == plantID;

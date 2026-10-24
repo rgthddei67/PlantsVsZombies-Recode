@@ -198,7 +198,20 @@ bool LevelDocumentValidation::Validate(const nlohmann::json& document, std::stri
         "bullets cards craters echoWaves goldenIceTrails groundRifts iceTrails ladders mowers pendingAuroraRifts "
         "pendingSnowHoleSpawns plants snowHoles spawnList sunTheftLedger suns survivalCardCooldowns "
         "temporalAnchors trophies zombies ", Kind::Array, "", error);
-    Fields(document, "coldStorage", Kind::Object, "", error);
+    Fields(document, "coldStorage watersideFlood", Kind::Object, "", error);
+    if (const auto it = document.find("watersideFlood"); it != document.end() && it->is_object()) {
+        Fields(*it, "water overflow warningRemaining surgeCount", Kind::Number, "/watersideFlood", error);
+        Fields(*it, "targets", Kind::Array, "/watersideFlood", error);
+        if (const auto targets = it->find("targets"); targets != it->end() && targets->is_array()) {
+            for (const auto& target : *targets) {
+                if (!target.is_number_integer() || target.get<int64_t>() < 0
+                    || target.get<int64_t>() >= std::numeric_limits<int>::max()) {
+                    error = "/watersideFlood/targets: expected plant IDs";
+                    return false;
+                }
+            }
+        }
+    }
     if (const auto it = document.find("coldStorage"); it != document.end() && it->is_object()) {
         Fields(*it, "randomSpawns", Kind::Bool, "/coldStorage", error);
         Fields(*it, "randomWeatherRemaining", Kind::Number, "/coldStorage", error);

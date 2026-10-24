@@ -4,6 +4,8 @@
 
 ## 不可破坏的契约
 
+- 满水后的雨量进入 `WatersideFlood` 的溢流槽，消费一次额度后锁定睡莲实体 ID 和预警余时；预警期间继续积累下一轮，晴天先排溢流。结算复核真实水格、存活资格及花盆固定，不得临时替换被救援/移除的目标或击中同格新睡莲。预警与计数完整保存，旧档只补中性溢流，不能追收历史雨量；展示和表盘继续只读 Board。专项为 `smoke_waterside_overflow` 与 `smoke_waterside_foundation`。
+
 - 水岸洪水由 `WatersideFlood` 保存连续水域值，`BoardWatersideGarden.cpp` 派生真实水格、肥沃和救援资格；世界水面、指针及规则不得维护平行水位。`TORRENT` 只在洪水章节开放，单位倍率、雷电与台风用 `IsHeavyRainIntensity` 共用大雨资格；自然抽取、合法误报候选、预警锁定、读档范围和 AutoTest 都要认识新档位。受灾时间属于植物，不能因暂停、读档或重复查看水位重新发放宽限。
 
 - `Board` 不得直接包含或访问具体 `GameScene`，也不得恢复 `mGameScene`。天气玩法状态继续由 `Board` 唯一持有；新增天气 UI 请求应扩展非拥有的 `BoardPresentation`，由 `GameScene` 实现。双方共享的天气枚举放在 `WeatherTypes.h`。

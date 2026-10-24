@@ -2,6 +2,11 @@
 #include "WatersideGardenRules.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Plant/PlantFootprint.h"
+#include "Game/Plant/PlantUpgradeRules.h"
+#include "Game/AudioSystem.h"
+#include "GameRandom.h"
+#include "ResourceKeys.h"
+#include "ParticleSystem/ParticleSystem.h"
 #include <algorithm>
 #include <cmath>
 
@@ -77,8 +82,56 @@ bool Board::IsEntireRowFlooded(int row) const {
 }
 
 void Board::UpdateWatersideFlood(float seconds) {
-    if (SupportsWatersideFlood() && GetState() == BoardState::GAME)
-        mWatersideFlood.Advance(seconds, GetRainIntensity());
+    if (!SupportsWatersideFlood() || GetState() != BoardState::GAME || seconds <= 0.0f) return;
+    mWatersideFlood.Advance(seconds, GetRainIntensity());
+    if (!mWatersideFlood.GetTargets().empty() && mWatersideFlood.GetWarningRemaining() <= 0.0f) {
+        // 已锁定目标按实体 ID 复核：补盆、离水、被铲或被吃掉都不能转嫁给另一片睡莲。
+        for (int id : mWatersideFlood.GetTargets()) {
+            Plant* lily = mEntityRegistry.GetPlant(id);
+            if (!IsWatersideSurgeTarget(lily)) continue;
+            if (g_particleSystem) g_particleSystem->EmitEffect("PlantingPool", GetCellCenterPosition(lily->mRow, lily->mColumn));
+            lily->Die(); // 只释放睡莲层，保留上层植物与原有15秒救援规则。
+        }
+        mWatersideFlood.FinishSurge();
+        AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_PLANT_WATER, 0.5f);
+    }
+    if (!mWatersideFlood.CanBeginSurge()) return;
+    std::vector<int> candidates;
+    for (int id : mEntityRegistry.GetAllPlantIDs())
+        if (IsWatersideSurgeTarget(mEntityRegistry.GetPlant(id))) candidates.push_back(id);
+    std::sort(candidates.begin(), candidates.end());
+    std::vector<int> targets;
+    while (!candidates.empty() && targets.size() < WatersideFloodRules::SurgeTargetLimit) {
+        const int index = GameRandom::Range(0, static_cast<int>(candidates.size()) - 1);
+        targets.push_back(candidates[index]);
+        candidates.erase(candidates.begin() + index);
+    }
+    mWatersideFlood.BeginSurge(std::move(targets));
+}
+
+bool Board::UsesFoundationLayer(PlantType type) const {
+    return SupportsWatersideFlood() && IsUnderPlantLayerType(type) && type != PlantType::PLANT_LILYPAD;
+}
+
+bool Board::IsWatersideStoneSquare(int row, int col) const {
+    return SupportsWatersideFlood() && WatersideGardenRules::Terrain(row, col) == '#';
+}
+
+bool Board::IsWatersideLilyAnchored(const Plant* lily) const {
+    if (!lily || !lily->IsActive() || lily->IsSquished()
+        || lily->GetPlacementType() != PlantType::PLANT_LILYPAD
+        || !IsWatersideStoneSquare(lily->mRow, lily->mColumn)
+        || GetUnderPlantAt(lily->mRow, lily->mColumn) != lily) return false;
+    const Plant* pot = GetFlowerPotAt(lily->mRow, lily->mColumn);
+    return pot && pot->IsActive() && pot->mPlantHealth > 0 && !pot->IsSquished() && !pot->IsBungeeTargeted();
+}
+
+bool Board::IsWatersideSurgeTarget(const Plant* lily) const {
+    return lily && lily->IsActive() && lily->mPlantHealth > 0 && !lily->IsSquished()
+        && !lily->IsIceSealed() && !lily->IsBungeeTargeted()
+        && lily->GetPlacementType() == PlantType::PLANT_LILYPAD
+        && IsPoolSquare(lily->mRow, lily->mColumn)
+        && GetUnderPlantAt(lily->mRow, lily->mColumn) == lily && !IsWatersideLilyAnchored(lily);
 }
 
 void Board::LoadWatersideFlood(const nlohmann::json& value) {
@@ -96,6 +149,8 @@ int Board::GetWatersidePlantHazard(const Plant* plant) const {
         || !plant->IsActive() || plant->IsSquished() || plant->IsBungeeTargeted()) return 0;
     const PlantType type = plant->GetPlacementType();
     if (type == PlantType::PLANT_INSTANT_COFFEE) return 0;
+    // 石板上的真实花盆是沉底基座，自身不溺亡；上层陆生植物仍须补睡莲。
+    if (plant->IsRoofSupportPlant() && IsWatersideStoneSquare(plant->mRow, plant->mColumn)) return 0;
     const bool aquatic = type == PlantType::PLANT_LILYPAD || type == PlantType::PLANT_TANGLEKELP
         || type == PlantType::PLANT_SEASHROOM || type == PlantType::PLANT_ANCHORLOTUS;
     const auto footprint = GetPlantFootprint(type);
@@ -110,7 +165,7 @@ int Board::GetWatersidePlantHazard(const Plant* plant) const {
         }
         const Plant* under = GetUnderPlantAt(row, col);
         if (water && (!under || under->GetPlacementType() != PlantType::PLANT_LILYPAD)) return 1;
-        if (!water && RequiresFlowerPotAt(row, col) && (!under || !under->IsRoofSupportPlant())) hazard = 2;
+        if (!water && RequiresFlowerPotAt(row, col) && !GetFlowerPotAt(row, col)) hazard = 2;
     }
     return hazard;
 }
@@ -135,7 +190,8 @@ float Board::GetPlantFertilityMultiplier(const Plant* plant) const {
         const int row = plant->mRow + footprint.cells[i].rowOffset;
         const int col = plant->mColumn + footprint.cells[i].columnOffset;
         if (!IsFertileSquare(row, col)) return 1.0f;
-        if (mCells[row][col]->GetUnderPlantID() != NULL_PLANT_ID) return 1.0f;
+        if (mCells[row][col]->GetUnderPlantID() != NULL_PLANT_ID
+            || mCells[row][col]->GetFoundationPlantID() != NULL_PLANT_ID) return 1.0f;
     }
     return WatersideGardenRules::FertileSpeed;
 }

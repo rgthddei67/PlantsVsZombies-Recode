@@ -58,7 +58,11 @@ void GameScene::DrawWatersideWaterGauge(Graphics* g) {
     const glm::vec4 ink(53, 62, 43, 255);
     const glm::vec4 danger(255, 38, 38, 255);
     const float value = mBoard->GetWatersideWater();
-    g->DrawWaterGauge(cx-radius,cy-radius,radius*2.0f,value/WatersideFloodRules::MaximumWater);
+    const float overflow = mBoard->GetWatersideOverflow() / WatersideFloodRules::OverflowCapacity;
+    const bool warningActive = !mBoard->GetWatersideSurgeTargets().empty();
+    const float remaining = mBoard->GetWatersideSurgeWarning();
+    const float pulse = warningActive ? .65f + .35f * std::sin(remaining * 12.0f) : 0.0f;
+    g->DrawWaterGauge(cx-radius,cy-radius,radius*2.0f,value/WatersideFloodRules::MaximumWater,overflow,pulse);
     auto position = [&](float value, float r) {
         const float angle = (-135.0f + value * 2.7f) * 3.14159265f / 180.0f;
         return Vector(cx + std::sin(angle) * r, cy - std::cos(angle) * r);
@@ -75,14 +79,47 @@ void GameScene::DrawWatersideWaterGauge(Graphics* g) {
     }
     text("水位表",16,cy-23,ink);
     text(std::to_string(static_cast<int>(std::lround(value))),22,cy+22,ink);
-    text(mBoard->GetWatersideWaterRate() > 0 ? "积水中" : "缓慢排水", 13, cy + 47, ink);
+    const std::string status = warningActive ? "冲击 " + std::to_string(static_cast<int>(std::ceil(remaining))) + " 秒"
+        : overflow > 0.0f ? "溢流 " + std::to_string(static_cast<int>(std::lround(overflow*100))) + "%"
+        : mBoard->GetWatersideWaterRate() > 0 ? "积水中" : "缓慢排水";
+    text(status, 13, cy + 47, warningActive ? danger : ink);
     const auto rain = mBoard->GetRainIntensity();
     const char* names[]{"晴天", "小雨", "中雨", "大雨", "暴雨"};
     text(names[static_cast<int>(rain)], 20, cy + radius + 7,
         rain == RainIntensity::TORRENT ? danger : glm::vec4(239, 226, 175, 255));
 
+    // 锁定提示跟随真实睡莲；预警中固定成功立即转绿，不改变原已提交的冲击名单。
+    for (int id : mBoard->GetWatersideSurgeTargets()) {
+        const Plant* lily = mBoard->mEntityRegistry.GetPlant(id);
+        if (!lily || !lily->IsActive()) continue;
+        const bool anchored = mBoard->IsWatersideLilyAnchored(lily);
+        const Vector center = lily->GetVisualAnchorPosition() + Vector(0, 24);
+        const glm::vec4 color = anchored ? glm::vec4(120,255,130,230) : glm::vec4(255,70,45,150+105*pulse);
+        g->DrawCircle(center.x,center.y,29,color,64);
+        g->DrawCircle(center.x,center.y,32,color,64);
+        const std::string label = anchored ? "已固定" : "冲击 " + std::to_string(static_cast<int>(std::ceil(remaining)));
+        g->DrawText(label,ResourceKeys::Fonts::FONT_FZCQ,14,color,center.x-27,center.y-75);
+        if (!anchored) {
+            // 三条追向落点的水流只作预警；伤害仍由 Board 在倒计时结束时一次结算。
+            const float travel = std::fmod((WatersideFloodRules::SurgeWarningSeconds-remaining)*65,60.0f);
+            for (int i=0;i<3;++i) {
+                const float x=center.x+75-travel+i*7, y=center.y-9+i*9;
+                g->DrawLine(x,y,x-16,y+3,glm::vec4(180,245,255,190));
+            }
+        }
+    }
+
     for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
         const Plant* plant = mBoard->mEntityRegistry.GetPlant(id);
+        if (mBoard->IsWatersideLilyAnchored(plant)) {
+            // 金色锚标记固定基座，即使花盆被水面/上层遮住也能辨认。
+            const Vector anchor = plant->GetVisualAnchorPosition() + Vector(27,27);
+            const glm::vec4 brass(255,211,90,255);
+            g->DrawCircle(anchor.x,anchor.y-7,3,brass,24);
+            g->DrawLine(anchor.x,anchor.y-4,anchor.x,anchor.y+8,brass);
+            g->DrawLine(anchor.x-7,anchor.y+2,anchor.x,anchor.y+8,brass);
+            g->DrawLine(anchor.x+7,anchor.y+2,anchor.x,anchor.y+8,brass);
+        }
         if (!plant || !plant->IsActive() || plant->GetWatersideHazardKind() == 0) continue;
         const Vector anchor = plant->GetVisualAnchorPosition();
         const char* label = plant->GetWatersideHazardKind() == 1 ? "补睡莲 "

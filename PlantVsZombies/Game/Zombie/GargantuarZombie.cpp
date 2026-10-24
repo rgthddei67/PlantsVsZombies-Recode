@@ -257,11 +257,12 @@ void GargantuarZombie::ApplySmashImpact()
 		}
 	}
 	else if (mTargetRow >= 0 && mTargetColumn >= 0) {
-		const std::array<Plant*, 4> plants = {
+		const std::array<Plant*, 5> plants = {
 			mBoard->GetOverlayPlantAt(mTargetRow, mTargetColumn),
 			mBoard->GetPumpkinAt(mTargetRow, mTargetColumn),
 			mBoard->GetNormalPlantAt(mTargetRow, mTargetColumn),
 			mBoard->GetUnderPlantAt(mTargetRow, mTargetColumn),
+			mBoard->GetFoundationPlantAt(mTargetRow, mTargetColumn),
 		};
 		for (Plant* plant : plants) {
 			if (plant && plant->IsActive()) plant->ResolveGargantuarSmash();

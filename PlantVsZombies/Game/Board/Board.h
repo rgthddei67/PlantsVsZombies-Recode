@@ -1538,6 +1538,16 @@ public:
 	nlohmann::json SaveWatersideFlood() const { return mWatersideFlood.Save(); }
 	void LoadWatersideFlood(const nlohmann::json& value);
 	bool SetWatersideWaterForTesting(float value);
+	float GetWatersideOverflow() const { return mWatersideFlood.GetOverflow(); }
+	float GetWatersideSurgeWarning() const { return mWatersideFlood.GetWarningRemaining(); }
+	const std::vector<int>& GetWatersideSurgeTargets() const { return mWatersideFlood.GetTargets(); }
+	int GetWatersideSurgeCount() const { return mWatersideFlood.GetSurgeCount(); }
+	/** 水岸承载物独立占基座层，睡莲仍占 under；其他地图沿用原层级。 */
+	bool UsesFoundationLayer(PlantType type) const;
+	bool IsWatersideStoneSquare(int row, int col) const;
+	/** 由真实石板、存活花盆和睡莲组合派生固定资格，不保存第二份标志。 */
+	bool IsWatersideLilyAnchored(const Plant* plant) const;
+	bool IsWatersideSurgeTarget(const Plant* plant) const;
 
 	/** 当前格是否要求花盆承载，涵盖屋顶与混合地图的硬质裸地。 */
 	bool RequiresFlowerPotAt(int row, int column) const;
@@ -1749,6 +1759,9 @@ public:
 	Plant* GetJumpBlockingPlantAt(int row, int col, ZombieJumpType jumpType) const;
 	/** 返回指定格承载层；当前可能是睡莲或花盆。 */
 	Plant* GetUnderPlantAt(int row, int col) const;
+	Plant* GetFoundationPlantAt(int row, int col) const;
+	/** 返回实际花盆：水岸从 foundation 取，其余地图从 under 取。 */
+	Plant* GetFlowerPotAt(int row, int col) const;
 	/** 返回指定格普通植物层；不存在或 ID 已失效时返回空。 */
 	Plant* GetNormalPlantAt(int row, int col) const;
 	/** 返回指定格南瓜外壳层；不存在或 ID 已失效时返回空。 */

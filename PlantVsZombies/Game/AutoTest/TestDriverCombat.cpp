@@ -98,7 +98,8 @@ TestDriver::CombatTargetState TestDriver::CommanderCombatPlantState(const Plant&
     state.id=plant.mPlantID;state.type=static_cast<int>(plant.mPlantType);state.row=plant.mRow;state.column=plant.mColumn;
     state.x=plant.GetPosition().x;state.y=plant.GetPosition().y;state.health=state.body=plant.mPlantHealth;state.active=plant.IsActive();
     if(plant.mBoard) if(const auto* cell=plant.mBoard->GetCell(plant.mRow,plant.mColumn)) {
-        if(cell->GetUnderPlantID()==plant.mPlantID) state.layer=0;
+        if(cell->GetFoundationPlantID()==plant.mPlantID) state.layer=4;
+        else if(cell->GetUnderPlantID()==plant.mPlantID) state.layer=0;
         else if(cell->GetNormalPlantID()==plant.mPlantID) state.layer=1;
         else if(cell->GetPumpkinPlantID()==plant.mPlantID) state.layer=2;
         else if(cell->GetOverlayPlantID()==plant.mPlantID) state.layer=3;

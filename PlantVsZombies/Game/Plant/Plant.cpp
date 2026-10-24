@@ -321,14 +321,15 @@ Vector Plant::GetVisualPosition() const {
 Vector Plant::GetVisualAnchorPosition() const
 {
 	Vector visual = GetPosition() + mGridMoveVisualOffset;
-	if (!mIsPreview && mBoard && mBoard->IsPoolSquare(mRow, mColumn)) {
+	if (!mIsPreview && mBoard && mBoard->IsPoolSquare(mRow, mColumn)
+		&& !(IsRoofSupportPlant() && mBoard->IsWatersideStoneSquare(mRow, mColumn))) {
 		const float phase = static_cast<float>(mBoard->mBoardFrame) * kPoolBobRadiansPerFrame
 			+ static_cast<float>(mRow) * kPoolBobRowPhase
 			+ static_cast<float>(mColumn) * kPoolBobColumnPhase;
 		visual.y += std::sin(phase) * kPoolBobAmplitude;
 	}
-	if (!mIsPreview && mBoard && !IsRoofSupportPlant()) {
-		Plant* support = mBoard->GetUnderPlantAt(mRow, mColumn);
+	if (!mIsPreview && mBoard && !IsRoofSupportPlant() && !mBoard->IsPoolSquare(mRow, mColumn)) {
+		Plant* support = mBoard->GetFlowerPotAt(mRow, mColumn);
 		if (support && support->IsRoofSupportPlant()
 			&& !support->IsSquished()) {
 			// 只抬升画面锚点；逻辑格、碰撞箱和存档坐标仍保持在同一格中心。
@@ -421,6 +422,7 @@ void Plant::ReleaseGridSlot()
 			mRow + occupied.rowOffset, mColumn + occupied.columnOffset);
 		if (!cell) continue;
 		if (cell->GetUnderPlantID() == mPlantID) cell->ClearUnderPlantID();
+		if (cell->GetFoundationPlantID() == mPlantID) cell->ClearFoundationPlantID();
 		if (cell->GetNormalPlantID() == mPlantID) cell->ClearNormalPlantID();
 		if (cell->GetPumpkinPlantID() == mPlantID) cell->ClearPumpkinPlantID();
 		if (cell->GetOverlayPlantID() == mPlantID) cell->ClearOverlayPlantID();

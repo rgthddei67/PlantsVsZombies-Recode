@@ -121,6 +121,7 @@ void Shovel::CheckPlant()
 				Plant* pumpkin = mBoard->GetPumpkinAt(cell->mRow, cell->mColumn);
 				Plant* normal = mBoard->GetNormalPlantAt(cell->mRow, cell->mColumn);
 				Plant* under = mBoard->GetUnderPlantAt(cell->mRow, cell->mColumn);
+				if (!under) under = mBoard->GetFoundationPlantAt(cell->mRow, cell->mColumn);
 
 				// 有内层普通植物时，中心开口选内层、可见外圈选南瓜；空壳仍整格易于铲除。
 				if (pumpkin && normal) {

@@ -615,6 +615,17 @@ namespace {
                             plant["watersideHazard"] = {{"kind", 0}, {"elapsed", 0.0f}};
                 }
                 version = 37; upgraded["schemaVersion"] = version; break;
+            case 37:
+                // 保留旧水位，不回补历史溢流；花盆基座由恢复时的类型与地图资格重建。
+                if (kind == DocumentKind::Level) {
+                    auto& flood = upgraded["watersideFlood"];
+                    if (!flood.is_object()) flood = {{"water", 0.0f}};
+                    flood["overflow"] = 0.0f;
+                    flood["warningRemaining"] = 0.0f;
+                    flood["targets"] = nlohmann::json::array();
+                    flood["surgeCount"] = 0;
+                }
+                version = 38; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

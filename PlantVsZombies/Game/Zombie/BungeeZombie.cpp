@@ -234,10 +234,11 @@ Plant* BungeeZombie::ResolveBungeePlantAt(int row, int column) const
 		&& !normalPlant->CanBeTargetedByBungee()) {
 		return nullptr;
 	}
-	const std::array<Plant*, 3> layers = {
+	const std::array<Plant*, 4> layers = {
 		normalPlant,
 		mBoard->GetPumpkinAt(row, column),
 		mBoard->GetUnderPlantAt(row, column),
+		mBoard->GetFoundationPlantAt(row, column),
 	};
 	for (Plant* plant : layers) {
 		if (plant && plant->IsActive() && !plant->IsSquished()

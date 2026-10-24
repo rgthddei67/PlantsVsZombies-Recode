@@ -440,7 +440,7 @@ void Bullet::Update()
 						return;
 					}
 					for (const int plantID : { cell->GetPumpkinPlantID(),
-						cell->GetNormalPlantID(), cell->GetUnderPlantID() }) {
+						cell->GetNormalPlantID(), cell->GetUnderPlantID(), cell->GetFoundationPlantID() }) {
 						Plant* plant = mBoard->mEntityRegistry.GetPlant(plantID);
 						if (!plant || !plant->IsActive() || plant->IsSquished()) continue;
 						if (plant->mPlantID == mThermalOriginalPlantID
@@ -2016,7 +2016,7 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
             impact=Vector(std::clamp(right,low,high),to.y);
             auto* normal=mBoard->mEntityRegistry.GetPlant(cell->GetNormalPlantID());
             if(normal && normal->TryInterceptHostileStraightProjectile(mVelocityX,impact)) { hit=true; break; }
-            for(int id:{cell->GetPumpkinPlantID(),cell->GetNormalPlantID(),cell->GetUnderPlantID()}) {
+            for(int id:{cell->GetPumpkinPlantID(),cell->GetNormalPlantID(),cell->GetUnderPlantID(),cell->GetFoundationPlantID()}) {
                 auto* p=mBoard->mEntityRegistry.GetPlant(id);
                 if(!p || !p->IsActive() || !p->OccupiesGridSlot() || p->IsSquished() || p->mPlantHealth<=0) continue;
                 p->TakeDamage(mDamage,DamageSource::ZOMBIE); hit=hitPlant=true; break;

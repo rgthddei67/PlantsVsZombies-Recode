@@ -38,7 +38,7 @@ float dialBand(float r, float inner, float outer, float aa) {
     return smoothstep(inner-aa,inner+aa,r)*(1.0-smoothstep(outer-aa,outer+aa,r));
 }
 
-vec4 waterGaugeFace(vec2 uv, float value) {
+vec4 waterGaugeFace(vec2 uv, float value, float overflow, float warningPulse) {
     const float pi = 3.141592653589793;
     vec2 p = uv*2.0-1.0;
     float r = length(p), aa = max(fwidth(r),.002);
@@ -76,6 +76,17 @@ vec4 waterGaugeFace(vec2 uv, float value) {
     vec2 screwP = abs(p);
     float screw = min(length(screwP-vec2(.88,0)),length(screwP-vec2(0,.88)));
     color = mix(color,ink,(1.0-smoothstep(.023-aa,.023+aa,screw))*.65);
+    // 溢流环沿用表盘的距离场抗锯齿；预警时整环红色呼吸，不离散跳动指针。
+    if (overflow > 0.0 || warningPulse > 0.0) {
+        float ring = dialBand(r,.865,.912,aa);
+        float clockwise = mod(angle+2.0*pi,2.0*pi)/(2.0*pi);
+        float progress = warningPulse > 0.0 ? 1.0 : clamp(overflow,0.0,1.0);
+        float endAA = max(fwidth(clockwise),.001);
+        float fill = 1.0-smoothstep(progress-endAA,progress+endAA,clockwise);
+        color = mix(color,vec3(.16,.20,.17),ring*.65);
+        vec3 glow = warningPulse > 0.0 ? vec3(1.0,.12,.08)*(.65+.35*warningPulse) : vec3(.98,.56,.12);
+        color = mix(color,glow,ring*fill);
+    }
     float alpha = 1.0-smoothstep(.996-aa,.996+aa,r);
     return vec4(color*alpha,alpha);
 }

@@ -247,7 +247,9 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 ### 水岸洪水
 
-`smoke_waterside_flood` 覆盖救援底座替换、多格承载、溺亡与缺盆宽限、静止快照和禁水品种的真实波次；`smoke_waterside_flood_weather` 覆盖 12-2 门禁、五倍晴天排水时长、暴雨与台风、连续水面及天气快照。运行后执行 `python autotest/verify_waterside_flood.py`。`set_waterside_water` 只供固定边界夹具，不能替代自然雨水累积验证；`set_wave_spawn_list` 只改变本夹具候选名单，仍用正式选型/选行/预算生成。
+`smoke_waterside_overflow` 用真实降雨越过满水边界，覆盖溢流环、锁定预警、临时补盆、目标替换、读档及退水；`smoke_waterside_foundation` 覆盖整组台风/搬运、双格原子移动、真实铲子和巨人五层砸击。运行后执行 `python autotest/verify_waterside_overflow.py`；用稳定 ID 核对保留和迁移，不能只看同格类型。修改溢流环 shader 时用同一脚本另存诊断副本，分别配 `-NoInstance` 和 `-Renderer=opengl -OpenGL33`，保留独立输出与同步截图。
+
+`smoke_waterside_flood` 覆盖双底座救援、多格承载、溺亡与缺盆宽限、静止快照和禁水品种的真实波次；`smoke_waterside_flood_weather` 覆盖 12-2 门禁、五倍晴天排水时长、暴雨与台风、连续水面及天气快照。运行后执行 `python autotest/verify_waterside_flood.py`。`set_waterside_water` 只供固定边界夹具，不能替代自然雨水累积验证；`set_wave_spawn_list` 只改变本夹具候选名单，仍用正式选型/选行/预算生成。
 
 水面 shader 或仪表提交改动用三个 `smoke_waterside_flood_shader*` 场景：基本版用默认 Vulkan，`_noinstance` 配 `-NoInstance`，`_opengl` 配 `-Renderer=opengl -OpenGL33`。核对涨水、全图水面、圆盘边缘和原始泳池截图，并检查所选后端与资源警告。
 

@@ -10,11 +10,10 @@
 #include <unordered_set>
 
 namespace {
-	/** 固定顺序对应 Cell 的四个占层，包含不参与普通啃食的 overlay。 */
-	std::array<int, 4> GetStackIDs(const Cell& cell)
+	/** 固定顺序包含 overlay 与水岸 foundation，整组搬运不得遗留底座。 */
+	std::array<int, 5> GetStackIDs(const Cell& cell)
 	{
-		return { cell.GetUnderPlantID(), cell.GetNormalPlantID(),
-			cell.GetPumpkinPlantID(), cell.GetOverlayPlantID() };
+		return cell.GetPlantIDs();
 	}
 }
 
@@ -46,7 +45,7 @@ bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetR
 	Plant* under = GetUnderPlantAt(sourceRow, sourceCol);
 	const bool water = IsPoolSquare(targetRow, targetCol);
 	const bool lily = under && under->GetPlacementType() == PlantType::PLANT_LILYPAD;
-	const bool pot = under && under->IsRoofSupportPlant();
+	const bool pot = GetFlowerPotAt(sourceRow, sourceCol) != nullptr;
 	for (int id : GetStackIDs(*source)) {
 		Plant* member = mEntityRegistry.GetPlant(id);
 		if (!member || !member->IsActive()) continue;
@@ -54,7 +53,7 @@ bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetR
 		if (type == PlantType::PLANT_LILYPAD) {
 			if (!water) return false;
 		} else if (member->IsRoofSupportPlant()) {
-			if (water) return false;
+			if (water && !IsWatersideStoneSquare(targetRow, targetCol)) return false;
 		} else if (type == PlantType::PLANT_TANGLEKELP || type == PlantType::PLANT_SEASHROOM
             || type == PlantType::PLANT_ANCHORLOTUS) {
 			if (!water || under) return false;
@@ -119,10 +118,12 @@ bool Board::RelocatePlantGroup(int sourceID, int row, int col)
 		target->SetNormalPlantID(ids[1]);
 		target->SetPumpkinPlantID(ids[2]);
 		target->SetOverlayPlantID(ids[3]);
+		target->SetFoundationPlantID(ids[4]);
 		source->ClearUnderPlantID();
 		source->ClearNormalPlantID();
 		source->ClearPumpkinPlantID();
 		source->ClearOverlayPlantID();
+		source->ClearFoundationPlantID();
 		if (Ladder* ladder = GetLadderAt(sourceRow + dr, sourceCol + dc))
 			ladder->MoveToGridCell(row + dr, col + dc);
 	}
