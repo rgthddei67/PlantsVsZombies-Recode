@@ -1,0 +1,11 @@
+<!-- 短寿命金色速度光带：车尾世界锚点由实体提供；固定向右散去，与车辆前进方向相反。 -->
+<Emitter>
+  <Name>GildedZamboniBoostKick</Name>
+  <SpawnMinActive>5</SpawnMinActive><SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>0.24</SystemDuration><ParticleDuration>0.24</ParticleDuration>
+  <EmitterType>Box</EmitterType><EmitterBoxX>[-4 4]</EmitterBoxX><EmitterBoxY>[-12 12]</EmitterBoxY>
+  <ParticleAlpha>1.0,38 .70,100 0</ParticleAlpha><ParticleScale>[.30 .45]</ParticleScale>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.53</ParticleGreen><ParticleBlue>.10</ParticleBlue>
+  <ParticleRotation>[-93 -87]</ParticleRotation><LaunchSpeed>[95 150]</LaunchSpeed>
+  <Image>PARTICLE_WINDSTREAK</Image>
+</Emitter>

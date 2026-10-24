@@ -50,8 +50,11 @@ private:
 	void UpdateAcceleration(float deltaTime);
 	/** @brief 任何实际本体承伤都清空计时和全部加速层。 */
 	void ResetAcceleration();
+	/** 仅在实际向前行驶且无伤加速生效时续发短尾流，倍率提升边沿补一次局部亮光。 */
+	void UpdateAccelerationVisuals(float deltaTime, float previousX, float previousMultiplier);
 
 	float mUndamagedTime = 0.0f;
 	int mAccelerationStage = 0;
 	float mGoldenTrailMinX = 0.0f; // 本车独立黄色冰道最左缘，单位 px；Setup 后以 Board 右界为单位元
+	float mBoostParticleTimer = 0.0f; // 尾流续发倒计时，游戏秒；纯视觉，不入档
 };

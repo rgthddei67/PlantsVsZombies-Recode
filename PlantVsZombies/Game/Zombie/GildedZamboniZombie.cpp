@@ -4,6 +4,7 @@
 #include "ZombieBirthVitalsRules.h"
 #include "../../DeltaTime.h"
 #include "../../GameRandom.h"
+#include "../../ParticleSystem/ParticleSystem.h"
 #include "Game/Board/Board.h"
 
 #include <algorithm>
@@ -15,6 +16,10 @@ namespace {
 	constexpr int kChomperBiteDamage = 50;                 // 鎏金冰车拒吞时保留的特殊基础伤害
 	constexpr float kPreviewDriveAnimSpeedMin = 0.50f;    // 慢速车辆驾驶动画最小基础倍率
 	constexpr float kPreviewDriveAnimSpeedMax = 0.65f;    // 慢速车辆驾驶动画最大基础倍率
+	constexpr float kBoostRearX = 88.0f;                 // 尾流起点相对稳定视觉原点的 X，动画像素
+	constexpr float kBoostRearY = 112.0f;                // 尾流起点相对稳定视觉原点的 Y，动画像素
+	constexpr float kBoostInterval = .12f;               // 普通加速档补发尾流的游戏秒间隔
+	constexpr float kOverdriveInterval = .08f;           // 达到实际加速上限时补发尾流的游戏秒间隔
 }
 
 void GildedZamboniZombie::SetupZombie()
@@ -30,9 +35,38 @@ void GildedZamboniZombie::SetupZombie()
 
 void GildedZamboniZombie::Update()
 {
+	const float previousX = GetPosition().x;
+	const float previousMultiplier = GetAccelerationMultiplier();
 	ZamboniZombie::Update();
 	if (mIsPreview || mIsDead) return;
 	UpdateAcceleration(DeltaTime::GetDeltaTime());
+	UpdateAccelerationVisuals(DeltaTime::GetDeltaTime(), previousX, previousMultiplier);
+}
+
+void GildedZamboniZombie::UpdateAccelerationVisuals(
+	float deltaTime, float previousX, float previousMultiplier)
+{
+	if (deltaTime <= 0.0f) return;
+	const float multiplier = GetAccelerationMultiplier();
+	if (!IsActive() || mIsDying || IsImmobilized() || multiplier <= 1.0f
+		|| GetPosition().x >= previousX) {
+		mBoostParticleTimer = 0.0f;
+		return;
+	}
+	// 不继承低血量车身抖动；向后留在世界中的短尾流表现实际位移，不会钉在旧车位持续喷射。
+	const Vector origin = GetPosition() + mVisualOffset
+		+ Vector(kBoostRearX, kBoostRearY) * GetTransform()->GetScale();
+	if (g_particleSystem && multiplier > previousMultiplier) {
+		g_particleSystem->EmitEffect("GildedZamboniBoostKick", origin);
+	}
+	mBoostParticleTimer -= deltaTime;
+	if (mBoostParticleTimer <= 0.0f) {
+		const bool capped = multiplier >= GoldenIceRules::AccelerationCap;
+		mBoostParticleTimer = capped ? kOverdriveInterval : kBoostInterval;
+		if (g_particleSystem) {
+			g_particleSystem->EmitEffect(capped ? "GildedZamboniOverdrive" : "GildedZamboniBoost", origin);
+		}
+	}
 }
 
 void GildedZamboniZombie::UpdateAcceleration(float deltaTime)
@@ -51,6 +85,7 @@ void GildedZamboniZombie::ResetAcceleration()
 	const bool hadAcceleration = mAccelerationStage > 0;
 	mUndamagedTime = 0.0f;
 	mAccelerationStage = 0;
+	mBoostParticleTimer = 0.0f;
 	if (hadAcceleration) {
 		UpdateAnimSpeed();
 	}
@@ -142,6 +177,7 @@ void GildedZamboniZombie::SaveExtraData(nlohmann::json& j) const
 void GildedZamboniZombie::LoadExtraData(const nlohmann::json& j)
 {
 	ZamboniZombie::LoadExtraData(j);
+	mBoostParticleTimer = 0.0f; // 恢复持续尾流资格；不重播提档亮光。
 	mUndamagedTime = std::clamp(
 		j.value("undamagedTime", 0.0f), 0.0f, GoldenIceRules::ThirdAcceleration);
 	mAccelerationStage = GoldenIceRules::AccelerationStage(mUndamagedTime);

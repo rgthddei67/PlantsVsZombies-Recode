@@ -8794,6 +8794,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["drumBeatCount"] = drummer->GetDrumBeatCount();
 		}
 		if (auto* gilded = dynamic_cast<GildedZamboniZombie*>(z)) {
+			zombieState["gildedBoostTextureLoaded"] = ResourceManager::GetInstance().GetTexture(
+				ResourceKeys::Particles::PARTICLE_WINDSTREAK, false) != nullptr;
 			zombieState["gildedUndamagedMs"] = static_cast<int>(std::lround(
 				gilded->GetUndamagedTime() * 1000.0f));
 			zombieState["gildedAccelerationStage"] = gilded->GetAccelerationStage();
@@ -9825,6 +9827,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["particleEffects"] = nlohmann::json::array();
 	out["particleEffectsByName"] = nlohmann::json::object();
 	out["particleEffectNameCounts"] = nlohmann::json::object();
+	for (const char* effect : {"GildedZamboniBoost", "GildedZamboniOverdrive", "GildedZamboniBoostKick"})
+		out["particleEffectNameCounts"][effect] = 0;
 	out["particleEffectNameCounts"]["PeaBulletHit"] = 0;
 	out["particleEffectNameCounts"]["ToxicPeaBulletHit"] = 0;
 	out["particleEffectNameCounts"]["CabbageSplat"] = 0;

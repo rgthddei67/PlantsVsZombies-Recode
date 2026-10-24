@@ -54,7 +54,8 @@
 | `ParticleBrightness` | 范围 | 1 | RGB 整体乘数（生成时随机一次） |
 | `SystemAlpha` | 轨迹 | 1 | 整团透明度，按 `systemTimer/SystemDuration` 采样（没写 SystemDuration 则恒取 1） |
 | `EmitterType` | Point/Box/Circle | Point | 出生点形状；写了 `EmitterRadius` 未写 Type 自动当 Circle |
-| `EmitterBoxX/Y`、`EmitterRadius` | 范围 | 0 | Box 半边长 / Circle 半径（逐粒子随机） |
+| `EmitterBoxX/Y` | 范围 | 0 | 每轴出生位移的采样区间；`[-12 12]` 才是两侧随机散布，标量 `12` 是固定偏移，不是半边长 |
+| `EmitterRadius` | 范围 | 0 | Circle 半径区间（逐粒子随机）；标量表示固定半径 |
 | `EmitterOffsetX/Y` | float | 0 | 出生点相对 EmitEffect 坐标的偏移。**见 foot-gun ②：实际生效两倍** |
 | `LaunchSpeed` | 范围(px/s) | 0 | 初速度大小 |
 | `RandomLaunchSpin` | bool | false | true=初速度方向 360° 随机；**false=一律沿 +X（向右）** |
