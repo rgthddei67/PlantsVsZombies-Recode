@@ -1,2 +1,12 @@
-<Emitter><Name>AuroraDeviceBreak</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>.7</ParticleDuration><ParticleAlpha>.82,46 .42,82 0</ParticleAlpha><ParticleScale>2.8 -2.1</ParticleScale><ParticleSpinSpeed>260</ParticleSpinSpeed><SystemDuration>.7</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
-<Emitter><Name>AuroraDeviceBreak</Name><SpawnMinActive>[20 30]</SpawnMinActive><SpawnMaxLaunched>38</SpawnMaxLaunched><ParticleDuration>[.5 1.0]</ParticleDuration><ParticleAlpha>1,58 .65,85 0</ParticleAlpha><ParticleScale>[.28 .62] -.12</ParticleScale><ParticleSpinSpeed>[-280 280]</ParticleSpinSpeed><LaunchSpeed>[58 145]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><SystemDuration>.38</SystemDuration><Image>PARTICLE_AURORARIFT</Image><Field><FieldType>Acceleration</FieldType><Y>150</Y></Field></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>AuroraDeviceBreak</Name>
+  <SpawnMinActive>12</SpawnMinActive><SpawnMaxLaunched>12</SpawnMaxLaunched>
+  <SystemDuration>0.7</SystemDuration><ParticleDuration>0.7</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[16 38]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.06 .13]</ParticleScale>
+  <ParticleRed>0.72</ParticleRed><ParticleGreen>0.55</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <LaunchSpeed>[50 110]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+
+</Emitter>

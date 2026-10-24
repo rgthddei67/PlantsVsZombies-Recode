@@ -905,6 +905,7 @@ void GameScene::DrawWorldOverlay(Graphics* g)
 {
     if (mLevelLoadFailed) return;
 	if (!g || !mBoard) return;
+	mBoard->DrawPolarFinaleEffects(g);
 	mBoard->DrawEchoWaves(g);
 	mBoard->DrawPrismRangePreview(g);
 	// 岩壁属于战场前景，必须在 GOM 的 UI 尾段之前提交；Scene 命令数值不能插入 GOM 内部层级。

@@ -1,4 +1,12 @@
-<Emitter><Name>AuroraPriestCharge</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.05</ParticleDuration><ParticleAlpha>0 .72,22 .58,74 0</ParticleAlpha><ParticleScale>.7 2.4</ParticleScale><ParticleSpinSpeed>115</ParticleSpinSpeed><SystemDuration>1.05</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
-<Emitter><Name>AuroraPriestCharge</Name><SpawnMinActive>[14 20]</SpawnMinActive><SpawnMaxLaunched>28</SpawnMaxLaunched><EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[42 70]</EmitterRadius><ParticleDuration>[.75 1.2]</ParticleDuration><ParticleAlpha>0 .92,28 .72,78 0</ParticleAlpha><ParticleScale>[.35 .78] -.12</ParticleScale><ParticleSpinSpeed>[-180 180]</ParticleSpinSpeed><LaunchSpeed>[-28 -10]</LaunchSpeed><SystemDuration>1.05</SystemDuration><Image>PARTICLE_AURORARIFT</Image><Field><FieldType>Away</FieldType><X>[-95 -55]</X></Field><Field><FieldType>Circle</FieldType><X>[65 110]</X></Field></Emitter>
-<Emitter><Name>AuroraPriestChargePuffs</Name><SpawnMinActive>[14 20]</SpawnMinActive><SpawnMaxLaunched>26</SpawnMaxLaunched><EmitterType>Circle</EmitterType><EmitterRadius>[18 60]</EmitterRadius><ParticleDuration>[.55 1.0]</ParticleDuration><ParticleAlpha>0 .48,25 .32,72 0</ParticleAlpha><ParticleScale>[.45 .8] [.8 1.25]</ParticleScale><ParticleRed>.62</ParticleRed><ParticleGreen>.88</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[-18 -6]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><ParticleSpinSpeed>[-160 160]</ParticleSpinSpeed><SystemDuration>.9</SystemDuration><Image>PARTICLE_IMITATERPUFFS_PART_0,PARTICLE_IMITATERPUFFS_PART_1,PARTICLE_IMITATERPUFFS_PART_2,PARTICLE_IMITATERPUFFS_PART_3,PARTICLE_IMITATERPUFFS_PART_4,PARTICLE_IMITATERPUFFS_PART_5,PARTICLE_IMITATERPUFFS_PART_6,PARTICLE_IMITATERPUFFS_PART_7</Image></Emitter>
-<Emitter><Name>AuroraPriestChargeStars</Name><SpawnMinActive>[20 30]</SpawnMinActive><SpawnMaxLaunched>38</SpawnMaxLaunched><EmitterType>Circle</EmitterType><EmitterRadius>[12 62]</EmitterRadius><ParticleDuration>[.45 .95]</ParticleDuration><ParticleAlpha>.92,52 0</ParticleAlpha><ParticleScale>[.18 .42]</ParticleScale><ParticleRed>.68</ParticleRed><ParticleGreen>.95</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[20 58]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><ParticleSpinSpeed>[-240 240]</ParticleSpinSpeed><SystemDuration>.9</SystemDuration><Image>PARTICLE_STAR40</Image></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>AuroraPriestCharge</Name>
+  <SpawnMinActive>6</SpawnMinActive><SpawnMaxLaunched>6</SpawnMaxLaunched>
+  <SystemDuration>1.05</SystemDuration><ParticleDuration>1.05</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[32 52]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.045 .080]</ParticleScale>
+  <ParticleRed>0.52</ParticleRed><ParticleGreen>0.94</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <LaunchSpeed>[-24 -10]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+  <Field><FieldType>Circle</FieldType><X>-32</X></Field>
+</Emitter>

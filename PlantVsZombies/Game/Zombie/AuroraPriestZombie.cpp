@@ -6,12 +6,13 @@
 #include "../../ResourceKeys.h"
 #include "../../ResourceManager.h"
 #include "Game/Board/Board.h"
+#include "Game/Board/PolarFinaleVisuals.h"
 #include "../AudioSystem.h"
 
 #include <algorithm>
 
 namespace {
-constexpr float kChannelPulseSeconds = 0.62f; // 前摇期间补充一次极光旋涡的游戏秒间隔
+constexpr float kChannelPulseSeconds = 0.62f; // 前摇期间补充少量极光光屑的游戏秒间隔
 constexpr float kDeviceOffsetX = 24.0f; // 仪器相对身体轨道的水平偏移，动画 px
 constexpr float kDeviceOffsetY = -20.0f; // 仪器相对身体轨道的垂直偏移，动画 px
 constexpr float kDeviceScale = 0.72f; // 极光仪器 follower 尺寸倍率
@@ -57,7 +58,7 @@ void AuroraPriestZombie::Update()
 		&& IsActive() && !mIsDying) {
 		mRitualVisualPulseTimer -= DeltaTime::GetDeltaTime();
 		if (mRitualVisualPulseTimer <= 0.0f) {
-			g_particleSystem->EmitEffect("AuroraPriestCharge", GetVisualPosition());
+			g_particleSystem->EmitEffect("AuroraPriestCharge", PolarFinaleVisuals::ChannelCenter(*this));
 			mRitualVisualPulseTimer = kChannelPulseSeconds;
 		}
 	}
@@ -127,7 +128,7 @@ void AuroraPriestZombie::BeginWindup()
 	PlayTrack("anim_idle", 0.72f, 0.12f);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BLEEP, 0.44f);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("AuroraPriestCharge", GetVisualPosition());
+		g_particleSystem->EmitEffect("AuroraPriestCharge", PolarFinaleVisuals::ChannelCenter(*this));
 	}
 }
 
@@ -221,7 +222,7 @@ void AuroraPriestZombie::HelmDrop()
 		DisableUncommittedRitual();
 		UpdateAnimSpeed();
 		if (g_particleSystem && IsActive() && !mIsPreview) {
-			g_particleSystem->EmitEffect("AuroraDeviceBreak", GetVisualPosition());
+			g_particleSystem->EmitEffect("AuroraDeviceBreak", PolarFinaleVisuals::ChannelCenter(*this));
 		}
 	}
 	SyncFollowerPresentation();

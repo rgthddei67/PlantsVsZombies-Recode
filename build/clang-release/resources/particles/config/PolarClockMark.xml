@@ -1,4 +1,12 @@
-<Emitter><Name>PolarClockMark</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.02</ParticleDuration><ParticleAlpha>0 .68,14 .56,86 0</ParticleAlpha><ParticleScale>.075</ParticleScale><SystemDuration>1.02</SystemDuration><Image>PARTICLE_TEMPORALCLOCKFACE</Image></Emitter>
-<Emitter><Name>PolarClockMarkHourHand</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.02</ParticleDuration><ParticleAlpha>0 .86,12 .62,86 0</ParticleAlpha><ParticleScale>.075</ParticleScale><ParticleSpinSpeed>-30</ParticleSpinSpeed><SystemDuration>1.02</SystemDuration><Image>PARTICLE_TEMPORALCLOCKHOURHAND</Image></Emitter>
-<Emitter><Name>PolarClockMarkMinuteHand</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.02</ParticleDuration><ParticleAlpha>0 .92,12 .68,86 0</ParticleAlpha><ParticleScale>.075</ParticleScale><ParticleSpinSpeed>-150</ParticleSpinSpeed><SystemDuration>1.02</SystemDuration><Image>PARTICLE_TEMPORALCLOCKMINUTEHAND</Image></Emitter>
-<Emitter><Name>PolarClockMarkTicks</Name><SpawnMinActive>[6 10]</SpawnMinActive><SpawnMaxLaunched>12</SpawnMaxLaunched><EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[36 50]</EmitterRadius><ParticleDuration>[.35 .68]</ParticleDuration><ParticleAlpha>.72,58 0</ParticleAlpha><ParticleScale>[.1 .24]</ParticleScale><ParticleRed>.62</ParticleRed><ParticleGreen>.92</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[5 14]</LaunchSpeed><SystemDuration>.72</SystemDuration><Image>PARTICLE_STAR40</Image></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>PolarClockMark</Name>
+  <SpawnMinActive>3</SpawnMinActive><SpawnMaxLaunched>3</SpawnMaxLaunched>
+  <SystemDuration>1.02</SystemDuration><ParticleDuration>1.02</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[19 28]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.025 .045]</ParticleScale>
+  <ParticleRed>0.63</ParticleRed><ParticleGreen>0.88</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <LaunchSpeed>[2 5]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+  <Field><FieldType>Circle</FieldType><X>-32</X></Field>
+</Emitter>

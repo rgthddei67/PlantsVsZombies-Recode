@@ -1,4 +1,12 @@
-<Emitter><Name>AuroraRiftUnfold</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>.82</ParticleDuration><ParticleAlpha>0 .78,18 .7,72 0</ParticleAlpha><ParticleScale>.45 4.2</ParticleScale><ParticleSpinSpeed>105</ParticleSpinSpeed><SystemDuration>.82</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
-<Emitter><Name>AuroraRiftUnfoldCore</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>.82</ParticleDuration><ParticleAlpha>0 .86,24 .55,78 0</ParticleAlpha><ParticleScale>.28 2.65</ParticleScale><ParticleSpinSpeed>-175</ParticleSpinSpeed><SystemDuration>.82</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
-<Emitter><Name>AuroraRiftUnfoldPuffs</Name><SpawnMinActive>[18 26]</SpawnMinActive><SpawnMaxLaunched>32</SpawnMaxLaunched><EmitterType>Circle</EmitterType><EmitterRadius>[8 38]</EmitterRadius><ParticleDuration>[.45 .82]</ParticleDuration><ParticleAlpha>0 .5,20 .3,68 0</ParticleAlpha><ParticleScale>[.5 .9] [.6 1.1]</ParticleScale><ParticleRed>.6</ParticleRed><ParticleGreen>.88</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[15 48]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><SystemDuration>.65</SystemDuration><Image>PARTICLE_IMITATERPUFFS_PART_0,PARTICLE_IMITATERPUFFS_PART_1,PARTICLE_IMITATERPUFFS_PART_2,PARTICLE_IMITATERPUFFS_PART_3,PARTICLE_IMITATERPUFFS_PART_4,PARTICLE_IMITATERPUFFS_PART_5,PARTICLE_IMITATERPUFFS_PART_6,PARTICLE_IMITATERPUFFS_PART_7</Image></Emitter>
-<Emitter><Name>AuroraRiftUnfoldHalo</Name><SpawnMinActive>[22 30]</SpawnMinActive><SpawnMaxLaunched>38</SpawnMaxLaunched><EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[18 42]</EmitterRadius><ParticleDuration>[.38 .78]</ParticleDuration><ParticleAlpha>.95,58 0</ParticleAlpha><ParticleScale>[.16 .42]</ParticleScale><LaunchSpeed>[42 105]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><ParticleSpinSpeed>[-260 260]</ParticleSpinSpeed><SystemDuration>.7</SystemDuration><Image>PARTICLE_STAR40</Image></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>AuroraRiftUnfold</Name>
+  <SpawnMinActive>8</SpawnMinActive><SpawnMaxLaunched>8</SpawnMaxLaunched>
+  <SystemDuration>0.82</SystemDuration><ParticleDuration>0.82</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[12 27]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.045 .09]</ParticleScale>
+  <ParticleRed>0.62</ParticleRed><ParticleGreen>0.75</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <LaunchSpeed>[-18 -6]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+  <Field><FieldType>Circle</FieldType><X>-32</X></Field>
+</Emitter>

@@ -1,5 +1,12 @@
-<Emitter><Name>PolarClockRewind</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.05</ParticleDuration><ParticleAlpha>.92,50 .7,82 0</ParticleAlpha><ParticleScale>.14 .035</ParticleScale><SystemDuration>1.05</SystemDuration><Image>PARTICLE_TEMPORALCLOCKFACE</Image></Emitter>
-<Emitter><Name>PolarClockRewindHourHand</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.05</ParticleDuration><ParticleAlpha>1,54 .72,84 0</ParticleAlpha><ParticleScale>.14 .035</ParticleScale><ParticleSpinSpeed>-120</ParticleSpinSpeed><SystemDuration>1.05</SystemDuration><Image>PARTICLE_TEMPORALCLOCKHOURHAND</Image></Emitter>
-<Emitter><Name>PolarClockRewindMinuteHand</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>1.05</ParticleDuration><ParticleAlpha>1,54 .78,84 0</ParticleAlpha><ParticleScale>.14 .035</ParticleScale><ParticleSpinSpeed>-480</ParticleSpinSpeed><SystemDuration>1.05</SystemDuration><Image>PARTICLE_TEMPORALCLOCKMINUTEHAND</Image></Emitter>
-<Emitter><Name>PolarClockRewindPuffs</Name><SpawnMinActive>[8 14]</SpawnMinActive><SpawnMaxLaunched>18</SpawnMaxLaunched><EmitterType>Circle</EmitterType><EmitterRadius>[28 64]</EmitterRadius><ParticleDuration>[.42 .82]</ParticleDuration><ParticleAlpha>.34,48 .16,82 0</ParticleAlpha><ParticleScale>[.4 .72] [.35 .7]</ParticleScale><ParticleRed>.52</ParticleRed><ParticleGreen>.76</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[-38 -12]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><SystemDuration>.78</SystemDuration><Image>PARTICLE_IMITATERPUFFS_PART_0,PARTICLE_IMITATERPUFFS_PART_1,PARTICLE_IMITATERPUFFS_PART_2,PARTICLE_IMITATERPUFFS_PART_3,PARTICLE_IMITATERPUFFS_PART_4,PARTICLE_IMITATERPUFFS_PART_5,PARTICLE_IMITATERPUFFS_PART_6,PARTICLE_IMITATERPUFFS_PART_7</Image></Emitter>
-<Emitter><Name>PolarClockRewindStars</Name><SpawnMinActive>[22 32]</SpawnMinActive><SpawnMaxLaunched>38</SpawnMaxLaunched><EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[45 84]</EmitterRadius><ParticleDuration>[.4 .86]</ParticleDuration><ParticleAlpha>.95,60 0</ParticleAlpha><ParticleScale>[.14 .36]</ParticleScale><ParticleRed>.66</ParticleRed><ParticleGreen>.94</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[-58 -18]</LaunchSpeed><ParticleSpinSpeed>[-280 280]</ParticleSpinSpeed><SystemDuration>.82</SystemDuration><Image>PARTICLE_STAR40</Image><Field><FieldType>Circle</FieldType><X>[-110 -65]</X></Field></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>PolarClockRewind</Name>
+  <SpawnMinActive>10</SpawnMinActive><SpawnMaxLaunched>10</SpawnMaxLaunched>
+  <SystemDuration>1.05</SystemDuration><ParticleDuration>1.05</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[30 57]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.045 .08]</ParticleScale>
+  <ParticleRed>1</ParticleRed><ParticleGreen>0.83</ParticleGreen><ParticleBlue>0.54</ParticleBlue>
+  <LaunchSpeed>[-42 -18]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+  <Field><FieldType>Circle</FieldType><X>-32</X></Field>
+</Emitter>

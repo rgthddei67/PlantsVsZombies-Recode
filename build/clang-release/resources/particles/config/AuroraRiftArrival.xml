@@ -1,3 +1,12 @@
-<Emitter><Name>AuroraRiftArrival</Name><SpawnMinActive>1</SpawnMinActive><SpawnMaxLaunched>1</SpawnMaxLaunched><ParticleDuration>.72</ParticleDuration><ParticleAlpha>.82,48 .56,82 0</ParticleAlpha><ParticleScale>4.1 -3.35</ParticleScale><ParticleSpinSpeed>-145</ParticleSpinSpeed><SystemDuration>.72</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
-<Emitter><Name>AuroraRiftArrivalPuffs</Name><SpawnMinActive>[18 26]</SpawnMinActive><SpawnMaxLaunched>32</SpawnMaxLaunched><EmitterType>Circle</EmitterType><EmitterRadius>[6 34]</EmitterRadius><ParticleDuration>[.45 .88]</ParticleDuration><ParticleAlpha>.46,58 .25,82 0</ParticleAlpha><ParticleScale>[.55 .95] [.45 .9]</ParticleScale><ParticleRed>.65</ParticleRed><ParticleGreen>.9</ParticleGreen><ParticleBlue>1</ParticleBlue><LaunchSpeed>[28 76]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><SystemDuration>.52</SystemDuration><Image>PARTICLE_IMITATERPUFFS_PART_0,PARTICLE_IMITATERPUFFS_PART_1,PARTICLE_IMITATERPUFFS_PART_2,PARTICLE_IMITATERPUFFS_PART_3,PARTICLE_IMITATERPUFFS_PART_4,PARTICLE_IMITATERPUFFS_PART_5,PARTICLE_IMITATERPUFFS_PART_6,PARTICLE_IMITATERPUFFS_PART_7</Image></Emitter>
-<Emitter><Name>AuroraRiftArrivalShards</Name><SpawnMinActive>[20 28]</SpawnMinActive><SpawnMaxLaunched>34</SpawnMaxLaunched><EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[8 28]</EmitterRadius><ParticleDuration>[.42 .82]</ParticleDuration><ParticleAlpha>.95,62 0</ParticleAlpha><ParticleScale>[.18 .5] -.1</ParticleScale><ParticleSpinSpeed>[-300 300]</ParticleSpinSpeed><LaunchSpeed>[48 120]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><SystemDuration>.5</SystemDuration><Image>PARTICLE_AURORARIFT</Image></Emitter>
+<!-- 主体轮廓由 polar_effects.glsl 绘制；这里仅保留小量柔亮光屑。 -->
+<Emitter>
+  <Name>AuroraRiftArrival</Name>
+  <SpawnMinActive>12</SpawnMinActive><SpawnMaxLaunched>12</SpawnMaxLaunched>
+  <SystemDuration>0.72</SystemDuration><ParticleDuration>0.72</ParticleDuration>
+  <EmitterType>CircleEvenSpacing</EmitterType><EmitterRadius>[12 25]</EmitterRadius>
+  <ParticleAlpha>.65,65 .36,100 0</ParticleAlpha><ParticleScale>[.055 .11]</ParticleScale>
+  <ParticleRed>0.6</ParticleRed><ParticleGreen>0.95</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <LaunchSpeed>[35 78]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleSpinSpeed>[-55 55]</ParticleSpinSpeed><Image>PARTICLE_WINDSTREAK</Image>
+
+</Emitter>

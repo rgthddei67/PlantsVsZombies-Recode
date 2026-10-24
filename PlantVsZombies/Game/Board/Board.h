@@ -601,6 +601,18 @@ private:
 	std::vector<PendingSnowHoleSpawn> mPendingSnowHoleSpawns; // 已扣波次预算、等待雪雾预警结束的出生事务
 	std::vector<PendingAuroraRift> mPendingAuroraRifts; // 已提交、等待展开的裂隙出生事务
 	std::vector<TemporalAnchor> mTemporalAnchors; // 已提交、等待回溯的独立时间锚
+	/** 结算边沿产生的短暂余辉；不入存档，不参与技能时序或复活资格。 */
+	struct PolarFinaleBurst {
+		Vector from, to;
+		float age = 0.0f;
+		bool temporal = false;
+	};
+	std::vector<PolarFinaleBurst> mPolarFinaleBursts;
+	float mPolarFinaleVisualTime = 0.0f; // 仅装饰流动使用的游戏秒，暂停冻结，读档重置
+	mutable std::array<int,7> mPolarFinaleRenderCounts{}; // 最近一次世界特效实际提交数，按 Graphics::PolarEffect 顺序
+	void UpdatePolarFinaleVisuals(float deltaTime);
+	/** 从真实结算位置记录余辉；只由主线程 Board 事务调用。 */
+	void AddPolarFinaleBurst(const Vector& from, const Vector& to, bool temporal);
 	int mNextDiscontinuousTransactionID = 1; // 非连续入场事务稳定排序 ID
 	bool mAuroraPriestGuaranteeConsumed = false; // 8-7 第三波保底已提交
 	bool mClockmakerGuaranteeConsumed = false; // 8-8 第二波保底已提交
@@ -1154,6 +1166,9 @@ public:
 	void CommitPolarClockAnchor(int ownerZombieID, int sourceRow);
 	/** 推进裂隙、时间锚与曙光导航；游戏暂停时由 deltaTime=0 自然冻结。 */
 	void UpdatePolarFinaleRituals(float deltaTime);
+	/** 主线程世界前景；由当前实体阶段和 Board 独立事务派生，不进入 worker 的对象 Draw。 */
+	void DrawPolarFinaleEffects(Graphics* g) const;
+	const std::array<int,7>& GetPolarFinaleRenderCounts() const { return mPolarFinaleRenderCounts; }
 	/** 选择唯一界碑提供者并原子消费碎片；true 表示终点被拒绝。 */
 	bool TryRejectDiscontinuousZombieEntry(int row, int column);
 	/** 把指定时间锚目标标为不可逆，魅惑、小推车与成功吞食统一调用。 */

@@ -6,6 +6,7 @@
 #include "../../ResourceKeys.h"
 #include "../../ResourceManager.h"
 #include "Game/Board/Board.h"
+#include "Game/Board/PolarFinaleVisuals.h"
 #include "../AudioSystem.h"
 
 #include <algorithm>
@@ -18,7 +19,7 @@ constexpr float kPreparationSeconds = PolarClockRules::Preparation; // 完成实
 constexpr float kWindupSeconds = PolarClockRules::Windup; // 时间锚提交前可打断前摇
 constexpr float kRetryWaitSeconds = PolarClockRules::RetryWait; // 被警铃草打断后的等待游戏秒
 constexpr float kCycleCooldownSeconds = PolarClockRules::Cooldown; // 每次时间锚提交后至下一次前摇的循环冷却游戏秒
-constexpr float kChannelPulseSeconds = 0.72f; // 前摇期间补充一轮星盘齿轮的游戏秒间隔
+constexpr float kChannelPulseSeconds = 0.72f; // 前摇期间补充少量星盘光屑的游戏秒间隔
 constexpr float kDiskOffsetX = 21.0f; // 星盘相对身体轨道的水平偏移，动画 px
 constexpr float kDiskOffsetY = -21.0f; // 星盘相对身体轨道的垂直偏移，动画 px
 constexpr float kDiskScale = 0.76f; // 星盘 follower 尺寸倍率
@@ -62,7 +63,7 @@ void PolarClockmakerZombie::Update()
 		&& IsActive() && !mIsDying) {
 		mClockVisualPulseTimer -= DeltaTime::GetDeltaTime();
 		if (mClockVisualPulseTimer <= 0.0f) {
-			g_particleSystem->EmitEffect("PolarClockCharge", GetVisualPosition());
+			g_particleSystem->EmitEffect("PolarClockCharge", PolarFinaleVisuals::ChannelCenter(*this));
 			mClockVisualPulseTimer = kChannelPulseSeconds;
 		}
 	}
@@ -110,7 +111,7 @@ void PolarClockmakerZombie::BeginWindup()
 	PlayTrack("anim_idle", 0.62f, 0.12f);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BLEEP, 0.4f);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("PolarClockCharge", GetVisualPosition());
+		g_particleSystem->EmitEffect("PolarClockCharge", PolarFinaleVisuals::ChannelCenter(*this));
 	}
 }
 
@@ -198,7 +199,7 @@ void PolarClockmakerZombie::HelmDrop()
 	if (diskWasPresent) {
 		DisableUncommittedClock();
 		if (g_particleSystem && IsActive() && !mIsPreview) {
-			g_particleSystem->EmitEffect("PolarClockBreak", GetVisualPosition());
+			g_particleSystem->EmitEffect("PolarClockBreak", PolarFinaleVisuals::ChannelCenter(*this));
 		}
 	}
 	SyncFollowerPresentation();

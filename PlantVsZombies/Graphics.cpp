@@ -1376,6 +1376,15 @@ bool Graphics::DrawShaderPreview(const Texture* texture, ShaderPreviewEffect eff
 	return DrawWaterEffectQuad(7 + kind, x, y, width, height, parameters, seconds, texture);
 }
 
+bool Graphics::DrawPolarEffect(PolarEffect effect, float x, float y, float width, float height,
+	float seconds, float progress, float opacity) {
+	const int kind = static_cast<int>(effect);
+	if (kind < 0 || kind > 6 || !std::isfinite(seconds) || !std::isfinite(progress)
+		|| !std::isfinite(opacity)) return false;
+	return DrawWaterEffectQuad(10 + kind, x, y, width, height,
+		glm::vec4(std::clamp(progress,0.0f,1.0f),std::clamp(opacity,0.0f,1.0f),0,0),seconds);
+}
+
 bool Graphics::DrawWaterEffectQuad(int effect, float x, float y, float width, float height,
 	const glm::vec4& parameters, float counter, const Texture* texture) {
 	if (tl_record || width <= 0 || height <= 0 || !m_whiteTextureHandle) return false;

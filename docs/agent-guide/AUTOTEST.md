@@ -96,6 +96,8 @@
 脚本根对象加 `"interactive": true` 后，原 `commands` 作为开局脚本执行；结束时进入等待，不退出。
 
 `interactive_shader_gallery.json` 打开纯视觉材质演示：同一张已注册的坚果图片展示能量护盾、冰晶蔓延、燃烧溶解；点击左侧护盾改变冲击落点，空格暂停演示时钟，R 重播。玩法在交互等待期间冻结，演示使用独立墙钟，不创建单位或修改存档。`shader_gallery` 可用 `time` 固定取证时刻，`on:false` 撤销当前场景的展示命令。`smoke_shader_gallery.json`、`smoke_shader_gallery_controls.json` 与 `verify_shader_gallery.py` 检查三个效果的颜色/可见源图、时间变化、暂停/重播/点击输入和撤销后正常场景；共享 pool shader 改动需覆盖 Vulkan、`-NoInstance`、OpenGL，并回归普通泳池/洪水仪表。
+
+`smoke_polar_spell_visuals.json` 与 `verify_polar_spell_visuals.py` 覆盖正式祭司/钟匠的连续施法图形、裂隙到场、移动目标钟印、时间回溯光痕、暂停、打断与待兑现事务的快照重载。同步截图后的 `polarFinaleVisuals` 统计真实 shader 提交，不能以粒子对象数量替代主体外观验收；光屑仍检查注册键。共享 shader 改动沿用上述渲染矩阵，并用 `smoke_area8_finale_contract.json` 回归原有结算与资源契约。
 普通游戏和没有此字段的 AutoTest 不启用信箱。示例 `autotest/scripts/interactive_play_8_8.json` 使用正常开局和卡组，内部关卡 71 对应 8-8；不修改阳光、冷却或出怪。
 仍按下方可见启动命令运行 `-AutoTest <脚本绝对路径> -Seed 42`。AutoTest 原有禁止玩家存档写入规则继续生效。
 

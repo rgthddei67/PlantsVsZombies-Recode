@@ -1,6 +1,7 @@
 #include "Game/Zombie/AuroraPriestRules.h"
 #include "Game/Zombie/PolarClockRules.h"
 #include "Board.h"
+#include "PolarFinaleVisuals.h"
 
 #include "../../GameApp.h"
 #include "../../ParticleSystem/ParticleSystem.h"
@@ -185,7 +186,7 @@ void Board::CommitPolarClockAnchor(int ownerZombieID, int sourceRow)
 		}
 		anchor.targets.push_back(target);
 		if (g_particleSystem) {
-			g_particleSystem->EmitEffect("PolarClockMark", zombie->GetVisualPosition());
+			g_particleSystem->EmitEffect("PolarClockMark", PolarFinaleVisuals::ClockCenter(*zombie));
 		}
 	}
 	mTemporalAnchors.push_back(std::move(anchor));
@@ -232,10 +233,12 @@ void Board::MarkTemporalTargetEquipmentExtracted(int zombieID, bool shieldLayer)
 void Board::UpdatePolarFinaleRituals(float deltaTime)
 {
 	if (deltaTime <= 0.0f) return;
+	UpdatePolarFinaleVisuals(deltaTime);
 	mDawnNavigationTimer = std::max(0.0f, mDawnNavigationTimer - deltaTime);
 	if (mTrophySpawned) {
 		mPendingAuroraRifts.clear();
 		mTemporalAnchors.clear();
+		mPolarFinaleBursts.clear();
 		return;
 	}
 
@@ -253,6 +256,10 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 			: GetCellCenterPosition(it->row, it->column).x;
 		if (Zombie* zombie = CreateZombie(it->type, it->row, spawnX)) {
 			zombie->mSpawnWave = it->spawnWave;
+			if (!rejected) {
+				const Vector center=GetCellCenterPosition(it->row,it->column);
+				AddPolarFinaleBurst(center,center,false);
+			}
 		}
 		if (g_particleSystem) {
 			g_particleSystem->EmitEffect(rejected ? "BoundaryEntryRedirect"
@@ -265,12 +272,14 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 	for (auto it = mTemporalAnchors.begin(); it != mTemporalAnchors.end();) {
 		it->visualPulseTimer -= deltaTime;
 		if (it->visualPulseTimer <= 0.0f && g_particleSystem) {
-			// 锚持续六秒，周期性局部齿轮让玩家始终看得出哪些目标仍会被回溯。
+			// 持续钟印由 shader 跟随真实计时器；短光屑只补充局部运动，不复制倒计时。
 			for (const TemporalTargetSnapshot& target : it->targets) {
+				if (target.irreversible) continue;
 				Zombie* marked = mEntityRegistry.GetZombie(target.zombieID);
-				const Vector position = marked && marked->IsActive()
-					? marked->GetVisualPosition()
-					: Vector(target.x, GetRowCenterYAtX(target.row, target.x));
+				const Vector position = marked && marked->IsActive() && !marked->IsDying()
+					? PolarFinaleVisuals::ClockCenter(*marked)
+					: Vector(target.x, GetRowCenterYAtX(target.row, target.x)
+						+PolarFinaleVisuals::AbsentFootY-PolarFinaleVisuals::MarkLift);
 				g_particleSystem->EmitEffect("PolarClockMark", position);
 			}
 			it->visualPulseTimer = kTemporalMarkPulseSeconds;
@@ -281,6 +290,9 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 			// 旧档中已经提交的复合编队快照也必须保持无效，避免恢复出孤立队员。
 			if (target.irreversible || !IsTemporalAnchorTargetType(target.type)) continue;
 			Zombie* zombie = mEntityRegistry.GetZombie(target.zombieID);
+			const Vector previous = zombie && zombie->IsActive() && !zombie->IsDying()
+				? PolarFinaleVisuals::ClockCenter(*zombie) : Vector(target.x,GetRowCenterYAtX(target.row,target.x)
+					+PolarFinaleVisuals::AbsentFootY-PolarFinaleVisuals::MarkLift);
 			const bool survivor = zombie && zombie->IsActive() && !zombie->IsDying()
 				&& !zombie->IsMindControlled();
 			const int column = std::clamp(static_cast<int>((target.x
@@ -329,8 +341,9 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 			// 来源钟匠不记录也不恢复局部技能状态，避免六秒结算刷新自己的循环冷却。
 			// 局部阶段可以覆盖轨道，故啮食表现必须在全部阶段恢复之后最终对齐。
 			zombie->ReconcileTemporalEatingPresentation();
+			AddPolarFinaleBurst(previous,PolarFinaleVisuals::ClockCenter(*zombie),true);
 			if (g_particleSystem) {
-				g_particleSystem->EmitEffect("PolarClockRewind", zombie->GetVisualPosition());
+				g_particleSystem->EmitEffect("PolarClockRewind", PolarFinaleVisuals::ClockCenter(*zombie));
 			}
 		}
 		it = mTemporalAnchors.erase(it);

@@ -54,6 +54,7 @@ float causticAlphaAt(vec2 coord)
 
 vec4 previewSource(vec2 uv) { return texture(uTexture,uv); }
 #include "shader_preview.glsl"
+#include "polar_effects.glsl"
 
 void main()
 {
@@ -64,6 +65,7 @@ void main()
         discard;
     }
 
+    if (uPoolLayer > 9.5) { outColor = polarEffect(poolCoord,color,uPoolCounter,int(uPoolLayer+.5)); return; }
     if (uPoolLayer > 6.5) { outColor = shaderPreview(poolCoord,color,uPoolCounter,int(uPoolLayer+.5)); return; }
     if (uPoolLayer > 3.5 && uPoolLayer < 4.5) { outColor = waterGaugeFace(poolCoord, color.x, color.y, color.z); return; }
     if (uPoolLayer > 2.5) {

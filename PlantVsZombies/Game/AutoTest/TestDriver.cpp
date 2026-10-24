@@ -6344,7 +6344,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		{ "particleTextureLoaded", ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Particles::PARTICLE_ALARMBELLROWPULSE, false) != nullptr },
 	};
+	const auto& finaleDraws=board->GetPolarFinaleRenderCounts();
+	out["polarFinaleVisuals"] = {
+		{"auroraChannels",finaleDraws[0]}, {"rifts",finaleDraws[1]}, {"arrivals",finaleDraws[2]},
+		{"clockChannels",finaleDraws[3]}, {"clockMarks",finaleDraws[4]},
+		{"rewinds",finaleDraws[5]}, {"trails",finaleDraws[6]}
+	};
 	out["area8FinaleResources"] = {
+		{ "spellStreakTextureLoaded", ResourceManager::GetInstance().GetTexture(
+			ResourceKeys::Particles::PARTICLE_WINDSTREAK, false) != nullptr },
 		{ "dawnStrikeTexturesLoaded", ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Particles::PARTICLE_DAWNFLARE, false) != nullptr
 			&& ResourceManager::GetInstance().GetTexture(

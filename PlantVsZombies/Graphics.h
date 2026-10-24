@@ -501,6 +501,13 @@ public:
 	bool DrawShaderPreview(const Texture* texture, ShaderPreviewEffect effect,
 		float x, float y, float width, float height, float seconds, const glm::vec4& parameters);
 
+	enum class PolarEffect { AuroraChannel, AuroraRift, AuroraArrival, ClockChannel, ClockMark, ClockRewind, TemporalTrail };
+	/** 主线程世界特效：progress 为 0..1 阶段进度（ClockMark 为剩余比例），seconds 为游戏秒。
+	 * 输出预乘 alpha；不采样角色纹理，不改角色动画、碰撞或玩法。调用方拥有位置和生命周期。
+	 */
+	bool DrawPolarEffect(PolarEffect effect, float x, float y, float width, float height,
+		float seconds, float progress, float opacity = 1.0f);
+
 	/**
 	 * @brief 绘制文字（**当前层**：与调用处的绘制顺序同 z-order）。
 	 *        在对象 Draw 循环内调用时，文字落在本对象之上、后续对象之下——参与正常 z-order。

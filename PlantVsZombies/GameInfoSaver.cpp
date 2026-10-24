@@ -1213,6 +1213,10 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 		board->mPolarFluctuationDuration = 0.0f;
 	}
 	board->mPendingAuroraRifts.clear();
+	// 瞬态余辉不重播；持续裂隙/时间锚的图形从恢复后的正式计时器派生。
+	board->mPolarFinaleBursts.clear();
+	board->mPolarFinaleVisualTime=0.0f;
+	board->mPolarFinaleRenderCounts.fill(0);
 	board->mEchoWaves.clear();
 	if (j.contains("echoWaves") && j["echoWaves"].is_array()) for (const auto& saved : j["echoWaves"]) {
 		if (!saved.is_object()) continue;
