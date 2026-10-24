@@ -11,15 +11,22 @@ layout(std430, binding = 0) readonly buffer BatchMatrices
     mat4 matrices[];
 };
 
+layout(location = 5) in float inDrawMode;
+
 uniform mat4 uProjectionView;
 
+out vec2 worldPosition;
+flat out int primitiveKind;
 out vec2 texCoord;
 out vec4 color;
 flat out vec4 clipRect;
 
 void main()
 {
-    gl_Position = uProjectionView * matrices[inMatrixIndex] * vec4(inPosition, 0.0, 1.0);
+    vec4 world = matrices[inMatrixIndex] * vec4(inPosition, 0.0, 1.0);
+    gl_Position = uProjectionView * world;
+    worldPosition = world.xy;
+    primitiveKind = int(inDrawMode) / 4;
     texCoord = inTexCoord;
     color = inColor;
     clipRect = vec4(

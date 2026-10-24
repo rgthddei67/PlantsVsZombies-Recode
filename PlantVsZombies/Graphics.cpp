@@ -18,16 +18,17 @@ namespace {
 	// Phase 3b — BatchVertex 顶点输入描述（与 Graphics.h struct BatchVertex 对齐）
 	// stride=52B：vec2 pos(8) + vec2 uv(8) + uvec2 indices(8) + vec4 color(16)
 	//             + float blendMode(4) + uvec2 packedClip(8)。
-	// blendMode 仅 CPU 侧分段使用；packedClip 作为 location=4 送入 shader。
+	// blendMode 低两位由 CPU 分段，其余位为解析图元；location=4/5 分别是 clip/drawMode。
 	constexpr VkVertexInputBindingDescription kBatchVertexBinding = {
 		/*binding*/0, /*stride*/sizeof(BatchVertex), VK_VERTEX_INPUT_RATE_VERTEX
 	};
-	constexpr VkVertexInputAttributeDescription kBatchVertexAttrs[5] = {
+	constexpr VkVertexInputAttributeDescription kBatchVertexAttrs[6] = {
 		{ /*location*/0, /*binding*/0, VK_FORMAT_R32G32_SFLOAT,        offsetof(BatchVertex, x)         },
 		{ /*location*/1, /*binding*/0, VK_FORMAT_R32G32_SFLOAT,        offsetof(BatchVertex, u)         },
 		{ /*location*/2, /*binding*/0, VK_FORMAT_R32G32_UINT,          offsetof(BatchVertex, texIndex)  },
 		{ /*location*/3, /*binding*/0, VK_FORMAT_R32G32B32A32_SFLOAT,  offsetof(BatchVertex, r)         },
 		{ /*location*/4, /*binding*/0, VK_FORMAT_R32G32_UINT,           offsetof(BatchVertex, clipMinXY) },
+		{ /*location*/5, /*binding*/0, VK_FORMAT_R32_SFLOAT,            offsetof(BatchVertex, blendMode) },
 	};
 
 	struct PoolPushConstants {
@@ -191,8 +192,9 @@ namespace {
 		return 0.0f;
 	}
 
-	/** 解码 BatchVertex 的稳定枚举值；未知值保守回落到普通 Alpha。 */
+	/** 解码 BatchVertex 的混合模式低两位，忽略解析图元标记。 */
 	constexpr BlendMode DecodeBatchBlendMode(float mode) {
+		mode = static_cast<float>(static_cast<uint32_t>(mode) & 3u);
 		if (mode == 1.0f) return BlendMode::Add;
 		if (mode == 2.0f) return BlendMode::WashedOut;
 		if (mode == 3.0f) return BlendMode::LessWashedOut;
@@ -245,7 +247,7 @@ namespace {
 		float curBm = scan[0].blendMode;
 		for (uint32_t i = 6; i < aligned; i += 6) {
 			const float bm = scan[i].blendMode;
-			if (bm != curBm) {
+			if (DecodeBatchBlendMode(bm) != DecodeBatchBlendMode(curBm)) {
 				emit(segStart, i, curBm);
 				segStart = i;
 				curBm = bm;
@@ -976,7 +978,7 @@ void Graphics::FlushBatch() {
 				const bool textureBoundary = !firstSegment
 					&& segmentTexture != m_batchVertices[segmentStart - 1].texIndex;
 				const bool stateBoundary = !firstSegment
-					&& segmentBlend != m_batchVertices[segmentStart - 1].blendMode;
+					&& DecodeBatchBlendMode(segmentBlend) != DecodeBatchBlendMode(m_batchVertices[segmentStart - 1].blendMode);
 				const BlendMode mode = DecodeBatchBlendMode(segmentBlend);
 				m_gl->SubmitSsboBatchSegment(segmentTexture,
 					mode == BlendMode::Add, mode == BlendMode::WashedOut,
@@ -986,7 +988,7 @@ void Graphics::FlushBatch() {
 			};
 			for (std::size_t i = 3; i + 2 < vertCount; i += 3) {
 				const BatchVertex& next = m_batchVertices[i];
-				if (next.texIndex != segmentTexture || next.blendMode != segmentBlend) {
+				if (next.texIndex != segmentTexture || DecodeBatchBlendMode(next.blendMode) != DecodeBatchBlendMode(segmentBlend)) {
 					submit(i);
 					segmentStart = i;
 					segmentTexture = next.texIndex;
@@ -1009,6 +1011,7 @@ void Graphics::FlushBatch() {
 			vertex.y = transformed.y;
 			vertex.u = source.u;
 			vertex.v = source.v;
+			vertex.drawMode = source.blendMode;
 			vertex.r = source.r;
 			vertex.g = source.g;
 			vertex.b = source.b;
@@ -1037,7 +1040,7 @@ void Graphics::FlushBatch() {
 			const bool textureBoundary = !firstSegment
 				&& segmentTexture != m_batchVertices[segmentStart - 1].texIndex;
 			const bool stateBoundary = !firstSegment
-				&& segmentBlend != m_batchVertices[segmentStart - 1].blendMode;
+				&& DecodeBatchBlendMode(segmentBlend) != DecodeBatchBlendMode(m_batchVertices[segmentStart - 1].blendMode);
 			const BlendMode mode = DecodeBatchBlendMode(segmentBlend);
 			m_gl->SubmitCpuBatchSegment(segmentTexture,
 				mode == BlendMode::Add, mode == BlendMode::WashedOut,
@@ -1048,7 +1051,7 @@ void Graphics::FlushBatch() {
 		};
 		for (std::size_t i = 3; i + 2 < vertCount; i += 3) {
 			const BatchVertex& next = m_batchVertices[i];
-			if (next.texIndex != segmentTexture || next.blendMode != segmentBlend) {
+			if (next.texIndex != segmentTexture || DecodeBatchBlendMode(next.blendMode) != DecodeBatchBlendMode(segmentBlend)) {
 				submit(i);
 				segmentStart = i;
 				segmentTexture = next.texIndex;
@@ -2525,36 +2528,53 @@ glm::vec2 Graphics::WorldToLogical(float worldX, float worldY) const {
 	return glm::vec2(logicalX, logicalY);
 }
 
-void Graphics::DrawLine(float x1, float y1, float x2, float y2, const glm::vec4& color) {
-	if (tl_record) { RecordDrawLine(*tl_record, x1, y1, x2, y2, color); return; }
+namespace {
+	constexpr int kAnalyticLine = 1; // 解析图元编码，与 primitive_coverage.glsl 一致
+	constexpr int kAnalyticDisc = 2;
+	constexpr int kAnalyticRing = 3;
+	constexpr float kPrimitivePaddingPixels = 1.0f; // 屏幕像素：给覆盖率过渡留出的外扩宽度
 
-	glm::vec4 nc = NormalizeColor(color);
-	float r = nc.r, g = nc.g, b = nc.b, a = nc.a;
-
-	// 线段转为 1px 宽四边形，走纹理批次（1×1 白纹理）保证绘制顺序
-	const glm::mat4& transform = m_transformStack.back();
-	glm::vec4 p0 = transform * glm::vec4(x1, y1, 0.0f, 1.0f);
-	glm::vec4 p1 = transform * glm::vec4(x2, y2, 0.0f, 1.0f);
-
-	float dx = p1.x - p0.x, dy = p1.y - p0.y;
-	float len = sqrtf(dx * dx + dy * dy);
-	if (len < 0.001f) return;
-	float nx = -dy / len * 0.5f, ny = dx / len * 0.5f;
-
-	int texIndex = BindTexture(m_whiteTexture);
-	int matIndex = AddMatrix(glm::mat4(1.0f));
-	float bm = EncodeBatchBlendMode(m_currentBlendMode);
-
-	BatchVertex verts[6] = {
-		{p0.x + nx, p0.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		{p0.x - nx, p0.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		{p1.x - nx, p1.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		{p0.x + nx, p0.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		{p1.x - nx, p1.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		{p1.x + nx, p1.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
+	struct AnalyticQuad {
+		glm::vec2 positions[4];
+		glm::vec2 coordinates[4];
 	};
-	AddVertices(verts, 6);
-	CheckBatch();
+
+	/** 扩大圆的承载矩形；用逆变换行长度保证斜切/镜像后仍覆盖完整抗锯齿边沿。 */
+	bool BuildCircleQuad(const glm::mat4& transform, float cx, float cy, float radius,
+		float padding, AnalyticQuad& quad) {
+		if (!(radius > 0.0f) || !std::isfinite(radius)) return false;
+		const glm::vec2 center(transform * glm::vec4(cx, cy, 0, 1));
+		const glm::vec2 axisX(transform * glm::vec4(radius, 0, 0, 0));
+		const glm::vec2 axisY(transform * glm::vec4(0, radius, 0, 0));
+		const float det = std::abs(axisX.x * axisY.y - axisX.y * axisY.x);
+		if (!(det > 1e-8f) || !std::isfinite(det)) return false;
+		const glm::vec2 extent(1.0f + padding * glm::length(axisY) / det,
+			1.0f + padding * glm::length(axisX) / det);
+		constexpr glm::vec2 corners[]{{-1,-1},{-1,1},{1,1},{1,-1}};
+		for (int i = 0; i < 4; ++i) {
+			const glm::vec2 local = corners[i] * extent;
+			quad.positions[i] = center + axisX * local.x + axisY * local.y;
+			quad.coordinates[i] = local * .5f + .5f;
+		}
+		return true;
+	}
+}
+
+void Graphics::DrawLine(float x1, float y1, float x2, float y2, const glm::vec4& color) {
+	const glm::mat4& transform = tl_record ? tl_transformStack->back() : m_transformStack.back();
+	const glm::vec2 start(transform * glm::vec4(x1, y1, 0, 1));
+	const glm::vec2 end(transform * glm::vec4(x2, y2, 0, 1));
+	const float length = glm::length(end - start);
+	if (!(length >= .001f) || !std::isfinite(length)) return;
+	const glm::vec2 along = (end - start) / length;
+	const glm::vec2 normal(-along.y, along.x);
+	const float padding = kPrimitivePaddingPixels / std::max(m_letterboxScale * m_cameraZoom, .001f);
+	const glm::vec2 outerStart = start - along * padding, outerEnd = end + along * padding;
+	const glm::vec2 side = normal * (.5f + padding);
+	const glm::vec2 positions[]{outerStart - side, outerStart + side, outerEnd + side, outerEnd - side};
+	const glm::vec2 coordinates[]{{-padding / length, -padding}, {-padding / length, 1 + padding},
+		{1 + padding / length, 1 + padding}, {1 + padding / length, -padding}};
+	SubmitAnalyticQuad(positions, coordinates, kAnalyticLine, color);
 }
 
 void Graphics::DrawRect(float x, float y, float width, float height, const glm::vec4& color) {
@@ -2624,70 +2644,21 @@ void Graphics::FillRect(float x, float y, float width, float height, const glm::
 }
 
 void Graphics::DrawCircle(float cx, float cy, float radius, const glm::vec4& color, int segments) {
-	if (tl_record) { RecordDrawCircle(*tl_record, cx, cy, radius, color, segments); return; }
-
-	glm::vec4 nc = NormalizeColor(color);
-	float r = nc.r, g = nc.g, b = nc.b, a = nc.a;
-
-	// 每段弧转为 1px 宽四边形，走纹理批次
-	const glm::mat4& transform = m_transformStack.back();
-
-	int texIndex = BindTexture(m_whiteTexture);
-	int matIndex = AddMatrix(glm::mat4(1.0f));
-	float bm = EncodeBatchBlendMode(m_currentBlendMode);
-
-	for (int i = 0; i < segments; ++i) {
-		float angle0 = 2.0f * glm::pi<float>() * i / segments;
-		float angle1 = 2.0f * glm::pi<float>() * (i + 1) / segments;
-		glm::vec4 p0 = transform * glm::vec4(cx + radius * cosf(angle0), cy + radius * sinf(angle0), 0.0f, 1.0f);
-		glm::vec4 p1 = transform * glm::vec4(cx + radius * cosf(angle1), cy + radius * sinf(angle1), 0.0f, 1.0f);
-
-		float dx = p1.x - p0.x, dy = p1.y - p0.y;
-		float len = sqrtf(dx * dx + dy * dy);
-		if (len < 0.001f) continue;
-		float nx = -dy / len * 0.5f, ny = dx / len * 0.5f;
-
-		BatchVertex verts[6] = {
-			{p0.x + nx, p0.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p0.x - nx, p0.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p1.x - nx, p1.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p0.x + nx, p0.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p1.x - nx, p1.y - ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p1.x + nx, p1.y + ny, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		};
-		AddVertices(verts, 6);
-	}
-	CheckBatch();
+	if (segments <= 0) return;
+	AnalyticQuad quad;
+	const auto& transform = tl_record ? tl_transformStack->back() : m_transformStack.back();
+	const float padding = .5f + kPrimitivePaddingPixels / std::max(m_letterboxScale * m_cameraZoom, .001f);
+	if (BuildCircleQuad(transform, cx, cy, radius, padding, quad))
+		SubmitAnalyticQuad(quad.positions, quad.coordinates, kAnalyticRing, color);
 }
 
 void Graphics::FillCircle(float cx, float cy, float radius, const glm::vec4& color, int segments) {
-	if (tl_record) { RecordFillCircle(*tl_record, cx, cy, radius, color, segments); return; }
-
-	glm::vec4 nc = NormalizeColor(color);
-	float r = nc.r, g = nc.g, b = nc.b, a = nc.a;
-
-	// 展开三角扇，走纹理批次
-	const glm::mat4& transform = m_transformStack.back();
-	glm::vec4 center = transform * glm::vec4(cx, cy, 0.0f, 1.0f);
-
-	int texIndex = BindTexture(m_whiteTexture);
-	int matIndex = AddMatrix(glm::mat4(1.0f));
-	float bm = EncodeBatchBlendMode(m_currentBlendMode);
-
-	for (int i = 0; i < segments; ++i) {
-		float angle0 = 2.0f * glm::pi<float>() * i / segments;
-		float angle1 = 2.0f * glm::pi<float>() * (i + 1) / segments;
-		glm::vec4 p0 = transform * glm::vec4(cx + radius * cosf(angle0), cy + radius * sinf(angle0), 0.0f, 1.0f);
-		glm::vec4 p1 = transform * glm::vec4(cx + radius * cosf(angle1), cy + radius * sinf(angle1), 0.0f, 1.0f);
-
-		BatchVertex verts[3] = {
-			{center.x, center.y, 0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p0.x, p0.y,         0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-			{p1.x, p1.y,         0.5f, 0.5f, (uint32_t)texIndex, (uint32_t)matIndex, r,g,b,a, bm},
-		};
-		AddVertices(verts, 3);
-	}
-	CheckBatch();
+	if (segments <= 0) return;
+	AnalyticQuad quad;
+	const auto& transform = tl_record ? tl_transformStack->back() : m_transformStack.back();
+	const float padding = kPrimitivePaddingPixels / std::max(m_letterboxScale * m_cameraZoom, .001f);
+	if (BuildCircleQuad(transform, cx, cy, radius, padding, quad))
+		SubmitAnalyticQuad(quad.positions, quad.coordinates, kAnalyticDisc, color);
 }
 
 // ============================================================================
@@ -3176,7 +3147,7 @@ void Graphics::ReplayAndEndParallel() {
 //  做索引重映射。
 //
 //  公共写顶点的"6-vert quad / 1 mat4"模板在下面 EmitQuad 里抽出来；非 quad 的
-//  RecordFillCircle 直接展开。
+//  解析线段/圆通过 SubmitAnalyticQuad 写入。
 // ----------------------------------------------------------------------------
 
 namespace {
@@ -3230,7 +3201,7 @@ namespace {
 	}
 
 	// 把一条"已经在世界坐标里的"端点拼成 1 px 宽的世界坐标 quad，写进切片。
-	// 与公开 DrawLine / DrawRect / DrawCircle 的 1px-wide quad 走法保持一致。
+	// DrawRect 保留硬边 1px-wide quad；线段/圆已走 SubmitAnalyticQuad。
 	// 调用方负责传 matAbs（通常对应 worker 端的单位矩阵）。
 	inline void EmitEdgeQuad(VkWorkerSlice& sl,
 		float ax, float ay, float bx, float by,
@@ -3255,6 +3226,35 @@ namespace {
 		sl.vboCount += 6;
 	}
 } // anonymous
+
+void Graphics::SubmitAnalyticQuad(const glm::vec2* positions, const glm::vec2* coordinates,
+	int primitiveKind, const glm::vec4& color) {
+	// 保留 52B batch 格式：混合字段的高位只在 shader 中解释，CPU 仍按低两位合批。
+	const glm::vec4 tint = NormalizeColor(color);
+	const float mode = EncodeBatchBlendMode(tl_record ? tl_blend : m_currentBlendMode) + 4.0f * primitiveKind;
+	const PackedClipRect clip = CurrentPackedClipRect();
+	BatchVertex local[6];
+	BatchVertex* vertices = local;
+	uint32_t matrix = 0, texture = m_whiteTexture;
+	if (tl_record) {
+		if (!PrepareSliceBatch(*tl_record, 6, 1)) return;
+		auto& slice = tl_record->slice;
+		matrix = PushSliceMatrix(slice, glm::mat4(1.0f));
+		vertices = slice.vboPtr + slice.vboCount;
+	}
+	else {
+		texture = BindTexture(m_whiteTexture);
+		matrix = AddMatrix(glm::mat4(1.0f));
+	}
+	constexpr int corners[]{0,1,2,0,2,3};
+	for (int i = 0; i < 6; ++i) {
+		const int c = corners[i];
+		vertices[i] = {positions[c].x, positions[c].y, coordinates[c].x, coordinates[c].y,
+			texture, matrix, tint.r, tint.g, tint.b, tint.a, mode, clip.minXY, clip.maxXY};
+	}
+	if (tl_record) tl_record->slice.vboCount += 6;
+	else { AddVertices(vertices, 6); CheckBatch(); }
+}
 
 void Graphics::RecordDrawTexture(WorkerRecord& r,
 	const Texture* tex, float x, float y, float width, float height,
@@ -3619,24 +3619,6 @@ void Graphics::RecordFillRect(WorkerRecord& r,
 	EmitQuad(sl, 0.0f, 0.0f, 1.0f, 1.0f, m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm);
 }
 
-void Graphics::RecordDrawLine(WorkerRecord& r,
-	float x1, float y1, float x2, float y2, const glm::vec4& color)
-{
-	VkWorkerSlice& sl = r.slice;
-	// 单段线：6 顶点 + 1 单位矩阵
-	if (!PrepareSliceBatch(r, 6, 1)) return;
-
-	const glm::mat4& transform = tl_transformStack->back();
-	const glm::vec4 p0 = transform * glm::vec4(x1, y1, 0.0f, 1.0f);
-	const glm::vec4 p1 = transform * glm::vec4(x2, y2, 0.0f, 1.0f);
-
-	// 顶点本身已经是世界坐标，所以矩阵走单位阵（shader 用它做 model 变换会等价 no-op）。
-	const uint32_t matAbs = PushSliceMatrix(sl, glm::mat4(1.0f));
-	const glm::vec4 nc = NormalizeColor(color);
-	const float bm = EncodeBatchBlendMode(tl_blend);
-	EmitEdgeQuad(sl, p0.x, p0.y, p1.x, p1.y, m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm);
-}
-
 void Graphics::RecordDrawRect(WorkerRecord& r,
 	float x, float y, float width, float height, const glm::vec4& color)
 {
@@ -3659,61 +3641,6 @@ void Graphics::RecordDrawRect(WorkerRecord& r,
 		const int j = (i + 1) % 4;
 		EmitEdgeQuad(sl, p[i].x, p[i].y, p[j].x, p[j].y,
 			m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm);
-	}
-}
-
-void Graphics::RecordDrawCircle(WorkerRecord& r,
-	float cx, float cy, float radius, const glm::vec4& color, int segments)
-{
-	if (segments <= 0) return;
-	VkWorkerSlice& sl = r.slice;
-	// segments 个边段，每段 6 顶点 + 1 共享矩阵
-	if (!PrepareSliceBatch(r, (uint32_t)segments * 6, 1)) return;
-
-	const glm::mat4& transform = tl_transformStack->back();
-	const uint32_t matAbs = PushSliceMatrix(sl, glm::mat4(1.0f));
-	const glm::vec4 nc = NormalizeColor(color);
-	const float bm = EncodeBatchBlendMode(tl_blend);
-
-	for (int i = 0; i < segments; ++i) {
-		const float a0 = 2.0f * glm::pi<float>() * i / segments;
-		const float a1 = 2.0f * glm::pi<float>() * (i + 1) / segments;
-		const glm::vec4 p0 = transform * glm::vec4(cx + radius * std::cos(a0), cy + radius * std::sin(a0), 0.0f, 1.0f);
-		const glm::vec4 p1 = transform * glm::vec4(cx + radius * std::cos(a1), cy + radius * std::sin(a1), 0.0f, 1.0f);
-		EmitEdgeQuad(sl, p0.x, p0.y, p1.x, p1.y,
-			m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm);
-	}
-}
-
-void Graphics::RecordFillCircle(WorkerRecord& r,
-	float cx, float cy, float radius, const glm::vec4& color, int segments)
-{
-	if (segments <= 0) return;
-	VkWorkerSlice& sl = r.slice;
-	// 三角扇：segments 个三角形 × 3 顶点 + 1 共享矩阵。
-	// 注意 EmitDrawRange 是 6 顶点 stride，3 顶点会被对齐丢弃——但 FillCircle 几乎只在
-	// 调试路径（-Debug 显示 hitbox）使用，且原 RecordFillCircle 也是 3 顶点/段，对齐
-	// 行为与原实现一致（不会有人在并行 record 路径里画大量 FillCircle）。
-	if (!PrepareSliceBatch(r, (uint32_t)segments * 3, 1)) return;
-
-	const glm::mat4& transform = tl_transformStack->back();
-	const glm::vec4 center = transform * glm::vec4(cx, cy, 0.0f, 1.0f);
-	const uint32_t matAbs = PushSliceMatrix(sl, glm::mat4(1.0f));
-	const glm::vec4 nc = NormalizeColor(color);
-	const float bm = EncodeBatchBlendMode(tl_blend);
-	const PackedClipRect clip = CurrentPackedClipRect();
-
-	for (int i = 0; i < segments; ++i) {
-		const float a0 = 2.0f * glm::pi<float>() * i / segments;
-		const float a1 = 2.0f * glm::pi<float>() * (i + 1) / segments;
-		const glm::vec4 p0 = transform * glm::vec4(cx + radius * std::cos(a0), cy + radius * std::sin(a0), 0.0f, 1.0f);
-		const glm::vec4 p1 = transform * glm::vec4(cx + radius * std::cos(a1), cy + radius * std::sin(a1), 0.0f, 1.0f);
-
-		BatchVertex* v = sl.vboPtr + sl.vboCount;
-		v[0] = { center.x, center.y, 0.5f, 0.5f, m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm, clip.minXY, clip.maxXY };
-		v[1] = { p0.x,     p0.y,     0.5f, 0.5f, m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm, clip.minXY, clip.maxXY };
-		v[2] = { p1.x,     p1.y,     0.5f, 0.5f, m_whiteTexture, matAbs, nc.r, nc.g, nc.b, nc.a, bm, clip.minXY, clip.maxXY };
-		sl.vboCount += 3;
 	}
 }
 

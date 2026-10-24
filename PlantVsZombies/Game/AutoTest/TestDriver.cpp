@@ -3832,6 +3832,64 @@ bool TestDriver::ExecuteCurrent() {
 		Log("snapshot reloaded into fresh GameScene: " + path);
 		return true;
 	}
+	if (op == "primitive_aa_probe") {
+		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
+		if (!scene) { Fail("primitive_aa_probe: scene missing"); return false; }
+		if (!cmd.value("on", true)) {
+			scene->UnregisterDrawCommand("PrimitiveAAProbe");
+			return true;
+		}
+		// 同一组调用分别经串行和 worker 提交，覆盖小圆、奇数旧分段数、仿射变换和裁剪。
+		scene->RegisterDrawCommand("PrimitiveAAProbe", [](Graphics* g) {
+			const auto savedBlend = g->GetBlendMode();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(0, 0, 1100, 600, glm::vec4(0, 0, 0, 255));
+			const auto column = [g](float x) {
+				const glm::vec4 white(255);
+				g->PushTransform();
+				g->Translate(x, 80);
+				const float centers[]{20,65,135,250};
+				const float radii[]{3,8,20,45};
+				for (int i=0;i<4;++i) {
+					g->DrawCircle(centers[i],50,radii[i],white,7);
+					g->FillCircle(centers[i],150,radii[i],white,7);
+				}
+				g->FillCircle(330,150,.35f,white);
+				g->FillCircle(350,150,.8f,white);
+				g->DrawLine(10,220,340,220,white);
+				g->DrawLine(10,240,340,270,white);
+				g->DrawLine(10,285,65,320,white);
+				g->DrawLine(90,285,90,325,white);
+				g->DrawLine(110,285,110,285,white); // 零长度应安全跳过。
+				g->PushTransform();
+				g->Translate(195,335);
+				g->Rotate(25);
+				g->Scale(-1.6f,.6f);
+				g->DrawCircle(0,0,35,white);
+				g->FillCircle(0,0,22,glm::vec4(60,180,255,128));
+				g->PopTransform();
+				g->PushClipRect(static_cast<int>(x+295),390,30,50);
+				g->FillCircle(310,335,35,white);
+				g->PopClipRect();
+				for (int i=0;i<4;++i) {
+					const BlendMode modes[]{BlendMode::Alpha,BlendMode::Add,BlendMode::WashedOut,BlendMode::LessWashedOut};
+					g->SetBlendMode(modes[i]);
+					g->FillCircle(35+i*85.0f,435,24,glm::vec4(220,100,40,128));
+					g->DrawCircle(35+i*85.0f,435,30,white);
+					g->DrawLine(10+i*85.0f,445,60+i*85.0f,420,white);
+				}
+				g->SetBlendMode(BlendMode::Alpha);
+				g->PopTransform();
+			};
+			column(90);
+			const bool parallel = g->IsParallelDrawEnabled();
+			if (parallel) { g->BeginParallelRecord(1); g->SetWorkerSlot(0); }
+			column(610);
+			if (parallel) { g->ClearWorkerSlot(); g->ReplayAndEndParallel(); }
+			g->SetBlendMode(savedBlend);
+		}, LAYER_UI + 100);
+		return true;
+	}
 	if (op == "mixed_geometry_order_probe") {
 		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
 		if (!scene) { Fail("mixed_geometry_order_probe: scene 为空"); return false; }

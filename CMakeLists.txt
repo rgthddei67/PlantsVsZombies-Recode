@@ -499,6 +499,9 @@ foreach(entry IN LISTS SHADER_SOURCES)
     # 与旧工程一致：spv 落在源码树 Shader/spv/，所有 preset 共享同一份产物
     set(spv ${SRC_DIR}/Shader/spv/${name}.spv)
     set(shader_dependencies ${SRC_DIR}/Shader/${shader})
+    if(shader MATCHES "^batch.*\\.frag\\.glsl$")
+        list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/primitive_coverage.glsl)
+    endif()
     if(shader STREQUAL "pool.frag.glsl")
         list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/water_effects.glsl)
     endif()
@@ -518,13 +521,16 @@ add_dependencies(PlantsVsZombies CompileShaders)
 
 # 只拷 Shader 到输出目录；resources/font 由 clang-release 持有，其他预设通过目录联接共享。
 # 注意：copy_directory 拷的是"目录内容"，目标必须写全 Shader/spv（游戏按 Shader/spv/*.spv 加载）
-add_custom_command(TARGET PlantsVsZombies POST_BUILD
+# shader-only 增量不会重链 EXE，必须独立同步，避免运行到过期的 SPIR-V/共享 GLSL。
+add_custom_target(CopyShaders ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
             ${SRC_DIR}/Shader/spv $<TARGET_FILE_DIR:PlantsVsZombies>/Shader/spv
     COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
             ${SRC_DIR}/Shader/opengl $<TARGET_FILE_DIR:PlantsVsZombies>/Shader/opengl
+    DEPENDS CompileShaders
     COMMENT "Copying Vulkan SPIR-V and OpenGL GLSL shaders to output directory"
 )
+add_dependencies(PlantsVsZombies CopyShaders)
 
 # ---- 生成资源清单 resources/manifest.txt（取代运行时 std::filesystem 目录枚举）----
 # 直接 glob 紧挨 exe 的真实资源目录（非发布预设会经目录联接看到同一份实体资源），

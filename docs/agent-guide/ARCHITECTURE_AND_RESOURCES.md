@@ -59,6 +59,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 水岸水面与仪表的程序化片元函数统一放在 `Shader/opengl/water_effects.glsl`：Vulkan 在编译时 include，OpenGL 创建 pool program 时展开同一资源。`Graphics::DrawFloodSurface/DrawWaterGauge` 只在主线程场景绘制中使用，复用 pool pipeline 的六顶点提交、预乘 alpha、矩阵和 shader clip；先 flush batch/instances 保序，不能从 worker 直接调用。参数经顶点 color 通道传递的是效果数据（洪水为四角有符号深度），不能预乘或夹成颜色范围。世界范围裁剪要先用 `WorldToLogical`，以跟随开场、选卡和震屏镜头。修改共享函数须同时验证默认 Vulkan、`-NoInstance` 与 OpenGL，并保留普通三层泳池效果。
 
+普通 `DrawLine/DrawCircle/FillCircle` 使用 `Shader/opengl/primitive_coverage.glsl` 的解析覆盖率，主线程与 worker 共用六顶点提交。`BatchVertex` 保持 52 字节，`blendMode` 的整数低两位表示混合模式，高位表示图元类型；CPU 只按实际混合状态分段，不能把图元类型变化误当作 blend 边界。线段保留平头，线与圆环在对象变换后保持 1 逻辑像素宽，镜头和 letterbox 缩放继续生效。圆接口的旧 `segments` 参数仅保留正值绘制、非正值跳过的兼容语义；正值不再控制多边形边数。承载矩形必须为屏幕抗锯齿边缘外扩，覆盖率导数在裁剪 discard 之前计算；小圆用径向函数的解析梯度，避免圆心对称的像素组导数为零。`DrawRect/FillRect` 保留现有硬边语义。
+
 ### Board 内部子域
 
 Board 保留玩法权威和实体协调，独立机制可由其具名值对象独占，不引入通用组件容器。`RoofRunoff` 拥有径流积累、阶段、锁定行组和残留湿度，并负责推进及 Save/Load；Board 只提供地形、雨势和导流候选，展示继续消费 Board getter。`WaveSpawnCounts` 只保存每波累计台账，统一重置和序列化；同时在场/在途名额、教程标志及劫持者跨波冷却仍各自维护。新增计数在其持久化登记表加入稳定键，生成门禁使用 `WaveSpawnRules` 的共享参数，不再向 Board 添加逐类型字段和清零分支。

@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
 // set=1 binding=1 bindless 纹理数组（8192 槽位，由 VulkanTexturePool 拥有）。
@@ -9,7 +10,11 @@ layout(location = 1) in vec4      vColor;
 layout(location = 2) flat in uint vTex;
 layout(location = 3) flat in uvec2 vPackedClip;
 
+layout(location = 4) in vec2 vWorld;
+layout(location = 5) flat in int vPrimitive;
 layout(location = 0) out vec4 outColor;
+
+#include "opengl/primitive_coverage.glsl"
 
 // 与原版 FilterEffectDoLumSat 相同：在 HSL 空间保留色相，只调整亮度和饱和度。
 vec3 applyLumSat(vec3 rgb, float lumScale, float satScale) {
@@ -35,6 +40,8 @@ vec3 applyLumSat(vec3 rgb, float lumScale, float satScale) {
 }
 
 void main() {
+    float coverage = vPrimitive == 0 ? 1.0 : primitiveCoverage(vUV, vWorld, vPrimitive);
+
     if ((vPackedClip.x | ~vPackedClip.y) != 0u) {
         uvec2 clipMin = uvec2(vPackedClip.x & 0xFFFFu, vPackedClip.x >> 16);
         uvec2 clipMax = uvec2(vPackedClip.y & 0xFFFFu, vPackedClip.y >> 16);
@@ -45,7 +52,7 @@ void main() {
         }
     }
 
-    vec4 sampled = texture(textures[nonuniformEXT(vTex)], vUV);
+    vec4 sampled = vPrimitive == 0 ? texture(textures[nonuniformEXT(vTex)], vUV) : vec4(coverage);
     if (sampled.a <= 0.0) {
         outColor = vec4(0.0);
         return;

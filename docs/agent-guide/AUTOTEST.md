@@ -119,6 +119,8 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 `smoke_mixed_geometry_order.json` 用串行参照与同一 worker 切片中的交错 instance/batch 绘制，验证无发光、Add 分段及恢复 Alpha 后的遮挡顺序。运行 `python autotest/verify_mixed_geometry_order.py <输出目录>` 比较两列像素与前景颜色；后端回归覆盖默认 Vulkan、`-NoInstance` 和强制 OpenGL。worker 新增 batch 写入口必须先走 `PrepareSliceBatch`，不能只依赖混合模式变化记录顺序边界。
 
+`smoke_primitive_aa.json` 检查普通线段/圆的解析抗锯齿，包含串行与 worker 对照、奇数旧分段数、亚像素小圆、非等比缩放/镜像/旋转、裁剪、混合及全屏显示，并复用 mixed geometry 顺序夹具。运行 `python autotest/verify_primitive_aa.py <输出目录...>`，检查可见覆盖面积、细线亮度、边缘中间色与两路径一致性。修改 batch 图元编码或共用覆盖率函数时覆盖 Vulkan、`-NoInstance`、OpenGL SSBO 和 `-Renderer=opengl -OpenGL33`；截图检查不能用单纯增加圆的分段数替代。
+
 `smoke_glyph_atlas_rebuild.json` 在同帧按血量串逐步扩充字形图集，并交错 Add 绘制；
 `glyph_atlas_rebuild_probe` 后必须立即截图，后续帧会掩盖旧纹理提前释放问题。
 运行 `python autotest/verify_glyph_atlas_rebuild.py <输出目录>`，比较重建帧与稳定帧的左右同串像素和绿色墨迹。

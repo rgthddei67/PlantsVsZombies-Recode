@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
 layout(set = 1, binding = 1) uniform sampler2D textures[];
@@ -8,7 +9,11 @@ layout(location = 1) in vec4      vColor;
 layout(location = 2) flat in uint vTex;
 layout(location = 3) flat in uvec2 vPackedClip;
 
+layout(location = 4) in vec2 vWorld;
+layout(location = 5) flat in int vPrimitive;
 layout(location = 0) out vec4 outColor;
+
+#include "opengl/primitive_coverage.glsl"
 
 vec3 applyLumSat(vec3 rgb, float lumScale, float satScale) {
     float maxC = max(max(rgb.r, rgb.g), rgb.b);
@@ -33,6 +38,8 @@ vec3 applyLumSat(vec3 rgb, float lumScale, float satScale) {
 }
 
 void main() {
+    float coverage = vPrimitive == 0 ? 1.0 : primitiveCoverage(vUV, vWorld, vPrimitive);
+
     if ((vPackedClip.x | ~vPackedClip.y) != 0u) {
         uvec2 clipMin = uvec2(vPackedClip.x & 0xFFFFu, vPackedClip.x >> 16);
         uvec2 clipMax = uvec2(vPackedClip.y & 0xFFFFu, vPackedClip.y >> 16);
@@ -40,7 +47,7 @@ void main() {
         if (any(lessThan(frag, vec2(clipMin))) ||
             any(greaterThanEqual(frag, vec2(clipMax)))) discard;
     }
-    vec4 sampled = texture(textures[nonuniformEXT(vTex)], vUV);
+    vec4 sampled = vPrimitive == 0 ? texture(textures[nonuniformEXT(vTex)], vUV) : vec4(coverage);
     if (sampled.a <= 0.0) {
         outColor = vec4(0.0);
         return;

@@ -75,7 +75,7 @@ struct BatchVertex {
 	uint32_t texIndex;     // 当前后端的纹理 binding（Vulkan 为 bindless 槽，GL 为 texture name）
 	uint32_t matrixIndex;  // CPU 矩阵列表索引；Vulkan 提交时转成 SSBO 绝对槽位
 	float r, g, b, a;    // 顶点颜色（预乘色调）
-	float blendMode;     // 绘制模式（0=Alpha, 1=Additive, 2=WashedOut, 3=LessWashedOut），仅 CPU 侧分段使用
+	float blendMode;     // 整数编码：低两位混合模式（0..3），高位解析图元（0=纹理/1=线/2=实心圆/3=圆环）
 	uint32_t clipMinXY = DRAW_CLIP_MIN_DISABLED;  // 帧缓冲 left/top，各占 16 bit
 	uint32_t clipMaxXY = DRAW_CLIP_MAX_DISABLED;  // 帧缓冲 right/bottom，各占 16 bit
 };
@@ -636,7 +636,7 @@ public:
 	// ==================== 几何图形绘制 ====================
 
 	/**
-	 * @brief 绘制线段。
+	 * @brief 绘制抗锯齿平头线段；对象变换后保持 1 逻辑像素宽，镜头缩放正常作用。
 	 * @param x1    起点 X 坐标
 	 * @param y1    起点 Y 坐标
 	 * @param x2    终点 X 坐标
@@ -669,23 +669,23 @@ public:
 		const glm::vec4& color = glm::vec4(255.0f));
 
 	/**
-	 * @brief 绘制空心圆（折线近似）。
+	 * @brief 绘制解析抗锯齿圆环；对象变换后描边保持 1 逻辑像素宽。
 	 * @param cx       圆心 X 坐标
 	 * @param cy       圆心 Y 坐标
 	 * @param radius   半径
 	 * @param color    边框颜色（默认为白色）
-	 * @param segments 分段数（越多越圆滑，默认32）
+	 * @param segments 兼容旧调用；正值均绘制连续圆，非正值不绘制。
 	 */
 	void DrawCircle(float cx, float cy, float radius,
 		const glm::vec4& color = glm::vec4(255.0f), int segments = 32);
 
 	/**
-	 * @brief 绘制实心圆（扇形三角形）。
+	 * @brief 绘制解析抗锯齿实心圆，支持非等比缩放与镜像。
 	 * @param cx       圆心 X 坐标
 	 * @param cy       圆心 Y 坐标
 	 * @param radius   半径
 	 * @param color    填充颜色（默认为白色）
-	 * @param segments 分段数（越多越圆滑，默认32）
+	 * @param segments 兼容旧调用；正值均绘制连续圆，非正值不绘制。
 	 */
 	void FillCircle(float cx, float cy, float radius,
 		const glm::vec4& color = glm::vec4(255.0f), int segments = 32);
@@ -1135,17 +1135,12 @@ private:
 	void RecordFillRect(WorkerRecord& r,
 		float x, float y, float width, float height, const glm::vec4& color);
 
+	/** 将解析图元写入普通 batch 或 worker 切片，复用原有混合、裁剪和提交次序。 */
+	void SubmitAnalyticQuad(const glm::vec2* positions, const glm::vec2* coordinates,
+		int primitiveKind, const glm::vec4& color);
+
 	void RecordDrawRect(WorkerRecord& r,
 		float x, float y, float width, float height, const glm::vec4& color);
-
-	void RecordDrawLine(WorkerRecord& r,
-		float x1, float y1, float x2, float y2, const glm::vec4& color);
-
-	void RecordDrawCircle(WorkerRecord& r,
-		float cx, float cy, float radius, const glm::vec4& color, int segments);
-
-	void RecordFillCircle(WorkerRecord& r,
-		float cx, float cy, float radius, const glm::vec4& color, int segments);
 
 	void RecordSetBlendMode(WorkerRecord& r, BlendMode mode);
 

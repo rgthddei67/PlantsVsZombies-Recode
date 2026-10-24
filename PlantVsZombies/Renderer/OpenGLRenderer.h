@@ -32,8 +32,9 @@ namespace pvz {
 		float clipTop = 0.0f;
 		float clipRight = 65535.0f;
 		float clipBottom = 65535.0f;
+		float drawMode = 0.0f; // 与 BatchVertex.blendMode 相同的混合/解析图元编码
 	};
-	static_assert(sizeof(OpenGLVertex) == 48, "OpenGLVertex must be 48 bytes");
+	static_assert(sizeof(OpenGLVertex) == 52, "OpenGLVertex must be 52 bytes");
 
 	/** 与 Graphics::BatchVertex 字节对齐的 SSBO 快路顶点；未使用字段仍保留以共享 CPU 提交数组。 */
 	struct OpenGLSsboBatchVertex {

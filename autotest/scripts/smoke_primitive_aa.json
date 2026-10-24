@@ -1,0 +1,22 @@
+{
+  "description": "Analytic lines/circles: serial-worker parity, subpixel coverage, transforms, clip and blend.",
+  "commands": [
+    {"op": "wait_frames", "value": 10},
+    {"op": "set_fullscreen", "value": false},
+    {"op": "wait_frames", "value": 3},
+    {"op": "primitive_aa_probe"},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "primitives.png"},
+    {"op": "dump_state", "name": "renderer_state.json"},
+    {"op": "set_fullscreen", "value": true},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "fullscreen.png"},
+    {"op": "set_fullscreen", "value": false},
+    {"op": "primitive_aa_probe", "on": false},
+    {"op": "mixed_geometry_order_probe"},
+    {"op": "wait_frames", "value": 3},
+    {"op": "screenshot", "name": "mixed_geometry.png"},
+    {"op": "mixed_geometry_order_probe", "on": false},
+    {"op": "quit"}
+  ]
+}

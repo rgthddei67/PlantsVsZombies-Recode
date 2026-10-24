@@ -184,13 +184,16 @@ namespace pvz {
 		const char* fragmentPath, Program& output, std::string& error) {
 		const std::string vertexSource = FileManager::LoadFileAsString(vertexPath);
 		std::string fragmentSource = FileManager::LoadFileAsString(fragmentPath);
-        // 水面和仪表与 Vulkan 共用同一片元函数，GLSL 330 由宿主展开此固定资源。
-        constexpr const char* sharedWaterInclude = R"(#include "water_effects.glsl")";
-        if (const auto at = fragmentSource.find(sharedWaterInclude); at != std::string::npos) {
-            const std::string shared = FileManager::LoadFileAsString("Shader/opengl/water_effects.glsl");
-            if (shared.empty()) { error = "shared water shader missing"; return false; }
-            fragmentSource.replace(at, std::strlen(sharedWaterInclude), shared);
-        }
+		// GLSL 330 无 include 扩展；仅展开这两份由项目维护的共用片元函数。
+		for (const char* file : { "water_effects.glsl", "primitive_coverage.glsl" }) {
+			const std::string directive = std::string("#include \"") + file + "\"";
+			if (const auto at = fragmentSource.find(directive); at != std::string::npos) {
+				const std::string shared = FileManager::LoadFileAsString(std::string("Shader/opengl/") + file);
+				if (shared.empty()) { error = std::string("shared shader missing: ") + file; return false; }
+				fragmentSource.replace(at, directive.size(), shared);
+			}
+		}
+
 		if (vertexSource.empty() || fragmentSource.empty()) {
 			error = std::string("OpenGL shader 文件缺失 [") + name + "]: "
 				+ vertexPath + " / " + fragmentPath;
@@ -264,6 +267,7 @@ namespace pvz {
 		attribute(1, 2, offsetof(OpenGLVertex, u));
 		attribute(2, 4, offsetof(OpenGLVertex, r));
 		attribute(3, 4, offsetof(OpenGLVertex, clipLeft));
+		attribute(4, 1, offsetof(OpenGLVertex, drawMode));
 		mApi.BindVertexArray(0);
 		return EnsureBufferCapacity(kInitialBufferBytes, kInitialBufferBytes);
 	}
@@ -304,6 +308,7 @@ namespace pvz {
 		floatAttribute(2, 4, offsetof(OpenGLSsboBatchVertex, r));
 		uintAttribute(3, 2, offsetof(OpenGLSsboBatchVertex, clipMinXY));
 		uintAttribute(4, 1, offsetof(OpenGLSsboBatchVertex, matrixIndex));
+		floatAttribute(5, 1, offsetof(OpenGLSsboBatchVertex, blendMode));
 		mApi.BindVertexArray(0);
 		if (!EnsureSsboCapacity(kInitialBufferBytes)) {
 			error = "OpenGL 矩阵 SSBO 初始分配失败";
