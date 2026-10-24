@@ -920,6 +920,11 @@ bool Graphics::IsClipActive() const {
 	return tl_clipStack ? !tl_clipStack->empty() : !m_clipStack.empty();
 }
 
+const ClipRect* Graphics::CurrentClipRect() const {
+	const auto& stack = tl_clipStack ? *tl_clipStack : m_clipStack;
+	return stack.empty() ? nullptr : &stack.back();
+}
+
 void Graphics::PushClipBottom(float bottomY) {
 	PushClipRect(0, 0, m_windowWidth, static_cast<int>(std::ceil(bottomY)));
 }

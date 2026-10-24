@@ -22,7 +22,8 @@ namespace {
 	constexpr float kJumpBlockProgress = 0.30f;      // C# 高坚果阻拦检查节点
 	constexpr float kJumpSplashProgress = 0.49f;     // C# 海豚重新入水节点
 	constexpr float kEntrySplashOffsetX = -46.0f;    // C# 抛豚入水水滴相对逻辑 X 的局部偏移，单位 px
-	constexpr float kJumpSplashOffsetX = -26.0f;     // C# 越障落水水滴相对逻辑 X 的局部偏移，单位 px
+	constexpr float kJumpSplashBodyAnchorX = 23.0f;  // body1 原始 46×47 贴图下缘中心的局部 X，单位 px
+	constexpr float kJumpSplashBodyAnchorY = 47.0f;  // body1 原始贴图下缘的局部 Y，随当前轨道仿射变换投影到水面
 	constexpr float kEntryShoreLead = 20.0f;         // 原版在池岸外 0～20 px 启动抛豚入水演出
 	constexpr float kEntryWorldShift = 70.0f;        // 入水换轨时提交的相对根位移，单位 px
 	constexpr float kDismountJumpWorldShift = 104.0f; // 跳跃末帧切 anim_swim 时抵消身体锚点差，单位 px
@@ -301,7 +302,14 @@ void DolphinRiderZombie::ZombieUpdate(float)
 	}
 	if (!mJumpSplashPlayed && progress >= kJumpSplashProgress) {
 		mJumpSplashPlayed = true;
-		PlayPoolSplashVisual(GetPosition() + Vector(kJumpSplashOffsetX, 0.0f));
+		// 跳跃主体的前移烘焙在 reanim 中，逻辑根还要到 FinishJump 才提交剩余位移。
+		// 用同一帧身体下缘的真实仿射位置取 X，Y 投到当前水面；不能照抄原版根坐标偏移。
+		const glm::vec4 bodyAnchor = mAnimator->GetTrackLocalTransform("Zombie_dolphinrider_body1")
+			* glm::vec4(kJumpSplashBodyAnchorX, kJumpSplashBodyAnchorY, 0.0f, 1.0f);
+		const float scale = GetTransform() ? GetTransform()->GetScale() : 1.0f;
+		const Vector splashOrigin(GetVisualPosition().x + bodyAnchor.x * scale,
+			GetPoolTransitionSplashOrigin().y);
+		PlayPoolSplashVisual(splashOrigin);
 		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ZOMBIE_ENTERING_WATER, 0.4f);
 	}
 	const char* returnTrack =

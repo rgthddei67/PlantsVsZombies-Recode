@@ -45,6 +45,7 @@ description: Use when adapting an existing PvZ reanim timeline to a new plant or
 ## 时序、循环和存档
 
 - 记录片段的全局帧范围与播放倍率，检查片段内部、换图帧、返回片段和循环末帧到首帧四类接缝。
+- 跨片段混合只使用旧片段可见的轨道姿态，遵循原版 `StartBlend` 对 `f < 0` 的排除。刚显现的水纹等轨道直接用新片段的帧间插值，不能从隐藏帧继承的默认原点滑入；截图须包含切轨初期，不能只看混合结束后的稳态。
 - `PlayTrackOnce` 的 return track、blend、speed 与待返回状态若跨存档，必须由现有 Animator/GameInfoSaver 合同完整恢复；实体额外阶段和倒计时另入 `SaveExtraData/LoadExtraData`，已提交的一次性效果不得读档重触发。
 - 不要用 `Pause()/Play()` 模拟环境暂停；遵循项目现有“本帧不推进”的 Animator 约定。
 

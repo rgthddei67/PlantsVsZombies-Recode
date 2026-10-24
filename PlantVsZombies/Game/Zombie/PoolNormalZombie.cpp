@@ -121,6 +121,8 @@ void PoolNormalZombie::ZombieItemUpdate() const
 void PoolNormalZombie::SetPoolEatingTubeVisual(bool active) const
 {
 	if (!mAnimator) return;
+	// 泳圈浮在水面时保留完整下缘；原版水中死亡则重新裁剪，让泳圈随身体沉下去。
+	mAnimator->SetTrackIgnoreTopClip("Zombie_duckytube", mInPool && !mIsPreview && !mIsDying);
 	const Texture* tubeImage = active
 		? ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_DUCKYTUBE_INWATER)

@@ -38,6 +38,7 @@ struct AnimatorRenderProbe {
 	bool hasGeometry = false;
 	bool usedInstancePath = false;
 	int quadCount = 0;
+	int clipExemptQuadCount = 0; ///< 实际绕过最内层裁剪提交的轨道数，供水面特效验收
 	float baseX = 0.0f;
 	float baseY = 0.0f;
 	float objectScale = 1.0f;
@@ -299,6 +300,16 @@ public:
 	 * @param color RGBA 乘色，通道范围 0～255。
 	 */
 	void SetTrackColor(const std::string& trackName, const SDL_Color& color);
+
+	/** 仅本轨道纹理豁免最内层裁剪；调用方负责随介质/动作切换，不影响颜色与外层裁剪。 */
+	void SetTrackIgnoreTopClip(const std::string& trackName, bool ignore);
+
+	/**
+	 * 配置宿主自带的水面轨道：不继承覆盖色/白光；inWater 时仅跳过最内层水线裁剪。
+	 * 调用方须随介质和读档同步 inWater，且仅在水中绘制时压入该裁剪；不改变原生帧显隐。
+	 * 只影响本轨道纹理，不传给子动画或 follower，外层场景裁剪始终保留。
+	 */
+	void SetWaterSurfaceTrack(const std::string& trackName, bool inWater);
 
 	/**
 	 * @brief 让指定轨道独立决定是否高亮，不再继承 Animator 整体高亮开关。

@@ -454,12 +454,10 @@ public:
 	bool IsClipActive() const;
 
 	/**
-	 * @brief 取得当前生效的裁剪矩形（栈顶，已经过嵌套交集）。
+	 * @brief 取得当前线程生效的裁剪矩形（栈顶，已经过嵌套交集）。
 	 * @return 栈空返回 nullptr。
 	 */
-	const ClipRect* CurrentClipRect() const {
-		return m_clipStack.empty() ? nullptr : &m_clipStack.back();
-	}
+	const ClipRect* CurrentClipRect() const;
 
 	// ==================== 绘制接口 ====================
 

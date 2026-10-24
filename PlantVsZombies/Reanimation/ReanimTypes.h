@@ -37,6 +37,8 @@ struct TrackInfo {
 // 杞ㄩ亾棰濆鎺у埗淇℃伅
 struct TrackExtraInfo {
 	bool mVisible = true;
+	bool mIgnoreTopClip = false;     // 仅本轨道纹理跳过最内层裁剪，保留外层场景裁剪
+	bool mIgnoreColorEffects = false; // 水面等环境轨道不继承宿主的覆盖色和受击白光
 	bool mHasGlowOverride = false;   // 是否由本轨道独立决定高亮，不再继承 Animator 整体开关
 	bool mGlowOverrideEnabled = false; // 独立高亮的当前开关；仅在 mHasGlowOverride 时生效
 	SDL_Color mColor = { 255, 255, 255, 255 }; // 轨道纹理乘色；默认纯白，不改变原图

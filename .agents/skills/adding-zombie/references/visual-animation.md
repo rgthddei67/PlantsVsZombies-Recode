@@ -40,6 +40,8 @@
 
 泳圈僵尸同样要在基类更新介质后同步 `SetPoolEatingTubeVisual(mInPool && mIsEating)`，只靠 `OnStartEating/OnStopEating` 会在持续啃食中保留旧水纹。普通、路障、铁桶共享此入口；专项 `smoke_waterside_flood_pool_eating` 覆盖三者涨退水、定身、读档与停吃后恢复游泳。
 
+原生 `whitewater` 水纹不是入水粒子：由 `Zombie::UpdatePoolVisualState` 调用 `Animator::SetWaterSurfaceTrack`，保持时间轴显隐和层序，仅在水中豁免宿主最内层水线裁剪，并屏蔽身体覆盖色/受击白光。泳圈本体另用 `SetTrackIgnoreTopClip` 保留浮水下缘，继续继承身体颜色，水中死亡重新启用裁剪。不得抬高整只僵尸裁剪线补水纹，否则啃食腿部会露出；外层场景裁剪和其他轨道必须保留。裁剪查询必须读取当前 worker 的栈。`smoke_pool_water_tracks` 的 `waterlineExemptQuads` 记录真实豁免提交，配合泳圈三变体、陆地、死亡、读档和并行场景截图验收；修改此通用绘制路径时另核对 `-NoInstance` 与 OpenGL。
+
 ## 断肢 / 断头（按实际 reanim 校准）
 
 - 覆写 `ArmDrop()/HeadDrop()`（不调基类——基类隐藏的是普通僵尸轨道名）+ 基类阈值自动触发（臂≤2/3、头≤1/3，由 `mNeedDropArm/Head` 门控）。
@@ -60,6 +62,8 @@
 通用僵尸以决定 `mInPool` 的同一对探针中点和水面裁剪底线作为水花世界锚点；C# `PoolSplash` 是一次性 `Splash.reanim` + `PlantingPool` 水滴两层，必须分别创建并按入水/出水选择 Foley。首次生成在水中、预览与读档恢复只静默同步介质，禁止伪造跨界声画；海豚等自管入水动作在 C# 进度节点调用共用水花视觉，动作结束提交 `mInPool` 时显式静默，避免末端重复一次。AutoTest 一负一正断言节点前计数 0、节点后两层各 1，并在快照重载后确认计数和声音请求都不再增加。
 
 `ShadowComponent::SetVisible` 的介质门禁与 `SetEnabled` 的动作阶段门禁取 AND。出土、落地和读档恢复应切换 Enabled，不能用 `SetVisible(true)` 覆盖水中隐藏；状态断言读两者合取，并在同步截图后核对实际提交探针。动态洪水下，跳跳仍须维护 `mInPool` 以裁剪杆底和隐藏水中投影，不能仅因持杆就按气球飞行一样豁免介质；弹跳高度和越障节奏保持原逻辑。
+
+海豚越障的前移同时来自逻辑根、reanim 身体轨道和阶段视觉补偿；跳跃水花必须从当前 `body1` 下缘的完整仿射世界 X 投到水面 Y，不能用逻辑根加原版固定偏移，否则水花会留在被跳植物后方。普通及精英两跳共用同一发射边沿与存档标记；`smoke_dolphin_jump_splash` 和对应 verifier 比较两层特效与实际提交的身体几何，并验证读档不重播。
 
 ### 受击白光必须按实际承伤层驱动
 

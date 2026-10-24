@@ -8548,6 +8548,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				gilded->GetAccelerationMultiplier() * 100.0f));
 		}
 		if (dynamic_cast<PoolNormalZombie*>(z)) {
+			zombieState["poolWaterTexturesLoaded"] =
+				ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_ZOMBIE_WHITEWATER1", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_ZOMBIE_WHITEWATER2", false)
+				&& ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_ZOMBIE_WHITEWATER3", false);
 			const Texture* waterTube = ResourceManager::GetInstance().GetTexture(
 				ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_DUCKYTUBE_INWATER, false);
 			zombieState["poolEatingWaterTube"] = waterTube && anim
@@ -8560,6 +8564,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				|| anim->GetTrackVisible("Zombie_outerleg_lower")
 				|| anim->GetTrackVisible("Zombie_outerleg_foot"));
 		}
+		zombieState["waterlineExemptQuads"] = anim ? anim->GetLastRenderProbe().clipExemptQuadCount : 0;
 		if (auto* marshal = dynamic_cast<RoofMarshalZombie*>(z)) {
 			zombieState["roofMarshalCommandPhase"] = marshal->GetCommandPhaseName();
 			zombieState["roofMarshalSummonTimerMs"] = static_cast<int>(std::lround(

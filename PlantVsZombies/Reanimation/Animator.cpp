@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -29,7 +30,7 @@ namespace {
 			|| !texture || texture->autoTestAlpha.empty() || !g || alpha <= 0) return;
 		const Texture* boundTexture = texture->atlasPage ? texture->atlasPage : texture;
 		if (!boundTexture->BindingId()) return;
-		// CurrentClipRect 仅返回主线程栈；IsClipActive 同时识别 worker 裁剪，因此有裁剪一律保守拒绝。
+		// 像素见证尚未逐点检查裁剪边界，因此有裁剪一律保守拒绝。
 		// 非默认相机也暂不导出证据，避免世界坐标与可点击视口在震屏/缩放期间混用。
 		const auto camera = g->GetCameraPosition();
 		if (g->IsClipActive() || !g->IsCurrentTransformIdentity() || camera.x != 0 || camera.y != 0
@@ -609,7 +610,7 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 				g->AppendReanimInstance(rec, baseBlend);
 			}
 
-			if (mEnableExtraOverlayDraw) {
+			if (mEnableExtraOverlayDraw && !extra->mIgnoreColorEffects) {
 				InstanceRecord ov = rec;
 				const uint8_t ovAlpha = static_cast<uint8_t>(mExtraOverlayColor.a * baseAlpha);
 				ov.colorRGBA8 = PackRGBA8(mExtraOverlayColor.r,
@@ -808,6 +809,15 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 		const float ty = transform.y + (extra ? extra->mOffsetY : 0.0f);
 
 		if (shouldDrawSelf) {
+			// 水纹仍留在原轨道层序中；只临时移除宿主压入的水线，不能连外层场景裁剪一起清空。
+			std::optional<ClipRect> savedClip;
+			if (extra->mIgnoreTopClip) {
+				if (const auto* clip = g->CurrentClipRect()) {
+					savedClip = *clip;
+					g->PopClipRect();
+					if (gActiveRenderProbe) ++gActiveRenderProbe->clipExemptQuadCount;
+				}
+			}
 			int imgWidth = image->width;
 			int imgHeight = image->height;
 			float w = static_cast<float>(imgWidth);
@@ -848,7 +858,7 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 			// 必须排在下面的发光之前：高 alpha 的覆盖层（如冰冻减速 a=240）若画在发光之后，
 			// 会以接近不透明的 Alpha 叠绘把发光盖死。原版引擎（Reanimation.cs）把色调揉进
 			// 正常绘制、additive 高亮永远最后一遍——此处“覆盖层→发光”的顺序即还原该语义。
-			if (mEnableExtraOverlayDraw) {
+			if (mEnableExtraOverlayDraw && !extra->mIgnoreColorEffects) {
 				glm::vec4 overlayColor(mExtraOverlayColor.r,
 					mExtraOverlayColor.g,
 					mExtraOverlayColor.b,
@@ -863,6 +873,9 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 					mExtraAdditiveColor.b,
 					mExtraAdditiveColor.a);
 				g->DrawTextureMatrix(image, mat, 0.0f, 0.0f, glowColor, BlendMode::Add);
+			}
+			if (savedClip) {
+				g->PushClipRect(savedClip->x, savedClip->y, savedClip->w, savedClip->h);
 			}
 		}
 
@@ -1060,6 +1073,19 @@ void Animator::SetTrackVisible(const std::string& trackName, bool visible) {
 void Animator::SetTrackColor(const std::string& trackName, const SDL_Color& color) {
 	for (auto& extra : GetTrackExtrasByName(trackName)) {
 		extra->mColor = color;
+	}
+}
+
+void Animator::SetWaterSurfaceTrack(const std::string& trackName, bool inWater) {
+	for (auto* extra : GetTrackExtrasByName(trackName)) {
+		extra->mIgnoreTopClip = inWater;
+		extra->mIgnoreColorEffects = true;
+	}
+}
+
+void Animator::SetTrackIgnoreTopClip(const std::string& trackName, bool ignore) {
+	for (auto* extra : GetTrackExtrasByName(trackName)) {
+		extra->mIgnoreTopClip = ignore;
 	}
 }
 
@@ -1475,6 +1501,7 @@ bool Animator::GetTrackGlowEffectEnabled(const std::string& trackName) const {
 bool Animator::IsGlowEffectEnabledForTrack(int trackIndex) const {
 	if (trackIndex >= 0 && trackIndex < static_cast<int>(mExtraInfos.size())) {
 		const TrackExtraInfo& extra = mExtraInfos[trackIndex];
+		if (extra.mIgnoreColorEffects) return false;
 		if (extra.mHasGlowOverride) return extra.mGlowOverrideEnabled;
 	}
 	return mEnableExtraAdditiveDraw;
@@ -1491,7 +1518,8 @@ TrackFrameTransform Animator::GetInterpolatedTransform(int trackIndex, float ble
 	float fraction = mFrameIndexNow - frameBefore;
 	int frameAfter = std::min(frameBefore + 1, static_cast<int>(track->mFrames.size() - 1));
 
-	if (mReanimBlendCounter > 0) {
+	// 原版 StartBlend 不缓存隐藏轨道的姿态：新出现的水纹不能从隐藏帧的默认原点滑入。
+	if (mReanimBlendCounter > 0 && track->mFrames[mFrameIndexBlendBuffer].f >= 0) {
 		// 过渡动画插值（blendRatio 由调用方预计算，避免此处重复做除法）
 		GetDeltaTransform(track->mFrames[mFrameIndexBlendBuffer],
 			track->mFrames[frameBefore],

@@ -1231,11 +1231,22 @@ void Zombie::PlayPoolTransitionFeedback(bool entering) const
 	AudioSystem::PlaySound(sound, kPoolSplashSoundVolume);
 }
 
-/** 水中不绘制陆地投影；实际水面裁剪在 Draw 内压入 Graphics 裁剪栈。 */
+/** 隐藏水中陆地投影，并让原生水纹只豁免 Draw 压入的水线裁剪。 */
 void Zombie::UpdatePoolVisualState() const
 {
 	if (auto* shadow = GetShadow()) {
 		shadow->SetVisible(!mInPool);
+	}
+	if (mAnimator) {
+		// 对齐原版 SetupWaterTrack：水纹属于水面，不随身体一起裁掉或受击染色。
+		// 普通/路障/铁桶泳圈和海豚变体共享入口；未拥有对应轨道的品种不创建占位轨道。
+		for (const char* track : { "Zombie_whitewater", "Zombie_whitewater2",
+			"Zombie_dolphinrider_whitewater", "Zombie_dolphinrider_dolphininwater",
+			"Zombie_snorkle_whitewater", "Zombie_snorkle_whitewater2" }) {
+			if (mAnimator->HasTrack(track)) {
+				mAnimator->SetWaterSurfaceTrack(track, mInPool && !mIsPreview);
+			}
+		}
 	}
 }
 
