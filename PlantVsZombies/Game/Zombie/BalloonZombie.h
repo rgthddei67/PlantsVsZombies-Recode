@@ -75,7 +75,9 @@ private:
 	void CreatePropellerAnimator();
 	/** 清除父轨切换传播来的 clip 覆盖，同时保留冻结和减速的 extra 层。 */
 	void KeepPropellerIndependent() const;
-	/** 消耗完气球生命后播放爆裂演出；水路行直接移除。 */
+	/** 原始池水仍使破气球溺亡；临时洪水沿用本章陆生单位通行豁免。 */
+	bool ShouldDrownOnLanding() const;
+	/** 消耗完气球生命后播放爆裂演出；实际池水按落点结算。 */
 	void PopBalloon();
 	/** 爆裂轨结束后提交地面阶段、碰撞框和走路轨道。 */
 	void FinishLanding();

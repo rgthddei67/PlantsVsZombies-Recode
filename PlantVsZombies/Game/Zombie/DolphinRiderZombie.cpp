@@ -165,6 +165,8 @@ void DolphinRiderZombie::FinishEnteringPool()
 	mSpeed = kGroundRootMotionRate;
 	// 演出从岸上开始，根位移提交后才正式切入水中介质并隐藏陆地阴影。
 	UpdatePoolState(false);
+	// 入水演出期间也可能退潮；介质已提前变干时仍要离开 RIDING，不能永远骑在陆地上。
+	if (!mInPool) PlayWalkAnimation(0.0f);
 	ApplyPhasePresentation();
 }
 
@@ -209,6 +211,7 @@ void DolphinRiderZombie::FinishJump(bool blocked, Plant* blockingPlant)
 	if (!blocked) {
 		++mSuccessfulJumpCount;
 	}
+	UpdatePoolState(false); // 跳跃根位移完成后按实际落点重新检查岸线。
 	const bool retainDolphin = !blocked
 		&& mJumpRetainsDolphinOnLanding
 		&& mInPool;

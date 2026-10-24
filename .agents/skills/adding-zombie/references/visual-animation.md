@@ -53,6 +53,8 @@
 
 通用僵尸以决定 `mInPool` 的同一对探针中点和水面裁剪底线作为水花世界锚点；C# `PoolSplash` 是一次性 `Splash.reanim` + `PlantingPool` 水滴两层，必须分别创建并按入水/出水选择 Foley。首次生成在水中、预览与读档恢复只静默同步介质，禁止伪造跨界声画；海豚等自管入水动作在 C# 进度节点调用共用水花视觉，动作结束提交 `mInPool` 时显式静默，避免末端重复一次。AutoTest 一负一正断言节点前计数 0、节点后两层各 1，并在快照重载后确认计数和声音请求都不再增加。
 
+`ShadowComponent::SetVisible` 的介质门禁与 `SetEnabled` 的动作阶段门禁取 AND。出土、落地和读档恢复应切换 Enabled，不能用 `SetVisible(true)` 覆盖水中隐藏；状态断言读两者合取，并在同步截图后核对实际提交探针。动态洪水下，跳跳仍须维护 `mInPool` 以裁剪杆底和隐藏水中投影，不能仅因持杆就按气球飞行一样豁免介质；弹跳高度和越障节奏保持原逻辑。
+
 ### 受击白光必须按实际承伤层驱动
 
 禁止在 `TakeDamage` 分层前统一整身 `SetGlowingTimer`。原版本体/头盔/飞行额外生命共用本体计时器，报纸/铁门/梯子等二类护盾使用独立计时器和盾轨高亮；普通正面弹只伤盾就只闪盾，穿透或破盾溢出确实伤到后层才同时闪。所有 `Bullet` 的直接伤害统一走 `Zombie::TakeProjectileDamage`，按命中时 `velocityX` 与 `IsMovingRight()` 判断命中面：子弹与面向同向即从背后追上，完全绕过二类护盾并只闪后层；`velocityX=0` 保持正面口径。禁止按子弹类型或运动模式建**方向性**绕盾白名单，追踪弹须持续写回真实速度。弹丸自身能力若主动请求绕盾，必须通过同一入口的显式参数表达，并由目标侧 `BlocksProjectileShieldBypass` 虚接口按当前防具状态否决；方向背击优先保持原物理语义，目标否决不得顺带封死背击。`penetrateShield` 会让盾与后层同时承伤，不能用来冒充完全绕盾。围绕 `TakeExtraProtectionDamage`、`TakeShieldDamage`、`TakeHelmDamage`、`TakeBodyDamage` 的虚调用比较扣血前后值，避免派生覆写漏报；盾轨覆盖必须同时接入实例化与 `-NoInstance` 绘制路径。AutoTest 用 `hitFlashMask` 锁逻辑层、`renderedHitGlowMask` 锁实际轨道层，并同步截图检查铁门/报纸的正向、反向、主动绕盾、目标否决与静止弹。

@@ -5,8 +5,14 @@ enum class RainIntensity {
 	CLEAR,
 	LIGHT,
 	MEDIUM,
-	HEAVY
+	HEAVY,
+	TORRENT // 仅水岸植物园洪水章节开放的暴雨
 };
+
+/** 大雨及暴雨共享单位倍率、雷电和台风资格。 */
+constexpr bool IsHeavyRainIntensity(RainIntensity value) {
+	return value == RainIntensity::HEAVY || value == RainIntensity::TORRENT;
+}
 
 /** 冬日花园独立寒潮阶段；温度只由这套状态机推进，不读取雨势或台风。 */
 enum class ColdWavePhase {

@@ -62,6 +62,7 @@ bool RoofRunoff::Advance(float seconds, bool supported, int rows, RainIntensity 
 	case RainIntensity::MEDIUM:
 		chargeDelta = kRoofRunoffMediumChargePerSecond;
 		break;
+	case RainIntensity::TORRENT:
 	case RainIntensity::HEAVY:
 		chargeDelta = kRoofRunoffHeavyChargePerSecond;
 		break;

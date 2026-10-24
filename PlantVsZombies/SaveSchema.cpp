@@ -606,6 +606,15 @@ namespace {
                         zombie["anchorRoot"] = {{"plantID", -1024}, {"remaining", 0.0f}, {"immunity", 0.0f}};
                 }
                 version = 36; upgraded["schemaVersion"] = version; break;
+            case 36:
+                // 已在进行的旧局从原水岸开始，不回补历史降雨或受灾时间。
+                if (kind == DocumentKind::Level) {
+                    upgraded["watersideFlood"] = {{"water", 0.0f}};
+                    if (upgraded.contains("plants") && upgraded["plants"].is_array())
+                        for (auto& plant : upgraded["plants"]) if (plant.is_object())
+                            plant["watersideHazard"] = {{"kind", 0}, {"elapsed", 0.0f}};
+                }
+                version = 37; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

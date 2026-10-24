@@ -238,6 +238,8 @@ void Plant::RestoreFloodSlow(float seconds) {
 
 void Plant::Update()
 {
+    UpdateWatersideHazard();
+    if (!IsActive()) return;
     if(!mIsPreview && mBoard && mBoard->GetState()==BoardState::GAME) {
         mFloodSlowRemaining=std::max(0.0f,mFloodSlowRemaining-DeltaTime::GetDeltaTime());
     }
@@ -301,7 +303,8 @@ void Plant::RestoreShutdown(float remainingSeconds)
 bool Plant::IsShutdown() const
 {
 	return mShutdownTimer > 0.0f
-		|| (mBoard && mBoard->IsPlantPausedByRoofRunoff(this));
+		|| (mBoard && (mBoard->IsPlantPausedByRoofRunoff(this)
+            || mBoard->GetWatersidePlantHazard(this) != 0));
 }
 
 bool Plant::IsActionPaused() const
@@ -556,7 +559,7 @@ void Plant::UpdateSquish()
 float Plant::GetWeatherActionSpeedMultiplier() const
 {
 	if (!mBoard) return 1.0f;
-	return mBoard->IsPlantPausedByRoofRunoff(this)
+	return (mBoard->IsPlantPausedByRoofRunoff(this) || mBoard->GetWatersidePlantHazard(this) != 0)
 		? 0.0f : mBoard->GetPlantRainActionSpeedMultiplier();
 }
 

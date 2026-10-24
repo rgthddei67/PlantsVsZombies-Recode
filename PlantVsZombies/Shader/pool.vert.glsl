@@ -66,8 +66,8 @@ vec2 poolWaveOffset(vec2 grid)
 
 void main()
 {
-    vec2 poolCoord = inGridCoord + poolWaveOffset(inGridCoord);
-    if (pc.poolLayer > 1.5)
+    vec2 poolCoord = inGridCoord + (pc.poolLayer > 2.5 ? vec2(0.0) : poolWaveOffset(inGridCoord));
+    if (pc.poolLayer > 1.5 && pc.poolLayer < 2.5)
     {
         // 原版焦散图在水面上平铺两个周期。
         poolCoord += inGridCoord;
@@ -76,7 +76,7 @@ void main()
     mat4 model = matrices.m[inIndices.y];
     gl_Position = pc.projView * model * vec4(inPosition, 0.0, 1.0);
     outTexCoord = poolCoord;
-    outPoolCoord = poolCoord;
+    outPoolCoord = pc.poolLayer > 2.5 ? (model * vec4(inPosition,0.0,1.0)).xy : poolCoord;
     outColor = inColor;
     outTextureIndex = inIndices.x;
     outPackedClip = inPackedClip;

@@ -183,6 +183,7 @@ namespace {
 			switch (intensity) {
 			case RainIntensity::LIGHT:  return "SnowLight";
 			case RainIntensity::MEDIUM: return "SnowMedium";
+			case RainIntensity::TORRENT:
 			case RainIntensity::HEAVY:  return "SnowHeavy";
 			case RainIntensity::CLEAR:  return "";
 			}
@@ -190,6 +191,7 @@ namespace {
 		switch (intensity) {
 		case RainIntensity::LIGHT:  return "RainLight";
 		case RainIntensity::MEDIUM: return "RainMedium";
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:
 			if (direction == WindDirection::TOWARD_HOUSE) return "RainHeavyTowardHouse";
 			if (direction == WindDirection::TOWARD_FRONT) return "RainHeavyTowardFront";
@@ -454,6 +456,7 @@ namespace {
 			baseSpeed = kMediumZombieSpeed;
 			pressuredSpeed = kPressuredMediumZombieSpeed;
 			break;
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:
 			baseSpeed = kHeavyZombieSpeed;
 			pressuredSpeed = kPressuredHeavyZombieSpeed;
@@ -479,6 +482,7 @@ namespace {
 			baseSpeed = kMediumPlantActionSpeed;
 			pressuredSpeed = kPressuredMediumPlantActionSpeed;
 			break;
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:
 			baseSpeed = kHeavyPlantActionSpeed;
 			pressuredSpeed = kPressuredHeavyPlantActionSpeed;
@@ -496,6 +500,7 @@ namespace {
 		switch (intensity) {
 		case RainIntensity::LIGHT:  return kLightOverlayAlpha;
 		case RainIntensity::MEDIUM: return kMediumOverlayAlpha;
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:  return kHeavyOverlayAlpha;
 		case RainIntensity::CLEAR:  return 0.0f;
 		}
@@ -508,6 +513,7 @@ namespace {
 		switch (intensity) {
 		case RainIntensity::LIGHT:  return kLightRainVolume;
 		case RainIntensity::MEDIUM: return kMediumRainVolume;
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:  return kHeavyRainVolume;
 		case RainIntensity::CLEAR:  return 0.0f;
 		}
@@ -522,6 +528,7 @@ namespace {
 			return GameRandom::Range(kLightSplashDelayMin, kLightSplashDelayMax);
 		case RainIntensity::MEDIUM:
 			return GameRandom::Range(kMediumSplashDelayMin, kMediumSplashDelayMax);
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:
 			return GameRandom::Range(kHeavySplashDelayMin, kHeavySplashDelayMax);
 		case RainIntensity::CLEAR:
@@ -539,6 +546,7 @@ namespace {
 			return LerpWeatherWeight(kMediumToLightWeight, kLateMediumToLightWeight, lateFactor)
 				+ LerpWeatherWeight(kMediumToClearWeight, kLateMediumToClearWeight, lateFactor)
 				+ (canHold ? kMediumHoldWeight : 0);
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY:
 			return LerpWeatherWeight(kHeavyToMediumWeight, kLateHeavyToMediumWeight, lateFactor)
 				+ LerpWeatherWeight(kHeavyToLightWeight, kLateHeavyToLightWeight, lateFactor)
@@ -568,6 +576,7 @@ namespace {
 			if (roll <= toLight + toClear) return RainIntensity::CLEAR;
 			return canHold ? RainIntensity::MEDIUM : RainIntensity::CLEAR;
 		}
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY: {
 			const int toMedium = LerpWeatherWeight(
 				kHeavyToMediumWeight, kLateHeavyToMediumWeight, lateFactor);
@@ -578,7 +587,7 @@ namespace {
 			if (roll <= toMedium) return RainIntensity::MEDIUM;
 			if (roll <= toMedium + toLight) return RainIntensity::LIGHT;
 			if (roll <= toMedium + toLight + toClear) return RainIntensity::CLEAR;
-			return canHold ? RainIntensity::HEAVY : RainIntensity::CLEAR;
+			return canHold ? intensity : RainIntensity::CLEAR;
 		}
 		case RainIntensity::CLEAR:
 			return RainIntensity::CLEAR;
@@ -588,20 +597,24 @@ namespace {
 
 	/** 枚举当前动态权重真正允许的下一天气，错误预报只能从这些候选中选择。 */
 	int BuildPlausibleForecasts(RainIntensity current, bool canIntensify, bool canHold,
-		float directorFactor, bool forceHeavy, std::array<RainIntensity, 4>& forecasts)
+		float directorFactor, bool forceHeavy, bool supportsTorrent, std::array<RainIntensity, 5>& forecasts)
 	{
 		int count = 0;
 		switch (current) {
 		case RainIntensity::CLEAR: {
 			if (forceHeavy) {
-				forecasts[0] = RainIntensity::HEAVY;
-				return 1;
+				forecasts[count++] = RainIntensity::HEAVY;
+                if (supportsTorrent) forecasts[count++] = RainIntensity::TORRENT;
+                return count;
 			}
 			const NewWeatherWeights weights = BuildNewWeatherWeights(directorFactor);
 			if (weights.clear > 0) forecasts[count++] = RainIntensity::CLEAR;
 			if (weights.light > 0) forecasts[count++] = RainIntensity::LIGHT;
 			if (weights.medium > 0) forecasts[count++] = RainIntensity::MEDIUM;
-			if (weights.heavy > 0) forecasts[count++] = RainIntensity::HEAVY;
+			if (weights.heavy > 0) {
+                forecasts[count++] = RainIntensity::HEAVY;
+                if (supportsTorrent) forecasts[count++] = RainIntensity::TORRENT;
+            }
 			return count;
 		}
 		case RainIntensity::LIGHT:
@@ -610,7 +623,8 @@ namespace {
 				return 1;
 			}
 			forecasts = { RainIntensity::MEDIUM, RainIntensity::HEAVY, RainIntensity::CLEAR };
-			return 3;
+            if (supportsTorrent) forecasts[3] = RainIntensity::TORRENT;
+            return supportsTorrent ? 4 : 3;
 		case RainIntensity::MEDIUM: {
 			const int toLight = LerpWeatherWeight(
 				kMediumToLightWeight, kLateMediumToLightWeight, directorFactor);
@@ -621,6 +635,7 @@ namespace {
 			if (canHold && kMediumHoldWeight > 0) forecasts[count++] = RainIntensity::MEDIUM;
 			return count;
 		}
+		case RainIntensity::TORRENT:
 		case RainIntensity::HEAVY: {
 			const int toMedium = LerpWeatherWeight(
 				kHeavyToMediumWeight, kLateHeavyToMediumWeight, directorFactor);
@@ -631,7 +646,7 @@ namespace {
 			if (toMedium > 0) forecasts[count++] = RainIntensity::MEDIUM;
 			if (toLight > 0) forecasts[count++] = RainIntensity::LIGHT;
 			if (toClear > 0) forecasts[count++] = RainIntensity::CLEAR;
-			if (canHold && kHeavyHoldWeight > 0) forecasts[count++] = RainIntensity::HEAVY;
+			if (canHold && kHeavyHoldWeight > 0) forecasts[count++] = current;
 			return count;
 		}
 		}
@@ -673,7 +688,7 @@ int Board::GetCurrentTyphoonChancePercent() const
 
 float Board::GetZombieWindMoveMultiplier(bool movingTowardFront) const
 {
-	if (!HasTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| mWindDirection == WindDirection::NONE) return 1.0f;
 	const bool tailwind = (movingTowardFront
 		&& mWindDirection == WindDirection::TOWARD_FRONT)
@@ -683,7 +698,7 @@ float Board::GetZombieWindMoveMultiplier(bool movingTowardFront) const
 
 float Board::GetPlantBulletWindSpeedMultiplier(bool movingTowardFront) const
 {
-	if (!HasTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| mWindDirection == WindDirection::NONE) return 1.0f;
 	const bool tailwind = (movingTowardFront
 		&& mWindDirection == WindDirection::TOWARD_FRONT)
@@ -693,7 +708,7 @@ float Board::GetPlantBulletWindSpeedMultiplier(bool movingTowardFront) const
 
 float Board::GetPlantBulletWindDamageMultiplier(bool movingTowardFront) const
 {
-	if (!HasTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| mWindDirection == WindDirection::NONE) return 1.0f;
 	const bool tailwind = (movingTowardFront
 		&& mWindDirection == WindDirection::TOWARD_FRONT)
@@ -713,7 +728,7 @@ bool Board::IsTyphoonGustWarning() const
  */
 float Board::GetZombieGustDriftVelocity() const
 {
-	if (!mTyphoonGustActive || mRainIntensity != RainIntensity::HEAVY
+	if (!mTyphoonGustActive || !IsHeavyRainIntensity(mRainIntensity)
 		|| mActiveGustDuration <= 0.0f) return 0.0f;
 	const float progress = std::clamp(
 		1.0f - mActiveGustTimer / mActiveGustDuration, 0.0f, 1.0f);
@@ -902,7 +917,9 @@ int Board::GetCurrentNewWeatherWeight(RainIntensity intensity) const
 	case RainIntensity::CLEAR:  return weights.clear;
 	case RainIntensity::LIGHT:  return weights.light;
 	case RainIntensity::MEDIUM: return weights.medium;
-	case RainIntensity::HEAVY:  return weights.heavy;
+	case RainIntensity::TORRENT: return SupportsWatersideFlood()
+        ? weights.heavy * WatersideFloodRules::TorrentChance / 100 : 0;
+    case RainIntensity::HEAVY: return weights.heavy - GetCurrentNewWeatherWeight(RainIntensity::TORRENT);
 	}
 	return 0;
 }
@@ -932,7 +949,7 @@ void Board::RecordNewWeatherOutcome(RainIntensity next)
 		mWeakWeatherPhasesSinceHeavy = 0;
 		return;
 	}
-	if (next == RainIntensity::HEAVY) {
+	if (IsHeavyRainIntensity(next)) {
 		mWeakWeatherPhasesSinceHeavy = 0;
 		return;
 	}
@@ -1055,7 +1072,7 @@ void Board::EnforceStormyNightWeather()
 
 	ClampStormyNightWaveCountdown();
 	mWeatherInitialized = true;
-	if (mRainIntensity != RainIntensity::HEAVY) {
+	if (!IsHeavyRainIntensity(mRainIntensity)) {
 		BeginRain(RainIntensity::HEAVY, kStormyNightLockedDuration, false, false, false);
 		FinishWeatherTransitionImmediately();
 	}
@@ -1204,7 +1221,7 @@ void Board::EmitRainEffect(float duration)
 /** 台风开始、结束或翻向后按剩余雨时无缝切换定向雨丝。 */
 void Board::RestartRainVisualForWindChange()
 {
-	if (mRainIntensity != RainIntensity::HEAVY || mWeatherTimer <= 0.0f) return;
+	if (!IsHeavyRainIntensity(mRainIntensity) || mWeatherTimer <= 0.0f) return;
 	mRainVisualActive = false;
 	EmitRainEffect(mWeatherTimer);
 }
@@ -1232,6 +1249,14 @@ void Board::TriggerRainGroundSplash()
 		splashY = GetRowCenterYAtX(row, splashX) + GameRandom::Range(
 			-halfHeight + kRainSplashEdgePadding,
 			halfHeight - kRainSplashEdgePadding);
+	}
+	// 水面已有波纹，不再创建地面雨花；直接放弃本次落点，不把粒子重新挤到剩余陆地。
+	if (SupportsWatersideFlood()) {
+		if (GetWatersideFloodDepthAt(splashX, splashY) >= -0.5f) return;
+	}
+	else if (!IsRoofBackground()) {
+		const int row = static_cast<int>(std::floor((splashY - mCellInitialY) / mCellHeight));
+		if (IsPoolWorldPosition(row, splashX)) return;
 	}
 	g_particleSystem->EmitEffect("RainGroundSplash", Vector(splashX, splashY),
 		LAYER_EFFECTS_WORLD);
@@ -1280,7 +1305,9 @@ RainIntensity Board::RollNextWeather(int forcedRoll)
 {
 	const float directorFactor = GetWeatherDirectorFactor();
 	if (mRainIntensity == RainIntensity::CLEAR) {
-		if (ShouldForceHeavyWeather()) return RainIntensity::HEAVY;
+		if (ShouldForceHeavyWeather()) return SupportsWatersideFlood() && forcedRoll == 0
+            && GameRandom::Range(1,100) <= WatersideFloodRules::TorrentChance
+            ? RainIntensity::TORRENT : RainIntensity::HEAVY;
 		const NewWeatherWeights weights = BuildNewWeatherWeights(directorFactor);
 		const int total = weights.Total();
 		const int roll = forcedRoll > 0 ? std::clamp(forcedRoll, 1, total)
@@ -1288,6 +1315,8 @@ RainIntensity Board::RollNextWeather(int forcedRoll)
 		if (roll <= weights.clear) return RainIntensity::CLEAR;
 		if (roll <= weights.clear + weights.light) return RainIntensity::LIGHT;
 		if (roll <= weights.clear + weights.light + weights.medium) return RainIntensity::MEDIUM;
+        if (SupportsWatersideFlood() && roll > total - GetCurrentNewWeatherWeight(RainIntensity::TORRENT))
+            return RainIntensity::TORRENT;
 		return RainIntensity::HEAVY;
 	}
 
@@ -1307,15 +1336,21 @@ void Board::PrepareWeatherForecast(int weatherRoll)
 	mWeatherForecastDisrupted = false;
 	ClearPendingHeavyRainWarning();
 	mActualForecastRainIntensity = RollNextWeather(weatherRoll);
+    if (SupportsWatersideFlood() && weatherRoll == 0 && mRainIntensity == RainIntensity::LIGHT
+        && mActualForecastRainIntensity == RainIntensity::HEAVY
+        && !IsHeavyRainIntensity(mRainIntensity)
+        && GameRandom::Range(1, 100) <= WatersideFloodRules::TorrentChance) {
+        mActualForecastRainIntensity = RainIntensity::TORRENT;
+    }
 	mForecastRainIntensity = mActualForecastRainIntensity;
 
 	// 错误预报仍须来自当前非零权重候选；弱天气保底或确定性尾段没有错误候选时强制报准。
 	if (GameRandom::Range(1, 100) > GetCurrentWeatherForecastAccuracyPercent()) {
-		std::array<RainIntensity, 4> plausible{};
+		std::array<RainIntensity, 5> plausible{};
 		const int plausibleCount = BuildPlausibleForecasts(
 			mRainIntensity, mRainCanIntensify, mRainCanHold,
-			GetWeatherDirectorFactor(), ShouldForceHeavyWeather(), plausible);
-		std::array<RainIntensity, 4> wrongForecasts{};
+			GetWeatherDirectorFactor(), ShouldForceHeavyWeather(), SupportsWatersideFlood(), plausible);
+		std::array<RainIntensity, 5> wrongForecasts{};
 		int wrongCount = 0;
 		for (int i = 0; i < plausibleCount; ++i) {
 			if (plausible[i] != mActualForecastRainIntensity) {
@@ -1334,9 +1369,9 @@ void Board::PrepareWeatherForecast(int weatherRoll)
 bool Board::NeedsPendingHeavyForecastState() const
 {
 	return mWeatherForecastReady
-		&& (mForecastRainIntensity == RainIntensity::HEAVY
-			|| (mActualForecastRainIntensity == RainIntensity::HEAVY
-				&& mRainIntensity != RainIntensity::HEAVY));
+		&& (IsHeavyRainIntensity(mForecastRainIntensity)
+			|| (IsHeavyRainIntensity(mActualForecastRainIntensity)
+				&& !IsHeavyRainIntensity(mRainIntensity)));
 }
 
 /**
@@ -1409,7 +1444,7 @@ void Board::MaybeShowHeavyRainPrompt()
 	if (mHeavyRainPromptShown || !mWeatherForecastReady
 		|| mWeatherForecastDisrupted
 		|| IsWeatherPanelInterferenceActive()
-		|| mForecastRainIntensity != RainIntensity::HEAVY
+		|| !IsHeavyRainIntensity(mForecastRainIntensity)
 		|| mWeatherTimer > kHeavyRainPromptLeadTime || !mPresentation) return;
 	if (!mPendingHeavyTyphoonPrepared) PreparePendingHeavyTyphoon();
 	if (!mPendingHeavyTyphoonPrepared) return;
@@ -1422,10 +1457,10 @@ void Board::MaybeShowHeavyRainPrompt()
 bool Board::IsWeatherForecastPlausible() const
 {
 	if (!mWeatherForecastReady) return true;
-	std::array<RainIntensity, 4> plausible{};
+	std::array<RainIntensity, 5> plausible{};
 	const int plausibleCount = BuildPlausibleForecasts(
 		mRainIntensity, mRainCanIntensify, mRainCanHold,
-		GetWeatherDirectorFactor(), ShouldForceHeavyWeather(), plausible);
+		GetWeatherDirectorFactor(), ShouldForceHeavyWeather(), SupportsWatersideFlood(), plausible);
 	return std::find(plausible.begin(), plausible.begin() + plausibleCount,
 		mForecastRainIntensity) != plausible.begin() + plausibleCount;
 }
@@ -1438,11 +1473,11 @@ void Board::ConsumeWeatherForecast()
 	const RainIntensity next = mActualForecastRainIntensity;
 	// 大雨续期不会兑现新抽取的 pending 台风，实际等级仍是揭晓时正在生效的台风。
 	// 新大雨则会消费同一份 pending 初态，因此预报和实际等级在正常路径中保持一致。
-	const TyphoonStrength forecastTyphoon = forecast == RainIntensity::HEAVY
+	const TyphoonStrength forecastTyphoon = IsHeavyRainIntensity(forecast)
 		&& mPendingHeavyTyphoonPrepared
 		? mPendingHeavyTyphoonStrength : TyphoonStrength::NONE;
-	const TyphoonStrength actualTyphoon = next == RainIntensity::HEAVY
-		? (mRainIntensity == RainIntensity::HEAVY
+	const TyphoonStrength actualTyphoon = IsHeavyRainIntensity(next)
+		? (IsHeavyRainIntensity(mRainIntensity)
 			? mTyphoonStrength
 			: (mPendingHeavyTyphoonPrepared
 				? mPendingHeavyTyphoonStrength : TyphoonStrength::NONE))
@@ -1642,7 +1677,7 @@ void Board::RestoreTyphoonState(TyphoonStrength strength, WindDirection directio
 		|| strength == TyphoonStrength::SEVERE || strength == TyphoonStrength::SUPER;
 	const bool validDirection = direction == WindDirection::TOWARD_HOUSE
 		|| direction == WindDirection::TOWARD_FRONT;
-	if (mRainIntensity != RainIntensity::HEAVY || !validStrength || !validDirection) return;
+	if (!IsHeavyRainIntensity(mRainIntensity) || !validStrength || !validDirection) return;
 
 	mTyphoonStrength = strength;
 	mWindDirection = direction;
@@ -1780,7 +1815,7 @@ void Board::UpdateTyphoon(float deltaTime)
 		return;
 	}
 	if (!HasTyphoon()) return;
-	if (mRainIntensity != RainIntensity::HEAVY) {
+	if (!IsHeavyRainIntensity(mRainIntensity)) {
 		StopTyphoon();
 		return;
 	}
@@ -1817,7 +1852,7 @@ void Board::UpdateTyphoon(float deltaTime)
  */
 bool Board::BeginTyphoonGust(bool consumeBudget, float forcedPlantMoveIn)
 {
-	if (!SupportsTyphoon() || !HasTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!SupportsTyphoon() || !HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| mWindDirection == WindDirection::NONE || mTyphoonGustActive) return false;
 	mLastTyphoonMovedPlants = 0;
 	mLastTyphoonLostPlants = 0;
@@ -1888,7 +1923,7 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 	mLastTyphoonMovedPlants = 0;
 	mLastTyphoonLostPlants = 0;
 	mLastTyphoonBlockedPlantSteps = 0;
-	if (!HasTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| direction == WindDirection::NONE) return;
 
 	const int columnDelta = direction == WindDirection::TOWARD_FRONT ? 1 : -1;
@@ -2168,10 +2203,11 @@ void Board::TriggerTyphoonPlantMove(TyphoonStrength strength, WindDirection dire
 void Board::BeginRain(RainIntensity intensity, float duration, bool canIntensify, bool canHold,
 	bool allowTyphoonRoll)
 {
-	if (intensity == RainIntensity::CLEAR || duration <= 0.0f) return;
-	const bool wasHeavy = mRainIntensity == RainIntensity::HEAVY;
+	if (intensity == RainIntensity::CLEAR || duration <= 0.0f
+        || (intensity == RainIntensity::TORRENT && !SupportsWatersideFlood())) return;
+	const bool wasHeavy = IsHeavyRainIntensity(mRainIntensity);
 	BeginWeatherTransition(intensity);
-	if (intensity != RainIntensity::HEAVY) {
+	if (!IsHeavyRainIntensity(intensity)) {
 		ClearPendingHeavyRainWarning();
 		StopTyphoon();
 	}
@@ -2195,7 +2231,7 @@ void Board::BeginRain(RainIntensity intensity, float duration, bool canIntensify
 	mWeatherForecastReady = false;
 	mWeatherForecastDisrupted = false;
 	mRainSplashTimer = RandomRainSplashDelay(intensity);
-	mLightningTimer = (intensity == RainIntensity::HEAVY
+	mLightningTimer = (IsHeavyRainIntensity(intensity)
 		&& !IsWinterPrecipitationSnow())
 		? GameRandom::Range(kLightningDelayMin, kLightningDelayMax)
 		: 0.0f;
@@ -2282,7 +2318,7 @@ void Board::EndRain()
 
 void Board::TriggerLightning()
 {
-	if (mRainIntensity != RainIntensity::HEAVY || IsWinterPrecipitationSnow()) return;
+	if (!IsHeavyRainIntensity(mRainIntensity) || IsWinterPrecipitationSnow()) return;
 	// 黑夜屋顶把现有大雨闪电作为独立雷荷的一次增量；不改变雨势或坡面径流。
 	if (!IsWeatherStation()) AddNightRoofCharge(kNightRoofChargeLightningBonus);
 	if (IsStormyNightActive()) {
@@ -2339,7 +2375,7 @@ void Board::UpdateWeather(float deltaTime)
 		&& !IsWinterPrecipitationSnow()) {
 		UpdateRainGroundSplash(deltaTime);
 	}
-	if (mRainIntensity == RainIntensity::HEAVY && mWeatherTimer > 0.0f) {
+	if (IsHeavyRainIntensity(mRainIntensity) && mWeatherTimer > 0.0f) {
 		UpdateTyphoon(deltaTime);
 		if (!IsWinterPrecipitationSnow()) {
 			mLightningTimer -= deltaTime;
@@ -2359,6 +2395,7 @@ void Board::UpdateWeather(float deltaTime)
 
 void Board::SetRainForTesting(RainIntensity intensity, float duration, bool canIntensify)
 {
+    if (intensity == RainIntensity::TORRENT && !SupportsWatersideFlood()) return;
 	if (!SupportsWeather()) return;
 	if (g_particleSystem) g_particleSystem->ClearAll();
 	StopRainAudio();
@@ -2395,6 +2432,8 @@ void Board::SetRainForTesting(RainIntensity intensity, float duration, bool canI
 
 bool Board::SetWeatherForecastForTesting(RainIntensity forecast, RainIntensity actual, float revealIn)
 {
+    if (!SupportsWatersideFlood()
+        && (forecast == RainIntensity::TORRENT || actual == RainIntensity::TORRENT)) return false;
 	if (!SupportsWeather() || !mWeatherInitialized) {
 		return false;
 	}
@@ -2464,7 +2503,7 @@ bool Board::AdvanceRainPhaseForTesting(int transitionRoll)
 
 bool Board::TriggerLightningForTesting()
 {
-	if (mRainIntensity != RainIntensity::HEAVY || IsWinterPrecipitationSnow()) return false;
+	if (!IsHeavyRainIntensity(mRainIntensity) || IsWinterPrecipitationSnow()) return false;
 	TriggerLightning();
 	return true;
 }
@@ -2472,7 +2511,7 @@ bool Board::TriggerLightningForTesting()
 bool Board::SetTyphoonForTesting(TyphoonStrength strength, WindDirection direction,
 	float gustIn, float directionIn, int gustsRemaining, float decayIn)
 {
-	if (mRainIntensity != RainIntensity::HEAVY) return false;
+	if (!IsHeavyRainIntensity(mRainIntensity)) return false;
 	if (!SupportsTyphoon() && strength != TyphoonStrength::NONE) return false;
 	if (strength == TyphoonStrength::NONE) {
 		StopTyphoon();
@@ -2496,7 +2535,7 @@ bool Board::RollTyphoonForTesting(int chanceRoll, int strengthRoll, WindDirectio
 	const int totalWeight = BuildTyphoonWeights(GetWeatherDirectorFactor()).Total();
 	const bool validDirection = direction == WindDirection::TOWARD_HOUSE
 		|| direction == WindDirection::TOWARD_FRONT;
-	if (!SupportsTyphoon() || mRainIntensity != RainIntensity::HEAVY
+	if (!SupportsTyphoon() || !IsHeavyRainIntensity(mRainIntensity)
 		|| chanceRoll < 1 || chanceRoll > 100
 		|| strengthRoll < 1 || strengthRoll > totalWeight || !validDirection) return false;
 	StartTyphoonForHeavyPhase(chanceRoll, strengthRoll, direction);
@@ -2506,7 +2545,7 @@ bool Board::RollTyphoonForTesting(int chanceRoll, int strengthRoll, WindDirectio
 
 bool Board::TriggerTyphoonGustForTesting(float plantMoveIn)
 {
-	if (!HasTyphoon() || mRainIntensity != RainIntensity::HEAVY) return false;
+	if (!HasTyphoon() || !IsHeavyRainIntensity(mRainIntensity)) return false;
 	return BeginTyphoonGust(false, plantMoveIn);
 }
 

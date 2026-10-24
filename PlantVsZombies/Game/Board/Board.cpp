@@ -392,7 +392,7 @@ ZombieType Board::ResolveRainMutationType(ZombieType selected, int mutationRoll)
 {
 	if (selected != ZombieType::ZOMBIE_DANCER
 		|| !GameAPP::GetInstance().GetBackgroundIsNight(mBackGround)
-		|| mRainIntensity != RainIntensity::HEAVY
+		|| !IsHeavyRainIntensity(mRainIntensity)
 		|| mTyphoonStrength == TyphoonStrength::NONE) {
 		return selected;
 	}
@@ -934,7 +934,7 @@ bool Board::IsPoolRow(int row) const
 {
 	if (IsWatersideGarden()) {
 		for (int col = 0; col < mColumns; ++col)
-			if (WatersideGardenRules::Terrain(row, col) == '~') return true;
+			if (IsPoolSquare(row, col)) return true;
 		return false;
 	}
 	return IsPoolBackground() && row >= kPoolFirstRow && row <= kPoolLastRow;
@@ -942,12 +942,16 @@ bool Board::IsPoolRow(int row) const
 
 bool Board::IsPoolSquare(int row, int col) const
 {
-	if (IsWatersideGarden()) return WatersideGardenRules::Terrain(row, col) == '~';
+	if (IsWatersideGarden()) return IsOriginalPoolSquare(row, col) || IsFloodedSquare(row, col);
 	return IsPoolRow(row) && col >= 0 && col < mColumns;
 }
 
 bool Board::IsPoolWorldPosition(int row, float x) const
 {
+	if (row < 0 || row >= mRows) return false;
+	if (SupportsWatersideFlood()) {
+		return GetWatersideFloodDepthAt(x, GetCellCenterPosition(row, 0).y) >= 0.0f;
+	}
 	const float poolRight = CELL_INITALIZE_POS_X
 		+ static_cast<float>(mColumns) * CELL_COLLIDER_SIZE_X;
 	return x >= CELL_INITALIZE_POS_X && x < poolRight
@@ -1082,6 +1086,11 @@ void Board::UpdateIceTrails(float deltaTime)
 {
 	if (deltaTime <= 0.0f || mBoardState != BoardState::GAME) return;
 	for (int row = 0; row < mRows && row < static_cast<int>(mIceTimer.size()); ++row) {
+		// 冰道按整行保存，水路本就禁止铺冰；洪水进入该行时同步冲掉旧冰，避免水格残留禁种。
+		if (SupportsWatersideFlood() && IsPoolRow(row)) {
+			mIceTimer[row] = 0.0f;
+			mGoldenIceTimer[row] = 0.0f;
+		}
 		if (mIceTimer[row] > 0.0f) {
 			mIceTimer[row] = std::max(0.0f, mIceTimer[row] - deltaTime);
 		}
@@ -1774,7 +1783,8 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	}
 	if (type == PlantType::PLANT_FLOWERPOT) {
 		// 原版允许花盆落在任意非水地面；屋顶以外通常只是不推荐选择。
-		return !isWater && cell->IsEmpty();
+		return !isWater && (cell->IsEmpty() || (SupportsWatersideFlood()
+			&& RequiresFlowerPotAt(row, col) && !underPlant));
 	}
 	if ((type == PlantType::PLANT_SPIKEWEED
 		|| type == PlantType::PLANT_SPIKEROCK)
@@ -1790,6 +1800,15 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 		// 屋顶与硬质裸地普通植物只占 normal 层，由 under 层花盆承载。
 		return hasFlowerPot && normalEmpty;
 	}
+    // 洪水救援允许补入睡莲或原子替换花盆，保留 normal/pumpkin/overlay。
+    if (SupportsWatersideFlood() && type == PlantType::PLANT_LILYPAD && isWater) {
+        // 原本直接扎在水里的能力植物仍不允许垫睡莲，救援只扩展陆生上层。
+        const PlantType normalType = normalPlant ? normalPlant->GetPlacementType() : PlantType::NUM_PLANT_TYPES;
+        if (normalType == PlantType::PLANT_TANGLEKELP || normalType == PlantType::PLANT_SEASHROOM
+            || normalType == PlantType::PLANT_ANCHORLOTUS) return false;
+        return !underPlant || (underPlant->IsRoofSupportPlant() && !underPlant->IsIceSealed()
+            && !underPlant->IsBungeeTargeted());
+    }
 	if (type == PlantType::PLANT_LILYPAD
 		|| type == PlantType::PLANT_TANGLEKELP
 		|| type == PlantType::PLANT_SEASHROOM
@@ -2277,6 +2296,12 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 		return nullptr;
 	}
 
+    Plant* floodRescueBase = nullptr;
+    if (SupportsWatersideFlood() && !isPreview && !skipsettings
+        && placementType == PlantType::PLANT_LILYPAD && IsPoolSquare(row, column)) {
+        Plant* under = GetUnderPlantAt(row, column);
+        if (under && under->IsRoofSupportPlant()) floodRescueBase = under;
+    }
 	Plant* upgradeBasePlant = nullptr;
 	std::vector<Plant*> upgradeBasePlants;
 	bool inheritedSleeping = false;
@@ -2315,7 +2340,8 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 				: (isOverlayPlant ? cell->GetOverlayPlantID() : cell->GetNormalPlantID()));
 		const bool replacesExpectedBase = isUpgradePlant && upgradeBasePlant
 			&& occupiedID == upgradeBasePlant->mPlantID;
-		if (occupiedID != NULL_PLANT_ID && !replacesExpectedBase) {
+		if (occupiedID != NULL_PLANT_ID && !replacesExpectedBase
+            && (!floodRescueBase || occupiedID != floodRescueBase->mPlantID)) {
 			plant->Die();
 			return nullptr;
 		}
@@ -2337,6 +2363,7 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 				return nullptr;
 			}
 		}
+        if (floodRescueBase) floodRescueBase->Die();
 		if (replacesExpectedBase) {
 			// 先把格子切到新 ID，再让旧株死亡；ReleaseGridSlot 只清自己的 ID，因此替换原子化。
 			for (Plant* base : upgradeBasePlants) {
@@ -2825,7 +2852,13 @@ bool Board::IsSpawnRowCompatible(ZombieType type, int row) const
 	if (IsPoolRow(row)) {
 		// 普通/路障/铁桶会在选行后由 ResolveTerrainZombieType 换成专用泳池版本；
 		// 其余允许类型保持原类型，并复用 Zombie 基类的通用入水与裁剪。
-		return CanZombieTypeSpawnInPool(type);
+		if (SupportsWatersideFlood()) {
+            // 洪水路线向陆地单位开放；未连成整行的原始池水继续保持正常门禁。
+            bool originalWater = false;
+            for (int col = 0; col < mColumns; ++col) originalWater |= IsOriginalPoolSquare(row, col);
+            if (!originalWater || IsEntireRowFlooded(row)) return true;
+        }
+        return CanZombieTypeSpawnInPool(type);
 	}
 
 	switch (type) {
@@ -2843,7 +2876,8 @@ bool Board::IsNaturalWaveSpawnRowCompatible(ZombieType type, int row) const
 {
 	if (!IsSpawnRowCompatible(type, row)) return false;
 	if (IsMineBackground() && !mMineGrid.entrance[row]) return false;
-	return !IsPoolBackground() || mCurrentWave >= kPoolFirstWaterSpawnWave || !IsPoolRow(row);
+	return SupportsWatersideFlood() || !IsPoolBackground()
+		|| mCurrentWave >= kPoolFirstWaterSpawnWave || !IsPoolRow(row);
 }
 
 ZombieType Board::ResolveTerrainZombieType(ZombieType selected, int row) const
@@ -3360,6 +3394,7 @@ void Board::Update()
 	}
 	// 天气属于整片场景而非波次逻辑：生存轮间也自然推进；暂停时 dt=0 与粒子同步冻结。
 	UpdateWeather(DeltaTime::GetDeltaTime());
+	UpdateWatersideFlood(DeltaTime::GetDeltaTime());
 	// 夜间泳池迷雾与雨势正交，但同样使用游戏时间并消费更新后的台风强度和实时风向。
 	UpdateFog(DeltaTime::GetDeltaTime());
 	UpdateWeatherPanelInterference(DeltaTime::GetDeltaTime());

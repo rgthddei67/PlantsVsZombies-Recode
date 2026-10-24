@@ -928,6 +928,18 @@ int main() {
         Expect(player["havecards"].size()==1 && player["havecards"][0]==static_cast<int>(PlantType::PLANT_RAINBAMBOO),"completed 11-5 grants missing bamboo once");
         Expect(SaveSchema::UpgradePlayerDocument(player,error) && player["havecards"].size()==1,"bamboo reward migration is idempotent");
     }
+
+    {
+        std::string error;
+        nlohmann::json old={{"schemaVersion",36},{"rainIntensity",3},{"plants",nlohmann::json::array({{{"id",17},{"health",120}}})}};
+        Expect(SaveSchema::UpgradeLevelDocument(old,error), "v36 flood migration");
+        Expect(old["watersideFlood"]["water"]==0 && old["plants"][0]["watersideHazard"]["elapsed"]==0,
+            "old saves gain no historic flood or drowning debt");
+        old["watersideFlood"]["water"]=53.5f;
+        old["plants"][0]["watersideHazard"]={{"kind",1},{"elapsed",12.0f}};
+        const auto saved=old;
+        Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved, "current flood save is stable");
+    }
 	TestCurrentLevelDocumentIsStable();
 	{
 		std::string error;

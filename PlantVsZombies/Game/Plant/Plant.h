@@ -75,6 +75,8 @@ protected:
 	bool mIsSleeping = false;	// 白天蘑菇睡眠权威状态
 	std::shared_ptr<Animator> mSleepIndicatorAnimator; // 原版 Z.reanim 睡眠标识；由睡眠状态派生，不单独入档
 	float mWakeUpTimer = 0.0f;	// 咖啡豆唤醒倒计时，单位：秒；大于 0 时仍保持睡眠
+	float mWatersideHazardElapsed = 0.0f; // 当前洪水/缺盆/缺水累计游戏秒
+	int mWatersideHazardKind = 0; // 0 正常、1 溺水、2 缺盆、3 缺水
 	float mShutdownTimer = 0.0f; // 通用停机剩余游戏秒；来源可以是天气、僵尸技能或其他机制
 	bool mIsPreview = false;
 	bool mIsSquished = false;	// 压扁残影仍参与绘制，但已退出占格、碰撞与植物行为
@@ -339,6 +341,12 @@ public:
 	virtual void AbsorbGroundedNightRoofCharge(bool) {}
 	/** 存档恢复专用：钳制并还原剩余停机时间，不重放来源效果。 */
 	void RestoreShutdown(float remainingSeconds);
+    /** 还原自身受灾进度；不改变 Board 水位或补发宽限。 */
+    void RestoreWatersideHazard(int kind, float elapsed);
+    float GetWatersideHazardElapsed() const { return mWatersideHazardElapsed; }
+    int GetWatersideHazardKind() const { return mWatersideHazardKind; }
+    float GetWatersideHazardRemaining() const;
+    void UpdateWatersideHazard();
 
 	// 是否为预览植物（选卡预览用，不参与对战逻辑）
 	bool IsPreview() const { return this->mIsPreview; }

@@ -498,12 +498,16 @@ foreach(entry IN LISTS SHADER_SOURCES)
     string(REPLACE ".glsl" "" name ${shader})
     # 与旧工程一致：spv 落在源码树 Shader/spv/，所有 preset 共享同一份产物
     set(spv ${SRC_DIR}/Shader/spv/${name}.spv)
+    set(shader_dependencies ${SRC_DIR}/Shader/${shader})
+    if(shader STREQUAL "pool.frag.glsl")
+        list(APPEND shader_dependencies ${SRC_DIR}/Shader/opengl/water_effects.glsl)
+    endif()
     add_custom_command(
         OUTPUT ${spv}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${SRC_DIR}/Shader/spv
         COMMAND ${GLSLC} -fshader-stage=${stage} --target-env=vulkan1.2 -O
                 ${SRC_DIR}/Shader/${shader} -o ${spv}
-        DEPENDS ${SRC_DIR}/Shader/${shader}
+        DEPENDS ${shader_dependencies}
         COMMENT "[glslc] Shader/${shader} -> Shader/spv/${name}.spv"
     )
     list(APPEND SPV_OUTPUTS ${spv})

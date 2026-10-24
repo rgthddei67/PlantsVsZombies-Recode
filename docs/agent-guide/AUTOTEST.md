@@ -243,3 +243,12 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 `imitaterPagination` 导出独立页码、页数、实际活动候选及导航显隐/可用/纹理状态；完整候选仍在
 `chooseCardImitaterDialogOptions`。`set_all_owned_cards` 可指定 `maxCards` 截取正式奖励前缀，验证早期单页卡池；
 省略该字段仍包含全部已实装奖励，夹具只修改AutoTest内存。
+
+
+### 水岸洪水
+
+`smoke_waterside_flood` 覆盖救援底座替换、多格承载、溺亡与缺盆宽限、静止快照和禁水品种的真实波次；`smoke_waterside_flood_weather` 覆盖 12-2 门禁、五倍晴天排水时长、暴雨与台风、连续水面及天气快照。运行后执行 `python autotest/verify_waterside_flood.py`。`set_waterside_water` 只供固定边界夹具，不能替代自然雨水累积验证；`set_wave_spawn_list` 只改变本夹具候选名单，仍用正式选型/选行/预算生成。
+
+水面 shader 或仪表提交改动用三个 `smoke_waterside_flood_shader*` 场景：基本版用默认 Vulkan，`_noinstance` 配 `-NoInstance`，`_opengl` 配 `-Renderer=opengl -OpenGL33`。核对涨水、全图水面、圆盘边缘和原始泳池截图，并检查所选后端与资源警告。
+
+`smoke_waterside_flood_world` 覆盖四周场外水域、待机推车浮沉/触发/存档、满水不创建雨花、旧冰道清除及暴雨预报误报的台风元数据往返；`smoke_waterside_flood_zombies` 覆盖普通/精英海豚入水中退潮、车辆、出土矿工/潜雪、破气球、雪橇散队和涨退水期间投篮动作。`smoke_waterside_flood_pogo` 在固定起落相位检查普通/精英跳跳的水中裁剪、无阴影、退水与存档。用稳定 ID 核对保存前后整组实体；雪橇散队进入原池的成员在退潮后仍应处于水中，不能要求全部成员统一变干。

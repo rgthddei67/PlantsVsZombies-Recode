@@ -68,7 +68,6 @@ protected:
 	float GetSlowAnimFactor() const override {
 		return mHasPogo ? ZombieMovementRules::PogoSlowAnimationFactor : Zombie::GetSlowAnimFactor();
 	}
-	bool CanUseGroundPoolState() const override { return !mHasPogo; }
 	/** 处理高坚果等植物的跳跃阻拦；返回 true 表示本次阻拦已终止前跳。 */
 	virtual bool HandlePogoJumpBlocked(Plant& plant);
 	virtual const std::string& GetDamagedOuterArmTextureKey() const;

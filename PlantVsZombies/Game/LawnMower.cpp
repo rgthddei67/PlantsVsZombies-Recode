@@ -20,6 +20,7 @@ namespace {
 	constexpr float kGardenPoolCleanerExtraLiftY = 50.0f;   // 水岸植物园单行水池额外抬高车身，避免压到下方石岸，单位：像素
 	constexpr float kPoolTransitionSpeedRatio = 0.8f;       // 原版每横移 2.5 像素下沉/上浮 2 像素
 	constexpr float kPoolMowBlendTime = 0.1f;               // 吞噬轨道切换混合时间，单位：秒
+	constexpr float kFloodLawnMowerLiftY = 10.0f;           // 洪水托起普通推车的视觉高度，像素；不改变碰撞与触发位置
 }
 
 Mower::Mower(Board* board, MowerType type, AnimationType animType, float x, float y, int row, float scale)
@@ -99,7 +100,7 @@ void Mower::Trigger()
 
 	if (mMowerType == MowerType::WATER) {
 		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_POOL_CLEANER, 0.4f);
-		PlayTrack("anim_land", kPoolCleanerClipSpeed);
+		PlayTrack(mMowerHeight == MowerHeight::IN_POOL ? "anim_water" : "anim_land", kPoolCleanerClipSpeed);
 	}
 	else if (mMowerType == MowerType::ROOF) {
 		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LAWNMOWER, 0.4f);
@@ -145,7 +146,11 @@ void Mower::Update()
 		pos.y = mBoard->GetMowerTerrainY(mRow, pos.x + 40.0f);
 		SetPosition(pos);
 	}
-	if (mState != MowerState::MOVING) return;
+	if (mState != MowerState::MOVING) {
+		// 洪水可先淹到停车位；待机也跟随水位，但不启动或消耗这一行防线。
+		if (mBoard && mBoard->SupportsWatersideFlood()) UpdatePoolState(DeltaTime::GetDeltaTime());
+		return;
+	}
 
 	float deltaTime = DeltaTime::GetDeltaTime();
 	pos.x += mSpeed * deltaTime;
@@ -168,7 +173,7 @@ void Mower::Update()
 		pos.y = mBoard->GetMowerTerrainY(mRow, pos.x + 40.0f);
 	}
 	SetPosition(pos);
-	if (mMowerType == MowerType::WATER) {
+	if (mMowerType == MowerType::WATER || (mBoard && mBoard->SupportsWatersideFlood())) {
 		UpdatePoolState(deltaTime);
 	}
 
@@ -209,6 +214,10 @@ Vector Mower::GetVisualPosition() const
 				? Vector(6.0f, -40.0f) : Vector(-4.0f, -4.0f));
 	}
 	float waterLiftY = 0.0f;
+	if (mMowerType == MowerType::LAWN && mBoard && mBoard->SupportsWatersideFlood()) {
+		return AnimatedObject::GetVisualPosition() + Vector(0.0f,
+			-kFloodLawnMowerLiftY * mPoolVisualOffsetY / kPoolTransitionDepth);
+	}
 	if (mMowerType == MowerType::WATER && mMowerHeight != MowerHeight::LAND) {
 		// 上移校正按当前入水深度渐进，避免 ENTERING/IN_POOL/EXITING 切换时画面跳变；
 		// 逻辑位置、碰撞和存档中的原始入水深度均保持不变。
@@ -236,6 +245,12 @@ void Mower::UpdatePoolState(float deltaTime)
 	const Vector pos = GetPosition();
 	const bool overPool = mBoard->IsPoolWorldPosition(mRow, pos.x + 40.0f);
 	const float transitionStep = mSpeed * kPoolTransitionSpeedRatio * deltaTime;
+	// 涨退水可在过渡中反向，保持当前高度连续，不先完成已经失效的上下岸动作。
+	if (overPool && mMowerHeight == MowerHeight::EXITING) mMowerHeight = MowerHeight::ENTERING;
+	else if (!overPool && mMowerHeight == MowerHeight::ENTERING) {
+		mMowerHeight = MowerHeight::EXITING;
+		if (mMowerType == MowerType::WATER) PlayTrack("anim_land", kPoolCleanerClipSpeed);
+	}
 
 	switch (mMowerHeight) {
 	case MowerHeight::LAND:
@@ -253,7 +268,7 @@ void Mower::UpdatePoolState(float deltaTime)
 		if (mPoolVisualOffsetY >= kPoolTransitionDepth) {
 			mMowerHeight = MowerHeight::IN_POOL;
 			mPoolVisualOffsetY = kPoolTransitionDepth;
-			PlayTrack("anim_water", kPoolCleanerClipSpeed);
+			if (mMowerType == MowerType::WATER) PlayTrack("anim_water", kPoolCleanerClipSpeed);
 			UpdatePoolShadowVisibility();
 		}
 		break;
@@ -262,7 +277,7 @@ void Mower::UpdatePoolState(float deltaTime)
 		if (!overPool) {
 			mMowerHeight = MowerHeight::EXITING;
 			mPoolVisualOffsetY = kPoolTransitionDepth;
-			PlayTrack("anim_land", kPoolCleanerClipSpeed);
+			if (mMowerType == MowerType::WATER) PlayTrack("anim_land", kPoolCleanerClipSpeed);
 			UpdatePoolShadowVisibility();
 		}
 		break;
@@ -276,6 +291,7 @@ void Mower::UpdatePoolState(float deltaTime)
 		}
 		break;
 	}
+	if (mMowerType == MowerType::WATER && mState == MowerState::IDLE) PauseAnimation();
 }
 
 void Mower::PlayPoolMowAnimation()

@@ -1,5 +1,6 @@
 #pragma once
 #include "WeatherStationRules.h"
+#include "WatersideFlood.h"
 #include "RoofRunoff.h"
 #include "FogWeather.h"
 #include "WinterClimate.h"
@@ -546,6 +547,7 @@ private:
 		int row, int col, int id);
 
 	// 黑夜随机天气。weatherTimer 在 CLEAR 时表示距下一场雨，在下雨时表示本场剩余时间。
+	WatersideFlood mWatersideFlood; // 水域值归 Board 独占，植物只保存自己的受灾计时
 	RainIntensity mRainIntensity = RainIntensity::CLEAR;
 	RainIntensity mPreviousRainIntensity = RainIntensity::CLEAR; // 两秒平滑过渡开始前的雨势
 	RainIntensity mForecastRainIntensity = RainIntensity::CLEAR; // 已发布预警对应的下一天气
@@ -1517,6 +1519,26 @@ public:
 	/** 当前地图是否使用泳池地形与六行网格。 */
 	bool IsPoolBackground() const;
 	bool IsWatersideGarden() const { return mBackGround == Background::WATERSIDE_GARDEN; }
+	/** 12-2 起启用洪水；12-1 保留固定水岸教学。 */
+	bool SupportsWatersideFlood() const;
+	float GetWatersideWater() const { return mWatersideFlood.GetWater(); }
+	float GetWatersideWaterRate() const;
+	float GetWatersideFloodThreshold(int row, int col) const;
+	/** 格中心地势节点的有符号水深；允许场外行列，供连续水面与移动对象共用。 */
+	float GetWatersideFloodNodeDepth(int row, int col) const;
+	/** 按 shader 同样的平滑插值读取世界点水深；不含仅用于表现的微小波缘。 */
+	float GetWatersideFloodDepthAt(float worldX, float worldY) const;
+	float GetWatersideFloodCoverage(int row, int col) const;
+	bool IsOriginalPoolSquare(int row, int col) const;
+	bool IsFloodedSquare(int row, int col) const;
+	bool IsEntireRowFlooded(int row) const;
+	/** 0 正常、1 溺水、2 缺花盆、3 水生缺水；覆盖植物完整占地。 */
+	int GetWatersidePlantHazard(const Plant* plant) const;
+	void UpdateWatersideFlood(float seconds);
+	nlohmann::json SaveWatersideFlood() const { return mWatersideFlood.Save(); }
+	void LoadWatersideFlood(const nlohmann::json& value);
+	bool SetWatersideWaterForTesting(float value);
+
 	/** 当前格是否要求花盆承载，涵盖屋顶与混合地图的硬质裸地。 */
 	bool RequiresFlowerPotAt(int row, int column) const;
 	/** 检查源格整组植物是否适合目标地形；不检查目标占用、弹坑、锚定或移动权限。 */

@@ -560,6 +560,7 @@ namespace {
 	const std::unordered_map<std::string, RainIntensity> kRainIntensityNames = {
 		{ "CLEAR", RainIntensity::CLEAR }, { "LIGHT", RainIntensity::LIGHT },
 		{ "MEDIUM", RainIntensity::MEDIUM }, { "HEAVY", RainIntensity::HEAVY },
+        { "TORRENT", RainIntensity::TORRENT },
 	};
 	const std::unordered_map<std::string, ColdWavePhase> kColdWavePhaseNames = {
 		{ "CALM", ColdWavePhase::CALM }, { "COOLING", ColdWavePhase::COOLING },
@@ -1740,17 +1741,24 @@ bool TestDriver::ExecuteCurrent() {
 		gs->GetBoard()->SetSunForTesting(cmd.value("value", 0));
 		return true;
 	}
+    if (op == "set_waterside_water") {
+        GameScene* gs = CurrentGameScene();
+        if (!gs || !gs->GetBoard()) { Fail("set_waterside_water: missing Board"); return false; }
+        const bool ok = gs->GetBoard()->SetWatersideWaterForTesting(cmd.value("value", 0.0f));
+        if (ok != cmd.value("expectedSuccess", true)) { Fail("set_waterside_water: unexpected eligibility"); return false; }
+        return true;
+    }
 	if (op == "set_weather") {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard()) { Fail("set_weather: 不在 GameScene 或 Board 为空"); return false; }
 		auto it = kRainIntensityNames.find(cmd.value("intensity", ""));
 		if (it == kRainIntensityNames.end()) {
-			Fail("set_weather: intensity 必须是 CLEAR/LIGHT/MEDIUM/HEAVY");
+			Fail("set_weather: intensity 必须是 CLEAR/LIGHT/MEDIUM/HEAVY/TORRENT");
 			return false;
 		}
 		gs->GetBoard()->SetRainForTesting(it->second, cmd.value("duration", 30.0f),
 			cmd.value("canIntensify", false));
-		if (gs->GetBoard()->GetRainIntensity() != it->second) {
+		if ((gs->GetBoard()->GetRainIntensity() == it->second) != cmd.value("expectedSuccess", true)) {
 			Fail("set_weather: 当前关卡不支持天气，天气未生效");
 			return false;
 		}
@@ -3366,6 +3374,22 @@ bool TestDriver::ExecuteCurrent() {
 		}
 		return true;
 	}
+    if (op == "set_wave_spawn_list") {
+        GameScene* gs = CurrentGameScene();
+        if (!gs || !gs->GetBoard() || !cmd.contains("types") || !cmd["types"].is_array()
+            || cmd["types"].empty() || cmd["types"].size() > 64) {
+            Fail("set_wave_spawn_list: invalid Board/types"); return false;
+        }
+        std::vector<ZombieType> types;
+        for (const auto& name : cmd["types"]) {
+            if (!name.is_string()) { Fail("set_wave_spawn_list: invalid name"); return false; }
+            const auto it = kZombieNames.find(name.get<std::string>());
+            if (it == kZombieNames.end()) { Fail("set_wave_spawn_list: unknown type"); return false; }
+            types.push_back(it->second);
+        }
+        gs->GetBoard()->SetZombieSpawnList(types);
+        return true;
+    }
 	if (op == "assert_zombie_spawn_row") {
 		GameScene* gs = CurrentGameScene();
 		if (!gs || !gs->GetBoard()) {
@@ -6308,12 +6332,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["hostileZombieCountForMusic"] = board->GetHostileZombieCountForMusic();
 	out["mowerCount"] = static_cast<int>(board->mEntityRegistry.GetAllMowerIDs().size());
 	int movingMowerCount = 0;
+	int floatingIdleMowerCount = 0;
 	out["mowers"] = nlohmann::json::array();
 	for (int id : board->mEntityRegistry.GetAllMowerIDs()) {
 		Mower* mower = board->mEntityRegistry.GetMower(id);
 		if (!mower) continue;
 		const bool moving = mower->mState == MowerState::MOVING;
 		if (moving) ++movingMowerCount;
+		if (!moving && mower->mMowerHeight == MowerHeight::IN_POOL) ++floatingIdleMowerCount;
 		const Vector mowerPosition = mower->GetPosition();
 		const float terrainY = board->GetMowerTerrainY(
 			mower->mRow, mowerPosition.x + 40.0f);
@@ -6340,6 +6366,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		});
 	}
 	out["movingMowerCount"] = movingMowerCount;
+	out["floatingIdleMowerCount"] = floatingIdleMowerCount;
 	out["devNoCooldown"] = GameAPP::mDevNoCooldown;
 	out["devFreePlant"] = GameAPP::mDevFreePlant;
 	out["devSpawnPaused"] = GameAPP::mDevSpawnPaused;
@@ -6824,6 +6851,27 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		}
 	}
 
+    out["watersideFlood"] = {
+        {"enabled", board->SupportsWatersideFlood()},
+        {"waterMilli", static_cast<int>(std::lround(board->GetWatersideWater() * 1000))},
+        {"rateMilli", static_cast<int>(std::lround(board->GetWatersideWaterRate() * 1000))},
+        {"drowningSeconds", WatersideFloodRules::DrowningSeconds},
+        {"potGraceSeconds", WatersideFloodRules::PotGraceSeconds},
+        {"floodedCells", 0}, {"fullRows", nlohmann::json::array()}
+    };
+    for (int r = 0; r < board->mRows; ++r) {
+        if (board->IsEntireRowFlooded(r)) out["watersideFlood"]["fullRows"].push_back(r);
+        for (int c = 0; c < board->mColumns; ++c)
+            if (board->IsFloodedSquare(r,c)) out["watersideFlood"]["floodedCells"] = out["watersideFlood"]["floodedCells"].get<int>() + 1;
+    }
+    if (board->SupportsWatersideFlood()) {
+        for (const auto& [name, grid] : std::array<std::pair<const char*, Vector>, 4>{
+            std::pair{"left", Vector(-2, 2)}, std::pair{"right", Vector(board->mColumns+1, 2)},
+            std::pair{"top", Vector(4, -2)}, std::pair{"bottom", Vector(4, board->mRows+1)}}) {
+            const Vector point = board->GetCellCenterPosition(static_cast<int>(grid.y), static_cast<int>(grid.x));
+            out["watersideFlood"]["outerWater"][name] = board->GetWatersideFloodDepthAt(point.x, point.y) >= 0.0f;
+        }
+    }
 	// 黑夜天气：倍率与 alpha 另给整数投影，避免 AutoTest 对浮点做严格 equals。
 	{
 		const float zombieRain = board->GetZombieRainSpeedMultiplier();
@@ -7699,6 +7747,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "mistFuelReward", static_cast<int>(std::lround(z->GetMistFuelReward())) },
 			{ "fogObscured", board->IsZombieObscuredByFog(z) },
 			{ "inPool", z->IsInPool() },
+			{ "groundShadowVisible", z->GetShadow() && z->GetShadow()->IsVisible() && z->GetShadow()->IsEnabled() },
+			{ "groundShadowDrawn", z->GetShadow() && z->GetShadow()->IsLastDrawReady() },
 			{ "isEating", z->IsEating() },
 			{ "isDying", z->IsDying() },
 			{ "eatPlantID", z->GetEatingPlantID() },
@@ -8112,6 +8162,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			const Vector visual = pogo->GetVisualPosition();
 			zombieState["pogoPhase"] = PogoPhaseName(pogo->GetPhase());
 			zombieState["hasPogo"] = pogo->HasPogo();
+			zombieState["pogoShadowVisible"] = z->GetShadow() && z->GetShadow()->IsVisible();
 			zombieState["pogoBounceRemainingMs"] = static_cast<int>(std::lround(
 				pogo->GetBounceRemaining() * 1000.0f));
 			zombieState["pogoBounceProgressOn1000"] = static_cast<int>(std::lround(
@@ -8273,7 +8324,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				anim && anim->GetTrackVisible("Zombie_digger_hardhat");
 			zombieState["diggerHeadEyeVisible"] =
 				anim && anim->GetTrackVisible("Zombie_digger_head_eye");
-			zombieState["diggerShadowVisible"] = shadow && shadow->IsVisible();
+			zombieState["diggerShadowVisible"] = shadow && shadow->IsVisible() && shadow->IsEnabled();
 			zombieState["diggerGroundTrackVisible"] =
 				anim && anim->GetTrackVisible("_ground");
 			if (auto* eliteDigger = dynamic_cast<EliteDiggerZombie*>(digger)) {
@@ -8324,7 +8375,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				snowBurrow->CanBeAffectedByGroundHazards();
 			zombieState["snowBurrowInterruptibleRemainingMs"] = static_cast<int>(
 				std::lround(snowBurrow->GetInterruptibleSpecialActionRemaining() * 1000.0f));
-			zombieState["snowBurrowShadowVisible"] = shadow && shadow->IsVisible();
+			zombieState["snowBurrowShadowVisible"] = shadow && shadow->IsVisible() && shadow->IsEnabled();
 			zombieState["snowBurrowShovelVisible"] = anim
 				&& anim->GetTrackVisible("Zombie_digger_pickaxe");
 			zombieState["snowBurrowHatVisible"] = anim
@@ -8935,6 +8986,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "renderLayer", static_cast<int>(p->GetLayer()) },
 			{ "health", p->mPlantHealth }, { "maxHealth", p->mPlantMaxHealth },
             { "fertilityRateMilli", static_cast<int>(std::lround(board->GetPlantFertilityMultiplier(p) * 1000)) },
+            { "watersideHazard", board->GetWatersidePlantHazard(p) },
+            { "watersideElapsedMs", static_cast<int>(std::lround(p->GetWatersideHazardElapsed() * 1000)) },
+            { "watersideRemainingMs", static_cast<int>(std::lround(p->GetWatersideHazardRemaining() * 1000)) },
             { "attackRateMilli", static_cast<int>(std::lround(p->GetAttackSpeedMultiplier() * 1000)) },
 			{ "unyieldingRootsSpent", p->HasSpentUnyieldingRoots() },
 			{ "unyieldingRootsTimerMs", static_cast<int>(std::lround(
@@ -9526,6 +9580,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["particleEffectNameCounts"]["EliteLadderBodyBuff"] = 0;
 	out["particleEffectNameCounts"]["EliteLadderShieldBuff"] = 0;
 	out["particleEffectNameCounts"]["PlantingPool"] = 0;
+	out["particleEffectNameCounts"]["RainGroundSplash"] = 0;
 	out["particleEffectNameCounts"]["CatapultExplosion"] = 0;
 	out["particleEffectNameCounts"]["EliteCatapultExplosion"] = 0;
 	out["particleEffectNameCounts"]["GloomCloud"] = 0;
@@ -9673,6 +9728,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			}
 
 			const std::string name = effect->GetName();
+			if (name == "RainGroundSplash" && board->SupportsWatersideFlood()) {
+				state["floodDepthMilli"] = static_cast<int>(std::lround(
+					board->GetWatersideFloodDepthAt(origin.x, origin.y) * 1000.0f));
+			}
 			out["particleEffects"].push_back(state);
 			out["particleEffectsByName"][name].push_back(state);
 			out["particleEffectNameCounts"][name] =
@@ -9849,6 +9908,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			Plant* top = board->GetTopPlantAt(row, col);
 			rowState.push_back({
                 { "water", board->IsPoolSquare(row, col) },
+                { "flooded", board->IsFloodedSquare(row, col) },
+                { "floodCoverageMilli", static_cast<int>(std::lround(board->GetWatersideFloodCoverage(row,col)*1000)) },
                 { "requiresFlowerPot", board->RequiresFlowerPotAt(row, col) },
                 { "fertile", board->IsFertileSquare(row, col) },
 				{ "centerXInt", static_cast<int>(std::lround(center.x)) },

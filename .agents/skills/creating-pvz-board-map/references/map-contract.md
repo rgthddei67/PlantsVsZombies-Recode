@@ -101,3 +101,5 @@
 水岸植物园把水域资格拆为三个用途：`IsPoolRow` 只表达该路线经过水域，用于出生兼容；种植和植物浮动使用 `IsPoolSquare`；移动对象与清扫车使用 `IsPoolWorldPosition`，海豚从 `GetNextPoolRightEdge` 找实际入水岸口。不要用整行资格替代当前位置介质。`RequiresFlowerPotAt` 覆盖屋顶及逐格硬地，正式落种与搬运都要消费同一规则；整组移动的地形适配入口为 `CanPlantStackOccupyTerrain`，目标占用、危险格和移动权限由调用方另行判定。
 
 ImageGen 原稿的规则网格仍可能与实际 Cell 有累计偏差。`GameSceneWatersideGarden.cpp` 展示沿原画接缝分片、映射到 Board 实际格边的校准方式：保持玩法网格不动，场外建筑和右侧选卡预览站立区保留完整。原稿采样坐标与该具体资产绑定，不复制成其他地图的通用常量。检查选卡时先确认 `chooseCardReady`，否则会把平移途中、面板尚未展开的截图误当成最终预览。
+
+动态洪水的视觉岸线在格中心间插值，格中心仍严格对应 Board 淹没阈值；场外节点也由 `GetWatersideFloodNodeDepth` 提供，四周绘制和 `GetWatersideFloodDepthAt` 连续介质查询共用地势。原池与扩展水域共用同一组泳池素材及唯一水面 mask，避免重复叠水和按格裁出的直角阶梯。`PushClipRect` 接收屏幕逻辑坐标，世界背景边界须先经 `WorldToLogical`；只检查开战后零镜头偏移会漏掉选卡时的断水窄条。新增世界裁剪至少覆盖开场移动、选卡停稳和战斗三个状态；场外扩展同时核对左右入口、上下边界及待机推车。

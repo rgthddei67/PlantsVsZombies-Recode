@@ -451,7 +451,7 @@ void SnowBurrowZombie::ZombieItemUpdate() const
 	}
 	if (mCollider) mCollider->mEnabled = !mIsDying && !mIsDead;
 	if (auto* shadow = GetShadow()) {
-		shadow->SetVisible(IsSurfaceInteractive() && !mIsDying && !mIsDead);
+		shadow->SetEnabled(IsSurfaceInteractive() && !mIsDying && !mIsDead);
 	}
 }
 
@@ -473,7 +473,7 @@ void SnowBurrowZombie::ApplyPhasePresentation()
 	ApplyAltitude();
 	if (mCollider) mCollider->mEnabled = !mIsDying && !mIsDead;
 	if (auto* shadow = GetShadow()) {
-		shadow->SetVisible(IsSurfaceInteractive() && !mIsDying && !mIsDead);
+		shadow->SetEnabled(IsSurfaceInteractive() && !mIsDying && !mIsDead);
 	}
 	if (mAnimator) {
 		mAnimator->SetTrackVisible("_ground", false);

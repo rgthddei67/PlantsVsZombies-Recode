@@ -68,7 +68,7 @@ protected:
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	float GetAbilityAnimSpeedMultiplier() const override;
-	bool CanUseGroundPoolState() const override { return false; }
+	bool CanUseGroundPoolState() const override { return IsInteractivePhase(); }
 	bool TryGetDrawClipBottom(float& clipBottom) const override;
 	/** 持镐眩晕结束入口；精英变体在这里先结算一次性能力。 */
 	virtual void OnPickaxeStunFinished();

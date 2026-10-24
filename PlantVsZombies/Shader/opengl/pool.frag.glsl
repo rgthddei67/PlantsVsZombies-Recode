@@ -1,6 +1,7 @@
 #version 330 core
 
 in vec2 poolCoord;
+in vec2 waterWorldCoord;
 in vec4 color;
 flat in vec4 clipRect;
 
@@ -27,9 +28,9 @@ float sampleCausticByte(vec2 pixel)
     return floor(clamp(mix(mix(c00, c10, fraction.x), mix(c01, c11, fraction.x), fraction.y), 0.0, 1.0) * 255.0 + 0.0001);
 }
 
-float causticAlpha()
+float causticAlphaAt(vec2 coord)
 {
-    vec2 causticPixel = fract(poolCoord) * vec2(128.0, 64.0);
+    vec2 causticPixel = fract(coord) * vec2(128.0, 64.0);
     float a1 = sampleCausticByte(vec2(
         causticPixel.x * 2.0 - ((uPoolCounter + 1.0) / 6.0),
         (256.0 - causticPixel.y) * 2.0 + uPoolCounter / 8.0));
@@ -49,6 +50,8 @@ float causticAlpha()
     return clamp(floor(alpha / 3.0) / 255.0, 0.0, 1.0);
 }
 
+#include "water_effects.glsl"
+
 void main()
 {
     vec2 topLeftFragment = vec2(gl_FragCoord.x, uFramebufferHeight - gl_FragCoord.y);
@@ -58,9 +61,17 @@ void main()
         discard;
     }
 
+    if (uPoolLayer > 3.5 && uPoolLayer < 4.5) { outColor = waterGaugeFace(poolCoord, color.x); return; }
+    if (uPoolLayer > 2.5) {
+        float mask = floodMask(poolCoord,color,waterWorldCoord,uPoolCounter);
+        if (uPoolLayer > 5.5) outColor = vec4(causticAlphaAt(floodCausticUV(waterWorldCoord,uPoolCounter))*.75)*mask;
+        else outColor = texture(uTexture,floodTextureUV(waterWorldCoord,uPoolCounter))*mask;
+        return;
+    }
+
     if (uPoolLayer > 1.5)
     {
-        outColor = vec4(causticAlpha()) * color;
+        outColor = vec4(causticAlphaAt(poolCoord)) * color;
     }
     else
     {

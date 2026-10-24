@@ -183,7 +183,14 @@ namespace pvz {
 	bool OpenGLRenderer::CreateProgram(const char* name, const char* vertexPath,
 		const char* fragmentPath, Program& output, std::string& error) {
 		const std::string vertexSource = FileManager::LoadFileAsString(vertexPath);
-		const std::string fragmentSource = FileManager::LoadFileAsString(fragmentPath);
+		std::string fragmentSource = FileManager::LoadFileAsString(fragmentPath);
+        // 水面和仪表与 Vulkan 共用同一片元函数，GLSL 330 由宿主展开此固定资源。
+        constexpr const char* sharedWaterInclude = R"(#include "water_effects.glsl")";
+        if (const auto at = fragmentSource.find(sharedWaterInclude); at != std::string::npos) {
+            const std::string shared = FileManager::LoadFileAsString("Shader/opengl/water_effects.glsl");
+            if (shared.empty()) { error = "shared water shader missing"; return false; }
+            fragmentSource.replace(at, std::strlen(sharedWaterInclude), shared);
+        }
 		if (vertexSource.empty() || fragmentSource.empty()) {
 			error = std::string("OpenGL shader 文件缺失 [") + name + "]: "
 				+ vertexPath + " / " + fragmentPath;

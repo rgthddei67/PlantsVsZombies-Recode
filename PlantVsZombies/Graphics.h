@@ -488,6 +488,13 @@ public:
 		const Texture* causticTex, float offsetX, float offsetY,
 		int poolCounter, bool isNight);
 
+	/** 连续地势水面；depths 为四角的水位减地势（左上、右上、左下、右下），仅控制岸线。 */
+	bool DrawFloodSurface(const Texture* base, const Texture* shading, const Texture* caustic,
+        float x, float y, float width, float height,
+		const glm::vec4& depths, float counter);
+	/** 绘制带像素导数抗锯齿的圆盘和连续指针；value 为 0..1，标签由调用方绘制。 */
+	bool DrawWaterGauge(float x, float y, float diameter, float value);
+
 	/**
 	 * @brief 绘制文字（**当前层**：与调用处的绘制顺序同 z-order）。
 	 *        在对象 Draw 循环内调用时，文字落在本对象之上、后续对象之下——参与正常 z-order。
@@ -995,6 +1002,9 @@ private:
 	 * @return 成功返回 true
 	 */
 	bool InitShaders();
+	/** 主线程专用：复用水面 pipeline 提交程序化效果六顶点，保持已有混合和裁剪顺序。 */
+	bool DrawWaterEffectQuad(int effect, float x, float y, float width, float height,
+		const glm::vec4& parameters, float counter, const Texture* texture = nullptr);
 
 	/**
 	 * @brief 根据摄像机状态重新计算视图矩阵。

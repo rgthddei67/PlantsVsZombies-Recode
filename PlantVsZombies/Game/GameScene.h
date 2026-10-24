@@ -269,6 +269,8 @@ protected:
 	void BuildDrawCommands() override;
 	/** 按实际 Cell 分片校准水岸植物园原画，并绘制独立连续水段。 */
 	void DrawWatersideGarden(Graphics* g);
+	void DrawWatersideFlood(Graphics* g);
+	void DrawWatersideWaterGauge(Graphics* g);
 
 private:
     bool mLevelLoadFailed = false;

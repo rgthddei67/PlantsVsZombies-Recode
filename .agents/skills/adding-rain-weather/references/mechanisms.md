@@ -4,6 +4,8 @@
 
 ## 不可破坏的契约
 
+- 水岸洪水由 `WatersideFlood` 保存连续水域值，`BoardWatersideGarden.cpp` 派生真实水格、肥沃和救援资格；世界水面、指针及规则不得维护平行水位。`TORRENT` 只在洪水章节开放，单位倍率、雷电与台风用 `IsHeavyRainIntensity` 共用大雨资格；自然抽取、合法误报候选、预警锁定、读档范围和 AutoTest 都要认识新档位。受灾时间属于植物，不能因暂停、读档或重复查看水位重新发放宽限。
+
 - `Board` 不得直接包含或访问具体 `GameScene`，也不得恢复 `mGameScene`。天气玩法状态继续由 `Board` 唯一持有；新增天气 UI 请求应扩展非拥有的 `BoardPresentation`，由 `GameScene` 实现。双方共享的天气枚举放在 `WeatherTypes.h`。
 - 新天气维度不得硬塞进 `RainIntensity`。例如夜间泳池雾势使用独立 `FogWeatherIntensity`、阶段计时和预报；它可以在唯一交互点消费现有 `TyphoonStrength/WindDirection` 计算驱散与漂移，但雨势和雾势仍可独立抽取、持久化和测试。
 - 温度等并行环境维度若只改变降水表现，不得复制或改写 `RainIntensity`：雨势仍决定玩法倍率和阶段时长，统一的派生查询再选择雨/雪特效与文案。跨过表现阈值时先停旧特效再按当前雨势重建；雪天是否关闭雨声、地面水花和普通闪电必须逐项显式约定。地图禁用台风时，资格查询要同时覆盖 pending 预抽、开始、更新、恢复、测试入口和概率导出，不能只把抽取权重设为零后留下旧档活动台风。

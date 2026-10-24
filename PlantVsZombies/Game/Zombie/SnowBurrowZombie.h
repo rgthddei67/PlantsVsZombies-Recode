@@ -62,7 +62,7 @@ protected:
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	float GetAbilityAnimSpeedMultiplier() const override;
-	bool CanUseGroundPoolState() const override { return false; }
+	bool CanUseGroundPoolState() const override { return IsSurfaceInteractive(); }
 	bool TryGetDrawClipBottom(float& clipBottom) const override;
 	/** 地下移动可直接回收；开始出土后即使尚不可交互，也必须播放可见死亡动画。 */
 	bool ShouldPlayDeathAnimation() const override { return !IsUnderground(); }

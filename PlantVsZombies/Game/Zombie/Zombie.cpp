@@ -1005,11 +1005,15 @@ bool Zombie::ChangeRowForGarlic()
 
 	int candidates[2] = { -1, -1 };
 	int candidateCount = 0;
-	const bool currentRowIsPool = mBoard->IsPoolRow(mRow);
+	const bool dynamicWater = mBoard->SupportsWatersideFlood();
+	const auto rowHasWater = [&](int row) {
+		return dynamicWater ? mBoard->IsPoolWorldPosition(row, GetPosition().x) : mBoard->IsPoolRow(row);
+	};
+	const bool currentRowIsPool = rowHasWater(mRow);
 	for (const int candidate : { mRow - 1, mRow + 1 }) {
 		if (candidate < 0 || candidate >= mBoard->mRows
-			|| mBoard->IsPoolRow(candidate) != currentRowIsPool
-			|| !mBoard->CanSpawnZombieInRow(mZombieType, candidate)) {
+			|| rowHasWater(candidate) != currentRowIsPool
+			|| (!dynamicWater && !mBoard->CanSpawnZombieInRow(mZombieType, candidate))) {
 			continue;
 		}
 		if (mBoard->IsMineBackground()) {
@@ -1189,8 +1193,9 @@ void Zombie::UpdatePoolState(bool playTransitionFeedback)
 	if (playTransitionFeedback) {
 		PlayPoolTransitionFeedback(mInPool);
 	}
-	// 啃食轨道结束时会经 ResumeWalkAfterEat 读取最新介质；此处不抢占正在播放的啃食。
-	if (!mIsEating && !mIsDying) {
+	// 只有拥有游泳轨道的品种需要换轨。普通陆生品种保留当前动作，避免涨退水打断
+	// 投篮、搭梯、爆胎或技能前摇；啃食结束后由 ResumeWalkAfterEat 读取最新介质。
+	if (!mIsEating && !mIsDying && mAnimator && mAnimator->HasTrack("anim_swim")) {
 		PlayWalkAnimation(kPoolTransitionBlend);
 	}
 }

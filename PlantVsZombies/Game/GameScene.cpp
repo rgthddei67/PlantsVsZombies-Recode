@@ -264,6 +264,7 @@ namespace {
 		case RainIntensity::LIGHT:  return "小雨";
 		case RainIntensity::MEDIUM: return "中雨";
 		case RainIntensity::HEAVY:  return "大雨";
+        case RainIntensity::TORRENT: return "暴雨";
 		}
 		return "未知";
 	}
@@ -278,7 +279,8 @@ namespace {
 		switch (intensity) {
 		case RainIntensity::LIGHT:  return "小雪";
 		case RainIntensity::MEDIUM: return "中雪";
-		case RainIntensity::HEAVY:  return "大雪";
+		case RainIntensity::TORRENT:
+        case RainIntensity::HEAVY:  return "大雪";
 		case RainIntensity::CLEAR:  return "晴天";
 		}
 		return "未知";
@@ -319,7 +321,7 @@ namespace {
 	std::string ForecastOutcomeDisplayName(
 		RainIntensity rain, TyphoonStrength typhoon) {
 		std::string name = RainIntensityDisplayName(rain);
-		if (rain == RainIntensity::HEAVY && typhoon != TyphoonStrength::NONE) {
+		if (IsHeavyRainIntensity(rain) && typhoon != TyphoonStrength::NONE) {
 			name += std::string("·") + TyphoonStrengthDisplayName(typhoon);
 		}
 		return name;
@@ -345,7 +347,7 @@ namespace {
 		std::string line = std::string("天气预报（") + std::to_string(seconds)
 			+ "秒）：" + PrecipitationDisplayName(board, forecast);
 		if (forecast == board->GetRainIntensity()) line += "（持续）";
-		if (forecast == RainIntensity::HEAVY && board->HasPendingHeavyTyphoon()) {
+		if (IsHeavyRainIntensity(forecast) && board->HasPendingHeavyTyphoon()) {
 			const TyphoonStrength strength = board->GetPendingHeavyTyphoonStrength();
 			if (strength != TyphoonStrength::NONE) {
 				line += std::string("·") + TyphoonStrengthDisplayName(strength);
@@ -450,6 +452,7 @@ namespace {
 		case RainIntensity::LIGHT:  return glm::vec4(154.0f, 214.0f, 255.0f, alpha);
 		case RainIntensity::MEDIUM: return glm::vec4(92.0f, 169.0f, 255.0f, alpha);
 		case RainIntensity::HEAVY:  return glm::vec4(255.0f, 166.0f, 116.0f, alpha);
+        case RainIntensity::TORRENT: return glm::vec4(255.0f, 38.0f, 38.0f, alpha);
 		}
 		return glm::vec4(230.0f, 230.0f, 230.0f, alpha);
 	}
@@ -2018,6 +2021,8 @@ void GameScene::BuildDrawCommands()
 		RegisterDrawCommand("WinterThermometer",
 			[this](Graphics* g) { DrawWinterThermometer(g); },
 			LAYER_UI + 450);
+		RegisterDrawCommand("WatersideWaterGauge",
+            [this](Graphics* g) { DrawWatersideWaterGauge(g); }, LAYER_UI + 460);
 		RegisterDrawCommand("WeatherPanel",
 			[this](Graphics* g) { DrawWeatherPanel(g); },
 			LAYER_UI + 500);
@@ -3902,6 +3907,14 @@ void GameScene::ShowPlanternLowFuelWarning()
 
 void GameScene::ShowHeavyRainWarning(TyphoonStrength strength, int variant)
 {
+    if (mBoard && mBoard->GetForecastRainIntensity() == RainIntensity::TORRENT) {
+        ShowTextPrompt("暴雨将至！水位将急剧上涨", glm::vec4(255, 35, 35, 255),
+            kHeavyRainPromptFontSize, kHeavyRainPromptAppearDuration,
+            kHeavyRainPromptHoldDuration, kHeavyRainPromptFadeDuration, false,
+            PromptPurpose::HEAVY_RAIN_WARNING);
+        return;
+    }
+
 	const int selected = std::clamp(variant, 0, 2);
 	const char* text = nullptr;
 	glm::vec4 color(112.0f, 210.0f, 255.0f, 255.0f);

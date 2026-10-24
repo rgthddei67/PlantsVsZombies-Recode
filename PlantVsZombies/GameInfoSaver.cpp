@@ -357,6 +357,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 	j["sun"] = board->mSun;
 	j["coldStorage"] = board->SaveColdStorage();
 	j["weatherStation"] = board->SaveWeatherStation();
+    j["watersideFlood"] = board->SaveWatersideFlood();
 	j["sunCountDown"] = board->mSunCountDown;
 	j["poolSunCountDown"] = board->mPoolSunCountDown;
 	j["currentWave"] = board->mCurrentWave;
@@ -580,6 +581,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		p["isSleeping"] = plant->GetSleepState();
 		p["wakeUpTimer"] = plant->GetWakeUpTimeRemaining();
 		p["shutdownTimer"] = plant->GetShutdownTimeRemaining();
+        p["watersideHazard"] = {{"kind", plant->GetWatersideHazardKind()}, {"elapsed", plant->GetWatersideHazardElapsed()}};
         p["floodSlowRemaining"]=plant->GetFloodSlowRemaining();
 		p["unyieldingRootsSpent"] = plant->HasSpentUnyieldingRoots();
 		p["unyieldingRootsTimer"] = plant->GetUnyieldingRootsTimeRemaining();
@@ -960,6 +962,7 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 	board->mSun = j.value("sun", 50);
 	board->LoadColdStorage(j.value("coldStorage", nlohmann::json::object()));
 	board->LoadWeatherStation(j.value("weatherStation", nlohmann::json::object()));
+    board->LoadWatersideFlood(j.value("watersideFlood", nlohmann::json::object()));
 	board->mSunCountDown = std::clamp(
 		j.value("sunCountDown", 5.0f), 0.0f, SPAWN_SUN_TIME);
 	board->mPoolSunCountDown = std::clamp(
@@ -1018,11 +1021,11 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 	board->mWeatherInitialized = j.value("weatherInitialized", j.contains("rainIntensity"));
 	const int rainValue = j.value("rainIntensity", static_cast<int>(RainIntensity::CLEAR));
 	board->mRainIntensity = (rainValue >= static_cast<int>(RainIntensity::CLEAR)
-		&& rainValue <= static_cast<int>(RainIntensity::HEAVY))
+		&& rainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY))
 		? static_cast<RainIntensity>(rainValue) : RainIntensity::CLEAR;
 	const int previousRainValue = j.value("previousRainIntensity", rainValue);
 	const bool validPreviousRain = previousRainValue >= static_cast<int>(RainIntensity::CLEAR)
-		&& previousRainValue <= static_cast<int>(RainIntensity::HEAVY);
+		&& previousRainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY);
 	// 旧档没有过渡字段时直接落在目标天气；损坏枚举也按目标天气稳定恢复。
 	board->RestoreWeatherTransition(
 		validPreviousRain ? static_cast<RainIntensity>(previousRainValue) : board->mRainIntensity,
@@ -1030,11 +1033,11 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 	const int forecastRainValue = j.value("forecastRainIntensity",
 		static_cast<int>(RainIntensity::CLEAR));
 	const bool validForecastRain = forecastRainValue >= static_cast<int>(RainIntensity::CLEAR)
-		&& forecastRainValue <= static_cast<int>(RainIntensity::HEAVY);
+		&& forecastRainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY);
 	const int actualForecastRainValue = j.value("actualForecastRainIntensity",
 		static_cast<int>(RainIntensity::CLEAR));
 	const bool validActualForecastRain = actualForecastRainValue >= static_cast<int>(RainIntensity::CLEAR)
-		&& actualForecastRainValue <= static_cast<int>(RainIntensity::HEAVY);
+		&& actualForecastRainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY);
 	board->mWeatherForecastReady = j.value("weatherForecastReady", false)
 		&& j.contains("actualForecastRainIntensity")
 		&& validForecastRain && validActualForecastRain;
@@ -1313,9 +1316,9 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 			"weatherForecastFailureActualTyphoonStrength",
 			static_cast<int>(TyphoonStrength::NONE));
 		const bool validFailedForecastRain = failedForecastRainValue >= static_cast<int>(RainIntensity::CLEAR)
-			&& failedForecastRainValue <= static_cast<int>(RainIntensity::HEAVY);
+			&& failedForecastRainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY);
 		const bool validFailureActualRain = failureActualRainValue >= static_cast<int>(RainIntensity::CLEAR)
-			&& failureActualRainValue <= static_cast<int>(RainIntensity::HEAVY);
+			&& failureActualRainValue <= static_cast<int>(board->SupportsWatersideFlood() ? RainIntensity::TORRENT : RainIntensity::HEAVY);
 		const bool validFailedForecastTyphoon = failedForecastTyphoonValue
 			>= static_cast<int>(TyphoonStrength::NONE)
 			&& failedForecastTyphoonValue <= static_cast<int>(TyphoonStrength::SUPER);
@@ -1335,11 +1338,11 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 				? static_cast<RainIntensity>(failureActualRainValue)
 				: RainIntensity::CLEAR,
 			validFailedForecastTyphoon
-				&& failedForecastRainValue == static_cast<int>(RainIntensity::HEAVY)
+				&& IsHeavyRainIntensity(static_cast<RainIntensity>(failedForecastRainValue))
 				? static_cast<TyphoonStrength>(failedForecastTyphoonValue)
 				: TyphoonStrength::NONE,
 			validFailureActualTyphoon
-				&& failureActualRainValue == static_cast<int>(RainIntensity::HEAVY)
+				&& IsHeavyRainIntensity(static_cast<RainIntensity>(failureActualRainValue))
 				? static_cast<TyphoonStrength>(failureActualTyphoonValue)
 				: TyphoonStrength::NONE
 		});
@@ -1367,7 +1370,7 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 		&& j.value("rainCanIntensify", false);
 	// 旧档没有续期字段时按已消费处理；小雨永远不开放同档续期。
 	board->mRainCanHold = (board->mRainIntensity == RainIntensity::MEDIUM
-		|| board->mRainIntensity == RainIntensity::HEAVY)
+		|| IsHeavyRainIntensity(board->mRainIntensity))
 		&& j.value("rainCanHold", false);
 	board->LoadFogWeather(j);
 	const int pendingTyphoonValue = j.value("pendingHeavyTyphoonStrength",
@@ -1498,6 +1501,8 @@ void GameInfoSaver::RestoreActorDocument(Board* board, const nlohmann::json& j)
 			plant->RestoreSleepState(isSleeping, p.value("wakeUpTimer", 0.0f));
 			// 通用停机是实体快照状态；读档只恢复剩余时间，不重新结算来源技能。
 			plant->RestoreShutdown(p.value("shutdownTimer", 0.0f));
+            const auto hazard = p.value("watersideHazard", nlohmann::json::object());
+            plant->RestoreWatersideHazard(hazard.value("kind", 0), hazard.value("elapsed", 0.0f));
             plant->RestoreFloodSlow(p.value("floodSlowRemaining",0.0f));
 			plant->RestoreUnyieldingRootsState(
 				p.value("unyieldingRootsSpent", false),

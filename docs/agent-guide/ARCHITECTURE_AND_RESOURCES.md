@@ -57,6 +57,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 | `AudioSystem` | `Game/AudioSystem.h` | SDL2_mixer 音效与音乐封装，管理声道 |
 | `InputHandler` | `UI/InputHandler.{h,cpp}` | 将 SDL 事件转换成 Update 阶段查询的鼠标/键盘状态 |
 
+水岸水面与仪表的程序化片元函数统一放在 `Shader/opengl/water_effects.glsl`：Vulkan 在编译时 include，OpenGL 创建 pool program 时展开同一资源。`Graphics::DrawFloodSurface/DrawWaterGauge` 只在主线程场景绘制中使用，复用 pool pipeline 的六顶点提交、预乘 alpha、矩阵和 shader clip；先 flush batch/instances 保序，不能从 worker 直接调用。参数经顶点 color 通道传递的是效果数据（洪水为四角有符号深度），不能预乘或夹成颜色范围。世界范围裁剪要先用 `WorldToLogical`，以跟随开场、选卡和震屏镜头。修改共享函数须同时验证默认 Vulkan、`-NoInstance` 与 OpenGL，并保留普通三层泳池效果。
+
 ### Board 内部子域
 
 Board 保留玩法权威和实体协调，独立机制可由其具名值对象独占，不引入通用组件容器。`RoofRunoff` 拥有径流积累、阶段、锁定行组和残留湿度，并负责推进及 Save/Load；Board 只提供地形、雨势和导流候选，展示继续消费 Board getter。`WaveSpawnCounts` 只保存每波累计台账，统一重置和序列化；同时在场/在途名额、教程标志及劫持者跨波冷却仍各自维护。新增计数在其持久化登记表加入稳定键，生成门禁使用 `WaveSpawnRules` 的共享参数，不再向 Board 添加逐类型字段和清零分支。

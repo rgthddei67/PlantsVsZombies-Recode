@@ -183,8 +183,7 @@ void BalloonZombie::PopBalloon()
 	mBloverBlowRemaining = 0.0f;
 	mBalloonHealth = 0;
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BALLOON_POP, kOneShotVolume);
-	// 原版泳池行保持直接清除；混合地图只在实际水面上击破才清除，岸上可以落地。
-	if (mBoard && (mBoard->IsWatersideGarden() ? mBoard->IsPoolWorldPosition(mRow, GetPosition().x) : mBoard->IsPoolRow(mRow))) {
+	if (ShouldDrownOnLanding()) {
 		Die();
 		return;
 	}
@@ -193,6 +192,18 @@ void BalloonZombie::PopBalloon()
 	PlayTrackOnce("anim_pop", "anim_walk", kPopClipSpeed, 0.2f);
 	ApplyPhasePresentation();
 	KeepPropellerIndependent();
+}
+
+bool BalloonZombie::ShouldDrownOnLanding() const
+{
+	if (!mBoard) return false;
+	if (mBoard->SupportsWatersideFlood()) {
+		const int col = static_cast<int>(std::floor((GetPosition().x - CELL_INITALIZE_POS_X) / CELL_COLLIDER_SIZE_X));
+		return mBoard->IsOriginalPoolSquare(mRow, col)
+			&& mBoard->IsPoolWorldPosition(mRow, GetPosition().x);
+	}
+	return mBoard->IsWatersideGarden() ? mBoard->IsPoolWorldPosition(mRow, GetPosition().x)
+		: mBoard->IsPoolRow(mRow);
 }
 
 void BalloonZombie::FinishLanding()
@@ -482,7 +493,7 @@ BalloonRules::Forecast BalloonZombie::GetBalloonForecast() const
 	result.walkSpeed = mAnimator ? GetSimulationRootMoveSpeed("anim_walk",mAnimator->GetSpeed()) : 0;
 	result.flightSpeed = mFlightVelocity;
 	result.windMultiplier = mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
-	result.poolRow = mBoard && (mBoard->IsWatersideGarden() ? mBoard->IsPoolWorldPosition(mRow, GetPosition().x) : mBoard->IsPoolRow(mRow));
+	result.poolRow = ShouldDrownOnLanding();
 	result.blowing = mBloverBlowing; result.towardHouse = mBloverBlowDirection == WindDirection::TOWARD_HOUSE;
 	result.blowRemaining = mBloverBlowRemaining;
 	return result;

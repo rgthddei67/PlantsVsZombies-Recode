@@ -1344,9 +1344,97 @@ void Graphics::DrawTextureInstanced(const Texture* tex, float x, float y, float 
 }
 
 /**
- * 直接向当前帧持久映射 VBO 写入三层规则网格，并用专用 pipeline 保序提交。
- * 水波和焦散都留在 shader 内计算，CPU 每帧只更新一个动画计数器。
+ * 用同一连续岸线依次提交原池底色、阴影和焦散；各层共用水深与纹理世界坐标。
+ * 水波和焦散留在 shader 内计算，CPU 提供当前 patch 的四角水深与动画计数器。
  */
+bool Graphics::DrawFloodSurface(const Texture* base, const Texture* shading, const Texture* caustic,
+    float x, float y, float width, float height,
+    const glm::vec4& data, float counter) {
+    if (!base || !shading || !caustic) return false;
+    // 三层直接使用原泳池资源，水岸 mask 只控制覆盖，不另调一套水色。
+    return DrawWaterEffectQuad(3,x,y,width,height,data,counter,base)
+        && DrawWaterEffectQuad(5,x,y,width,height,data,counter,shading)
+        && DrawWaterEffectQuad(6,x,y,width,height,data,counter,caustic);
+}
+
+bool Graphics::DrawWaterGauge(float x, float y, float diameter, float value) {
+	return DrawWaterEffectQuad(4, x, y, diameter, diameter, glm::vec4(value, 0, 0, 0), 0);
+}
+
+bool Graphics::DrawWaterEffectQuad(int effect, float x, float y, float width, float height,
+	const glm::vec4& parameters, float counter, const Texture* texture) {
+	if (tl_record || width <= 0 || height <= 0 || !m_whiteTextureHandle) return false;
+	if ((m_gl && !m_gl->IsFrameOpen()) || (!m_gl && (!m_vk || !m_vk->frameOpen || !m_vk->pipePool))) return false;
+	FlushBatch();
+	FlushInstances();
+	const PackedClipRect clip = CurrentPackedClipRect();
+    if (texture && (!texture->renderTexture || texture->atlasPage)) return false;
+    const uint32_t textureID = texture ? texture->BindingId() : m_whiteTexture;
+	constexpr std::array<glm::vec2, 6> corners{{{0,0},{0,1},{1,0},{0,1},{1,1},{1,0}}};
+	const glm::mat4 model = m_transformStack.back();
+	const glm::mat4 projectionView = m_projection * m_viewMatrix;
+	if (m_gl) {
+		std::array<pvz::OpenGLVertex, 6> vertices{};
+		for (std::size_t i = 0; i < corners.size(); ++i) {
+			const glm::vec2 uv = corners[i];
+			const glm::vec4 position = model * glm::vec4(x + uv.x * width, y + uv.y * height, 0, 1);
+			auto& v = vertices[i];
+			v.x = position.x; v.y = position.y; v.u = uv.x; v.v = uv.y;
+			v.r = parameters.x; v.g = parameters.y; v.b = parameters.z; v.a = parameters.w;
+			v.clipLeft = static_cast<float>(clip.minXY & 0xFFFFu);
+			v.clipTop = static_cast<float>(clip.minXY >> 16);
+			v.clipRight = static_cast<float>(clip.maxXY & 0xFFFFu);
+			v.clipBottom = static_cast<float>(clip.maxXY >> 16);
+		}
+		return m_gl->SubmitPoolLayer(textureID, effect, counter, vertices.data(), vertices.size(), projectionView);
+	}
+	auto& fr = m_vk->frames[m_vk->frameIdx];
+	constexpr VkDeviceSize vertexBytes = 6 * sizeof(BatchVertex);
+	constexpr VkDeviceSize matrixBytes = sizeof(glm::mat4);
+	const bool vertexOverflow = fr.vboCursor + vertexBytes > fr.vboCap;
+	const bool matrixOverflow = fr.ssboCursor + matrixBytes > fr.ssboCap;
+	if (vertexOverflow || matrixOverflow) {
+		if (vertexOverflow) {
+			fr.vboOverflow = true;
+			m_vk->frameVboDemand = std::max<uint64_t>(m_vk->frameVboDemand, fr.vboCursor + vertexBytes);
+		}
+		if (matrixOverflow) {
+			fr.ssboOverflow = true;
+			m_vk->frameSsboDemand = std::max<uint64_t>(m_vk->frameSsboDemand, fr.ssboCursor + matrixBytes);
+		}
+		if (!fr.overflowWarned) { LOG_WARN("Graphics") << "Water effect frame buffer overflow"; fr.overflowWarned = true; }
+		return false;
+	}
+	const uint32_t matrixIndex = static_cast<uint32_t>(fr.ssboCursor / sizeof(glm::mat4));
+	std::memcpy(static_cast<char*>(fr.ssbo->MappedPtr()) + fr.ssboCursor, &model, matrixBytes);
+	const uint32_t firstVertex = static_cast<uint32_t>(fr.vboCursor / sizeof(BatchVertex));
+	auto* vertices = reinterpret_cast<BatchVertex*>(static_cast<char*>(fr.vbo->MappedPtr()) + fr.vboCursor);
+	for (std::size_t i = 0; i < corners.size(); ++i) {
+		const glm::vec2 uv = corners[i];
+		vertices[i] = { x + uv.x * width, y + uv.y * height, uv.x, uv.y, textureID, matrixIndex,
+			parameters.x, parameters.y, parameters.z, parameters.w, 0.0f, clip.minXY, clip.maxXY };
+	}
+	fr.vboCursor += vertexBytes;
+	fr.ssboCursor += matrixBytes;
+	VkCommandBuffer cb = m_vk->renderer->CurrentCmdBuffer();
+	if (cb == VK_NULL_HANDLE) return false;
+	VkBuffer vbo = fr.vbo->Handle();
+	const VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(cb, 0, 1, &vbo, &offset);
+	vkCmdBindPipeline(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vk->pipePool->Handle());
+	const VkDescriptorSet sets[2]{ fr.matrixSet, m_vk->texPool->DescriptorSet() };
+	vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, m_vk->pipePool->Layout(), 0, 2, sets, 0, nullptr);
+	PoolPushConstants constants{};
+	constants.projView = projectionView;
+	constants.poolLayer = static_cast<float>(effect);
+	constants.poolCounter = counter;
+	vkCmdPushConstants(cb, m_vk->pipePool->Layout(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+		0, sizeof(constants), &constants);
+	vkCmdDraw(cb, 6, 1, firstVertex, 0);
+	++m_frameDrawCallCount;
+	return true;
+}
+
 bool Graphics::DrawPoolEffect(const Texture* baseTex, const Texture* shadingTex,
 	const Texture* causticTex, float offsetX, float offsetY,
 	int poolCounter, bool isNight) {

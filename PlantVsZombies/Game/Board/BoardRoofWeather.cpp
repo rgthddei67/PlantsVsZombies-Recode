@@ -56,6 +56,7 @@ void Board::PopulateNightRoofHijackerTreatmentForecast(
 	switch (mRainIntensity) {
 	case RainIntensity::LIGHT: chargePerSecond = kNightRoofChargeLightPerSecond; break;
 	case RainIntensity::MEDIUM: chargePerSecond = kNightRoofChargeMediumPerSecond; break;
+	case RainIntensity::TORRENT:
 	case RainIntensity::HEAVY: chargePerSecond = kNightRoofChargeHeavyPerSecond; break;
 	default: break;
 	}
@@ -762,6 +763,7 @@ void Board::UpdateNightRoofCharge(float deltaTime)
 	case RainIntensity::MEDIUM:
 		chargeDelta = kNightRoofChargeMediumPerSecond;
 		break;
+	case RainIntensity::TORRENT:
 	case RainIntensity::HEAVY:
 		chargeDelta = kNightRoofChargeHeavyPerSecond;
 		break;

@@ -10,6 +10,7 @@ uniform float uPoolLayer;
 uniform float uPoolCounter;
 
 out vec2 poolCoord;
+out vec2 waterWorldCoord;
 out vec4 color;
 flat out vec4 clipRect;
 
@@ -52,12 +53,13 @@ vec2 poolWaveOffset(vec2 grid)
 
 void main()
 {
-    poolCoord = inGridCoord + poolWaveOffset(inGridCoord);
-    if (uPoolLayer > 1.5)
+    poolCoord = inGridCoord + (uPoolLayer > 2.5 ? vec2(0.0) : poolWaveOffset(inGridCoord));
+    if (uPoolLayer > 1.5 && uPoolLayer < 2.5)
     {
         poolCoord += inGridCoord;
     }
     gl_Position = uProjectionView * vec4(inPosition, 0.0, 1.0);
+    waterWorldCoord = inPosition;
     color = inColor;
     clipRect = inClipRect;
 }

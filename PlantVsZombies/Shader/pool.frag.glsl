@@ -1,5 +1,6 @@
 #version 450
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : require
 
 layout(set = 1, binding = 1) uniform sampler2D textures[];
 
@@ -34,9 +35,9 @@ float sampleCausticByte(vec2 pixel)
     return floor(clamp(mix(mix(c00, c10, fraction.x), mix(c01, c11, fraction.x), fraction.y), 0.0, 1.0) * 255.0 + 0.0001);
 }
 
-float causticAlpha()
+float causticAlphaAt(vec2 coord)
 {
-    vec2 causticPixel = fract(inPoolCoord) * vec2(128.0, 64.0);
+    vec2 causticPixel = fract(coord) * vec2(128.0, 64.0);
     float a1 = sampleCausticByte(vec2(
         causticPixel.x * 2.0 - ((pc.poolCounter + 1.0) / 6.0),
         (256.0 - causticPixel.y) * 2.0 + pc.poolCounter / 8.0));
@@ -56,6 +57,8 @@ float causticAlpha()
     return clamp(floor(alpha / 3.0) / 255.0, 0.0, 1.0);
 }
 
+#include "opengl/water_effects.glsl"
+
 void main()
 {
     // 与通用 batch shader 共用逐顶点裁剪契约，不引入动态 scissor。
@@ -71,10 +74,18 @@ void main()
         }
     }
 
+    if (pc.poolLayer > 3.5 && pc.poolLayer < 4.5) { outColor = waterGaugeFace(inTexCoord, inColor.x); return; }
+    if (pc.poolLayer > 2.5) {
+        float mask = floodMask(inTexCoord,inColor,inPoolCoord,pc.poolCounter);
+        if (pc.poolLayer > 5.5) outColor = vec4(causticAlphaAt(floodCausticUV(inPoolCoord,pc.poolCounter))*.75)*mask;
+        else outColor = texture(textures[nonuniformEXT(inTextureIndex)],floodTextureUV(inPoolCoord,pc.poolCounter))*mask;
+        return;
+    }
+
     if (pc.poolLayer > 1.5)
     {
         // inColor 的 RGB/A 已按原版顶点亮度同步编码，输出保持预乘 Alpha。
-        outColor = vec4(causticAlpha()) * inColor;
+        outColor = vec4(causticAlphaAt(inPoolCoord)) * inColor;
     }
     else
     {
