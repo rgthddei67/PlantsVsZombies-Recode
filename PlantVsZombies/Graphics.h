@@ -75,7 +75,7 @@ struct BatchVertex {
 	uint32_t texIndex;     // 当前后端的纹理 binding（Vulkan 为 bindless 槽，GL 为 texture name）
 	uint32_t matrixIndex;  // CPU 矩阵列表索引；Vulkan 提交时转成 SSBO 绝对槽位
 	float r, g, b, a;    // 顶点颜色（预乘色调）
-	float blendMode;     // 整数编码：低两位混合模式（0..3），高位解析图元（0=纹理/1=线/2=实心圆/3=圆环）
+	float blendMode;     // 整数编码：低两位混合模式（0..3），高位解析图元（0=纹理/1=线与实心矩形/2=实心圆/3=圆环/4=矩形边框）
 	uint32_t clipMinXY = DRAW_CLIP_MIN_DISABLED;  // 帧缓冲 left/top，各占 16 bit
 	uint32_t clipMaxXY = DRAW_CLIP_MAX_DISABLED;  // 帧缓冲 right/bottom，各占 16 bit
 };
@@ -647,7 +647,7 @@ public:
 		const glm::vec4& color = glm::vec4(255.0f));
 
 	/**
-	 * @brief 绘制空心矩形（边框）。
+	 * @brief 绘制方角矩形边框，宽 1 逻辑像素；屏幕像素对齐时走硬边，否则自动抗锯齿。
 	 * @param x      左上角 X 坐标
 	 * @param y      左上角 Y 坐标
 	 * @param width  宽度
@@ -658,7 +658,7 @@ public:
 		const glm::vec4& color = glm::vec4(255.0f));
 
 	/**
-	 * @brief 绘制实心矩形。
+	 * @brief 绘制实心矩形；屏幕像素对齐时保留原快速路径，否则自动抗锯齿。
 	 * @param x      左上角 X 坐标
 	 * @param y      左上角 Y 坐标
 	 * @param width  宽度
@@ -1135,12 +1135,13 @@ private:
 	void RecordFillRect(WorkerRecord& r,
 		float x, float y, float width, float height, const glm::vec4& color);
 
-	/** 将解析图元写入普通 batch 或 worker 切片，复用原有混合、裁剪和提交次序。 */
-	void SubmitAnalyticQuad(const glm::vec2* positions, const glm::vec2* coordinates,
-		int primitiveKind, const glm::vec4& color);
+	/** 将至多四个不重叠四边形写入同一 batch，复用混合、裁剪和串行/worker 提交次序。 */
+	void SubmitPrimitiveQuads(const glm::vec2* positions, const glm::vec2* coordinates,
+		int primitiveKind, const glm::vec4& color, int quadCount = 1);
 
-	void RecordDrawRect(WorkerRecord& r,
-		float x, float y, float width, float height, const glm::vec4& color);
+	/** 提交矩形几何；仅像素对齐的实心矩形返回 false，交由原有纹理快路处理。 */
+	bool SubmitRectangle(float x, float y, float width, float height,
+		const glm::vec4& color, bool outline);
 
 	void RecordSetBlendMode(WorkerRecord& r, BlendMode mode);
 

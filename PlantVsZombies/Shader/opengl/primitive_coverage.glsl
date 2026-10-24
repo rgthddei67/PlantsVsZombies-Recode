@@ -1,12 +1,24 @@
 // Vulkan/OpenGL 共用。drawMode 的低两位是混合模式，其余位是解析图元类型。
 // UV 描述真实轮廓；几何额外留出一个屏幕像素，避免抗锯齿边缘被承载矩形裁掉。
+float boxCoverage(vec2 uv, vec2 lower, vec2 upper, vec2 footprint) {
+    vec2 coverage = max(clamp((uv - lower + footprint * .5) / footprint, 0.0, 1.0)
+        - clamp((uv - upper + footprint * .5) / footprint, 0.0, 1.0), vec2(0.0));
+    return coverage.x * coverage.y;
+}
+
 float primitiveCoverage(vec2 uv, vec2 world, int kind) {
-    if (kind == 1) {
-        // 平头线段，分别积分两轴边界；亚像素线保留覆盖面积，不额外改成圆头。
+    if (kind == 1 || kind == 4) {
+        // 平头线/实心矩形用两轴覆盖率；矩形描边用外框减内框，方角只混合一次。
         vec2 footprint = max(fwidth(uv), vec2(1e-6));
-        vec2 coverage = clamp((uv + footprint * .5) / footprint, 0.0, 1.0)
-            - clamp((uv - 1.0 + footprint * .5) / footprint, 0.0, 1.0);
-        return coverage.x * coverage.y;
+        if (kind == 1) return boxCoverage(uv, vec2(0.0), vec2(1.0), footprint);
+        vec2 dx = dFdx(world), dy = dFdy(world);
+        float det = dx.x * dy.y - dx.y * dy.x;
+        float inverseDet = 1.0 / (abs(det) > 1e-12 ? det : 1e-12);
+        vec2 gradientX = (dFdx(uv) * dy.y - dFdy(uv) * dx.y) * inverseDet;
+        vec2 gradientY = (dFdy(uv) * dx.x - dFdx(uv) * dy.x) * inverseDet;
+        vec2 halfWidth = .5 * sqrt(gradientX * gradientX + gradientY * gradientY);
+        return clamp(boxCoverage(uv, -halfWidth, 1.0 + halfWidth, footprint)
+            - boxCoverage(uv, halfWidth, 1.0 - halfWidth, footprint), 0.0, 1.0);
     }
     vec2 p = uv * 2.0 - 1.0;
     float r = length(p);

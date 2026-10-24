@@ -3832,6 +3832,76 @@ bool TestDriver::ExecuteCurrent() {
 		Log("snapshot reloaded into fresh GameScene: " + path);
 		return true;
 	}
+	if (op == "rectangle_aa_probe") {
+		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
+		if (!scene) { Fail("rectangle_aa_probe: scene missing"); return false; }
+		if (!cmd.value("on", true)) {
+			scene->UnregisterDrawCommand("RectangleAAProbe");
+			return true;
+		}
+		const bool cameraOffset = cmd.value("cameraOffset", false);
+		// 左右列验证串行/worker；单独偏移相机可抓出只按对象坐标判断像素对齐的问题。
+		scene->RegisterDrawCommand("RectangleAAProbe", [cameraOffset](Graphics* g) {
+			const auto savedBlend = g->GetBlendMode();
+			const auto camera = g->GetCameraPosition();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(0,0,1100,600,glm::vec4(0,0,0,255));
+			g->FlushBatch();
+			if (cameraOffset) g->SetCameraPosition(camera.x-.25f,camera.y-.5f);
+			const auto column = [g](float x) {
+				const glm::vec4 white(255), translucent(255,255,255,128);
+				g->PushTransform();
+				g->Translate(x,80);
+				g->FillRect(20,20,60,40,white);
+				g->FillRect(120.25f,20.25f,60,40,white);
+				g->FillRect(220.25f,20.25f,60,40,translucent);
+				g->FillRect(320.25f,20.25f,.35f,.6f,white);
+				g->DrawRect(20.5f,100.5f,60,40,translucent);
+				g->DrawRect(120.25f,100.25f,60,40,translucent);
+				g->DrawRect(220.25f,100.25f,.5f,30,translucent);
+				g->FillRect(320,100,0,40,white);
+				g->DrawRect(340,100,40,0,white);
+				g->PushTransform();
+				g->Translate(70,230);
+				g->Rotate(25);
+				g->FillRect(-30,-20,60,40,glm::vec4(60,180,255,128));
+				g->DrawRect(-45,-35,90,70,translucent);
+				g->PopTransform();
+				glm::mat4 skew(1.0f);
+				skew[1][0] = .45f;
+				g->PushTransform();
+				g->Translate(210,230);
+				g->PushTransform(skew);
+				g->Scale(-1.4f,.7f);
+				g->FillRect(-20,-20,40,40,glm::vec4(220,100,40,128));
+				g->DrawRect(-35,-35,70,70,translucent);
+				g->PopTransform();
+				g->PopTransform();
+				g->PushClipRect(static_cast<int>(x+295),280,30,60);
+				g->FillRect(285.25f,190.25f,50,80,white);
+				g->PopClipRect();
+				g->FillRect(80,330,-60,-30,white);
+				g->DrawRect(180.5f,330.5f,-60,-30,translucent);
+				for (int i=0;i<4;++i) {
+					const BlendMode modes[]{BlendMode::Alpha,BlendMode::Add,BlendMode::WashedOut,BlendMode::LessWashedOut};
+					g->SetBlendMode(modes[i]);
+					g->FillRect(20.25f+i*85,395.25f,50,35,glm::vec4(220,100,40,128));
+					g->DrawRect(15.25f+i*85,390.25f,60,45,translucent);
+				}
+				g->SetBlendMode(BlendMode::Alpha);
+				g->PopTransform();
+			};
+			column(90);
+			const bool parallel = g->IsParallelDrawEnabled();
+			if (parallel) { g->BeginParallelRecord(1); g->SetWorkerSlot(0); }
+			column(610);
+			if (parallel) { g->ClearWorkerSlot(); g->ReplayAndEndParallel(); }
+			g->FlushBatch();
+			if (cameraOffset) g->SetCameraPosition(camera.x,camera.y);
+			g->SetBlendMode(savedBlend);
+		}, LAYER_UI + 100);
+		return true;
+	}
 	if (op == "primitive_aa_probe") {
 		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
 		if (!scene) { Fail("primitive_aa_probe: scene missing"); return false; }
