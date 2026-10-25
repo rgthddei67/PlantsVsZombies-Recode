@@ -10,6 +10,8 @@
 
 水岸洪水救援是明确例外：受淹陆生植物允许补入睡莲；洪水地图的花盆及其升级品占独立 `foundation`，睡莲仍占 `under`，上层实体与两种底座都保留。`UsesFoundationLayer` 同时路由正式创建、模仿者、升级和读档，旧地图仍使用原 `under`。石板上的存活花盆固定睡莲，固定资格从实际组合派生；可在洪水/预警中反向补盆，土壤花盆不提供固定。退水只清睡莲，保留花盆和上层；石地确实缺盆时才进入补盆宽限。纯水生能力植物仍拒绝垫睡莲或插入花盆。`GetWatersidePlantHazard` 必须检查完整 footprint，植物在并行与串行行为入口均暂停，受灾时钟仍按游戏秒推进并独立保存。不要让底座死亡连带杀死已获准保留的上层，或把紧急救援扩大为普通水面种植规则。
 
+水岸受灾只作用于 `OccupiesGridSlot()` 为真的植物，已起跳并释放格位的窝瓜不能再因原格涨水或失去底座暂停。花盆模仿者按 `GetPlacementType()` 享有基座自身免灾，实际承载和锚定仍等待变身完成。专项：`smoke_waterside_airborne_squash`、`smoke_waterside_imitater_pot`，同时覆盖未起跳受灾、变身前不能锚定与进行态快照。
+
 在 `Board::CanPlantAt` 的水生集中分支要求“水格且 `Cell::IsEmpty()`”，从而允许空水直种并同时拒绝陆地、已有睡莲和其他植物；除睡莲继续占 `under` 外，水草/海蘑菇这类能力植物占 `normal`，不要为了直种改 `CreatePlant` 的通用层级。原版不画陆地影子的品种调用 `RemoveShadow()` 移除宿主显式阴影附件；发射点和附属视觉从 `GetVisualAnchorPosition()` 派生以跟随水面浮动。专项用 `assert_can_plant` 覆盖空水 true、陆地 false、睡莲水格 false，再断言 `cells.*.normal/under`、无阴影和同步截图。
 ### 套壳或其他新增占格层必须闭合 Cell 生命周期与绘制夹层
 

@@ -146,11 +146,11 @@ bool Board::SetWatersideWaterForTesting(float value) {
 
 int Board::GetWatersidePlantHazard(const Plant* plant) const {
     if (!SupportsWatersideFlood() || !plant || plant->IsPreview()
-        || !plant->IsActive() || plant->IsSquished() || plant->IsBungeeTargeted()) return 0;
+        || !plant->OccupiesGridSlot() || plant->IsBungeeTargeted()) return 0;
     const PlantType type = plant->GetPlacementType();
     if (type == PlantType::PLANT_INSTANT_COFFEE) return 0;
-    // 石板上的真实花盆是沉底基座，自身不溺亡；上层陆生植物仍须补睡莲。
-    if (plant->IsRoofSupportPlant() && IsWatersideStoneSquare(plant->mRow, plant->mColumn)) return 0;
+    // 花盆及其模仿者代理在石板上自身免灾；变身前仍不能承载上层植物或锚定睡莲。
+    if (UsesFoundationLayer(type) && IsWatersideStoneSquare(plant->mRow, plant->mColumn)) return 0;
     const bool aquatic = type == PlantType::PLANT_LILYPAD || type == PlantType::PLANT_TANGLEKELP
         || type == PlantType::PLANT_SEASHROOM || type == PlantType::PLANT_ANCHORLOTUS;
     const auto footprint = GetPlantFootprint(type);

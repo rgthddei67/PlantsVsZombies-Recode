@@ -50,6 +50,10 @@ public:
 	bool CanBeFrozen() const override { return !mHasPogo; }
 	bool CanBeGrabbedByTangleKelp() const override { return false; }
 	bool CanTriggerPotatoMine() const override { return !mHasPogo; }
+	/** 持杆弹跳不受屋顶径流推动；落水呈现仍使用普通水路状态。 */
+	float GetRoofRunoffDriftMultiplier() const override {
+		return mHasPogo ? 0.0f : Zombie::GetRoofRunoffDriftMultiplier();
+	}
 	bool TakePlantInstantKill() override;
 	/** 持杆时位于大嘴花咬合范围之外，因此拒吞后不承受咬击伤害。 */
 	int AdjustRejectedChomperBiteDamage(int damage) const override;

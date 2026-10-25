@@ -31,6 +31,8 @@
 
 动态水域还要审计场外入水、特殊移动阶段和涨退水中的动作轨道。`IsPoolWorldPosition` 与海豚的 `GetNextPoolRightEdge` 读取连续岸线；入水换轨仅用于有 `anim_swim` 的品种，普通陆生单位只更新介质与裁剪，不能重置投篮或搭梯前摇。地下和飞行中的 `CanUseGroundPoolState` 门禁需在出土/落地后恢复，持杆跳跳仍参与水面判定和裁剪；海豚入水或跳跃动画结束时重新核对真实落点，不能沿用开始演出时的水况。出生行资格不应反过来禁止已存在单位在洪水中换行。
 
+水面呈现资格不等于屋顶径流资格：持杆跳跳保留 `CanUseGroundPoolState`，通过 `GetRoofRunoffDriftMultiplier() == 0` 豁免径流，弃杆后恢复普通倍率；精英跳跳继承同一规则。`smoke_pogo_roof_runoff` 配合 `autotest/verify_pogo_roof_runoff.py` 对比同场有无径流行的相对位移，并检查磁吸弃杆后的恢复。
+
 只允许陆地或水路刷新的品种统一登记到 `Board::IsSpawnRowCompatible` / `CanZombieTypeSpawnInPool`，让 `SelectSpawnRow` 在加权前把非法行权重清零；零条合法行必须返回失败哨兵并由波次调用方跳过候选，禁止兜底成 `row 0` 后仍创建。地图解禁时同步复核品种自己的坐标基准、场地效果和出生 Y，不能只删兼容性门禁。`CreateZombie` / AutoTest `spawn_zombie` 继续保留直造确定性；专项先用 `assert_zombie_spawn_row` 锁定边界行，再以固定 Seed 走 `SummonNextWave()` 并断言正式实体实际覆盖多条合法行。
 ### 地图出生改道只能接在正式波次创建边界
 
