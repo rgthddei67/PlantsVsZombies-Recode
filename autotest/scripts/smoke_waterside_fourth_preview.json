@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {"op": "goto_level", "level": 106, "resetTestState": true},
+    {"op": "wait_state", "state": "CHOOSE_CARD", "timeout": 30},
+    {"op": "wait_value", "path": "chooseCardReady", "equals": true, "timeout": 30},
+    {"op": "screenshot", "name": "preview_106.png"},
+    {"op": "dump_state", "name": "preview_106.json"},
+    {"op": "goto_level", "level": 107, "resetTestState": true},
+    {"op": "wait_state", "state": "CHOOSE_CARD", "timeout": 30},
+    {"op": "wait_value", "path": "chooseCardReady", "equals": true, "timeout": 30},
+    {"op": "screenshot", "name": "preview_107.png"},
+    {"op": "dump_state", "name": "preview_107.json"},
+    {"op": "quit"}
+  ]
+}

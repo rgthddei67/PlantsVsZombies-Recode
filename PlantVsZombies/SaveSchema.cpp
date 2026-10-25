@@ -429,6 +429,13 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 13:
+                // 玩家v14补领已通关12-6的浮光葵，不推进进度且不重复发卡。
+                if (kind == DocumentKind::Player && upgraded.value("adventureLevel", 0) >= 106
+                    && upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+                    const int reward = static_cast<int>(PlantType::PLANT_FLOATSUNFLOWER);
+                    auto& cards = upgraded["havecards"];
+                    if (std::find(cards.begin(), cards.end(), reward) == cards.end()) cards.push_back(reward);
+                }
 				// v14 按来源保存鼓舞，旧档没有已提交鼓舞或鼓手投放。
 				if (kind == DocumentKind::Level) {
 					if (!upgraded.contains("crystalDrummersSpawnedThisWave")) upgraded["crystalDrummersSpawnedThisWave"] = 0;

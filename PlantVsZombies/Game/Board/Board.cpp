@@ -1,6 +1,7 @@
 #include "WaveSpawnRules.h"
 #include "Game/Zombie/SalvageZombieRules.h"
 #include "Game/Zombie/SludgeZombieRules.h"
+#include "Game/Zombie/LotusParasolRules.h"
 #include "Game/Board/Board.h"
 #include "WatersideGardenRules.h"
 #include "Game/AutoTest/TestDriver.h"
@@ -528,6 +529,13 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 		}
 		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
+    if (selected == ZombieType::ZOMBIE_LOTUS_PARASOL) {
+        if ((!mIsSurvival && mCurrentWave < LotusParasolRules::FirstWave)
+            || mWaveSpawnCounts.Get(selected) >= LotusParasolRules::PerWaveLimit
+            || CountActiveOrPendingZombieType(selected, true) >= LotusParasolRules::ActiveLimit)
+            return ZombieType::NUM_ZOMBIE_TYPES;
+        mWaveSpawnCounts.Record(selected);
+    }
     if (selected == ZombieType::ZOMBIE_SLUDGE) {
         if ((!mIsSurvival && mCurrentWave < SludgeZombieRules::FirstWave)
             || mWaveSpawnCounts.Get(selected) >= SludgeZombieRules::PerWaveLimit)
@@ -600,7 +608,7 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 	return ResolveRainMutationType(selected, mutationRoll);
 }
 
-int Board::CountActiveOrPendingZombieType(ZombieType type) const
+int Board::CountActiveOrPendingZombieType(ZombieType type, bool includeMindControlled) const
 {
 	int count = static_cast<int>(std::count_if(mPendingSnowHoleSpawns.begin(),
 		mPendingSnowHoleSpawns.end(), [type](const PendingSnowHoleSpawn& pending) {
@@ -609,7 +617,7 @@ int Board::CountActiveOrPendingZombieType(ZombieType type) const
 	for (int id : mEntityRegistry.GetAllZombieIDs()) {
 		Zombie* zombie = mEntityRegistry.GetZombie(id);
 		if (zombie && zombie->IsActive() && !zombie->IsDying()
-			&& !zombie->IsMindControlled() && zombie->mZombieType == type) {
+			&& (includeMindControlled || !zombie->IsMindControlled()) && zombie->mZombieType == type) {
 			++count;
 		}
 	}
@@ -3219,6 +3227,19 @@ inline void Board::TrySummonZombie()
 
 	int remainingPoints = CalculateWaveZombiePoints();
 	int zombiesSpawned = 0;
+    // 荷伞教学保底仍走正式预算及每波/同时双重上限。
+    if (!mIsSurvival && mLevel == LotusParasolRules::TutorialLevel
+        && mCurrentWave == LotusParasolRules::FirstWave) {
+        const int cost = GameDataManager::GetInstance().GetZombieWeight(ZombieType::ZOMBIE_LOTUS_PARASOL);
+        if (remainingPoints >= cost) {
+            const auto actual = ResolveWaveZombieType(ZombieType::ZOMBIE_LOTUS_PARASOL);
+            const int row = actual == ZombieType::NUM_ZOMBIE_TYPES ? -1 : SelectSpawnRow(actual);
+            if (row >= 0 && CreateOrQueueWaveZombie(actual, row, x)) {
+                remainingPoints -= cost;
+                ++zombiesSpawned;
+            }
+        }
+    }
     // 淤泥首次教学同样消费预算和每波名额；不查询同时在场数。
     if (!mIsSurvival && mLevel == SludgeZombieRules::TutorialLevel
         && mCurrentWave == SludgeZombieRules::FirstWave) {

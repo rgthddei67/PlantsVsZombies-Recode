@@ -315,6 +315,8 @@ namespace {
         Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 1, "salvage tutorial restores per-wave cap one");
         counts.Load(saved,103,false);
         Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 2, "salvage composite restores per-wave cap two");
+        counts.Load(saved,106,false);
+        Check(counts.Get(ZombieType::ZOMBIE_LOTUS_PARASOL) == 2, "parasol per-wave quota clamps to two independently of live cap");
         counts.Load(saved,104,false);
         Check(counts.Get(ZombieType::ZOMBIE_SLUDGE) == 3, "sludge restored quota clamps to three");
         counts.Load(saved,69,true);

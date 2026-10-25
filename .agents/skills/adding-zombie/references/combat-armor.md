@@ -64,3 +64,9 @@ Board 的 FindPumpkinAreaProtector 与 ApplyPumpkinProtectedZombieAreaDamage 支
 不可治疗的一类防具通过目标自有 `CanRepairHelm()` 表达；急救员资格/排序/实结算、普通修复、治疗MC与指挥官预测须共同排除该层，不能只跳过最终加血而让AI持续选择无效治疗。入口与数值共用规则见 `PressureGuardZombie` / `PressureGuardRules`，实机边界见 `smoke_pressure_guard` 与对应 verifier。
 
 承压的灰烬保护与常规代伤分开：`Board::ApplyPlantAshAttack` 在任何伤害前冻结每个非护卫队友的有效保护人数，不能折成布尔值；`Zombie::TakePlantAshDamage` 是非虚入口，先按人数逐层缩放本次灰烬（每层向上取整），再调用 `ResolvePlantAshDamage`。品种覆写后只向基类结算函数转发，禁止重进公共入口重复减伤。化灰阈值和实际伤害必须共用缩放后参数；承压保护中的普通化灰入口先预扣当前头甲与门盾，只以穿甲余伤判断本体致死，真实扣甲由正式伤害链执行，未保护时仍沿原越甲斩杀；护卫自身不享受同类的灰烬减伤，但自身灰烬与常规伤害、代伤共用持盾期间的滚动额度；化灰先用 DamageWindow::Preview 只读预判，只有确认提交时消费一次，破盾后不再封顶。队友减掉的灰烬不转移，也不占护卫额度。嵌套攻击使用独立事务，下一击重新判断来源存活与范围。窝瓜独立压扁链保持原规则。专项见 `smoke_pressure_guard_ash`、`smoke_pressure_guard_stacking`、`smoke_pressure_guard_mower` 与同名 verifier。AI 的实际爆炸、在途预览、候选反制和时间锚救援估值均须传完整保护人数。
+
+### 投掷拦截必须先于整发命中副作用
+
+`Zombie::CanInterceptLobbedFor` 声明保护资格，Board 按稳定实体 ID 选一个保护者，再以 `InterceptLobbedProjectile` 原子消费耐久。`Bullet::TryReflectLobbedAt` 必须早于莲子分裂、西瓜溅射、黄油/冰冻和雷种范围结算；独立小莲子与落空落地也走同一入口。拦截成功后整发效果结束，破伞末发仍完整消费；已发生的溅射不重新拦截。弹飞残影属于无碰撞、无伤害的表现对象，不创建反击弹丸或在读档后重播。验证入口：`smoke_lotus_parasol`、`smoke_lotus_parasol_controls`、`smoke_waterside_fourth_actions`。
+
+实时装备表现不能只放在 `ZombieItemUpdate`：该入口用于读档/核心状态恢复，不是每帧回调。依赖掉头、死亡或受击脉冲的 follower 应在正式 Update 后同步，或由明确的生命周期事件同步；同时保留恢复入口。验证需交叉检查玩法资格、follower 可见性与实际截图，不能只看能力停止或最终实体删除。

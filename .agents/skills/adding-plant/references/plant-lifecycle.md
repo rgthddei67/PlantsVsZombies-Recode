@@ -71,3 +71,7 @@
 ### 冷藏站击杀奖励必须保留死亡来源
 
 普通伤害沿 `TakeDamage(..., DamageSource::ZOMBIE)`，僵尸碾压沿 `Squish()`；绕过生命伤害直接移除植物的僵尸技能调用 `KillByZombie()`，不要直接调用 `Die()`。奖励只在首次实际死亡边沿结算，原植物失活或压扁后不重复奖励。玩家铲除、升级替换和植物技能自毁继续用 `Die()`，包括土豆雷因僵尸接触触发的爆炸。种植冰块仅在 Board 正式玩家落种成功后按 placement type 扣一次，预览、恢复、搬运和模仿者变身不能重新扣款。入口：`BoardColdStorage.cpp`、`Plant.cpp`；验证：`smoke_cold_storage.json`。
+
+### 生产周期是否包含发光等待要由品种明确声明
+
+向日葵派生类复用 `SunFlower` 的计时、兑现与存档，通过 `GetProductionGlowLeadTime` 表达发光是否包含在完整周期内；默认保留经典额外等待。包含发光的品种在两个阶段都消费生产行动时钟，避免肥沃/天气只缩放前半程。水陆产量在实际兑现时读取，不在发光起点锁定，也不能因形态切换重置进度。入口与往返验证：`FloatSunflower`、`smoke_float_sunflower`。

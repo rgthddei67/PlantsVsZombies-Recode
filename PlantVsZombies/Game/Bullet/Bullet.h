@@ -114,6 +114,8 @@ protected:
 
 	// 子弹击中僵尸的效果
 	void BulletHitZombie(Zombie* zombie);
+	/** 命中前的投掷拦截；仅生成无碰撞的弹飞残影，不创建反击弹丸。 */
+	bool TryReflectLobbedAt(int row, float x);
 	/**
 	 * 处理一次子弹与僵尸的碰撞帧；普通弹只消费首次 Enter，尖刺在 Enter/Stay 均结算。
 	 */

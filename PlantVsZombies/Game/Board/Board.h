@@ -728,8 +728,8 @@ private:
 	/** 创建正式波次僵尸，或在同行活动雪穴处锁定一次延迟出生事务。 */
 	bool CreateOrQueueWaveZombie(ZombieType actualType, int row, float rightEdgeX,
 		bool tutorialSnowBurrow = false);
-	/** 返回活动实体与已锁定雪穴事务中指定类型的敌对数量。 */
-	int CountActiveOrPendingZombieType(ZombieType type) const;
+	/** 统计活动实体与已锁定雪穴事务；场上总数限制可显式计入魅惑实体。 */
+	int CountActiveOrPendingZombieType(ZombieType type, bool includeMindControlled = false) const;
 	/** 最终波警告开始时从当前实数平滑补齐三项危险，不重新触发已有白毛风。 */
 	void BeginPolarFinalWavePrelude();
 	/** 开发者直调跳过最终波警告时，立即提交 8-9 最终白毛风。 */
@@ -1456,6 +1456,7 @@ public:
 	}
 	int GetSnowBurrowsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SNOW_BURROW); }
 	int GetSludgeZombiesSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SLUDGE); }
+	int GetLotusParasolsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_LOTUS_PARASOL); }
 	int GetSalvageZombiesSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SALVAGE); }
 	bool HasConsumedSnowBurrowTutorialHoleSpawn() const {
 		return mSnowBurrowTutorialHoleSpawnConsumed;
@@ -1772,6 +1773,8 @@ public:
 	Plant* GetCatapultTargetPlantAt(int row, int col) const;
 	/** 返回能保护指定格免受空中威胁的最早种下植物；重叠范围只触发一株。 */
 	Plant* FindAirborneThreatProtector(int row, int col) const;
+	/** 投掷物命中前选取稳定ID最小的有效保护者；每发最多消费一把伞。 */
+	bool TryInterceptPlantLobbedProjectile(int row, float x, int damage);
 	/** 返回指定格中最上层能阻挡该类跳跃的植物；非阻拦外壳不会遮蔽内层高坚果。 */
 	Plant* GetJumpBlockingPlantAt(int row, int col, ZombieJumpType jumpType) const;
 	/** 返回指定格承载层；当前可能是睡莲或花盆。 */

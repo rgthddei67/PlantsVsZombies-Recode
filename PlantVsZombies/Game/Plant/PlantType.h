@@ -89,6 +89,7 @@ enum class PlantType
 	PLANT_ANCHORLOTUS, // 锚藕；12-1奖励，水路单体移动束缚
 	PLANT_LOTUSPULT, // 莲蓬投手；12-2奖励，两栖投掷与水中分裂
 	PLANT_THORNLILY, // 刺莲；12-4奖励，睡莲承载层紫卡与三行根刺
+	PLANT_FLOATSUNFLOWER, // 浮光葵；12-6奖励，两栖阳光经济
 	NUM_PLANT_TYPES,
 };
 
@@ -96,6 +97,8 @@ enum class PlantType
 constexpr bool IsLilyPadPlantType(PlantType type) { return type == PlantType::PLANT_LILYPAD || type == PlantType::PLANT_THORNLILY; }
 
 /** 落种前的两栖资格，供占格、搬运与实体受灾判断共用。 */
-constexpr bool IsAmphibiousPlantType(PlantType type) { return type == PlantType::PLANT_LOTUSPULT; }
+constexpr bool IsAmphibiousPlantType(PlantType type) {
+    return type == PlantType::PLANT_LOTUSPULT || type == PlantType::PLANT_FLOATSUNFLOWER;
+}
 
 #endif

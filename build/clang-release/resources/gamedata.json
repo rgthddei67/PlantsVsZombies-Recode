@@ -1,5 +1,6 @@
 {
   "plants": {
+    "PLANT_FLOATSUNFLOWER": { "cost": 150, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_THORNLILY": { "cost": 200, "cooldown": 15.0, "offset": [-37.6, -19.0], "scale": 1.0, "simulation": { "baseHealth": 1500, "attackDps": 40.0, "attackRowRadius": 1, "mineAttackRange": 1, "mineMultiTarget": true, "futurePlantable": false } },
     "PLANT_LOTUSPULT": { "cost": 225, "cooldown": 15.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300, "persistent": false } },
     "PLANT_RAINBAMBOO": { "cost": 325, "cooldown": 20.0, "offset": [-43.0, -65.0], "scale": 1.0, "simulation": { "baseHealth": 300, "attackDps": 30.769 } },
@@ -78,6 +79,7 @@
     "PLANT_ICEMIRRORGRASS":  { "cost": 100, "cooldown": 20.0, "offset": [-37.6, -44.0], "scale": 1.0, "simulation": { "baseHealth": 300 } }
   },
   "zombies": {
+    "ZOMBIE_LOTUS_PARASOL": { "weight": 2400, "appearWave": 8, "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_SLUDGE": { "weight": 1800, "appearWave": 6, "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_SALVAGE": { "weight": 1000, "appearWave": 6, "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_FLOOD_MORTAR": { "weight": 2000, "appearWave": 5, "survivalRound": 0, "offset": [-50.0, -85.0], "scale": 1.0 },

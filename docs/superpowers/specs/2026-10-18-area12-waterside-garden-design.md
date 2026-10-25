@@ -56,7 +56,7 @@
 
 ## 后续工作边界
 
-目前开放到 12-6。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。12-4通关奖励刺莲，12-5引入淤泥僵尸，12-6加强三种水岸僵尸的混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+目前开放到 12-8。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。12-4通关奖励刺莲，12-5引入淤泥僵尸，12-6加强三种水岸僵尸的混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
 
 实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。
 
@@ -146,3 +146,19 @@
 当前参数仅维护在 [ThornLilyRules.h](../../../PlantVsZombies/Game/Plant/ThornLilyRules.h)、[SludgeZombieRules.h](../../../PlantVsZombies/Game/Zombie/SludgeZombieRules.h)、权威 gamedata 与 spawnlists。素材来源见 [生成记录](../../../scripts/assets/waterside_third_prompts.md)。
 
 验证入口：`smoke_thorn_lily`、`smoke_sludge_zombie`、`smoke_sludge_edges`、`smoke_waterside_third_progression`、`smoke_waterside_third_actions` 与 [状态交叉核对](../../../autotest/verify_waterside_third.py)。专项通过不等于整章实战平衡已经完成。
+
+
+## 2026-10-25 12-7 / 12-8 浮光葵与荷伞僵尸
+
+状态：已实现，clang-release 无警告构建、六份新专项与三份相关可见回归、五项相关 CTest 及状态交叉核对通过。12-6通关奖励浮光葵，12-7单独教学荷伞，12-8与重潜、打捞、淤泥混编；玩家schema v14为已通关12-6的旧玩家补领，不推进进度、不重复发卡。当前数值维护在 [FloatSunflowerRules.h](../../../PlantVsZombies/Game/Plant/FloatSunflowerRules.h)、[LotusParasolRules.h](../../../PlantVsZombies/Game/Zombie/LotusParasolRules.h)、权威 gamedata 与 spawnlists。
+
+联动调参：浮光葵 `Health` 与 `gamedata.json` 的 `simulation.baseHealth` 保持一致；荷伞 `FirstWave` 与 `gamedata.json` 的 `appearWave` 保持一致。费用、卡冷、出怪权重在 gamedata，关卡初始阳光、波数与完整出怪池在 spawnlists；独立伞耐久与双重数量限制只改 LotusParasolRules。
+
+- 浮光葵是两栖普通层经济植物，天然土和水中直接种，干石仍需花盆。完整生产周期包含发光阶段；土壤、天气及挂泥继续作用于正式生产时钟。水陆产量在兑现时读取，切换与读档保留实体、生命、进度和尚未兑现的发光阶段。水中产出的两颗普通阳光分别走原领取生命周期。
+- 荷伞覆盖当前逻辑格及八邻格，完整弹走普通投掷物，伞面只承受单发直击伤害的一半。多把伞按稳定实体ID选一把，独立耐久保留半点值；破伞末发仍完整拦截，余伤不溢出，之后永久失去保护。
+- 拦截先于黄油、冰瓜减速、溅射、雷种范围作用与主莲子分裂；大小莲子均参与。已经发生的范围伤害不追溯拦截；直射、近身、灰烬及玉米加农炮正常生效。弹飞只有无碰撞的表现，不反击植物。
+- 冰冻、黄油等硬控暂停拦截，解除后恢复；锚藕仅限制移动，不影响撑伞。失去头部、死亡或魅惑后不再保护敌方。荷叶木柄不可磁吸，破伞不恢复。
+- 两关从第8波起开放荷伞，每波累计最多2只，场上同时最多3只，无全关累计上限。累计名额不因死亡、魅惑或读档返还；同时名额统计仍存活的敌我荷伞及已承诺出生事务，破伞活体也占名额。死亡动画中的尸体不占活体名额。
+- 浮光葵保留向日葵的连续茎、花瓣和表情运动；荷伞保留普通僵尸的两种步态、水面裁剪、啃食与断肢死亡。两者均未增加帧事件。素材与可重建脚本见 [生成记录](../../../scripts/assets/waterside_fourth_prompts.md)。
+
+验证入口：`smoke_float_sunflower`、`smoke_lotus_parasol`、`smoke_lotus_parasol_controls`、`smoke_waterside_fourth_actions`、`smoke_waterside_fourth_progression`、`smoke_waterside_fourth_preview` 与 [状态交叉核对](../../../autotest/verify_waterside_fourth.py)。专项验收覆盖生产、拦截、控制、存档、配额、完整关卡配置及可见表现；不代表整章实战平衡验收。

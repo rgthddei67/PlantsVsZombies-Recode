@@ -1,5 +1,6 @@
 #pragma once
 #include "SludgeZombieRules.h"
+#include "LotusParasolRules.h"
 #include "HeavyDiverRules.h"
 #include "SalvageZombieRules.h"
 #include "PressureShooterRules.h"
@@ -74,6 +75,7 @@ constexpr Stats Get(ZombieType type)
 {
     using Z = ZombieType;
     switch (type) {
+    case Z::ZOMBIE_LOTUS_PARASOL: return Known(LotusParasolRules::Health); // 伞面只拦截投掷物，不冒充通用防具
     case Z::ZOMBIE_SLUDGE: return Known(SludgeZombieRules::Health, SludgeZombieRules::ArmorHealth); // 喷具无独立生命，路障可修复
     case Z::ZOMBIE_SALVAGE: return Known(SalvageZombieRules::Health);
     case Z::ZOMBIE_HEAVY_DIVER: return Known(HeavyDiverRules::Health, 0, 0, HeavyDiverRules::SmashDamage);

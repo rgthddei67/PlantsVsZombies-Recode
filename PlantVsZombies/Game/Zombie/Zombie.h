@@ -295,6 +295,10 @@ public:
 	virtual bool BlocksPlantDamage(PlantDamageOrigin) const { return false; }
 	/** 在头盔承伤前尝试消费整击并记录适应来源；普通僵尸始终返回 false。 */
 	virtual bool TryAdaptHelmetToPlantDamage(int, PlantDamageOrigin) { return false; }
+	/** 查询当前状态能否保护指定逻辑行与横坐标的投掷目标；不消费耐久。 */
+	virtual bool CanInterceptLobbedFor(int, float) const { return false; }
+	/** 原子提交整发拦截；damage 为尚未应用目标抗性的单发伤害。 */
+	virtual bool InterceptLobbedProjectile(int) { return false; }
 
 	int GetSortingKey() const override { return this->mRow; }
 

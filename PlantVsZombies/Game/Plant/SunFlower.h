@@ -21,6 +21,8 @@ protected:
 	virtual float GetProductionInterval() const { return PRODUCE_TIME; }
 	/** 返回一次生产同时生成的普通阳光数量。 */
 	virtual int GetProductionSunCount() const { return 1; }
+	/** 生产发光提前量；默认保持经典额外等待，新品种可将发光计入完整周期。 */
+	virtual float GetProductionGlowLeadTime() const { return 0.0f; }
 
 public:
 	using Plant::Plant;
@@ -48,7 +50,7 @@ public:
 		if (!mIsGlowingForProduction) {
 			// 正常计时生产
 			mProduceTimer += GetSunProductionDeltaTime();
-			if (mProduceTimer >= GetProductionInterval()) {
+			if (mProduceTimer >= GetProductionInterval() - GetProductionGlowLeadTime()) {
 				SetGlowingTimer(0.75f);
 				mIsGlowingForProduction = true;
 				mProductionGlowStartTimer = mProduceTimer;  // 记录开始发光的时间点
@@ -74,7 +76,8 @@ public:
 			}
 			else {
 				// 继续计时
-				mProduceTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
+				mProduceTimer += GetProductionGlowLeadTime() > 0 ? GetSunProductionDeltaTime()
+					: DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 			}
 		}
 	}

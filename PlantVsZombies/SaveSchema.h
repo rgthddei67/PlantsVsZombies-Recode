@@ -4,7 +4,7 @@
 #include <string>
 
 namespace SaveSchema {
-	inline constexpr int kCurrentPlayerVersion = 13;
+	inline constexpr int kCurrentPlayerVersion = 14;
 	inline constexpr int kCurrentLevelVersion = 39;
 
 	/**

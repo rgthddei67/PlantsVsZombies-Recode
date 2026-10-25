@@ -22,6 +22,8 @@
 #include "Game/Plant/LotusPult.h"
 #include "Game/Plant/ThornLily.h"
 #include "Game/Zombie/SludgeZombie.h"
+#include "Game/Zombie/LotusParasolZombie.h"
+#include "Game/Plant/FloatSunflower.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
@@ -503,7 +505,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_ANCHORLOTUS), PT(PLANT_LOTUSPULT), PT(PLANT_THORNLILY), PT(PLANT_RAINBAMBOO),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_ANCHORLOTUS), PT(PLANT_LOTUSPULT), PT(PLANT_THORNLILY), PT(PLANT_FLOATSUNFLOWER), PT(PLANT_RAINBAMBOO),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -539,7 +541,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_SLUDGE), ZT(ZOMBIE_PRESSURE_GUARD),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_SLUDGE), ZT(ZOMBIE_LOTUS_PARASOL), ZT(ZOMBIE_PRESSURE_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -3732,6 +3734,7 @@ bool TestDriver::ExecuteCurrent() {
 		Board* board = gs->GetBoard();
 		const int row = cmd.value("row", -1);     // -1 = 不过滤行
 		const int index = cmd.value("index", 0);  // 行过滤后按 ID 升序第 index 只
+		const std::string typeName = cmd.value("type", ""); // 多对象夹具按类型和行选择
 		int seen = 0;
 		std::vector<int> zombieIDs = board->mEntityRegistry.GetAllZombieIDs();
 		std::sort(zombieIDs.begin(), zombieIDs.end());
@@ -3739,6 +3742,7 @@ bool TestDriver::ExecuteCurrent() {
 			Zombie* z = board->mEntityRegistry.GetZombie(id);
 			if (!z || !z->IsActive()) continue;
 			if (row >= 0 && z->mRow != row) continue;
+			if (!typeName.empty() && ZombieTypeName(z->mZombieType) != typeName) continue;
 			if (seen++ == index) {
 				z->StartMindControlled();   // 不可魅惑目标是 no-op：脚本用 dump_state 的 mindControlled 断言
 				return true;
@@ -4554,6 +4558,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         "IMAGE_ANCHORLOTUS_RIGHTLEAF", "IMAGE_ANCHORLOTUS_ROOTS"})
         watersidePairReady = watersidePairReady && ResourceManager::GetInstance().GetTexture(key, false);
     out["watersidePairResourcesReady"] = watersidePairReady;
+    bool pairFourReady = ResourceManager::GetInstance().HasReanimation("FloatSunflower")
+        && ResourceManager::GetInstance().HasReanimation("LotusParasolZombie");
+    for (const char* key : {"IMAGE_FLOATSUNFLOWER", "IMAGE_FLOATSUNFLOWER_LEAVES",
+        "IMAGE_LOTUSPARASOL_INTACT", "IMAGE_LOTUSPARASOL_DAMAGED", "IMAGE_LOTUSPARASOL_BROKEN"})
+        pairFourReady = pairFourReady && ResourceManager::GetInstance().GetTexture(key, false);
+    out["watersideFourthResourcesReady"] = pairFourReady;
+    out["lotusParasolCount"] = 0;
+    out["lotusParasolActiveCount"] = 0;
+    out["lotusParasolReflectedCount"] = 0;
+    out["lotusParasolDurabilityOn2"] = 0;
     bool pairThreeReady = ResourceManager::GetInstance().HasReanimation("ThornLily")
         && ResourceManager::GetInstance().HasReanimation("SludgeZombie");
     for (const char* key : {"IMAGE_THORNLILY", "IMAGE_REANIM_THORNLILY_BODY", "IMAGE_SLUDGE_GEAR", "IMAGE_SLUDGE_SPLAT", "IMAGE_SLUDGE_PROJECTILE", "IMAGE_THORNLILY_ROOT"})
@@ -7223,6 +7237,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				board->GetIceStatueExecutionersSpawnedThisWave() },
 			{ "salvageZombiesSpawnedThisWave", board->GetSalvageZombiesSpawnedThisWave() },
             { "sludgeZombiesSpawnedThisWave", board->GetSludgeZombiesSpawnedThisWave() },
+            { "lotusParasolsSpawnedThisWave", board->GetLotusParasolsSpawnedThisWave() },
 			{ "snowBurrowsSpawnedThisWave",
 				board->GetSnowBurrowsSpawnedThisWave() },
 			{ "snowBurrowTutorialHoleSpawnConsumed",
@@ -8239,6 +8254,16 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         zombieState["anchorRootPlantID"] = z->GetAnchorRootPlantID();
         zombieState["anchorRootMs"] = static_cast<int>(std::lround(z->GetAnchorRootRemaining()*1000));
         zombieState["anchorRootImmunityMs"] = static_cast<int>(std::lround(z->GetAnchorRootImmunity()*1000));
+        if (const auto* parasol = dynamic_cast<const LotusParasolZombie*>(z)) {
+            zombieState["parasolHealthOn2"] = static_cast<int>(std::lround(parasol->GetParasolHealth()*2));
+            zombieState["parasolActive"] = parasol->IsParasolActive();
+            zombieState["parasolReflections"] = parasol->GetReflectedCount();
+            zombieState["parasolVisible"] = parasol->GetAnimatorInternal()->GetTrackFollowerVisible("anim_innerarm2", "lotus_parasol");
+            out["lotusParasolCount"] = out["lotusParasolCount"].get<int>() + (parasol->IsDying() ? 0 : 1);
+            out["lotusParasolActiveCount"] = out["lotusParasolActiveCount"].get<int>() + (parasol->IsParasolActive() ? 1 : 0);
+            out["lotusParasolReflectedCount"] = out["lotusParasolReflectedCount"].get<int>() + parasol->GetReflectedCount();
+            out["lotusParasolDurabilityOn2"] = out["lotusParasolDurabilityOn2"].get<int>() + zombieState["parasolHealthOn2"].get<int>();
+        }
         if (const auto* sludge = dynamic_cast<const SludgeZombie*>(z)) {
             zombieState["sludgeWindupMs"] = static_cast<int>(std::lround(sludge->GetWindup()*1000));
             zombieState["sludgeReloadMs"] = static_cast<int>(std::lround(sludge->GetReload()*1000));
@@ -9714,6 +9739,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			plantState["imitaterParticleEmitted"] =
 				imitater->HasEmittedMorphParticle();
 		}
+        if (const auto* floating = dynamic_cast<const FloatSunflower*>(p)) {
+            plantState["floatWaterForm"] = floating->IsWaterForm();
+            plantState["floatLeavesVisible"] = floating->GetAnimatorInternal()->GetTrackFollowerVisible("stalk_bottom", "float_leaves");
+        }
 		if (auto* sunFlower = dynamic_cast<SunFlower*>(p)) {
 			plantState["produceTimerMs"] = static_cast<int>(std::lround(
 				sunFlower->GetProduceTimer() * 1000.0f));

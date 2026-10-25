@@ -968,6 +968,18 @@ int main() {
                 "thorn lily reward migration is idempotent");
         }
     }
+    {
+        std::string error;
+        for (int progress : {105, 106, 107}) {
+            nlohmann::json player = {{"schemaVersion", 13}, {"adventureLevel", progress},
+                {"havecards", nlohmann::json::array({static_cast<int>(PlantType::PLANT_PEASHOOTER)})}};
+            Expect(SaveSchema::UpgradePlayerDocument(player, error), "floating sunflower migration succeeds");
+            Expect(player["adventureLevel"] == progress && player["havecards"].size() == (progress >= 106 ? 2 : 1),
+                "floating sunflower requires completed 12-6 without changing progress");
+            const auto once = player;
+            Expect(SaveSchema::UpgradePlayerDocument(player, error) && player == once, "floating sunflower reward is idempotent");
+        }
+    }
 	TestCurrentLevelDocumentIsStable();
     {
         std::string error;

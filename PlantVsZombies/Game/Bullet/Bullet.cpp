@@ -825,6 +825,7 @@ void Bullet::EnableThreepeaterMotion(int sourceRow)
 void Bullet::BulletHitZombie(Zombie* zombie)
 {
 	if (!zombie) return;
+	if (TryReflectLobbedAt(zombie->mRow, zombie->GetPosition().x)) return;
 	if (mBulletType == BulletType::BULLET_LOTUS_SEED) SplitLotusSeed(zombie);
 	if (mBulletType == BulletType::BULLET_THUNDER_SEED) {
 		mBoard->CreateThunderImpact(GetPosition(), mRow, mDamage);
@@ -1402,6 +1403,7 @@ void Bullet::HitLobbedGround()
 {
 	if (mHasHit) return;
 	mHasHit = true;
+	if (TryReflectLobbedAt(mRow, GetPosition().x)) { Die(); return; }
 	if (IceWall* wall = GetTargetedIceWall()) {
 		wall->TakeProjectileDamage(GetWindAdjustedDamage(), false);
 		if (mBulletType == BulletType::BULLET_SALT_CRYSTAL && wall->IsActive()) {
