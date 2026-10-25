@@ -28,6 +28,7 @@ protected:
 private:
     Plant* FindTarget() const;
     void CancelSpray();
+    float GetEquipmentScale() const;
     void SyncEquipment() const;
     void Spray();
     int mTargetID = NULL_PLANT_ID;

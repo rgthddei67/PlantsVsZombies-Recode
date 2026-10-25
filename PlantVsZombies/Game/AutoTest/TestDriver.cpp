@@ -8265,6 +8265,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
             out["lotusParasolDurabilityOn2"] = out["lotusParasolDurabilityOn2"].get<int>() + zombieState["parasolHealthOn2"].get<int>();
         }
         if (const auto* sludge = dynamic_cast<const SludgeZombie*>(z)) {
+            const Vector muzzleOffset = sludge->GetMuzzlePosition() - sludge->GetVisualPosition();
+            zombieState["sludgeMuzzleOffsetOn1000"] = {
+                static_cast<int>(std::lround(muzzleOffset.x * 1000)),
+                static_cast<int>(std::lround(muzzleOffset.y * 1000)) };
             zombieState["sludgeWindupMs"] = static_cast<int>(std::lround(sludge->GetWindup()*1000));
             zombieState["sludgeReloadMs"] = static_cast<int>(std::lround(sludge->GetReload()*1000));
             zombieState["sludgeShots"] = sludge->GetShots();

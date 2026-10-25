@@ -11,6 +11,7 @@ namespace {
     constexpr float GearY = -2.0f; // 装备相对躯干轨的纵向偏移，像素
     constexpr float MuzzleX = 5.0f; // 泥管口在装备贴图中的横坐标，像素
     constexpr float MuzzleY = 70.0f; // 泥管口在装备贴图中的纵坐标，像素
+    constexpr float PressureExpansion = .05f; // 蓄压中段的喷具膨胀比例，喷口同步跟随
 }
 
 void SludgeZombie::SetupZombie()
@@ -45,6 +46,7 @@ void SludgeZombie::Update()
     if (mBoard && mBoard->GetState() == BoardState::GAME)
         mRepairFeedback = std::max(0.0f, mRepairFeedback - DeltaTime::GetDeltaTime());
     ConeZombie::Update();
+    SyncEquipment();
 }
 
 /** 啃食时也可起手；占用身体动作后由唯一可行动入口推进前摇和装填。 */
@@ -73,6 +75,7 @@ void SludgeZombie::ZombieUpdate(float seconds)
 void SludgeZombie::Spray()
 {
     mTargetID = NULL_PLANT_ID;
+    SyncEquipment(); // 提交边沿先恢复喷具尺寸，发射点与本次绘制使用同一状态。
     const Vector muzzle = GetMuzzlePosition();
     Bullet* bullet = mBoard->CreateBullet(BulletType::BULLET_SLUDGE, mRow, muzzle);
     mReload = bullet ? SludgeZombieRules::Reload : SludgeZombieRules::Retry;
@@ -111,6 +114,7 @@ void SludgeZombie::CancelSpray()
     mTargetID = NULL_PLANT_ID;
     if (acting) mReload = SludgeZombieRules::Retry;
     if (acting && IsActive() && !mIsDying && !mIsDead) PlayWalkAnimation(.15f);
+    SyncEquipment();
 }
 
 float SludgeZombie::GetInterruptibleSpecialActionRemaining() const
@@ -128,10 +132,17 @@ bool SludgeZombie::InterruptUncommittedSpecialAction()
 void SludgeZombie::OnMindControlled() { CancelSpray(); }
 void SludgeZombie::HeadDrop() { CancelSpray(); ConeZombie::HeadDrop(); }
 
+/** 由真实前摇派生喷具缩放；结束或取消后恢复，不另存视觉计时。 */
+float SludgeZombie::GetEquipmentScale() const
+{
+    return mWindup > 0 ? 1.0f + PressureExpansion
+        * std::sin((1 - mWindup / SludgeZombieRules::Windup) * 3.14159265f) : 1.0f;
+}
+
 /** 装备附着躯干，蓄压只缩放罐体表现，不修改玩法坐标或前摇。 */
 void SludgeZombie::SyncEquipment() const
 {
-    const float pressure = mWindup > 0 ? 1.0f + .05f * std::sin((1 - mWindup / SludgeZombieRules::Windup) * 3.14159265f) : 1.0f;
+    const float pressure = GetEquipmentScale();
     mAnimator->SetTrackFollowerImage("Zombie_body", "sludge_pack",
         ResourceManager::GetInstance().GetTexture("IMAGE_SLUDGE_GEAR", false), GearX, GearY, pressure, pressure, false, true, false);
     mAnimator->SetTrackFollowerVisible("Zombie_body", "sludge_pack", true);
@@ -139,10 +150,16 @@ void SludgeZombie::SyncEquipment() const
 
 void SludgeZombie::ZombieItemUpdate() const { ConeZombie::ZombieItemUpdate(); SyncEquipment(); }
 
+/** 喷口与 follower 共用完整插值轨道、局部缩放、镜像和最终世界缩放。 */
 Vector SludgeZombie::GetMuzzlePosition() const
 {
-    const float scale = GetTransform()->GetScale();
-    return GetRenderedTrackWorldPosition("Zombie_body") + Vector((GearX + MuzzleX) * (IsMovingRight() ? -1.0f : 1.0f), GearY + MuzzleY) * scale;
+    const float pressure = GetEquipmentScale();
+    const auto local = mAnimator->GetTrackLocalTransform("Zombie_body")
+        * glm::vec4(GearX + MuzzleX * pressure, GearY + MuzzleY * pressure, 0, 1);
+    const Vector world = GetVisualPosition() + Vector(local.x, local.y) * GetAnimationScale();
+    return Vector(
+        mAnimator->GetRenderPivotX() + (world.x - mAnimator->GetRenderPivotX()) * mAnimator->GetRenderScaleX(),
+        mAnimator->GetRenderPivotY() + (world.y - mAnimator->GetRenderPivotY()) * mAnimator->GetRenderScaleY());
 }
 
 void SludgeZombie::Draw(Graphics* g)
