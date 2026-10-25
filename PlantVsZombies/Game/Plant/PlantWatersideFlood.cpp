@@ -33,7 +33,7 @@ void Plant::UpdateWatersideHazard() {
     mWatersideHazardKind = hazard;
     if (hazard == 0) return;
     // 睡莲自身退水即死亡；Die 只清本层 ID，上层回到土地或开始补盆宽限。
-    if (hazard == 3 && GetPlacementType() == PlantType::PLANT_LILYPAD) { Die(); return; }
+    if (hazard == 3 && IsLilyPadPlantType(GetPlacementType())) { Die(); return; }
     mWatersideHazardElapsed += DeltaTime::GetDeltaTime();
     if (GetWatersideHazardRemaining() <= 0.0f) Die();
 }

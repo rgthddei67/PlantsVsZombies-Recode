@@ -144,7 +144,8 @@ protected:
 		const Zombie* zombie, bool bypassShield = false, bool includeBodySplat = true) const;
 	void HitFireballZombie(Zombie* zombie);
     /** 气弹用同帧线段按行检索，避免高速穿透及外观高度影响植物命中。 */
-    void UpdatePressureProjectile(float deltaTime);
+    void UpdateHostileStraightProjectile(float deltaTime);
+    float mSludgeTravelRemaining = 240.0f; // 泥团剩余飞行距离，世界像素；出生/复用按规则赋值
     void UpdateRainBamboo(float deltaTime);
     void UpdateFloodMortar(float deltaTime);
     std::vector<int> mBambooHitIDs;
@@ -208,6 +209,8 @@ public:
 
 	/** 返回出生/对象池复用共用的基础单发伤害，供只读战斗画像使用。 */
 	static int GetBaseDamage(BulletType type);
+	float GetSludgeTravelRemaining() const { return mSludgeTravelRemaining; }
+    void RestoreSludgeTravel(float distance);
 	int GetBulletDamage() const { return mDamage; }
 	void SetBulletDamage(int damage) { this->mDamage = damage; }
 	/** 在主弹离膛时固定分裂资格，不再读取母株或后续水位。 */

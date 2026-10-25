@@ -93,7 +93,7 @@ void IceMirrorGrass::SetupPlant()
 void IceMirrorGrass::PlantUpdate()
 {
 	if (mIsPreview || mMirrorCount >= kMaximumMirrors) return;
-	mFormationProgress += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+	mFormationProgress += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	while (mFormationProgress >= kMirrorFormationSeconds
 		&& mMirrorCount < kMaximumMirrors) {
 		mFormationProgress -= kMirrorFormationSeconds;

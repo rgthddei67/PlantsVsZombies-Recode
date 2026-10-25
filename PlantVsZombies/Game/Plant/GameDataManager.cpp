@@ -1,5 +1,7 @@
 #include "AnchorLotus.h"
 #include "LotusPult.h"
+#include "ThornLily.h"
+#include "Game/Zombie/SludgeZombie.h"
 #include "Game/Zombie/SalvageZombie.h"
 #include "Game/Zombie/HeavyDiverZombie.h"
 #include "MendingCotton.h"
@@ -307,6 +309,10 @@ void GameDataManager::InitializeHardcodedData() {
         AnimationType::ANIM_FLOOD_MORTAR,"FloodMortarZombie",&MakeZombie<FloodMortarZombie>,&FloodMortarZombie::GetBirthMovementProfile);
     RegisterZombie(ZombieType::ZOMBIE_FOG_FERRY,"ZOMBIE_FOG_FERRY",
         AnimationType::ANIM_FOG_FERRY,"FogFerryZombie",&MakeZombie<FogFerryZombie>,&FogFerryZombie::GetBirthMovementProfile);
+    RegisterPlant(PlantType::PLANT_THORNLILY, "PLANT_THORNLILY", "IMAGE_THORNLILY",
+        AnimationType::ANIM_THORNLILY, "ThornLily", &MakePlant<ThornLily>);
+    RegisterZombie(ZombieType::ZOMBIE_SLUDGE, "ZOMBIE_SLUDGE",
+        AnimationType::ANIM_SLUDGE_ZOMBIE, "SludgeZombie", &MakeZombie<SludgeZombie>, &SludgeZombie::GetBirthMovementProfile);
     RegisterPlant(PlantType::PLANT_LOTUSPULT, "PLANT_LOTUSPULT", "IMAGE_LOTUSPULT",
         AnimationType::ANIM_LOTUSPULT, "LotusPult", &MakePlant<LotusPult>);
     RegisterZombie(ZombieType::ZOMBIE_SALVAGE, "ZOMBIE_SALVAGE",

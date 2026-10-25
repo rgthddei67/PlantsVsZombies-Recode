@@ -1455,6 +1455,7 @@ public:
 		return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
 	int GetSnowBurrowsSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SNOW_BURROW); }
+	int GetSludgeZombiesSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SLUDGE); }
 	int GetSalvageZombiesSpawnedThisWave() const { return mWaveSpawnCounts.Get(ZombieType::ZOMBIE_SALVAGE); }
 	bool HasConsumedSnowBurrowTutorialHoleSpawn() const {
 		return mSnowBurrowTutorialHoleSpawnConsumed;

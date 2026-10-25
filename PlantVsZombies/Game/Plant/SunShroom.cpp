@@ -52,7 +52,7 @@ void SunShroom::PlantUpdate()
 		}
 		else {
 			// 继续计时
-			mProduceTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+			mProduceTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 		}
 	}
 }

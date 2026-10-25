@@ -1,0 +1,12 @@
+<Emitter>
+<Name>SludgeHit</Name><Image>IMAGE_SLUDGE_SPLAT</Image>
+<SpawnMinActive>1</SpawnMinActive><ParticleDuration>.38</ParticleDuration><SystemDuration>.45</SystemDuration>
+<ParticleScale>.3 .8,25 .65,100</ParticleScale><ParticleAlpha>1,50 0</ParticleAlpha>
+</Emitter>
+<Emitter>
+<Name>SludgeHitDrops</Name><Image>IMAGE_SLUDGE_PROJECTILE</Image>
+<SpawnMinActive>6</SpawnMinActive><ParticleDuration>[.3 .5]</ParticleDuration><SystemDuration>.6</SystemDuration>
+<ParticleScale>[.2 .4]</ParticleScale><ParticleAlpha>1,60 0</ParticleAlpha>
+<EmitterType>Circle</EmitterType><EmitterRadius>[1 4]</EmitterRadius><LaunchSpeed>[25 55]</LaunchSpeed>
+<RandomLaunchSpin>1</RandomLaunchSpin><ParticleGravity>80</ParticleGravity><ParticleRotation>[0 360]</ParticleRotation>
+</Emitter>

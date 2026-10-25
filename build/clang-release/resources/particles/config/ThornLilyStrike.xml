@@ -1,0 +1,14 @@
+<Emitter>
+<Name>ThornLilyStrike</Name><Image>IMAGE_THORNLILY_ROOT</Image>
+<SpawnMinActive>3</SpawnMinActive><ParticleDuration>.55</ParticleDuration><SystemDuration>.6</SystemDuration>
+<EmitterType>Box</EmitterType><EmitterBoxX>[-18 18]</EmitterBoxX><EmitterBoxY>[-3 3]</EmitterBoxY>
+<ParticleScale>[.8 1.1]</ParticleScale><ParticleStretch>.15 1,28 1,60 .15,100</ParticleStretch>
+<ParticleAlpha>0 1,15 1,65 0,100</ParticleAlpha><ParticleRotation>[-22 22]</ParticleRotation>
+<Field><FieldType>Position</FieldType><Y>7 -8,28 -8,60 7,100</Y></Field>
+</Emitter>
+<Emitter>
+<Name>ThornLilySpray</Name><Image>PARTICLE_WATER_DROPLETS</Image>
+<SpawnMinActive>4</SpawnMinActive><ParticleDuration>.4</ParticleDuration><SystemDuration>.5</SystemDuration>
+<ParticleScale>[.15 .25]</ParticleScale><ParticleAlpha>.7,50 0</ParticleAlpha>
+<EmitterType>Circle</EmitterType><EmitterRadius>[1 8]</EmitterRadius><LaunchSpeed>[18 32]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><ParticleGravity>70</ParticleGravity>
+</Emitter>

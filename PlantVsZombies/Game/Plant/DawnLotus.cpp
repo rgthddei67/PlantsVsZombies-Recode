@@ -46,7 +46,7 @@ float DawnLotus::GetEnergyRate() const
 void DawnLotus::PlantUpdate()
 {
 	if (mIsPreview || !mBoard || IsShutdown() || IsFullyCharged()) return;
-	mEnergy = std::min(DawnLotusRules::MaxEnergy,mEnergy + DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier() * GetEnergyRate());
+	mEnergy = std::min(DawnLotusRules::MaxEnergy,mEnergy + DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier() * GetEnergyRate());
 	if (IsFullyCharged() && g_particleSystem) {
 		g_particleSystem->EmitEffect("DawnLotusReady", GetVisualPosition());
 	}

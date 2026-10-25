@@ -417,6 +417,13 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 12:
+                // 玩家v13补领已完成12-4的刺莲；不提前解锁、不推进关卡，重复迁移不重复发卡。
+                if (kind == DocumentKind::Player && upgraded.value("adventureLevel", 0) >= 104
+                    && upgraded.contains("havecards") && upgraded["havecards"].is_array()) {
+                    const int reward = static_cast<int>(PlantType::PLANT_THORNLILY);
+                    auto& cards = upgraded["havecards"];
+                    if (std::find(cards.begin(), cards.end(), reward) == cards.end()) cards.push_back(reward);
+                }
 				// v13新增矿道存档；旧关的玩法字段保持原样，缺省行进格由 Zombie 加载时补 -1。
 				version = 13;
 				upgraded["schemaVersion"] = version;

@@ -1,0 +1,378 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 104,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "before_upgrade.json"
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THORNLILY",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.2.5.under",
+      "equals": "PLANT_THORNLILY"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.2.5.normal",
+      "equals": "PLANT_WALLNUT"
+    },
+    {
+      "op": "assert_can_plant",
+      "type": "PLANT_THORNLILY",
+      "row": 2,
+      "col": 4,
+      "expected": false
+    },
+    {
+      "op": "dump_state",
+      "name": "upgraded.json"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 2,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 3,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BALLOON",
+      "row": 2,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 3,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "first_strike.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "first_strike.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "thorn"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "thorn"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "dump_state",
+      "name": "thorn_restored.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 104,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 100
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THORNLILY",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "dump_state",
+      "name": "anchored.json"
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.under",
+      "equals": "NONE"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.foundation",
+      "equals": "PLANT_FLOWERPOT"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.0.6.normal",
+      "equals": "PLANT_WALLNUT"
+    },
+    {
+      "op": "dump_state",
+      "name": "drained.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 104,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 1,
+      "col": 7
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 1,
+      "col": 7
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THORNLILY",
+      "row": 1,
+      "col": 7
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SALVAGE",
+      "row": 1,
+      "x": 955,
+      "stationary": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.1.7.under",
+      "equals": "NONE"
+    },
+    {
+      "op": "assert_state",
+      "path": "cells.1.7.normal",
+      "equals": "PLANT_WALLNUT"
+    },
+    {
+      "op": "dump_state",
+      "name": "salvaged.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "salvaged.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

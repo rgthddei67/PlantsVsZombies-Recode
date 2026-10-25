@@ -20,6 +20,7 @@ void LilyPad::PlantUpdate()
 void LilyPad::Draw(Graphics* g)
 {
 	AnimatedObject::Draw(g);
+    DrawSludgeStatus(g);
 }
 
 bool LilyPad::CanBeEaten() const

@@ -29,7 +29,7 @@ void BoundaryFlower::SetupPlant()
 void BoundaryFlower::PlantUpdate()
 {
 	if (mIsPreview || IsShutdown() || mShardCount >= BoundaryFlowerRules::MaxShards) return;
-	mShardCharge += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+	mShardCharge += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	while (mShardCharge >= BoundaryFlowerRules::ShardSeconds && mShardCount < BoundaryFlowerRules::MaxShards) {
 		mShardCharge -= BoundaryFlowerRules::ShardSeconds;
 		++mShardCount;

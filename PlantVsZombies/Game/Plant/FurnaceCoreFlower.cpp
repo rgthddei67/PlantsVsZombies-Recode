@@ -60,7 +60,7 @@ void FurnaceCoreFlower::PlantUpdate()
 	if (mBoard->GetAmbientTemperatureC()
 		<= mBoard->GetWinterFreezingTemperatureC()) return;
 
-	mChargeProgress += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+	mChargeProgress += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	while (mChargeProgress >= kCoreChargeDuration
 		&& mStoredCores < kMaximumStoredCores) {
 		mChargeProgress -= kCoreChargeDuration;

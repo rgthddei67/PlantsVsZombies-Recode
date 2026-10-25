@@ -97,7 +97,7 @@ void NorthStarFlower::PlantUpdate()
 		mActiveRemaining = std::max(0.0f, mActiveRemaining - deltaTime);
 		return;
 	}
-	mChargeSeconds = std::min(kChargeDurationSeconds, mChargeSeconds + deltaTime * GetFertilitySpeedMultiplier());
+	mChargeSeconds = std::min(kChargeDurationSeconds, mChargeSeconds + deltaTime * GetIndependentActionSpeedMultiplier());
 }
 
 bool NorthStarFlower::CoversPolarNavigationCell(int row, int column) const

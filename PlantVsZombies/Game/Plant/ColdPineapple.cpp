@@ -28,7 +28,7 @@ void ColdPineapple::Update()
 			delta -= consumed;
 			if (mActiveRemaining <= 0.0f) mCooldownRemaining = kCooldown;
 		}
-		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetFertilitySpeedMultiplier());
+		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetIndependentActionSpeedMultiplier());
 	}
 	Plant::Update();
 }

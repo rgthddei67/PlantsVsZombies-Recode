@@ -22,6 +22,8 @@ constexpr PlantType GetUpgradeBasePlantType(PlantType type)
 		return PlantType::PLANT_KERNELPULT;
 	case PlantType::PLANT_GOLD_MAGNET:
 		return PlantType::PLANT_MAGNETSHROOM;
+	case PlantType::PLANT_THORNLILY:
+		return PlantType::PLANT_LILYPAD;
 	case PlantType::PLANT_LIGHTNINGRODPOT:
 		return PlantType::PLANT_FLOWERPOT;
 	case PlantType::PLANT_GATLINGPEA:
@@ -33,7 +35,7 @@ constexpr PlantType GetUpgradeBasePlantType(PlantType type)
 	}
 }
 
-/** 返回紫卡原位替换的格子层；普通紫卡替换 normal，避雷花盆替换 under。 */
+/** 返回紫卡原位替换的格子层；普通紫卡替换 normal，底座紫卡替换 under（洪水花盆转 foundation）。 */
 constexpr PlantUpgradeLayer GetUpgradePlantLayer(PlantType type)
 {
 	switch (type) {
@@ -45,6 +47,7 @@ constexpr PlantUpgradeLayer GetUpgradePlantLayer(PlantType type)
 	case PlantType::PLANT_GATLINGPEA:
 	case PlantType::PLANT_AURORATORCHWOOD:
 		return PlantUpgradeLayer::NORMAL;
+	case PlantType::PLANT_THORNLILY:
 	case PlantType::PLANT_LIGHTNINGRODPOT:
 		return PlantUpgradeLayer::UNDER;
 	default:

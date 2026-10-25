@@ -61,7 +61,7 @@ void Imitater::PlantUpdate()
 
 	if (!mMorphing) {
 		mMorphCountdown = std::max(0.0f,
-			mMorphCountdown - static_cast<float>(DeltaTime::GetDeltaTime()) * GetFertilitySpeedMultiplier());
+			mMorphCountdown - static_cast<float>(DeltaTime::GetDeltaTime()) * GetIndependentActionSpeedMultiplier());
 		if (mMorphCountdown <= 0.0f) BeginMorph();
 		return;
 	}
@@ -82,7 +82,7 @@ void Imitater::BeginMorph()
 {
 	if (mMorphing) return;
 	mMorphing = PlayTrackOnce("anim_explode", "",
-		kMorphPlaybackFps / kImitaterReanimFps * GetFertilitySpeedMultiplier(), 0.0f);
+		kMorphPlaybackFps / kImitaterReanimFps * GetIndependentActionSpeedMultiplier(), 0.0f);
 }
 
 void Imitater::EmitMorphParticle()

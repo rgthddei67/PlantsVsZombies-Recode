@@ -77,6 +77,12 @@ void CobCannon::PlantUpdate()
 {
 	if (!mAnimator || mIsPreview) return;
 	const std::string track = GetCurrentTrackName();
+    // 蓄能和发射片段进行中也消费当前行动倍率；挂泥消退后立即恢复，保留播放进度。
+    if (mPhase == Phase::CHARGING && track == "anim_charge") {
+        mAnimator->SetClipSpeed(kChargeFramesPerSecond / kReanimationFramesPerSecond * GetPositiveActionSpeedMultiplier());
+    } else if (mPhase == Phase::FIRING && track == "anim_shooting") {
+        mAnimator->SetClipSpeed(kShootingFramesPerSecond / kReanimationFramesPerSecond * GetPositiveActionSpeedMultiplier());
+    }
 	if (mPhase == Phase::ARMING) {
 		mArmingTime = std::max(0.0f, mArmingTime - GetWeatherActionDeltaTime());
 		if (mArmingTime <= 0.0f) BeginCharge();

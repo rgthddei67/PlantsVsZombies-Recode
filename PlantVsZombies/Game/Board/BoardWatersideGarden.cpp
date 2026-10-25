@@ -110,7 +110,7 @@ void Board::UpdateWatersideFlood(float seconds) {
 }
 
 bool Board::UsesFoundationLayer(PlantType type) const {
-    return SupportsWatersideFlood() && IsUnderPlantLayerType(type) && type != PlantType::PLANT_LILYPAD;
+    return SupportsWatersideFlood() && IsUnderPlantLayerType(type) && !IsLilyPadPlantType(type);
 }
 
 bool Board::IsWatersideStoneSquare(int row, int col) const {
@@ -119,7 +119,7 @@ bool Board::IsWatersideStoneSquare(int row, int col) const {
 
 bool Board::IsWatersideLilyAnchored(const Plant* lily) const {
     if (!lily || !lily->IsActive() || lily->IsSquished()
-        || lily->GetPlacementType() != PlantType::PLANT_LILYPAD
+        || !IsLilyPadPlantType(lily->GetPlacementType())
         || !IsWatersideStoneSquare(lily->mRow, lily->mColumn)
         || GetUnderPlantAt(lily->mRow, lily->mColumn) != lily) return false;
     const Plant* pot = GetFlowerPotAt(lily->mRow, lily->mColumn);
@@ -129,7 +129,7 @@ bool Board::IsWatersideLilyAnchored(const Plant* lily) const {
 bool Board::IsWatersideSurgeTarget(const Plant* lily) const {
     return lily && lily->IsActive() && lily->mPlantHealth > 0 && !lily->IsSquished()
         && !lily->IsIceSealed() && !lily->IsBungeeTargeted()
-        && lily->GetPlacementType() == PlantType::PLANT_LILYPAD
+        && IsLilyPadPlantType(lily->GetPlacementType())
         && IsPoolSquare(lily->mRow, lily->mColumn)
         && GetUnderPlantAt(lily->mRow, lily->mColumn) == lily && !IsWatersideLilyAnchored(lily);
 }
@@ -151,7 +151,7 @@ int Board::GetWatersidePlantHazard(const Plant* plant) const {
     if (type == PlantType::PLANT_INSTANT_COFFEE) return 0;
     // 花盆及其模仿者代理在石板上自身免灾；变身前仍不能承载上层植物或锚定睡莲。
     if (UsesFoundationLayer(type) && IsWatersideStoneSquare(plant->mRow, plant->mColumn)) return 0;
-    const bool aquatic = type == PlantType::PLANT_LILYPAD || type == PlantType::PLANT_TANGLEKELP
+    const bool aquatic = IsLilyPadPlantType(type) || type == PlantType::PLANT_TANGLEKELP
         || type == PlantType::PLANT_SEASHROOM || type == PlantType::PLANT_ANCHORLOTUS;
     const auto footprint = GetPlantFootprint(type);
     int hazard = 0;
@@ -165,7 +165,7 @@ int Board::GetWatersidePlantHazard(const Plant* plant) const {
         }
         const Plant* under = GetUnderPlantAt(row, col);
         if (water && !plant->CanGrowDirectlyInWater()
-            && (!under || under->GetPlacementType() != PlantType::PLANT_LILYPAD)) return 1;
+            && (!under || !IsLilyPadPlantType(under->GetPlacementType()))) return 1;
         if (!water && RequiresFlowerPotAt(row, col) && !GetFlowerPotAt(row, col)) hazard = 2;
     }
     return hazard;

@@ -13,8 +13,8 @@ void MendingCotton::PlantUpdate() {
     if (mIsPreview || !mBoard) return;
     const float dt = DeltaTime::GetDeltaTime();
     mThreadRemaining = std::max(0.0f, mThreadRemaining-dt);
-    // 肥沃只加速治疗冷却，反馈棉线仍按普通游戏秒消失。
-    mRemaining = std::max(0.0f, mRemaining-dt*GetFertilitySpeedMultiplier());
+    // 土壤与挂泥只缩放治疗冷却，反馈棉线仍按普通游戏秒消失。
+    mRemaining = std::max(0.0f, mRemaining-dt*GetIndependentActionSpeedMultiplier());
     if (mRemaining > 0) return;
     Plant* target = nullptr;
     // 逻辑格确定范围；同格三层分别选疗，稳定 ID 打破比例并列，避免注册顺序影响结果。

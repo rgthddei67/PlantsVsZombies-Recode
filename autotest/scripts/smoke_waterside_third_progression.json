@@ -1,0 +1,436 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 103,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 103
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "force_trophy"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.6
+    },
+    {
+      "op": "click",
+      "target": "trophy",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "PlantRewardScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacSelected",
+      "equals": "PLANT_THORNLILY"
+    },
+    {
+      "op": "assert_state",
+      "path": "plantAlmanacPreviewReady",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "reward.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "reward.json"
+    },
+    {
+      "op": "click",
+      "x": 920,
+      "y": 550
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "level",
+      "equals": 104
+    },
+    {
+      "op": "dump_state",
+      "name": "unlocked.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 104,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "level_104_config.json"
+    },
+    {
+      "op": "set_wave_spawn_list",
+      "types": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 6,
+      "clearPrevious": true
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "quota_104.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "quota_104"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "quota_104"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "no_simultaneous_cap_104.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "no_simultaneous_cap_104.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "assert_state",
+      "path": "watersideThirdResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "level_105_config.json"
+    },
+    {
+      "op": "set_wave_spawn_list",
+      "types": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 6,
+      "clearPrevious": true
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 0,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "quota_105.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "quota_105"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "quota_105"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "summon_next_wave"
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "spawn_wave_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 1,
+      "x": 1000,
+      "mutationRoll": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "weather.sludgeZombiesSpawnedThisWave",
+      "equals": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "no_simultaneous_cap_105.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "no_simultaneous_cap_105.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

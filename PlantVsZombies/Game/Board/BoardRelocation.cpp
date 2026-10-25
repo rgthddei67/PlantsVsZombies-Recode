@@ -44,13 +44,13 @@ bool Board::CanPlantStackOccupyTerrain(int sourceRow, int sourceCol, int targetR
 	if (!source || !GetCell(targetRow, targetCol)) return false;
 	Plant* under = GetUnderPlantAt(sourceRow, sourceCol);
 	const bool water = IsPoolSquare(targetRow, targetCol);
-	const bool lily = under && under->GetPlacementType() == PlantType::PLANT_LILYPAD;
+	const bool lily = under && IsLilyPadPlantType(under->GetPlacementType());
 	const bool pot = GetFlowerPotAt(sourceRow, sourceCol) != nullptr;
 	for (int id : GetStackIDs(*source)) {
 		Plant* member = mEntityRegistry.GetPlant(id);
 		if (!member || !member->IsActive()) continue;
 		const PlantType type = member->GetPlacementType();
-		if (type == PlantType::PLANT_LILYPAD) {
+		if (IsLilyPadPlantType(type)) {
 			if (!water) return false;
 		} else if (member->IsRoofSupportPlant()) {
 			if (water && !IsWatersideStoneSquare(targetRow, targetCol)) return false;

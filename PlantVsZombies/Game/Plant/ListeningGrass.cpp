@@ -45,7 +45,7 @@ void ListeningGrass::PlantUpdate()
 	if (mIsPreview || !mBoard) return;
 	if (mListenCooldownRemaining > 0.0f) {
 		mListenCooldownRemaining = std::max(0.0f,
-			mListenCooldownRemaining - DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier());
+			mListenCooldownRemaining - DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier());
 		return;
 	}
 

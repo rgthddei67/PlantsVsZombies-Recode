@@ -24,7 +24,7 @@ Plant* SalvageZombie::FindFoundation() const
         Plant* top = mBoard->GetTopPlantAt(mRow, col);
         if (!top || !top->IsActive() || top->IsSquished()) continue;
         Plant* base = mBoard->IsPoolSquare(mRow, col) ? mBoard->GetUnderPlantAt(mRow, col) : nullptr;
-        if (!base || base->GetPlacementType() != PlantType::PLANT_LILYPAD)
+        if (!base || !IsLilyPadPlantType(base->GetPlacementType()))
             base = mBoard->GetFlowerPotAt(mRow, col);
         if (!base || !base->IsActive() || base->IsSquished() || base->IsIceSealed()
             || base->IsBungeeTargeted() || base->IsDamageImmune()) return nullptr;

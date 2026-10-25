@@ -583,6 +583,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		p["shutdownTimer"] = plant->GetShutdownTimeRemaining();
         p["watersideHazard"] = {{"kind", plant->GetWatersideHazardKind()}, {"elapsed", plant->GetWatersideHazardElapsed()}};
         p["floodSlowRemaining"]=plant->GetFloodSlowRemaining();
+        p["sludgeRemaining"] = plant->GetSludgeRemaining();
 		p["unyieldingRootsSpent"] = plant->HasSpentUnyieldingRoots();
 		p["unyieldingRootsTimer"] = plant->GetUnyieldingRootsTimeRemaining();
 		p["iceSealOwnerZombieID"] = plant->GetIceSealOwnerZombieID();
@@ -692,7 +693,8 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		b["hitTorchwoodColumn"] = bullet->GetHitTorchwoodColumn();
 		b["hitAuroraTorchwoodColumn"] = bullet->GetHitAuroraTorchwoodColumn();
 		b["auroraHitZombieIDs"] = bullet->GetAuroraHitZombieIDs();
-        b["bambooHitIDs"]=bullet->GetBambooHitIDs();b["floodCharmed"]=bullet->GetFloodCharmed();
+        b["bambooHitIDs"]=bullet->GetBambooHitIDs();b["sludgeTravelRemaining"] = bullet->GetSludgeTravelRemaining();
+        b["floodCharmed"]=bullet->GetFloodCharmed();
         if (bullet->mBulletType == BulletType::BULLET_LOTUS_SEED
             || bullet->mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) b["lotus"] = bullet->SaveLotusState();
 		b["auroraPlayedHitSound"] = bullet->HasPlayedAuroraHitSound();
@@ -1510,6 +1512,7 @@ void GameInfoSaver::RestoreActorDocument(Board* board, const nlohmann::json& j)
             const auto hazard = p.value("watersideHazard", nlohmann::json::object());
             plant->RestoreWatersideHazard(hazard.value("kind", 0), hazard.value("elapsed", 0.0f));
             plant->RestoreFloodSlow(p.value("floodSlowRemaining",0.0f));
+            plant->RestoreSludge(p.value("sludgeRemaining", 0.0f));
 			plant->RestoreUnyieldingRootsState(
 				p.value("unyieldingRootsSpent", false),
 				p.value("unyieldingRootsTimer", 0.0f));
@@ -1685,6 +1688,7 @@ void GameInfoSaver::RestoreRemainingDocument(Board* board, CardSlotManager* mana
 				b.value("spikeDamageRemainders", std::vector<float>{}));
 			bullet->RestoreBambooHitIDs(b.value("bambooHitIDs",std::vector<int>{}));
             bullet->SetFloodCharmed(b.value("floodCharmed",false));
+            bullet->RestoreSludgeTravel(b.value("sludgeTravelRemaining", 0.0f));
             bullet->RestoreLotusState(b.value("lotus", nlohmann::json{}));
             bullet->RestoreAuroraState(
 				b.value("auroraHitZombieIDs", std::vector<int>{}),

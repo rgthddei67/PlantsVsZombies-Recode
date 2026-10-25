@@ -1,0 +1,5 @@
+<fps>12</fps>
+<track>
+<name>anim_idle</name>
+<t><x>-0.3</x><y>5.5</y><kx>0.0</kx><ky>0.0</ky><sx>0.800</sx><sy>0.800</sy><a>1.00</a><i>IMAGE_REANIM_THORNLILY_BODY</i></t>
+</track>

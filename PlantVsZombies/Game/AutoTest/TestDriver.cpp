@@ -20,6 +20,8 @@
 #include "Game/Zombie/HeavyDiverZombie.h"
 #include "Game/Zombie/SalvageZombie.h"
 #include "Game/Plant/LotusPult.h"
+#include "Game/Plant/ThornLily.h"
+#include "Game/Zombie/SludgeZombie.h"
 #include "Game/Plant/MendingCotton.h"
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
@@ -501,7 +503,7 @@ namespace {
 		PT(PLANT_LISTENINGGRASS),
 		PT(PLANT_AURORATORCHWOOD),
 		PT(PLANT_NORTHSTARFLOWER), PT(PLANT_ICEMIRRORGRASS),
-		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_ANCHORLOTUS), PT(PLANT_LOTUSPULT), PT(PLANT_RAINBAMBOO),
+		PT(PLANT_BOUNDARYFLOWER), PT(PLANT_DAWNLOTUS), PT(PLANT_CARRYVINE), PT(PLANT_ECHOSHROOM), PT(PLANT_PRISMFLOWER), PT(PLANT_AMBERLICHEN), PT(PLANT_ICEMINT), PT(PLANT_COLDPINEAPPLE), PT(PLANT_ICESTORAGENUT), PT(PLANT_ICEVOUCHER), PT(PLANT_THUNDERFLOWER), PT(PLANT_MENDINGCOTTON), PT(PLANT_ANCHORLOTUS), PT(PLANT_LOTUSPULT), PT(PLANT_THORNLILY), PT(PLANT_RAINBAMBOO),
 	};
 #undef PT
 #define BT(n) { #n, BulletType::n }
@@ -511,7 +513,7 @@ namespace {
 		BT(BULLET_TOXICPEA), BT(BULLET_TOXICFIREBALL),
 		BT(BULLET_MELT_SNOW), BT(BULLET_SALT_CRYSTAL),
 		BT(BULLET_AURORA_PEA),
-		BT(BULLET_THERMAL_PULSE), BT(BULLET_THUNDER_SEED), BT(BULLET_PRESSURE), BT(BULLET_RAIN_BAMBOO), BT(BULLET_FLOOD_MORTAR), BT(BULLET_LOTUS_SEED), BT(BULLET_LOTUS_FRAGMENT),
+		BT(BULLET_THERMAL_PULSE), BT(BULLET_THUNDER_SEED), BT(BULLET_PRESSURE), BT(BULLET_SLUDGE), BT(BULLET_RAIN_BAMBOO), BT(BULLET_FLOOD_MORTAR), BT(BULLET_LOTUS_SEED), BT(BULLET_LOTUS_FRAGMENT),
 	};
 #undef BT
 #define ZT(n) { #n, ZombieType::n }
@@ -537,7 +539,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_PRESSURE_GUARD),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_SLUDGE), ZT(ZOMBIE_PRESSURE_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -4552,6 +4554,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         "IMAGE_ANCHORLOTUS_RIGHTLEAF", "IMAGE_ANCHORLOTUS_ROOTS"})
         watersidePairReady = watersidePairReady && ResourceManager::GetInstance().GetTexture(key, false);
     out["watersidePairResourcesReady"] = watersidePairReady;
+    bool pairThreeReady = ResourceManager::GetInstance().HasReanimation("ThornLily")
+        && ResourceManager::GetInstance().HasReanimation("SludgeZombie");
+    for (const char* key : {"IMAGE_THORNLILY", "IMAGE_REANIM_THORNLILY_BODY", "IMAGE_SLUDGE_GEAR", "IMAGE_SLUDGE_SPLAT", "IMAGE_SLUDGE_PROJECTILE", "IMAGE_THORNLILY_ROOT"})
+        pairThreeReady = pairThreeReady && ResourceManager::GetInstance().GetTexture(key, false);
+    out["watersideThirdResourcesReady"] = pairThreeReady;
     bool pairTwoReady = ResourceManager::GetInstance().HasReanimation("LotusPult")
         && ResourceManager::GetInstance().HasReanimation("SalvageZombie");
     for (const char* key : {"IMAGE_LOTUSPULT", "IMAGE_LOTUSPULT_HEAD", "IMAGE_LOTUSPULT_CUP",
@@ -7215,6 +7222,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "iceStatueExecutionersSpawnedThisWave",
 				board->GetIceStatueExecutionersSpawnedThisWave() },
 			{ "salvageZombiesSpawnedThisWave", board->GetSalvageZombiesSpawnedThisWave() },
+            { "sludgeZombiesSpawnedThisWave", board->GetSludgeZombiesSpawnedThisWave() },
 			{ "snowBurrowsSpawnedThisWave",
 				board->GetSnowBurrowsSpawnedThisWave() },
 			{ "snowBurrowTutorialHoleSpawnConsumed",
@@ -8231,6 +8239,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         zombieState["anchorRootPlantID"] = z->GetAnchorRootPlantID();
         zombieState["anchorRootMs"] = static_cast<int>(std::lround(z->GetAnchorRootRemaining()*1000));
         zombieState["anchorRootImmunityMs"] = static_cast<int>(std::lround(z->GetAnchorRootImmunity()*1000));
+        if (const auto* sludge = dynamic_cast<const SludgeZombie*>(z)) {
+            zombieState["sludgeWindupMs"] = static_cast<int>(std::lround(sludge->GetWindup()*1000));
+            zombieState["sludgeReloadMs"] = static_cast<int>(std::lround(sludge->GetReload()*1000));
+            zombieState["sludgeShots"] = sludge->GetShots();
+            zombieState["sludgeRepaired"] = sludge->GetRepairedTotal();
+            zombieState["sludgeRepairs"] = sludge->GetRepairCount();
+            zombieState["coneStage"] = static_cast<int>(sludge->mHelmStage);
+        }
         if (const auto* salvage = dynamic_cast<const SalvageZombie*>(z)) {
             zombieState["salvageHasHook"] = salvage->HasHook();
             zombieState["salvageTargetID"] = salvage->GetSalvageTargetID();
@@ -9365,6 +9381,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
                 && ResourceManager::GetInstance().GetTexture("IMAGE_RAINBAMBOO",false)
                 && ResourceManager::GetInstance().GetTexture("IMAGE_RAIN_BAMBOO_DART",false);
         }
+        plantState["sludgeRemainingMs"] = static_cast<int>(std::lround(p->GetSludgeRemaining()*1000));
+        plantState["sludgeMultiplierOn1000"] = static_cast<int>(std::lround(p->GetSludgeActionMultiplier()*1000));
+        if (const auto* thorn = dynamic_cast<const ThornLily*>(p)) {
+            plantState["thornStrikes"] = thorn->GetStrikeCount();
+            plantState["thornRemainingMs"] = static_cast<int>(std::lround(thorn->GetAttackRemaining()*1000));
+        }
         if (const auto* lotusPult = dynamic_cast<const LotusPult*>(p))
             plantState["lotusWaterForm"] = lotusPult->IsWaterForm();
         if (const auto* lotus = dynamic_cast<const AnchorLotus*>(p)) {
@@ -9908,6 +9930,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["particleEffectNameCounts"]["PolarWindUp"] = 0;
 	out["particleEffectNameCounts"]["PolarWindDown"] = 0;
 	out["particleEffectNameCounts"]["DawnLotusStrike"] = 0;
+    for (const char* name : {"SludgeArmorRepair", "SludgeMuzzle", "SludgeHit", "ThornLilyStrike"}) out["particleEffectNameCounts"][name] = 0;
     out["particleEffectNameCounts"]["LotusSeedHit"] = 0;
     out["particleEffectNameCounts"]["LotusFragmentHit"] = 0;
 	if (g_particleSystem) {

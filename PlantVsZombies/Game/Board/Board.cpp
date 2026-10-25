@@ -1,5 +1,6 @@
 #include "WaveSpawnRules.h"
 #include "Game/Zombie/SalvageZombieRules.h"
+#include "Game/Zombie/SludgeZombieRules.h"
 #include "Game/Board/Board.h"
 #include "WatersideGardenRules.h"
 #include "Game/AutoTest/TestDriver.h"
@@ -527,6 +528,12 @@ ZombieType Board::ResolveWaveZombieType(ZombieType selected, int mutationRoll)
 		}
 		mWaveSpawnCounts.Record(ZombieType::ZOMBIE_ICE_STATUE_EXECUTIONER);
 	}
+    if (selected == ZombieType::ZOMBIE_SLUDGE) {
+        if ((!mIsSurvival && mCurrentWave < SludgeZombieRules::FirstWave)
+            || mWaveSpawnCounts.Get(selected) >= SludgeZombieRules::PerWaveLimit)
+            return ZombieType::NUM_ZOMBIE_TYPES;
+        mWaveSpawnCounts.Record(selected);
+    }
     if (selected == ZombieType::ZOMBIE_SALVAGE) {
         const int limit = !mIsSurvival && mLevel == SalvageZombieRules::TutorialLevel
             ? SalvageZombieRules::TutorialLimit : SalvageZombieRules::CompositeLimit;
@@ -1764,7 +1771,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 	if (normalPlant && normalPlant->mPlantID == vacatedPlantID) normalPlant = nullptr;
 	const bool normalEmpty = cell->GetNormalPlantID() == NULL_PLANT_ID || cell->GetNormalPlantID() == vacatedPlantID;
 	const bool hasLilyPad = underPlant
-		&& underPlant->mPlantType == PlantType::PLANT_LILYPAD;
+		&& IsLilyPadPlantType(underPlant->mPlantType);
 	const bool hasFlowerPot = GetFlowerPotAt(row, col) != nullptr;
 	if (type == PlantType::PLANT_INSTANT_COFFEE) {
 		// 原版 flying layer：只允许覆盖仍睡眠、尚未进入唤醒且未被蹦极抓取的普通层蘑菇。
@@ -3212,6 +3219,19 @@ inline void Board::TrySummonZombie()
 
 	int remainingPoints = CalculateWaveZombiePoints();
 	int zombiesSpawned = 0;
+    // 淤泥首次教学同样消费预算和每波名额；不查询同时在场数。
+    if (!mIsSurvival && mLevel == SludgeZombieRules::TutorialLevel
+        && mCurrentWave == SludgeZombieRules::FirstWave) {
+        const int cost = GameDataManager::GetInstance().GetZombieWeight(ZombieType::ZOMBIE_SLUDGE);
+        if (remainingPoints >= cost) {
+            const auto actual = ResolveWaveZombieType(ZombieType::ZOMBIE_SLUDGE);
+            const int row = actual == ZombieType::NUM_ZOMBIE_TYPES ? -1 : SelectSpawnRow(actual);
+            if (row >= 0 && CreateOrQueueWaveZombie(actual, row, x)) {
+                remainingPoints -= cost;
+                ++zombiesSpawned;
+            }
+        }
+    }
     // 教学保底仍消费正式预算与双重名额，不额外补生或绕过统一 resolver。
     if (!mIsSurvival && mLevel == SalvageZombieRules::TutorialLevel
         && mCurrentWave == SalvageZombieRules::TutorialWave) {

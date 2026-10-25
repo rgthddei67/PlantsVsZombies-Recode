@@ -297,8 +297,9 @@ namespace {
         counts.CancelReservation(ZombieType::ZOMBIE_REINFORCED_DOOR);
         nlohmann::json saved;
         counts.Save(saved);
-        Check(saved.size() == 28 && saved["reinforcedDoorsSpawnedThisWave"] == 1
-            && saved["salvageZombiesSpawnedThisWave"] == 0, "legacy and salvage keys saved together");
+        Check(saved["reinforcedDoorsSpawnedThisWave"] == 1
+            && saved["salvageZombiesSpawnedThisWave"] == 0 && saved["sludgeZombiesSpawnedThisWave"] == 0,
+            "legacy, salvage and sludge quotas save independently");
         counts.Reset();
         nlohmann::json empty;
         counts.Save(empty);
@@ -314,6 +315,8 @@ namespace {
         Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 1, "salvage tutorial restores per-wave cap one");
         counts.Load(saved,103,false);
         Check(counts.Get(ZombieType::ZOMBIE_SALVAGE) == 2, "salvage composite restores per-wave cap two");
+        counts.Load(saved,104,false);
+        Check(counts.Get(ZombieType::ZOMBIE_SLUDGE) == 3, "sludge restored quota clamps to three");
         counts.Load(saved,69,true);
         Check(counts.Get(ZombieType::ZOMBIE_SNOW_BURROW) == 2
             && counts.Get(ZombieType::ZOMBIE_THERMAL_SNIPER) == 4

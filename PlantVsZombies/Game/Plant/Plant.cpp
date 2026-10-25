@@ -1,5 +1,6 @@
 #include "Plant.h"
 #include "Game/Zombie/FloodMortarRules.h"
+#include "Game/Zombie/SludgeZombieRules.h"
 #include "Game/Board/Board.h"
 #include "../Zombie/Zombie.h"
 #include "../GameObjectManager.h"
@@ -231,6 +232,29 @@ bool Plant::CanAcquireZombie(const Zombie* zombie) const
 	return zombie && zombie->CanBeTargetedByProjectile(false);
 }
 
+void Plant::ApplySludge() { mSludgeRemaining = SludgeZombieRules::SlowSeconds; }
+void Plant::RestoreSludge(float seconds) {
+    mSludgeRemaining = std::isfinite(seconds) ? std::clamp(seconds, 0.0f, SludgeZombieRules::SlowSeconds) : 0;
+}
+float Plant::GetSludgeActionMultiplier() const {
+    return mSludgeRemaining > 0 ? SludgeZombieRules::ActionMultiplier : 1.0f;
+}
+float Plant::GetIndependentActionSpeedMultiplier() const {
+    return GetFertilitySpeedMultiplier() * GetSludgeActionMultiplier();
+}
+
+/** 泥斑跟随当前实体，水面浮动和搬运不改变状态；消退只按独立余时淡出。 */
+void Plant::DrawSludgeStatus(Graphics* g) {
+    if (!g || mIsPreview || mIsSquished || mSludgeRemaining <= 0) return;
+    const Vector anchor = GetVisualAnchorPosition();
+    const bool under = IsLilyPadPlantType(GetPlacementType()) || IsRoofSupportPlant();
+    const float y = anchor.y - (under ? 10.0f : 42.0f);
+    const auto color = glm::vec4(255, 255, 255, 220 * std::min(1.0f, mSludgeRemaining));
+    const auto* texture = ResourceManager::GetInstance().GetTexture("IMAGE_SLUDGE_SPLAT", false);
+    if (g->IsInstancePathEnabled()) g->DrawTextureInstanced(texture, anchor.x - 25, y, 50, 32, 0, color);
+    else g->DrawTexture(texture, anchor.x - 25, y, 50, 32, 0, color);
+}
+
 void Plant::ApplyFloodSlow() { mFloodSlowRemaining=FloodMortarRules::SlowSeconds; }
 void Plant::RestoreFloodSlow(float seconds) {
     mFloodSlowRemaining=std::isfinite(seconds)?std::clamp(seconds,0.0f,FloodMortarRules::SlowSeconds):0;
@@ -242,6 +266,7 @@ void Plant::Update()
     if (!IsActive()) return;
     if(!mIsPreview && mBoard && mBoard->GetState()==BoardState::GAME) {
         mFloodSlowRemaining=std::max(0.0f,mFloodSlowRemaining-DeltaTime::GetDeltaTime());
+        mSludgeRemaining=std::max(0.0f,mSludgeRemaining-DeltaTime::GetDeltaTime());
     }
 	if (!mIsPreview && mUnyieldingRootsTimer > 0.0f) {
 		mUnyieldingRootsTimer = std::max(
@@ -572,7 +597,7 @@ float Plant::GetFertilitySpeedMultiplier() const
 
 float Plant::GetPositiveActionSpeedMultiplier() const
 {
-	return GetWeatherActionSpeedMultiplier() * GetFertilitySpeedMultiplier();
+	return GetWeatherActionSpeedMultiplier() * GetIndependentActionSpeedMultiplier();
 }
 
 float Plant::GetWeatherActionDeltaTime() const
@@ -590,7 +615,9 @@ float Plant::GetSunProductionDeltaTime() const
 float Plant::GetAttackSpeedMultiplier() const
 {
 	return GetSkillSpeedMultiplier() * (1.0f + (mBoard ? mBoard->GetAreaPlantAttackSpeedBonus(this) : 0.0f))
-        * (mFloodSlowRemaining>0 ? FloodMortarRules::AttackMultiplier : 1);
+        // 技能倍率已包含挂泥；先消去这一份，再取两种攻击减速中较强者。
+        * std::min(GetSludgeActionMultiplier(), mFloodSlowRemaining > 0 ? FloodMortarRules::AttackMultiplier : 1.0f)
+        / GetSludgeActionMultiplier();
 }
 
 float Plant::GetSkillSpeedMultiplier() const
@@ -673,6 +700,7 @@ void Plant::Draw(Graphics* g)
 	AnimatedObject::Draw(g);	// 先画本体动画
 	DrawSleepIndicator(g);
 	DrawIceSeal(g);
+    DrawSludgeStatus(g);
     if(g && !mIsPreview && mFloodSlowRemaining>0) {
         // 手绘水珠显示尚未消退的水压，不借用冰冻/停机图标混淆机制。
         const Vector anchor=GetVisualAnchorPosition();

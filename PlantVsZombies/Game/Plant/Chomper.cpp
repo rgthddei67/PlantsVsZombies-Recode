@@ -86,7 +86,7 @@ void Chomper::PlantUpdate()
 	float dt = DeltaTime::GetDeltaTime();
 	switch (mState) {
 	case State::IDLE:
-		mDetectionTimer += dt * GetFertilitySpeedMultiplier();
+		mDetectionTimer += dt * GetIndependentActionSpeedMultiplier();
 		if (mDetectionTimer >= DETECTION_INTERVAL) {
 			mDetectionTimer = 0.0f;
 			int targetID = FindTargetZombieID();

@@ -1,0 +1,679 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 5,
+      "col": 4
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_SLUDGE",
+      "row": 0,
+      "x": 680,
+      "y": 100,
+      "velocityX": -320
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "production_start.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "production_end.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_FLOOD_MORTAR",
+      "row": 0,
+      "x": 602,
+      "y": 127.5,
+      "damage": 1,
+      "lobTargetX": 602,
+      "lobTargetY": 127.5,
+      "lobDuration": 0.2,
+      "lobApexHeight": 20
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.3
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "combined_slow.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 3
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_MENDINGCOTTON",
+      "row": 5,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 5,
+      "col": 3
+    },
+    {
+      "op": "damage_plant",
+      "row": 0,
+      "col": 3,
+      "damage": 2000
+    },
+    {
+      "op": "damage_plant",
+      "row": 5,
+      "col": 3,
+      "damage": 2000
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_SLUDGE",
+      "row": 0,
+      "x": 680,
+      "y": 100,
+      "velocityX": -320
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "healing_start.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "healing_end.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THORNLILY",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "damage_plant",
+      "row": 2,
+      "col": 5,
+      "type": "PLANT_PUMPKINSHELL",
+      "damage": 3800
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_SLUDGE",
+      "row": 2,
+      "x": 800,
+      "y": 290,
+      "velocityX": -320
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "pumpkin_destroyed.json"
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_SLUDGE",
+      "row": 2,
+      "x": 800,
+      "y": 290,
+      "velocityX": -320
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "upper_muddy.json"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 3,
+      "x": 780,
+      "stationary": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.2
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "under_attack.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 5,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 5,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 5,
+      "x": 930,
+      "stationary": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_value",
+      "path": "zombies.0.sludgeShots",
+      "equals": 1,
+      "timeout": 20
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "kill_zombie",
+      "row": 5
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "source_dead_hit.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 1
+    },
+    {
+      "op": "spawn_bullet",
+      "type": "BULLET_SLUDGE",
+      "row": 0,
+      "x": 930,
+      "y": 100,
+      "velocityX": -320
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "bulletCount",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "finite_range.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 105,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_LILYPAD",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_THORNLILY",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 2,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 5,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 5,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 5,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 5,
+      "x": 950
+    },
+    {
+      "op": "damage_zombie",
+      "row": 5,
+      "damage": 450
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEAVY_DIVER",
+      "row": 2,
+      "x": 800
+    },
+    {
+      "op": "show_plant_hp"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.4
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "windup_and_thorns.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "visual_windup.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "moving_spray.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "visual_moving.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "next_spray.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "visual_final.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

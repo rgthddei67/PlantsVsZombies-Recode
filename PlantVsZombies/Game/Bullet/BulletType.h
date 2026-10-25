@@ -31,6 +31,7 @@ enum class BulletType {
 	BULLET_FLOOD_MORTAR, // 独立在途水弹
 	BULLET_LOTUS_SEED, // 莲蓬投手主弹；水中发射时命中后分裂
 	BULLET_LOTUS_FRAGMENT, // 一次锁定的小莲子；不重选目标、不递归分裂
+	BULLET_SLUDGE, // 水平泥团；独立在途，命中最外层后施加挂泥
 	NUM_BULLETS,
 };
 

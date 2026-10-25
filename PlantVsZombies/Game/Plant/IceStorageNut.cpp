@@ -32,7 +32,7 @@ void IceStorageNut::Update()
 {
 	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME && !DeltaTime::IsPaused()) {
 		const float delta = DeltaTime::GetDeltaTime();
-		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetFertilitySpeedMultiplier());
+		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetIndependentActionSpeedMultiplier());
 		mProtection.Advance(delta);
 	}
 	WallNut::Update();

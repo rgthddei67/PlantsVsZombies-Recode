@@ -1,6 +1,7 @@
 #include "WaveSpawnCounts.h"
 #include "WaveSpawnRules.h"
 #include "Game/Zombie/SalvageZombieRules.h"
+#include "Game/Zombie/SludgeZombieRules.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
 
@@ -10,6 +11,7 @@ namespace {
     // 新增限额类型只需登记持久化身份；正式生成门禁仍由 Board resolver 负责。
     // 钟匠历史读档夹紧为3（正式生成上限4），本次结构迁移保留原兼容语义。
     constexpr Entry entries[] = {
+    {ZombieType::ZOMBIE_SLUDGE, "sludgeZombiesSpawnedThisWave", SludgeZombieRules::PerWaveLimit},
     {ZombieType::ZOMBIE_SALVAGE, "salvageZombiesSpawnedThisWave", SalvageZombieRules::CompositeLimit},
     {ZombieType::ZOMBIE_ELITE_DANCER, "eliteDancersSpawnedThisWave", kEliteDancerMaxPerWave},
     {ZombieType::ZOMBIE_REINFORCED_DOOR, "reinforcedDoorsSpawnedThisWave", kReinforcedDoorMaxPerWave},

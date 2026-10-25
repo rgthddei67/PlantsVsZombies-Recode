@@ -45,3 +45,7 @@
 `Board::GetPlantFertilityMultiplier` 从当前逻辑占地和承载层派生土壤倍率，不保存第二份植物增益状态。`GetPositiveActionSpeedMultiplier` 合成天气与土壤，攻击/技能和生产入口复用它；`GetWeatherActionSpeedMultiplier` 仍只表达天气，穿雨竹替换雨势攻击规则时不能连土壤倍率一起除掉。原本不消费通用天气的能力，通过 `GetFertilitySpeedMultiplier` 仅加速其充能、冷却或生产时钟，反馈寿命、控制效果、保护窗口与一次性引爆等待不随之缩短。多格植物逐格检查全部占地，隔着花盆不接触土壤。
 
 高倍率必须检查真实产光、治疗和发弹结果。每次攻击准备完成后才推进的索敌节流，也需要同比例缩短土壤部分，否则状态倍率正确而实际射击频率被固定等待压低；不要因此改动全局时间或植物的状态持续时间。`smoke_waterside_actions` 与 `verify_waterside_garden.py` 用真实伤害和治疗次数补充倍率投影，有限时间窗口存在起手和在途弹丸差异，不能强求伤害总数恰好为整数倍。
+
+### 单株行动减速与独立能力时钟
+
+挂泥等单株状态由受击植物保存，命中只派发给当次实际承伤层；外壳击破不把同次状态穿透给下层。`GetPositiveActionSpeedMultiplier` 合成天气、土壤与挂泥；自有天气规则的正向能力使用 `GetIndependentActionSpeedMultiplier`，不要污染只表达天气的 getter。攻击减速取更强者时，须排除技能倍率里已含的挂泥，避免与水压重复相乘。独立状态寿命、反馈粒子、控制窗口和一次性引爆等待继续按游戏秒推进。排查应包含头文件内联行为（如 `SunFlower.h`）和进行中的计时动画（如玉米炮），不只搜索 cpp。验证实际产出/治疗进度、分层保护和读档无反馈重播；入口：`Plant`、`SludgeZombie` 与 `smoke_sludge_edges`。

@@ -56,7 +56,7 @@
 
 ## 后续工作边界
 
-目前开放到 12-4。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+目前开放到 12-6。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。12-4通关奖励刺莲，12-5引入淤泥僵尸，12-6加强三种水岸僵尸的混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
 
 实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。
 
@@ -131,3 +131,18 @@
 - 基座拆除接现有植物分层生命周期与洪水救援入口；形态与受灾资格读取 Board 真实地形，不复制一套水位或救援规则。
 - 目标身份、尚未完成动作、能力计时及在途分裂弹需遵守现有稳定实体 ID 和存档契约；恢复不能补发分裂弹、重复拆除或重置救援时间。
 - 验证入口为 `smoke_lotus_pult`、`smoke_salvage_zombie`、`smoke_waterside_second_progression`、`smoke_waterside_second_edges`，状态交叉检查见 [verify_waterside_second.py](../../../autotest/verify_waterside_second.py)。
+
+
+## 2026-10-25 12-5 / 12-6 刺莲与淤泥僵尸
+
+状态：2026-10-25 已实现，clang-release 无警告构建、五份新专项与三份相关可见回归、五项相关 CTest 通过。两关继续传统固定波次防守；12-4通关奖励刺莲，12-5先单独教学淤泥，12-6再与重潜、打捞混编。已完成12-4的旧玩家配置通过玩家schema v13补领刺莲，不回退或提前推进关卡。
+
+- 刺莲是睡莲的承载层紫卡，上层植物保持身份、生命和能力进度；以周围三行三列的地面群攻补偿两张卡占位，不增加减速或对空。普通睡莲与刺莲通过 `IsLilyPadPlantType` 共用承载、搬运、洪水固定、退水死亡及打捞资格，花盆仍独立占foundation。
+- 淤泥只影响实际命中的最外层；南瓜挡泥并承受加倍伤害，击破不把本次伤害或状态传给下层。水平泥团可由冰镜草拦截，保护伞不拦；离膛后独立存在，保留剩余射程与原方向。
+- 挂泥按独立游戏秒自然消退，入水和雨水不洗泥。同类命中刷新余时；攻击与蓄洪减速取较强者，生产、成长、消化、治疗、装填和充能使用挂泥自身倍率。单次产量、伤害、子弹飞行、卡冷、一次性引爆等待与控制寿命不变。
+- 喷泥前摇可被硬控或警铃打断；锚藕只限制移动，魅惑后停喷并正常反向啃食。喷具和路障不可磁吸。成功创建泥团的提交点才修复现存路障，满甲不溢出、破甲不重长、本体不恢复；同步调用正式防具修复换图入口，只在实际恢复时播放粒子及实际恢复量飘字。落空或被镜片拦截不回滚已提交回血。
+- 淤泥每波累计最多三只，不设同时或全关累计上限。台账独立存档，直造、恢复和死亡不改变已消费配额。
+
+当前参数仅维护在 [ThornLilyRules.h](../../../PlantVsZombies/Game/Plant/ThornLilyRules.h)、[SludgeZombieRules.h](../../../PlantVsZombies/Game/Zombie/SludgeZombieRules.h)、权威 gamedata 与 spawnlists。素材来源见 [生成记录](../../../scripts/assets/waterside_third_prompts.md)。
+
+验证入口：`smoke_thorn_lily`、`smoke_sludge_zombie`、`smoke_sludge_edges`、`smoke_waterside_third_progression`、`smoke_waterside_third_actions` 与 [状态交叉核对](../../../autotest/verify_waterside_third.py)。专项通过不等于整章实战平衡已经完成。

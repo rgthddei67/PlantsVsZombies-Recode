@@ -1,0 +1,13 @@
+<Emitter>
+<Name>SludgeArmorRepair</Name><Image>PARTICLE_HEALERPLUS</Image>
+<SpawnMinActive>1</SpawnMinActive><ParticleDuration>.8</ParticleDuration><SystemDuration>.85</SystemDuration>
+<ParticleScale>.38 .52,35 .42,100</ParticleScale><ParticleAlpha>1,65 0</ParticleAlpha>
+<Field><FieldType>Position</FieldType><Y>0 -22</Y></Field>
+</Emitter>
+<Emitter>
+<Name>SludgeRepairSpecks</Name><Image>IMAGE_SLUDGE_PROJECTILE</Image>
+<SpawnMinActive>7</SpawnMinActive><ParticleDuration>.5</ParticleDuration><SystemDuration>.6</SystemDuration>
+<EmitterType>Circle</EmitterType><EmitterRadius>[14 22]</EmitterRadius>
+<ParticleScale>.28 .12</ParticleScale><ParticleAlpha>1,70 0</ParticleAlpha>
+<Field><FieldType>Away</FieldType><X>-30</X></Field>
+</Emitter>

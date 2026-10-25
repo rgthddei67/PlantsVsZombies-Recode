@@ -955,6 +955,19 @@ int main() {
         const auto saved=old;
         Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved, "pending surge snapshot remains stable");
     }
+    {
+        std::string error;
+        for (int progress : {103, 104, 105}) {
+            nlohmann::json player = {{"schemaVersion", 12}, {"adventureLevel", progress},
+                {"havecards", nlohmann::json::array({static_cast<int>(PlantType::PLANT_PEASHOOTER)})}};
+            Expect(SaveSchema::UpgradePlayerDocument(player, error), "thorn lily reward migration succeeds");
+            Expect(player["adventureLevel"] == progress && player["havecards"].size() == (progress > 103 ? 2 : 1),
+                "thorn lily migration requires completed 12-4 and preserves progress");
+            const auto once = player;
+            Expect(SaveSchema::UpgradePlayerDocument(player, error) && player == once,
+                "thorn lily reward migration is idempotent");
+        }
+    }
 	TestCurrentLevelDocumentIsStable();
     {
         std::string error;

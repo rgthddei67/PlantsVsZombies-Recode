@@ -103,7 +103,7 @@ void Cactus::PlantUpdate()
 	if (mShootTimer < kShootIntervalSeconds) return;
 
 	// 攻击冷却完成后再确认目标；肥沃同步缩短确认间隔。
-	mAttackCheckTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+	mAttackCheckTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	if (mAttackCheckTimer < kTargetCheckIntervalSeconds) return;
 	mAttackCheckTimer = 0.0f;
 	if (!hasTarget) return;
@@ -128,7 +128,7 @@ void Cactus::UpdateTargetCache()
 	}
 
 	// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
-	mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetFertilitySpeedMultiplier();
+	mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	if (mCheckZombieTimer < kTargetCheckIntervalSeconds) return;
 	mCheckZombieTimer = 0.0f;
 

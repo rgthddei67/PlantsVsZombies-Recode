@@ -6,6 +6,7 @@
 #include "../Plant/Plant.h"
 #include "Bullet.h"
 #include "Game/Plant/LotusPultRules.h"
+#include "Game/Zombie/SludgeZombieRules.h"
 #include "Game/AutoTest/TestDriver.h"
 #include "Game/Plant/ThunderFlowerRules.h"
 #include "../GameObjectManager.h"
@@ -133,6 +134,7 @@ namespace {
         { BulletType::BULLET_FLOOD_MORTAR, BulletWindResponse::NONE },
         { BulletType::BULLET_LOTUS_SEED, BulletWindResponse::NONE },
         { BulletType::BULLET_LOTUS_FRAGMENT, BulletWindResponse::NONE },
+        { BulletType::BULLET_SLUDGE, BulletWindResponse::NONE },
 	};
 
 	constexpr bool BulletWindProfilesCoverEveryType()
@@ -164,6 +166,7 @@ namespace {
         if(type==BulletType::BULLET_FLOOD_MORTAR) return FloodMortarRules::Damage(0);
         if (type == BulletType::BULLET_LOTUS_SEED) return LotusPultRules::Damage;
         if (type == BulletType::BULLET_LOTUS_FRAGMENT) return LotusPultRules::FragmentDamage;
+        if (type == BulletType::BULLET_SLUDGE) return SludgeZombieRules::Damage;
         if (type == BulletType::BULLET_PRESSURE) return PressureShooterRules::Damage;
 		if (type == BulletType::BULLET_THUNDER_SEED) return ThunderFlowerRules::Damage;
 		if (type == BulletType::BULLET_FIREBALL
@@ -274,6 +277,7 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	this->mPoolType = bulletType;
 	this->mDamage = DefaultDamageForBullet(bulletType);
 	this->mRow = row;
+    mSludgeTravelRemaining = SludgeZombieRules::RangeCells * CELL_COLLIDER_SIZE_X;
 	if (!mBoard) return;
 	if (mBulletType == BulletType::BULLET_STAR) {
 		RestoreStarRoofReferenceY(CalculateStarRoofReferenceY(*mBoard, position, row));
@@ -292,7 +296,7 @@ Bullet::Bullet(Board* board, BulletType bulletType, int row, const Vector& colli
 	}
 
 	ConfigureCollisionTarget();
-    if((mBulletType==BulletType::BULLET_PRESSURE || mBulletType==BulletType::BULLET_RAIN_BAMBOO || mBulletType==BulletType::BULLET_FLOOD_MORTAR) && mCollider) mCollider->mEnabled=false;
+    if((mBulletType==BulletType::BULLET_SLUDGE || mBulletType==BulletType::BULLET_PRESSURE || mBulletType==BulletType::BULLET_RAIN_BAMBOO || mBulletType==BulletType::BULLET_FLOOD_MORTAR) && mCollider) mCollider->mEnabled=false;
 }
 
 int Bullet::GetBaseDamage(BulletType type) { return DefaultDamageForBullet(type); }
@@ -350,6 +354,7 @@ void Bullet::Reset(Board* board, int row,
 	mAuroraState.reset();
 	mLotusState.reset();
     mBambooHitIDs.clear();mWaterTrailRemaining=0;mFloodCharmed=false;
+    mSludgeTravelRemaining = SludgeZombieRules::RangeCells * CELL_COLLIDER_SIZE_X;
 	mAnimatorAdvancedInParallel = false;
 	ConfigurePresentation();
 	ConfigureCollisionTarget();
@@ -361,7 +366,7 @@ void Bullet::Reset(Board* board, int row,
 
 	// 重置 Collider
 	if (mCollider) {
-		mCollider->mEnabled = mBulletType != BulletType::BULLET_PRESSURE && mBulletType != BulletType::BULLET_RAIN_BAMBOO && mBulletType != BulletType::BULLET_FLOOD_MORTAR;
+		mCollider->mEnabled = mBulletType != BulletType::BULLET_SLUDGE && mBulletType != BulletType::BULLET_PRESSURE && mBulletType != BulletType::BULLET_RAIN_BAMBOO && mBulletType != BulletType::BULLET_FLOOD_MORTAR;
 	}
 }
 
@@ -405,7 +410,7 @@ void Bullet::Update()
 		const Vector previousPosition = transform->GetPosition();
         if(mBulletType==BulletType::BULLET_RAIN_BAMBOO) { UpdateRainBamboo(deltaTime); return; }
         if(mBulletType==BulletType::BULLET_FLOOD_MORTAR) { UpdateFloodMortar(deltaTime); return; }
-        if(mBulletType==BulletType::BULLET_PRESSURE) { UpdatePressureProjectile(deltaTime); return; }
+        if(mBulletType==BulletType::BULLET_PRESSURE || mBulletType==BulletType::BULLET_SLUDGE) { UpdateHostileStraightProjectile(deltaTime); return; }
         if (mBulletType == BulletType::BULLET_LOTUS_FRAGMENT) { UpdateLotusFragment(deltaTime); return; }
 		if (mBulletType == BulletType::BULLET_THERMAL_PULSE
 			&& mThermalConfigured) {
@@ -590,7 +595,7 @@ void Bullet::Draw(Graphics* g)
 			position.x -= drawWidth * 0.5f;
 			position.y -= drawHeight * 0.5f;
 		}
-        if(mBulletType==BulletType::BULLET_PRESSURE) {
+        if(mBulletType==BulletType::BULLET_PRESSURE || mBulletType==BulletType::BULLET_SLUDGE) {
             position.x-=drawWidth*.5f; position.y-=drawHeight*.5f;
             mRotationDegrees=mVelocityX>0 ? 180.0f : 0.0f;
         }
@@ -1058,6 +1063,8 @@ void Bullet::ConfigurePresentation()
         break;
     case BulletType::BULLET_FLOOD_MORTAR:
         mTexture=resources.GetTexture("PARTICLE_WATER_DROPLETS",false);mScale=.45f;break;
+    case BulletType::BULLET_SLUDGE:
+        mTexture = resources.GetTexture("IMAGE_SLUDGE_PROJECTILE", false); mScale = 1; break;
 	case BulletType::BULLET_PRESSURE:
         mTexture = resources.GetTexture("IMAGE_PRESSURE_PROJECTILE");
         mScale = 1;
@@ -2025,8 +2032,19 @@ int Bullet::GetWinterCorrosionDamage() const
 		? kSaltCrystalCorrosion : 0;
 }
 
-void Bullet::UpdatePressureProjectile(float deltaTime) {
-    const Vector from=GetPosition(), to=from+Vector(mVelocityX*deltaTime,0);
+void Bullet::RestoreSludgeTravel(float distance) {
+    mSludgeTravelRemaining = std::isfinite(distance) ? std::clamp(distance, 0.0f, SludgeZombieRules::RangeCells * CELL_COLLIDER_SIZE_X) : 0;
+}
+
+/** 气弹和泥团共享扫掠及最外层命中规则；泥团的距离和命中效果由自身弹型决定。 */
+void Bullet::UpdateHostileStraightProjectile(float deltaTime) {
+    const bool sludge = mBulletType == BulletType::BULLET_SLUDGE;
+    float travel = mVelocityX * deltaTime;
+    if (sludge) {
+        travel = std::copysign(std::min(std::abs(travel), mSludgeTravelRemaining), travel);
+        mSludgeTravelRemaining = std::max(0.0f, mSludgeTravelRemaining - std::abs(travel));
+    }
+    const Vector from=GetPosition(), to=from+Vector(travel,0);
     GetTransform()->SetPosition(to);
     if(mCollider) mCollider->mEnabled=false;
     if(!mBoard) return;
@@ -2046,7 +2064,11 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
             for(int id:{cell->GetPumpkinPlantID(),cell->GetNormalPlantID(),cell->GetUnderPlantID(),cell->GetFoundationPlantID()}) {
                 auto* p=mBoard->mEntityRegistry.GetPlant(id);
                 if(!p || !p->IsActive() || !p->OccupiesGridSlot() || p->IsSquished() || p->mPlantHealth<=0) continue;
-                p->TakeDamage(mDamage,DamageSource::ZOMBIE); hit=hitPlant=true; break;
+                const int damage = sludge && p->GetPlacementType() == PlantType::PLANT_PUMPKINSHELL
+                    ? mDamage * SludgeZombieRules::PumpkinMultiplier : mDamage;
+                p->TakeDamage(damage,DamageSource::ZOMBIE);
+                if (sludge && p->IsActive() && p->mPlantHealth > 0 && !p->IsSquished() && !p->IsDamageImmune()) p->ApplySludge();
+                hit=hitPlant=true; break;
             }
         }
     } else {
@@ -2063,7 +2085,7 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
         if(target) { target->TakeProjectileDamage(mDamage,DamageSource::ZOMBIE,mVelocityX); impact=Vector(best,to.y);hit=true; }
     }
     if(hit) {
-        if(g_particleSystem) g_particleSystem->EmitEffect("PressureHit",impact);
+        if(g_particleSystem) g_particleSystem->EmitEffect(sludge ? "SludgeHit" : "PressureHit",impact);
         if(hitPlant) {
             // 植物实际接弹才随机播放肉身 splat；镜片拦截仍保留冰镜自己的碎裂声。
             const int variant=GameRandom::Range(0,2);
@@ -2074,5 +2096,5 @@ void Bullet::UpdatePressureProjectile(float deltaTime) {
         else AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT2,.2f);
         Die(); return;
     }
-    if(to.x<-40 || to.x>SCENE_WIDTH+40) Die();
+    if((sludge && mSludgeTravelRemaining <= 0) || to.x<-40 || to.x>SCENE_WIDTH+40) Die();
 }
