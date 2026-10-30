@@ -20,6 +20,8 @@ def verify():
     assert read("status")["status"] == "passed"
     log = (SUITE / "run.log").read_text(encoding="utf-8")
     assert "script finished OK" in log and "FAIL" not in log
+    # The single-ship fixtures remove its first guard batch before probing lane collision;
+    # otherwise a guard can correctly intercept the pea before it reaches the moving hull.
     for prefix, row, low, high in (("early", 0, 100, 400), ("late", 1, 600, 900)):
         values = {
             name: read(f"{prefix}_{name}")["engineeringShip"]

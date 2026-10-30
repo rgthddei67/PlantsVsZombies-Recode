@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cmath>
+#include <span>
 #include <stdexcept>
 
 using namespace EngineeringShipRules;
@@ -71,11 +72,14 @@ void EngineeringShipZombie::ZombieUpdate(float seconds)
         break;
     case Phase::CHARGING:
         // 先提交开舱状态，再调用植物受击；反击导致的沉没不能被末尾换态覆盖。
+        mVolleyShotsRemaining = std::max(0, mVolleyShotsRemaining - 1);
         BeginCooling();
         FireCannon();
+        if (!mIsDying && !mIsDead && mVolleyShotsRemaining == 0) SummonReinforcements();
         break;
     case Phase::COOLING:
-        BeginRelocation();
+        if (mVolleyShotsRemaining > 0) BeginCharge(true);
+        else BeginRelocation();
         break;
     case Phase::SINKING:
         break;
@@ -92,11 +96,19 @@ void EngineeringShipZombie::BeginRelocation()
     if (!mBoard || IsAnchorRooted()) return;
     std::array<int, 2> rows{};
     int count = 0;
+    int bestFront = -1;
     for (int destination : {mRow - 1, mRow + 1}) {
         if (destination >= 0 && destination < mBoard->mRows
-            && mBoard->CanSpawnZombieInRow(mZombieType, destination)) rows[count++] = destination;
+            && mBoard->CanSpawnZombieInRow(mZombieType, destination)) {
+            const int front = FindFrontColumn(destination);
+            if (front < bestFront) continue;
+            if (front > bestFront) { bestFront = front; count = 0; }
+            rows[count++] = destination;
+        }
     }
     if (count == 0) return;
+    // 相邻行全空时保留本行有效火力；全空才继续巡游寻找阵线。
+    if (bestFront < 0 && FindFrontColumn(mRow) >= 0) return;
     const int destination = rows[count == 1 ? 0 : GameRandom::Range(0, count - 1)];
     const float destinationY = mBoard->GetZombieSpawnY(destination, GetPosition().x);
     if (destinationY < 0.0f) return;
@@ -161,18 +173,24 @@ void EngineeringShipZombie::SyncCollisionToRow()
     if (baseline >= 0.0f && spawnY >= 0.0f) mCollider->offset.y += baseline - spawnY;
 }
 
-void EngineeringShipZombie::BeginCharge()
+/** 查询当前可受水炮影响的最前格，供换位与每发重新锁格共用。 */
+int EngineeringShipZombie::FindFrontColumn(int row) const
+{
+    if (!mBoard) return -1;
+    for (int column = mBoard->mColumns - 1; column >= 0; --column) {
+        Plant* plant = mBoard->GetTopPlantAt(row, column);
+        if (plant && plant->IsActive() && !plant->IsSquished()) return column;
+    }
+    return -1;
+}
+
+void EngineeringShipZombie::BeginCharge(bool followup)
 {
     mPhase = Phase::CHARGING;
     mPhaseRemaining = ChargeSeconds;
+    if (!followup) mVolleyShotsRemaining = IsEnraged() ? EnragedVolleyShots : 1;
     mTargetRow = mRow;
-    mTargetColumn = -1;
-    for (int column = mBoard->mColumns - 1; column >= 0; --column) {
-        Plant* plant = mBoard->GetTopPlantAt(mRow, column);
-        if (!plant || !plant->IsActive() || plant->IsSquished()) continue;
-        mTargetColumn = column;
-        break;
-    }
+    mTargetColumn = FindFrontColumn(mRow);
 }
 
 void EngineeringShipZombie::BeginCooling()
@@ -213,12 +231,33 @@ void EngineeringShipZombie::TryHalfHealthReinforcements()
     if (mReinforced || !mBoard || mIsPreview || mIsDying || mIsDead || mBodyHealth <= 0) return;
     // 整批尝试先消费；被既有品种限额挡下的护卫不排队、不在名额释放或读档后补生。
     mReinforced = true;
-    constexpr std::array<ZombieType, HalfHealthGuardCount> types = {
-        ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
-        ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
+    SummonReinforcements(true);
+}
+
+/** 不补偿被限额挡下的历史批次；下一轮重新检查实际空位与正式品种配额。 */
+void EngineeringShipZombie::SummonReinforcements(bool halfHealthBurst)
+{
+    if (!mBoard || mIsPreview || mIsDying || mIsDead || mBodyHealth <= 0) return;
+    int alive = 0;
+    for (int id : mBoard->mEntityRegistry.GetAllZombieIDs()) {
+        const Zombie* zombie = mBoard->mEntityRegistry.GetZombie(id);
+        if (zombie && zombie != this && zombie->IsActive() && !zombie->IsDying()
+            && !zombie->IsMindControlled()) ++alive;
+    }
+    constexpr std::array regular = { // 常态每轮及半血突发护卫：两路障、两铁桶、一打捞、一淤泥
+        ZombieType::ZOMBIE_TRAFFIC_CONE, ZombieType::ZOMBIE_TRAFFIC_CONE,
+        ZombieType::ZOMBIE_BUCKET, ZombieType::ZOMBIE_BUCKET,
         ZombieType::ZOMBIE_SALVAGE, ZombieType::ZOMBIE_SLUDGE,
     };
-    for (int index = 0; index < static_cast<int>(types.size()); ++index) {
+    constexpr std::array enraged = { // 半血后每轮护卫：两铁桶、两橄榄球、两重潜、一打捞、一荷伞
+        ZombieType::ZOMBIE_BUCKET, ZombieType::ZOMBIE_BUCKET,
+        ZombieType::ZOMBIE_FOOTBALL, ZombieType::ZOMBIE_FOOTBALL,
+        ZombieType::ZOMBIE_HEAVY_DIVER, ZombieType::ZOMBIE_HEAVY_DIVER,
+        ZombieType::ZOMBIE_SALVAGE, ZombieType::ZOMBIE_LOTUS_PARASOL,
+    };
+    const std::span<const ZombieType> types = IsEnraged() && !halfHealthBurst
+        ? std::span<const ZombieType>(enraged) : std::span<const ZombieType>(regular);
+    for (int index = 0; index < static_cast<int>(types.size()) && alive < ReinforcementLimit; ++index) {
         int row = -1;
         for (int offset = 0; offset < mBoard->mRows; ++offset) {
             const int candidate = (mRow + index + 1 + offset) % mBoard->mRows;
@@ -229,7 +268,10 @@ void EngineeringShipZombie::TryHalfHealthReinforcements()
         if (actual == ZombieType::NUM_ZOMBIE_TYPES) continue;
         const float x = mBoard->GetCellCenterPosition(row, mBoard->mColumns - 1).x
             + CELL_COLLIDER_SIZE_X + index * GuardSpacing;
-        if (mBoard->CreateResolvedWaveZombie(actual, row, x)) ++mReinforcementCount;
+        if (mBoard->CreateResolvedWaveZombie(actual, row, x)) {
+            ++mReinforcementCount;
+            ++alive;
+        }
     }
 }
 
@@ -278,6 +320,7 @@ void EngineeringShipZombie::BeginSinking(bool playSound)
     mIsDying = true;
     mTargetRow = mTargetColumn = -1;
     mLaneDestinationRow = -1;
+    mVolleyShotsRemaining = 0;
     mShotVisualRemaining = 0.0f;
     ClearFrozen();
     ClearButter();
@@ -307,6 +350,7 @@ float EngineeringShipZombie::GetInterruptibleSpecialActionRemaining() const
 bool EngineeringShipZombie::InterruptUncommittedSpecialAction()
 {
     if (GetInterruptibleSpecialActionRemaining() < 0.0f) return false;
+    mVolleyShotsRemaining = 0;
     BeginCooling();
     mTargetRow = mTargetColumn = -1;
     SyncVisualState();
@@ -315,6 +359,7 @@ bool EngineeringShipZombie::InterruptUncommittedSpecialAction()
 
 float EngineeringShipZombie::GetCoolingDuration() const
 {
+    if (mPhase == Phase::COOLING && mVolleyShotsRemaining > 0) return VolleyCoolingSeconds;
     return IsEnraged() ? EnragedCoolingSeconds : CoolingSeconds;
 }
 
@@ -348,6 +393,7 @@ void EngineeringShipZombie::SaveExtraData(nlohmann::json& j) const
     j["shipTargetRow"] = mTargetRow;
     j["shipTargetColumn"] = mTargetColumn;
     j["shipShotCount"] = mShotCount;
+    j["shipVolleyShotsRemaining"] = mVolleyShotsRemaining;
     j["shipLastShotHitCount"] = mLastShotHitCount;
     j["shipShotVisualRemaining"] = mShotVisualRemaining;
     j["shipLaneSwitchCount"] = mLaneSwitchCount;
@@ -366,6 +412,8 @@ void EngineeringShipZombie::LoadExtraData(const nlohmann::json& j)
         return std::clamp(value, low, high);
     };
     mPhase = static_cast<Phase>(std::clamp(j.value("shipPhase", 0), 0, 3));
+    mVolleyShotsRemaining = std::clamp(j.value("shipVolleyShotsRemaining", 0), 0, EnragedVolleyShots);
+    if (mPhase != Phase::CHARGING && mPhase != Phase::COOLING) mVolleyShotsRemaining = 0;
     const float duration = mPhase == Phase::RELOCATING ? RelocationSeconds
         : mPhase == Phase::CHARGING ? ChargeSeconds
         : mPhase == Phase::SINKING ? SinkingSeconds : GetCoolingDuration();
@@ -389,7 +437,7 @@ void EngineeringShipZombie::LoadExtraData(const nlohmann::json& j)
     mButterTimer = std::min(mButterTimer, ButterSeconds);
     if (mButterTimer > 0.0f) mButterImmunityRemaining = 0.0f;
     mReinforced = j.value("shipReinforced", false);
-    mReinforcementCount = std::clamp(j.value("shipReinforcementCount", 0), 0, HalfHealthGuardCount);
+    mReinforcementCount = std::max(0, j.value("shipReinforcementCount", 0));
     mShellDamageRemainder = std::clamp(j.value("shipShellDamageRemainder", 0), 0, ShellDamageDivisor - 1);
     mNeedDropHead = mNeedDropArm = false;
     mHasHead = mHasArm = true;

@@ -105,7 +105,8 @@ void EngineeringShipZombie::Draw(Graphics* graphics)
                 glm::vec4(100, 205, 255, 35 + 35 * progress));
         }
         const Vector center = mBoard->GetCellCenterPosition(mTargetRow, mTargetColumn);
-        graphics->DrawGlyphRun("水炮 " + std::to_string(std::max(1, static_cast<int>(std::ceil(mPhaseRemaining)))),
+        const std::string label = mVolleyShotsRemaining > 1 ? "双连炮 " : "水炮 ";
+        graphics->DrawGlyphRun(label + std::to_string(std::max(1, static_cast<int>(std::ceil(mPhaseRemaining)))),
             ResourceKeys::Fonts::FONT_FZJZ, 15, glm::vec4(255, 229, 128, 255), center.x - 23, center.y - 49);
         const float size = 14 + 11 * progress;
         DrawSprite(graphics, glow, nozzle.x - size * .5f, nozzle.y - size * .5f, size, size,

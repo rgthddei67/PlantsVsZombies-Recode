@@ -8279,6 +8279,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
             zombieState["shipTargetRow"] = ship->GetTargetRow();
             zombieState["shipTargetColumn"] = ship->GetTargetColumn();
             zombieState["shipShotCount"] = ship->GetShotCount();
+            zombieState["shipVolleyShotsRemaining"] = ship->GetVolleyShotsRemaining();
             zombieState["shipLastShotHitCount"] = ship->GetLastShotHitCount();
             zombieState["shipShellRemainder"] = ship->GetShellDamageRemainder();
             zombieState["shipReinforced"] = ship->HasReinforced();

@@ -53,6 +53,7 @@ public:
     int GetTargetRow() const { return mTargetRow; }
     int GetTargetColumn() const { return mTargetColumn; }
     int GetShotCount() const { return mShotCount; }
+    int GetVolleyShotsRemaining() const { return mVolleyShotsRemaining; }
     int GetLastShotHitCount() const { return mLastShotHitCount; }
     bool HasReinforced() const { return mReinforced; }
     int GetReinforcementCount() const { return mReinforcementCount; }
@@ -79,10 +80,14 @@ private:
     void BeginRelocation();
     void UpdateRelocation();
     void CommitNearestRow();
-    void BeginCharge();
+    /** 新一轮按血量决定炮数；追击保留余炮数并重新锁格。 */
+    void BeginCharge(bool followup = false);
     void BeginCooling();
     void FireCannon();
     void TryHalfHealthReinforcements();
+    /** 整轮炮击结束后派兵；半血突发援军沿用同一入口及同时在场上限。 */
+    void SummonReinforcements(bool halfHealthBurst = false);
+    int FindFrontColumn(int row) const;
     void BeginSinking(bool playSound);
     /** 经典泳池的出生下沉只属于美术，船体碰撞始终回到当前行的逻辑基线。 */
     void SyncCollisionToRow();
@@ -98,6 +103,7 @@ private:
     int mTargetRow = -1;
     int mTargetColumn = -1;
     int mShotCount = 0;
+    int mVolleyShotsRemaining = 0;
     int mLastShotHitCount = 0;
     int mLaneSwitchCount = 0;
     int mReinforcementCount = 0;

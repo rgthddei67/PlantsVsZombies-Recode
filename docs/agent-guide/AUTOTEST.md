@@ -253,6 +253,8 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 
 ### 水岸洪水
 
+`smoke_engineering_ship_pressure` 从正式最终波验证多轮增援、同时上限与腾位补兵、半血双连炮的逐发预警、追击重新锁格、两发各自的打断和存档往返，以及有植物行的换位选择。运行后执行 `python autotest/verify_engineering_ship_pressure.py`，用稳定 ID 检查读档不补兵和半血护卫构成；`--generate` 重建脚本。既有 `smoke_engineering_ship_progression/combat/controls/edges/targeting` 配合 `verify_engineering_ship.py` 验证关卡入口、无巨人护卫、承伤、控制和品种配额；连续换位另用 `smoke_engineering_ship_relocation` 与同名 Python 验证器。
+
 `smoke_lotus_pult`、`smoke_salvage_zombie`、`smoke_waterside_second_progression`、`smoke_waterside_second_edges` 分别覆盖两栖与独立分裂弹、打捞与控制中断、12-2 奖励与双重出怪上限、命中粒子及重潜/锚藕交互。运行后执行 `python autotest/verify_waterside_second.py`，以稳定目标 ID 检查分裂去重、逐只伤害和在途恢复，以上层植物 ID 检查拆基座前后的保留。`--generate` 重新生成这四份脚本；资源验证同时核对实际 reanim、纹理键与粒子提交，不以 manifest 代替加载证据。
 
 `smoke_waterside_overflow` 用真实降雨越过满水边界，覆盖溢流环、锁定预警、临时补盆、目标替换、读档及退水；`smoke_waterside_foundation` 覆盖整组台风/搬运、双格原子移动、真实铲子和巨人五层砸击。运行后执行 `python autotest/verify_waterside_overflow.py`；用稳定 ID 核对保留和迁移，不能只看同格类型。修改溢流环 shader 时用同一脚本另存诊断副本，分别配 `-NoInstance` 和 `-Renderer=opengl -OpenGL33`，保留独立输出与同步截图。

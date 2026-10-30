@@ -1021,6 +1021,24 @@ int main() {
 		Expect(SaveSchema::UpgradeLevelDocument(old, error) && old == current, "新档保留随机模式与天气倒计时");
 	}
 	TestStarRoofReferenceMigration();
+    {
+        std::string error;
+        for (int phase : {0, 1, 2, 3}) {
+            nlohmann::json level = {{"schemaVersion", 39}, {"zombies", nlohmann::json::array({
+                {{"type", static_cast<int>(ZombieType::ZOMBIE_ENGINEERING_SHIP)},
+                 {"extraData", {{"shipPhase", phase}, {"shipPhaseRemaining", 1.25f},
+                     {"shipReinforced", true}, {"shipReinforcementCount", 6}}}}})}};
+            Expect(SaveSchema::UpgradeLevelDocument(level, error), "engineering ship volley migration succeeds");
+            auto& extra = level["zombies"][0]["extraData"];
+            Expect(extra["shipVolleyShotsRemaining"] == (phase == 1 ? 1 : 0)
+                && extra["shipPhaseRemaining"] == 1.25f && extra["shipReinforced"] == true
+                && extra["shipReinforcementCount"] == 6, "old ship preserves phase and consumed guards without adding a followup");
+            extra["shipVolleyShotsRemaining"] = 2;
+            const auto saved = level;
+            Expect(SaveSchema::UpgradeLevelDocument(level, error) && level == saved,
+                "current volley is not reset on repeated load");
+        }
+    }
 	TestSunCollectionMigration();
 	TestLegacyLevelUpgradePreservesGameplayState();
 	TestVersionOneLevelUpgradeDefersFogInitializationToBoard();

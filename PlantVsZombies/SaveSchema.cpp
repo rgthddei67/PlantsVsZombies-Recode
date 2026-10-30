@@ -651,6 +651,17 @@ namespace {
                 // 旧局没有打捞配额或莲子弹；只补零台账，不补生或改写其他在途弹丸。
                 if (kind == DocumentKind::Level) upgraded["salvageZombiesSpawnedThisWave"] = 0;
                 version = 39; upgraded["schemaVersion"] = version; break;
+            case 39:
+                // 旧工程船只续接已预警的单炮；不凭半血状态插入追击或补发历史增援。
+                if (kind == DocumentKind::Level && upgraded.contains("zombies") && upgraded["zombies"].is_array()) {
+                    for (auto& zombie : upgraded["zombies"]) {
+                        if (!zombie.is_object() || zombie.value("type", -1) != static_cast<int>(ZombieType::ZOMBIE_ENGINEERING_SHIP)
+                            || !zombie.contains("extraData") || !zombie["extraData"].is_object()) continue;
+                        auto& extra = zombie["extraData"];
+                        extra["shipVolleyShotsRemaining"] = extra.value("shipPhase", 0) == 1 ? 1 : 0;
+                    }
+                }
+                version = 40; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

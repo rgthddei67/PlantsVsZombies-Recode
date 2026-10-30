@@ -29,16 +29,16 @@ def verify():
     before, after = [read(suite, n)['zombieAlmanacEntries'] for n in ('almanac_before', 'almanac_after')]
     assert SHIP not in before and set(after) - set(before) == {SHIP}
     cfg = read(suite, 'config')
-    assert cfg['maxWave'] == 40 and cfg['sun'] == 500 and cfg['spawnTypeCount'] == 11
+    assert cfg['maxWave'] == 40 and cfg['sun'] == 500 and cfg['spawnTypeCount'] == 10
     first = read(suite, 'final_wave')
     counts = Counter(z['type'] for z in first['zombies'])
-    assert counts[SHIP] == counts['ZOMBIE_GARGANTUAR'] == 1
+    assert counts[SHIP] == 1 and counts['ZOMBIE_GARGANTUAR'] == 0
     assert counts['ZOMBIE_NORMAL'] + counts['ZOMBIE_POOL_NORMAL'] == 4
     assert counts['ZOMBIE_BUCKET'] + counts['ZOMBIE_POOL_BUCKET'] == 2
     restored = read(suite, 'final_wave_reload')
     assert {z['id'] for z in first['zombies']} == {z['id'] for z in restored['zombies']}
     half, restored = [read(suite, n) for n in ('half', 'half_reload')]
-    assert len(half['zombies']) == len(restored['zombies']) == 14
+    assert len(half['zombies']) == len(restored['zombies']) == 13
     assert half['engineeringShip']['shipReinforcementCount'] == 6
     assert {z['id'] for z in half['zombies']} == {z['id'] for z in restored['zombies']}
     assert read(suite, 'boss_dead')['trophy'] is None and read(suite, 'cleared')['trophy'] is not None
@@ -82,7 +82,7 @@ def verify():
         assert read(suite, name)['engineeringShip']['bodyHealth'] == 24000
     for name in ('pea_fertile', 'cabbage_fertile'):
         assert 23000 <= read(SUITES[4], name)['engineeringShip']['bodyHealth'] <= 23990
-    print('Engineering ship: progression, locked-cell damage, controls, finite guards and saves passed.')
+    print('Engineering ship: progression, locked-cell damage, controls, guard quotas and saves passed.')
 
 
 if __name__ == '__main__':

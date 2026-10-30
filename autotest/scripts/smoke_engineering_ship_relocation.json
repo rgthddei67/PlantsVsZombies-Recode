@@ -67,6 +67,27 @@
       "equals": 1
     },
     {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 1
+    },
+    {
       "op": "dump_state",
       "name": "early_moving.json"
     },
@@ -291,6 +312,27 @@
       "equals": 1
     },
     {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 1
+    },
+    {
       "op": "dump_state",
       "name": "late_moving.json"
     },
@@ -506,6 +548,27 @@
     {
       "op": "assert_state",
       "path": "engineeringShip.row",
+      "equals": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "kill_zombie",
+      "index": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
       "equals": 1
     },
     {

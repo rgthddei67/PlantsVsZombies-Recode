@@ -63,7 +63,23 @@
     {
       "op": "assert_state",
       "path": "spawnTypeCount",
-      "equals": 11
+      "equals": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "spawnList",
+      "equals": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_TRAFFIC_CONE",
+        "ZOMBIE_BUCKET",
+        "ZOMBIE_FOOTBALL",
+        "ZOMBIE_ELITE_POLEVAULTER",
+        "ZOMBIE_DOLPHIN_RIDER",
+        "ZOMBIE_HEAVY_DIVER",
+        "ZOMBIE_SALVAGE",
+        "ZOMBIE_SLUDGE",
+        "ZOMBIE_LOTUS_PARASOL"
+      ]
     },
     {
       "op": "assert_state",
@@ -190,7 +206,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 8
+      "equals": 7
     },
     {
       "op": "assert_state",
@@ -222,12 +238,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 8
-    },
-    {
-      "op": "assert_state",
-      "path": "zombiesByType.ZOMBIE_GARGANTUAR.bodyHealth",
-      "equals": 3000
+      "equals": 7
     },
     {
       "op": "assert_state",
@@ -276,7 +287,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 8
+      "equals": 7
     },
     {
       "op": "dump_state",
@@ -300,7 +311,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 14
+      "equals": 13
     },
     {
       "op": "assert_state",
@@ -345,7 +356,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 14
+      "equals": 13
     },
     {
       "op": "dump_state",
@@ -390,7 +401,7 @@
     {
       "op": "assert_state",
       "path": "zombieCount",
-      "equals": 13
+      "equals": 12
     },
     {
       "op": "assert_state",
@@ -400,10 +411,6 @@
     {
       "op": "dump_state",
       "name": "boss_dead.json"
-    },
-    {
-      "op": "kill_zombie",
-      "index": 0
     },
     {
       "op": "kill_zombie",

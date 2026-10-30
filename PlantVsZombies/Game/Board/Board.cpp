@@ -2768,20 +2768,19 @@ void Board::TrySummonAdventureBoss()
 			kRoofMarshalBossSpawnX);
 		break;
 	case AdventureProgression::BossSlot::ENGINEERING_SHIP: {
-		// 最终波使用有限护卫，不叠加普通旗帜波预算；半血援军由首领独占且只发一次。
+		// 登场护卫不叠加普通旗帜波预算；之后的持续援军由首领攻击循环控制。
 		CreateZombie(ZombieType::ZOMBIE_ENGINEERING_SHIP, mRows / 2,
 			kEngineeringShipSpawnX);
 		constexpr std::array guards = {
 			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
 			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
 			ZombieType::ZOMBIE_BUCKET, ZombieType::ZOMBIE_BUCKET,
-			ZombieType::ZOMBIE_GARGANTUAR,
 		};
 		for (const ZombieType type : guards) {
 			const ZombieType actual = ResolveWaveZombieType(type);
 			if (actual == ZombieType::NUM_ZOMBIE_TYPES) continue;
 			const int row = SelectSpawnRow(actual);
-			// 保持在通用世界回收边界内，避免最慢的巨人还未入场就被当成越界实体回收。
+			// 保持在通用世界回收边界内，避免护卫尚未入场就被当成越界实体回收。
 			if (row < 0 || !CreateOrQueueWaveZombie(actual, row, static_cast<float>(SCENE_WIDTH) + 40.0f))
 				mWaveSpawnCounts.CancelReservation(actual);
 		}
