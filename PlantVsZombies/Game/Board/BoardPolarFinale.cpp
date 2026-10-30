@@ -28,6 +28,7 @@ bool IsTemporalAnchorTargetType(ZombieType type)
 {
 	return type != ZombieType::ZOMBIE_BOBSLED_TEAM
 		&& type != ZombieType::ZOMBIE_ROOF_MARSHAL
+		&& type != ZombieType::ZOMBIE_ENGINEERING_SHIP
 		&& type != ZombieType::ZOMBIE_BOSS;
 }
 

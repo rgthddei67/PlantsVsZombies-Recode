@@ -35,6 +35,7 @@ public:
 	void ResolvePlantAshDamage(int damage) override;
 	/** @brief 大嘴花不能吞下首领；攻击者随后按统一规则结算小额咬伤。 */
 	bool TakePlantInstantKill() override;
+	bool CanBeSquashedInstantly() const override { return false; }
 	/** @brief 首领始终走本体受伤与常规死亡表现，不生成普通僵尸烧焦残影。 */
 	bool CanBeCharred() const override { return false; }
 	/** @brief 首领不接受魅惑，魅惑菇仍按通用规则被吃掉。 */

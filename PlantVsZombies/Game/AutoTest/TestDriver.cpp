@@ -159,6 +159,7 @@
 #include "../Zombie/ImpZombie.h"
 #include "../Zombie/PoolNormalZombie.h"
 #include "../Zombie/RoofMarshalZombie.h"
+#include "../Zombie/EngineeringShipZombie.h"
 #include "../Zombie/InsulatorZombie.h"
 #include "../Zombie/HijackerZombie.h"
 #include "../Zombie/HealerZombie.h"
@@ -541,7 +542,7 @@ namespace {
 		ZT(ZOMBIE_ADAPTIVE_HELMET),
 		ZT(ZOMBIE_THERMAL_SNIPER),
 		ZT(ZOMBIE_AURORA_PRIEST), ZT(ZOMBIE_POLAR_CLOCKMAKER),
-		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_SLUDGE), ZT(ZOMBIE_LOTUS_PARASOL), ZT(ZOMBIE_PRESSURE_GUARD),
+		ZT(ZOMBIE_EXCAVATOR), ZT(ZOMBIE_CRYSTAL_HORN_MINER), ZT(ZOMBIE_SUN_THIEF), ZT(ZOMBIE_CRYSTAL_DRUMMER), ZT(ZOMBIE_ICE_WORKER), ZT(ZOMBIE_BOILER), ZT(ZOMBIE_COLD_CHAIN_GUARD), ZT(ZOMBIE_DISASTER_ENGINEER), ZT(ZOMBIE_PRESSURE_SHOOTER), ZT(ZOMBIE_FLOOD_MORTAR), ZT(ZOMBIE_FOG_FERRY), ZT(ZOMBIE_HEAVY_DIVER), ZT(ZOMBIE_SALVAGE), ZT(ZOMBIE_SLUDGE), ZT(ZOMBIE_LOTUS_PARASOL), ZT(ZOMBIE_ENGINEERING_SHIP), ZT(ZOMBIE_PRESSURE_GUARD),
 	};
 #undef ZT
 #define PK(n) { #n, PerkType::n }
@@ -771,6 +772,7 @@ namespace {
 		switch (slot) {
 		case AdventureProgression::BossSlot::NONE:         return "NONE";
 		case AdventureProgression::BossSlot::ROOF_MARSHAL: return "ROOF_MARSHAL";
+		case AdventureProgression::BossSlot::ENGINEERING_SHIP: return "ENGINEERING_SHIP";
 		}
 		return "UNKNOWN";
 	}
@@ -4564,6 +4566,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         "IMAGE_LOTUSPARASOL_INTACT", "IMAGE_LOTUSPARASOL_DAMAGED", "IMAGE_LOTUSPARASOL_BROKEN"})
         pairFourReady = pairFourReady && ResourceManager::GetInstance().GetTexture(key, false);
     out["watersideFourthResourcesReady"] = pairFourReady;
+    bool engineeringShipReady = ResourceManager::GetInstance().HasReanimation("EngineeringShipZombie");
+    for (const char* key : {"IMAGE_REANIM_ENGINEERING_SHIP_BODY", "IMAGE_REANIM_ENGINEERING_SHIP_CANNON",
+        "IMAGE_REANIM_ENGINEERING_SHIP_CAPTAIN", "IMAGE_REANIM_ENGINEERING_SHIP_HATCH",
+        "IMAGE_ENGINEERING_SHIP_BODY_DAMAGED", "IMAGE_ENGINEERING_SHIP_HATCH_LEFT", "IMAGE_ENGINEERING_SHIP_HATCH_RIGHT",
+        "IMAGE_ENGINEERING_SHIP_WATERJET", "IMAGE_ENGINEERING_SHIP_SPLASH"})
+        engineeringShipReady = engineeringShipReady && ResourceManager::GetInstance().GetTexture(key, false);
+    out["engineeringShipResourcesReady"] = engineeringShipReady;
+    out["engineeringShipCount"] = 0;
+    out["engineeringShip"] = nullptr;
     out["lotusParasolCount"] = 0;
     out["lotusParasolActiveCount"] = 0;
     out["lotusParasolReflectedCount"] = 0;
@@ -6423,6 +6434,14 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	out["isBossLevel"] = AdventureProgression::IsBossLevel(board->mLevel);
 	out["bossSlot"] = BossSlotName(AdventureProgression::GetBossSlot(board->mLevel));
 	out["poolEffectCounter"] = gs->GetPoolEffectCounter();
+	const auto shipHealthBar = gs->GetEngineeringShipBossHealthBarState();
+	out["engineeringShipBossHealthBar"] = {
+		{"visible", shipHealthBar.visible}, {"currentHealth", shipHealthBar.currentHealth},
+		{"maxHealth", shipHealthBar.maxHealth}, {"halfHealthThreshold", shipHealthBar.halfHealthThreshold},
+		{"fillPermille", static_cast<int>(std::lround(shipHealthBar.fillRatio * 1000.0f))},
+		{"phase", shipHealthBar.phase},
+		{"phaseRemainingMs", static_cast<int>(std::lround(shipHealthBar.phaseRemaining * 1000.0f))},
+	};
 	const RoofMarshalBossHealthBarState bossHealthBar =
 		gs->GetRoofMarshalBossHealthBarState();
 	out["roofMarshalBossHealthBar"] = {
@@ -8254,6 +8273,35 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         zombieState["anchorRootPlantID"] = z->GetAnchorRootPlantID();
         zombieState["anchorRootMs"] = static_cast<int>(std::lround(z->GetAnchorRootRemaining()*1000));
         zombieState["anchorRootImmunityMs"] = static_cast<int>(std::lround(z->GetAnchorRootImmunity()*1000));
+        if (const auto* ship = dynamic_cast<const EngineeringShipZombie*>(z)) {
+            zombieState["shipPhase"] = ship->GetPhaseName();
+            zombieState["shipPhaseRemainingMs"] = static_cast<int>(std::lround(ship->GetPhaseRemaining() * 1000));
+            zombieState["shipTargetRow"] = ship->GetTargetRow();
+            zombieState["shipTargetColumn"] = ship->GetTargetColumn();
+            zombieState["shipShotCount"] = ship->GetShotCount();
+            zombieState["shipLastShotHitCount"] = ship->GetLastShotHitCount();
+            zombieState["shipShellRemainder"] = ship->GetShellDamageRemainder();
+            zombieState["shipReinforced"] = ship->HasReinforced();
+            zombieState["shipReinforcementCount"] = ship->GetReinforcementCount();
+            zombieState["shipLaneSwitchCount"] = ship->GetLaneSwitchCount();
+            zombieState["shipLaneDestinationRow"] = ship->GetLaneDestinationRow();
+            zombieState["shipLaneProgressOn1000"] = static_cast<int>(std::lround(ship->GetLaneProgress() * 1000));
+            zombieState["shipLaneFromY"] = ship->GetLaneFromY();
+            if (const auto* collider = ship->GetColliderComponent()) {
+                const SDL_FRect bounds = collider->GetBoundingBox();
+                zombieState["shipColliderVisualYDeltaOn1000"] = static_cast<int>(std::lround(
+                    (bounds.y + bounds.h * .5f - ship->GetVisualPosition().y) * 1000));
+            }
+            zombieState["shipLeftHatchVisible"] = anim && anim->GetTrackFollowerVisible("Zombie_body", "engineering_hatch_left");
+            zombieState["shipRightHatchVisible"] = anim && anim->GetTrackFollowerVisible("Zombie_body", "engineering_hatch_right");
+            zombieState["shipCoolingMs"] = static_cast<int>(std::lround(ship->GetCoolingDuration() * 1000));
+            zombieState["shipEnraged"] = ship->IsEnraged();
+            zombieState["shipButterImmunityMs"] = static_cast<int>(std::lround(ship->GetButterImmunityRemaining() * 1000));
+            zombieState["shipShotVisualMs"] = static_cast<int>(std::lround(ship->GetShotVisualRemaining() * 1000));
+            zombieState["shipDeathRemainingMs"] = static_cast<int>(std::lround(ship->GetDeathRemaining() * 1000));
+            out["engineeringShipCount"] = out["engineeringShipCount"].get<int>() + 1;
+            out["engineeringShip"] = zombieState;
+        }
         if (const auto* parasol = dynamic_cast<const LotusParasolZombie*>(z)) {
             zombieState["parasolHealthOn2"] = static_cast<int>(std::lround(parasol->GetParasolHealth()*2));
             zombieState["parasolActive"] = parasol->IsParasolActive();

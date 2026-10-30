@@ -323,9 +323,7 @@ void Squash::ApplySquashDamage()
 				return;
 			}
 
-			if (zombie->mBodyHealth <= kSquashDamage && 
-				zombie->mZombieType != ZombieType::ZOMBIE_GARGANTUAR && 
-				zombie->mZombieType != ZombieType::ZOMBIE_REDEYE_GARGANTUAR)
+			if (zombie->mBodyHealth <= kSquashDamage && zombie->CanBeSquashedInstantly())
 			{
 				zombie->Die();
 			}

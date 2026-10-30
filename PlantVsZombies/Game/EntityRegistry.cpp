@@ -3,6 +3,7 @@
 #include "Zombie/Zombie.h"
 #include "Zombie/GildedZamboniZombie.h"
 #include "Zombie/RoofMarshalZombie.h"
+#include "Zombie/EngineeringShipZombie.h"
 #include "Zombie/HijackerZombie.h"
 #include "Zombie/HealerZombie.h"
 #include "../GameRandom.h"
@@ -40,6 +41,7 @@ int EntityRegistry::AddZombie(std::shared_ptr<Zombie> zombie) {
 	mRowIndexDirty = true; // 同帧生成后，火球溅射等行查询必须立即看见新僵尸
 	TrackGoldenIceSource(id, zombie);
 	TrackRoofMarshal(id, zombie);
+	TrackEngineeringShip(id, zombie);
 	TrackHijacker(id, zombie);
 	TrackNightRoofChargeGuide(id, zombie);
 	TrackHealer(id, zombie);
@@ -75,6 +77,15 @@ std::shared_ptr<RoofMarshalZombie> EntityRegistry::GetFirstActiveRoofMarshal() c
 		return marshal;
 	}
 	return nullptr;
+}
+
+std::shared_ptr<EngineeringShipZombie> EntityRegistry::GetFirstActiveEngineeringShip() const {
+    for (const auto& [id, weak] : mEngineeringShips) {
+        const auto ship = weak.lock();
+        if (ship && ship->IsActive() && !ship->IsPreview() && !ship->IsDying() && ship->mBodyHealth > 0)
+            return ship;
+    }
+    return nullptr;
 }
 
 std::shared_ptr<HijackerZombie> EntityRegistry::SelectNightRoofHijacker() const
@@ -283,6 +294,12 @@ void EntityRegistry::TrackRoofMarshal(
 	}
 }
 
+void EntityRegistry::TrackEngineeringShip(int id, const std::shared_ptr<Zombie>& zombie)
+{
+    if (auto ship = std::dynamic_pointer_cast<EngineeringShipZombie>(zombie)) mEngineeringShips[id] = ship;
+    else mEngineeringShips.erase(id);
+}
+
 void EntityRegistry::TrackHijacker(
 	int id, const std::shared_ptr<Zombie>& zombie)
 {
@@ -361,6 +378,8 @@ std::vector<int> EntityRegistry::CleanupExpired() {
 			}
 		}
 
+		std::erase_if(mEngineeringShips, [](const auto& entry) { return entry.second.expired(); });
+
 		for (auto it = mRoofMarshals.begin(); it != mRoofMarshals.end(); ) {
 			if (it->second.expired()) {
 				it = mRoofMarshals.erase(it);
@@ -432,6 +451,7 @@ int EntityRegistry::AddZombieWithID(std::shared_ptr<Zombie> zombie, int id) {
 	mRowIndexDirty = true;
 	TrackGoldenIceSource(id, zombie);
 	TrackRoofMarshal(id, zombie);
+	TrackEngineeringShip(id, zombie);
 	TrackHijacker(id, zombie);
 	TrackNightRoofChargeGuide(id, zombie);
 	TrackHealer(id, zombie);

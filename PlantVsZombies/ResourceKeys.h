@@ -762,6 +762,7 @@ namespace ResourceKeys
 	// reanim 键名 ≠ 键值（值是 CamelCase 文件名），故全部显式书写，不用 RKEY。
 	namespace Reanimations
 	{
+		inline const std::string REANIM_ENGINEERING_SHIP = "EngineeringShipZombie";
 		inline const std::string REANIM_SUN = "Sun";
 		inline const std::string REANIM_SLEEPING = "Z";
 		inline const std::string REANIM_CRAZY_DAVE = "CrazyDave";

@@ -145,6 +145,7 @@
 #include "../Zombie/ImpZombie.h"
 #include "../Zombie/RedeyeGargantuarZombie.h"
 #include "../Zombie/RoofMarshalZombie.h"
+#include "../Zombie/EngineeringShipZombie.h"
 #include "../Zombie/InsulatorZombie.h"
 #include "../Zombie/HijackerZombie.h"
 #include "../Zombie/HealerZombie.h"
@@ -313,6 +314,17 @@ void GameDataManager::InitializeHardcodedData() {
         AnimationType::ANIM_FOG_FERRY,"FogFerryZombie",&MakeZombie<FogFerryZombie>,&FogFerryZombie::GetBirthMovementProfile);
     RegisterPlant(PlantType::PLANT_FLOATSUNFLOWER, "PLANT_FLOATSUNFLOWER", "IMAGE_FLOATSUNFLOWER",
         AnimationType::ANIM_FLOATSUNFLOWER, "FloatSunflower", &MakePlant<FloatSunflower>);
+    RegisterZombie(ZombieType::ZOMBIE_ENGINEERING_SHIP, "ZOMBIE_ENGINEERING_SHIP",
+        AnimationType::ANIM_ENGINEERING_SHIP, ResourceKeys::Reanimations::REANIM_ENGINEERING_SHIP,
+        &MakeZombie<EngineeringShipZombie>, +[] {
+            ZombieMovementRules::BirthProfile profile;
+            profile.clip = "anim_idle";
+            profile.alternative = nullptr;
+            profile.linear = true; // 工程船只纵向换行，任何阶段都没有自主水平位移。
+            profile.velocityMinimum = profile.velocityMaximum = 0.0f;
+            profile.animationMinimum = profile.animationMaximum = 1.0f;
+            return profile;
+        });
     RegisterZombie(ZombieType::ZOMBIE_LOTUS_PARASOL, "ZOMBIE_LOTUS_PARASOL",
         AnimationType::ANIM_LOTUS_PARASOL, "LotusParasolZombie", &MakeZombie<LotusParasolZombie>, &LotusParasolZombie::GetBirthMovementProfile);
     RegisterPlant(PlantType::PLANT_THORNLILY, "PLANT_THORNLILY", "IMAGE_THORNLILY",

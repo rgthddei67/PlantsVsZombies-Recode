@@ -2,6 +2,11 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/Engineering_ship_waterjet.png</Image>
+    <Image>./resources/image/Engineering_ship_splash.png</Image>
+    <Image>./resources/image/Engineering_ship_body_damaged.png</Image>
+    <Image>./resources/image/Engineering_ship_hatch_left.png</Image>
+    <Image>./resources/image/Engineering_ship_hatch_right.png</Image>
     <Image>./resources/image/PlantImage/ThornLily.png</Image>
     <Image>./resources/image/PlantImage/FloatSunflower.png</Image>
     <Image>./resources/image/PlantImage/LotusPult.png</Image>
@@ -670,6 +675,7 @@
     <Reanimation name="IceStorageNut">./resources/reanim/IceStorageNut.reanim</Reanimation>
     <Reanimation name="HeavyDiverZombie">./resources/reanim/HeavyDiverZombie.reanim</Reanimation>
     <Reanimation name="FloatSunflower">./resources/reanim/FloatSunflower.reanim</Reanimation>
+    <Reanimation name="EngineeringShipZombie">./resources/reanim/EngineeringShipZombie.reanim</Reanimation>
     <Reanimation name="LotusParasolZombie">./resources/reanim/LotusParasolZombie.reanim</Reanimation>
     <Reanimation name="ThornLily">./resources/reanim/ThornLily.reanim</Reanimation>
     <Reanimation name="SludgeZombie">./resources/reanim/SludgeZombie.reanim</Reanimation>

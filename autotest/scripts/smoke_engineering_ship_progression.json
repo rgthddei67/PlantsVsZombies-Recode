@@ -1,0 +1,505 @@
+{
+  "commands": [
+    {
+      "op": "set_adventure_level",
+      "level": 108
+    },
+    {
+      "op": "goto_zombie_almanac"
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "almanac_before.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 107,
+      "resetTestState": true
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 40
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 250
+    },
+    {
+      "op": "goto_level",
+      "level": 108,
+      "resetTestState": true
+    },
+    {
+      "op": "assert_state",
+      "path": "levelName",
+      "equals": "关卡 12-9"
+    },
+    {
+      "op": "assert_state",
+      "path": "maxWave",
+      "equals": 40
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 500
+    },
+    {
+      "op": "assert_state",
+      "path": "isBossLevel",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "bossSlot",
+      "equals": "ENGINEERING_SHIP"
+    },
+    {
+      "op": "assert_state",
+      "path": "spawnTypeCount",
+      "equals": 11
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4.2
+    },
+    {
+      "op": "screenshot",
+      "name": "preview.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "config.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 108,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_auto_collect",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 0,
+      "expected": true
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 1,
+      "expected": true
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 2,
+      "expected": true
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 3,
+      "expected": true
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 4,
+      "expected": true
+    },
+    {
+      "op": "assert_zombie_spawn_row",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 5,
+      "expected": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipBossHealthBar.visible",
+      "equals": false
+    },
+    {
+      "op": "set_wave_spawn_list",
+      "types": [
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "summon_next_wave",
+      "count": 39,
+      "clearPrevious": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipCount",
+      "equals": 0
+    },
+    {
+      "op": "summon_next_wave",
+      "clearPrevious": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 8
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 24000
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipBossHealthBar.visible",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipBossHealthBar.fillPermille",
+      "equals": 1000
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.25
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 8
+    },
+    {
+      "op": "assert_state",
+      "path": "zombiesByType.ZOMBIE_GARGANTUAR.bodyHealth",
+      "equals": 3000
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipLeftHatchVisible",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipRightHatchVisible",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "final_wave.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "final_wave.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "final_wave"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "final_wave"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipCount",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 8
+    },
+    {
+      "op": "dump_state",
+      "name": "final_wave_reload.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 24002
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 11999
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipReinforcementCount",
+      "equals": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 14
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipCoolingMs",
+      "equals": 6000
+    },
+    {
+      "op": "dump_state",
+      "name": "half.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "half"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "half"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipReinforcementCount",
+      "equals": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 14
+    },
+    {
+      "op": "dump_state",
+      "name": "half_reload.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 100000
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipBossHealthBar.visible",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipPhase",
+      "equals": "SINKING"
+    },
+    {
+      "op": "screenshot",
+      "name": "sinking.png"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.3
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipCount",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 13
+    },
+    {
+      "op": "assert_state",
+      "path": "trophy",
+      "equals": null
+    },
+    {
+      "op": "dump_state",
+      "name": "boss_dead.json"
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "kill_zombie",
+      "index": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "trophy.x",
+      "atLeast": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "cleared.json"
+    },
+    {
+      "op": "click",
+      "target": "trophy"
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "assert_state",
+      "path": "adventureLevel",
+      "equals": 109
+    },
+    {
+      "op": "dump_state",
+      "name": "reward.json"
+    },
+    {
+      "op": "goto_zombie_almanac"
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "dump_state",
+      "name": "almanac_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

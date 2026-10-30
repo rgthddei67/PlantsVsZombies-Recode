@@ -23,6 +23,7 @@
 #include "ShovelBank.h"
 #include "Plant/GameDataManager.h"
 #include "Zombie/RoofMarshalZombie.h"
+#include "Zombie/EngineeringShipZombie.h"
 #include "../Logger.h"
 #include <cmath>
 #include <cstdio>
@@ -230,7 +231,7 @@ namespace {
 		DEVZ(ZOMBIE_SNOW_BURROW),
 		DEVZ(ZOMBIE_ADAPTIVE_HELMET),
 		DEVZ(ZOMBIE_THERMAL_SNIPER),
-		DEVZ(ZOMBIE_AURORA_PRIEST), DEVZ(ZOMBIE_POLAR_CLOCKMAKER), DEVZ(ZOMBIE_EXCAVATOR), DEVZ(ZOMBIE_CRYSTAL_HORN_MINER), DEVZ(ZOMBIE_SUN_THIEF), DEVZ(ZOMBIE_CRYSTAL_DRUMMER), DEVZ(ZOMBIE_ICE_WORKER), DEVZ(ZOMBIE_PRESSURE_SHOOTER), DEVZ(ZOMBIE_FLOOD_MORTAR), DEVZ(ZOMBIE_FOG_FERRY), DEVZ(ZOMBIE_HEAVY_DIVER), DEVZ(ZOMBIE_SALVAGE), DEVZ(ZOMBIE_SLUDGE), DEVZ(ZOMBIE_LOTUS_PARASOL), DEVZ(ZOMBIE_PRESSURE_GUARD)
+		DEVZ(ZOMBIE_AURORA_PRIEST), DEVZ(ZOMBIE_POLAR_CLOCKMAKER), DEVZ(ZOMBIE_EXCAVATOR), DEVZ(ZOMBIE_CRYSTAL_HORN_MINER), DEVZ(ZOMBIE_SUN_THIEF), DEVZ(ZOMBIE_CRYSTAL_DRUMMER), DEVZ(ZOMBIE_ICE_WORKER), DEVZ(ZOMBIE_PRESSURE_SHOOTER), DEVZ(ZOMBIE_FLOOD_MORTAR), DEVZ(ZOMBIE_FOG_FERRY), DEVZ(ZOMBIE_HEAVY_DIVER), DEVZ(ZOMBIE_SALVAGE), DEVZ(ZOMBIE_SLUDGE), DEVZ(ZOMBIE_LOTUS_PARASOL), DEVZ(ZOMBIE_ENGINEERING_SHIP), DEVZ(ZOMBIE_PRESSURE_GUARD)
 	};
 #undef DEVZ
 
@@ -1895,6 +1896,52 @@ void GameScene::DrawRoofMarshalBossHealthBar(Graphics* g) const
 		glm::vec4(255.0f, 245.0f, 221.0f, 255.0f), centerX, state.y);
 }
 
+EngineeringShipBossHealthBarState GameScene::GetEngineeringShipBossHealthBarState() const
+{
+	EngineeringShipBossHealthBarState state;
+	if (!mBoard || mBoard->GetState() != BoardState::GAME) return state;
+	const auto ship = mBoard->mEntityRegistry.GetFirstActiveEngineeringShip();
+	if (!ship) return state;
+	state.visible = true;
+	state.currentHealth = ship->mBodyHealth;
+	state.maxHealth = ship->mBodyMaxHealth;
+	state.halfHealthThreshold = ship->GetHalfHealthThreshold();
+	state.fillRatio = static_cast<float>(state.currentHealth) / std::max(1, state.maxHealth);
+	state.phase = ship->GetPhaseName();
+	state.phaseRemaining = ship->GetPhaseRemaining();
+	return state;
+}
+
+/** 六路战场一直延伸到底部；把窄铭牌放在水位仪下方，不压住植物和卡槽。 */
+void GameScene::DrawEngineeringShipBossHealthBar(Graphics* g) const
+{
+	if (!g) return;
+	const auto state = GetEngineeringShipBossHealthBarState();
+	if (!state.visible) return;
+	constexpr float x = 12.0f; // 水位仪下方左侧安全区，逻辑像素
+	constexpr float y = 446.0f; // 标题顶部，避开水位仪雨势文字，逻辑像素
+	constexpr float width = 202.0f; // 铭牌宽度，右缘仍在第一列草坪外
+	const glm::vec4 metal(27, 51, 57, 242);
+	const glm::vec4 edge(191, 156, 76, 255);
+	const glm::vec4 text(247, 236, 201, 255);
+	const bool cooling = state.phase == "COOLING";
+	const bool charging = state.phase == "CHARGING";
+	const glm::vec4 fill = cooling ? glm::vec4(83, 205, 175, 255) : glm::vec4(225, 130, 59, 255);
+	g->FillRect(x, y, width, 91.0f, metal);
+	g->DrawRect(x, y, width, 91.0f, edge);
+	DrawCenteredUiText(g, "水岸工程船", 18, text, x + width * .5f, y + 5.0f);
+	g->FillRect(x + 9.0f, y + 31.0f, width - 18.0f, 15.0f, glm::vec4(9, 24, 29, 255));
+	g->FillRect(x + 9.0f, y + 31.0f, (width - 18.0f) * state.fillRatio, 15.0f, fill);
+	g->DrawLine(x + width * .5f, y + 29.0f, x + width * .5f, y + 48.0f, edge);
+	DrawCenteredUiText(g, std::to_string(state.currentHealth) + " / " + std::to_string(state.maxHealth),
+		13, text, x + width * .5f, y + 31.0f);
+	const std::string phase = cooling ? "散热 · 核心暴露" : charging ? "水炮蓄力" : "换位 · 船壳关闭";
+	DrawCenteredUiText(g, phase + " " + std::to_string(static_cast<int>(std::ceil(state.phaseRemaining))) + "秒",
+		13, cooling ? glm::vec4(143, 255, 217, 255) : text, x + width * .5f, y + 53.0f);
+	DrawCenteredUiText(g, charging ? "警铃可打断本次水炮" : cooling ? "集中攻击暴露核心" : "船壳抵挡一半普通伤害",
+		12, glm::vec4(181, 207, 207, 255), x + width * .5f, y + 72.0f);
+}
+
 void GameScene::BuildDrawCommands()
 {
 	Scene::BuildDrawCommands();
@@ -2044,6 +2091,9 @@ void GameScene::BuildDrawCommands()
 			kPlanternGearMenuRenderOrder);
 		RegisterDrawCommand("RoofMarshalBossHealthBar",
 			[this](Graphics* g) { DrawRoofMarshalBossHealthBar(g); },
+			LAYER_UI + 800);
+		RegisterDrawCommand("EngineeringShipBossHealthBar",
+			[this](Graphics* g) { DrawEngineeringShipBossHealthBar(g); },
 			LAYER_UI + 800);
 
 		RegisterDrawCommand("Prompts",

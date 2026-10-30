@@ -109,6 +109,7 @@ enum class ZombieType {
 	ZOMBIE_SALVAGE, // 打捞僵尸；12-3首次登场，远距拆除单个基座
 	ZOMBIE_SLUDGE, // 淤泥僵尸；12-5首次登场，喷泥减速与现存路障修复
 	ZOMBIE_LOTUS_PARASOL, // 荷伞僵尸；12-7首次登场，九宫格投掷物拦截
+	ZOMBIE_ENGINEERING_SHIP, // 12-9固定首领；两栖工程船与可打断水炮
 	NUM_ZOMBIE_TYPES,
 
 	ZOMBIE_YETI,

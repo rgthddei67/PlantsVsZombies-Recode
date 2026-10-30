@@ -77,6 +77,17 @@ struct RoofMarshalBossHealthBarState {
 	float height = 0.0f;
 };
 
+/** 水岸首领铭牌放在仪表下方，仅保存当帧派生显示值。 */
+struct EngineeringShipBossHealthBarState {
+	bool visible = false;
+	int currentHealth = 0;
+	int maxHealth = 0;
+	int halfHealthThreshold = 0;
+	float fillRatio = 0.0f;
+	float phaseRemaining = 0.0f;
+	std::string phase;
+};
+
 class GameScene : public Scene, public BoardPresentation {
 public:
 	GameScene();
@@ -235,6 +246,7 @@ public:
 	bool IsPauseMenuOpenForTesting() const { return mOpenMenu; }
 	/** 返回当前屋脊督军及底部血条的纯派生展示状态。 */
 	RoofMarshalBossHealthBarState GetRoofMarshalBossHealthBarState() const;
+	EngineeringShipBossHealthBarState GetEngineeringShipBossHealthBarState() const;
 
 	/** 延后到安全的场景切换阶段展示新植物，或直接返回首页。 */
 	void SetReadyToBackMenu(PlantType unlockedPlant) override {
@@ -296,6 +308,7 @@ private:
 	void DrawLightningStrike(Graphics* g) const;
 	/** 绘制屋脊督军的底部金属血条、阶段分界与实际生命。 */
 	void DrawRoofMarshalBossHealthBar(Graphics* g) const;
+	void DrawEngineeringShipBossHealthBar(Graphics* g) const;
 	void UpdatePrompts(float deltaTime, float unscaledDeltaTime);
 	void DrawPrompts(Graphics* g) const;
 	// 按当前 mSurvivalPerkStepsCompleted 重新 roll 并构建第 N/2 次选择框。

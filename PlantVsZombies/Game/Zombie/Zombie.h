@@ -212,6 +212,8 @@ public:
 	virtual bool CanRepairHelm() const { return true; }
 	/** 大嘴花等植物直杀的统一入口；只返回是否确实吞掉目标，拒吞后的伤害由攻击者结算。 */
 	virtual bool TakePlantInstantKill();
+	/** 倭瓜是否可直接移除残血目标；重型目标返回 false，继续走伤害与专属死亡流程。 */
+	virtual bool CanBeSquashedInstantly() const { return true; }
 	/** 调整拒绝大嘴花吞食后的基础伤害；默认保持攻击者给出的 20 点，特殊品种可覆写。 */
 	virtual int AdjustRejectedChomperBiteDamage(int damage) const { return damage; }
 	/** 当前状态是否允许作为已出土地雷的接触触发目标。 */

@@ -56,7 +56,7 @@
 
 ## 后续工作边界
 
-目前开放到 12-8。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。12-4通关奖励刺莲，12-5引入淤泥僵尸，12-6加强三种水岸僵尸的混编，见本文末节。其余新单位与整章平衡仍待设计。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现复用了现有动画事件，没有新增帧事件。
+目前开放到 12-9 水岸工程船收官。12-1 通关奖励锚藕，12-2 首次引入重潜僵尸并奖励莲蓬投手，12-3 引入打捞僵尸，12-4 加强混编，见本文末节。12-4通关奖励刺莲，12-5引入淤泥僵尸，12-6加强三种水岸僵尸的混编，见本文末节。12-9 的已确认收官规则见本文末节；整章实战平衡仍需持续验证。已实现单位参数只维护在各单位 Rules.h 与权威 gamedata 中，关卡配置以 [spawnlists.json](../../../build/clang-release/resources/spawnlists.json) 为准。实现没有新增动画帧事件。
 
 实现入口：[地形与肥沃规则](../../../PlantVsZombies/Game/Board/BoardWatersideGarden.cpp)、[背景校准与动态水面](../../../PlantVsZombies/Game/GameSceneWatersideGarden.cpp)、[植物正向能力计时](../../../PlantVsZombies/Game/Plant/Plant.cpp)。验证入口：[地图与种植](../../../autotest/scripts/smoke_waterside_garden.json)、[实际攻击与治疗](../../../autotest/scripts/smoke_waterside_actions.json)、[上下岸及水中存档](../../../autotest/scripts/smoke_waterside_crossing.json)、[台风承载边界](../../../autotest/scripts/smoke_waterside_typhoon.json)、[状态核对](../../../autotest/verify_waterside_garden.py)。
 
@@ -162,3 +162,20 @@
 - 浮光葵保留向日葵的连续茎、花瓣和表情运动；荷伞保留普通僵尸的两种步态、水面裁剪、啃食与断肢死亡。两者均未增加帧事件。素材与可重建脚本见 [生成记录](../../../scripts/assets/waterside_fourth_prompts.md)。
 
 验证入口：`smoke_float_sunflower`、`smoke_lotus_parasol`、`smoke_lotus_parasol_controls`、`smoke_waterside_fourth_actions`、`smoke_waterside_fourth_progression`、`smoke_waterside_fourth_preview` 与 [状态交叉核对](../../../autotest/verify_waterside_fourth.py)。专项验收覆盖生产、拦截、控制、存档、配额、完整关卡配置及可见表现；不代表整章实战平衡验收。
+
+## 2026-10-25 12-9 水岸工程船收官
+
+状态：已实现，clang-release 无警告构建、七份新专项、三份相关可见回归、五项 CTest、两份状态交叉检查与实机截图验收通过。专项覆盖机制与表现，不代表整章实战平衡已经完成。以下记录意图和边界；当前参数以 [EngineeringShipRules.h](../../../PlantVsZombies/Game/Zombie/EngineeringShipRules.h)、权威 gamedata 与 spawnlists 为准。
+
+- 收官采用传统四旗帜防守，原有四种水岸僵尸与普通巨人形成综合阵容；前半段分别突出重潜/荷伞和打捞/淤泥，后半段综合。首领仅在最终波由 BossSlot 创建，不作为随机候选；最终波用有限护卫替换普通旗帜波预算，避免把完整大波与首领压力直接相加。本关无新增植物奖励。
+- 工程船是右侧按相邻行换位的两栖机械首领，不向左推进或碾压。换位时画面与碰撞读取同一连续位置，跨中线才提交最近逻辑行；冻结和读档不能把可见船体与受击行分开。循环为换位、锁格蓄压、瞬时水炮提交、开舱散热；低于半血后缩短散热，不缩短公开预警。船壳关闭时减轻普通伤害，散热时正常承伤；整数伤害保留余数，避免连续小伤害取整成免疫。灰烬和玉米炮保持明确反制作用。
+- 水炮锁定本行最前方植物格及后方两格，预警后仍打原格，不追踪搬运。每个目标植物最多受击一次，只打正常顶层，破南瓜不向下层溢出；不直接拆基座、不移动植物、不改变水位，保护伞与冰镜草不拦截。发射时已经提交伤害，后续控制不撤销。
+- 冰冻、黄油和麻痹暂停动作，警铃取消尚未提交的水炮并使其进入散热，锚藕只限制换行。沿用首领的拒吞食、拒魅惑、拒海草拖死与小推车处决规则；海草仍束缚，黄油有定身及免疫窗口。首领沿用既有时间锚排除规则，不能通过复活重发护卫。
+- 护卫分登场与首次半血两批，全战累计最多十三只，不包含前波残留。半血批次先消费一次尝试边沿，再经过现有正式限额与合法行筛选；被同时上限等挡下的护卫不排队，之后也不补生。读档不重发，致死越过半血不发援军，首领死亡不清除已经生成的护卫。清场后按正常流程结算。
+- 天气沿用本章规则，不强制涨退水。船体、炮口、开舱与机械死亡由玩法状态和专用分件表现驱动，没有新增动画帧事件；死亡计时在硬控后仍推进，读档恢复剩余演出且不重播爆炸。
+
+实现入口：[工程船状态与受击](../../../PlantVsZombies/Game/Zombie/EngineeringShipZombie.cpp)、[船体与水炮表现](../../../PlantVsZombies/Game/Zombie/EngineeringShipZombieVisuals.cpp)、[正式波次](../../../PlantVsZombies/Game/Board/Board.cpp)、[关卡与奖励](../../../PlantVsZombies/Game/AdventureProgression.h)。
+
+调参入口：生命、减伤、水炮、控制和阶段时间集中在 `EngineeringShipRules.h`，出生画像直接引用同一生命常量；关卡阳光、波数与候选池在 spawnlists。修改护卫组合时联动 `Board::TrySummonAdventureBoss` 的登场表、`EngineeringShipZombie::TryHalfHealthReinforcements` 的半血表及半血数组容量；保持累计上限与每波/同时限制语义明确。调整船体素材尺寸或 gamedata scale 时同步检查 Rules 的碰撞尺寸、各分件锚点及实机水线。
+
+验证入口：`smoke_engineering_ship_progression/combat/controls/edges/squash/relocation/targeting`；交叉检查为 [verify_engineering_ship.py](../../../autotest/verify_engineering_ship.py) 与 [verify_engineering_ship_relocation.py](../../../autotest/verify_engineering_ship_relocation.py)。相关回归覆盖已有督军血条及水岸第四组单位的行为和预览。

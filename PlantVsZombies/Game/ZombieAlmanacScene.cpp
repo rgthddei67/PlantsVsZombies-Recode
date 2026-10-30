@@ -203,6 +203,10 @@ std::vector<ZombieType> ZombieAlmanacScene::LoadEncounteredZombieTypes() const
 				== AdventureProgression::BossSlot::ROOF_MARSHAL) {
 				appendType(ZombieType::ZOMBIE_ROOF_MARSHAL);
 			}
+			if (AdventureProgression::GetBossSlot(completedLevel)
+				== AdventureProgression::BossSlot::ENGINEERING_SHIP) {
+				appendType(ZombieType::ZOMBIE_ENGINEERING_SHIP);
+			}
 		}
 	}
 

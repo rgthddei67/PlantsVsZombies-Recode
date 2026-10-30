@@ -1,0 +1,389 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 108,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_auto_collect",
+      "value": false
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShipResourcesReady",
+      "equals": true
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 4
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_SUNFLOWER",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PUMPKINSHELL",
+      "row": 0,
+      "col": 5
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_FLOWERPOT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_WALLNUT",
+      "row": 0,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 0,
+      "x": 915
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 100,
+      "source": "PLANT"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 23950
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 1,
+      "source": "PLANT"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 23950
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipShellRemainder",
+      "equals": 1
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "half_point"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "half_point"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 1,
+      "source": "PLANT"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 23949
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipShellRemainder",
+      "equals": 0
+    },
+    {
+      "op": "ash_damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 2147483647
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 22149
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 200,
+      "source": "PLANT",
+      "plantType": "PLANT_KERNELPULT"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 22049
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_value",
+      "path": "engineeringShip.shipPhase",
+      "equals": "CHARGING",
+      "timeout": 20
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipTargetRow",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipTargetColumn",
+      "equals": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipLeftHatchVisible",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipRightHatchVisible",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "charging.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "charging.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "charging"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "charging"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipTargetColumn",
+      "equals": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipShotCount",
+      "equals": 0
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_value",
+      "path": "engineeringShip.shipShotCount",
+      "equals": 1,
+      "timeout": 20
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipPhase",
+      "equals": "COOLING"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipLastShotHitCount",
+      "equals": 3
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 100,
+      "source": "PLANT"
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 21949
+    },
+    {
+      "op": "dump_state",
+      "name": "impact.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "impact.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "after_shot"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "after_shot"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.shipShotCount",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "impact_reload.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "cooling_open.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "cooling_open.json"
+    },
+    {
+      "op": "set_waterside_water",
+      "value": 100
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "flooded_ship.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "flooded.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "damage": 10000
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "equals": 11949
+    },
+    {
+      "op": "screenshot",
+      "name": "damaged_open.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "damaged_open.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

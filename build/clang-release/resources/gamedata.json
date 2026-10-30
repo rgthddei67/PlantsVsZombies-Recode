@@ -130,6 +130,7 @@
     "ZOMBIE_IMP":                 { "weight": 0,    "appearWave": 12, "survivalRound": 10, "offset": [-42.0, -84.0], "scale": 1.0 },
     "ZOMBIE_REDEYE_GARGANTUAR":   { "mineFormationRole": 1, "weight": 4500,    "appearWave": 12, "survivalRound": 10, "offset": [-62.0, -107.0], "scale": 1.0 },
     "ZOMBIE_ROOF_MARSHAL":        { "weight": 0,    "appearWave": 15, "survivalRound": 9999, "offset": [-60.0, -102.0], "scale": 1.2 },
+    "ZOMBIE_ENGINEERING_SHIP":    { "weight": 0, "appearWave": 40, "survivalRound": 9999, "offset": [-85.0, -96.0], "scale": 1.0 },
     "ZOMBIE_INSULATOR":           { "weight": 1900, "appearWave": 4,  "survivalRound": 12, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_HIJACKER":            { "weight": 2000, "appearWave": 9,  "survivalRound": 15, "offset": [-50.0, -85.0], "scale": 1.0 },
     "ZOMBIE_HEALER":              { "mineFormationRole": 2, "weight": 2400, "appearWave": 3,  "survivalRound": 7,  "offset": [-50.0, -85.0], "scale": 1.0 },

@@ -29,6 +29,7 @@ public:
 	void RefreshEquipmentPresentationAfterRepair() override;
 	/** 巨人拒绝被大嘴花吞食；攻击者随后按统一规则结算小额咬伤。 */
 	bool TakePlantInstantKill() override;
+	bool CanBeSquashedInstantly() const override { return false; }
 	void StartEat(ColliderComponent* other) override;
 	/** 搬运时取消原格锤击或未脱手投掷；已生成小鬼保持独立。 */
 	void TeleportWithinRow(float x) override;

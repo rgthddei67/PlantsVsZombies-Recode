@@ -1,0 +1,161 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 108,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_PEASHOOTER",
+      "row": 2,
+      "col": 6
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 2,
+      "x": 915
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "atMost": 23990
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "atLeast": 23000
+    },
+    {
+      "op": "dump_state",
+      "name": "pea_fertile.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "pea_fertile.png"
+    },
+    {
+      "op": "goto_level",
+      "level": 108,
+      "resetTestState": true
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_weather",
+      "intensity": "CLEAR",
+      "duration": 600
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.2
+    },
+    {
+      "op": "set_sun",
+      "value": 30000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "plant",
+      "type": "PLANT_CABBAGEPULT",
+      "row": 1,
+      "col": 5
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ENGINEERING_SHIP",
+      "row": 1,
+      "x": 915
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "wait_seconds",
+      "value": 3.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "atMost": 23990
+    },
+    {
+      "op": "assert_state",
+      "path": "engineeringShip.bodyHealth",
+      "atLeast": 23000
+    },
+    {
+      "op": "dump_state",
+      "name": "cabbage_fertile.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "cabbage_fertile.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

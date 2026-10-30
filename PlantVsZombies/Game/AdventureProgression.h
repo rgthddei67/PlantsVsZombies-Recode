@@ -10,7 +10,8 @@ namespace AdventureProgression
 {
 	inline constexpr int LEVELS_PER_AREA = 9;
 	inline constexpr int ADVENTURE_AREA_COUNT = 12;
-	inline constexpr int LAST_ADVENTURE_LEVEL = 107; // 第十二大关开放至12-8荷伞混编
+	inline constexpr int LAST_ADVENTURE_LEVEL = 108; // 第十二大关收官：水岸工程船
+	inline constexpr int AREA_TWELVE_FINAL_LEVEL = LEVELS_PER_AREA * 12;
 	inline constexpr int AREA_NINE_FINAL_LEVEL = LEVELS_PER_AREA * 9;
 	inline constexpr int AREA_FIVE_BOSS_LEVEL = LEVELS_PER_AREA * 5;
 	inline constexpr int AREA_SIX_FINAL_LEVEL = LEVELS_PER_AREA * 6;
@@ -21,6 +22,7 @@ namespace AdventureProgression
 	enum class BossSlot {
 		NONE,
 		ROOF_MARSHAL,
+		ENGINEERING_SHIP,
 	};
 
 	// NUM_PLANT_TYPES 在奖励表中表示“该关正常推进，但不解锁植物”。
@@ -153,6 +155,7 @@ namespace AdventureProgression
         PlantType::PLANT_FLOATSUNFLOWER, // 12-6奖励浮光葵，12-7开始可用
         NO_PLANT_REWARD, // 12-7荷伞教学
         NO_PLANT_REWARD, // 12-8四种水岸僵尸混编
+        NO_PLANT_REWARD, // 12-9工程船收官，不新增植物奖励
 	};
 
 	/** 返回内部关卡号对应的大关编号；非正数关卡返回 0。 */
@@ -210,7 +213,7 @@ namespace AdventureProgression
 	{
 		return level == AREA_FIVE_BOSS_LEVEL
 			? BossSlot::ROOF_MARSHAL
-			: BossSlot::NONE;
+			: (level == AREA_TWELVE_FINAL_LEVEL ? BossSlot::ENGINEERING_SHIP : BossSlot::NONE);
 	}
 
 	/** 判断关卡是否已被正式标记为 BOSS 关。 */

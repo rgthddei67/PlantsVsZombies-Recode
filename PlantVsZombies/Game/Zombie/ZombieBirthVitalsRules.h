@@ -9,6 +9,7 @@
 #include "FogFerryRules.h"
 
 #include "ZombieType.h"
+#include "EngineeringShipRules.h"
 #include "AdaptiveHelmetRules.h"
 #include "AuroraPriestRules.h"
 #include "BoilerRules.h"
@@ -63,6 +64,7 @@ constexpr bool DropsHeadAtBirth(ZombieType type)
     using Z=ZombieType;
     switch(type) {
     case Z::ZOMBIE_GARGANTUAR: case Z::ZOMBIE_REDEYE_GARGANTUAR: case Z::ZOMBIE_ROOF_MARSHAL:
+    case Z::ZOMBIE_ENGINEERING_SHIP:
     case Z::ZOMBIE_ZAMBONI: case Z::ZOMBIE_GILDED_ZAMBONI:
     case Z::ZOMBIE_CATAPULT: case Z::ZOMBIE_ELITE_CATAPULT:
     case Z::ZOMBIE_BUNGEE: case Z::ZOMBIE_BALLOON: return false;
@@ -115,6 +117,7 @@ constexpr Stats Get(ZombieType type)
     case Z::ZOMBIE_BALLOON: return Known(270); // 飞行气球额外耐久由独立字段表达
     case Z::ZOMBIE_BOBSLED_TEAM: return Known(270, 300); // 仅队长的初始本体与雪橇，三名队员另出生
     case Z::ZOMBIE_ROOF_MARSHAL: return Known(15000, 0, 0, 250); // 督军首领数值，不代表已进入指挥官购买池
+    case Z::ZOMBIE_ENGINEERING_SHIP: return Known(EngineeringShipRules::Health, 0, 0, 0); // 船壳不另建防具血条，工程船不啃食
     case Z::ZOMBIE_INSULATOR: return Known(300, 1200); // 绝缘胸甲是一类防具
     case Z::ZOMBIE_GROUNDING: return Known(270, 1200); // 天线路障继承普通本体生命
     case Z::ZOMBIE_HIJACKER: return Known(1000); // 锁定后加血由阶段触发，不预支

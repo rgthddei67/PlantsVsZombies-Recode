@@ -126,6 +126,8 @@ namespace {
 	constexpr float kRoofPreviewZombieMaxX = 1365.0f;     // 主人实测的屋顶选卡预览世界坐标右缘，单位：像素
 	constexpr int kRoofPreviewZombieFirstRow = 1;         // 顶行会令僵尸头部进入天空区；预览只使用第 2～5 行
 	constexpr float kRoofMarshalBossSpawnX = 1000.0f;     // 督军高血量不水平推进，必须在右侧可见纵深直接登场，单位：像素
+	constexpr float kEngineeringShipSpawnX = 915.0f;      // 工程船停泊在右侧可见区，避开顶部菜单遮住船长，单位：世界像素
+	constexpr int kWatersideReviewPickMultiplier = 2;    // 水岸收官复习段的重点类型抽中权重倍率，不改变预算成本
 	constexpr float kIceTrailTopOffset = 20.0f;           // 冰道相对逻辑行顶的绘制偏移，单位 px
 	constexpr float kPolarHoleSpawnWarningSeconds = 1.0f; // 正式波次经雪穴出生前的雪雾预警，游戏秒
 	constexpr float kPolarSnowBlindRange = 3.0f * CELL_COLLIDER_SIZE_X; // 雪盲自动索敌真实半径，像素
@@ -2765,13 +2767,32 @@ void Board::TrySummonAdventureBoss()
 		CreateZombie(ZombieType::ZOMBIE_ROOF_MARSHAL, mRows / 2,
 			kRoofMarshalBossSpawnX);
 		break;
+	case AdventureProgression::BossSlot::ENGINEERING_SHIP: {
+		// 最终波使用有限护卫，不叠加普通旗帜波预算；半血援军由首领独占且只发一次。
+		CreateZombie(ZombieType::ZOMBIE_ENGINEERING_SHIP, mRows / 2,
+			kEngineeringShipSpawnX);
+		constexpr std::array guards = {
+			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
+			ZombieType::ZOMBIE_NORMAL, ZombieType::ZOMBIE_NORMAL,
+			ZombieType::ZOMBIE_BUCKET, ZombieType::ZOMBIE_BUCKET,
+			ZombieType::ZOMBIE_GARGANTUAR,
+		};
+		for (const ZombieType type : guards) {
+			const ZombieType actual = ResolveWaveZombieType(type);
+			if (actual == ZombieType::NUM_ZOMBIE_TYPES) continue;
+			const int row = SelectSpawnRow(actual);
+			// 保持在通用世界回收边界内，避免最慢的巨人还未入场就被当成越界实体回收。
+			if (row < 0 || !CreateOrQueueWaveZombie(actual, row, static_cast<float>(SCENE_WIDTH) + 40.0f))
+				mWaveSpawnCounts.CancelReservation(actual);
+		}
+		break;
+	}
 	case AdventureProgression::BossSlot::NONE:
 		break;
 	}
 }
 
-/** 为每个出怪候选创建选卡展示对象，并为编队候选补充无玩法注册的纯展示成员。 */
-/** 为选卡创建独立展示对象；大型角色在收官预览中避开顶部卡槽。 */
+/** 为候选创建无玩法注册的选卡展示对象；编队补齐随员，大型角色避开顶部卡槽。 */
 void Board::CreatePreviewZombies()
 {
 	if (mBoardState != BoardState::CHOOSE_CARD || !mPreviewZombieList.empty()
@@ -2796,6 +2817,8 @@ void Board::CreatePreviewZombies()
 			float spawnY = GameRandom::Range(mSpawnZombiePos1.y, mSpawnZombiePos2.y);
             // 铜盔与悬垂船锚比普通身体高，预览留出上下边界，避免装备被窗口裁掉。
             if (zombieType == ZombieType::ZOMBIE_HEAVY_DIVER) spawnY = std::clamp(spawnY, 180.0f, 520.0f);
+			if (mLevel == AdventureProgression::AREA_TWELVE_FINAL_LEVEL
+				&& zombieType == ZombieType::ZOMBIE_GARGANTUAR) spawnY = std::clamp(spawnY, 225.0f, 520.0f);
 			// 红眼巨人的头部高于普通僵尸，9-9预览保留足够上沿空间。
 			if (mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL
 				&& zombieType == ZombieType::ZOMBIE_REDEYE_GARGANTUAR) spawnY = std::max(spawnY, 225.0f);
@@ -3006,6 +3029,14 @@ inline int Board::SelectSpawnRow(ZombieType type, int wave)
 inline int Board::GetSurvivalPickWeight(ZombieType type) const
 {
 	int base = GameDataManager::GetInstance().GetZombieWeight(type);
+	// 水岸收官用抽中概率强调两个复习段，不改变品种预算成本、登场门槛或数量上限。
+	if (!mIsSurvival && mLevel == AdventureProgression::AREA_TWELVE_FINAL_LEVEL) {
+		const bool armorReview = mCurrentWave >= 11 && mCurrentWave <= 20
+			&& (type == ZombieType::ZOMBIE_HEAVY_DIVER || type == ZombieType::ZOMBIE_LOTUS_PARASOL);
+		const bool rescueReview = mCurrentWave >= 21 && mCurrentWave <= 30
+			&& (type == ZombieType::ZOMBIE_SALVAGE || type == ZombieType::ZOMBIE_SLUDGE);
+		if (armorReview || rescueReview) return base * kWatersideReviewPickMultiplier;
+	}
 	if (!mIsSurvival) return base;
 	int flags = mSurvivalRound - 1;   // 已完成轮数(对应原版 survivalFlagsCompleted)
 	if (type == ZombieType::ZOMBIE_NORMAL)
@@ -3084,6 +3115,8 @@ inline ZombieType Board::PickZombieType(int remainingPoints, int wave)
 inline void Board::TrySummonZombie()
 {
 	if (mCurrentWave > mMaxWave) return;
+	if (!mIsSurvival && mCurrentWave == mMaxWave
+		&& AdventureProgression::GetBossSlot(mLevel) == AdventureProgression::BossSlot::ENGINEERING_SHIP) return;
 
 	float x = static_cast<float>(SCENE_WIDTH) + 40;
 	if (MiniGame::IsLastSavings(mLevel)) {

@@ -1,0 +1,15 @@
+{
+  "scripts/assets/engineering_ship_parts_source.png": "c20ae9b193617e196843c0e3c95f721094959d468c6921b5aab8f9f69beb538f",
+  "scripts/assets/engineering_ship_water_source.png": "c826039f87b1177add5803b94f45d5a272b8e44bc9c11f0eaf440cb5725803b3",
+  "scripts/assets/engineering_ship_damaged_source.png": "e714284649009caa355669de2fd79780bbdb602a712b7e23a344b81a4c331262",
+  "build/clang-release/resources/image/reanim/Engineering_ship_body.png": "a9581407e61ccbea8cd2c12da01fa2aebfac17119c2f1f27046758326384e322",
+  "build/clang-release/resources/image/reanim/Engineering_ship_cannon.png": "6e86f19158c6242042f09b2b3a471851acbf0bdb9952cd2577e5a168bce6074e",
+  "build/clang-release/resources/image/reanim/Engineering_ship_captain.png": "f4fcef5596bb6303e1cfc76eaaff71e1f642e5c38344284d658940e449ebc70e",
+  "build/clang-release/resources/image/reanim/Engineering_ship_hatch.png": "b40b56d92d12592a3ddc98bb649fb309b15f6bb47544c35a3621ec794adab3da",
+  "build/clang-release/resources/image/Engineering_ship_hatch_left.png": "6dd8c3d9735544d4e998837ccd89b7f252e8237101672021bd85eb87e3fe0aa8",
+  "build/clang-release/resources/image/Engineering_ship_hatch_right.png": "27d17beb8d2a9ba66bab12a31be59776249038da5a15455d770ddd507f31a2e4",
+  "build/clang-release/resources/image/Engineering_ship_waterjet.png": "ac3fc4f65fcff1704af76280c3c955700c084b56e4987364c7de29a8c504af29",
+  "build/clang-release/resources/image/Engineering_ship_splash.png": "2145eebc3679aa23657371b04314b7a8dd8bbc12c4df331fb2c2b9c51879436b",
+  "build/clang-release/resources/image/Engineering_ship_body_damaged.png": "da038577e1cd9cbe76b036edf5c2678e9a1e2816871d38e6af1519b79c2bafb6",
+  "build/clang-release/resources/reanim/EngineeringShipZombie.reanim": "ab2f1af1caeb64a58530b42131bacd6cd80bbfa3e418ce3267ad31009a32d21d"
+}
