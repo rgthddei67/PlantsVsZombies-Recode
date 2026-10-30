@@ -14,6 +14,9 @@ namespace {
 void InterruptPassenger(Unit& unit) {
     unit.body.eating=false;
     unit.ferry.transported=true;
+    if(unit.diver.present) {unit.diver.eatingTargetID=0;unit.diver.smashRemaining=HeavyDiverRules::Windup;}
+    if(unit.salvage.windup>0) {unit.salvage.windup=0;unit.salvage.targetID=0;unit.salvage.cooldown=SalvageZombieRules::RetrySeconds;}
+    if(unit.sludge.windup>0) {unit.sludge.windup=0;unit.sludge.targetID=0;unit.sludge.reload=SludgeZombieRules::Retry;}
     if(unit.jammer && unit.jammerChanneling) {
         unit.jammerChanneling=false;unit.jammerRemaining=WeatherJammerRules::Channel;unit.jammerReboot=WeatherJammerRules::Reboot;
     }

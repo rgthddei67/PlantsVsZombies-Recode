@@ -4,6 +4,10 @@
 #include "Game/Plant/RainBamboo.h"
 #include "Game/Zombie/FloodMortarZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
+#include "Game/Zombie/HeavyDiverZombie.h"
+#include "Game/Zombie/SalvageZombie.h"
+#include "Game/Zombie/SludgeZombie.h"
+#include "Game/Zombie/LotusParasolZombie.h"
 #include "Board.h"
 #include "BoardPresentation.h"
 #include "Game/AdventureProgression.h"
@@ -355,12 +359,55 @@ namespace {
 		unit.blocksShieldBypass = unit.blocksFumePiercing = true;
 	}
 
+    /** 新购和活体共用水岸能力画像，私有余时只在主线程读取。 */
+    void ProjectWatersideUnit(ColdStorageSearch::Unit& unit,ZombieType type,const Zombie* live=nullptr) {
+        if(type==ZombieType::ZOMBIE_HEAVY_DIVER) {
+            auto& d=unit.diver;d.present=true;d.damage=live ? live->mAttackDamage : unit.biteDps;
+            unit.biteDps=d.damage/HeavyDiverRules::SmashCycle;
+            if(const auto* diver=dynamic_cast<const HeavyDiverZombie*>(live)) {
+                d.inWater=diver->IsInPool();d.breathing=diver->IsBreathing();d.airRemaining=diver->GetAirRemaining();
+                d.smashRemaining=diver->GetSmashRemaining();d.eatingTargetID=diver->IsEating() ? diver->GetEatingPlantID() : 0;
+            }
+        }
+        if(type==ZombieType::ZOMBIE_SALVAGE) {
+            unit.salvage.present=true;unit.magneticLayer=3;
+            if(const auto* salvage=dynamic_cast<const SalvageZombie*>(live)) {
+                unit.salvage.hasHook=salvage->HasHook();unit.salvage.targetID=salvage->GetSalvageTargetID();
+                unit.salvage.windup=salvage->GetSalvageWindup();unit.salvage.cooldown=salvage->GetSalvageCooldown();
+                if(!unit.salvage.hasHook) unit.magneticLayer=0;
+            }
+        }
+        if(type==ZombieType::ZOMBIE_SLUDGE) {
+            unit.sludge.present=true;
+            unit.sludge.muzzleOffset=unit.body.blastAnchorOffset-35; // 新生普通躯干喷口近似；活体读取最终轨道锚点
+            if(const auto* sludge=dynamic_cast<const SludgeZombie*>(live)) {
+                unit.sludge.targetID=sludge->GetSludgeTargetID();unit.sludge.windup=sludge->GetWindup();unit.sludge.reload=sludge->GetReload();
+                unit.sludge.muzzleOffset=sludge->GetMuzzlePosition().x-unit.body.x;
+            }
+        }
+        if(type==ZombieType::ZOMBIE_LOTUS_PARASOL) {
+            unit.parasol=true;unit.parasolHealth=LotusParasolRules::Durability;
+            if(const auto* parasol=dynamic_cast<const LotusParasolZombie*>(live)) unit.parasolHealth=parasol->GetParasolHealth();
+        }
+    }
+
 	/** 当前和未来植物共用正式弹丸伤害；防具上限按每击结算，不能直接截断持续 DPS。 */
 	void ProjectPlantAttack(ColdStorageSearch::Plant& plant, PlantType type)
 	{
 		plant.ladderTarget=type==PlantType::PLANT_WALLNUT || type==PlantType::PLANT_TALLNUT
 			|| type==PlantType::PLANT_PUMPKINSHELL || type==PlantType::PLANT_ICESTORAGENUT;
 		using P = PlantType;
+        plant.foundationKind=IsLilyPadPlantType(type) ? 1 : type==P::PLANT_FLOWERPOT || type==P::PLANT_LIGHTNINGRODPOT ? 2 : 0;
+        plant.salvageable=plant.foundationKind!=0;
+        plant.aquatic=IsLilyPadPlantType(type) || type==P::PLANT_TANGLEKELP || type==P::PLANT_SEASHROOM || type==P::PLANT_ANCHORLOTUS;
+        plant.amphibious=IsAmphibiousPlantType(type);
+        plant.supportHazard=type!=P::PLANT_INSTANT_COFFEE;
+        plant.diverResisted=type==P::PLANT_PEASHOOTER || type==P::PLANT_SNOWPEA || type==P::PLANT_REPEATER
+            || type==P::PLANT_THREEPEATER || type==P::PLANT_SPLITPEA || type==P::PLANT_LEFTPEATER || type==P::PLANT_GATLINGPEA
+            || type==P::PLANT_PUFFSHROOM || type==P::PLANT_SCAREDYSHROOM || type==P::PLANT_ELITE_SCAREDYSHROOM
+            || type==P::PLANT_SEASHROOM || type==P::PLANT_TOXICPEASHOOTER || type==P::PLANT_CACTUS;
+        plant.parasolInterceptable=type==P::PLANT_CABBAGEPULT || type==P::PLANT_KERNELPULT || type==P::PLANT_MELONPULT
+            || type==P::PLANT_WINTERMELON || type==P::PLANT_MELTSNOWPULT || type==P::PLANT_LOTUSPULT;
 		plant.catapultTargetable=CatapultZombie::CanLobAtPlantType(type);
 		plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,false);
 		plant.airborneDefenseRadius=type==P::PLANT_UMBRELLA ? UmbrellaLeaf::ProtectionCells : -1;
@@ -368,6 +415,12 @@ namespace {
 		plant.eliteQuota = type == P::PLANT_ELITE_SCAREDYSHROOM;
         plant.pumpkin=type==P::PLANT_PUMPKINSHELL;
         const auto& profile=GameDataManager::GetInstance().GetPlantSimulationProfile(type);
+        if(type==P::PLANT_TOXICPEASHOOTER) {
+            // 沿用当前等效DPS画像，以同节奏普通豌豆反推直击份额；余下毒素不受潜水减伤。
+            const float direct=GameDataManager::GetInstance().GetPlantSimulationProfile(P::PLANT_PEASHOOTER).attackDps
+                *Bullet::GetBaseDamage(BulletType::BULLET_TOXICPEA)/Bullet::GetBaseDamage(BulletType::BULLET_PEA);
+            plant.diverDirectFraction=std::clamp(direct/std::max(.001f,profile.attackDps),0.0f,1.0f);
+        }
         plant.targetValue=std::max(0,GameDataManager::GetInstance().GetPlantSunCost(type))
             +(profile.sunPerSecond>0 ? JackBoxRules::ProducerValue : 0);
         plant.magnetRecharge=profile.magneticPulseCooldown;
@@ -1534,6 +1587,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		search.interferenceReady = s.interferenceCooldownRemaining;
 		search.rows = mRows; search.columns = mColumns; search.cellWidth = CELL_COLLIDER_SIZE_X; search.cellHeight = CELL_COLLIDER_SIZE_Y;
 		search.gridLeft = GetCellCenterPosition(0,0).x-CELL_COLLIDER_SIZE_X*.5f;
+        search.watersideHazards=SupportsWatersideFlood();
+        for(int row=0;row<mRows;++row) for(int col=0;col<mColumns;++col) {
+            search.waterCells[row*mColumns+col]=IsPoolSquare(row,col);
+            search.potCells[row*mColumns+col]=RequiresFlowerPotAt(row,col) || IsWatersideStoneSquare(row,col);
+        }
         PlantDefenseMonteCarlo::Config impactConfig;
         ConfigureMonteCarloPlantImpactConfig(impactConfig,1,1,JackBoxRules::BoxDamage,JackBoxRules::BoxRadius);
         search.pumpkinProtectionCells=impactConfig.pumpkinProtectionCellRadius;
@@ -1584,6 +1642,8 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 		search.danceBeatSeconds=(mBoardFrame%(12*23))/60.0f;
 		for (const int id:mEntityRegistry.GetAllBulletIDs()) {
 			const auto* bullet=mEntityRegistry.GetBullet(id);
+            if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_SLUDGE && bullet->GetVelocityX()<0)
+                search.sludgeRays.push_back({bullet->mRow,bullet->GetPosition().x,0,bullet->GetSludgeTravelRemaining(),static_cast<float>(bullet->GetBulletDamage())});
             if(bullet && bullet->IsActive() && bullet->mBulletType==BulletType::BULLET_PRESSURE
                 && bullet->GetVelocityX()<0)
                 search.pressureRays.push_back({bullet->mRow,bullet->GetPosition().x,0,static_cast<float>(bullet->GetBulletDamage())});
@@ -1935,6 +1995,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 			ProjectShieldRules(unit, entity->mZombieType);
 			unit.ashBodyThreshold = unit.ashBodyThreshold && !entity->IsInPool();
 			unit.biteDps = entity->GetMineSimulationAttackDps();
+            ProjectWatersideUnit(unit,entity->mZombieType,entity);
 			if (const auto* boiler = dynamic_cast<const BoilerZombie*>(entity)) ProjectBoiler(unit,boiler);
 			unit.thunderResistance = entity->GetThunderResistanceRemaining();
 			unit.paralysisRemaining = entity->GetParalysisTimeRemaining();
@@ -2048,10 +2109,15 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				plant.around = profile.mineAttackShape == 2;
 				plant.range = static_cast<float>(CELL_COLLIDER_SIZE_X) * (plant.around ? 1.5f : static_cast<float>(profile.mineAttackRange));
 				ProjectPlantAttack(plant, type);
+                plant.salvageable=plant.salvageable && !entity->IsIceSealed() && !entity->IsBungeeTargeted() && !entity->IsDamageImmune();
+                plant.sludgeUntil=entity->GetSludgeRemaining();
+                plant.sludgeTargetable=entity->OccupiesGridSlot() && !entity->IsBungeeTargeted();
+                plant.supportHazard=plant.supportHazard && entity->OccupiesGridSlot() && !entity->IsBungeeTargeted();
+                plant.supportHazardKind=entity->GetWatersideHazardKind();plant.supportHazardElapsed=entity->GetWatersideHazardElapsed();
                 plant.floodSlowUntil=entity->GetFloodSlowRemaining();
                 if(const auto* bamboo=dynamic_cast<const RainBamboo*>(entity)) {
                     plant.bambooCharge=bamboo->GetCharge();
-                    plant.bambooRate=entity->GetSkillSpeedMultiplier()/std::max(.001f,entity->GetWeatherActionSpeedMultiplier());
+                    plant.bambooRate=entity->GetSkillSpeedMultiplier()/std::max(.001f,entity->GetWeatherActionSpeedMultiplier()*entity->GetSludgeActionMultiplier());
                 }
                 if(const auto* cotton=dynamic_cast<const MendingCotton*>(entity)) plant.cottonRemaining=cotton->GetHealRemaining();
 				plant.ladderTarget=entity->SupportsLadderPlacement();
@@ -2071,12 +2137,13 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 					plant.thunderAttack=flower->GetAttackForecast();
 					// 当前领域在 sampledRate 中已生效，后台须剥离后独立重放其剩余阶段。
 					plant.thunderAttack.sampledRate/=std::max(.001f,1+GetAreaPlantAttackSpeedBonus(entity));
+                    plant.thunderAttack.sampledRate/=std::min(entity->GetSludgeActionMultiplier(),entity->GetFloodSlowRemaining()>0 ? FloodMortarRules::AttackMultiplier : 1);
 				}
 				plant.vehicleCrushable=ZamboniZombie::CanCrushPlantType(type,entity->GetSleepState());
 				plant.catapultCrushable=CatapultZombie::CanCrushPlantType(type,entity->GetSleepState());
 				if (const auto* growing = dynamic_cast<const EliteScaredyShroom*>(entity); growing && !entity->GetSleepState()) {
 					plant.growth = growing->GetSimulationAttackGrowth();
-					plant.growthSpeed = entity->GetSkillSpeedMultiplier();
+					plant.growthSpeed = entity->GetSkillSpeedMultiplier()/entity->GetSludgeActionMultiplier();
 					// 当前领域在 attackAuras 中按剩余时长处理，不永久烘焙进基础 DPS。
 					plant.hitDamage = plant.growth.Damage();
 					plant.dps = plant.hitDamage/plant.growth.Interval()*plant.growthSpeed;
@@ -2117,6 +2184,12 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
             }
 			if (const Plant* entity = mEntityRegistry.GetPlant(p.id)) {
 				plant.reward = static_cast<float>(PlantKillIce(GetPlantIceCost(entity->GetPlacementType()), s.difficulty));
+                ProjectPlantAttack(plant,entity->GetPlacementType());
+                plant.salvageable=plant.salvageable && !entity->IsIceSealed() && !entity->IsBungeeTargeted() && !entity->IsDamageImmune();
+                plant.sludgeUntil=entity->GetSludgeRemaining();
+                plant.sludgeTargetable=entity->OccupiesGridSlot() && !entity->IsBungeeTargeted();
+                plant.supportHazardKind=entity->GetWatersideHazardKind();plant.supportHazardElapsed=entity->GetWatersideHazardElapsed();
+                plant.supportHazard=plant.supportHazard && !entity->IsBungeeTargeted();
 				plant.assetValue = plantCapital(entity);
 				plant.maximumHealth = static_cast<float>(entity->mPlantMaxHealth);
 				if (const auto* boundary = dynamic_cast<const BoundaryFlower*>(entity)) {
@@ -2172,6 +2245,7 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
 				mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
 			unit.helmHealth=vitals.helm; unit.shieldHealth=vitals.shield; unit.biteDps=vitals.bite;
             unit.maximumBody=vitals.body; unit.maximumHelm=vitals.helm; unit.maximumShield=vitals.shield;
+            ProjectWatersideUnit(unit,type);
             if(type==ZombieType::ZOMBIE_HEALER) {
                 unit.healer.present=true;
                 unit.healer.disableBodyHealth=s.difficulty<=HealerRules::ArmDisableDifficulty ? static_cast<std::int64_t>(vitals.body)*2/3 : vitals.body/3;

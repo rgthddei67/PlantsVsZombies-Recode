@@ -15,6 +15,11 @@
 #include "Game/Zombie/PressureShooterRules.h"
 #include "Game/Zombie/PressureGuardRules.h"
 #include "Game/Zombie/DisasterEngineerRules.h"
+#include "Game/Zombie/HeavyDiverRules.h"
+#include "Game/Zombie/SalvageZombieRules.h"
+#include "Game/Zombie/SludgeZombieRules.h"
+#include "Game/Zombie/LotusParasolRules.h"
+#include "Game/Board/WatersideFlood.h"
 
 #include "ColdStorageStrategy.h"
 #include "ColdStorageDiagnostics.h"
@@ -124,6 +129,25 @@ struct FogFerry {
     float remaining=0, stopBodyHealth=0;
     bool blocksMovement=false, transported=false;
 };
+/** 换气按游戏秒，抡锚按行动秒；水下减伤不改变普通生命层。 */
+struct HeavyDiverForecast {
+    bool present=false, inWater=false, breathing=false;
+    float airRemaining=HeavyDiverRules::SubmergedSeconds, smashRemaining=HeavyDiverRules::Windup;
+    float damage=HeavyDiverRules::SmashDamage;
+    int eatingTargetID=0;
+};
+/** 只锁定一个基座的稳定身份；失钩永久停用，控制取消尚未完成的拉拽。 */
+struct SalvageForecast {
+    bool present=false, hasHook=true;
+    int targetID=0;
+    float windup=0, cooldown=0;
+};
+/** 喷射动作与已离膛泥团分开持有，修复只在提交时结算一次。 */
+struct SludgeForecast {
+    bool present=false;
+    int targetID=0;
+    float windup=0, reload=0, muzzleOffset=0;
+};
 struct Unit {
 	ColdStorageStrategy::SplashUnit body;
 	float minimumMoveSpeed = 0, maximumMoveSpeed = 0; // 未出生的品种移速范围，px/游戏秒；已有实体为零，沿用实测速度
@@ -155,6 +179,11 @@ struct Unit {
 	GoldenDrive goldenDrive;
 	Clock clock;
     FogFerry ferry;
+    HeavyDiverForecast diver;
+    SalvageForecast salvage;
+    SludgeForecast sludge;
+    bool parasol=false;
+    float parasolHealth=0; // 独立伞面耐久，不参与本体承伤、普通治疗或采购资产生命比例
 	DancerRules::Forecast dance;
 	float helmHealth = 0, temporalStopHealth = 0; // 一类防具和本体掉头阈值；零表示当前阶段不掉头，已有实体由 Board 精确采样
 	bool headless = false; // 推演受伤后的核心状态；时间锚恢复头部，不由治疗或防具回血重新长头
@@ -205,6 +234,14 @@ struct Unit {
 
 };
 struct Plant {
+    bool diverResisted=false, parasolInterceptable=false; // 由正式攻击种类投影，不按范围/绕盾猜测弹型
+    float diverDirectFraction=1; // 混合直击/持续伤害画像中可减免的份额，持续毒素不借水下减伤
+    int foundationKind=0; // 0非基座、1睡莲、2花盆；双基座各自保留实体身份
+    bool salvageable=false, sludgeTargetable=true; // 基座门禁与喷泥索敌资格分别采样
+    float sludgeUntil=0, lobbedCharge=0; // 挂泥到期游戏秒、等效投掷单发进度；攻击与水压取较强减速
+    bool aquatic=false, amphibious=false, supportHazard=true;
+    int supportHazardKind=0;
+    float supportHazardElapsed=0; // 当前救援窗口已过游戏秒；拆基座不立即连杀上层
 	int actualType = -1, footprintColumns = 1; // 真实本体类型及普通层横向占格；玉米炮两格仍是一株实体
 	bool cobBaseEligible = false; // 仅正式可升级的玉米底材，未变身模仿者不能提前取得资格
 	float y=0, boundsX=-40, boundsY=-50, boundsWidth=80, boundsHeight=100; // 实体逻辑位置与实际爆区判定矩形相对量
@@ -331,6 +368,8 @@ struct PhasedSearchDiagnostics {
     float forecastFutureSpent=0, forecastFuturePurchasedAt=-1;
 };
 struct ConstructionStats {
+    int diverSmashes=0, salvages=0, sludgeShots=0, sludgeHits=0, parasolBlocks=0;
+    float sludgeRepaired=0, parasolAbsorbed=0; // 实际兑现的修复和拦截原始伤害，仅用于诊断
     int ferryTransfers=0, ferryPassengers=0; // 仅取证，不凭传送次数赠送评分或资源
     FollowupForecast followup;
     int observedDelaySteps=0; // 本完整行为世界真正延后的未提交付费反制候选步数
@@ -432,6 +471,8 @@ struct TemporalAnchor {
 struct ThunderRay { float x = 0; int row = 0; PlantDamageOrigin origin; };
 /** 已离膛篮球只保存落格与到达秒，来源死亡或下一轮重排不取消。 */
 struct BasketballFlight { int row=0, column=-1; float at=0, damage=0; };
+/** 泥团剩余距离与发射秒独立于来源；来源死亡后仍按扫掠碰撞命中当前最外层。 */
+struct SludgeRay { int row=0; float x=0, launchedAt=0, remaining=0, damage=SludgeZombieRules::Damage; };
 /** 已离手精英盒冻结落点和阵营；死亡动画仍飞行，但载体被灰烬直接移除会取消，回溯不复制。 */
 struct JackBoxFlight { float x=0, y=0, at=0; bool charmed=false; int ownerID=0; int traceID=0; };
 /** 三叶草卡共享一份真实冷却，已有演出锁定来源；吹飞不属于灰烬。 */
@@ -458,6 +499,10 @@ private:
     friend class RawWorldCache;
 };
 struct Snapshot {
+    std::array<bool,54> waterCells{}; // 当前逐格水面；不猜测尚未建模的未来洪水涨退
+    std::array<bool,54> potCells{}; // 需要花盆的石地/屋顶；石地淹水后仍保留花盆自身免灾资格
+    bool watersideHazards=false;
+    std::vector<SludgeRay> sludgeRays;
     bool stallReview=false; // 长期空场的最终完整后台复查；不是付款或认输凭据
     Proposal stallProposal; // 完整复查留下的未付款案，下一快照必须重新定价和评估
     std::vector<int> stallPrecisionTargets;

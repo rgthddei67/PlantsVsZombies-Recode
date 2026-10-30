@@ -17,6 +17,7 @@ public:
     void LoadExtraData(const nlohmann::json& j) override;
     float GetWindup() const { return mWindup; }
     float GetReload() const { return mReload; }
+    int GetSludgeTargetID() const { return mTargetID; }
     int GetShots() const { return mShots; }
     int GetRepairedTotal() const { return mRepairedTotal; }
     int GetRepairCount() const { return mRepairCount; }

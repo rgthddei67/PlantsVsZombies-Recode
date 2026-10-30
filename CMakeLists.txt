@@ -424,6 +424,7 @@ if(BUILD_TESTING)
         tests/ColdStoragePressureGuardTests.cpp
         tests/ColdStorageDefenseVictoryTests.cpp
         tests/ColdStorageFogFerryForecastTests.cpp
+        tests/ColdStorageWatersideForecastTests.cpp
         tests/ColdStorageTrialPersistenceTests.cpp
         PlantVsZombies/Game/AI/ColdStoragePhasedPlanning.cpp
         PlantVsZombies/Game/AI/ColdStorageBoundedTrials.cpp

@@ -452,12 +452,18 @@ struct PlantHit { float rate; bool penetrate, bypass, discardOverflow; };
 bool CanTargetProjectile(const Unit& unit,bool flying) {
 	return unit.balloon.CanTargetProjectile(flying) && (!unit.digger.present || unit.digger.CanTargetProjectile(flying));
 }
+/** 仅水下有头阶段减免指定直射；灰烬、溅射、持续伤害不调用此修正。 */
+static float DiverDirectMultiplier(const Unit& unit) {
+    return unit.diver.present && unit.diver.inWater && !unit.diver.breathing && !unit.headless
+        ? HeavyDiverRules::DirectDamageMultiplier : 1.0f;
+}
 /** 把单击修正换算回持续火力；西瓜溅射先分配伤害预算，再应用目标自身每击上限。 */
 PlantHit DescribePlantHit(const Unit& unit, const Plant& plant, float fraction = 1) {
 	const bool shielded = unit.shieldHealth > 0;
 	const bool blocksFume = shielded && unit.blocksFumePiercing && plant.fume;
 	const bool bypass = plant.bypassShield && !(shielded && unit.blocksShieldBypass);
-	const float multiplier = plant.fume ? unit.fumeMultiplier : 1;
+	const float multiplier = (plant.fume ? unit.fumeMultiplier : 1)
+        * (plant.diverResisted ? 1+(DiverDirectMultiplier(unit)-1)*plant.diverDirectFraction : 1);
 	const float hit = plant.hitDamage*fraction*multiplier;
 	const float cap = shielded && !bypass ? unit.shieldedHitCap : 0;
 	const float reduction = cap > 0 && hit > 0 ? std::min(1.0f,cap/hit) : 1;
@@ -3168,7 +3174,7 @@ static void AdvanceAttackAuras(const Snapshot& state, float time, std::vector<At
 			aura.active -= boosted;
 			if (aura.active <= 0) aura.cooldown = aura.recharge;
 		}
-		aura.cooldown = std::max(0.0f,aura.cooldown-(kStep-boosted));
+		aura.cooldown = std::max(0.0f,aura.cooldown-(kStep-boosted)*(source->sludgeUntil>time ? SludgeZombieRules::ActionMultiplier : 1));
 	}
 }
 
@@ -3543,7 +3549,7 @@ void AdvanceMagnets(const Snapshot& state,float time,std::vector<Plant>& plants,
     std::vector<TemporalAnchor>& anchors,ConstructionStats& stats,std::vector<LadderRules::Cell>& ladders) {
     for(auto& p:plants) {
         if(p.health<=0 || p.magnetRadius<=0 || p.shutdownUntil>time) continue;
-        p.magnetRemaining=std::max(0.0f,p.magnetRemaining-kStep);
+        p.magnetRemaining=std::max(0.0f,p.magnetRemaining-kStep*(p.sludgeUntil>time ? SludgeZombieRules::ActionMultiplier : 1));
         if(p.magnetRemaining>0) continue;
         int best=-1; float bestScore=(std::numeric_limits<float>::max)();
         for(size_t i=0;i<units.size();++i) {
@@ -3578,6 +3584,11 @@ void AdvanceMagnets(const Snapshot& state,float time,std::vector<Plant>& plants,
             u.body.speed=u.jack.disarmedSpeed;
         }
         if(u.digger.present) u.digger.LosePickaxe();
+        if(u.salvage.present) {
+            u.salvage.hasHook=false;
+            if(u.salvage.windup>0) u.salvage.cooldown=SalvageZombieRules::RetrySeconds;
+            u.salvage.windup=0;u.salvage.targetID=0;
+        }
         u.magneticLayer=0; p.magnetRemaining=p.magnetRecharge; ++stats.magneticExtractions;
         for(auto& anchor:anchors) for(auto& target:anchor.targets) if(target.unit==best) {
             if(layer==2) target.restoreShield=false;
@@ -3696,7 +3707,7 @@ static void AdvanceDeploymentSnipers(const Snapshot& state, float time, std::vec
 static void AdvanceCottonHealing(float time,std::vector<Plant>& plants,Weights& features) {
     for(auto& source:plants) {
         if(!source.cotton || source.health<=0 || source.shutdownUntil>time) continue;
-        source.cottonRemaining=std::max(0.0f,source.cottonRemaining-kStep);
+        source.cottonRemaining=std::max(0.0f,source.cottonRemaining-kStep*(source.sludgeUntil>time ? SludgeZombieRules::ActionMultiplier : 1));
         if(source.cottonRemaining>0) continue;
         Plant* best=nullptr;
         for(auto& p:plants) {
@@ -3762,6 +3773,7 @@ static void AdvancePressureShooters(const Snapshot& s,float time,std::vector<Uni
 }
 
 #include "ColdStorageRainForecast.h"
+#include "ColdStorageWatersideForecast.h"
 
 /** 推进已部署/预测新建坚果的独立计时与付费修复，不能复活或在无敌期重复触发承伤。 */
 static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<Plant>& plants, const std::vector<Unit>& units,
@@ -3770,7 +3782,7 @@ static void AdvancePlantRepairs(const Snapshot& state, float time, std::vector<P
 		if (automaticPhase) {
 			p.immuneRemaining = std::max(0.0f,p.immuneRemaining-kStep);
 			if (p.hasBurstProtection) p.burstProtection.Advance(kStep);
-			p.repairRemaining = std::max(0.0f,p.repairRemaining-kStep);
+			p.repairRemaining = std::max(0.0f,p.repairRemaining-kStep*(p.sludgeUntil>time ? SludgeZombieRules::ActionMultiplier : 1));
 		}
 		if (p.repairAutomatic != automaticPhase) continue;
 		const float missing = p.repairMaximum-p.health;
@@ -3881,7 +3893,7 @@ static void AdvanceRiftArrivals(const Snapshot& s, float time, std::vector<Plant
 	std::vector<Unit>& units, std::vector<int>& columns, ConstructionStats& stats) {
 	for (auto& p : plants) if (p.health > 0 && p.boundaryRecharge > 0 && time >= p.boundaryBlockedUntil
 		&& p.boundaryShards < BoundaryFlowerRules::MaxShards) {
-		p.boundaryCharge += kStep;
+		p.boundaryCharge += kStep*(p.sludgeUntil>time ? SludgeZombieRules::ActionMultiplier : 1);
 		if (p.boundaryCharge >= p.boundaryRecharge) { ++p.boundaryShards; p.boundaryCharge -= p.boundaryRecharge; }
 		if (p.boundaryShards == BoundaryFlowerRules::MaxShards) p.boundaryCharge = 0;
 	}
@@ -4019,6 +4031,11 @@ static void ResolveTemporalAnchors(const Snapshot& s, float time, std::vector<Te
                     unit.balloon.blowing=false;unit.balloon.blowRemaining=0;unit.groundHazard=false;unit.temporalStopHealth=0;
                 }
                 if(unit.ferry.present) unit.ferry={true,true,false,FogFerryRules::FirstWait,unit.ferry.stopBodyHealth};
+                // 正式核心回溯不倒放这些品种的私有计时；死亡重建才使用出生能力。
+                if(unit.diver.present) {const float damage=unit.diver.damage;unit.diver={};unit.diver.present=true;unit.diver.damage=damage;}
+                if(unit.salvage.present) {unit.salvage={};unit.salvage.present=true;unit.magneticLayer=3;}
+                if(unit.sludge.present) {const float muzzle=unit.sludge.muzzleOffset;unit.sludge={};unit.sludge.present=true;unit.sludge.muzzleOffset=muzzle;}
+                if(unit.parasol) unit.parasolHealth=LotusParasolRules::Durability;
                 if(unit.healer.present) { unit.healer=HealerRules::Forecast{}; unit.healer.present=unit.healer.enabled=true; unit.healer.disableBodyHealth=saved.healer.disableBodyHealth; }
                 // 正式复活重新创建投篮车，恢复出生库存；存活回溯不改变当前弹药/射击阶段。
 				if(unit.catapult.present) {
@@ -4568,6 +4585,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
     ColdStorageObservedForecast::WorldClock observedClock(s.observedResponse);
 	std::vector<unsigned char> melonHits(units.size());
 	auto pressureRays=s.pressureRays;
+    auto sludgeRays=s.sludgeRays;
+    const bool hasParasol=std::any_of(units.begin(),units.end(),[](const Unit& u){return u.parasol;})
+        || std::any_of(s.options.begin(),s.options.end(),[](const Option& o){return o.unit.parasol;});
 	auto bambooRays=s.bambooRays;auto floodShots=s.floodShots;
 	auto thunderRays=s.thunderRays; // 已发射平射雷种独立存在，来源死亡不取消。
 	auto basketballs=s.basketballs;
@@ -4718,6 +4738,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			break;
 		}
         if (pressureGroupPresent) for (auto& u : units) u.pressureGroupPresent=true;
+        AdvanceDiverAir(s,t,units);
 		if (s.cancellation && s.cancellation->load(std::memory_order_relaxed)) throw SearchCancelled{};
 		for (auto& unit:units) {
 			unit.thunderResistance=std::max(0.0f,unit.thunderResistance-kStep);
@@ -4783,7 +4804,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		} else if (!s.anticipateEconomy && !orderArrived && t >= s.incomingIceAt) {
 			playerIce += s.incomingIce; orderArrived = true;
 		}
-		for (const auto& p : plants) if (p.health > 0 && p.shutdownUntil<=t && t >= p.productionAt) playerSun += p.sunPerSecond * kStep;
+		for (const auto& p : plants) if (p.health > 0 && p.shutdownUntil<=t && t >= p.productionAt)
+            playerSun += p.sunPerSecond * kStep * (p.sludgeUntil>t ? SludgeZombieRules::ActionMultiplier : 1);
 		capPlayerResources(); // 满仓后的溢出不是可被攻击消耗的实际资产
         const bool followupPurchased=constructionStats.followup.status==FollowupForecast::Status::Purchased;
         advanceFollowup(t);
@@ -4809,6 +4831,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		// 本步落种先触发瞄准，再推进这半秒弹道，避免给新灰烬额外赠送半秒安全时间。
 		AdvanceDeploymentSnipers(s,t,units,plants,deploymentPulses,sniperActivity,f,constructionStats);
         AdvancePressureShooters(s,t,units,plants,pressureRays,f,s.weatherStation ? s.rainZombie[environment.Rain()] : -1);
+        AdvanceSludgeRays(s,t,sludgeRays,plants,f,constructionStats);
         AdvanceCottonHealing(t,plants,f);
 		if (s.anticipateEconomy) AdvancePlayerEconomy(s,counters,t,plants,exchangeReady,exchangeOccupied,counterReady,
 			constructionReady,constructionUses,auras,units,playerSun,playerIce,pendingIce,arrival,constructionStats,reserveCounterSpace,
@@ -4839,6 +4862,8 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				if (toX>s.rightEdge+40) ray=thunderRays.erase(ray); else ++ray;
 				continue;
 			}
+			if(hasParasol && InterceptParasol(s,t,units,ray->row,units[target].body.x+units[target].body.blastAnchorOffset,
+                ThunderFlowerRules::Damage,constructionStats)) {ray=thunderRays.erase(ray);continue;}
 			std::vector<std::pair<float,size_t>> hits;
 			const float radius=ThunderFlowerRules::RadiusCells*s.cellWidth;
 			for (size_t i=0;i<units.size();++i) {
@@ -4867,7 +4892,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
         AdvanceBambooRays(s,t,units,bambooRays);
 		for (size_t pi=0; pi<plants.size(); ++pi) if (plants[pi].health > 0 && plants[pi].dps > 0 && plants[pi].shutdownUntil<=t) {
 			auto& p = plants[pi];
-			const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1) * (p.floodSlowUntil>t ? FloodMortarRules::AttackMultiplier : 1);
+			const float statusRate=std::min(p.floodSlowUntil>t ? FloodMortarRules::AttackMultiplier : 1,
+                p.sludgeUntil>t ? SludgeZombieRules::ActionMultiplier : 1);
+            const float attackRate = (auras.empty() ? 1 : attackRates[pi]) * (s.weatherStation ? s.rainPlant[environment.Rain()]/std::max(.001f,s.sampledRainPlant) : 1) * statusRate;
 			int target = -1;
 			for (size_t i = 0; i < units.size(); ++i) {
 				const auto& u = units[i].body;
@@ -4883,7 +4910,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
                 if(target<0 || (air && !selectedAir) || (air==selectedAir && u.x<units[target].body.x)) target=static_cast<int>(i);
 			}
             if(p.rainBamboo) {
-                const float rate=p.bambooRate*(auras.empty()?1:attackRates[pi])*(p.floodSlowUntil>t?FloodMortarRules::AttackMultiplier:1);
+                const float rate=p.bambooRate*(auras.empty()?1:attackRates[pi])*statusRate;
                 p.bambooCharge=std::min(1.0f,p.bambooCharge+kStep*rate/RainBambooRules::Interval(environment.Rain()));
                 if(target>=0 && p.bambooCharge>=1) {p.bambooCharge=0;bambooRays.push_back({p.x+32,p.row,p.damageOrigin,{}});}
                 continue;
@@ -4905,6 +4932,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			}
 
 
+            if(hasParasol && p.parasolInterceptable) {
+                // 按等效单发离散消费伞面，避免连续 DPS 把最后一发拆成可溢出的半发。
+                p.lobbedCharge+=p.dps*kStep*damageRate/std::max(1.0f,p.hitDamage);
+                const int shots=static_cast<int>(p.lobbedCharge);p.lobbedCharge-=shots;
+                int passed=0;
+                for(int shot=0;shot<shots;++shot)
+                    if(!InterceptParasol(s,t,units,units[target].body.row,
+                        units[target].body.x+units[target].body.blastAnchorOffset,p.hitDamage,constructionStats)) ++passed;
+                if(passed==0) continue;
+                damageRate=passed*p.hitDamage/std::max(.001f,p.dps*kStep);
+            }
 			const auto impact = units[target].body;
 			int secondaryCount = 0;
 			if (p.melon) {
@@ -4963,13 +5001,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 		for (size_t i = 0; i < units.size(); ++i) {
 			auto& worker = units[i]; auto& u = worker.body;
 			if (u.health <= 0 || u.spawnAt > t) continue;
+            const bool controlled=u.stopped>0;
 			float active = std::max(0.0f, kStep - u.stopped)*worker.healer.movementActivity;
 			u.stopped = std::max(0.0f, u.stopped - kStep);
 			const float ritualActivity = AdvanceRitual(s,t,worker,active,plants,units,nextRiftSlot,followupBegin,riftColumns,initialHealth,initialX,constructionStats);
 			const float speedFactor = u.slow > 0 ? u.slowFactor*GoldenIceRules::Amplify(.5f,worker.goldenStacks)/.5f : 1;
+            const bool actionSlow=u.slow>0;
 			u.slow = std::max(0.0f, u.slow - kStep);
+            if(AdvanceWatersideAction(s,t,worker,active,s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier,
+                controlled,actionSlow,plants,sludgeRays,f,constructionStats)) continue;
 			// 被搬走的巨人必须撤销原格未落锤/未脱手动作，已飞行小鬼独立保留。
-            if(worker.ferry.transported) {smash[i]=0;smashTarget[i]=-1;if(i<originalUnits && throwRemaining[i]>0) throwRemaining[i]=-1;}
+            if(worker.ferry.transported) {smash[i]=0;smashTarget[i]=-1;worker.diver.eatingTargetID=0;if(i<originalUnits && throwRemaining[i]>0) throwRemaining[i]=-1;}
             if(danceBlocked[i] || worker.ferry.blocksMovement) continue;
             if(worker.floodMortar && worker.body.health>worker.floodStopHealth && FindFloodTarget(s,worker,plants,t,environment.Rain())>=0) continue;
             if(worker.digger.present) {
@@ -5056,10 +5098,15 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			if(AdvanceCatapult(s,t,worker,active,speedFactor<1,s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier,
 				plants,basketballs,constructionStats)) continue;
 			int contact = -1;
+            int diverContactColumn=-1;
+            if(worker.diver.present && worker.diver.eatingTargetID>0)
+                for(const auto& p:plants) if(p.id==worker.diver.eatingTargetID && p.row==u.row
+                    && std::abs(u.x+u.blastAnchorOffset-p.x)<=s.cellWidth) {diverContactColumn=p.column;break;}
 			const bool movingRight=worker.digger.present && worker.digger.IsMovingRight();
 			for (size_t j = 0; j < plants.size(); ++j) {
 				const auto& p = plants[j];
-				if (p.health <= 0 || !p.edible || p.row != u.row || (movingRight ? p.x < u.x-30 : p.x > u.x+30)
+				if (p.health <= 0 || !p.edible || p.row != u.row
+                    || (p.column!=diverContactColumn && (movingRight ? p.x < u.x-30 : p.x > u.x+30))
 					|| (worker.instantVehicleCrush && !p.vehicleCrushable)
 					|| (worker.catapult.present && !p.catapultCrushable)) continue;
 				if (contact < 0 || (movingRight ? p.x < plants[contact].x : p.x > plants[contact].x)
@@ -5102,10 +5149,17 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			if (acceleration>1) ++constructionStats.goldenAccelerationSteps;
 			if (!worker.inspiration.empty() && worker.goldenStacks>0) ++constructionStats.goldenDrumSteps;
 			// 投篮车已经统一结算碾压；空弹药步行也不能再次啃食或重复伤害挡车坚果。
-			if (contact >= 0 && (movingRight ? u.x>=plants[contact].x-kContact : u.x<=plants[contact].x+kContact) && !worker.catapult.present) {
+			if (contact >= 0 && (plants[contact].column==diverContactColumn
+                || (movingRight ? u.x>=plants[contact].x-kContact : u.x<=plants[contact].x+kContact)) && !worker.catapult.present) {
 				auto& p = plants[contact];
 				float damage = worker.biteDps * (worker.overloadRemaining>0 ? 2 : 1)
                     / (worker.sampledOverload>1 ? 2 : 1) * ritualBite * drumBite * activity[1] * (speedFactor < 1 ? GoldenIceRules::Amplify(.5f,worker.goldenStacks) : 1);
+                if(worker.diver.present) {
+                    const float rain=s.weatherStation ? s.rainZombie[environment.Rain()] : worker.rawRainMultiplier;
+                    AdvanceDiverSmash(worker,p,active,GoldenIceRules::Amplify(rain,worker.goldenStacks)*drumBite
+                        *(actionSlow ? GoldenIceRules::Amplify(ZombieMovementRules::NormalSlowAnimationFactor,worker.goldenStacks) : 1),f,constructionStats);
+                    continue;
+                }
 				if (u.smashSeconds > 0) {
 					smashTarget[i] = contact;
 					advanceSmash(i,active,speedFactor);
@@ -5119,6 +5173,7 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 				} else if(!worker.headless) DamagePlant(p,damage,false,f);
 			} else {
 				// 车辆会随位置减速；保留采样时已有加速状态，不把当前车速冻结到整个时域。
+                if(worker.diver.present) {worker.diver.eatingTargetID=0;worker.diver.smashRemaining=HeavyDiverRules::Windup;}
 				const float curve=worker.movementCurve.Factor(u.x-worker.movementCurveBase)
 					/ worker.movementCurve.Factor(worker.movementCurveReference-worker.movementCurveBase);
 				const float rainRatio=s.weatherStation ? GoldenIceRules::Amplify(s.rainZombie[environment.Rain()],worker.goldenStacks)/std::max(.001f,GoldenIceRules::Amplify(worker.rawRainMultiplier,worker.goldenStacks)) : 1;
@@ -5136,7 +5191,9 @@ Weights Evaluate(const Snapshot& s, const std::vector<Action>& plan, Constructio
 			}
 			if (worker.goldenDrive.enabled) worker.goldenDrive.undamaged=std::min(GoldenIceRules::ThirdAcceleration,worker.goldenDrive.undamaged+kStep);
 		}
+        AdvanceSludgeRays(s,t,sludgeRays,plants,f,constructionStats);
 		enemyIce += f[0]-previousKills; // 已兑现击杀在下一逻辑步可付技能费，不能提前借用预测收入
+        AdvanceWatersideSupport(s,plants);
 		for(auto& plant:plants) if(plant.troopKillPending) {
 			plant.troopKillPending=false;
 			if(s.troopNoKillSeconds>=0) defenseDeadline=t+surrenderSeconds;
@@ -6769,6 +6826,7 @@ static std::uint64_t TrialCapabilities(const Unit& unit) {
     flag(unit.pressure);flag(unit.floodMortar);flag(unit.mowerImmune);
     flag(unit.biteDps>0);flag(unit.body.speed>0);flag(unit.blocksShieldBypass);flag(unit.blocksFumePiercing);
     flag(unit.ferry.present);
+    flag(unit.diver.present);flag(unit.salvage.present);flag(unit.sludge.present);flag(unit.parasol);
     return bits;
 }
 

@@ -1231,6 +1231,23 @@ bool TestDriver::ExecuteCurrent() {
             report["pressureGuards"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
                 {"shield",u.helmHealth},{"windowUsed",u.pressureWindow.Used(0)},{"health",u.body.health}});
         report["ferryCurrent"]=nlohmann::json::array();
+        const auto watersideProfile=[](const ColdStorageSearch::Unit& u) {
+            return nlohmann::json{{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
+                {"diver",u.diver.present},{"inWater",u.diver.inWater},{"breathing",u.diver.breathing},{"airRemaining",u.diver.airRemaining},
+                {"smashRemaining",u.diver.smashRemaining},{"smashDamage",u.diver.damage},
+                {"salvage",u.salvage.present},{"hook",u.salvage.hasHook},{"salvageTarget",u.salvage.targetID},
+                {"salvageWindup",u.salvage.windup},{"salvageCooldown",u.salvage.cooldown},
+                {"sludge",u.sludge.present},{"sludgeTarget",u.sludge.targetID},{"sludgeWindup",u.sludge.windup},{"sludgeReload",u.sludge.reload},
+                {"parasol",u.parasol},{"parasolHealth",u.parasolHealth},{"helm",u.helmHealth},{"health",u.body.health}};
+        };
+        report["watersideCurrent"]=nlohmann::json::array();
+        for(const auto& u:probe.snapshot.current) if(u.diver.present || u.salvage.present || u.sludge.present || u.parasol)
+            report["watersideCurrent"].push_back(watersideProfile(u));
+        report["sludgeRays"]=probe.snapshot.sludgeRays.size();
+        report["watersidePlants"]=nlohmann::json::array();
+        for(const auto& p:probe.snapshot.plants) report["watersidePlants"].push_back({{"id",p.id},{"row",p.row},{"column",p.column},
+            {"foundation",p.foundationKind},{"salvageable",p.salvageable},{"sludgeUntil",p.sludgeUntil},
+            {"diverResisted",p.diverResisted},{"parasolInterceptable",p.parasolInterceptable}});
         for(const auto& u:probe.snapshot.current) if(u.ferry.present)
             report["ferryCurrent"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
                 {"enabled",u.ferry.enabled},{"winding",u.ferry.winding},{"remaining",u.ferry.remaining},
@@ -1267,7 +1284,7 @@ bool TestDriver::ExecuteCurrent() {
 
 			for(const auto& option:probe.snapshot.options) if(option.device<0)
 				report["legalOptions"].push_back({{"type",GameDataManager::GetInstance().ZombieTypeToEnumName(static_cast<ZombieType>(option.type))},
-					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},
+					{"row",option.row},{"cost",option.cost},{"birthCenterX",option.unit.body.x},{"waterside",watersideProfile(option.unit)},
 					{"birthObjectX",option.unit.body.x+option.unit.body.blastAnchorOffset},
 					{"birthHealth",option.unit.body.health},{"boundsWidth",option.unit.body.boundsWidth},
 					{"birthBodyHealth",option.unit.body.health-option.unit.helmHealth-option.unit.shieldHealth-(option.unit.balloon.present ? option.unit.balloon.health : 0)},
@@ -1339,6 +1356,10 @@ bool TestDriver::ExecuteCurrent() {
 					{"catapultShots",result.construction.catapultShots},{"catapultHits",result.construction.catapultHits},
 					{"catapultBlocks",result.construction.catapultBlocks},
 					{"ferryTransfers",result.construction.ferryTransfers},{"ferryPassengers",result.construction.ferryPassengers},
+                    {"diverSmashes",result.construction.diverSmashes},{"salvages",result.construction.salvages},
+                    {"sludgeShots",result.construction.sludgeShots},{"sludgeHits",result.construction.sludgeHits},
+                    {"sludgeRepaired",result.construction.sludgeRepaired},{"parasolBlocks",result.construction.parasolBlocks},
+                    {"parasolAbsorbed",result.construction.parasolAbsorbed},
                     {"clockRewinds",result.construction.clockRewinds},{"interferences",result.construction.interferences},
 					{"protectionProgress",result.construction.workerProtectionProgress},
 					{"paidCounterCasts",result.construction.paidCounterCasts},{"rawProduction",result.rawProduction},

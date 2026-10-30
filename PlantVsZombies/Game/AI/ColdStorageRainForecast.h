@@ -98,7 +98,7 @@ static void AdvanceBambooRays(const Snapshot& s,float time,std::vector<Unit>& un
             const float capped=target.shieldHealth>0 && target.shieldedHitCap>0
                 ? std::min(damage,target.shieldedHitCap) : damage;
             // 与普通弹丸一样先限单击、再按命中时的邻兵分担；缺失时间会让护卫额度永不过期。
-            ApplyDamage(target,capped,false,false,false,it->origin,&units,&s,time);
+            ApplyDamage(target,capped*DiverDirectMultiplier(target),false,false,false,it->origin,&units,&s,time);
             it->hitIDs.push_back(units[index].id);
         }
         it->x=next;

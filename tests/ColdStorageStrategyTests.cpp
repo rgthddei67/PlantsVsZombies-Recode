@@ -25,6 +25,7 @@
 void RunColdStoragePressureGuardTests();
 void RunColdStorageDefenseVictoryTests();
 void RunColdStorageFogFerryForecastTests();
+void RunColdStorageWatersideForecastTests();
 void RunColdStorageHealerForecastTests();
 void RunColdStorageLadderForecastTests();
 void RunColdStorageJackBalloonForecastTests();
@@ -68,6 +69,7 @@ int main()
 	RunColdStoragePressureGuardTests();
 	RunColdStorageDefenseVictoryTests();
 	RunColdStorageFogFerryForecastTests();
+    RunColdStorageWatersideForecastTests();
 	RunColdStorageHealerForecastTests();
 	RunColdStorageLadderForecastTests();
 	RunColdStorageJackBalloonForecastTests();
