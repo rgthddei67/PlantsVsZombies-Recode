@@ -2,7 +2,9 @@
 #include "../../GameApp.h"
 #include "GameDataManager.h"
 #include "Game/Board/Board.h"
+#include "Game/Workshop/Workshop.h"
 #include "../Zombie/Zombie.h"
+#include <stdexcept>
 
 namespace {
 	std::string HeadStateKey(const char* prefix, const char* suffix)
@@ -48,12 +50,22 @@ void Shooter::SetupPlant() {
 void Shooter::SaveExtraData(nlohmann::json& j) const
 {
 	j["shootTimer"] = mShootTimer;
+	if (mBoard && mBoard->IsWorkshop()) j["workshopUpgradeLevel"] = mWorkshopUpgradeLevel;
 	SaveHeadAnimatorState(j, "headAnim", mHeadAnim.get());
 }
 
 void Shooter::LoadExtraData(const nlohmann::json& j)
 {
 	mShootTimer = j.value("shootTimer", 1.0f);
+	mWorkshopUpgradeLevel = 1;
+	if (mBoard && mBoard->IsWorkshop() && j.contains("workshopUpgradeLevel")) {
+		const auto& level = j.at("workshopUpgradeLevel");
+		if (!level.is_number_integer() || level < 1 || level > Workshop::MaxUpgradeLevel)
+			throw std::runtime_error("无效的工坊射手等级");
+		mWorkshopUpgradeLevel = level.get<int>();
+		if (mBoard->GetWorkshop().CompletedWaves() < Workshop::UpgradeWaves[mWorkshopUpgradeLevel - 1])
+			throw std::runtime_error("工坊射手等级尚未解锁");
+	}
 	LoadHeadAnimatorState(j, "headAnim", mHeadAnim.get(),
 		"anim_shooting", "anim_head_idle");
 }
@@ -130,10 +142,29 @@ void Shooter::LoadHeadAnimatorState(
 	}
 }
 
+float Shooter::GetWorkshopAttackSpeedMultiplier() const
+{
+	return mBoard && mBoard->IsWorkshop()
+		? Workshop::ShooterCooldowns[0] / Workshop::ShooterCooldowns[mWorkshopUpgradeLevel - 1] : 1.0f;
+}
+
+bool Shooter::TryUpgradeWorkshop()
+{
+	if (!mBoard || !mBoard->IsWorkshop() || mPlantType != PlantType::PLANT_PEASHOOTER
+		|| !IsActive() || mPlantHealth <= 0
+		|| !mBoard->GetWorkshop().BuyUpgrade(Workshop::ShooterCost, mWorkshopUpgradeLevel)) return false;
+	const float oldSpeed = GetWorkshopAttackSpeedMultiplier();
+	++mWorkshopUpgradeLevel;
+	// 只改变正在播放的速度，保留当前帧与已消费事件；不因升级重新开始一次射击。
+	if (mHeadAnim && mHeadAnim->GetCurrentTrackName() == "anim_shooting")
+		mHeadAnim->SetClipSpeed(mHeadAnim->GetClipSpeed() * GetWorkshopAttackSpeedMultiplier() / oldSpeed);
+	return true;
+}
+
 void Shooter::PlantUpdate()
 {
 	// 攻击统一合成天气、土壤和既有词条倍率，射击计时与发弹动画使用同一速度。
-	float mult = GetAttackSpeedMultiplier();
+	float mult = GetAttackSpeedMultiplier() * GetWorkshopAttackSpeedMultiplier();
 	this->mShootTimer += (DeltaTime::GetDeltaTime() * mult);
 	if (this->mShootTimer >= this->mShootTime)
 	{
@@ -152,7 +183,7 @@ bool Shooter::HasZombieInRow()
 	if (mBoard)
 	{
 		// 肥沃同步缩短攻击前索敌间隔，避免固定节流抵消高频攻击。
-		mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
+		mCheckZombieTimer += DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier() * GetWorkshopAttackSpeedMultiplier();
 		if (mCheckZombieTimer >= ShooterRules::TargetCheckSeconds)
 		{
 			mCheckZombieTimer = 0.0f;

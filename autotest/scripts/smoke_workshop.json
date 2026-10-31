@@ -339,6 +339,10 @@
       "y": 163
     },
     {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
       "op": "wait_value",
       "path": "workshop.tooltipVisible",
       "equals": true,

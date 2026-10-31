@@ -1080,6 +1080,26 @@ bool TestDriver::ExecuteCurrent() {
 	const std::string op = cmd.value("op", "");
 	if (mInteractiveReady && op != "screenshot") return ExecuteInteractive(cmd);
 
+	// 工坊夹具只使用本脚本的隔离文件，随后走玩家的正式恢复入口；不修改真人基地。
+	if (op == "workshop_snapshot") {
+		auto* scene = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+		const std::string name = cmd.value("name", "");
+		if (!scene || !IsSafeSnapshotName(name)) { Fail("workshop_snapshot: 场景或快照名无效"); return false; }
+		const auto path = FileManager::CombinePath(mOutDir, name + ".json");
+		if (cmd.value("action", "save") == "save") {
+			const auto document = scene->GetBoard()->SaveWorkshopDocument();
+			if (!document.is_object() || !FileManager::SaveJsonFile(path, document)) Fail("workshop_snapshot: 保存失败");
+		} else {
+			nlohmann::json document;
+			if (!FileManager::LoadJsonFile(path, document)) { Fail("workshop_snapshot: 读取失败"); return false; }
+			if (cmd.contains("patch")) document = document.patch(cmd.at("patch"));
+			const auto isolatedPath = FileManager::CombinePath(mOutDir, "workshop.json");
+			if (!FileManager::SaveJsonFile(isolatedPath, document)) { Fail("workshop_snapshot: 写入隔离夹具失败"); return false; }
+			if (scene->ReloadBase() != cmd.value("expectedSuccess", true)) Fail("workshop_snapshot: 恢复结果不符");
+		}
+		return true;
+	}
+
 	if (op == "workshop") {
 		auto* scene = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
 		if (!scene) { Fail("workshop: 当前不在工坊场景"); return false; }

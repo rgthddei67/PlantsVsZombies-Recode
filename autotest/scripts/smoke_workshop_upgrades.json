@@ -1,0 +1,1302 @@
+{
+  "name": "smoke_workshop_upgrades",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "main_menu_workshop"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "original"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 2,
+      "type": "grower"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 3,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "locked"
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 0,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade",
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 1
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "locked",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 1000
+        },
+        {
+          "op": "replace",
+          "path": "/battle/plants/0/health",
+          "value": 123
+        },
+        {
+          "op": "replace",
+          "path": "/battle/plants/1/health",
+          "value": 123
+        },
+        {
+          "op": "replace",
+          "path": "/battle/plants/2/health",
+          "value": 123
+        },
+        {
+          "op": "replace",
+          "path": "/battle/plants/3/health",
+          "value": 123
+        },
+        {
+          "op": "replace",
+          "path": "/battle/plants/4/health",
+          "value": 123
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 4,
+      "type": "store"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "x": 155,
+      "y": 163
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.2.level",
+      "equals": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 0
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "x": 450,
+      "y": 138
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.hp",
+      "equals": 123
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.1_2.level",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 645
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "level_two"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_two_before.json"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_two_after.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "level_two",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade",
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 0
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "level_two",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 2
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.2.level",
+      "equals": 3
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 0
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.0.level",
+      "equals": 3
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.4.level",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 263,
+      "y": 163
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.tooltipVisible",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "01_factory_upgrade.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "warehouse_tooltip.json"
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "x": 450,
+      "y": 138
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 1370
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade",
+      "expectedSuccess": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 450,
+      "y": 138
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.tooltipVisible",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "02_shooter_upgrade.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "shooter_tooltip.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1085,
+      "y": 590
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "level_three"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_three_before.json"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "level_three_after.json"
+    },
+    {
+      "op": "workshop",
+      "action": "remove",
+      "index": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 1530
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "original",
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/state/cells/0/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/1/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/2/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/3/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/4/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/5/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/6/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/7/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/8/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/9/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/10/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/11/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/12/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/13/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/14/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/15/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/16/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/17/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/18/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/19/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/20/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/21/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/22/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/23/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/24/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/25/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/26/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/27/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/28/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/29/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/30/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/31/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/32/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/33/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/34/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/35/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/36/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/37/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/38/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/39/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/40/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/41/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/42/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/43/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/44/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/45/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/46/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/47/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/48/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/49/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/50/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/51/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/52/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/53/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/54/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/55/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/56/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/57/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/58/level"
+        },
+        {
+          "op": "remove",
+          "path": "/state/cells/59/level"
+        },
+        {
+          "op": "remove",
+          "path": "/battle/plants/0/extraData/workshopUpgradeLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/battle/plants/1/extraData/workshopUpgradeLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/battle/plants/2/extraData/workshopUpgradeLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/battle/plants/3/extraData/workshopUpgradeLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/battle/plants/4/extraData/workshopUpgradeLevel"
+        }
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.0.level",
+      "equals": 1
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "original",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 5000
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "set_timescale",
+      "value": 8
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "combat"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "combat",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/lanes/0/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/1/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/2/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/3/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/4/ammo",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "dump_state",
+      "name": "base_rate_before.json"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "base_rate_after.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "combat",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/lanes/0/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/1/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/2/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/3/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/4/ammo",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 0,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 1,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 2,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 3,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 4,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "screenshot",
+      "name": "03_upgraded_frontline.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "upgraded_rate_before.json"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 6
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "upgraded_rate_after.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "combat",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/lanes/0/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/1/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/2/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/3/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/4/ammo",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.nativePlantsByCell.0_2.headTrack",
+      "equals": "anim_shooting",
+      "timeout": 10
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup_before"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 0,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup_upgraded"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup_restored"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.nativePlantsByCell.0_2.headTrack",
+      "equals": "anim_head_idle",
+      "timeout": 10
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "windup_resolved.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup_finished"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "original",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 5000
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 0,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 1,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 2,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 3,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 4,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "set_timescale",
+      "value": 8
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.phaseName",
+      "equals": "dead",
+      "timeout": 40
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "dump_state",
+      "name": "defeat.json"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.phaseName",
+      "equals": "planning"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_2.level",
+      "equals": 3
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_1.level",
+      "equals": 1
+    },
+    {
+      "op": "dump_state",
+      "name": "recovered_upgrades.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "original",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/battle/plants/0/extraData/workshopUpgradeLevel",
+          "value": 4
+        }
+      ],
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.saveProtected",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "save",
+      "expectedSuccess": false
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

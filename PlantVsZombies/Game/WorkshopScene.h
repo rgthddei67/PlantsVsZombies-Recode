@@ -4,6 +4,7 @@
 #include <memory>
 
 class Board;
+class Shooter;
 
 /** 独立基地入口。工坊存档、解锁、暂停和败局检查点均不借用冒险状态。 */
 class WorkshopScene : public Scene {
@@ -29,6 +30,7 @@ private:
     Tool mTool = Tool::Inspect;
     Pending mPending = Pending::None;
     int mSelected = -1, mDirection = 0, mWireSource = -1;
+    int mSelectedShooter = -1;
     bool mPaused = false, mDeathShown = false, mLoadFailed = false, mResourcesReady = false;
     bool mFirstVisit = false, mFrontView = false, mSaveFailed = false;
     float mSaveClock = 0, mVisualTime = 0;
@@ -39,6 +41,8 @@ private:
     Vector mTooltipPosition;
     std::vector<std::shared_ptr<Button>> mMachineButtons;
     std::vector<std::shared_ptr<Button>> mFactoryControls, mFrontControls;
+    std::vector<std::shared_ptr<Button>> mFrontUpgradeButtons;
+    std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mViewButton;
 
@@ -60,4 +64,7 @@ private:
     void UpdateTooltip();
     void DrawTooltip(Graphics* g);
     void SelectBuild(Workshop::Machine type);
+    Shooter* SelectedShooter() const;
+    Shooter* ShooterAt(Vector point) const;
+    void UpdateUpgradeControls();
 };

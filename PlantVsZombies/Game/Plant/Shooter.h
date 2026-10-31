@@ -12,6 +12,8 @@ protected:
 	float mCheckZombieTimer = 0.0f;
 	float mShootTime = 1.5f;     // 射击间隔时间
 	float mShootTimer = 1.0f;    // 射击计时器
+	int mWorkshopUpgradeLevel = 1; // 工坊单株等级；普通关卡恒为 1，不继承工坊进度
+	float GetWorkshopAttackSpeedMultiplier() const;
 
 	bool HasZombieInRow();		// 检测本行是否有僵尸
 	virtual void ShootBullet() = 0;	// 射击子弹 必须写
@@ -30,6 +32,9 @@ protected:
 public:
 	using Plant::Plant;
 	const Animator* GetHeadAnimator() const { return mHeadAnim.get(); }
+	int GetWorkshopUpgradeLevel() const { return mWorkshopUpgradeLevel; }
+	/** 工坊内支付阳光后升一级；保持生命、冷却进度和当前前摇，不重播发弹事件。 */
+	bool TryUpgradeWorkshop();
 	/** 已累计的冷却就绪后索敌游戏秒，供主线程冻结当前攻击阶段。 */
 	float GetTargetCheckElapsed() const { return mCheckZombieTimer; }
 

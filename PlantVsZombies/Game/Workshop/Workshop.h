@@ -17,8 +17,14 @@ inline constexpr int RepairCost = 100; // 修复一点基地生命的阳光费�
 inline constexpr int ExpansionCost = 250; // 扩建两列的阳光费用
 inline constexpr float GrowPeriod = 2.0f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
 inline constexpr float GrowEnergy = 2.0f; // 每颗豌豆消耗的阳光能源
-inline constexpr float SolarRate = 3.0f; // 基础集光器每秒产生的阳光能源
+inline constexpr float SolarRate = 1.5f; // 基础集光器每秒产生的阳光能源
 inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍，单位：秒
+inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
+inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 1.6f, 1.3f}; // 各级育豆机生产间隔，单位：秒/颗
+inline constexpr std::array<float, 3> SolarRates{SolarRate, 2.25f, 3.0f}; // 各级集光器产能，单位：阳光/秒
+inline constexpr std::array<int, 3> StoreCapacities{60, 120, 200}; // 各级弹药仓容量，单位：颗
+inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各级射手基础冷却，单位：秒；索敌与动画同比例提速
+inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
     Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Count };
 enum class Phase { Planning, Assault, Dead };
@@ -34,9 +40,14 @@ struct Definition {
 const Definition& Describe(Machine type);
 Machine FindMachine(const std::string& key);
 bool IsLogic(Machine type);
+bool CanUpgradeMachine(Machine type);
+/** 当前等级升一级的阳光费用；满级或无效等级返回 0。 */
+int UpgradeCost(int baseCost, int currentLevel);
+int Capacity(Machine type, int level = 1);
 
 struct Cell {
     Machine type = Machine::Empty;
+    int level = 1;
     int direction = 0;
     int stock = 0;
     std::array<int, 2> inputs{ -1, -1 };
@@ -57,6 +68,11 @@ public:
     /** 玩家建造事务；拒绝时状态和资源不变。 */
     bool Build(int index, Machine type, int direction);
     bool Remove(int index);
+    /** 升级保留库存、线路和生产周期完成比例；失败不扣费。 */
+    bool Upgrade(int index);
+    bool CanBuyUpgrade(int baseCost, int currentLevel) const;
+    /** 共享的升级付款事务；射手自身拥有并保存等级。 */
+    bool BuyUpgrade(int baseCost, int currentLevel);
     bool Rotate(int index);
     bool Connect(int source, int target, int input);
     bool Configure(int index);

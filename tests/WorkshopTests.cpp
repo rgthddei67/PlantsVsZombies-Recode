@@ -1,5 +1,6 @@
 #include "Game/Workshop/Workshop.h"
 #include <cstdlib>
+#include <cmath>
 #include <iostream>
 
 using namespace Workshop;
@@ -132,5 +133,52 @@ int main() {
     Check(!restored.Load(bad, error), "reject fractional wire index");
     bad = empty.Save(); bad["checkpoint"] = nullptr;
     Check(!restored.Load(bad, error), "dead save requires recoverable checkpoint");
+
+    World upgrades;
+    Check(!upgrades.Upgrade(0), "second level locked before wave two");
+    auto fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 2; fixture["state"]["energy"] = 1000;
+    Check(upgrades.Load(fixture, error), "upgrade fixture");
+    Check(upgrades.Build(2, Machine::Grower, 0) && upgrades.Build(3, Machine::Store, 0), "upgradable production line");
+    Step(upgrades, 1);
+    const auto beforeUpgrade = upgrades.Save();
+    Check(upgrades.Upgrade(2), "buy grower level two");
+    Check(std::abs(upgrades.Energy() - (beforeUpgrade["state"]["energy"].get<float>() - 75)) < 0.001f, "exact upgrade payment");
+    Check(std::abs(upgrades.Cells()[2].clock / GrowPeriods[1] - beforeUpgrade["state"]["cells"][2]["clock"].get<float>() / GrowPeriods[0]) < 0.001f,
+        "upgrade retains production fraction");
+    Check(upgrades.Cells()[2].stock == beforeUpgrade["state"]["cells"][2]["stock"], "upgrade does not create ammo");
+    Check(!upgrades.Upgrade(2), "third level locked before wave five");
+    Check(upgrades.Upgrade(0) && upgrades.Upgrade(3), "solar and storage level two");
+    const float solarBefore = upgrades.Energy();
+    Check(upgrades.Remove(2), "remove grower before measuring solar");
+    Step(upgrades, 10);
+    Check(std::abs(upgrades.Energy() - solarBefore - 150 - 37.5f) < 0.1f, "level two solar produces 2.25 per second plus base 1.5");
+    fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 5;
+    fixture["state"]["cells"][3]["stock"] = 120;
+    Check(upgrades.Load(fixture, error) && upgrades.Upgrade(3), "full level two warehouse upgrades without losing stock");
+    Check(upgrades.Cells()[3].stock == 120 && Capacity(Machine::Store, 3) == 200, "warehouse capacity and stock");
+    const float refundBefore = upgrades.Energy();
+    Check(!upgrades.Upgrade(3), "max level cannot charge again");
+    Check(upgrades.Remove(3) && std::abs(upgrades.Energy() - refundBefore - 160) < 0.001f, "refund building plus both upgrades");
+    fixture = upgrades.Save(); fixture["state"]["energy"] = 0;
+    Check(upgrades.Load(fixture, error), "empty wallet fixture");
+    const auto emptyWallet = upgrades.Save();
+    Check(!upgrades.Upgrade(0) && upgrades.Save() == emptyWallet, "insufficient energy is transactional");
+    bad = emptyWallet; bad["state"]["cells"][0]["level"] = 4;
+    Check(!upgrades.Load(bad, error) && upgrades.Save() == emptyWallet, "invalid level rejected transactionally");
+    bad = emptyWallet; bad["state"]["cells"][2]["level"] = 2;
+    Check(!upgrades.Load(bad, error), "empty cell cannot carry upgrades");
+    auto legacy = World().Save();
+    for (auto& c : legacy["state"]["cells"]) c.erase("level");
+    Check(upgrades.Load(legacy, error) && upgrades.Save() == World().Save(), "old workshop saves start at level one");
+    std::array<int, 3> production{};
+    for (int level = 1; level <= 3; ++level) {
+        World line;
+        fixture = line.Save(); fixture["state"]["completedWaves"] = 5; fixture["state"]["energy"] = 1000;
+        Check(line.Load(fixture, error) && line.Build(2, Machine::Grower, 0) && line.Build(3, Machine::Feeder, 0), "rate fixture");
+        for (int l = 1; l < level; ++l) Check(line.Upgrade(2), "rate upgrade");
+        Step(line, 20.1f); production[level - 1] = line.Produced();
+        Check(restored.Load(line.Save(), error) && restored.Save() == line.Save(), "upgraded production round trip");
+    }
+    Check(production[0] == 10 && production[1] == 12 && production[2] == 15, "actual production follows 2.0 / 1.6 / 1.3 second periods");
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

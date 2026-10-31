@@ -23,9 +23,24 @@ constexpr float kGridX = 20, kGridY = 132; // 工厂左上角，逻辑像素；�
 constexpr float kCellW = 54, kCellH = 62; // 工厂格尺寸，逻辑像素
 constexpr float kFrontY = 88, kFrontRowHeight = 100; // 沿用平地草坪的五行边界，逻辑像素
 constexpr float kAutosaveSeconds = 5; // 活跃游玩时自动保存间隔，单位：秒
-const glm::vec4 kInk{48, 43, 30, 255};
-const glm::vec4 kGold{255, 223, 130, 255};
-const glm::vec4 kGreen{66, 107, 51, 255};
+const glm::vec4 kInk{48, 43, 30, 255}; // 工坊正文颜色
+const glm::vec4 kGold{255, 223, 130, 255}; // 选中、等级与提示边框颜色
+const glm::vec4 kGreen{66, 107, 51, 255}; // 工坊标题颜色
+
+/** 展示值直接读取模拟参数；升级预览和 tooltip 不维护第二套数值。 */
+std::string MachineEffect(Workshop::Machine type, int level) {
+    using M = Workshop::Machine;
+    if (type == M::Grower) return std::format("{:.1f} 秒/颗", Workshop::GrowPeriods[level - 1]);
+    if (type == M::Solar) return std::format("{:g} 阳光/秒", Workshop::SolarRates[level - 1]);
+    if (type == M::Store) return std::to_string(Workshop::Capacity(type, level)) + " 颗容量";
+    return {};
+}
+std::string UpgradeLabel(const Workshop::World& world, int baseCost, int level) {
+    if (level >= Workshop::MaxUpgradeLevel) return "已满级";
+    if (world.CompletedWaves() < Workshop::UpgradeWaves[level])
+        return "第 " + std::to_string(Workshop::UpgradeWaves[level]) + " 波解锁";
+    return std::string(world.CanBuyUpgrade(baseCost, level) ? "升级 " : "需阳光 ") + std::to_string(Workshop::UpgradeCost(baseCost, level));
+}
 
 void Text(const std::string& text, float x, float y, int size = 16, glm::vec4 color = kInk) {
     GameAPP::GetInstance().DrawText(text, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
@@ -111,6 +126,7 @@ void WorkshopScene::OnEnter() {
 void WorkshopScene::OnExit() {
     if (!mLoadFailed) SaveBase();
     mMachineButtons.clear(); mFactoryControls.clear(); mFrontControls.clear();
+    mFrontUpgradeButtons.clear(); mUpgradeButton.reset();
     mPauseButton.reset(); mStartButton.reset(); mViewButton.reset();
     Scene::OnExit();
     mBoard.reset();
@@ -178,12 +194,16 @@ void WorkshopScene::CreateControls() {
             490 + ((i - 1) / 7) * 46.0f, 88, [this, type] { SelectBuild(type); }, 40, 16);
         mMachineButtons.push_back(button);
     }
+    mUpgradeButton = MakeButton("选中机器升级", 915, 560, 165, [this] { Act("upgrade"); }, 30, 15);
     for (size_t i = firstFactoryControl; i < mUIManager.GetButtonCount(); ++i)
         mFactoryControls.push_back(mUIManager.GetButton(i));
     for (int row = 0; row < Workshop::Rows; ++row) {
-        auto button = MakeButton("增援射手 " + std::to_string(Workshop::ShooterCost), 25, kFrontY + row * kFrontRowHeight + 49, 165,
-            [this, row] { Act("shooter", row); });
+        auto button = MakeButton("增援 " + std::to_string(Workshop::ShooterCost), 25, kFrontY + row * kFrontRowHeight + 60, 78,
+            [this, row] { Act("shooter", row); }, 27, 13);
         mFrontControls.push_back(button);
+        auto upgrade = MakeButton("选中射手", 109, kFrontY + row * kFrontRowHeight + 60, 86,
+            [this] { Act("upgrade"); }, 27, 12);
+        mFrontControls.push_back(upgrade); mFrontUpgradeButtons.push_back(upgrade);
     }
     SetFrontView(World().State() != Workshop::Phase::Planning);
 }
@@ -198,12 +218,53 @@ void WorkshopScene::SetFrontView(bool front) {
     for (size_t i = 0; i < toolbarX.size(); ++i)
         if (auto button = mUIManager.GetButton(i)) button->SetPosition(Vector(toolbarX[i], front ? 8.0f : 52.0f));
     mWireSource = -1;
+    UpdateUpgradeControls();
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (action == "upgrade") {
+        if (!mFrontView) return mUpgradeButton;
+        if (const auto* shooter = SelectedShooter()) return mFrontUpgradeButtons[shooter->mRow];
+        return nullptr;
+    }
     constexpr std::array<const char*, 8> actions{"pause", "start", "expand", "repair", "help", "reset", "back", "view"};
     for (size_t i = 0; i < actions.size(); ++i) if (action == actions[i]) return mUIManager.GetButton(i);
     return nullptr;
+}
+
+Shooter* WorkshopScene::SelectedShooter() const {
+    auto* shooter = dynamic_cast<Shooter*>(mBoard->mEntityRegistry.GetPlant(mSelectedShooter));
+    return shooter && shooter->IsActive() && shooter->mPlantHealth > 0
+        && shooter->mPlantType == PlantType::PLANT_PEASHOOTER ? shooter : nullptr;
+}
+
+/** 工坊只开放普通豌豆射手；命中区域和等级标记都以原生植物视觉原点为基准。 */
+Shooter* WorkshopScene::ShooterAt(Vector point) const {
+    for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
+        auto* p = dynamic_cast<Shooter*>(mBoard->mEntityRegistry.GetPlant(id));
+        if (!p || !p->IsActive() || p->mPlantHealth <= 0 || p->mPlantType != PlantType::PLANT_PEASHOOTER) continue;
+        const auto anchor = p->GetVisualAnchorPosition();
+        if (std::abs(point.x - anchor.x) < 37 && point.y >= anchor.y - 43 && point.y <= anchor.y + 38) return p;
+    }
+    return nullptr;
+}
+
+/** 每帧从当前选择、波次和阳光派生按钮，切换视图时也立即撤销旧选择的操作资格。 */
+void WorkshopScene::UpdateUpgradeControls() {
+    if (mUpgradeButton) {
+        const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
+        const bool supported = cell && Workshop::CanUpgradeMachine(cell->type);
+        mUpgradeButton->SetText(supported ? UpgradeLabel(World(), Workshop::Describe(cell->type).cost, cell->level) : "选中可升级机器");
+        mUpgradeButton->SetSkipDraw(mFrontView || !supported);
+        mUpgradeButton->SetEnabled(!mFrontView && supported && World().CanBuyUpgrade(Workshop::Describe(cell->type).cost, cell->level));
+    }
+    const auto* shooter = SelectedShooter();
+    for (size_t row = 0; row < mFrontUpgradeButtons.size(); ++row) {
+        const bool selected = shooter && shooter->mRow == static_cast<int>(row);
+        auto& button = mFrontUpgradeButtons[row];
+        button->SetText(selected ? UpgradeLabel(World(), Workshop::ShooterCost, shooter->GetWorkshopUpgradeLevel()) : "选中射手");
+        button->SetEnabled(mFrontView && selected && World().CanBuyUpgrade(Workshop::ShooterCost, shooter->GetWorkshopUpgradeLevel()));
+    }
 }
 
 void WorkshopScene::SelectBuild(Workshop::Machine type) {
@@ -218,6 +279,20 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     if (mLoadFailed) return false;
     bool result = false;
     if (action == "build") result = World().Build(index, Workshop::FindMachine(type), value);
+    else if (action == "select_machine") {
+        if (index < 0 || index >= Workshop::CellCount) return false;
+        mSelected = index; mTool = Tool::Inspect; UpdateUpgradeControls(); return true;
+    }
+    else if (action == "select_shooter") {
+        auto* plant = mBoard->GetNormalPlantAt(index, value);
+        if (!plant) return false;
+        mSelectedShooter = plant->mPlantID; UpdateUpgradeControls(); return SelectedShooter() != nullptr;
+    }
+    else if (action == "upgrade_machine") result = World().Upgrade(index);
+    else if (action == "upgrade") {
+        if (mFrontView) { if (auto* shooter = SelectedShooter()) result = shooter->TryUpgradeWorkshop(); }
+        else result = World().Upgrade(mSelected);
+    }
     else if (action == "remove") result = World().Remove(index);
     else if (action == "rotate") result = World().Rotate(index);
     else if (action == "configure") result = World().Configure(index);
@@ -232,19 +307,21 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "view_front") { SetFrontView(true); return true; }
     else if (action == "view_factory") { SetFrontView(false); return true; }
     else if (action == "pause") { mPaused = !mPaused; DeltaTime::SetPaused(mPaused); return true; }
-    else if (action == "retry") { const auto retry = mBoard->WorkshopRetryDocument(); result = !retry.is_null() && RebuildFrontline(retry); mDeathShown = false; mPaused = false; SetFrontView(false); DeltaTime::SetPaused(false); }
-    else if (action == "reset") { result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false; mSelected = -1; SetFrontView(false); DeltaTime::SetPaused(false); }
+    else if (action == "retry") { const auto retry = mBoard->WorkshopRetryDocument(); result = !retry.is_null() && RebuildFrontline(retry); mDeathShown = false; mPaused = false; mSelectedShooter = -1; SetFrontView(false); DeltaTime::SetPaused(false); }
+    else if (action == "reset") { result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false; mSelected = -1; mSelectedShooter = -1; SetFrontView(false); DeltaTime::SetPaused(false); }
     else if (action == "save") return SaveBase();
     else if (action == "reload") return ReloadBase();
     if (result) {
         mNotice = action == "start" ? "袭击开始！库存和生产线继续运行，可随时暂停调整。"
-            : action == "retry" ? "已恢复本次袭击开始前的基地；调整后可重新挑战。" : "已保存基地。";
+            : action == "retry" ? "已恢复本次袭击开始前的基地；调整后可重新挑战。"
+            : action == "upgrade" || action == "upgrade_machine" ? "升级完成，已保存。" : "已保存基地。";
         SaveBase();
     } else {
         mNotice = action == "expand" ? "扩建需守住第 3 波、250 阳光，最多扩至 12 列。"
             : action == "shooter" ? "增援需要 150 阳光；每行同时最多 3 株。"
             : "操作未完成：检查能源、空地、解锁条件或信号端口。";
     }
+    UpdateUpgradeControls();
     return result;
 }
 
@@ -267,7 +344,7 @@ void WorkshopScene::ConfirmReset() {
 }
 void WorkshopScene::ShowHelp() {
     GameMessageBox::Builder(Vector(550, 290)).Title("戴夫工坊 · 从一条生产线开始")
-        .Message("集光器持续供能。育豆机制造豌豆，运输带按箭头送货，装填口供应同一行射手。\n先在每行接通 育豆机 → 运输带 → 装填口，再开始袭击。射手没有弹药就停火。\n选择机器后点击空格建造；R 旋转，右键退出建造。暂停时也能施工。拆除返还建造费。\n第 1 波解锁仓库与分流器，第 2 波解锁控制电路，第 3 波可扩建。\n接线：先选来源，再选目标。A 控制机器启停；与/或/记忆器还有 B 口。库存器检测 A 来源库存，未接线时检测本行弹仓。\n基地与冒险完全独立。死亡可回到本波开战前调整，也可重开整个基地。")
+        .Message("育豆机消耗阳光制造豌豆，运输带按箭头送货，装填口供应同一行射手。无弹药就停火。\n先在每行接通 育豆机 → 运输带 → 装填口，再开始袭击。\n选择机器后点击空格建造；R 旋转，右键退出建造。暂停可施工；机器拆除返还建造与升级费用。\n查看工具选中机器，或前线点击某株射手，即可花阳光升级。守住第 2/5 波开放二/三级，射手被吃掉会失去升级。\n第 1 波解锁仓库与分流器，第 2 波解锁电路，第 3 波可扩建。接线先来源后目标，A 控制启停；与/或/记忆器还有 B 口。\n基地与冒险独立。死亡可回到本波开战前调整，也可重开整个基地。")
         .Button("开始经营", Vector(0, 0), Vector(200, 50), 20, [] {}).Show();
 }
 void WorkshopScene::ShowDeath() {
@@ -312,6 +389,9 @@ void WorkshopScene::Update() {
             if (col >= 0 && col < Workshop::MaxColumns && row >= 0 && row < Workshop::Rows)
                 HandleGridClick(row * Workshop::MaxColumns + col);
         }
+        if (mFrontView && input.IsMouseButtonPressed(SDL_BUTTON_LEFT)) {
+            if (auto* shooter = ShooterAt(input.GetMousePosition())) mSelectedShooter = shooter->mPlantID;
+        }
     }
     if (!mPaused && !modal) {
         const float dt = DeltaTime::GetDeltaTime();
@@ -329,6 +409,7 @@ void WorkshopScene::Update() {
         const auto type = static_cast<Workshop::Machine>(i + 1); const auto& info = Workshop::Describe(type);
         mMachineButtons[i]->SetText(std::string(info.name) + (World().Unlocked(type) ? " " + std::to_string(info.cost) : " 锁"), ResourceKeys::Fonts::FONT_FZCQ, 14);
     }
+    UpdateUpgradeControls();
     UpdateTooltip();
 }
 
@@ -349,6 +430,8 @@ void WorkshopScene::UpdateTooltip() {
     int key = -1, index = -1;
     auto type = Workshop::Machine::Empty;
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
+    const auto* hoveredShooter = mFrontView && !mUIManager.GetTopActiveMessageBox() ? ShooterAt(mouse) : nullptr;
+    if (hoveredShooter) key = 1000 + hoveredShooter->mPlantID;
     if (!mFrontView && !mUIManager.GetTopActiveMessageBox()) {
         for (size_t i = 0; i < mMachineButtons.size(); ++i) if (mMachineButtons[i]->IsHovered()) {
             type = static_cast<Workshop::Machine>(i + 1); key = 100 + static_cast<int>(i); break;
@@ -364,18 +447,34 @@ void WorkshopScene::UpdateTooltip() {
     if (key != mHoverKey) { mHoverKey = key; mHoverStarted = SDL_GetTicks64(); }
     if (key < 0 || SDL_GetTicks64() - mHoverStarted < 300) return;
     const auto& info = Workshop::Describe(type);
-    std::vector<std::string> lines{std::string(info.name) + " · 建造 " + std::to_string(info.cost) + " 阳光", info.description};
-    if (type == Workshop::Machine::Grower)
-        lines.push_back(std::format("产速：{:.1f} 秒/颗；消耗：{:.0f} 阳光/颗", Workshop::GrowPeriod, Workshop::GrowEnergy));
-    else if (type == Workshop::Machine::Solar)
-        lines.push_back(std::format("产能：{:.0f} 阳光/秒；全基地共享", Workshop::SolarRate));
-    else if (info.capacity > 0)
-        lines.push_back(std::format("输送：每 {:.2f} 秒至多 1 颗", Workshop::TransportPeriod));
-    if (info.capacity > 0) lines.push_back("内部容量：" + std::to_string(info.capacity) + " 颗");
-    if (index >= 0) {
-        lines.push_back("状态：" + World().Status(index));
-        if (info.capacity > 0) lines.push_back("当前库存：" + std::to_string(World().Cells()[index].stock) + " 颗");
-    } else if (!World().Unlocked(type)) lines.push_back("解锁：守住第 " + std::to_string(info.unlockWave) + " 波");
+    const int level = hoveredShooter ? hoveredShooter->GetWorkshopUpgradeLevel() : index >= 0 ? World().Cells()[index].level : 1;
+    const int baseCost = hoveredShooter ? Workshop::ShooterCost : info.cost;
+    std::vector<std::string> lines;
+    if (hoveredShooter) {
+        lines = {"豌豆射手 · Lv." + std::to_string(level), "一颗弹药发射一颗豌豆；升级提高射速，单颗伤害不变。",
+            std::format("基础冷却：{:.1f} 秒；缺弹时等待供给", Workshop::ShooterCooldowns[level - 1]), "点击选中，在本行左侧升级。"};
+        if (level < Workshop::MaxUpgradeLevel)
+            lines.push_back(std::format("下一级：基础冷却 {:.1f} 秒", Workshop::ShooterCooldowns[level]));
+    } else {
+        lines = {std::string(info.name) + (Workshop::CanUpgradeMachine(type) ? " · Lv." + std::to_string(level) : "")
+            + " · 建造 " + std::to_string(info.cost) + " 阳光", info.description};
+        if (type == Workshop::Machine::Grower)
+            lines.push_back("产速：" + MachineEffect(type, level) + std::format("；消耗：{:.0f} 阳光/颗", Workshop::GrowEnergy));
+        else if (type == Workshop::Machine::Solar) lines.push_back("产能：" + MachineEffect(type, level) + "；全基地共享");
+        else if (info.capacity > 0) lines.push_back(std::format("输送：每 {:.2f} 秒至多 1 颗", Workshop::TransportPeriod));
+        if (info.capacity > 0) lines.push_back("内部容量：" + std::to_string(Workshop::Capacity(type, level)) + " 颗");
+        if (index >= 0) {
+            lines.push_back("状态：" + World().Status(index));
+            if (info.capacity > 0) lines.push_back("当前库存：" + std::to_string(World().Cells()[index].stock) + " 颗");
+        } else if (!World().Unlocked(type)) lines.push_back("解锁：守住第 " + std::to_string(info.unlockWave) + " 波");
+        if (Workshop::CanUpgradeMachine(type) && level < Workshop::MaxUpgradeLevel)
+            lines.push_back("下一级：" + MachineEffect(type, level + 1));
+    }
+    if (hoveredShooter || Workshop::CanUpgradeMachine(type)) {
+        if (level < Workshop::MaxUpgradeLevel)
+            lines.push_back(std::format("升级需 {} 阳光，守住第 {} 波开放", Workshop::UpgradeCost(baseCost, level), Workshop::UpgradeWaves[level]));
+        else lines.push_back("已满级（3 级）");
+    }
     auto& graphics = GameAPP::GetInstance().GetGraphics();
     for (const auto& text : lines) {
         std::string line;
@@ -423,7 +522,7 @@ void WorkshopScene::DrawMachine(Graphics* g, int index, float x, float y) {
     else if (cell.type == M::Grower) {
         g->FillRect(x + 10, y + 11, 30, 25, glm::vec4(63, 64, 35, 255));
         Sprite(g, "IMAGE_PROJECTILEPEA", x + 15, y + 15, 20, 20);
-        g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::GrowPeriod), 3, kGold);
+        g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::GrowPeriods[cell.level - 1]), 3, kGold);
     } else if (cell.type == M::Belt || cell.type == M::Splitter) {
         g->FillRect(x + 8, y + 9, 34, 30, glm::vec4(43, 46, 38, 255));
         for (int n = 0; n < 5; ++n) {
@@ -454,6 +553,10 @@ void WorkshopScene::DrawMachine(Graphics* g, int index, float x, float y) {
     }
     if (!logic && !World().Enabled(index) && cell.type != M::Splitter)
         g->FillCircle(x + 41, y + 12, 4, glm::vec4(225, 92, 70, 255));
+    if (Workshop::CanUpgradeMachine(cell.type)) {
+        g->FillRect(x + 26, y + 2, 23, 14, glm::vec4(42, 49, 32, 235));
+        Text("L" + std::to_string(cell.level), x + 29, y + 3, 11, kGold);
+    }
 }
 
 void WorkshopScene::DrawFront(Graphics* g) {
@@ -472,11 +575,26 @@ void WorkshopScene::DrawFront(Graphics* g) {
             continue;
         }
         const float y = kFrontY + row * kFrontRowHeight;
-        g->FillRect(12, y + 6, 195, 86, glm::vec4(232, 220, 168, 238));
-        Text("第 " + std::to_string(row + 1) + " 路 · 豌豆 " + std::to_string(lane.ammo), 25, y + 15, 18);
-        g->FillRect(25, y + 39, 165, 6, glm::vec4(54, 64, 38, 255));
-        g->FillRect(25, y + 39, 165.0f * lane.ammo / Workshop::MagazineCapacity, 6, glm::vec4(160, 211, 68, 255));
-
+        g->FillRect(12, y + 6, 195, 92, glm::vec4(232, 220, 168, 238));
+        Text("第 " + std::to_string(row + 1) + " 路 · 豌豆 " + std::to_string(lane.ammo), 25, y + 11, 17);
+        const auto* selected = SelectedShooter();
+        std::string detail = "点击射手查看升级";
+        if (selected && selected->mRow == row) {
+            const int level = selected->GetWorkshopUpgradeLevel();
+            detail = std::format("Lv.{}  {:.1f}秒", level, Workshop::ShooterCooldowns[level - 1]);
+            if (level < Workshop::MaxUpgradeLevel) detail += std::format(" → {:.1f}秒", Workshop::ShooterCooldowns[level]);
+        }
+        Text(detail, 25, y + 33, 12, kGreen);
+        g->FillRect(25, y + 51, 165, 4, glm::vec4(54, 64, 38, 255));
+        g->FillRect(25, y + 51, 165.0f * lane.ammo / Workshop::MagazineCapacity, 4, glm::vec4(160, 211, 68, 255));
+    }
+    if (mFrontView) for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
+        const auto* p = dynamic_cast<const Shooter*>(mBoard->mEntityRegistry.GetPlant(id));
+        if (!p || !p->IsActive()) continue;
+        const auto anchor = p->GetVisualAnchorPosition();
+        if (id == mSelectedShooter) g->DrawRect(anchor.x - 37, anchor.y - 43, 74, 81, kGold);
+        g->FillRect(anchor.x - 21, anchor.y + 38, 42, 19, glm::vec4(42, 49, 32, 220));
+        Text("Lv." + std::to_string(p->GetWorkshopUpgradeLevel()), anchor.x - 17, anchor.y + 40, 13, kGold);
     }
 }
 
@@ -530,8 +648,15 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
         : mTool == Tool::Remove ? "拆除工具 · 点击机器返还建造费" : mTool == Tool::WireA || mTool == Tool::WireB ? "信号接线 · 先来源，后目标" : "查看工具 · 点击机器检查状态", 695, 495, 16, kGreen);
     if (mSelected >= 0) {
         const auto& c = World().Cells()[mSelected];
-        Text(std::string(Workshop::Describe(c.type).name) + " · " + World().Status(mSelected), 695, 524, 16);
-        if (c.type == Workshop::Machine::Timer || c.type == Workshop::Machine::StockSensor)
+        Text(std::string(Workshop::Describe(c.type).name) + (Workshop::CanUpgradeMachine(c.type) ? " Lv." + std::to_string(c.level) : "")
+            + " · " + World().Status(mSelected), 695, 522, 15);
+        if (Workshop::CanUpgradeMachine(c.type)) {
+            const auto effect = MachineEffect(c.type, c.level) + (c.level < Workshop::MaxUpgradeLevel ? " → " + MachineEffect(c.type, c.level + 1) : " · 满级");
+            Text(effect, 695, 543, 14);
+            if (c.level < Workshop::MaxUpgradeLevel)
+                Text("升级 " + std::to_string(Workshop::UpgradeCost(Workshop::Describe(c.type).cost, c.level)) + " 阳光", 695, 571, 14);
+        }
+        else if (c.type == Workshop::Machine::Timer || c.type == Workshop::Machine::StockSensor)
             Text("当前设定 " + std::to_string(c.setting) + (c.type == Workshop::Machine::Timer ? " 秒" : " 颗") + " · 配置按钮可调整", 695, 551, 15);
         else Text("每行射手最多 3 株 · 增援需 150 阳光", 695, 551, 15);
     } else {
@@ -548,6 +673,9 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["frontView"] = mFrontView;
     j["nativeFrontline"] = true;
     j["nativePlants"] = nlohmann::json::array();
+    j["nativePlantsByCell"] = nlohmann::json::object();
+    j["selectedShooter"] = SelectedShooter() ? mSelectedShooter : -1;
+    j["upgradeEnabled"] = GetControlButton("upgrade") && GetControlButton("upgrade")->IsEnabled();
     j["nativeZombies"] = nlohmann::json::array();
     j["hasShootingAnimation"] = false;
     j["hasEatingZombie"] = false;
@@ -559,7 +687,11 @@ nlohmann::json WorkshopScene::Inspect() const {
             const auto* shooter = dynamic_cast<const Shooter*>(p);
             const std::string headTrack = shooter && shooter->GetHeadAnimator() ? shooter->GetHeadAnimator()->GetCurrentTrackName() : "";
             if (headTrack == "anim_shooting") j["hasShootingAnimation"] = true;
-            j["nativePlants"].push_back({{"id", id}, {"row", p->mRow}, {"hp", p->mPlantHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack}});
+            const int level = shooter ? shooter->GetWorkshopUpgradeLevel() : 1;
+            nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
+                {"level", level}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
+            j["nativePlants"].push_back(plant);
+            j["nativePlantsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plant;
         }
     }
     for (int id : mBoard->mEntityRegistry.GetAllZombieIDs()) {

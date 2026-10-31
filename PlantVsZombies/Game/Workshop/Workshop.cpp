@@ -57,6 +57,13 @@ Machine FindMachine(const std::string& key) {
     return Machine::Count;
 }
 bool IsLogic(Machine type) { return type >= Machine::Switch && type < Machine::Count; }
+bool CanUpgradeMachine(Machine type) { return type == Machine::Solar || type == Machine::Grower || type == Machine::Store; }
+int UpgradeCost(int baseCost, int currentLevel) {
+    return currentLevel > 0 && currentLevel < MaxUpgradeLevel ? baseCost * currentLevel : 0;
+}
+int Capacity(Machine type, int level) {
+    return type == Machine::Store ? StoreCapacities.at(level - 1) : Describe(type).capacity;
+}
 World::World() { Reset(); }
 
 void World::Reset() {
@@ -88,9 +95,28 @@ bool World::Build(int i, Machine type, int direction) {
 }
 bool World::Remove(int i) {
     if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type == Machine::Empty) return false;
-    mEnergy = std::min(kEnergyLimit, mEnergy + Describe(mCells[i].type).cost);
+    const auto& c = mCells[i];
+    int refund = Describe(c.type).cost;
+    for (int level = 1; level < c.level; ++level) refund += UpgradeCost(Describe(c.type).cost, level);
+    mEnergy = std::min(kEnergyLimit, mEnergy + refund);
     mCells[i] = {};
     for (auto& c : mCells) for (auto& input : c.inputs) if (input == i) input = -1;
+    return true;
+}
+bool World::CanBuyUpgrade(int baseCost, int level) const {
+    return mPhase != Phase::Dead && baseCost > 0 && level > 0 && level < MaxUpgradeLevel
+        && mCompletedWaves >= UpgradeWaves[level] && mEnergy >= UpgradeCost(baseCost, level);
+}
+bool World::BuyUpgrade(int baseCost, int level) {
+    if (!CanBuyUpgrade(baseCost, level)) return false;
+    mEnergy -= UpgradeCost(baseCost, level); return true;
+}
+bool World::Upgrade(int i) {
+    if (!Valid(i) || !CanUpgradeMachine(mCells[i].type)) return false;
+    auto& c = mCells[i];
+    if (!BuyUpgrade(Describe(c.type).cost, c.level)) return false;
+    if (c.type == Machine::Grower) c.clock *= GrowPeriods[c.level] / GrowPeriods[c.level - 1];
+    ++c.level;
     return true;
 }
 bool World::Rotate(int i) {
@@ -185,7 +211,7 @@ void World::TransportStep() {
             if (next < 0) continue;
             const auto type = before[next].type;
             if (type != Machine::Belt && type != Machine::Splitter && type != Machine::Store && type != Machine::Feeder) continue;
-            if (before[next].stock + incoming[next] >= Describe(type).capacity) continue;
+            if (before[next].stock + incoming[next] >= Capacity(type, before[next].level)) continue;
             --c.stock; ++incoming[next]; c.alternate = !c.alternate; break;
         }
     }
@@ -200,12 +226,14 @@ void World::Tick(float seconds) {
         for (int i = 0; i < CellCount; ++i) {
             auto& c = mCells[i];
             if (!Enabled(i)) continue;
-            if (c.type == Machine::Solar) mEnergy = std::min(kEnergyLimit, mEnergy + SolarRate * dt);
+            if (c.type == Machine::Solar) mEnergy = std::min(kEnergyLimit, mEnergy + SolarRates[c.level - 1] * dt);
             if (c.type == Machine::Grower) {
-                c.clock = std::min(GrowPeriod, c.clock + dt);
-                if (c.clock >= GrowPeriod && c.stock < Describe(c.type).capacity && mEnergy >= GrowEnergy) {
-                    c.clock -= GrowPeriod; mEnergy -= GrowEnergy; ++c.stock; ++mProduced;
-                }
+                const float period = GrowPeriods[c.level - 1];
+                // 正常生产保留跨周期余时，避免逐帧截断让各级产速持续偏慢；堵塞只缓存一颗的准备进度。
+                c.clock = std::min(period, c.clock) + dt;
+                if (c.clock >= period && c.stock < Capacity(c.type, c.level) && mEnergy >= GrowEnergy) {
+                    c.clock -= period; mEnergy -= GrowEnergy; ++c.stock; ++mProduced;
+                } else c.clock = std::min(period, c.clock);
             }
         }
         mTransportClock += dt;
@@ -253,14 +281,14 @@ std::string World::Status(int i) const {
     if (c.stock == 0) return c.type == Machine::Grower ? "生产中" : "等待弹药";
     if (c.type == Machine::Feeder) return mLanes[i / MaxColumns].ammo >= MagazineCapacity ? "前线弹仓满" : "装填中";
     const int next = Neighbor(i, c.direction);
-    if (c.type != Machine::Splitter && (next < 0 || Describe(mCells[next].type).capacity == 0
-        || mCells[next].stock >= Describe(mCells[next].type).capacity)) return "出口堵塞";
+    if (c.type != Machine::Splitter && (next < 0 || Capacity(mCells[next].type, mCells[next].level) == 0
+        || mCells[next].stock >= Capacity(mCells[next].type, mCells[next].level))) return "出口堵塞";
     return "输送中";
 }
 
 nlohmann::json World::SaveState() const {
     nlohmann::json cells = nlohmann::json::array(), lanes = nlohmann::json::array();
-    for (const auto& c : mCells) cells.push_back({{"type", Describe(c.type).key}, {"direction", c.direction}, {"stock", c.stock},
+    for (const auto& c : mCells) cells.push_back({{"type", Describe(c.type).key}, {"level", c.level}, {"direction", c.direction}, {"stock", c.stock},
         {"inputs", c.inputs}, {"setting", c.setting}, {"clock", c.clock}, {"signal", c.signal}, {"manual", c.manual}, {"alternate", c.alternate}});
     for (const auto& l : mLanes) lanes.push_back({{"ammo", l.ammo}, {"shooters", l.shooters}});
     return {{"phase", static_cast<int>(mPhase)}, {"columns", mColumns}, {"health", mHealth}, {"completedWaves", mCompletedWaves},
@@ -287,7 +315,9 @@ void World::ReadState(const nlohmann::json& s) {
         const auto& j = cells[i]; auto& c = mCells[i];
         c.type = FindMachine(j.at("type").get<std::string>()); Require(c.type < Machine::Count, "未知机器");
         Require(Unlocked(c.type) && (Valid(i) || c.type == Machine::Empty), "机器尚未解锁或在地界外");
-        c.direction = ReadInt(j, "direction", 0, 3); c.stock = ReadInt(j, "stock", 0, Describe(c.type).capacity);
+        c.level = j.contains("level") ? ReadInt(j, "level", 1, MaxUpgradeLevel) : 1;
+        Require(c.level == 1 || (CanUpgradeMachine(c.type) && mCompletedWaves >= UpgradeWaves[c.level - 1]), "机器等级尚未解锁或类型不支持升级");
+        c.direction = ReadInt(j, "direction", 0, 3); c.stock = ReadInt(j, "stock", 0, Capacity(c.type, c.level));
         c.setting = ReadInt(j, "setting", 1, 80); c.clock = ReadFloat(j, "clock", 0, 80);
         c.signal = ReadBool(j, "signal"); c.manual = ReadBool(j, "manual"); c.alternate = ReadBool(j, "alternate");
         const auto& inputs = j.at("inputs"); Require(inputs.is_array() && inputs.size() == 2, "信号端口错误");
