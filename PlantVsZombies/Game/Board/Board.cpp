@@ -1,4 +1,5 @@
 #include "WaveSpawnRules.h"
+#include "Game/Workshop/Workshop.h"
 #include "Game/Zombie/SalvageZombieRules.h"
 #include "Game/Zombie/SludgeZombieRules.h"
 #include "Game/Zombie/LotusParasolRules.h"
@@ -202,9 +203,11 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 {
 	mPresentation = presentation;
 	mLevel = level;
+	if (level == Workshop::Level) mWorkshop = std::make_unique<Workshop::World>();
 	mBackGround = background;
 	mIsSurvival = IsSurvivalEndlessLevel(level);
 	mHxyModeEnabled = GameAPP::GetInstance().mHxyModeEnabled;
+	if (IsWorkshop()) mHxyModeEnabled = false;
 	mPlantDamageEchoHitCounter = 0; // 每次进入新棋盘都清掉旧局的十连击进度，读档随后按存档覆盖。
 
 	if (mLevel >= 1)
@@ -267,7 +270,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
 	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
 	// 屋顶预览会读取行高与连续坡面；必须在网格尺寸完成初始化后再生成。
-	CreatePreviewZombies();
+	if (!IsWorkshop()) CreatePreviewZombies();
 	mIceMinX.fill(GetIceTrailRightX());
 	mIceTimer.fill(0.0f);
 	mGoldenIceMinX.fill(GetIceTrailRightX());
@@ -3483,6 +3486,7 @@ void Board::FinalizeWaveSpawnThreshold()
 
 void Board::Update()
 {
+	if (IsWorkshop()) { CleanupExpiredObjects(); UpdateWorkshop(); return; }
 	// 固定步预算不依赖渲染帧；间隔覆盖一次最多三步的追帧，避免同一渲染帧重叠推演。
 	if (DeltaTime::GetDeltaTime() > 0.0f) {
 		if (mMonteCarloHealerDecisionCooldownSteps > 0) {
@@ -3628,6 +3632,7 @@ int Board::GetMineForecastEntranceMask() const
 
 void Board::StartGame()
 {
+	if (IsWorkshop()) { InitializeWorkshopFrontline(); PlayBackgroundMusic(); return; }
 	DestroyPreviewZombies();
 	if (mPresentation) {
 		mPresentation->ShowShovel();

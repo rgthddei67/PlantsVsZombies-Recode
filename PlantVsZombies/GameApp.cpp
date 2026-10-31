@@ -24,6 +24,7 @@
 #include "./Game/RenderOrder.h"
 
 #include "./Game/AutoTest/TestDriver.h"
+#include "Game/WorkshopScene.h"
 
 #include "./Game/Zombie/Zombie.h"
 #include "./Game/Plant/Plant.h"
@@ -516,6 +517,7 @@ int GameAPP::Run()
 	auto& sceneManager = SceneManager::GetInstance();
 
 	sceneManager.RegisterScene<MainMenuScene>("MainMenuScene");
+	sceneManager.RegisterScene<WorkshopScene>("WorkshopScene");
 	sceneManager.RegisterScene<GameSelectScene>("GameSelectScene");
 	sceneManager.RegisterScene<AlmanacScene>("AlmanacScene");
 	sceneManager.RegisterScene<GameScene>("GameScene");

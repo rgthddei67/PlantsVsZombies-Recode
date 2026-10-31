@@ -45,6 +45,7 @@ void MainMenuScene::OnExit()
 	mConsoleButton.reset();
 	mExitButton.reset();
 	mAlmanacButton.reset();
+	mWorkshopButton.reset();
 	Scene::OnExit();
 	// UIManager 先销毁捕获控制器 this 的 Button 回调，再释放控制器本身。
 	mMainMenuButtons.reset();
@@ -53,6 +54,10 @@ void MainMenuScene::OnExit()
 void MainMenuScene::Update()
 {
 	Scene::Update();
+	if (mReadyToSwitchWorkshop) {
+		SceneManager::GetInstance().SwitchTo("WorkshopScene");
+		return;
+	}
 	if (mReadyToRefreshConsole) {
 		// 复选框回调结束后重建面板，使依赖总开关的选项立即出现或消失。
 		mReadyToRefreshConsole = false;
@@ -130,6 +135,7 @@ void MainMenuScene::BuildDrawCommands()
 			if (mConsoleButton) {
 				mConsoleButton->Draw(g);
 			}
+			if (mWorkshopButton) mWorkshopButton->Draw(g);
 			if (mAlmanacButton) {
 				mAlmanacButton->Draw(g);
 			}
@@ -182,6 +188,16 @@ void MainMenuScene::BuildDrawCommands()
 	mConsoleButton->SetClickCallBack([this](bool) {
 		OpenConsole();
 		});
+
+	// 工坊使用独立入口和原版按钮皮肤，不借用冒险解锁或占用已有模式。
+	mWorkshopButton = mUIManager.CreateButton(Vector(730, 548), Vector(180, 40));
+	mWorkshopButton->SetAsCheckbox(false);
+	mWorkshopButton->SetSkipDraw(true);
+	mWorkshopButton->SetImageKeys(ResourceKeys::Textures::IMAGE_BUTTONSMALL);
+	mWorkshopButton->SetText("戴夫工坊", ResourceKeys::Fonts::FONT_FZCQ, 21);
+	mWorkshopButton->SetTextColor(glm::vec4(245, 214, 127, 255));
+	mWorkshopButton->SetHoverTextColor(glm::vec4(255, 245, 180, 255));
+	mWorkshopButton->SetClickCallBack([this](bool) { mReadyToSwitchWorkshop = true; });
 
 	// 花
 	AddTexture(ResourceKeys::Textures::IMAGE_SELECTORSCREEN_FLOWER1, 825.0f, 420.0f, 1.0f, 1.0f, 12);

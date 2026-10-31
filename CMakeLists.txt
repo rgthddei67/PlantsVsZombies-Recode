@@ -291,6 +291,15 @@ if(BUILD_TESTING)
         pvz_assert_win7_imports(PlantCardRechargeRulesTests)
     endif()
     add_test(NAME plant-card-recharge-rules COMMAND PlantCardRechargeRulesTests)
+
+    add_executable(WorkshopTests tests/WorkshopTests.cpp PlantVsZombies/Game/Workshop/Workshop.cpp)
+    target_include_directories(WorkshopTests PRIVATE ${SRC_DIR})
+    target_compile_options(WorkshopTests PRIVATE /utf-8 /W3 /sdl /EHsc)
+    target_link_libraries(WorkshopTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat> nlohmann_json::nlohmann_json)
+    if(WIN32)
+        pvz_assert_win7_imports(WorkshopTests)
+    endif()
+    add_test(NAME workshop COMMAND WorkshopTests)
     # 陪练只读公开状态的输入决策与正式游戏解耦，反例测试不创建窗口或修改真实资源。
     foreach(cob_sparring_part IN ITEMS Lighting Targets Visibility)
         add_executable(CobSparring${cob_sparring_part}Tests

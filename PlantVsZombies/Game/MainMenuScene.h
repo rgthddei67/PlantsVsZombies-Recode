@@ -25,11 +25,13 @@ public:
 	std::shared_ptr<Button> GetSurvivalButton() const;
 	/** 返回小游戏入口，供自动化走真实点击链。 */
 	std::shared_ptr<Button> GetMiniGamesButton() const;
+	std::shared_ptr<Button> GetWorkshopButton() const { return mWorkshopButton; }
 
 	bool mReadyToSwitchAdventureLevel = false;
 	bool mReadyToSwitchAlmanac = false;
 	bool mReadyToSwitchSurvival = false;
 	bool mReadyToSwitchMiniGames = false;
+	bool mReadyToSwitchWorkshop = false;
 
 private:
 	std::unique_ptr<MainMenuButtons> mMainMenuButtons;
@@ -37,6 +39,7 @@ private:
 	std::shared_ptr<Button> mConsoleButton;
 	std::shared_ptr<Button> mExitButton;
 	std::shared_ptr<Button> mAlmanacButton;
+	std::shared_ptr<Button> mWorkshopButton;
 
 	std::weak_ptr<GameMessageBox> mMenu;
 	std::weak_ptr<GameMessageBox> mConsoleMenu;

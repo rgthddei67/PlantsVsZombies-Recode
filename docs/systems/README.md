@@ -22,6 +22,8 @@
 
 ## 存档
 
+独立经营模式见 [戴夫工坊](WORKSHOP.md)：工厂物流、信号控制、前线战斗与独立基地存档。
+
 入口为 [GameInfoSaver.h](../../PlantVsZombies/GameInfoSaver.h) 和[存档系统说明](../agent-guide/ARCHITECTURE_AND_RESOURCES.md#存档系统)。阅读时先区分全局玩家状态与单局状态，再查看对象附加状态的保存／恢复入口，以及 schema 升级发生在恢复流程中的位置。
 
 新增持久化字段前，沿说明找到对应迁移和测试入口；不要仅根据历史 JSON 样本推断当前格式。具体 schema 版本由实现与项目指南维护，本页不复制版本数字。

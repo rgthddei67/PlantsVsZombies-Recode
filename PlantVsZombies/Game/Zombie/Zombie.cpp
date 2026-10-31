@@ -708,7 +708,8 @@ void Zombie::Update()
 			if (position.x <= GAMEOVER_X && CanTriggerGameOver()
 				&& mBoard->GetState() == BoardState::GAME)
 			{
-				mBoard->GameOver();
+				if (mBoard->IsWorkshop()) mBoard->RecordWorkshopBreach(mZombieID);
+				else mBoard->GameOver();
 			}
 			if (IsOutsideWorldCleanupBounds(position))
 			{

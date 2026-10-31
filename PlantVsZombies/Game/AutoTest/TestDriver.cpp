@@ -164,6 +164,7 @@
 #include "../Zombie/HijackerZombie.h"
 #include "../Zombie/HealerZombie.h"
 #include "../Trophy.h"   // dump_state 输出奖杯坐标
+#include "../WorkshopScene.h"
 #include "../Crater.h"   // dump_state 输出毁灭菇弹坑
 #include "../../Reanimation/Animator.h"   // dump_state 查询轨道可见性（如铁门僵尸手臂）
 #include "../../ResourceManager.h"
@@ -1078,6 +1079,14 @@ bool TestDriver::ExecuteCurrent() {
 	const auto& cmd = mCommands[mIndex];
 	const std::string op = cmd.value("op", "");
 	if (mInteractiveReady && op != "screenshot") return ExecuteInteractive(cmd);
+
+	if (op == "workshop") {
+		auto* scene = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+		if (!scene) { Fail("workshop: 当前不在工坊场景"); return false; }
+		const bool success = scene->Act(cmd.at("action").get<std::string>(), cmd.value("index", -1), cmd.value("type", ""), cmd.value("value", 0));
+		if (success != cmd.value("expectedSuccess", true)) { Fail("workshop: 操作结果不符"); return false; }
+		return true;
+	}
 
 	// 等待型命令的超时看门狗（墙钟语义，不受 timescale 影响）
 	mTimeoutAccum += DeltaTime::GetUnscaledDeltaTime();
@@ -4467,10 +4476,16 @@ bool TestDriver::ExecuteCurrent() {
 			x = center.x;
 			y = center.y;
 		}
-		else if (target == "main_menu_survival" || target == "main_menu_minigames") {
+		else if (target == "workshop_control") {
+			auto* workshop = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+			auto button = workshop ? workshop->GetControlButton(cmd.value("control", "")) : nullptr;
+			if (!button || !button->IsEnabled()) { Fail("click: 工坊按钮不可用"); return false; }
+			const Vector center = button->GetCenter(); x = center.x; y = center.y;
+		}
+		else if (target == "main_menu_survival" || target == "main_menu_minigames" || target == "main_menu_workshop") {
 			auto* mainMenu = dynamic_cast<MainMenuScene*>(
 				SceneManager::GetInstance().GetCurrentScene());
-			auto button = mainMenu ? (target == "main_menu_minigames"
+			auto button = mainMenu ? (target == "main_menu_workshop" ? mainMenu->GetWorkshopButton() : target == "main_menu_minigames"
 				? mainMenu->GetMiniGamesButton() : mainMenu->GetSurvivalButton()) : nullptr;
 			if (!button || !button->IsEnabled()) {
 				Fail("click: 不在主菜单或指定模式入口不可用");
@@ -4574,6 +4589,10 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	if (!currentScene) { Fail(opName + ": 当前 Scene 为空"); return false; }
 	auto& gameApp = GameAPP::GetInstance();
 	out["scene"] = currentScene->name;
+	if (auto* workshop = dynamic_cast<WorkshopScene*>(currentScene)) {
+		out["workshop"] = workshop->Inspect();
+		return true;
+	}
     bool watersidePairReady = ResourceManager::GetInstance().HasReanimation("HeavyDiverZombie")
         && ResourceManager::GetInstance().HasReanimation("AnchorLotus");
     for (const char* key : {"IMAGE_HEAVYDIVER_HELMET", "IMAGE_HEAVYDIVER_TANKS", "IMAGE_HEAVYDIVER_ANCHOR",

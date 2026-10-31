@@ -1,0 +1,912 @@
+{
+  "name": "smoke_workshop",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "dump_state",
+      "name": "menu_before.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "01_main_menu.png"
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 15
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "WorkshopScene"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.resourcesReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativeFrontline",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlants.0.shadow",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.completedWaves",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "02_new_base.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "help"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02_help.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 8,
+      "type": "belt",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 2,
+      "type": "latch",
+      "expectedSuccess": false
+    },
+    {
+      "op": "click",
+      "x": 157,
+      "y": 510,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 155,
+      "y": 163,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 155,
+      "y": 225,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 155,
+      "y": 287,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 155,
+      "y": 349,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 155,
+      "y": 411,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 250,
+      "y": 510,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 209,
+      "y": 163,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 209,
+      "y": 225,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 209,
+      "y": 287,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 209,
+      "y": 349,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 209,
+      "y": 411,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 529,
+      "y": 510,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 263,
+      "y": 163,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 263,
+      "y": 225,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 263,
+      "y": 287,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 263,
+      "y": 349,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 263,
+      "y": 411,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 24,
+      "type": "solar"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 36,
+      "type": "solar"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 19
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.delivered",
+      "atLeast": 15
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.lanes.4.ammo",
+      "atLeast": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "03_supply.png"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "move_mouse",
+      "x": 155,
+      "y": 163
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.tooltipVisible",
+      "equals": true,
+      "timeout": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "03_machine_tooltip.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "machine_tooltip.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1090,
+      "y": 590
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "dump_state",
+      "name": "before_reload.json"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "after_reload.json"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "start"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "04_assault.png"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.hasPeaHitParticles",
+      "equals": true,
+      "timeout": 20
+    },
+    {
+      "op": "screenshot",
+      "name": "04_native_hit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_combat.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativeZombies.0.shadow",
+      "equals": true
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.hasShootingAnimation",
+      "equals": true,
+      "timeout": 20
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_before_reload.json"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_after_reload.json"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.frontView",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "view"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.frontView",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.phaseName",
+      "equals": "assault"
+    },
+    {
+      "op": "screenshot",
+      "name": "04_factory_during_assault.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "view"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.frontView",
+      "equals": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 8
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.completedWaves",
+      "equals": 1,
+      "timeout": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.phaseName",
+      "equals": "planning"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.health",
+      "equals": 3
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.completedWaves",
+      "equals": 2,
+      "timeout": 60
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 5,
+      "type": "switch"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 6,
+      "type": "not"
+    },
+    {
+      "op": "workshop",
+      "action": "wire_a",
+      "index": 6,
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "wire_a",
+      "index": 2,
+      "value": 6
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.5.signal",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.6.signal",
+      "equals": false
+    },
+    {
+      "op": "workshop",
+      "action": "configure",
+      "index": 5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.6.signal",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "x": 55,
+      "y": 107,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "x": 371,
+      "y": 163,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "05_signals.png"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 160,
+      "timeout": 40
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 0
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 1
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 2
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 3
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 4
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.completedWaves",
+      "equals": 3,
+      "timeout": 60
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 10
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "dump_state",
+      "name": "before_menu.json"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "back"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "MainMenuScene"
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.completedWaves",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 10
+    },
+    {
+      "op": "screenshot",
+      "name": "06_continued_base.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "reset"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "07_reset_confirmation.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.completedWaves",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "reset"
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 1,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.completedWaves",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 8
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.hasEatingZombie",
+      "equals": true,
+      "timeout": 40
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "08_native_eating.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_eating.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 8
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.phaseName",
+      "equals": "dead",
+      "timeout": 30
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "screenshot",
+      "name": "08_defeat.png"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.phaseName",
+      "equals": "dead"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.phaseName",
+      "equals": "planning"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.health",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.fired",
+      "equals": 0
+    },
+    {
+      "op": "dump_state",
+      "name": "recovered.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 1
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "back"
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "MainMenuScene"
+    },
+    {
+      "op": "dump_state",
+      "name": "menu_after.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

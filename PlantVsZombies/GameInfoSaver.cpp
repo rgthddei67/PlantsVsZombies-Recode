@@ -202,6 +202,36 @@ namespace {
 // 存档/读档的实际逻辑放在下列 *Impl 成员函数中（须为成员：Board 仅 friend 本类，自由
 // 函数无私有成员访问权）；文件末尾的公有接口只做一层 try/catch 包裹（异常安全边界）。
 // 命名加 Impl 后缀避免与同名公有方法构成无限递归调用。
+std::string GameInfoSaver::GetWorkshopSavePath()
+{
+	if (GameAPP::mAutoTestMode) return {};
+	return FileManager::CombinePath(GetSaveRoot(), "workshop.json");
+}
+
+bool GameInfoSaver::CaptureWorkshopFrontline(Board* board, nlohmann::json& document)
+{
+	if (!board || !board->IsWorkshop()) return false;
+	try {
+		return SerializeLevelDocument(board, nullptr, document);
+	} catch (const std::exception& e) {
+		LOG_ERROR("GameInfoSaver") << "无法保存工坊前线，保留原档: " << e.what();
+		return false;
+	}
+}
+
+bool GameInfoSaver::ValidateWorkshopFrontline(const nlohmann::json& document, std::string& error)
+{
+	auto candidate = document;
+	return SaveSchema::UpgradeLevelDocument(candidate, error) && LevelDocumentValidation::Validate(candidate, error);
+}
+
+bool GameInfoSaver::RestoreWorkshopFrontline(Board* board, const nlohmann::json& document)
+{
+	if (!board || !board->IsWorkshop() || !DeserializeLevelDocument(board, nullptr, document)) return false;
+	board->CompleteLoadRestore();
+	return true;
+}
+
 bool GameInfoSaver::SavePlayerInfoImpl()
 {
 	if (GameAPP::mAutoTestMode) return true;   // AutoTest：不碰玩家存档

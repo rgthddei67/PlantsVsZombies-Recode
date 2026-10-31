@@ -137,7 +137,8 @@ void Shooter::PlantUpdate()
 	this->mShootTimer += (DeltaTime::GetDeltaTime() * mult);
 	if (this->mShootTimer >= this->mShootTime)
 	{
-		if (HasZombieInRow())
+		// 工坊在射击前摇提交时预留一颗弹药；原有头动画与发弹事件原样续接存档。
+		if (HasZombieInRow() && mBoard->ReserveWorkshopAmmo(mRow))
 		{
 			mShootTimer = 0;
 			// 动画同比例加快：吐弹的第 64 帧 frame event 跟上更短间隔

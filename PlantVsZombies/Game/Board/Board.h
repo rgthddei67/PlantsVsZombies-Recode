@@ -31,6 +31,7 @@
 #include <unordered_map>
 
 class GameInfoSaver;
+namespace Workshop { class World; }
 class BoardPresentation;
 namespace ColdStorageSearch { class Planner; struct Snapshot; struct Result; struct QueueRevision; struct Probe; struct AssaultObservation; }
 class CardSlotManager;
@@ -206,10 +207,27 @@ class Board {
 public:
 	friend GameInfoSaver;
 private:
+	std::unique_ptr<Workshop::World> mWorkshop;
+	nlohmann::json mWorkshopBattleCheckpoint;
+	void UpdateWorkshop();
 	BoardState mBoardState = BoardState::CHOOSE_CARD;
 	int mSun = 50;
 	int mCurrentWave = 0;			// 当前波
 public:
+    /** 工坊由 Board 独占生产/出兵状态；实体仍走既有植物、僵尸、子弹体系。 */
+    bool IsWorkshop() const { return mWorkshop != nullptr; }
+    Workshop::World& GetWorkshop() { return *mWorkshop; }
+    const Workshop::World& GetWorkshop() const { return *mWorkshop; }
+    void InitializeWorkshopFrontline();
+    void RefreshWorkshopObservation();
+    bool AddWorkshopShooter(int row);
+    bool BeginWorkshopAssault();
+    bool ReserveWorkshopAmmo(int row);
+    void RecordWorkshopShot();
+    void RecordWorkshopBreach(int zombieID);
+    nlohmann::json SaveWorkshopDocument();
+    bool RestoreWorkshopDocument(const nlohmann::json& document, std::string& error);
+    nlohmann::json WorkshopRetryDocument();
     BoardState GetState() const { return mBoardState; }
     int GetCurrentWave() const { return mCurrentWave; }
     /** 完成生存轮间选卡：清预览、恢复 GAME 和音乐，不重建已有场景对象。 */

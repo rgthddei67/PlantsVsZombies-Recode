@@ -11,6 +11,12 @@ class CardSlotManager;
 
 class GameInfoSaver {
 public:
+	/** 工坊独立文件，禁止 AutoTest 访问真人根目录；测试由场景使用自身输出目录。 */
+	static std::string GetWorkshopSavePath();
+	/** 工坊在自己的文档中复用正式实体序列化；不接触玩家或冒险文件。 */
+	static bool CaptureWorkshopFrontline(Board* board, nlohmann::json& document);
+	static bool RestoreWorkshopFrontline(Board* board, const nlohmann::json& document);
+	static bool ValidateWorkshopFrontline(const nlohmann::json& document, std::string& error);
 	bool SavePlayerInfo();
 	bool LoadPlayerInfo();
 
