@@ -486,15 +486,12 @@ void CardSlotManager::CreatePlantPreview(PlantType plantType) {
 	DestroyPlantPreview();
 
 	if (mBoard) {
-		plantPreview = mBoard->CreatePlant(plantType, 0, 0, true, true);
+		plantPreview = mBoard->CreatePlantingPreview(plantType);
 		if (plantPreview && selectedCard
 			&& selectedCard->GetPlantType() == PlantType::PLANT_IMITATER) {
 			plantPreview->SetImitatedAppearance(true);
 		}
 		if (!plantPreview) return;
-		plantPreview->PauseAnimation();
-		plantPreview->SetRenderOrder(LAYER_EFFECTS + 10000);
-		plantPreview->RemoveShadow();
 		ApplySelectedBloverDirection(plantPreview);
 	}
 }
@@ -503,40 +500,12 @@ void CardSlotManager::CreateCellPlantPreview(PlantType plantType, Cell* cell) {
 	DestroyCellPlantPreview();
 
 	if (mBoard && cell) {
-		int anchorRow = cell->mRow;
-		int anchorColumn = cell->mColumn;
-		if (!mBoard->ResolvePlantPlacementAnchor(plantType, cell->mRow, cell->mColumn,
-			anchorRow, anchorColumn)) return;
-		Cell* anchorCell = mBoard->GetCell(anchorRow, anchorColumn);
-		if (!anchorCell) return;
-		cellPlantPreview = mBoard->CreatePlant(plantType, 0, 0, true, true);
+		cellPlantPreview = mBoard->CreatePlantingPreview(plantType, cell->mRow, cell->mColumn);
 		if (cellPlantPreview) {
 			if (selectedCard
 				&& selectedCard->GetPlantType() == PlantType::PLANT_IMITATER) {
 				cellPlantPreview->SetImitatedAppearance(true);
 			}
-			Vector centerPos = anchorCell->GetCenterPosition();          // 世界坐标
-			Plant* supportPlant = mBoard->GetFlowerPotAt(anchorRow, anchorColumn);
-			if (!cellPlantPreview->IsRoofSupportPlant() && supportPlant
-				&& !mBoard->IsPoolSquare(anchorRow, anchorColumn)) {
-				// 预览实体没有真实 row/column，需在落点处显式复用花盆抬升口径。
-				centerPos.y += Plant::kFlowerPotVisualLiftY;
-			}
-
-			// 落点幽灵必须盖在该格已有承载植物之上，否则睡莲会遮住待种植物。
-			Plant* topPlant = mBoard->GetTopPlantAt(anchorRow, anchorColumn);
-			// 在承载植物的同号子序中插入，不借用可能已属于相邻植物的整数号。
-			const int previewRenderOrder = topPlant
-				? topPlant->GetRenderOrder() : LAYER_GAME_PLANT;
-			cellPlantPreview->SetRenderOrder(previewRenderOrder, 1);
-
-			if (auto transform = cellPlantPreview->GetTransform()) {
-				transform->SetPosition(centerPos);             // 设置为世界坐标
-			}
-
-			cellPlantPreview->SetAlpha(0.35f);
-			cellPlantPreview->RemoveShadow();
-			cellPlantPreview->PauseAnimation();
 			ApplySelectedBloverDirection(cellPlantPreview);
 		}
 	}

@@ -36,6 +36,7 @@ void WorkshopScene::CancelMapGesture() {
     mPressCell = -1;
 }
 void WorkshopScene::CancelTool() {
+    ClearFrontPreview();
     mTool = Tool::Inspect; mWireSource = -1; mSelected = -1;
     mFrontTool = FrontTool::Inspect; mSelectedShooter = -1;
     CancelMapGesture(); mHoverKey = -1; mTooltipLines.clear();

@@ -1882,6 +1882,11 @@ public:
 
 	// 创建植物
 	Plant* CreatePlant(PlantType plantType, int row, int column, bool skipsettings = false, bool isPreview = false);
+	/** 创建原尺寸、无影子且停在 idle 的种植预览，不占格、不扣费、不入实体注册表。
+	 * row/column 均为 -1 时为手持预览，否则在解析后的落点显示半透明幽灵。
+	 * GameObjectManager 持有实体；调用方取消时须 Die()，并在场景清空前释放引用。
+	 */
+	Plant* CreatePlantingPreview(PlantType plantType, int row = -1, int column = -1);
 	/** 玩家卡片和 AutoTest 的正式落种入口；预览、初始布置与读档不得调用。 */
 	Plant* CreatePlayerPlant(PlantType plantType, int row, int column);
 	/** 创建按目标占层/占格的模仿者占位；卡槽只在目标有效时调用。 */

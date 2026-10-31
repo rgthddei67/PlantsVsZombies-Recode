@@ -16,7 +16,10 @@ void FrontText(const std::string& text, float x, float y, int size = 15, glm::ve
 }
 void PlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h) {
     const auto* texture = ResourceManager::GetInstance().GetTexture(GameDataManager::GetInstance().GetPlantTextureKey(type), false);
-    if (texture) g->DrawTexture(texture, x, y, w, h);
+    if (!texture || texture->width <= 0 || texture->height <= 0) return;
+    const float scale = std::min(w / texture->width, h / texture->height);
+    const float width = texture->width * scale, height = texture->height * scale;
+    g->DrawTexture(texture, x + (w - width) / 2, y + (h - height) / 2, width, height);
 }
 Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 4) * 244.0f, 145 + (index / 4) * 190.0f); }
 }
@@ -41,7 +44,7 @@ Plant* WorkshopScene::SelectedFrontPlant() const {
     return plant && plant->IsActive() && plant->mPlantHealth > 0 && Workshop::FindPlant(plant->mPlantType) ? plant : nullptr;
 }
 int WorkshopScene::FrontCellAt(Vector point) const {
-    if (point.y < 88 || point.y >= 584) return -1;
+    if (point.y < 88 || point.y >= 575) return -1;
     for (int row = 0; row < Workshop::Rows; ++row) for (int col = 0; col < Workshop::FrontColumns; ++col) {
         const auto center = mBoard->GetCellCenterPosition(row, col);
         if (std::abs(point.x - center.x) < 40 && std::abs(point.y - center.y) < 50) return row * Workshop::FrontColumns + col;
@@ -57,6 +60,33 @@ void WorkshopScene::SelectFrontPlant(PlantType type) {
     if (!definition || World().CompletedWaves() < definition->unlockWave) return;
     CancelTool(); mFrontTool = FrontTool::Plant; mFrontBuildType = type;
     mNotice = std::string("选择格子种植") + definition->name + "；Esc / 右键取消。";
+}
+
+void WorkshopScene::ClearFrontPreview() {
+    if (mHeldPlantPreview) { mHeldPlantPreview->Die(); mHeldPlantPreview = nullptr; }
+    if (mCellPlantPreview) { mCellPlantPreview->Die(); mCellPlantPreview = nullptr; }
+    mPlantPreviewCell = -1;
+}
+
+void WorkshopScene::UpdateFrontPreview(Graphics* g) {
+    if (!mFrontView || mLoadFailed || mFrontTool != FrontTool::Plant || mLeftPanning
+        || mUIManager.GetTopActiveMessageBox()) { ClearFrontPreview(); return; }
+    const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
+    // 工具栏和底部说明不遮一株手持植物；移回草坪时仍保留所选工具。
+    if (mouse.x < 207 || mouse.x >= SCENE_WIDTH || mouse.y < 88 || mouse.y >= 575) {
+        ClearFrontPreview(); return;
+    }
+    if (!mHeldPlantPreview) mHeldPlantPreview = mBoard->CreatePlantingPreview(mFrontBuildType);
+    if (mHeldPlantPreview) mHeldPlantPreview->SetPosition(g->LogicalToWorld(mouse.x, mouse.y));
+    int cell = FrontCellAt(mouse);
+    if (cell >= 0 && !mBoard->WorkshopPlantPlacementReason(mFrontBuildType,
+        cell / Workshop::FrontColumns, cell % Workshop::FrontColumns).empty()) cell = -1;
+    if (cell != mPlantPreviewCell) {
+        if (mCellPlantPreview) { mCellPlantPreview->Die(); mCellPlantPreview = nullptr; }
+        mPlantPreviewCell = cell;
+        if (cell >= 0) mCellPlantPreview = mBoard->CreatePlantingPreview(mFrontBuildType,
+            cell / Workshop::FrontColumns, cell % Workshop::FrontColumns);
+    }
 }
 
 /** 前线也在松手后提交点击，拖过多个格子不会误种或误铲。 */
@@ -131,7 +161,7 @@ void WorkshopScene::DrawPlantCatalog(Graphics* g) {
         g->DrawRect(pos.x, pos.y, 228, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
         FrontText(info.name, pos.x + 12, pos.y + 10, 17, unlocked ? kFrontGreen : kFrontInk);
         FrontText(std::to_string(info.cost) + " 阳光", pos.x + 151, pos.y + 13, 13, World().Energy() >= info.cost ? kFrontInk : kFrontRed);
-        PlantPicture(g, info.type, pos.x + 73, pos.y + 40, 82, 73);
+        PlantPicture(g, info.type, pos.x + 54, pos.y + 38, 120, 78);
         FrontText(info.role, pos.x + 9, pos.y + 120, 12);
         FrontText(unlocked ? "点击选择 · 放下时扣费" : "守住第 " + std::to_string(info.unlockWave) + " 波解锁", pos.x + 12, pos.y + 150, 14, unlocked ? kFrontGreen : kFrontRed);
     }
@@ -174,43 +204,45 @@ void WorkshopScene::DrawFrontOverlay(Graphics* g) {
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
     const int cell = FrontCellAt(mouse);
     const auto* selected = SelectedFrontPlant();
-    if (mFrontTool != FrontTool::Inspect) {
+    if (mFrontTool == FrontTool::Remove) {
         for (int row = 0; row < Workshop::Rows; ++row) for (int col = 0; col < Workshop::FrontColumns; ++col) {
             const auto center = mBoard->GetCellCenterPosition(row, col);
             g->DrawRect(center.x - 40, center.y - 50, 80, 100, glm::vec4(240, 232, 152, 110));
         }
     }
-    if (selected) {
+    if (selected && mFrontTool != FrontTool::Plant) {
         const auto center = mBoard->GetCellCenterPosition(selected->mRow, selected->mColumn);
         g->DrawRect(center.x - 39, center.y - 49, 78, 98, glm::vec4(255, 227, 113, 255));
     }
-    if (cell >= 0 && !mLeftPanning) {
+    if (cell >= 0 && !mLeftPanning && mFrontTool != FrontTool::Plant) {
         const int row = cell / Workshop::FrontColumns, col = cell % Workshop::FrontColumns;
         const auto center = mBoard->GetCellCenterPosition(row, col);
         const auto* plant = mBoard->GetNormalPlantAt(row, col);
-        const auto reason = mFrontTool == FrontTool::Plant ? mBoard->WorkshopPlantPlacementReason(mFrontBuildType, row, col) : std::string{};
         const bool remove = mFrontTool == FrontTool::Remove;
-        const auto color = remove || !reason.empty() ? kFrontRed : kFrontGreen;
+        const auto color = remove ? kFrontRed : kFrontGreen;
         g->DrawRect(center.x - 38, center.y - 48, 76, 96, color);
-        if (mFrontTool == FrontTool::Plant && !plant) PlantPicture(g, mFrontBuildType, center.x - 31, center.y - 39, 62, 72);
         if (remove && plant) {
             g->DrawLine(center.x - 30, center.y - 35, center.x + 30, center.y + 35, kFrontRed);
             g->DrawLine(center.x - 30, center.y + 35, center.x + 30, center.y - 35, kFrontRed);
         }
-        if (mFrontTool != FrontTool::Inspect) {
-            const auto* definition = Workshop::FindPlant(mFrontBuildType);
-            const std::string label = remove ? "铲除植物 · 不返还阳光" : reason.empty() ? std::string("种植：") + definition->name : reason;
+        if (remove) {
             const float x = std::clamp(mouse.x + 16, 210.0f, 780.0f), y = std::clamp(mouse.y + 25, 90.0f, 540.0f);
-            g->FillRect(x, y, 305, 31, color); FrontText(label, x + 9, y + 7, 15, glm::vec4(255, 247, 217, 255));
+            g->FillRect(x, y, 305, 31, color); FrontText("铲除植物 · 不返还阳光", x + 9, y + 7, 15, glm::vec4(255, 247, 217, 255));
         }
     }
     std::string status = mFrontTool == FrontTool::Remove ? "铲除中 · 点一株后退出，Shift 连铲 · Esc / 右键取消"
         : mFrontTool == FrontTool::Plant ? std::string("种植中：") + Workshop::FindPlant(mFrontBuildType)->name + " · 选格放置 · Esc / 右键取消"
         : "B 打开植物图册 · 点植物查看升级与能力 · 左侧按钮配置本路弹药";
+    if (mFrontTool == FrontTool::Plant && cell >= 0) {
+        const auto reason = mBoard->WorkshopPlantPlacementReason(mFrontBuildType, cell / Workshop::FrontColumns, cell % Workshop::FrontColumns);
+        if (!reason.empty()) status = reason + " · Esc / 右键取消";
+    }
     g->FillRect(216, 575, 872, 25, mFrontTool == FrontTool::Remove ? kFrontRed : glm::vec4(232, 220, 168, 245));
-    FrontText(status, 225, 580, 14, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);
+    g->PushClipRect(216, 575, 640, 25);
+    FrontText(status, 225, 580, 13, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);
+    g->PopClipRect();
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        FrontText("第 " + std::to_string(threat.wave) + " 波：" + threat.name, 875, 56, 15, kFrontRed); break;
+        FrontText("第 " + std::to_string(threat.wave) + " 波：" + threat.name, 875, 580, 14, kFrontRed); break;
     }
 }
 

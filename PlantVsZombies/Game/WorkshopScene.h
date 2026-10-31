@@ -43,6 +43,9 @@ private:
     int mSelectedShooter = -1; // 稳定前线植物 ID，保留旧诊断字段名
     PlantType mFrontBuildType = PlantType::PLANT_PEASHOOTER;
     FrontTool mFrontTool = FrontTool::Inspect, mFrontPressTool = FrontTool::Inspect;
+    Plant* mHeldPlantPreview = nullptr;
+    Plant* mCellPlantPreview = nullptr;
+    int mPlantPreviewCell = -1;
     float mMapZoom = 1.0f;
     Vector mMapOffset, mDragPoint;
     bool mMapDragging = false;
@@ -77,6 +80,7 @@ private:
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mViewButton;
+    std::shared_ptr<Slider> mSpeedSlider;
     std::shared_ptr<Button> mInspectButton, mRemoveButton, mWireAButton, mWireBButton;
     std::shared_ptr<Button> mRotateButton, mConfigButton, mDisconnectButton;
 
@@ -115,6 +119,9 @@ private:
     int FrontCellAt(Vector point) const;
     void CreateFrontControls();
     void UpdateFrontInput();
+    /** 绘制前按最终相机定位原生预览；它们不进入基地存档或战斗注册表。 */
+    void UpdateFrontPreview(Graphics* g);
+    void ClearFrontPreview();
     void SelectFrontPlant(PlantType type);
     void OpenPlantCatalog();
     void ClosePlantCatalog(bool cancel = true);

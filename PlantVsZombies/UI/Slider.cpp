@@ -56,6 +56,7 @@ void Slider::SetIntegerOnly(bool enabled)
 void Slider::SetDrag(bool canDrag)
 {
 	this->canDrag = canDrag;
+	if (!canDrag) isDragging = false;
 }
 
 void Slider::SetImageKeys(const std::string& background, const std::string& knob)
@@ -75,23 +76,19 @@ void Slider::ProcessMouseEvent(InputHandler* input)
 
 	Vector mousePos = input->GetMousePosition();
 
-	if (input->IsMouseButtonDown(SDL_BUTTON_LEFT))
+	// 只在按下边沿捕获；按住时反复重设起点会吞掉慢速拖动的小位移。
+	if (input->IsMouseButtonPressed(SDL_BUTTON_LEFT))
 	{
-		if (KnobContainsPoint(mousePos))
+		const bool onKnob = KnobContainsPoint(mousePos);
+		if (onKnob || BackgroundContainsPoint(mousePos))
 		{
+			if (!onKnob) SetValue(CalculateValueFromX(mousePos.x));
 			isDragging = true;
 			dragStartPosition = mousePos;
 			dragStartValue = currentValue;
 		}
-
-		// 点击背景，直接赋值
-		else if (this->BackgroundContainsPoint(mousePos) && !this->KnobContainsPoint(mousePos))
-		{
-			float newValue = this->CalculateValueFromX(mousePos.x);
-			this->SetValue(newValue);
-		}
 	}
-	else if (input->IsMouseButtonReleased(SDL_BUTTON_LEFT) && isDragging)
+	if (!input->IsMouseButtonDown(SDL_BUTTON_LEFT))
 	{
 		isDragging = false;
 	}
@@ -99,7 +96,7 @@ void Slider::ProcessMouseEvent(InputHandler* input)
 
 void Slider::Update(InputHandler* input)
 {
-	if (!input || mModalInputBlocked) return;
+	if (!input || !canDrag || mModalInputBlocked) return;
 
 	Vector mousePos = input->GetMousePosition();
 

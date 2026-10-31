@@ -25,6 +25,7 @@ namespace {
 constexpr float kMinZoom = 0.3f, kMaxZoom = 2.0f; // 工厂缩放范围，不影响前线或 UI
 constexpr float kFrontY = 88, kFrontRowHeight = 100; // 沿用平地草坪的五行边界，逻辑像素
 constexpr float kAutosaveSeconds = 5; // 活跃游玩时自动保存间隔，单位：秒
+constexpr float kSpeedStep = 0.5f; // 倍速滑条每档增加的运行倍率；1～6 档对应 0.5～3 倍
 const glm::vec4 kInk{48, 43, 30, 255}; // 工坊正文颜色
 const glm::vec4 kGold{255, 223, 130, 255}; // 选中、等级与提示边框颜色
 const glm::vec4 kGreen{66, 107, 51, 255}; // 工坊标题颜色
@@ -77,6 +78,7 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
+    ClearFrontPreview();
     GameObjectManager::GetInstance().DestroyAllGameObjects();
     if (g_particleSystem) g_particleSystem->ClearAll();
     mBoard.reset();
@@ -93,6 +95,8 @@ void WorkshopScene::UpdateAfterGameObjects() {
     if (mBoard && !mLoadFailed) mBoard->Update();
 }
 void WorkshopScene::DrawGameObjects(Graphics* g) {
+    // 与 CardSlotManager 一样，在世界对象提交前使用本帧最终相机定位手持预览。
+    UpdateFrontPreview(g);
     if (mFrontView && !mLoadFailed) {
         GameObjectManager::GetInstance().SetPreOverlayHook([] {
             if (g_particleSystem) g_particleSystem->DrawBelow(LAYER_UI);
@@ -147,7 +151,7 @@ void WorkshopScene::OnExit() {
     mPlantCatalogButton.reset(); mFrontRemoveButton.reset(); mFrontUpgradeButton.reset(); mAbilityButton.reset(); mAutomaticButton.reset();
     mQuotaButtons.clear(); mUpgradeButton.reset();
     mFitButton.reset(); mZoomInButton.reset(); mZoomOutButton.reset(); mRouteButton.reset(); mFilterButton.reset();
-    mPauseButton.reset(); mStartButton.reset(); mViewButton.reset();
+    mPauseButton.reset(); mStartButton.reset(); mViewButton.reset(); mSpeedSlider.reset();
     Scene::OnExit();
     mBoard.reset();
     DeltaTime::SetPaused(false);
@@ -267,12 +271,18 @@ void WorkshopScene::CreateControls() {
     for (size_t i = firstFactoryControl; i < mUIManager.GetButtonCount(); ++i)
         mFactoryControls.push_back(mUIManager.GetButton(i));
     CreateFrontControls();
+    mSpeedSlider = mUIManager.CreateSlider(Vector(960, 102), Vector(115, 8), 1, 6,
+        DeltaTime::GetSelectedTimeScale() / kSpeedStep);
+    mSpeedSlider->SetIntegerOnly(true);
+    mSpeedSlider->SetChangeCallBack([](float step) { DeltaTime::SetSelectedTimeScale(step * kSpeedStep); });
+    DeltaTime::SetSelectedTimeScale(mSpeedSlider->GetValue() * kSpeedStep);
     SetFrontView(World().State() != Workshop::Phase::Planning);
 }
 
 void WorkshopScene::SetFrontView(bool front) {
     if (front != mFrontView) CancelTool();
     mFrontView = front;
+    if (mSpeedSlider) mSpeedSlider->SetPosition(Vector(960, front ? 62.0f : 102.0f));
     for (const auto& button : mFactoryControls) { button->SetEnabled(!front); button->SetSkipDraw(front); }
     for (const auto& button : mQuickButtons) button->SetSkipDraw(true);
     for (const auto& button : mFrontControls) { button->SetEnabled(front); button->SetSkipDraw(!front); }
@@ -536,7 +546,7 @@ void WorkshopScene::Update() {
     }
     if (!mUIManager.GetTopActiveMessageBox() && catalogInput.IsKeyPressed(SDLK_b)) { if (mFrontView) OpenPlantCatalog(); else OpenCatalog(); }
     const bool modal = mUIManager.GetTopActiveMessageBox() != nullptr;
-    if (modal) CancelMapGesture();
+    if (modal) { CancelMapGesture(); ClearFrontPreview(); }
     if (!modal) {
         auto& input = GameAPP::GetInstance().GetInputHandler();
         if (input.IsKeyPressed(SDLK_SPACE)) Act("pause");
@@ -576,7 +586,8 @@ void WorkshopScene::BuildDrawCommands() {
 
 /** 使用墙钟延迟显示：暂停施工时仍可阅读功能，状态内容从正式模型实时生成。 */
 void WorkshopScene::UpdateTooltip() {
-    if (!IsCatalogOpen() && (mLeftPending || mMapDragging || mTool == Tool::Remove || mTool == Tool::WireA || mTool == Tool::WireB)) {
+    if (!IsCatalogOpen() && (mLeftPending || mMapDragging || mFrontTool != FrontTool::Inspect
+        || mTool == Tool::Remove || mTool == Tool::WireA || mTool == Tool::WireB)) {
         mTooltipLines.clear(); mHoverKey = -1; return;
     }
     int key = -1, index = -1;
@@ -870,6 +881,7 @@ void WorkshopScene::DrawFactoryMap(Graphics* g) {
 void WorkshopScene::DrawFactoryPanel(Graphics* g) {
     g->FillRect(803, 128, 284, 450, glm::vec4(232, 220, 168, 255));
     Text("建造与控制", 815, 129, 16, kGreen);
+    Text(std::format("{}×{} · {:.0f}%", World().Columns(), World().FactoryRows(), mMapZoom * 100), 942, 131, 13, kGreen);
     DrawQuickBuild(g);
     if (mSelected >= 0) {
         const auto& cell = World().Cells()[mSelected];
@@ -897,6 +909,8 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     if (!mFrontView) g->FillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT, glm::vec4(232, 220, 168, 255));
     g->FillRect(0, 0, 1100, mFrontView ? 44.0f : 124.0f, glm::vec4(232, 220, 168, 245));
     if (mFrontView) {
+        g->FillRect(867, 44, 233, 44, glm::vec4(232, 220, 168, 238));
+        Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 59, 13, kGreen);
         g->FillRect(12, 46, 195, 44, glm::vec4(232, 220, 168, 238));
         Text("阳光 " + std::to_string(static_cast<int>(World().Energy())) + " · 基地 " + std::to_string(World().Health()) + "/3", 23, 50, 14);
         Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
@@ -911,7 +925,7 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
         + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 19, 19);
     Text(mSaveFailed ? "保存失败 · 检查磁盘权限" : mPaused ? "已暂停 · 可以施工"
         : World().State() == Workshop::Phase::Planning ? "准备停机 · 开波后运行" : "独立基地 · 自动保存", 780, 18, 18, kGreen);
-    Text(std::format("{}×{} · {:.0f}%", World().Columns(), World().FactoryRows(), mMapZoom * 100), 891, 99, 16, kGreen);
+    Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 99, 13, kGreen);
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
         Text(std::to_string(threat.wave) + "波 " + threat.name, 646, 21, 14, kGreen); break;
     }
