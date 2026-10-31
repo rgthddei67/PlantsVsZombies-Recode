@@ -96,6 +96,11 @@ private:
     std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
+    std::shared_ptr<Button> mGridButton;
+    std::shared_ptr<GameMessageBox> mGridDialog;
+    bool mPowerGuideSeen = true;
+    int mPowerDemoMode = 0;
+    std::unique_ptr<Workshop::World> mPowerDemo;
     std::shared_ptr<Button> mViewButton;
     std::shared_ptr<Slider> mSpeedSlider;
     std::shared_ptr<Button> mInspectButton, mRemoveButton, mWireAButton, mWireBButton;
@@ -111,6 +116,10 @@ private:
     void HandleGridClick(int index);
     void ConfirmReset();
     void ShowHelp();
+    void OpenPowerGrid();
+    void DrawPowerGrid(Graphics* g);
+    void ResetPowerDemo(int mode);
+    void DrawPowerDemo(Graphics* g);
     void OpenMachineConfig(int index);
     void CloseMachineConfig();
     void RefreshMachineConfig();

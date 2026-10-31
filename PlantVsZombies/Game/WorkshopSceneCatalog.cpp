@@ -228,5 +228,7 @@ std::string WorkshopScene::BuildPreviewReason(int index) const {
     if (World().Cells()[index].type != Workshop::Machine::Empty) return "此格已有机器 · R 可直接旋转它";
     if (!World().Unlocked(mBuildType)) return "该机器尚未解锁";
     if (World().Energy() < Workshop::Describe(mBuildType).cost) return "阳光不足，放置不会扣费";
+    if (Workshop::RatedPower(mBuildType) > 0) return std::format("可放置 · 新增额定 {:.0f} 电力 · 全厂满负荷预估 {:.0f}% 产速",
+        Workshop::RatedPower(mBuildType), World().PowerAfterBuild(mBuildType).speed * 100);
     return "可放置 · 点击后扣费 · Esc / 右键取消";
 }

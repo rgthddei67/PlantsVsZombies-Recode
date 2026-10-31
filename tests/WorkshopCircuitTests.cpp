@@ -140,5 +140,6 @@ void TestWorkshopCircuits() {
     Check(u.MaterialWarning(4).find("冰瓜") != std::string::npos, "feeder warns about incoming incompatible ammunition");
     Check(u.SetFilter(4, 4) && u.MaterialWarning(4).empty(), "feeder correction resolves warning");
     save = u.Save(); save["schemaVersion"] = 4; save["state"].erase("plantCooldowns"); Load(*replay, save);
-    Check(replay->Save() == u.Save(), "v4 base migration preserves layout and supplies");
+    auto migrated = u.Save(); migrated["state"]["gridLevel"] = UnlockedGridLevel(u.CompletedWaves());
+    Check(replay->Save() == migrated, "v4 base migration preserves layout and supplies and grants progress grid");
 }

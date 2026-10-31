@@ -8,6 +8,7 @@
 
 using namespace Workshop;
 void TestWorkshopCircuits();
+void TestWorkshopPower();
 namespace {
 // 多个完整基地夹具放堆上，避免 Cell 扩展后超过 Windows 测试进程默认栈。
 World& TestWorld() {
@@ -50,11 +51,11 @@ void ClearWave(World& world) {
 }
 int main() {
     const auto starterGuide = GuideTopics(0);
-    Check(starterGuide.size() == 6 && starterGuide.front() == 0, "newcomer guide contains only starter machines and pea");
+    Check(starterGuide.size() == 7 && starterGuide.front() == 0, "newcomer guide contains only starter machines and pea");
     const auto firstUnlock = GuideTopics(1, 0), circuitsUnlock = GuideTopics(2, 1);
-    Check(firstUnlock.size() == 4 && circuitsUnlock.size() == 9, "each completed wave produces one complete unlock batch");
+    Check(firstUnlock.size() == 4 && circuitsUnlock.size() == 11, "each completed wave produces one complete unlock batch");
     for (int topic : circuitsUnlock) Check(GuideUnlockWave(topic) == 2, "unlock popup does not reveal future or repeat older items");
-    Check(GuideTopics(2, 2).empty() && GuideTopics(10).size() == static_cast<int>(Machine::Count) + Plants.size(), "read batches stay quiet and every item has a guide entry");
+    Check(GuideTopics(2, 2).empty() && GuideTopics(10).size() == static_cast<int>(Machine::Count) + Plants.size() + 3, "read batches stay quiet and every item has a guide entry");
     nlohmann::json guideSave = nlohmann::json::object();
     Check(ReadGuideSeenWave(guideSave, 8) == 8, "legacy saves do not replay historical unlock tutorials");
     guideSave["guideSeenWave"] = 2;
@@ -313,6 +314,7 @@ int main() {
     // 新版五弹种共用总弹仓，残骸不进入前线；冷凝配方和存档同时保留。
     World& advanced = TestWorld();
     fixture = advanced.Save(); fixture["state"]["completedWaves"] = 10; fixture["state"]["energy"] = 6000;
+    fixture["state"]["gridLevel"] = 4; // 本例验证配方/物流，配置已解锁且足够的电网；过载由专项覆盖。
     Check(advanced.Load(fixture, error), "advanced production fixture");
     Check(advanced.Build(21, Machine::SporeGrower, 0) && advanced.Build(22, Machine::Belt, 0)
         && advanced.Build(23, Machine::Feeder, 0) && advanced.SetRoute(23, 0) && advanced.SetFilter(23, 2), "spore production line");
@@ -384,5 +386,6 @@ int main() {
         && SpawnType(18, 12) == ZombieType::ZOMBIE_HEALER && SpawnType(22, 16) == ZombieType::ZOMBIE_CRYSTAL_DRUMMER
         && SpawnType(26, 10) == ZombieType::ZOMBIE_ADAPTIVE_HELMET, "threat milestones and one-giant debut");
     TestWorkshopCircuits();
+    TestWorkshopPower();
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

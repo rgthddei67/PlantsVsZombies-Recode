@@ -15,6 +15,14 @@
 - 单体数组下标只用于唯一目标夹具。多对象交互按稳定实体 ID、格位或聚合投影选择，运动同步用同状态相对量。
 - 相关检查通过后，只有新增变化、失败或未解决疑点才扩大或重复测试。以下各夹具说明用于查找适合本任务的证据，不是每次交付的清单。
 
+## 工坊电网与调度
+
+`workshop` CTest 包含 `WorkshopPowerTests.cpp`：电网阶段上限、过载同比减速、待机/手动/A 口、准备期冻结、升级效率、分段主攻及 v5 旧袭击宽限。对照夹具让相同预算与布局从满弹仓开始，跨十波保留库存，比较常开、库存启停、共享产线切线；它是供需压力代理，不能作为原生战斗胜率或最终平衡结论。
+
+`smoke_workshop_power` 配合 `verify_workshop_power.py` 验证可见电网面板、隔离教程的三种操作、正式 Board 中的开关供给、暂停与原生快照往返、旧档一次性教学。教程使用独立 `Workshop::World`，不能写玩家基地；读档后的实体数组按稳定 ID 归一后比较。暂停窗口使用 `wait_frames`，不能用按游戏时间累计的 `wait_seconds`。
+
+电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。工坊 schema v6 的 `legacyAssault` 必须同时保存在未结束袭击及其检查点，死亡重试沿用旧产速和轮流出怪，首次守住后才启用新规则。旧档按已守住的波次授予可用电网等级；布局、物料与真实战斗快照保留，禁止通过重置库存制造电网需求。
+
 ## 框架阶段与 Board 子域
 
 `smoke_sun_collection_resume/commit` 覆盖大小阳光在途领取与入账同一步的存档边界；`set_auto_collect` 只切换测试进程的自动收集偏好，以验证手动点击后的恢复。`smoke_entity_id_rejection/legacy` 覆盖重复身份拒绝、失败场景恢复和显式/自动 ID 混合旧档的编号。纯文档的身份边界与阳光迁移分别由 `board-domain-state`、`save-schema` CTest 验证。

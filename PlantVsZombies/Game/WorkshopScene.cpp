@@ -80,6 +80,8 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
     CloseMachineConfig();
+    if (mGridDialog) mGridDialog->Close();
+    mGridDialog.reset();
     mMaterialWarnings.fill({}); mMaterialNotice.clear(); mMaterialCheckAt = 0; mMaterialNoticeUntil = 0;
     CloseGuide(false);
     ClearFrontPreview();
@@ -168,7 +170,10 @@ bool WorkshopScene::SaveBase() {
     if (mLoadFailed || mSavePath.empty()) return false;
     const auto directory = FileManager::GetDirectory(mSavePath);
     auto document = mBoard->SaveWorkshopDocument();
-    if (document.is_object()) document["guideSeenWave"] = std::min(mGuideSeenWave, World().CompletedWaves());
+    if (document.is_object()) {
+        document["guideSeenWave"] = std::min(mGuideSeenWave, World().CompletedWaves());
+        document["powerGuideSeen"] = mPowerGuideSeen;
+    }
     const bool result = document.is_object()
         && (FileManager::IsDirectory(directory) || FileManager::CreateDirectory(directory))
         && FileManager::SaveJsonFile(mSavePath, document);
@@ -186,6 +191,8 @@ bool WorkshopScene::ReloadBase() {
         return false;
     }
     mGuideSeenWave = Workshop::ReadGuideSeenWave(document, World().CompletedWaves());
+    mPowerGuideSeen = document.contains("powerGuideSeen") && document["powerGuideSeen"].is_boolean()
+        ? document["powerGuideSeen"].get<bool>() : document.value("schemaVersion", 0) >= 6;
     mLoadFailed = false; mDeathShown = false; CancelTool(); ClampFactoryCamera(); return true;
 }
 
@@ -246,6 +253,7 @@ void WorkshopScene::CreateControls() {
     MakeButton("　保存返回", 752, 52, 150, [this] { if (SaveBase()) mPending = Pending::Back; });
     mViewButton = MakeButton("　前线", 916, 52, 165, [this] { SetFrontView(!mFrontView); });
     const size_t firstFactoryControl = mUIManager.GetButtonCount();
+    mGridButton = MakeButton("电网", 780, 10, 300, [this] { OpenPowerGrid(); }, 33, 16);
     mInspectButton = MakeButton("　查看", 20, 92, 75, [this] { SelectTool(Tool::Inspect); });
     mRemoveButton = MakeButton("　拆除", 100, 92, 75, [this] { SelectTool(Tool::Remove); });
     mRotateButton = MakeButton("　旋转 R", 180, 92, 90, [this] { RotatePointedMachine(); });
@@ -307,6 +315,10 @@ void WorkshopScene::SetFrontView(bool front) {
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (action == "grid") return mGridButton;
+    if (action == "grid_upgrade") return mGridDialog && mGridDialog->IsActive() ? mGridDialog->GetButton(1) : nullptr;
+    if (action == "grid_guide") return mGridDialog && mGridDialog->IsActive() ? mGridDialog->GetButton(2) : nullptr;
+    for (int i = 0; i < 3; ++i) if (action == "power_demo_" + std::to_string(i)) return mGuide && mGuide->IsActive() ? mGuide->GetButton(13 + i) : nullptr;
     if (auto found = mConfigControls.find(action); found != mConfigControls.end()) return found->second;
     for (size_t i = 0; i < mMachineGuideButtons.size(); ++i)
         if (action == "machine_guide_" + std::to_string(i + 1)) return mMachineGuideButtons[i];
@@ -352,6 +364,11 @@ std::shared_ptr<Button> WorkshopScene::GetMachineButton(Workshop::Machine type) 
 /** 每帧从当前选择、波次和阳光派生按钮，切换视图时也立即撤销旧选择的操作资格。 */
 void WorkshopScene::UpdateUpgradeControls() {
     using M = Workshop::Machine;
+    if (mGridButton) {
+        const auto power = World().Power();
+        mGridButton->SetText(World().LegacyAssault() ? "电网 · 旧袭击保护中" : std::format("电网 {:.1f}/{:.0f} · 产速 {:.0f}%", power.demand, power.capacity, power.speed * 100));
+        mGridButton->SetTextColor(power.speed < .999f ? glm::vec4(255, 161, 106, 255) : kGold);
+    }
     const auto* selected = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
     if (mRemoveButton) mRemoveButton->SetText(mTool == Tool::Remove ? "拆除中" : "拆除");
     if (mWireAButton) mWireAButton->SetText(mTool == Tool::WireA ? "接 A 中" : "接 A 口");
@@ -409,11 +426,14 @@ void WorkshopScene::SelectBuild(Workshop::Machine type) {
 
 bool WorkshopScene::Act(const std::string& action, int index, const std::string& type, int value) {
     if (mLoadFailed) return false;
+    if (action == "grid_open") { OpenPowerGrid(); return mGridDialog && mGridDialog->IsActive(); }
     if (action == "config_open") { OpenMachineConfig(index); return mMachineConfig && mMachineConfig->IsActive(); }
     if (action == "guide") { OpenGuide(std::max(0, index)); return mGuide && mGuide->IsActive(); }
     if (action == "guide_close") { CloseGuide(); return true; }
     bool result = false;
     if (action == "build") result = World().Build(index, Workshop::FindMachine(type), value);
+    else if (action == "grid_upgrade") result = World().UpgradeGrid();
+    else if (action == "machine_running") result = World().SetMachineRunning(index, value != 0);
     else if (action == "select_machine") {
         if (index < 0 || index >= Workshop::CellCount) return false;
         mSelected = index; mTool = Tool::Inspect; UpdateUpgradeControls(); return true;
@@ -470,7 +490,7 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "retry") { CancelTool(); const auto retry = mBoard->WorkshopRetryDocument(); result = !retry.is_null() && RebuildFrontline(retry); mDeathShown = false; mPaused = false; mSelectedShooter = -1; SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false); }
     else if (action == "reset") {
         CancelTool(); result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false;
-        mSelected = -1; mSelectedShooter = -1; mGuideSeenWave = 0; mFirstVisit = true;
+        mSelected = -1; mSelectedShooter = -1; mGuideSeenWave = 0; mPowerGuideSeen = true; mFirstVisit = true;
         mRecentMachines = {Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
         SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false);
     }
@@ -706,6 +726,11 @@ void WorkshopScene::UpdateTooltip() {
         else if (type == Workshop::Machine::Solar) lines.push_back("产能：" + MachineEffect(type, level) + "；全基地共享");
         else if (info.capacity > 0) lines.push_back(std::format("输送：每 {:.2f} 秒至多 1 颗", Workshop::TransportPeriod));
         if (info.capacity > 0) lines.push_back("内部容量：" + std::to_string(Workshop::Capacity(type, level)) + " 颗");
+        if (const float watts = Workshop::RatedPower(type, level); watts > 0) {
+            lines.push_back(std::format("加工用电 {:.1f} · 待机 {:.1f} · 手动/A口关闭为0", watts, watts * Workshop::StandbyPowerRatio));
+            if (index >= 0) lines.push_back(std::format("此刻需求 {:.1f} · 全厂加工速度 {:.0f}%", World().MachinePower(index), World().Power().speed * 100));
+            else lines.push_back(std::format("新增后满负荷预估：全厂加工速度 {:.0f}%", World().PowerAfterBuild(type).speed * 100));
+        }
         if (index >= 0) {
             lines.push_back("状态：" + World().Status(index));
             if (Workshop::HasDirectionalOutput(type)) {
@@ -884,7 +909,9 @@ void WorkshopScene::DrawFront(Graphics* g) {
             const auto* info = Workshop::FindPlant(selected->mPlantType);
             Text(info ? info->name : "植物", 25, y + 42, 13, kGreen);
             Text(std::format("HP {}", selected->mPlantHealth), 123, y + 44, 10);
-        } else Text("点击格子种植 / 选择", 25, y + 43, 12, kGreen);
+        } else Text(World().FocusRoute(World().AssaultStage()) == row ? "主攻路线 · 优先补弹" : "点击格子种植 / 选择", 25, y + 43, 12,
+            World().FocusRoute(World().AssaultStage()) == row ? glm::vec4(171, 61, 29, 255) : kGreen);
+        if (World().FocusRoute(World().AssaultStage()) == row) g->DrawRect(12, y + 4, 195, 98, glm::vec4(197, 76, 32, 255));
 
     }
 }
@@ -985,12 +1012,11 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     Text("基地 " + std::to_string(World().Health()) + "/3", 345, 19, 19);
     const auto phase = World().State();
     Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
-        + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 19, 19);
-    Text(mSaveFailed ? "保存失败 · 检查磁盘权限" : mPaused ? "已暂停 · 可以施工"
-        : World().State() == Workshop::Phase::Planning ? "准备停机 · 开波后运行" : "独立基地 · 自动保存", 780, 18, 18, kGreen);
+        + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 7, 17);
+    Text(World().FocusRoute(0) < 0 ? "各路均匀来敌" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
     Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 99, 13, kGreen);
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        Text(std::to_string(threat.wave) + "波 " + threat.name, 646, 21, 14, kGreen); break;
+        Text(std::to_string(threat.wave) + "波 " + threat.name, 646, 14, 13, kGreen); break;
     }
     DrawFactoryMap(g);
     DrawFactoryPanel(g);
@@ -1013,6 +1039,8 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["frontTool"] = static_cast<int>(mFrontTool); j["frontBuildType"] = static_cast<int>(mFrontBuildType);
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
+    j["gridOpen"] = mGridDialog && mGridDialog->IsActive(); j["powerGuideSeen"] = mPowerGuideSeen;
+    j["powerDemo"] = mPowerDemo ? mPowerDemo->Inspect() : nlohmann::json(nullptr);
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
     j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;
     j["configOpen"] = mMachineConfig && mMachineConfig->IsActive(); j["configMachine"] = mConfigMachine;

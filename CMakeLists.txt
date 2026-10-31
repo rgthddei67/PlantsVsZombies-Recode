@@ -292,7 +292,7 @@ if(BUILD_TESTING)
     endif()
     add_test(NAME plant-card-recharge-rules COMMAND PlantCardRechargeRulesTests)
 
-    add_executable(WorkshopTests tests/WorkshopTests.cpp tests/WorkshopCircuitTests.cpp PlantVsZombies/Game/Workshop/Workshop.cpp PlantVsZombies/Game/Workshop/WorkshopCircuit.cpp PlantVsZombies/Game/Workshop/WorkshopFeedback.cpp)
+    add_executable(WorkshopTests tests/WorkshopTests.cpp tests/WorkshopCircuitTests.cpp tests/WorkshopPowerTests.cpp PlantVsZombies/Game/Workshop/Workshop.cpp PlantVsZombies/Game/Workshop/WorkshopCircuit.cpp PlantVsZombies/Game/Workshop/WorkshopFeedback.cpp PlantVsZombies/Game/Workshop/WorkshopPower.cpp)
     target_include_directories(WorkshopTests PRIVATE ${SRC_DIR})
     target_compile_options(WorkshopTests PRIVATE /utf-8 /W3 /sdl /EHsc)
     target_link_libraries(WorkshopTests PRIVATE $<$<PLATFORM_ID:Windows>:pvz_win7_compat> nlohmann_json::nlohmann_json)

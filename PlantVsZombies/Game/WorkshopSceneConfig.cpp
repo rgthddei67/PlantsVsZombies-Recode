@@ -96,6 +96,8 @@ void WorkshopScene::OpenMachineConfig(int index) {
     }
     if (type == M::Switch || type == M::Cannon)
         add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 458.0f : 190.0f, 150, [action] { action("configure"); });
+    if (Workshop::RatedPower(type) > 0)
+        add("cfg_power", "加工电源", 140, 458, 190, [this, action] { action("machine_running", !World().Cells()[mConfigMachine].manual); });
     if (type == M::Cannon) add("cfg_fire", "手动齐射", 798, 458, 150, [action] { action("fire_cannon"); });
     if (type == M::Cooler || type == M::Feeder || type == M::Cannon) {
         // 空白区拆成互不重叠的命中块，复用模态按钮输入；不能遮住路线/弹种按钮。
@@ -147,6 +149,7 @@ void WorkshopScene::RefreshMachineConfig() {
     set("cfg_counter_mode", std::string("计数：") + std::array<const char*, 3>{"信号从关到开", "来源机器产出", "来源机器出库 / 发射"}[static_cast<int>(c.counterMode)]);
     set("cfg_counter_output", c.counterOutput == Workshop::CounterOutput::Hold ? "输出：达标后保持开启" : "输出：每批完成翻转开 / 关");
     set("cfg_manual", c.type == M::Switch ? (c.manual ? "开关：开" : "开关：关") : (c.manual ? "自动：开" : "自动：待机"));
+    set("cfg_power", c.manual ? "加工电源：开" : "加工电源：关");
     set("cfg_fire", "手动齐射", c.type == M::Cannon && World().State() == Workshop::Phase::Assault && c.volleyRemaining == 0 && c.clock >= Workshop::CannonChargeSeconds
         && c.Inventory(static_cast<Workshop::Ammo>(World().ActiveFilter(mConfigMachine))) >= Workshop::CannonVolleySize);
 }
@@ -157,7 +160,7 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     g->FillRect(100, 30, 900, 540, glm::vec4(234, 224, 182, 255));
     g->DrawRect(100, 30, 900, 540, kConfigGreen);
     Label(std::string(Workshop::Describe(type).name) + " · 运行配置", 130, 55, 25, kConfigGreen);
-    Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；点击下方方案卡片即可切换，库存会保留。", 130, 96, 15);
+    Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；配置保留库存与进度，关闭窗口后继续运行。", 130, 96, 15);
     auto connection = [&](int port) {
         const int source = c.inputs[port];
         return std::string(PortName(c, port)) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
@@ -185,6 +188,11 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     } else {
         Label(Workshop::Describe(type).description, 140, 285, 17, kConfigGreen);
         Label("需要接法示例时可点右上角图解；A / B 的作用以本页端口说明为准。", 140, 390, 15);
+    }
+    if (Workshop::RatedPower(type, c.level) > 0) {
+        Label(std::format("用电 {:.1f} / 额定 {:.1f} · 待机 {:.0f}% · 加工速度 {:.0f}%", World().MachinePower(mConfigMachine),
+            Workshop::RatedPower(type, c.level), Workshop::StandbyPowerRatio * 100, World().Power().speed * 100), 350, 464, 14, kConfigGreen);
+        Label("手动开关与 A 口同时允许才运行；关机为 0 用电。", 140, 495, 13);
     }
     g->PushClipRect(125, 509, 846, 46);
     const auto warning = World().MaterialWarning(mConfigMachine);

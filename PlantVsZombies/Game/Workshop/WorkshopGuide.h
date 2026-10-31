@@ -5,9 +5,12 @@
 
 namespace Workshop {
 inline constexpr int PlantGuideBase = 100; // 图解页的植物编号起点；仅用于 UI，不写入经营存档
+inline constexpr int PowerGuide = 40, DispatchGuide = 41, FocusGuide = 42; // 电网、调度、主攻预告图解页
 
 inline int GuideUnlockWave(int topic) {
     if (topic == 0) return 0;
+    if (topic == PowerGuide) return 0;
+    if (topic == DispatchGuide || topic == FocusGuide) return 2;
     if (topic > 0 && topic < static_cast<int>(Machine::Count)) return Describe(static_cast<Machine>(topic)).unlockWave;
     if (topic >= PlantGuideBase && topic < PlantGuideBase + static_cast<int>(Plants.size())) return Plants[topic - PlantGuideBase].unlockWave;
     return -1;
@@ -21,6 +24,7 @@ inline std::vector<int> GuideTopics(int completedWaves, int afterWave = -1) {
         if (wave > afterWave && wave <= completedWaves) topics.push_back(topic);
     };
     add(0);
+    add(PowerGuide); add(DispatchGuide); add(FocusGuide);
     for (int i = 1; i < static_cast<int>(Machine::Count); ++i) add(i);
     for (int i = 0; i < static_cast<int>(Plants.size()); ++i) add(PlantGuideBase + i);
     std::stable_sort(topics.begin(), topics.end(), [](int a, int b) { return GuideUnlockWave(a) < GuideUnlockWave(b); });

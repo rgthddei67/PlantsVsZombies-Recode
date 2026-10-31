@@ -8,7 +8,6 @@
 
 namespace Workshop {
 namespace {
-constexpr float kEnergyLimit = 10000.0f; // 全基地储能容量，单位：阳光
 constexpr float kInitialEnergy = 600.0f; // 新基地启动能源，足以建立五行基础供弹与补充集光器
 constexpr std::array<Definition, static_cast<size_t>(Machine::Count)> kDefinitions{{
     {"empty", "拆除", "拆除返还建造和升级能源；内部弹药丢弃。", 0, 0, 0},
@@ -141,6 +140,7 @@ void World::Reset() {
     mPhase = Phase::Planning; mColumns = 10; mRows = 10; mHealth = 3; mCompletedWaves = 0;
     mEnergy = kInitialEnergy; mTransportClock = 0; mSpawnClock = 0;
     mRemainingSpawns = 0; mSpawned = 0;
+    mGridLevel = 1; mLegacyAssault = false;
     mProduced = 0; mFired = 0; mDelivered = 0; mCheckpoint = nullptr;
     mProcessed = 0; mIceFired = 0; mPendingScrap = 0; mWaveScrap = 0; mRecycled = 0;
     // 两座集光器避免拆线耗尽能源后无法恢复；拆除仍返还原价。
@@ -154,7 +154,8 @@ bool World::Unlocked(Machine type) const {
 }
 bool World::Enabled(int i) const {
     const int source = mCells[i].inputs[0];
-    return source < 0 || mCells[source].signal;
+    return (RatedPower(mCells[i].type, mCells[i].level) == 0 || mCells[i].manual)
+        && (source < 0 || mCells[source].signal);
 }
 bool World::CanBuild(int i, Machine type, int direction) const {
     return Valid(i) && mPhase != Phase::Dead && type > Machine::Empty && Unlocked(type)
@@ -180,7 +181,7 @@ int World::RemoveRefund(int i) const {
 }
 bool World::Remove(int i) {
     if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type == Machine::Empty) return false;
-    mEnergy = std::min(kEnergyLimit, mEnergy + RemoveRefund(i));
+    mEnergy = std::min(EnergyLimit, mEnergy + RemoveRefund(i));
     mCells[i] = {};
     for (auto& c : mCells) for (auto& input : c.inputs) if (input == i) input = -1;
     return true;
@@ -229,6 +230,7 @@ bool World::Connect(int source, int target, int input) {
 bool World::Configure(int i) {
     if (!Valid(i) || mPhase == Phase::Dead) return false;
     auto& c = mCells[i];
+    if (RatedPower(c.type, c.level) > 0) return SetMachineRunning(i, !c.manual);
     if (c.type == Machine::Switch || c.type == Machine::Cannon) c.manual = !c.manual;
     else if (c.type == Machine::Timer) return SetSetting(i, c.setting >= 16 ? 2 : c.setting * 2);
     else if (c.type == Machine::StockSensor || c.type == Machine::Counter) return SetSetting(i, c.setting >= 40 ? 5 : c.setting * 2);
@@ -287,7 +289,7 @@ bool World::SpendEnergy(float amount) {
     mEnergy -= amount; return true;
 }
 void World::RefundEnergy(float amount) {
-    if (std::isfinite(amount) && amount > 0) mEnergy = std::min(kEnergyLimit, mEnergy + amount);
+    if (std::isfinite(amount) && amount > 0) mEnergy = std::min(EnergyLimit, mEnergy + amount);
 }
 void World::RecordKill() {
     if (mPhase != Phase::Assault || mWaveScrap >= ScrapPerWave) return;
@@ -466,6 +468,9 @@ void World::Tick(float seconds) {
     // 有限子步避免游戏倍速改变物流/战斗结果，并允许纯逻辑测试推进长时间。
     while (seconds > 0.000001f && mPhase == Phase::Assault) {
         const float dt = std::min(seconds, 1.0f / 60.0f); seconds -= dt;
+        const float speed = Power().speed;
+        std::array<bool, CellCount> working{};
+        for (int i = 0; i < CellCount; ++i) working[i] = mLegacyAssault || CanProcess(i);
         for (auto it = mPlantCooldowns.begin(); it != mPlantCooldowns.end();) {
             it->second = std::max(0.0f, it->second - dt);
             if (it->second <= 0) it = mPlantCooldowns.erase(it); else ++it;
@@ -478,14 +483,15 @@ void World::Tick(float seconds) {
                 if (c.volleyRemaining > 0) c.volleyClock = std::max(-CannonShotInterval * CannonVolleySize, c.volleyClock - dt);
             }
             if (!Enabled(i)) continue;
-            if (c.type == Machine::Solar) mEnergy = std::min(kEnergyLimit, mEnergy + SolarRates[c.level - 1] * dt);
+            const float processingDt = working[i] ? dt * speed : 0;
+            if (c.type == Machine::Solar) mEnergy = std::min(EnergyLimit, mEnergy + SolarRates[c.level - 1] * dt);
             const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
             if (producer) {
                 const float period = ProductionPeriod(c.type, c.level);
                 const auto item = ProducedItem(c.type);
                 const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
                 // 正常生产保留跨周期余时；堵塞最多保留一份准备进度。
-                c.clock = std::min(period, c.clock) + dt;
+                c.clock = std::min(period, c.clock) + processingDt;
                 if (c.clock >= period && c.TotalStock() < Capacity(c.type, c.level) && mEnergy >= cost) {
                     c.clock -= period; mEnergy -= cost; ++c.Inventory(item); ++c.producedItems[static_cast<int>(item)]; ++mProduced;
                 } else c.clock = std::min(period, c.clock);
@@ -502,7 +508,7 @@ void World::Tick(float seconds) {
                     if (c.Inventory(output) >= 5) continue;
                     c.processing = true;
                 }
-                c.clock = std::min(period, c.clock) + dt;
+                c.clock = std::min(period, c.clock) + processingDt;
                 if (c.clock >= period && c.Inventory(output) < 5 && mEnergy >= cost) {
                     c.clock -= period; --c.Inventory(input); ++c.Inventory(output); mEnergy -= cost; ++mProcessed;
                     ++c.producedItems[static_cast<int>(output)]; c.processing = false;
@@ -516,8 +522,8 @@ void World::Tick(float seconds) {
             }
             if (c.type == Machine::Recycler && c.Inventory(Ammo::Scrap) > 0) {
                 const float period = ProductionPeriod(c.type, c.level);
-                c.clock = std::min(period, c.clock) + dt;
-                if (c.clock >= period && mEnergy < kEnergyLimit) {
+                c.clock = std::min(period, c.clock) + processingDt;
+                if (c.clock >= period && mEnergy < EnergyLimit) {
                     c.clock -= period; --c.Inventory(Ammo::Scrap); RefundEnergy(ScrapEnergy); ++mRecycled;
                 } else c.clock = std::min(period, c.clock);
             }
@@ -537,7 +543,13 @@ bool World::ReserveAmmo(int row, Ammo type) {
     --mLanes[row].Inventory(type); return true;
 }
 int World::NextSpawnRow() const {
-    return mPhase == Phase::Assault && mRemainingSpawns > 0 && mSpawnClock <= 0 ? mSpawned % Rows : -1;
+    if (mPhase != Phase::Assault || mRemainingSpawns <= 0 || mSpawnClock > 0) return -1;
+    const int stage = AssaultStage(), focus = FocusRoute(stage);
+    if (focus < 0) return mSpawned % Rows;
+    const int local = mSpawned - (stage ? StageSpawnEnd(stage - 1) : 0);
+    // 每五只约三只攻主路，其余轮流骚扰另外四路；总量、间隔和僵尸种类保持原规则。
+    if (local % 5 < 3) return focus;
+    return (focus + 1 + (local / 5 * 2 + local % 5 - 3) % (Rows - 1)) % Rows;
 }
 void World::CommitSpawn() {
     if (NextSpawnRow() < 0) return;
@@ -548,8 +560,9 @@ void World::CompleteAssault() {
     if (mPhase != Phase::Assault || mRemainingSpawns != 0) return;
     for (const auto& cell : mCells) if (cell.volleyRemaining > 0) return;
     mPhase = Phase::Planning; ++mCompletedWaves;
+    mLegacyAssault = false;
     mPlantCooldowns.clear();
-    mEnergy = std::min(kEnergyLimit, mEnergy + 150 + mCompletedWaves * 20.0f);
+    mEnergy = std::min(EnergyLimit, mEnergy + 150 + mCompletedWaves * 20.0f);
     mCheckpoint = nullptr;
 }
 void World::RecordBreach() {
@@ -572,12 +585,12 @@ std::string World::Status(int i) const {
         if (c.Inventory(static_cast<Ammo>(ActiveFilter(i))) < CannonVolleySize) return "等待三颗对应瓜弹";
         return "已就绪 · 等待目标";
     }
-    if (!Enabled(i)) return "运行口关闭";
-    if (c.type == Machine::Solar) return mEnergy >= kEnergyLimit ? "储能已满" : "采集阳光";
+    if (!Enabled(i)) return RatedPower(c.type, c.level) > 0 && !c.manual ? "手动断电 · 进度保留" : "运行口关闭";
+    if (c.type == Machine::Solar) return mEnergy >= EnergyLimit ? "储能已满" : "采集阳光";
     const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
     const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
     if (producer && c.TotalStock() == 0 && mEnergy < cost) return "缺少能源";
-    if (c.type == Machine::Recycler) return c.TotalStock() == 0 ? "等待残骸" : mEnergy >= kEnergyLimit ? "储能已满" : "回收残骸中";
+    if (c.type == Machine::Recycler) return c.TotalStock() == 0 ? "等待残骸" : mEnergy >= EnergyLimit ? "储能已满" : "回收残骸中";
     if (c.type == Machine::SalvagePort && c.TotalStock() == 0) return mPendingScrap > 0 ? "提取击杀残骸" : "等待击杀残骸";
     if (c.type == Machine::Cooler) {
         if (c.processing && c.recipe != ActivePlan(i)) return "完成当前一份后切换配方";
@@ -622,9 +635,10 @@ nlohmann::json World::SaveState() const {
         {"spawned", mSpawned}, {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
         {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
+        {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault},
         {"cells", cells}, {"lanes", lanes}, {"plantCooldowns", mPlantCooldowns}};
 }
-nlohmann::json World::Save() const { return {{"schemaVersion", 5}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
+nlohmann::json World::Save() const { return {{"schemaVersion", 6}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
 
 /** 所有实体与信号索引在临时 World 中验证，避免坏档引入越界或部分覆盖。 */
 void World::ReadState(const nlohmann::json& s) {
@@ -633,6 +647,8 @@ void World::ReadState(const nlohmann::json& s) {
     mRows = ReadInt(s, "rows", 10, MaxRows); Require(mRows % 2 == 0, "无效工厂高度");
     mHealth = ReadInt(s, "health", 0, 3); Require((mHealth == 0) == (mPhase == Phase::Dead), "死亡状态不一致");
     mCompletedWaves = ReadInt(s, "completedWaves", 0, 100000);
+    mGridLevel = ReadInt(s, "gridLevel", 1, UnlockedGridLevel(mCompletedWaves));
+    mLegacyAssault = ReadBool(s, "legacyAssault");
     const auto& cooldowns = s.at("plantCooldowns");
     Require(cooldowns.is_object() && cooldowns.size() <= Plants.size(), "种植冷却记录错误");
     mPlantCooldowns.clear();
@@ -642,7 +658,7 @@ void World::ReadState(const nlohmann::json& s) {
         Require(mPhase != Phase::Planning || seconds == 0, "准备阶段不应有种植冷却");
         if (seconds > 0) mPlantCooldowns.emplace(entry.key(), seconds);
     }
-    mEnergy = ReadFloat(s, "energy", 0, kEnergyLimit);
+    mEnergy = ReadFloat(s, "energy", 0, EnergyLimit);
     mTransportClock = ReadFloat(s, "transportClock", 0, TransportPeriod);
     mSpawnClock = ReadFloat(s, "spawnClock", -1, 3);
     mRemainingSpawns = ReadInt(s, "remainingSpawns", 0, 105);
@@ -736,10 +752,16 @@ void World::ReadState(const nlohmann::json& s) {
 }
 bool World::Load(const nlohmann::json& document, std::string& error) {
     try {
-        const int version = ReadInt(document, "schemaVersion", 1, 5);
+        const int version = ReadInt(document, "schemaVersion", 1, 6);
+        // 一次旧袭击的宽限同时写入检查点，死亡后重试也不能突然换规则。
+        const bool legacyAssault = version < 6 && ReadInt(document.at("state"), "phase", 0, 2) != 0;
         // 旧厂房固定 5×12 存储跨度；同时重映射信号引用和袭击检查点，已买到的第 11/12 列保留。
-        auto migrate = [version](nlohmann::json state) {
+        auto migrate = [version, legacyAssault](nlohmann::json state) {
             if (state.is_null()) return state;
+            if (version < 6) {
+                state["gridLevel"] = UnlockedGridLevel(ReadInt(state, "completedWaves", 0, 100000));
+                state["legacyAssault"] = legacyAssault;
+            }
             if (version < 5) state["plantCooldowns"] = nlohmann::json::object();
             if (version == 1) {
             const int oldWidth = ReadInt(state, "columns", 8, 12);
@@ -809,6 +831,7 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
         if (candidate.mPhase != Phase::Planning) {
             World checkpoint; checkpoint.ReadState(candidate.mCheckpoint);
             Require(checkpoint.mPhase == Phase::Planning && checkpoint.mCompletedWaves == candidate.mCompletedWaves, "袭击检查点不一致");
+            Require(checkpoint.mLegacyAssault == candidate.mLegacyAssault, "袭击电网规则与检查点不一致");
             candidate.mCheckpoint = checkpoint.SaveState();
         } else Require(candidate.mCheckpoint.is_null(), "准备阶段不应带检查点");
         *this = std::move(candidate); error.clear(); return true;
@@ -816,12 +839,18 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
 }
 nlohmann::json World::Inspect() const {
     auto j = SaveState(); j["phaseName"] = mPhase == Phase::Planning ? "planning" : mPhase == Phase::Assault ? "assault" : "dead";
+    const auto power = Power();
+    j["power"] = {{"capacity", power.capacity}, {"demand", power.demand}, {"speed", power.speed},
+        {"liveDemand", mPhase == Phase::Assault && !mLegacyAssault ? power.demand : 0}, {"unlockedLevel", UnlockedGridLevel(mCompletedWaves)}};
+    j["focusRoutes"] = std::array<int, 3>{FocusRoute(0), FocusRoute(1), FocusRoute(2)};
+    j["assaultStage"] = AssaultStage(); j["focusRoute"] = FocusRoute(AssaultStage());
     for (const auto& plant : Plants) j["plantCooldownRemaining"][plant.key] = PlantCooldown(plant.key);
     j["cannonCount"] = 0; j["cannonShots"] = std::uint64_t{};
     for (int i = 0; i < CellCount; ++i) if (mCells[i].type != Machine::Empty) {
         auto& cell = j["cells"][i];
         cell["activePlan"] = ActivePlan(i); cell["activeRoute"] = ActiveRoute(i); cell["activeFilter"] = ActiveFilter(i);
         cell["refund"] = RemoveRefund(i);
+        cell["power"] = MachinePower(i); cell["ratedPower"] = RatedPower(mCells[i].type, mCells[i].level);
         if (mCells[i].type == Machine::Cannon) {
             j["cannonCount"] = j["cannonCount"].get<int>() + 1;
             j["cannonShots"] = j["cannonShots"].get<std::uint64_t>() + mCells[i].transferredItems[static_cast<int>(Ammo::Melon)] + mCells[i].transferredItems[static_cast<int>(Ammo::IceMelon)];

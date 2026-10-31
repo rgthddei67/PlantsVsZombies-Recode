@@ -1,0 +1,852 @@
+{
+  "name": "smoke_workshop_power",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "dump_state",
+      "name": "initial.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.gridOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "01_grid_starter.png"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid",
+      "hold_frames": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid_guide",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "demo_before"
+    },
+    {
+      "op": "dump_state",
+      "name": "demo_all.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "02_demo_all.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "power_demo_1",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "demo_manual.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "03_demo_manual.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "power_demo_2",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "demo_auto.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "04_demo_auto.png"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "demo_after"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.gridOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 8
+        },
+        {
+          "op": "add",
+          "path": "/state/energy",
+          "value": 10000
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 2,
+      "type": "melon_grower"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 3,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "filter",
+      "index": 3,
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "ammo_quota",
+      "index": 0,
+      "type": "西瓜",
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 22,
+      "type": "melon_grower"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 23,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "filter",
+      "index": 23,
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "ammo_quota",
+      "index": 1,
+      "type": "西瓜",
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 42,
+      "type": "melon_grower"
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 43,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "filter",
+      "index": 43,
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "ammo_quota",
+      "index": 2,
+      "type": "西瓜",
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 5,
+      "type": "stock"
+    },
+    {
+      "op": "workshop",
+      "action": "filter",
+      "index": 5,
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "route",
+      "index": 5,
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "setting",
+      "index": 5,
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 6,
+      "type": "not"
+    },
+    {
+      "op": "dump_state",
+      "name": "overload.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "05_overload_factory.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "06_grid_overload.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid_upgrade",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.gridLevel",
+      "equals": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "07_grid_upgraded.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "wire_a",
+      "index": 6,
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "wire_a",
+      "index": 2,
+      "value": 6
+    },
+    {
+      "op": "workshop",
+      "action": "config_open",
+      "index": 22
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_power",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.22.manual",
+      "equals": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "08_machine_power_off.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_started.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "paused_before"
+    },
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "paused_after"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 14,
+      "timeout": 60
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "native_running.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "09_dispatch_running.png"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "resume_before"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "resume_after"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.22.manual",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "resume_before",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/schemaVersion",
+          "value": 5
+        },
+        {
+          "op": "remove",
+          "path": "/state/gridLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/state/legacyAssault"
+        },
+        {
+          "op": "remove",
+          "path": "/checkpoint/gridLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/checkpoint/legacyAssault"
+        },
+        {
+          "op": "add",
+          "path": "/powerGuideSeen",
+          "value": false
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.legacyAssault",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.gridLevel",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "legacy_loaded"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "grid",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "10_legacy_grace.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/schemaVersion",
+          "value": 5
+        },
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 8
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 8
+        },
+        {
+          "op": "add",
+          "path": "/powerGuideSeen",
+          "value": false
+        },
+        {
+          "op": "remove",
+          "path": "/state/gridLevel"
+        },
+        {
+          "op": "remove",
+          "path": "/state/legacyAssault"
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.legacyAssault",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.gridLevel",
+      "equals": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "11_legacy_teaching.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.powerGuideSeen",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 41
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "12_dispatch_guide.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 42
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "13_focus_guide.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 14
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "14_latch_guide.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "dump_state",
+      "name": "finished.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

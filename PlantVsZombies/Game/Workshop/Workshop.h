@@ -26,6 +26,7 @@ inline constexpr int ExpansionCost = 250; // 工厂宽、高各扩建两格的�
 inline constexpr float GrowPeriod = 2.5f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
 inline constexpr float GrowEnergy = 2.0f; // 每颗豌豆消耗的阳光能源
 inline constexpr float SolarRate = 1.2f; // 基础集光器每秒产生的阳光能源
+inline constexpr float EnergyLimit = 10000.0f; // 全基地阳光池上限；回收机满池待机
 inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍，单位：秒
 inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
 inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 2.0f, 1.6f}; // 各级育豆机与冷凝机生产间隔，单位：秒/颗
@@ -79,6 +80,16 @@ const char* AmmoName(int filter);
 /** 生产和升级共用的周期，秒；非生产设备返回 0。 */
 float ProductionPeriod(Machine type, int level);
 Ammo ProducedItem(Machine type);
+/** 额定加工功率；集光器、物流、电路与炮台为零，升级后单位产品更省电。 */
+float RatedPower(Machine type, int level = 1);
+inline constexpr float StandbyPowerRatio = .15f; // 缺料、满仓或缺阳光时的待机功率比例
+inline constexpr std::array<int, 6> GridUnlockWaves{0, 2, 5, 8, 14, 22}; // 电网等级的累计守住波次
+inline constexpr std::array<float, 6> GridCapacities{12, 16, 24, 36, 48, 60}; // 各级电网同时可提供的加工功率
+inline constexpr std::array<int, 6> GridCosts{0, 225, 450, 750, 1125, 1500}; // 购买目标电网等级的阳光费用，首版报价统一提高至 1.5 倍
+int UnlockedGridLevel(int completedWaves);
+struct PowerInfo {
+    float capacity = 0, demand = 0, speed = 1;
+};
 
 struct Cell {
     Machine type = Machine::Empty;
@@ -215,6 +226,19 @@ public:
     OutputInfo InspectOutput(int index, bool side = false) const;
     bool Unlocked(Machine type) const;
     bool Enabled(int index) const;
+    /** 加工电源开关；与 A 口取 AND，关机保留原料、成品和加工进度。 */
+    bool SetMachineRunning(int index, bool running);
+    bool UpgradeGrid();
+    int GridLevel() const { return mGridLevel; }
+    bool LegacyAssault() const { return mLegacyAssault; }
+    /** 准备期返回开波后的需求预估；旧袭击宽限期间速度固定为 1。 */
+    PowerInfo Power() const;
+    PowerInfo PowerAfterBuild(Machine type) const;
+    float MachinePower(int index) const;
+    /** 新波第三波起分三段主攻；返回 0-based 路线，均匀波或旧袭击返回 -1。 */
+    int FocusRoute(int stage) const;
+    int AssaultStage() const;
+    int StageSpawnEnd(int stage) const;
     const std::array<Cell, CellCount>& Cells() const { return mCells; }
     const std::array<Lane, Rows>& Lanes() const { return mLanes; }
     const std::array<int, Rows>& EnemyCounts() const { return mEnemyCounts; }
@@ -236,12 +260,15 @@ private:
     Phase mPhase = Phase::Planning;
     int mColumns = 10, mRows = 10, mHealth = 3, mCompletedWaves = 0;
     int mRemainingSpawns = 0, mSpawned = 0;
+    int mGridLevel = 1;
+    bool mLegacyAssault = false; // 旧档未结束的一波及其重试保留原产速/出怪，首次结算后取消
     int mProduced = 0, mFired = 0, mDelivered = 0;
     int mProcessed = 0, mIceFired = 0;
     int mPendingScrap = 0, mWaveScrap = 0, mRecycled = 0;
     float mEnergy = 300, mTransportClock = 0, mSpawnClock = 0;
     nlohmann::json mCheckpoint;
     bool Valid(int index) const;
+    bool CanProcess(int index) const;
     int Neighbor(int index, int direction) const;
     void TransportStep();
     bool Accepts(const Cell& cell, Ammo type) const;
