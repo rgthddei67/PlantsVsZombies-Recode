@@ -338,10 +338,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "target": "workshop_control",
       "control": "upgrade",
       "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -365,10 +388,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "target": "workshop_control",
-      "control": "route",
+      "control": "cfg_route0",
       "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -381,10 +427,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "target": "workshop_control",
-      "control": "filter",
+      "control": "cfg_filter0",
       "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -414,28 +483,38 @@
     },
     {
       "op": "workshop",
-      "action": "ice_shooter",
-      "index": 0
+      "action": "plant",
+      "index": 0,
+      "type": "snowpea",
+      "value": 1
     },
     {
       "op": "workshop",
-      "action": "ice_shooter",
-      "index": 1
+      "action": "plant",
+      "index": 1,
+      "type": "snowpea",
+      "value": 1
     },
     {
       "op": "workshop",
-      "action": "ice_shooter",
-      "index": 2
+      "action": "plant",
+      "index": 2,
+      "type": "snowpea",
+      "value": 1
     },
     {
       "op": "workshop",
-      "action": "ice_shooter",
-      "index": 3
+      "action": "plant",
+      "index": 3,
+      "type": "snowpea",
+      "value": 1
     },
     {
       "op": "workshop",
-      "action": "ice_shooter",
-      "index": 4
+      "action": "plant",
+      "index": 4,
+      "type": "snowpea",
+      "value": 1
     },
     {
       "op": "workshop",

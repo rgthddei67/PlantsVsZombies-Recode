@@ -475,6 +475,7 @@ void World::Tick(float seconds) {
             it->second = std::max(0.0f, it->second - dt);
             if (it->second <= 0) it = mPlantCooldowns.erase(it); else ++it;
         }
+        mEnergy = std::min(EnergyLimit, mEnergy + SolarProduction() * dt);
         for (int i = 0; i < CellCount; ++i) {
             auto& c = mCells[i];
             // 炮台 A 口只许可开火；待机时仍充能，已开始的一轮也不会被信号变化截断。
@@ -484,7 +485,6 @@ void World::Tick(float seconds) {
             }
             if (!Enabled(i)) continue;
             const float processingDt = working[i] ? dt * speed : 0;
-            if (c.type == Machine::Solar) mEnergy = std::min(EnergyLimit, mEnergy + SolarRates[c.level - 1] * dt);
             const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
             if (producer) {
                 const float period = ProductionPeriod(c.type, c.level);

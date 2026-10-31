@@ -1289,6 +1289,25 @@
       "value": 4
     },
     {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_manual",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
       "op": "workshop",
       "action": "view_front",
       "index": -1,

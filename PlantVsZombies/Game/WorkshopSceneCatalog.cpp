@@ -32,7 +32,7 @@ void Label(const std::string& value, float x, float y, int size = 16, glm::vec4 
 std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     using M = Workshop::Machine;
     switch (type) {
-    case M::Solar: return {"为全基地采集阳光", std::format("每秒 {:g} 阳光", Workshop::SolarRate)};
+    case M::Solar: return {"前6台全速，其余25%", std::format("额定每秒 {:g} 阳光", Workshop::SolarRate)};
     case M::Grower: return {std::format("{:g} 阳光 → 1 普通弹", Workshop::GrowEnergy), std::format("每 {:.1f} 秒生产一颗", Workshop::GrowPeriod)};
     case M::Cooler: return {completedWaves >= 8 ? "选择冰豌豆 / 冰瓜配方" : "普通豌豆加工成寒冰弹", "原料 + 阳光 → 冷凝成品"};
     case M::SporeGrower: return {"培养精英菇需要的孢子", std::format("每 {:.1f} 秒一份", Workshop::SporePeriods[0])};

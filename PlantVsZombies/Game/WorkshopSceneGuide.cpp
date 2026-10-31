@@ -121,8 +121,8 @@ Lesson Explain(int topic, bool circuits) {
         break;
     case M::Solar:
         lesson.purpose = "开战后采集阳光，供全基地建造和生产使用。";
-        lesson.steps = {"1. 选空格建造，不需要接运输带。", "2. 开始袭击后，阳光自动进入顶部总数。", "3. 阳光不足时增加产能，或暂停多余生产线。"};
-        lesson.tip = "集光器只产阳光，不增加电网容量；准备阶段和暂停时不生产。";
+        lesson.steps = {"1. 选空格建造，不需要接运输带。", "2. 开始袭击后，阳光自动进入顶部总数。", "3. 等级最高的6台全速，其余只增加25%产能。"};
+        lesson.tip = "顶部显示有效采光产率；集光器不增加电力，准备期和暂停时停产。";
         lesson.example = "阳光是全基地共享资源，不用运输带搬运";
         Chain(lesson, {topic, -1, Topic(M::Grower)});
         lesson.edges[0].label = "自动入账"; lesson.edges[1].label = "花阳光生产";

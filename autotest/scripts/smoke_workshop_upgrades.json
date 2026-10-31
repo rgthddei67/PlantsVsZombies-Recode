@@ -141,10 +141,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -167,10 +190,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -183,10 +229,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -319,10 +388,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -340,10 +432,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -361,10 +476,33 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "trace": true,
       "target": "workshop_control",
       "control": "upgrade"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
     },
     {
       "op": "wait_frames",
@@ -1036,8 +1174,10 @@
     },
     {
       "op": "workshop",
-      "action": "shooter",
-      "index": 0
+      "action": "plant",
+      "index": 0,
+      "value": 1,
+      "type": "pea"
     },
     {
       "op": "assert_state",

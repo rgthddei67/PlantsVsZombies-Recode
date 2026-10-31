@@ -35,7 +35,7 @@ const glm::vec4 kGreen{66, 107, 51, 255}; // 工坊标题颜色
 std::string MachineEffect(Workshop::Machine type, int level) {
     using M = Workshop::Machine;
     if (const float period = Workshop::ProductionPeriod(type, level); period > 0) return std::format("{:.2g} 秒/份", period);
-    if (type == M::Solar) return std::format("{:g} 阳光/秒", Workshop::SolarRates[level - 1]);
+    if (type == M::Solar) return std::format("额定 {:g} 阳光/秒", Workshop::SolarRates[level - 1]);
     if (type == M::Store) return std::to_string(Workshop::Capacity(type, level)) + " 颗容量";
     return {};
 }
@@ -164,8 +164,8 @@ void WorkshopScene::OnExit() {
     mMachineButtons.clear(); mFactoryControls.clear(); mFrontControls.clear();
     ClosePlantCatalog(); mQuotaDialog.reset(); mPlantButtons.clear();
     mPlantCatalogButton.reset(); mFrontRemoveButton.reset(); mFrontUpgradeButton.reset(); mAbilityButton.reset(); mAutomaticButton.reset();
-    mQuotaButtons.clear(); mUpgradeButton.reset();
-    mFitButton.reset(); mZoomInButton.reset(); mZoomOutButton.reset(); mRouteButton.reset(); mFilterButton.reset();
+    mQuotaButtons.clear(); mAllQuotasButton.reset(); mSidebarConfigButton.reset();
+    mFitButton.reset(); mZoomInButton.reset(); mZoomOutButton.reset();
     mPauseButton.reset(); mStartButton.reset(); mViewButton.reset(); mSpeedSlider.reset();
     Scene::OnExit();
     mBoard.reset();
@@ -179,6 +179,9 @@ bool WorkshopScene::SaveBase() {
     if (document.is_object()) {
         document["guideSeenWave"] = std::min(mGuideSeenWave, World().CompletedWaves());
         document["powerGuideSeen"] = mPowerGuideSeen;
+        document["selectedTimeScale"] = DeltaTime::GetSelectedTimeScale();
+        document["recentMachines"] = nlohmann::json::array();
+        for (const auto type : mRecentMachines) document["recentMachines"].push_back(Workshop::Describe(type).key);
     }
     const bool result = document.is_object()
         && (FileManager::IsDirectory(directory) || FileManager::CreateDirectory(directory))
@@ -199,6 +202,27 @@ bool WorkshopScene::ReloadBase() {
     mGuideSeenWave = Workshop::ReadGuideSeenWave(document, World().CompletedWaves());
     mPowerGuideSeen = document.contains("powerGuideSeen") && document["powerGuideSeen"].is_boolean()
         ? document["powerGuideSeen"].get<bool>() : document.value("schemaVersion", 0) >= 6;
+    // 界面偏好是可选元数据，旧档用默认值；无效偏好不影响真实基地恢复。
+    float speed = 1;
+    if (document.contains("selectedTimeScale") && document["selectedTimeScale"].is_number()) {
+        const auto saved = document["selectedTimeScale"].get<double>();
+        if (std::isfinite(saved)) speed = std::round(std::clamp(saved, 0.5, 3.0) / kSpeedStep) * kSpeedStep;
+    }
+    DeltaTime::SetSelectedTimeScale(speed);
+    if (mSpeedSlider) mSpeedSlider->SetValue(speed / kSpeedStep);
+    mRecentMachines = {Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
+    if (document.contains("recentMachines") && document["recentMachines"].is_array()) {
+        std::vector<Workshop::Machine> recent;
+        for (const auto& key : document["recentMachines"]) {
+            if (!key.is_string()) continue;
+            const auto type = Workshop::FindMachine(key.get<std::string>());
+            if (type <= Workshop::Machine::Empty || type >= Workshop::Machine::Count || !World().Unlocked(type)
+                || std::find(recent.begin(), recent.end(), type) != recent.end()) continue;
+            recent.push_back(type);
+            if (recent.size() == 6) break;
+        }
+        if (!recent.empty()) mRecentMachines = std::move(recent);
+    }
     mLoadFailed = false; mDeathShown = false; CancelTool(); ClampFactoryCamera(); return true;
 }
 
@@ -266,10 +290,7 @@ void WorkshopScene::CreateControls() {
     mWireAButton = MakeButton("　接 A", 275, 92, 90, [this] { SelectTool(Tool::WireA); });
     mWireBButton = MakeButton("　接 B", 370, 92, 90, [this] { SelectTool(Tool::WireB); });
     mDisconnectButton = MakeButton("　断线", 465, 92, 100, [this] { Act("disconnect", mSelected); });
-    mConfigButton = MakeButton("　配置", 570, 92, 90, [this] {
-        if (mSelected >= 0 && World().Cells()[mSelected].type == Workshop::Machine::Switch) Act("configure", mSelected);
-        else OpenMachineConfig(mSelected);
-    });
+    mConfigButton = MakeButton("　配置", 570, 92, 90, [this] { OpenMachineConfig(mSelected); });
     mFitButton = MakeButton("　全图", 670, 92, 95, [this] { FitFactory(); });
     mZoomOutButton = MakeButton("－", 775, 92, 45, [this] { ZoomFactory(mMapZoom / 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
     mZoomInButton = MakeButton("＋", 827, 92, 45, [this] { ZoomFactory(mMapZoom * 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
@@ -280,15 +301,8 @@ void WorkshopScene::CreateControls() {
         }, 56, 12);
         button->SetSkipDraw(true); mQuickButtons.push_back(button);
     }
-    mRouteButton = MakeButton("目标路线", 813, 365, 110, [this] {
-        if (mSelected >= 0) Act("route", mSelected, "", (World().ActiveRoute(mSelected) + 1) % Workshop::Rows);
-    }, 27, 13);
-    mFilterButton = MakeButton("接收", 933, 365, 145, [this] {
-        if (mSelected < 0) return;
-        if (World().Cells()[mSelected].type == Workshop::Machine::Cannon) OpenMachineConfig(mSelected);
-        else Act("filter", mSelected, "", World().ActiveFilter(mSelected) >= (World().Cells()[mSelected].type == Workshop::Machine::Feeder ? Workshop::AmmoCount - 1 : Workshop::ItemCount - 1) ? -1 : World().ActiveFilter(mSelected) + 1);
-    }, 27, 13);
-    mUpgradeButton = MakeButton("选中机器升级", 813, 397, 265, [this] { Act("upgrade"); }, 27, 14);
+    mSidebarConfigButton = MakeButton("机器配置 / 升级", 813, 365, 265, [this] { OpenMachineConfig(mSelected); }, 30, 15);
+    mAllQuotasButton = MakeButton("全部路线 · 批量调整配额", 813, 397, 265, [this] { OpenAmmoQuotas(-1); }, 30, 14);
     for (int row = 0; row < Workshop::Rows; ++row) {
         auto quota = MakeButton("弹仓配额", 813, 430 + row * 29.0f, 265, [this, row] { OpenAmmoQuotas(row); }, 28, 14);
         mQuotaButtons.push_back(quota);
@@ -299,7 +313,7 @@ void WorkshopScene::CreateControls() {
     mSpeedSlider = mUIManager.CreateSlider(Vector(960, 102), Vector(115, 8), 1, 6,
         DeltaTime::GetSelectedTimeScale() / kSpeedStep);
     mSpeedSlider->SetIntegerOnly(true);
-    mSpeedSlider->SetChangeCallBack([](float step) { DeltaTime::SetSelectedTimeScale(step * kSpeedStep); });
+    mSpeedSlider->SetChangeCallBack([this](float step) { DeltaTime::SetSelectedTimeScale(step * kSpeedStep); mSaveClock = kAutosaveSeconds; });
     DeltaTime::SetSelectedTimeScale(mSpeedSlider->GetValue() * kSpeedStep);
     SetFrontView(World().State() != Workshop::Phase::Planning);
 }
@@ -351,10 +365,13 @@ std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& actio
     if (action == "fit") return mFitButton;
     if (action == "zoom_in") return mZoomInButton;
     if (action == "zoom_out") return mZoomOutButton;
-    if (action == "route") return mRouteButton;
-    if (action == "filter") return mFilterButton;
+    if (action == "sidebar_config") return mSidebarConfigButton;
+    if (action == "quota_all") return mAllQuotasButton;
+    for (size_t row = 0; row < mQuotaButtons.size(); ++row)
+        if (action == "quota_" + std::to_string(row)) return mQuotaButtons[row];
+    if (action == "cleanup_confirm") return mCleanupDialog && mCleanupDialog->IsActive() ? mCleanupDialog->GetButton(1) : nullptr;
     if (action == "upgrade") {
-        if (!mFrontView) return mUpgradeButton;
+        if (!mFrontView) return GetControlButton("cfg_upgrade");
         return mFrontUpgradeButton;
     }
     constexpr std::array<const char*, 8> actions{"pause", "start", "expand", "repair", "help", "reset", "back", "view"};
@@ -378,9 +395,9 @@ void WorkshopScene::UpdateUpgradeControls() {
         mGridButton->SetTextColor(power.speed < .999f ? glm::vec4(255, 161, 106, 255) : kGold);
     }
     const auto* selected = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
-    if (mRemoveButton) mRemoveButton->SetText(mTool == Tool::Remove ? "拆除中" : "拆除");
-    if (mWireAButton) mWireAButton->SetText(mTool == Tool::WireA ? "接 A 中" : "接 A 口");
-    if (mWireBButton) mWireBButton->SetText(mTool == Tool::WireB ? "接 B 中" : "接 B 口");
+    if (mRemoveButton) mRemoveButton->SetText(mTool == Tool::Remove ? "　拆除中" : "　拆除", ResourceKeys::Fonts::FONT_FZCQ, 14);
+    if (mWireAButton) mWireAButton->SetText(mTool == Tool::WireA ? "　接 A 中" : "　接 A", ResourceKeys::Fonts::FONT_FZCQ, 14);
+    if (mWireBButton) mWireBButton->SetText(mTool == Tool::WireB ? "　接 B 中" : "　接 B", ResourceKeys::Fonts::FONT_FZCQ, 14);
     if (mWireAButton) mWireAButton->SetTextColor(SignalWireColor(0));
     if (mWireBButton) mWireBButton->SetTextColor(SignalWireColor(1));
     const bool circuits = World().Unlocked(M::Switch);
@@ -394,13 +411,7 @@ void WorkshopScene::UpdateUpgradeControls() {
     if (mDisconnectButton) mDisconnectButton->SetEnabled(!mFrontView && circuits && selected && (selected->inputs[0] >= 0 || selected->inputs[1] >= 0));
     for (size_t i = 0; i < mQuickButtons.size(); ++i)
         mQuickButtons[i]->SetEnabled(!mFrontView && i < mRecentMachines.size() && World().Unlocked(mRecentMachines[i]));
-    if (mUpgradeButton) {
-        const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
-        const bool supported = cell && Workshop::CanUpgradeMachine(cell->type);
-        mUpgradeButton->SetText(supported ? UpgradeLabel(World(), Workshop::Describe(cell->type).cost, cell->level) : "选中可升级机器");
-        mUpgradeButton->SetSkipDraw(mFrontView || !supported);
-        mUpgradeButton->SetEnabled(!mFrontView && supported && World().CanBuyUpgrade(Workshop::Describe(cell->type).cost, cell->level));
-    }
+    if (mSidebarConfigButton) mSidebarConfigButton->SetEnabled(!mFrontView && selected && selected->type != M::Empty);
     const auto* plant = SelectedFrontPlant();
     const auto* definition = plant ? Workshop::FindPlant(plant->mPlantType) : nullptr;
     if (mFrontUpgradeButton) {
@@ -408,22 +419,22 @@ void WorkshopScene::UpdateUpgradeControls() {
         mFrontUpgradeButton->SetText(supported ? UpgradeLabel(World(), definition->cost, plant->GetWorkshopUpgradeLevel()) : "选中植物升级");
         mFrontUpgradeButton->SetEnabled(mFrontView && supported && World().CanBuyUpgrade(definition->cost, plant->GetWorkshopUpgradeLevel()));
     }
-    if (mFrontRemoveButton) mFrontRemoveButton->SetText(mFrontTool == FrontTool::Remove ? "铲除中" : "铲除植物");
+    if (mFrontRemoveButton) mFrontRemoveButton->SetText(mFrontTool == FrontTool::Remove ? "　铲除中" : "　铲除", ResourceKeys::Fonts::FONT_FZCQ, 14);
     const auto* nut = dynamic_cast<const IceStorageNut*>(plant);
     if (mAbilityButton) { mAbilityButton->SetText("　修复"); mAbilityButton->SetEnabled(mFrontView && nut && nut->IsReadyToActivate() && nut->CanAffordActivation()); }
     if (mAutomaticButton) { mAutomaticButton->SetText(nut && nut->IsAutomatic() ? "　自动：开" : "　自动：关"); mAutomaticButton->SetEnabled(mFrontView && nut); }
-    if (mConfigButton) mConfigButton->SetText(selected && selected->type == M::Switch ? "　开关" : "　配置");
-    if (mRouteButton && mFilterButton) {
-        const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
-        const auto type = cell ? cell->type : Workshop::Machine::Empty;
-        using M = Workshop::Machine;
-        const bool route = type == M::Feeder || type == M::Cannon || type == M::EnemySensor || type == M::StockSensor;
-        const bool filter = type == M::Feeder || type == M::Cannon || type == M::Counter || type == M::Store || type == M::Splitter || type == M::StockSensor;
-        mRouteButton->SetSkipDraw(mFrontView || !route); mRouteButton->SetEnabled(!mFrontView && route);
-        mFilterButton->SetSkipDraw(mFrontView || !filter); mFilterButton->SetEnabled(!mFrontView && filter);
-        if (route) mRouteButton->SetText(std::string(type == M::StockSensor || type == M::EnemySensor ? "监视 第" : "目标 第") + std::to_string(World().ActiveRoute(mSelected) + 1) + "路");
-        if (filter) mFilterButton->SetText(std::string(type == M::StockSensor ? "检测 " : type == M::Counter ? "计量 " : type == M::Splitter ? "右侧筛选 " : "接收 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
-    }
+    // 无适用目标的操作不占据界面；保留工具自身位置，避免按钮随选择跳动。
+    for (const auto& button : {mRotateButton, mConfigButton, mDisconnectButton, mSidebarConfigButton,
+        mFrontUpgradeButton, mAbilityButton, mAutomaticButton}) if (button) button->SetSkipDraw(!button->IsEnabled());
+    mStartButton->SetEnabled(World().State() == Workshop::Phase::Planning);
+    mStartButton->SetSkipDraw(!mStartButton->IsEnabled());
+    auto expand = GetControlButton("expand");
+    expand->SetEnabled(World().State() != Workshop::Phase::Dead && World().CompletedWaves() >= 3
+        && (World().Columns() < Workshop::MaxColumns || World().FactoryRows() < Workshop::MaxRows) && World().Energy() >= Workshop::ExpansionCost);
+    expand->SetSkipDraw(!expand->IsEnabled());
+    auto repair = GetControlButton("repair");
+    repair->SetEnabled(World().State() != Workshop::Phase::Dead && World().Health() < 3 && World().Energy() >= Workshop::RepairCost);
+    repair->SetSkipDraw(!repair->IsEnabled());
     for (size_t row = 0; row < mQuotaButtons.size(); ++row) {
         mQuotaButtons[row]->SetText(std::format("　{}路弹仓 {}/80 · 调整配额", row + 1, World().Lanes()[row].TotalStock()), ResourceKeys::Fonts::FONT_FZCQ, 14);
     }
@@ -463,6 +474,7 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
         mSelectedShooter = plant->mPlantID; UpdateUpgradeControls(); return SelectedFrontPlant() != nullptr;
     }
     else if (action == "upgrade_machine") result = World().Upgrade(index);
+    else if (action == "clear_cargo") result = World().ClearObsoleteCargo(index);
     else if (action == "upgrade") {
         if (mFrontView) { if (auto* plant = SelectedFrontPlant()) result = plant->TryUpgradeWorkshop(); }
         else result = World().Upgrade(mSelected);
@@ -628,6 +640,7 @@ void WorkshopScene::Update() {
         if (mReasonDialog && mReasonDialog->IsActive()) { mReasonDialog->Close(); escapeConsumed = true; }
         else if (mPracticeDialog && mPracticeDialog->IsActive()) { ClosePractice(); escapeConsumed = true; }
         else if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
+        else if (mCleanupDialog && mCleanupDialog->IsActive()) { mCleanupDialog->Close(); escapeConsumed = true; }
         else if (mMachineConfig && mMachineConfig->IsActive()) { CloseMachineConfig(); escapeConsumed = true; }
         else if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
         else if (mPlantCatalog && mPlantCatalog->IsActive()) { ClosePlantCatalog(); escapeConsumed = true; }
@@ -737,6 +750,8 @@ void WorkshopScene::UpdateTooltip() {
     } else {
         lines = {std::string(info.name) + (Workshop::CanUpgradeMachine(type) ? " · Lv." + std::to_string(level) : "")
             + " · 建造 " + std::to_string(info.cost) + " 阳光", info.description};
+        if (type == Workshop::Machine::Solar)
+            lines.push_back(std::format("高等级优先6台全速，其余25%；全基地 {:.1f} 阳光/秒", World().SolarProduction()));
         if (type == Workshop::Machine::Grower)
             lines.push_back("产速：" + MachineEffect(type, level) + std::format("；消耗：{:.0f} 阳光/颗", Workshop::GrowEnergy));
         else if (type == Workshop::Machine::Cooler) {
@@ -828,10 +843,6 @@ void WorkshopScene::DrawTooltip(Graphics* g) {
 
 void WorkshopScene::DrawMachine(Graphics* g, int index, float x, float y) {
     DrawMachineVisual(g, World().Cells()[index], x, y, mMapZoom, World().Enabled(index), true);
-    if (!mMaterialWarnings[index].empty()) {
-        g->FillCircle(x + 46, y + 5, 7, glm::vec4(180, 62, 27, 255));
-        g->FillRect(x + 45, y + 0, 2, 6, kGold); g->FillCircle(x + 46, y + 9, 1.2f, kGold);
-    }
 }
 
 void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, float x, float y,
@@ -1030,6 +1041,7 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     }
     Text("戴夫工坊", 20, 14, 27, kGreen);
     Text("阳光 " + std::to_string(static_cast<int>(World().Energy())), 185, 19, 19);
+    Text(std::format("采光 {:.1f}/秒 · 超6台×25%", World().SolarProduction()), 185, 40, 11, kGreen);
     Text("基地 " + std::to_string(World().Health()) + "/3", 345, 19, 19);
     const auto phase = World().State();
     Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
@@ -1071,6 +1083,12 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["powerDemo"] = mPowerDemo ? mPowerDemo->Inspect() : nlohmann::json(nullptr);
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
     j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;
+    j["solarProduction"] = World().SolarProduction();
+    j["visibleControls"] = nlohmann::json::array();
+    for (const auto* key : {"start", "repair", "expand", "rotate_tool", "configure_tool", "disconnect_tool", "sidebar_config", "front_ability", "front_auto"})
+        if (auto button = GetControlButton(key); button && !button->IsSkipDraw()) j["visibleControls"].push_back(key);
+    j["configControls"] = nlohmann::json::array();
+    for (const auto& [key, button] : mConfigControls) if (button->IsEnabled()) j["configControls"].push_back(key);
     j["configOpen"] = mMachineConfig && mMachineConfig->IsActive(); j["configMachine"] = mConfigMachine;
     j["wireToolsVisible"] = mWireAButton && !mWireAButton->IsSkipDraw();
     j["frontColumns"] = Workshop::FrontColumns;

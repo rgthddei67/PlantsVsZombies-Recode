@@ -17,6 +17,8 @@
 
 ## 工坊电网与调度
 
+`smoke_workshop_maintenance` 配合 `verify_workshop_maintenance.py` 验证装填口旧料清理的确认/取消、配置内升级、五路不同配额的批量增减、真实保存返回再进入后的倍速和最近机器，以及旧档/无效界面偏好的兼容。清理只逆向穿过运输带和分流器，遇生产机或仓库停止；分支、回路和正确弹药保留由 `WorkshopMaintenanceTests.cpp` 覆盖。该纯逻辑测试同时核对采光衰减的等级优先级、准备期冻结与实际产量。`workshop_snapshot` 保存的是 Board 战斗文档，不含界面偏好；偏好恢复必须通过 `SaveBase` 与真实重进场验证。
+
 `workshop` CTest 包含 `WorkshopPowerTests.cpp`：电网阶段上限、过载同比减速、待机/手动/A 口、准备期冻结、升级效率、分段主攻及 v5 旧袭击宽限。对照夹具让相同预算与布局从满弹仓开始，跨十波保留库存，比较常开、库存启停、共享产线切线；它是供需压力代理，不能作为原生战斗胜率或最终平衡结论。
 
 `smoke_workshop_power` 配合 `verify_workshop_power.py` 验证可见电网面板、隔离教程的三种操作、正式 Board 中的开关供给、暂停与原生快照往返、旧档一次性教学。教程使用独立 `Workshop::World`，不能写玩家基地；读档后的实体数组按稳定 ID 归一后比较。暂停窗口使用 `wait_frames`，不能用按游戏时间累计的 `wait_seconds`。

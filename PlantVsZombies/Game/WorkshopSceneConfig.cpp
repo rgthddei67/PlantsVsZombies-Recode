@@ -16,6 +16,8 @@ void Label(const std::string& text, float x, float y, int size = 16, glm::vec4 c
 }
 
 void WorkshopScene::CloseMachineConfig() {
+    if (mCleanupDialog) mCleanupDialog->Close();
+    mCleanupDialog.reset();
     if (mMachineConfig) mMachineConfig->Close();
     mMachineConfig.reset(); mConfigControls.clear(); mConfigMachine = -1; mConfigNotice.clear();
 }
@@ -36,6 +38,10 @@ void WorkshopScene::OpenMachineConfig(int index) {
     add("cfg_close", "返回", 888, 48, 88, [this] { CloseMachineConfig(); });
     add("cfg_reason", "看原因", 665, 48, 105, [this] { OpenMachineReason(mConfigMachine); });
     add("cfg_guide", "图解", 785, 48, 88, [this, type] { OpenGuide(static_cast<int>(type)); });
+    if (Workshop::CanUpgradeMachine(type))
+        add("cfg_upgrade", "升级", 480, 48, 170, [action] { action("upgrade_machine"); });
+    if (type == M::Feeder)
+        add("cfg_cleanup", "清理旧料…", 755, 468, 190, [this] { ConfirmCargoCleanup(); });
     if (World().Unlocked(M::Switch)) {
         add("cfg_disconnect_a", "断开 A", 699, 124, 120, [action] { action("disconnect_a"); });
         add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
@@ -125,10 +131,16 @@ void WorkshopScene::RefreshMachineConfig() {
     if (!mMachineConfig || mConfigMachine < 0) return;
     const auto& c = World().Cells()[mConfigMachine];
     auto set = [&](const std::string& key, const std::string& text, bool enabled = true) {
-        if (auto it = mConfigControls.find(key); it != mConfigControls.end()) { it->second->SetText(text); it->second->SetEnabled(enabled); }
+        if (auto it = mConfigControls.find(key); it != mConfigControls.end()) {
+            it->second->SetText(text, ResourceKeys::Fonts::FONT_FZCQ, 14); it->second->SetEnabled(enabled);
+        }
     };
     set("cfg_disconnect_a", "断开 A", c.inputs[0] >= 0);
     set("cfg_disconnect_b", "断开 B", c.inputs[1] >= 0);
+    set("cfg_upgrade", std::format("升级 Lv.{} · {} 阳光", c.level + 1, Workshop::UpgradeCost(Workshop::Describe(c.type).cost, c.level)),
+        World().CanBuyUpgrade(Workshop::Describe(c.type).cost, c.level));
+    const auto obsolete = World().ObsoleteCargo(mConfigMachine);
+    set("cfg_cleanup", "清理旧料…", std::accumulate(obsolete.begin(), obsolete.end(), 0) > 0);
     set("cfg_plan0", c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
     set("cfg_plan1", c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
     for (int plan = 0; plan < 2; ++plan) {
@@ -144,6 +156,13 @@ void WorkshopScene::RefreshMachineConfig() {
     set("cfg_power", c.manual ? "加工电源：开" : "加工电源：关");
     set("cfg_fire", "手动齐射", c.type == M::Cannon && World().State() == Workshop::Phase::Assault && c.volleyRemaining == 0 && c.clock >= Workshop::CannonChargeSeconds
         && c.Inventory(static_cast<Workshop::Ammo>(World().ActiveFilter(mConfigMachine))) >= Workshop::CannonVolleySize);
+    for (int i = 0; i < 4; ++i) if (auto it = mConfigControls.find("cfg_setting" + std::to_string(i)); it != mConfigControls.end()) {
+        const int delta = std::array<int, 4>{-5, -1, 1, 5}[i];
+        it->second->SetEnabled(std::clamp(c.setting + delta, 1, c.type == M::Timer ? 120 : 1000000) != c.setting);
+    }
+    set("cfg_counter_reset", "计数清零", c.count != 0 || c.signal);
+    for (const auto& [key, button] : mConfigControls) if (key.starts_with("cfg_card"))
+        button->SetEnabled(c.inputs[1] < 0 && !(key.starts_with("cfg_card1") && c.type == M::Cooler && World().CompletedWaves() < 8));
 }
 
 void WorkshopScene::DrawMachineConfig(Graphics* g) {
@@ -152,6 +171,11 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     g->FillRect(100, 30, 900, 540, glm::vec4(234, 224, 182, 255));
     g->DrawRect(100, 30, 900, 540, kConfigGreen);
     Label(std::string(Workshop::Describe(type).name) + " · 运行配置", 130, 55, 25, kConfigGreen);
+    if (Workshop::CanUpgradeMachine(type)) {
+        const auto cost = Workshop::UpgradeCost(Workshop::Describe(type).cost, c.level);
+        Label(c.level == Workshop::MaxUpgradeLevel ? "已满级" : World().CompletedWaves() < Workshop::UpgradeWaves[c.level]
+            ? std::format("守住第 {} 波后可升级", Workshop::UpgradeWaves[c.level]) : std::format("升级需 {} 阳光", cost), 480, 82, 12);
+    }
     Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；配置保留库存与进度，关闭窗口后继续运行。", 130, 96, 15);
     auto connection = [&](int port) {
         const int source = c.inputs[port];
@@ -181,6 +205,10 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         else Label("前半周期关闭，后半周期开启；A 不接时自动计时。", 140, 400, 16);
     } else {
         Label(Workshop::Describe(type).description, 140, 285, 17, kConfigGreen);
+        if (type == M::Solar) {
+            Label(std::format("本机额定 {:.1f}/秒 · 全基地有效 {:.1f}/秒", Workshop::SolarRates[c.level - 1], World().SolarProduction()), 140, 320, 17);
+            Label("等级最高的 6 台按全速计算，其余运行中的集光器只计 25% 产能。", 140, 355, 15);
+        }
         Label(circuits ? "需要接法示例时可点右上角图解；A / B 的作用以本页端口说明为准。" : "需要使用示例时可点右上角图解；也可以进入动手练习。", 140, 390, 15);
     }
     if (Workshop::RatedPower(type, c.level) > 0) {
@@ -192,5 +220,22 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     const auto warning = World().MaterialWarning(mConfigMachine);
     Label(!warning.empty() ? warning : mConfigNotice.empty() ? "Esc 返回 · 准备期仍全部停机，开波后生效" : mConfigNotice, 140, 521, 14, warning.empty() ? kConfigInk : glm::vec4(163, 53, 33, 255));
     g->PopClipRect();
-    for (const auto& entry : mConfigControls) if (!entry.first.starts_with("cfg_card")) entry.second->Draw(g);
+    for (const auto& entry : mConfigControls) if (!entry.first.starts_with("cfg_card") && entry.second->IsEnabled()) entry.second->Draw(g);
+}
+
+/** 清理必须由玩家确认具体丢弃数量；模态期间暂停，因此预览与正式事务使用同一布局。 */
+void WorkshopScene::ConfirmCargoCleanup() {
+    if (mConfigMachine < 0) return;
+    const auto items = World().ObsoleteCargo(mConfigMachine);
+    if (std::accumulate(items.begin(), items.end(), 0) == 0) return;
+    std::string list;
+    for (int a = 0; a < Workshop::ItemCount; ++a) if (items[a])
+        list += std::format("{} × {}  ", Workshop::AmmoName(a), items[a]);
+    const int index = mConfigMachine;
+    mCleanupDialog = GameMessageBox::Builder(Vector(550, 300)).Title("确认丢弃旧料")
+        .Message("将丢弃：" + list + "。范围仅含本装填口和连入它的上游运输带、分流器；生产机、仓库及前线弹仓不变。共享支路也会受影响。")
+        .Button("取消", Vector(0, 0), Vector(200, 45), 18, [] {})
+        .Button("确认丢弃", Vector(0, 0), Vector(200, 45), 18, [this, index] {
+            if (Act("clear_cargo", index)) mConfigNotice = "旧料已清理，可继续接收当前弹种。";
+        }).Show();
 }

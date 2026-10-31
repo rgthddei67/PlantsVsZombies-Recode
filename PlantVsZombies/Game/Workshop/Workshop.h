@@ -31,6 +31,8 @@ inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍�
 inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
 inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 2.0f, 1.6f}; // 各级育豆机与冷凝机生产间隔，单位：秒/颗
 inline constexpr std::array<float, 3> SolarRates{SolarRate, 1.8f, 2.4f}; // 各级集光器产能，单位：阳光/秒
+inline constexpr int FullSolarCount = 6; // 全速采光名额，按等级从高到低分配给运行中的集光器
+inline constexpr float ExtraSolarRatio = 0.25f; // 超过全速名额的集光器产能比例
 inline constexpr std::array<int, 3> StoreCapacities{60, 120, 200}; // 各级弹药仓容量，单位：颗
 inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各级射手基础冷却，单位：秒；索敌与动画同比例提速
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
@@ -218,6 +220,12 @@ public:
     void StartPlantCooldown(const std::string& key, float seconds);
     /** 当前库存或真实上游来料与接收配置不符时的只读说明；不丢料或自动改方案。 */
     std::string MaterialWarning(int index) const;
+    /** 预览装填口及其上游运输带/分流器的异种旧料；遇到生产机、仓库即停止追溯。 */
+    std::array<int, ItemCount> ObsoleteCargo(int index) const;
+    /** 玩家明确确认后丢弃预览范围内的异种旧料；不改方案、生产进度或前线库存。 */
+    bool ClearObsoleteCargo(int index);
+    /** 当前启用集光器的合计产率，包含全速名额与超额衰减；准备期仅作开波预估。 */
+    float SolarProduction() const;
     /** 只读解释当前接线、选择方案及阻塞原因，不推进信号或修改配置。 */
     std::vector<std::string> Explain(int index) const;
     void Reset();
@@ -258,6 +266,7 @@ public:
     int Delivered() const { return mDelivered; }
 
 private:
+    std::vector<int> CargoCleanupCells(int index) const;
     std::array<Cell, CellCount> mCells{};
     std::array<Lane, Rows> mLanes{};
     std::array<int, Rows> mEnemyCounts{};

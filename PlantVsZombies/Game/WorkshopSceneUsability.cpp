@@ -30,11 +30,11 @@ void WorkshopScene::DrawProfileCards(Graphics* g) {
     for (int plan = 0; plan < 2; ++plan) {
         const float x = 125 + plan * 430.0f;
         const bool locked = c.type == M::Cooler && plan == 1 && World().CompletedWaves() < 8;
-        const bool hover = ProfileAt(mouse) == plan;
+        const bool hover = ProfileAt(mouse) == plan && c.inputs[1] < 0 && !locked;
         g->FillRect(x, 210, 420, 212, hover && !locked ? glm::vec4(244, 238, 196, 255) : glm::vec4(218, 218, 175, 255));
         for (int edge = 0; edge < (active == plan ? 3 : 1); ++edge)
             g->DrawRect(x + edge, 210 + edge, 420 - edge * 2, 212 - edge * 2, active == plan ? kGreen : glm::vec4(157, 142, 97, 255));
-        Text(std::format("方案 {} · {}", plan + 1, locked ? "第 8 波后开放" : active == plan ? "正在使用" : "点击启用"), x + 18, 225, 20, kGreen);
+        Text(std::format("方案 {} · {}", plan + 1, locked ? "第 8 波后开放" : active == plan ? "正在使用" : c.inputs[1] >= 0 ? "等待电路切换" : "点击启用"), x + 18, 225, 20, kGreen);
         if (c.type == M::Cooler) {
             const auto raw = plan ? Workshop::Ammo::Melon : Workshop::Ammo::Pea;
             const auto product = plan ? Workshop::Ammo::IceMelon : Workshop::Ammo::Ice;
@@ -60,7 +60,7 @@ void WorkshopScene::DrawProfileCards(Graphics* g) {
     if (c.type == M::Cooler) Text(c.processing ? "当前一份完成后再切换；两种原料和成品都会保留。" : "原料和成品各自缓存；先检查配方，再接后面的装填口。", 140, 445, 16, kGreen);
     else if (c.type == M::Feeder) {
         Text("只负责送货，不生产弹药，也不是豌豆射手。", 140, 445, 17, kGreen);
-        Text("每路所有植物共用弹仓；配额可在右侧整行弹仓按钮中调整。", 140, 477, 14);
+        Text("右侧弹仓按钮可单路或批量调整配额。", 140, 477, 14);
     } else {
         Text(std::format("充能 {:.1f} / 12 秒", c.clock), 140, 442, 17, kGreen);
         g->FillRect(140, 471, 430, 10, glm::vec4(91, 102, 75, 255));
@@ -131,12 +131,25 @@ void WorkshopScene::DrawToolbarIcons(Graphics* g) {
     }
     if (mFrontView) {
         const std::pair<const char*, float> front[]{{"plant_catalog",140},{"front_remove",90},{"front_ability",115},{"front_auto",125}};
-        for (const auto& [action,width] : front) if (auto button = GetControlButton(action)) {
+        for (const auto& [action,width] : front) if (auto button = GetControlButton(action); button && !button->IsSkipDraw()) {
             const auto center=button->GetCenter();
             DrawUtilityIcon(g, std::string(action)=="plant_catalog" ? "help" : std::string(action)=="front_ability" ? "repair" : std::string(action)=="front_auto" ? "rotate_tool" : action, center.x-width/2+7, center.y-10, 20);
         }
     }
     if (!mFrontView) for (const auto& button : mQuotaButtons) { const auto center=button->GetCenter(); DrawUtilityIcon(g,"magazine",center.x-123,center.y-10,20); }
+    if (!mFrontView) {
+        // 在机器、接线和操作高亮之后绘制，放到上沿中央，避开两侧 A/B 端口。
+        g->PushClipRect(16, 168, 780, 410);
+        for (int i = 0; i < Workshop::CellCount; ++i) if (!mMaterialWarnings[i].empty()) {
+            auto point = CellScreenCenter(i / Workshop::MaxColumns, i % Workshop::MaxColumns);
+            point.y -= 28 * mMapZoom;
+            g->FillCircle(point.x, point.y, 9, glm::vec4(255, 235, 144, 255));
+            g->FillCircle(point.x, point.y, 7, kWarning);
+            g->FillRect(point.x - 1, point.y - 5, 2, 6, kGold);
+            g->FillCircle(point.x, point.y + 4, 1.3f, kGold);
+        }
+        g->PopClipRect();
+    }
     if (!mMaterialNotice.empty() && SDL_GetTicks64() < mMaterialNoticeUntil) {
         g->FillRect(216, 545, 860, 30, glm::vec4(251,228,178,250)); g->DrawRect(216,545,860,30,kWarning);
         Text(mMaterialNotice,226,551,14,kWarning);

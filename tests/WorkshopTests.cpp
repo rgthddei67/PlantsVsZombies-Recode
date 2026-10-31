@@ -10,6 +10,7 @@ using namespace Workshop;
 void TestWorkshopCircuits();
 void TestWorkshopPower();
 void TestWorkshopPractice();
+void TestWorkshopMaintenance();
 namespace {
 // 多个完整基地夹具放堆上，避免 Cell 扩展后超过 Windows 测试进程默认栈。
 World& TestWorld() {
@@ -389,5 +390,6 @@ int main() {
     TestWorkshopCircuits();
     TestWorkshopPower();
     TestWorkshopPractice();
+    TestWorkshopMaintenance();
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

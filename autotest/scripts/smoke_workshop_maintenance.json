@@ -1,0 +1,1011 @@
+{
+  "name": "smoke_workshop_maintenance",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "01_starter_controls.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "01_starter_controls.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 9
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 9
+        },
+        {
+          "op": "add",
+          "path": "/powerGuideSeen",
+          "value": true
+        },
+        {
+          "op": "add",
+          "path": "/state/energy",
+          "value": 9000
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 2,
+      "type": "melon_grower",
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 3,
+      "type": "cooler",
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 4,
+      "type": "belt",
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 5,
+      "type": "feeder",
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 6,
+      "type": "switch",
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "wire_b",
+      "index": 5,
+      "type": "",
+      "value": 6
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "layout"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "layout",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 9
+        },
+        {
+          "op": "add",
+          "path": "/powerGuideSeen",
+          "value": true
+        },
+        {
+          "op": "add",
+          "path": "/state/cells/4/extraStock",
+          "value": [
+            0,
+            1,
+            0,
+            0
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/cells/5/extraStock",
+          "value": [
+            0,
+            2,
+            1,
+            0
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/cells/5/filter",
+          "value": 3
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/0/plainQuota",
+          "value": 40
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/0/iceQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/0/extraQuota",
+          "value": [
+            0,
+            20,
+            0
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/1/plainQuota",
+          "value": 35
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/1/iceQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/1/extraQuota",
+          "value": [
+            0,
+            20,
+            5
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/2/plainQuota",
+          "value": 30
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/2/iceQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/2/extraQuota",
+          "value": [
+            0,
+            20,
+            10
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/3/plainQuota",
+          "value": 25
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/3/iceQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/3/extraQuota",
+          "value": [
+            0,
+            20,
+            15
+          ]
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/4/plainQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/4/iceQuota",
+          "value": 20
+        },
+        {
+          "op": "add",
+          "path": "/state/lanes/4/extraQuota",
+          "value": [
+            0,
+            20,
+            20
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 5,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "sidebar_config",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_filter0",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.5.activeFilter",
+      "equals": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "02_feeder_config.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "02_feeder_config.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_cleanup",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "03_cleanup_confirm.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "03_cleanup_confirm.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.5.extraStock",
+      "equals": [
+        0,
+        2,
+        1,
+        0
+      ]
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_cleanup",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cleanup_confirm",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.4.extraStock",
+      "equals": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.5.extraStock",
+      "equals": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "04_cleaned_config.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "04_cleaned_config.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 2,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_upgrade",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.2.level",
+      "equals": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "05_upgrade_in_config.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "05_upgrade_in_config.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cleaned"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "cleaned",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 9
+        },
+        {
+          "op": "add",
+          "path": "/state/cells/4/extraStock",
+          "value": [
+            0,
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 5,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 24
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "06_warning_top.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "06_warning_top.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "quota_all",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "07_mixed_quotas.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "07_mixed_quotas.json"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 10,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "08_batch_quotas.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "08_batch_quotas.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "quota_2",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "09_single_quota.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "09_single_quota.json"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 11,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "10_all_from_single.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "10_all_from_single.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 15,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 17,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "click",
+      "x": 1070,
+      "y": 105,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "11_preferences_before.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "11_preferences_before.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "back",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 25
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "12_preferences_restored.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "12_preferences_restored.json"
+    },
+    {
+      "op": "workshop",
+      "action": "view_front",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "13_front_shovel.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "13_front_shovel.json"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/selectedTimeScale",
+          "value": "invalid"
+        },
+        {
+          "op": "add",
+          "path": "/recentMachines",
+          "value": [
+            "unknown",
+            false,
+            "cooler",
+            "belt",
+            "belt",
+            "solar"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recentMachines",
+      "equals": [
+        "belt",
+        "solar"
+      ]
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "14_legacy_preferences.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "14_legacy_preferences.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "layout",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 9
+        },
+        {
+          "op": "add",
+          "path": "/powerGuideSeen",
+          "value": true
+        },
+        {
+          "op": "add",
+          "path": "/selectedTimeScale",
+          "value": 2.5
+        },
+        {
+          "op": "add",
+          "path": "/recentMachines",
+          "value": [
+            "melon_grower",
+            "cooler",
+            "feeder",
+            "belt",
+            "solar"
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 0,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "15_solar_config.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "15_solar_config.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 5
+    },
+    {
+      "op": "workshop",
+      "action": "save",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

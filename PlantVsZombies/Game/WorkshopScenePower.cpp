@@ -64,7 +64,10 @@ void WorkshopScene::DrawPowerGrid(Graphics* g) {
         : level >= Workshop::UnlockedGridLevel(World().CompletedWaves()) ? std::format("守住第 {} 波后可升级", Workshop::GridUnlockWaves[level])
         : std::format("升级至 {:.0f} 电力 · {} 阳光", Workshop::GridCapacities[level], Workshop::GridCosts[level]));
     Label("升级按波次开放，阳光再多也不能越过当前阶段上限。", 125, 455, 14);
-    for (int i = 0; i < 3; ++i) mGridDialog->GetButton(i)->Draw(g);
+    if (!upgrade->IsEnabled()) Label(level == static_cast<int>(Workshop::GridCapacities.size()) ? "电网已满级"
+        : level >= Workshop::UnlockedGridLevel(World().CompletedWaves()) ? std::format("守住第 {} 波后可升级", Workshop::GridUnlockWaves[level])
+        : std::format("升级还需 {} 阳光", Workshop::GridCosts[level] - static_cast<int>(World().Energy())), 690, 498, 16);
+    for (int i = 0; i < 3; ++i) if (mGridDialog->GetButton(i)->IsEnabled()) mGridDialog->GetButton(i)->Draw(g);
 }
 
 /** 三种操作从同一隔离样例开始，走正式 World 生产/接线入口；绝不改动玩家基地。 */

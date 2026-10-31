@@ -94,8 +94,8 @@ private:
     std::unordered_map<std::string, std::shared_ptr<Button>> mConfigControls;
     int mConfigMachine = -1;
     std::string mConfigNotice;
-    std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
-    std::shared_ptr<Button> mUpgradeButton;
+    std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mSidebarConfigButton, mAllQuotasButton;
+    std::shared_ptr<GameMessageBox> mCleanupDialog;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mGridButton;
     std::shared_ptr<GameMessageBox> mGridDialog;
@@ -189,6 +189,7 @@ private:
     void DrawPlantCatalog(Graphics* g);
     void DrawFrontOverlay(Graphics* g);
     void OpenAmmoQuotas(int row);
+    void ConfirmCargoCleanup();
     void DrawAmmoQuotas(Graphics* g, int row);
     void DrawItemIcon(Graphics* g, Workshop::Ammo item, float x, float y, float size);
     void UpdateUpgradeControls();
