@@ -1,4 +1,5 @@
 #include "Game/Workshop/Workshop.h"
+#include "Game/Workshop/WorkshopRoster.h"
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
@@ -57,7 +58,7 @@ int main() {
     auto bad = save; bad["state"]["cells"][0]["inputs"][0] = 999;
     const auto unchanged = restored.Save();
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "bad wire rejected transactionally");
-    bad = save; bad["schemaVersion"] = 3;
+    bad = save; bad["schemaVersion"] = 4;
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "future schema protected");
     Check(world.StartAssault(), "start save test"); Step(world, 4);
     Check(world.Delivered() > 0 && world.Lanes()[4].ammo > 0, "empty magazines receive first supply after assault begins");
@@ -172,7 +173,7 @@ int main() {
     const float solarBefore = upgrades.Energy();
     Check(upgrades.Remove(2), "remove grower before measuring solar");
     Step(upgrades, 10);
-    Check(std::abs(upgrades.Energy() - solarBefore - 150 - 37.5f) < 0.1f, "level two solar produces 2.25 per second plus base 1.5");
+    Check(std::abs(upgrades.Energy() - solarBefore - 150 - 10 * (SolarRates[1] + SolarRates[0])) < 0.1f, "solar levels use the reduced production rates");
     FinishSchedule(upgrades);
     fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 5;
     fixture["state"]["cells"][3]["stock"] = 120;
@@ -220,7 +221,7 @@ int main() {
     Check(cold.StartAssault(), "run cold production");
     const float coldEnergy = cold.Energy(); Step(cold, 13.25f);
     Check(cold.Lanes()[4].iceAmmo == 5 && cold.Lanes()[4].ammo == 0 && cold.Cells()[142].TotalStock() == 0, "one pea becomes one ice pea");
-    Check(std::abs(cold.Energy() - coldEnergy - (13.25f * 3 - 5 * CoolingEnergy)) < 0.1f, "cold energy accounting");
+    Check(std::abs(cold.Energy() - coldEnergy - (13.25f * 2 * SolarRate - 5 * CoolingEnergy)) < 0.1f, "cold energy accounting");
     Check(cold.SetQuota(4, 80) && cold.Lanes()[4].iceAmmo == 5, "quota change preserves existing inventory");
     Check(!cold.ReserveAmmo(4, Ammo::Pea) && cold.ReserveAmmo(4, Ammo::Ice), "no ammo type substitution");
     Check(cold.Upgrade(142) && cold.Upgrade(142), "cooler shares three level upgrades");
@@ -284,5 +285,79 @@ int main() {
     Check(restored.Load(fixture, error), "expansion budget");
     while (restored.Expand()) {}
     Check(restored.Columns() == 20 && restored.FactoryRows() == 20 && restored.Cells()[90].inputs[0] == 91, "expansion preserves stable wires and clamps both dimensions");
+
+    // 新版五弹种共用总弹仓，残骸不进入前线；冷凝配方和存档同时保留。
+    World advanced;
+    fixture = advanced.Save(); fixture["state"]["completedWaves"] = 10; fixture["state"]["energy"] = 6000;
+    Check(advanced.Load(fixture, error), "advanced production fixture");
+    Check(advanced.Build(21, Machine::SporeGrower, 0) && advanced.Build(22, Machine::Belt, 0)
+        && advanced.Build(23, Machine::Feeder, 0) && advanced.SetRoute(23, 0) && advanced.SetFilter(23, 2), "spore production line");
+    Check(advanced.Build(41, Machine::MelonGrower, 0) && advanced.Build(42, Machine::Cooler, 0)
+        && advanced.SetRecipe(42, 1) && advanced.Build(43, Machine::Feeder, 0) && advanced.SetFilter(43, 4)
+        && advanced.SetRoute(43, 1), "winter melon conversion line");
+    Check(advanced.Build(81, Machine::MelonGrower, 0) && advanced.Build(82, Machine::Feeder, 0)
+        && advanced.SetFilter(82, 3) && advanced.SetRoute(82, 2), "ordinary melon line");
+    advanced.EnsureAmmoQuota(0, Ammo::Spore); advanced.EnsureAmmoQuota(1, Ammo::IceMelon); advanced.EnsureAmmoQuota(2, Ammo::Melon);
+    Check(advanced.StartAssault(), "run advanced production"); Step(advanced, 30);
+    Check(advanced.Lanes()[0].Inventory(Ammo::Spore) == 20 && advanced.Lanes()[1].Inventory(Ammo::IceMelon) >= 5
+        && advanced.Lanes()[2].Inventory(Ammo::Melon) >= 6, "three supply types reach their designated rows");
+    Check(!advanced.ReserveAmmo(0, Ammo::Melon) && advanced.ReserveAmmo(0, Ammo::Spore), "ammo types cannot substitute");
+    Check(!advanced.ReserveAmmo(0, Ammo::Scrap) && !advanced.SetFilter(23, 5), "scrap cannot enter or be consumed by frontline");
+    Check(advanced.SetAmmoQuota(0, Ammo::Spore, 0) && advanced.Lanes()[0].Inventory(Ammo::Spore) == 19, "quota reduction preserves stock");
+    int quotaSum = 0; for (int a = 0; a < AmmoCount; ++a) quotaSum += advanced.Lanes()[0].Quota(static_cast<Ammo>(a));
+    Check(quotaSum == MagazineCapacity && advanced.SetAmmoQuota(0, Ammo::Melon, 80), "quota transfers conserve total space");
+    Check(restored.Load(advanced.Save(), error), "new material round trip"); Step(advanced, 4); Step(restored, 4);
+    Check(advanced.Save() == restored.Save(), "new production and round robin continue identically after load");
+    bad = advanced.Save(); bad["state"]["lanes"][0]["extraQuota"][0] = 81;
+    const auto advancedUnchanged = advanced.Save();
+    Check(!advanced.Load(bad, error) && advanced.Save() == advancedUnchanged, "invalid quota rejected transactionally");
+
+    // 击杀收入必须经过物流加工，多个入口共享一次掉落；每波上限独立于机器数量。
+    World recycling;
+    fixture = recycling.Save(); fixture["state"]["completedWaves"] = 1; fixture["state"]["energy"] = 1000;
+    Check(recycling.Load(fixture, error) && recycling.Remove(0) && recycling.Remove(MaxColumns), "recycling isolates passive solar");
+    for (int start : {2, 22}) Check(recycling.Build(start, Machine::SalvagePort, 0)
+        && recycling.Build(start + 1, Machine::Belt, 0) && recycling.Build(start + 2, Machine::Recycler, 0), "parallel recycling lines");
+    recycling.RecordKill(); Check(recycling.PendingScrap() == 0, "preparation cannot award kills");
+    Check(recycling.StartAssault(), "run recycling");
+    const float salvageBudget = recycling.Energy();
+    for (int n = 0; n < 100; ++n) recycling.RecordKill();
+    Check(recycling.PendingScrap() == 40 && recycling.WaveScrap() == 40 && recycling.Energy() == salvageBudget, "kills enqueue bounded salvage without immediate income");
+    Step(recycling, 4); Check(restored.Load(recycling.Save(), error), "inflight salvage round trip");
+    Step(recycling, 36); Step(restored, 36);
+    Check(recycling.Save() == restored.Save() && recycling.PendingScrap() == 0
+        && std::abs(recycling.Energy() - salvageBudget - 200) < .01f, "parallel processing conserves capped salvage income");
+    const auto capped = recycling.Save(); recycling.RecordKill(); Check(recycling.Save() == capped, "wave cap does not multiply with machines");
+    FinishSchedule(recycling); const auto salvagePlanning = recycling.Save(); Step(recycling, 600);
+    Check(recycling.Save() == salvagePlanning, "salvage processing also freezes between waves");
+    Check(recycling.StartAssault() && recycling.WaveScrap() == 0, "new wave resets only its drop quota");
+    recycling.RecordKill(); recycling.RecordBreach(); recycling.RecordBreach(); recycling.RecordBreach();
+    Check(recycling.Retry() && recycling.Save() == salvagePlanning, "retry rolls back salvage along with the base");
+
+    World counter;
+    fixture = counter.Save(); fixture["state"]["completedWaves"] = 4; fixture["state"]["energy"] = 1000;
+    Check(counter.Load(fixture, error) && counter.Build(2, Machine::Switch, 0) && counter.Build(3, Machine::Counter, 0)
+        && counter.Build(4, Machine::Switch, 0) && counter.Configure(4)
+        && counter.Connect(2, 3, 0) && counter.Connect(4, 3, 1), "counter A and B inputs");
+    Check(counter.StartAssault(), "run counter"); Step(counter, 2);
+    Check(counter.Cells()[3].count == 1, "held high counts only one rising edge");
+    Check(counter.Configure(2), "falling edge"); Step(counter, .6f);
+    Check(counter.Configure(2), "second rising edge"); Step(counter, .6f);
+    Check(counter.Cells()[3].count == 2 && restored.Load(counter.Save(), error), "two edges and counter snapshot");
+    Step(counter, 1); Step(restored, 1); Check(counter.Save() == restored.Save() && counter.Cells()[3].count == 2, "load does not invent a rising edge");
+    Check(counter.Configure(4), "counter reset"); Step(counter, 1); Check(counter.Cells()[3].count == 0, "B reset has priority");
+    Check(counter.Configure(4), "release reset"); Step(counter, 1); Check(counter.Cells()[3].count == 0, "held A cannot recount after reset");
+
+    // v2 转换保留原两种库存与配额；旧敌情器继续按一只敌人触发。
+    auto versionTwo = World().Save(); versionTwo["schemaVersion"] = 2;
+    for (auto& cell : versionTwo["state"]["cells"]) for (const auto* key : {"extraStock", "nextItem", "recipe", "count", "previousInput"}) cell.erase(key);
+    for (auto& lane : versionTwo["state"]["lanes"]) for (const auto* key : {"iceQuota", "extraAmmo", "extraQuota"}) lane.erase(key);
+    for (const auto* key : {"pendingScrap", "waveScrap", "recycled"}) versionTwo["state"].erase(key);
+    Check(restored.Load(versionTwo, error) && restored.Save() == World().Save(), "v2 base migrates without resetting layout or old supplies");
+    int giantDebut = 0;
+    for (int n = 0; n < 5 + 13 * 2; ++n) if (SpawnType(14, n) == ZombieType::ZOMBIE_GARGANTUAR) ++giantDebut;
+    Check(giantDebut == 1 && SpawnType(8, 3) == ZombieType::ZOMBIE_FOOTBALL
+        && SpawnType(18, 12) == ZombieType::ZOMBIE_HEALER && SpawnType(22, 16) == ZombieType::ZOMBIE_CRYSTAL_DRUMMER
+        && SpawnType(26, 10) == ZombieType::ZOMBIE_ADAPTIVE_HELMET, "threat milestones and one-giant debut");
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

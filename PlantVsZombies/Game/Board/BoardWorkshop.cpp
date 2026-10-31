@@ -1,5 +1,6 @@
 #include "Board.h"
-#include "Game/Workshop/Workshop.h"
+#include "Game/Workshop/WorkshopRoster.h"
+#include "Game/Plant/MelonPult.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/AudioSystem.h"
@@ -42,17 +43,52 @@ void Board::RefreshWorkshopObservation()
     mWorkshop->ObserveFrontline(enemies, shooters);
 }
 
-bool Board::AddWorkshopShooter(int row, bool ice)
-{
-    if (!mWorkshop || row < 0 || row >= Workshop::Rows || mWorkshop->State() == Workshop::Phase::Dead) return false;
-    RefreshWorkshopObservation();
-    if (mWorkshop->Energy() < (ice ? Workshop::IceShooterCost : Workshop::ShooterCost)
-        || (ice && mWorkshop->CompletedWaves() < Workshop::ColdUnlockWave)
-        || mWorkshop->Lanes()[row].shooters >= Workshop::MaxShootersPerLane) return false;
-    const auto type = ice ? PlantType::PLANT_SNOWPEA : PlantType::PLANT_PEASHOOTER;
-    for (int col = kWorkshopFirstShooterColumn; col >= 0; --col) {
-        if (CanPlantAt(type, row, col) && CreatePlant(type, row, col)) return mWorkshop->AddShooter(row, ice);
+std::string Board::WorkshopPlantPlacementReason(PlantType type, int row, int column) {
+    const auto* info = Workshop::FindPlant(type);
+    if (!mWorkshop || !info) return "工坊尚未开放此植物";
+    if (mWorkshop->State() == Workshop::Phase::Dead) return "基地已失守";
+    if (row < 0 || row >= Workshop::Rows || column < 0 || column >= Workshop::FrontColumns) return "只能种在左侧六列";
+    if (mWorkshop->CompletedWaves() < info->unlockWave) return "守住第 " + std::to_string(info->unlockWave) + " 波后解锁";
+    if (mWorkshop->Energy() < info->cost) return "阳光不足";
+    if (!CanPlantAt(type, row, column)) return type == PlantType::PLANT_WINTERMELON ? "请选一株可升级的西瓜投手" : "此格已有植物或暂时不能种植";
+    return {};
+}
+
+bool Board::PlaceWorkshopPlant(PlantType type, int row, int column) {
+    if (!WorkshopPlantPlacementReason(type, row, column).empty()) return false;
+    const auto& info = *Workshop::FindPlant(type);
+    int inheritedLevel = 1; float healthRatio = 1;
+    if (type == PlantType::PLANT_WINTERMELON) {
+        const auto* base = GetNormalPlantAt(row, column);
+        inheritedLevel = base->GetWorkshopUpgradeLevel();
+        healthRatio = static_cast<float>(base->mPlantHealth) / std::max(1, base->mPlantMaxHealth);
     }
+    if (!mWorkshop->SpendEnergy(static_cast<float>(info.cost))) return false;
+    auto* plant = CreatePlayerPlant(type, row, column);
+    if (!plant) { mWorkshop->RefundEnergy(static_cast<float>(info.cost)); return false; }
+    if (type == PlantType::PLANT_WINTERMELON) {
+        auto* melon = static_cast<MelonPult*>(plant);
+        melon->InheritWorkshopLevel(inheritedLevel);
+        melon->mPlantHealth = std::max(1, static_cast<int>(melon->mPlantMaxHealth * healthRatio));
+    }
+    if (info.ammo != Workshop::Ammo::Count) mWorkshop->EnsureAmmoQuota(row, info.ammo);
+    RefreshWorkshopObservation();
+    return true;
+}
+
+bool Board::RemoveWorkshopPlant(int row, int column) {
+    if (!mWorkshop || mWorkshop->State() == Workshop::Phase::Dead || row < 0 || row >= Workshop::Rows || column < 0 || column >= Workshop::FrontColumns) return false;
+    auto* plant = GetNormalPlantAt(row, column);
+    if (!plant || !plant->IsActive() || plant->mPlantHealth <= 0) return false;
+    plant->Die(); RefreshWorkshopObservation(); return true;
+}
+
+/** 保留旧增援入口供旧脚本使用；玩家现在可以直接点格种植，数量由左侧六列占格决定。 */
+bool Board::AddWorkshopShooter(int row, bool ice) {
+    if (!mWorkshop || row < 0 || row >= Workshop::Rows) return false;
+    const auto type = ice ? PlantType::PLANT_SNOWPEA : PlantType::PLANT_PEASHOOTER;
+    for (int col = 0; col < Workshop::FrontColumns; ++col)
+        if (WorkshopPlantPlacementReason(type, row, col).empty()) return PlaceWorkshopPlant(type, row, col);
     return false;
 }
 
@@ -69,11 +105,21 @@ bool Board::BeginWorkshopAssault()
 
 bool Board::ReserveWorkshopAmmo(int row, PlantType type)
 {
-    return !mWorkshop || mWorkshop->ReserveAmmo(row, type == PlantType::PLANT_SNOWPEA ? Workshop::Ammo::Ice : Workshop::Ammo::Pea);
+    if (!mWorkshop) return true;
+    const auto* info = Workshop::FindPlant(type);
+    return info && info->ammo != Workshop::Ammo::Count && mWorkshop->ReserveAmmo(row, info->ammo);
 }
 void Board::RecordWorkshopShot(bool ice)
 {
     if (mWorkshop) mWorkshop->RecordShot(ice ? Workshop::Ammo::Ice : Workshop::Ammo::Pea);
+}
+
+void Board::RecordWorkshopPlantShot(PlantType type) {
+    if (mWorkshop) if (const auto* info = Workshop::FindPlant(type); info && info->ammo != Workshop::Ammo::Count) mWorkshop->RecordShot(info->ammo);
+}
+/** 只收真实死亡的敌方尸骸；直接清理存活对象、越线及时间替换均不领取。 */
+void Board::RecordWorkshopKill(const Zombie& zombie) {
+    if (mWorkshop && zombie.mZombieID != mWorkshopRetiringBreach && !zombie.IsMindControlled() && (zombie.IsDying() || zombie.mBodyHealth <= 0)) mWorkshop->RecordKill();
 }
 
 /** 入侵者沿用 Zombie 的房屋判定；每只越线只扣一次基地生命，不干预走路或啃食。 */
@@ -82,7 +128,10 @@ void Board::RecordWorkshopBreach(int zombieID)
     if (!mWorkshop || mWorkshop->State() != Workshop::Phase::Assault) return;
     auto* zombie = mEntityRegistry.GetZombie(zombieID);
     if (!zombie || !zombie->IsActive()) return;
+    const int previousBreach = mWorkshopRetiringBreach;
+    mWorkshopRetiringBreach = zombieID;
     zombie->Die();
+    mWorkshopRetiringBreach = previousBreach;
     mWorkshop->RecordBreach();
     if (mWorkshop->State() == Workshop::Phase::Dead) {
         mBoardState = BoardState::LOSE_GAME;
@@ -102,10 +151,7 @@ void Board::UpdateWorkshop()
     if (row >= 0) {
         const int wave = mWorkshop->CompletedWaves() + 1;
         const int number = mWorkshop->Spawned();
-        ZombieType type = ZombieType::ZOMBIE_NORMAL;
-        if (wave >= 3 && number % 4 == 3) type = ZombieType::ZOMBIE_TRAFFIC_CONE;
-        if (wave >= 5 && number % 6 == 5) type = ZombieType::ZOMBIE_NEWSPAPER;
-        if (wave >= 7 && number % 8 == 7) type = ZombieType::ZOMBIE_BUCKET;
+        const auto type = Workshop::SpawnType(wave, number);
         if (CreateZombie(type, row, kWorkshopSpawnX)) mWorkshop->CommitSpawn();
     }
     bool anyZombie = false;

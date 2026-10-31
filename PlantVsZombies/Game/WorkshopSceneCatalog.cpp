@@ -15,16 +15,16 @@ const glm::vec4 kCatalogRed{150, 53, 37, 255}; // 锁定及阳光不足提示颜
 
 int Category(Workshop::Machine type) {
     using M = Workshop::Machine;
-    if (type == M::Solar || type == M::Grower || type == M::Cooler) return 0;
+    if (type == M::Solar || type == M::Grower || type == M::Cooler || type == M::SporeGrower || type == M::MelonGrower || type == M::Recycler) return 0;
     return Workshop::IsLogic(type) ? 2 : 1;
 }
 struct CardLayout { Vector pos, size; };
-/** 命中框和绘制共用布局；电路八张分两行，生产与物流给机器图更大的展示空间。 */
+/** 命中框和绘制共用布局；生产/物流六卡两行，九种电路三行，不裁掉新增设备。 */
 CardLayout Layout(int category, int slot) {
-    const int columns = category == 0 ? 3 : 4;
+    const int columns = 3;
     const float width = (kCardsWidth - (columns - 1) * kCardGap) / columns;
-    return {Vector(72 + (slot % columns) * (width + kCardGap), 147 + (slot / columns) * 190.0f),
-        Vector(width, category == 2 ? 178 : 360)};
+    return {Vector(72 + (slot % columns) * (width + kCardGap), 147 + (slot / columns) * (category == 2 ? 123.0f : 190.0f)),
+        Vector(width, category == 2 ? 112 : 176)};
 }
 void Label(const std::string& value, float x, float y, int size = 16, glm::vec4 color = kCatalogInk) {
     GameAPP::GetInstance().DrawText(value, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
@@ -34,13 +34,18 @@ std::array<std::string, 2> Summary(Workshop::Machine type) {
     switch (type) {
     case M::Solar: return {"为全基地采集阳光", std::format("每秒 {:g} 阳光", Workshop::SolarRate)};
     case M::Grower: return {std::format("{:g} 阳光 → 1 普通弹", Workshop::GrowEnergy), std::format("每 {:.1f} 秒生产一颗", Workshop::GrowPeriod)};
-    case M::Cooler: return {std::format("1 普通弹 + {:g} 阳光", Workshop::CoolingEnergy), "加工成 1 颗寒冰弹"};
+    case M::Cooler: return {"选择冰豌豆 / 冰瓜配方", "原料 + 阳光 → 冷凝成品"};
+    case M::SporeGrower: return {"培养精英菇需要的孢子", std::format("每 {:.1f} 秒一份", Workshop::SporePeriods[0])};
+    case M::MelonGrower: return {"培育可投掷的西瓜", std::format("每 {:.1f} 秒一颗", Workshop::MelonPeriods[0])};
+    case M::SalvagePort: return {"提取击杀掉落的残骸", "连接运输带送往回收机"};
+    case M::Recycler: return {"1 份残骸 → 5 阳光", "准备阶段停止加工"};
+    case M::Counter: return {"A 上升沿计数，B 清零", "达到阈值输出高电平"};
     case M::Belt: return {"沿箭头逐格输送弹药", "连接相邻机器"};
     case M::Splitter: return {"一条输入分成两路", "可按弹种筛选出口"};
     case M::Store: return {"缓存运输中的弹药", "平衡供需波动"};
     case M::Feeder: return {"给前线弹仓补货", "指定路线与弹种"};
     case M::Switch: return {"手动切换开关", "控制所连机器"};
-    case M::EnemySensor: return {"指定路线有敌人", "就输出高电平"};
+    case M::EnemySensor: return {"检测指定路线敌人数", "达到设定阈值输出高"};
     case M::StockSensor: return {"检测指定库存", "达到阈值输出高"};
     case M::And: return {"A、B 同时为高", "才输出高电平"};
     case M::Or: return {"A、B 任一为高", "就输出高电平"};
@@ -155,19 +160,19 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         Label(info.name, x + 14, y + 13, 20, unlocked ? kCatalogGreen : kCatalogInk);
         Label(std::to_string(info.cost) + " 阳光", x + w - 91, y + 17, 15, affordable ? kCatalogInk : kCatalogRed);
         const bool compact = mCatalogCategory == 2;
-        const float scale = compact ? 1.55f : 2.4f;
-        const float imageX = compact ? x + 14 : x + (w - 122) / 2;
-        const float imageY = y + (compact ? 48 : 62);
+        const float scale = compact ? 0.86f : 1.5f;
+        const float imageX = x + 14;
+        const float imageY = y + (compact ? 34 : 45);
         g->FillRect(imageX - 3, imageY - 3, 53 * scale, 57 * scale, glm::vec4(209, 222, 180, 255));
         DrawMachineImage(g, type, imageX, imageY, scale);
         if (!unlocked) g->FillRect(imageX - 3, imageY - 3, 53 * scale, 57 * scale, glm::vec4(199, 199, 185, 105));
         const auto summary = Summary(type);
         for (int line = 0; line < 2; ++line)
-            Label(summary[line], compact ? x + 103 : x + 15, compact ? y + 62 + line * 27.0f : y + 223 + line * 29.0f, compact ? 14 : 17);
+            Label(summary[line], compact ? x + 74 : x + 109, y + (compact ? 38 : 61) + line * 24.0f, compact ? 13 : 14);
         const std::string status = !unlocked ? "守住第 " + std::to_string(info.unlockWave) + " 波解锁"
             : affordable ? "点击选择 · 放置时扣费" : "缺 " + std::to_string(static_cast<int>(std::ceil(info.cost - World().Energy()))) + " 阳光 · 可先选中";
-        g->FillRect(x + 9, y + h - 34, w - 18, 25, unlocked && affordable ? glm::vec4(221, 232, 190, 255) : glm::vec4(209, 201, 179, 255));
-        Label(status, x + 16, y + h - 29, 14, unlocked && affordable ? kCatalogGreen : kCatalogRed);
+        g->FillRect(x + 9, y + h - 29, w - 18, 23, unlocked && affordable ? glm::vec4(221, 232, 190, 255) : glm::vec4(209, 201, 179, 255));
+        Label(status, x + 16, y + h - 25, 13, unlocked && affordable ? kCatalogGreen : kCatalogRed);
         if (hover && mCatalogNotice.empty()) detail = info.description;
     }
     Label(detail.empty() ? "选择后返回地图，可连续放置；R 旋转指向的机器 / 空地预览，Esc 取消。" : detail, 75, 532, 15,

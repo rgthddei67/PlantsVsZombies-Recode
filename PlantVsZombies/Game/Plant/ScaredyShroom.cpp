@@ -29,6 +29,7 @@ void ScaredyShroom::SetupPlant()
 			BulletType::BULLET_PUFF, mRow, bulletPosition, mPlantType);
 		if (!bullet) return;
 		bullet->SetBulletDamage(GetPuffDamage());
+        mBoard->RecordWorkshopPlantShot(mPlantType);
 		OnPuffFired();
 		}, true);
 }
@@ -83,7 +84,7 @@ void ScaredyShroom::PlantUpdate()
 	const float shootInterval = GetShootInterval();
 	if (!mShotPending && this->mShootTimer >= shootInterval)
 	{
-		if (hasTarget)
+		if (hasTarget && mBoard->ReserveWorkshopAmmo(mRow, mPlantType))
 		{
 			mShootTimer = 0;
 			// pending 保护保证下一轮不能在吐弹帧之前重播；高速阶段允许吐弹后立即从前摇重启。

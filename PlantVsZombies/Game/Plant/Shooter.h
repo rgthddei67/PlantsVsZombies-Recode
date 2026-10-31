@@ -32,9 +32,9 @@ protected:
 public:
 	using Plant::Plant;
 	const Animator* GetHeadAnimator() const { return mHeadAnim.get(); }
-	int GetWorkshopUpgradeLevel() const { return mWorkshopUpgradeLevel; }
+	int GetWorkshopUpgradeLevel() const override { return mWorkshopUpgradeLevel; }
 	/** 工坊内支付阳光后升一级；保持生命、冷却进度和当前前摇，不重播发弹事件。 */
-	bool TryUpgradeWorkshop();
+	bool TryUpgradeWorkshop() override;
 	/** 已累计的冷却就绪后索敌游戏秒，供主线程冻结当前攻击阶段。 */
 	float GetTargetCheckElapsed() const { return mCheckZombieTimer; }
 

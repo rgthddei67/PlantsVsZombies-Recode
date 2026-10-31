@@ -12,7 +12,11 @@ class MelonPult : public Plant
 public:
 	using Plant::Plant;
 
-	void PlantUpdate() override;
+    int GetWorkshopUpgradeLevel() const override { return mWorkshopUpgradeLevel; }
+    bool TryUpgradeWorkshop() override;
+    /** 原位升级冰瓜时继承已付费的等级；只用于工坊创建事务。 */
+    void InheritWorkshopLevel(int level);
+    void PlantUpdate() override;
 	/** 保存当前攻击周期，保证读档后发射相位连续。 */
 	void SaveExtraData(nlohmann::json& j) const override;
 	/** 恢复攻击周期；旧档采用中性首轮状态。 */
@@ -30,6 +34,8 @@ protected:
 	virtual BulletType GetMelonBulletType() const;
 
 private:
+    int mWorkshopUpgradeLevel = 1;
+    float WorkshopSpeed() const;
 	float mShootTimer = 0.0f;
 	float mShootInterval = 3.0f;
 

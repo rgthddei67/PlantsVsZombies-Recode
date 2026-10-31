@@ -8,6 +8,9 @@
 #include "Board/Board.h"
 #include "Plant/Plant.h"
 #include "Plant/Shooter.h"
+#include "Plant/EliteScaredyShroom.h"
+#include "Plant/IceStorageNut.h"
+#include "Plant/MelonPult.h"
 #include "Zombie/Zombie.h"
 #include "Bullet/Bullet.h"
 #include "../Reanimation/Animator.h"
@@ -29,13 +32,14 @@ const glm::vec4 kGreen{66, 107, 51, 255}; // 工坊标题颜色
 /** 展示值直接读取模拟参数；升级预览和 tooltip 不维护第二套数值。 */
 std::string MachineEffect(Workshop::Machine type, int level) {
     using M = Workshop::Machine;
-    if (type == M::Grower || type == M::Cooler) return std::format("{:.1f} 秒/颗", Workshop::GrowPeriods[level - 1]);
+    if (const float period = Workshop::ProductionPeriod(type, level); period > 0) return std::format("{:.2g} 秒/份", period);
     if (type == M::Solar) return std::format("{:g} 阳光/秒", Workshop::SolarRates[level - 1]);
     if (type == M::Store) return std::to_string(Workshop::Capacity(type, level)) + " 颗容量";
     return {};
 }
-int ShooterCost(const Shooter* shooter) {
-    return shooter && shooter->mPlantType == PlantType::PLANT_SNOWPEA ? Workshop::IceShooterCost : Workshop::ShooterCost;
+int FrontPlantCost(const Plant* plant) {
+    const auto* info = plant ? Workshop::FindPlant(plant->mPlantType) : nullptr;
+    return info ? info->cost : 0;
 }
 
 std::string UpgradeLabel(const Workshop::World& world, int baseCost, int level) {
@@ -118,6 +122,13 @@ void WorkshopScene::OnEnter() {
     mResourcesReady = resources.HasReanimation("NormalZombie") && resources.HasReanimation("PeaShooter") && resources.HasReanimation("SnowPeaShooter");
     for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL"})
         mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
+    for (const auto& definition : Workshop::Plants) {
+        const auto& data = GameDataManager::GetInstance();
+        mResourcesReady = resources.HasReanimation(data.PlantTypeToAnimName(definition.type))
+            && resources.GetTexture(data.GetPlantTextureKey(definition.type), false) && mResourcesReady;
+    }
+    for (const char* key : {"IMAGE_PUFFSHROOM_PUFF1", "IMAGE_REANIM_MELONPULT_MELON", "IMAGE_REANIM_WINTERMELON_PROJECTILE", "IMAGE_ZOMBIE_HEAD_GROSSOUT"})
+        mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
     if (!mResourcesReady) {
         mLoadFailed = true; mLoadError = "工坊必需的原版资源未加载，请检查资源注册。";
     }
@@ -132,7 +143,9 @@ void WorkshopScene::OnExit() {
     if (!mLoadFailed) SaveBase();
     CloseCatalog(); mQuickButtons.clear(); mCatalogButton.reset();
     mMachineButtons.clear(); mFactoryControls.clear(); mFrontControls.clear();
-    mFrontUpgradeButtons.clear(); mQuotaButtons.clear(); mIceShooterButtons.clear(); mUpgradeButton.reset();
+    ClosePlantCatalog(); mQuotaDialog.reset(); mPlantButtons.clear();
+    mPlantCatalogButton.reset(); mFrontRemoveButton.reset(); mFrontUpgradeButton.reset(); mAbilityButton.reset(); mAutomaticButton.reset();
+    mQuotaButtons.clear(); mUpgradeButton.reset();
     mFitButton.reset(); mZoomInButton.reset(); mZoomOutButton.reset(); mRouteButton.reset(); mFilterButton.reset();
     mPauseButton.reset(); mStartButton.reset(); mViewButton.reset();
     Scene::OnExit();
@@ -226,7 +239,10 @@ void WorkshopScene::CreateControls() {
     mWireAButton = MakeButton("接 A 口", 275, 92, 90, [this] { SelectTool(Tool::WireA); });
     mWireBButton = MakeButton("接 B 口", 370, 92, 90, [this] { SelectTool(Tool::WireB); });
     mDisconnectButton = MakeButton("断开输入", 465, 92, 100, [this] { Act("disconnect", mSelected); });
-    mConfigButton = MakeButton("配置所选", 570, 92, 90, [this] { Act("configure", mSelected); });
+    mConfigButton = MakeButton("配置所选", 570, 92, 90, [this] {
+        if (mSelected >= 0 && World().Cells()[mSelected].type == Workshop::Machine::Cooler) Act("recipe", mSelected, "", 1 - World().Cells()[mSelected].recipe);
+        else Act("configure", mSelected);
+    });
     mFitButton = MakeButton("查看全图", 670, 92, 95, [this] { FitFactory(); });
     mZoomOutButton = MakeButton("－", 775, 92, 45, [this] { ZoomFactory(mMapZoom / 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
     mZoomInButton = MakeButton("＋", 827, 92, 45, [this] { ZoomFactory(mMapZoom * 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
@@ -241,28 +257,16 @@ void WorkshopScene::CreateControls() {
         if (mSelected >= 0) Act("route", mSelected, "", (World().Cells()[mSelected].route + 1) % Workshop::Rows);
     }, 27, 13);
     mFilterButton = MakeButton("弹种", 933, 390, 145, [this] {
-        if (mSelected >= 0) Act("filter", mSelected, "", World().Cells()[mSelected].filter == 1 ? -1 : World().Cells()[mSelected].filter + 1);
+        if (mSelected >= 0) Act("filter", mSelected, "", World().Cells()[mSelected].filter >= (World().Cells()[mSelected].type == Workshop::Machine::Feeder ? Workshop::AmmoCount - 1 : Workshop::ItemCount - 1) ? -1 : World().Cells()[mSelected].filter + 1);
     }, 27, 13);
     mUpgradeButton = MakeButton("选中机器升级", 928, 422, 150, [this] { Act("upgrade"); }, 27, 14);
     for (int row = 0; row < Workshop::Rows; ++row) {
-        auto quota = MakeButton("60/20", 1003, 477 + row * 22.0f, 75, [this, row] {
-            Act("quota", row, "", World().Lanes()[row].plainQuota == 0 ? 80 : std::max(0, World().Lanes()[row].plainQuota - 20));
-        }, 21, 12);
+        auto quota = MakeButton("配额", 1003, 477 + row * 22.0f, 75, [this, row] { OpenAmmoQuotas(row); }, 21, 12);
         mQuotaButtons.push_back(quota);
     }
     for (size_t i = firstFactoryControl; i < mUIManager.GetButtonCount(); ++i)
         mFactoryControls.push_back(mUIManager.GetButton(i));
-    for (int row = 0; row < Workshop::Rows; ++row) {
-        auto button = MakeButton("豌豆 " + std::to_string(Workshop::ShooterCost), 25, kFrontY + row * kFrontRowHeight + 55, 78,
-            [this, row] { Act("shooter", row); }, 22, 12);
-        mFrontControls.push_back(button);
-        auto ice = MakeButton("寒冰 200", 109, kFrontY + row * kFrontRowHeight + 55, 86,
-            [this, row] { Act("ice_shooter", row); }, 22, 12);
-        mFrontControls.push_back(ice); mIceShooterButtons.push_back(ice);
-        auto upgrade = MakeButton("选中射手", 25, kFrontY + row * kFrontRowHeight + 80, 170,
-            [this] { Act("upgrade"); }, 20, 12);
-        mFrontControls.push_back(upgrade); mFrontUpgradeButtons.push_back(upgrade);
-    }
+    CreateFrontControls();
     SetFrontView(World().State() != Workshop::Phase::Planning);
 }
 
@@ -282,6 +286,10 @@ void WorkshopScene::SetFrontView(bool front) {
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (action == "plant_catalog") return mPlantCatalogButton;
+    if (action == "front_remove") return mFrontRemoveButton;
+    if (action == "front_ability") return mAbilityButton;
+    if (action == "front_auto") return mAutomaticButton;
     if (action == "inspect") return mInspectButton;
     if (action == "remove_tool") return mRemoveButton;
     if (action == "wire_a_tool") return mWireAButton;
@@ -303,8 +311,7 @@ std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& actio
     if (action == "filter") return mFilterButton;
     if (action == "upgrade") {
         if (!mFrontView) return mUpgradeButton;
-        if (const auto* shooter = SelectedShooter()) return mFrontUpgradeButtons[shooter->mRow];
-        return nullptr;
+        return mFrontUpgradeButton;
     }
     constexpr std::array<const char*, 8> actions{"pause", "start", "expand", "repair", "help", "reset", "back", "view"};
     for (size_t i = 0; i < actions.size(); ++i) if (action == actions[i]) return mUIManager.GetButton(i);
@@ -318,24 +325,6 @@ std::shared_ptr<Button> WorkshopScene::GetMachineButton(Workshop::Machine type) 
     return found != mRecentMachines.end() ? mQuickButtons[found - mRecentMachines.begin()] : nullptr;
 }
 
-Shooter* WorkshopScene::SelectedShooter() const {
-    auto* shooter = dynamic_cast<Shooter*>(mBoard->mEntityRegistry.GetPlant(mSelectedShooter));
-    return shooter && shooter->IsActive() && shooter->mPlantHealth > 0
-        && (shooter->mPlantType == PlantType::PLANT_PEASHOOTER || shooter->mPlantType == PlantType::PLANT_SNOWPEA) ? shooter : nullptr;
-}
-
-/** 两种射手共用原生视觉原点进行选中判定，不把镜头或工厂格位带入前线。 */
-Shooter* WorkshopScene::ShooterAt(Vector point) const {
-    for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
-        auto* p = dynamic_cast<Shooter*>(mBoard->mEntityRegistry.GetPlant(id));
-        if (!p || !p->IsActive() || p->mPlantHealth <= 0
-            || (p->mPlantType != PlantType::PLANT_PEASHOOTER && p->mPlantType != PlantType::PLANT_SNOWPEA)) continue;
-        const auto anchor = p->GetVisualAnchorPosition();
-        if (std::abs(point.x - anchor.x) < 37 && point.y >= anchor.y - 43 && point.y <= anchor.y + 38) return p;
-    }
-    return nullptr;
-}
-
 /** 每帧从当前选择、波次和阳光派生按钮，切换视图时也立即撤销旧选择的操作资格。 */
 void WorkshopScene::UpdateUpgradeControls() {
     using M = Workshop::Machine;
@@ -346,7 +335,7 @@ void WorkshopScene::UpdateUpgradeControls() {
     if (mRotateButton) mRotateButton->SetEnabled(!mFrontView && (mTool == Tool::Build
         ? Workshop::HasDirectionalOutput(mBuildType) : selected && Workshop::HasDirectionalOutput(selected->type)));
     if (mConfigButton) mConfigButton->SetEnabled(!mFrontView && selected
-        && (selected->type == M::Switch || selected->type == M::Timer || selected->type == M::StockSensor));
+        && (selected->type == M::Switch || selected->type == M::Timer || selected->type == M::StockSensor || selected->type == M::Counter || selected->type == M::EnemySensor || selected->type == M::Cooler));
     if (mDisconnectButton) mDisconnectButton->SetEnabled(!mFrontView && selected && (selected->inputs[0] >= 0 || selected->inputs[1] >= 0));
     for (size_t i = 0; i < mQuickButtons.size(); ++i)
         mQuickButtons[i]->SetEnabled(!mFrontView && i < mRecentMachines.size() && World().Unlocked(mRecentMachines[i]));
@@ -357,17 +346,19 @@ void WorkshopScene::UpdateUpgradeControls() {
         mUpgradeButton->SetSkipDraw(mFrontView || !supported);
         mUpgradeButton->SetEnabled(!mFrontView && supported && World().CanBuyUpgrade(Workshop::Describe(cell->type).cost, cell->level));
     }
-    const auto* shooter = SelectedShooter();
-    for (size_t row = 0; row < mFrontUpgradeButtons.size(); ++row) {
-        const bool selected = shooter && shooter->mRow == static_cast<int>(row);
-        auto& button = mFrontUpgradeButtons[row];
-        button->SetText(selected ? UpgradeLabel(World(), ShooterCost(shooter), shooter->GetWorkshopUpgradeLevel()) : "选中射手升级");
-        button->SetEnabled(mFrontView && selected && World().CanBuyUpgrade(ShooterCost(shooter), shooter->GetWorkshopUpgradeLevel()));
+    const auto* plant = SelectedFrontPlant();
+    const auto* definition = plant ? Workshop::FindPlant(plant->mPlantType) : nullptr;
+    if (mFrontUpgradeButton) {
+        const bool supported = definition && definition->upgrades;
+        mFrontUpgradeButton->SetText(supported ? UpgradeLabel(World(), definition->cost, plant->GetWorkshopUpgradeLevel()) : "选中植物升级");
+        mFrontUpgradeButton->SetEnabled(mFrontView && supported && World().CanBuyUpgrade(definition->cost, plant->GetWorkshopUpgradeLevel()));
     }
-    for (const auto& button : mIceShooterButtons) {
-        button->SetEnabled(mFrontView && World().CompletedWaves() >= Workshop::ColdUnlockWave);
-        button->SetText(World().CompletedWaves() >= Workshop::ColdUnlockWave ? "寒冰 200" : "第3波解锁");
-    }
+    if (mFrontRemoveButton) mFrontRemoveButton->SetText(mFrontTool == FrontTool::Remove ? "铲除中" : "铲除植物");
+    const auto* nut = dynamic_cast<const IceStorageNut*>(plant);
+    if (mAbilityButton) { mAbilityButton->SetText("阳光修复"); mAbilityButton->SetEnabled(mFrontView && nut && nut->IsReadyToActivate() && nut->CanAffordActivation()); }
+    if (mAutomaticButton) { mAutomaticButton->SetText(nut && nut->IsAutomatic() ? "自动修复：开" : "自动修复：关"); mAutomaticButton->SetEnabled(mFrontView && nut); }
+    if (mConfigButton && selected && selected->type == M::Cooler) mConfigButton->SetText(selected->recipe == 1 ? "配方：冰瓜" : "配方：冰豆");
+    else if (mConfigButton) mConfigButton->SetText("配置所选");
     if (mRouteButton && mFilterButton) {
         const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
         const auto type = cell ? cell->type : Workshop::Machine::Empty;
@@ -380,8 +371,7 @@ void WorkshopScene::UpdateUpgradeControls() {
         if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "弹种 ") + Workshop::AmmoName(cell->filter));
     }
     for (size_t row = 0; row < mQuotaButtons.size(); ++row) {
-        const auto quota = World().Lanes()[row].plainQuota;
-        mQuotaButtons[row]->SetText(std::to_string(quota) + "/" + std::to_string(Workshop::MagazineCapacity - quota));
+        mQuotaButtons[row]->SetText("配额 " + std::to_string(World().Lanes()[row].TotalStock()) + "/80");
     }
 }
 
@@ -406,16 +396,25 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "select_shooter") {
         auto* plant = mBoard->GetNormalPlantAt(index, value);
         if (!plant) return false;
-        mSelectedShooter = plant->mPlantID; UpdateUpgradeControls(); return SelectedShooter() != nullptr;
+        mSelectedShooter = plant->mPlantID; UpdateUpgradeControls(); return SelectedFrontPlant() != nullptr;
     }
     else if (action == "upgrade_machine") result = World().Upgrade(index);
     else if (action == "upgrade") {
-        if (mFrontView) { if (auto* shooter = SelectedShooter()) result = shooter->TryUpgradeWorkshop(); }
+        if (mFrontView) { if (auto* plant = SelectedFrontPlant()) result = plant->TryUpgradeWorkshop(); }
         else result = World().Upgrade(mSelected);
     }
     else if (action == "remove") result = World().Remove(index);
     else if (action == "rotate") result = World().Rotate(index);
     else if (action == "configure") result = World().Configure(index);
+    else if (action == "recipe") result = World().SetRecipe(index, value);
+    else if (action == "plant") { const auto* info = Workshop::FindPlant(type); result = info && mBoard->PlaceWorkshopPlant(info->type, index, value); }
+    else if (action == "remove_plant") result = mBoard->RemoveWorkshopPlant(index, value);
+    else if (action == "plant_ability") { if (auto* plant = SelectedFrontPlant()) result = plant->TryActivateManualAbility(); }
+    else if (action == "plant_auto") { if (auto* plant = SelectedFrontPlant(); plant && plant->HasManualAbility()) { plant->SetAbilityAutomatic(!plant->IsAbilityAutomatic()); result = true; } }
+    else if (action == "ammo_quota") {
+        int item = -1; for (int a = 0; a < Workshop::AmmoCount; ++a) if (type == Workshop::AmmoName(a)) item = a;
+        result = item >= 0 && World().SetAmmoQuota(index, static_cast<Workshop::Ammo>(item), value);
+    }
     else if (action == "route") result = World().SetRoute(index, value);
     else if (action == "filter") result = World().SetFilter(index, value);
     else if (action == "quota") result = World().SetQuota(index, value);
@@ -444,7 +443,8 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
         SaveBase();
     } else {
         mNotice = action == "expand" ? "扩建需守住第 3 波、250 阳光，宽高各增加 2 格，最多 20×20。"
-            : action == "shooter" || action == "ice_shooter" ? "每行两种射手合计最多 3 株；寒冰需守住第 3 波和 200 阳光。"
+            : action == "shooter" || action == "ice_shooter" ? "前线左侧六列可种植；检查空格、解锁波次与阳光。"
+            : action == "recipe" ? "冰瓜配方需守住第8波；原料缓冲清空后才能换配方。"
             : "操作未完成：检查能源、空地、解锁条件或信号端口。";
     }
     UpdateUpgradeControls();
@@ -494,7 +494,7 @@ void WorkshopScene::ConfirmReset() {
 void WorkshopScene::ShowHelp() {
     CancelMapGesture();
     mDismissibleDialog = GameMessageBox::Builder(Vector(550, 290)).Title("戴夫工坊 · 从一条生产线开始")
-        .Message("准备阶段阳光、生产、运输与电路全部停机，可自由施工；开波后恢复，已有库存保留。\n育豆机 → 运输带 → 装填口；装填口可指定前线的路线和弹种，无对应弹药就停火。\n守住第 3 波开放冷却机与寒冰射手：普通豌豆 + 2 阳光加工成寒冰弹。分流器筛选弹种，仓库可设收货类型。\n每路弹仓共 80 颗，右侧按钮调整普通/寒冰配额；调额保留已有库存。\n左键或中键拖动地图，滚轮缩放，适应按钮查看全图。R 旋转指向的机器或空地预览，Esc/右键结束操作；暂停可施工。\n选中机器或前线射手后花阳光升级，守住第 2/5 波开放二/三级。\n基地与冒险独立，持续经营；死亡可回到本波开战前调整，或重开整个基地。")
+        .Message("准备阶段阳光、生产、运输、电路与回收全部停机，可施工；开波后恢复。\n工厂按B选机器：育豆、孢子、瓜果生产后，经运输带和装填口送到指定路线。\n冷凝机可做寒冰弹或冰瓜；原料清空后切配方。每路五种弹药共用80份容量，可点配额调整。\n前线按B选植物，点击左侧六列种植；冰瓜需要现有西瓜。铲除不退款，Esc或右键取消工具。\n输出植物缺对应弹药就停火；精英菇跨波保留成长，受惊归零；冰仓坚果开波后可花阳光修复。\n击杀残骸经回收入口、运输带、回收机转为阳光；每波全基地最多40份，越线不算击杀。\n按住左键拖工厂地图，滚轮缩放；R旋转指向机器，空地时旋转预览。暂停允许施工。\n基地与冒险独立，持续经营；死亡可恢复本波开战前，或重开基地。")
         .Button("开始经营", Vector(0, 0), Vector(200, 50), 20, [] {}).Show();
 }
 void WorkshopScene::ShowDeath() {
@@ -529,11 +529,12 @@ void WorkshopScene::Update() {
     bool escapeConsumed = false;
     if (catalogInput.IsKeyPressed(SDLK_ESCAPE)) {
         if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
+        else if (mPlantCatalog && mPlantCatalog->IsActive()) { ClosePlantCatalog(); escapeConsumed = true; }
         else if (const auto box = mDismissibleDialog.lock(); box && box == mUIManager.GetTopActiveMessageBox()) {
             box->Close(); mDismissibleDialog.reset(); CancelTool(); escapeConsumed = true;
         }
     }
-    if (!mFrontView && !mUIManager.GetTopActiveMessageBox() && catalogInput.IsKeyPressed(SDLK_b)) OpenCatalog();
+    if (!mUIManager.GetTopActiveMessageBox() && catalogInput.IsKeyPressed(SDLK_b)) { if (mFrontView) OpenPlantCatalog(); else OpenCatalog(); }
     const bool modal = mUIManager.GetTopActiveMessageBox() != nullptr;
     if (modal) CancelMapGesture();
     if (!modal) {
@@ -542,9 +543,7 @@ void WorkshopScene::Update() {
         if (!escapeConsumed && (input.IsKeyPressed(SDLK_ESCAPE) || input.IsMouseButtonPressed(SDL_BUTTON_RIGHT))) CancelTool();
         if (!mFrontView && input.IsKeyPressed(SDLK_r)) RotatePointedMachine();
         if (!mFrontView) UpdateFactoryInput();
-        if (mFrontView && input.IsMouseButtonPressed(SDL_BUTTON_LEFT)) {
-            if (auto* shooter = ShooterAt(input.GetMousePosition())) mSelectedShooter = shooter->mPlantID;
-        }
+        if (mFrontView) UpdateFrontInput();
     }
     if (!mPaused && !modal) {
         const float dt = DeltaTime::GetDeltaTime();
@@ -571,7 +570,7 @@ void WorkshopScene::BuildDrawCommands() {
         if (mFrontView && g_particleSystem) g_particleSystem->DrawFrom(LAYER_UI);
     }, LAYER_EFFECTS);
     RegisterDrawCommand("Workshop", [this](Graphics* g) { DrawWorkshop(g); }, LAYER_UI - 1);
-    RegisterDrawCommand("WorkshopInteraction", [this](Graphics* g) { DrawInteraction(g); }, LAYER_UI + 4000);
+    RegisterDrawCommand("WorkshopInteraction", [this](Graphics* g) { DrawInteraction(g); DrawFrontOverlay(g); }, LAYER_UI + 4000);
     RegisterDrawCommand("WorkshopTooltip", [this](Graphics* g) { if (!IsCatalogOpen()) DrawTooltip(g); }, LAYER_UI + 5000);
 }
 
@@ -583,7 +582,7 @@ void WorkshopScene::UpdateTooltip() {
     int key = -1, index = -1;
     auto type = Workshop::Machine::Empty;
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
-    const auto* hoveredShooter = mFrontView && !mUIManager.GetTopActiveMessageBox() ? ShooterAt(mouse) : nullptr;
+    const auto* hoveredShooter = mFrontView && !mUIManager.GetTopActiveMessageBox() ? FrontPlantAt(mouse) : nullptr;
     if (hoveredShooter) key = 1000 + hoveredShooter->mPlantID;
     if (IsCatalogOpen()) {
         for (size_t i = 0; i < mMachineButtons.size(); ++i) if (mMachineButtons[i]->IsHovered()) {
@@ -605,22 +604,40 @@ void WorkshopScene::UpdateTooltip() {
     if (key < 0 || SDL_GetTicks64() - mHoverStarted < 300) return;
     const auto& info = Workshop::Describe(type);
     const int level = hoveredShooter ? hoveredShooter->GetWorkshopUpgradeLevel() : index >= 0 ? World().Cells()[index].level : 1;
-    const int baseCost = hoveredShooter ? ShooterCost(hoveredShooter) : info.cost;
+    const int baseCost = hoveredShooter ? FrontPlantCost(hoveredShooter) : info.cost;
     std::vector<std::string> lines;
     if (hoveredShooter) {
-        const bool ice = hoveredShooter->mPlantType == PlantType::PLANT_SNOWPEA;
-        lines = {std::string(ice ? "寒冰射手 · Lv." : "豌豆射手 · Lv.") + std::to_string(level),
-            ice ? "只消耗寒冰弹，沿用原版命中减速；普通弹不能代用。" : "只消耗普通弹；升级提高射速，单颗伤害不变。",
-            std::format("基础冷却：{:.1f} 秒；缺弹时等待供给", Workshop::ShooterCooldowns[level - 1]), "点击选中，在本行左侧升级。"};
-        if (level < Workshop::MaxUpgradeLevel)
-            lines.push_back(std::format("下一级：基础冷却 {:.1f} 秒", Workshop::ShooterCooldowns[level]));
+        const auto* definition = Workshop::FindPlant(hoveredShooter->mPlantType);
+        lines = {definition ? definition->name : "前线植物", definition ? definition->role : "",
+            std::format("生命 {}/{} · 格位 {},{}", hoveredShooter->mPlantHealth, hoveredShooter->mPlantMaxHealth, hoveredShooter->mRow + 1, hoveredShooter->mColumn + 1)};
+        if (definition && definition->ammo != Workshop::Ammo::Count)
+            lines.push_back(std::string("每次攻击消耗 1 份") + Workshop::AmmoName(static_cast<int>(definition->ammo)) + "；缺弹停火");
+        if (definition && definition->upgrades) {
+            const auto* melon = dynamic_cast<const MelonPult*>(hoveredShooter);
+            const float baseInterval = melon ? melon->GetShootInterval() : Workshop::ShooterCooldowns[0];
+            lines.push_back(std::format("Lv.{} · 约 {:.1f} 秒/次 · 点击选中升级", level,
+                baseInterval * Workshop::ShooterCooldowns[level - 1] / Workshop::ShooterCooldowns[0]));
+            if (level < Workshop::MaxUpgradeLevel) lines.push_back(std::format("下一级：约 {:.1f} 秒/次",
+                baseInterval * Workshop::ShooterCooldowns[level] / Workshop::ShooterCooldowns[0]));
+        }
+        if (const auto* elite = dynamic_cast<const EliteScaredyShroom*>(hoveredShooter)) {
+            lines.push_back(std::format("当前伤害 {} · 间隔 {:.2f} 秒", elite->GetCurrentPuffDamage(), elite->GetShootIntervalMilliseconds() / 1000.0f));
+            lines.push_back("成长跨波保留；缺弹不清零，近身受惊清零。");
+        }
+        if (const auto* nut = dynamic_cast<const IceStorageNut*>(hoveredShooter)) {
+            lines.push_back(nut->GetManualAbilityDescription()); lines.push_back("开波后可手动或自动修复；准备阶段停止计时。");
+        }
     } else {
         lines = {std::string(info.name) + (Workshop::CanUpgradeMachine(type) ? " · Lv." + std::to_string(level) : "")
             + " · 建造 " + std::to_string(info.cost) + " 阳光", info.description};
         if (type == Workshop::Machine::Grower)
             lines.push_back("产速：" + MachineEffect(type, level) + std::format("；消耗：{:.0f} 阳光/颗", Workshop::GrowEnergy));
-        else if (type == Workshop::Machine::Cooler)
-            lines.push_back("加工：" + MachineEffect(type, level) + "；1 普通弹 + 2 阳光 → 1 寒冰弹");
+        else if (type == Workshop::Machine::Cooler) {
+            lines.push_back("加工：" + MachineEffect(type, level) + "；冰瓜配方守住第8波开放");
+            lines.push_back("普通弹 + 2阳光 → 寒冰弹；西瓜 + 6阳光 → 冰瓜");
+        } else if (type == Workshop::Machine::SporeGrower || type == Workshop::Machine::MelonGrower)
+            lines.push_back("产速：" + MachineEffect(type, level) + std::format("；每份消耗 {:g} 阳光", type == Workshop::Machine::SporeGrower ? Workshop::SporeEnergy : Workshop::MelonEnergy));
+        else if (type == Workshop::Machine::Recycler) lines.push_back("加工：" + MachineEffect(type, level) + "；每份残骸获得5阳光");
         else if (type == Workshop::Machine::Solar) lines.push_back("产能：" + MachineEffect(type, level) + "；全基地共享");
         else if (info.capacity > 0) lines.push_back(std::format("输送：每 {:.2f} 秒至多 1 颗", Workshop::TransportPeriod));
         if (info.capacity > 0) lines.push_back("内部容量：" + std::to_string(Workshop::Capacity(type, level)) + " 颗");
@@ -633,7 +650,17 @@ void WorkshopScene::UpdateTooltip() {
                 lines.push_back("R 直接旋转这台机器，无需退出建造。");
             }
             const auto& cell = World().Cells()[index];
-            if (info.capacity > 0) lines.push_back(std::format("库存：普通 {}，寒冰 {}", cell.stock, cell.iceStock));
+            if (info.capacity > 0) {
+                std::string inventory = "库存：";
+                for (int a = 0; a < Workshop::ItemCount; ++a) if (cell.Inventory(static_cast<Workshop::Ammo>(a)) > 0)
+                    inventory += std::string(Workshop::AmmoName(a)) + " " + std::to_string(cell.Inventory(static_cast<Workshop::Ammo>(a))) + "  ";
+                lines.push_back(cell.TotalStock() > 0 ? inventory : "库存：空");
+            }
+            if (type == Workshop::Machine::Counter) lines.push_back(std::format("计数 {} / 阈值 {}；A上升沿 +1，B清零", cell.count, cell.setting));
+            if (type == Workshop::Machine::EnemySensor) lines.push_back(std::format("本行敌人达到 {} 只时输出高电平", cell.setting));
+            if (type == Workshop::Machine::Cooler) lines.push_back(cell.recipe == 1 ? "当前配方：冰瓜" : "当前配方：寒冰豌豆");
+            if (type == Workshop::Machine::SalvagePort || type == Workshop::Machine::Recycler)
+                lines.push_back(std::format("待提取残骸 {}；本波掉落 {}/40", World().PendingScrap(), World().WaveScrap()));
             if (type == Workshop::Machine::Feeder || type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor)
                 lines.push_back("目标路线：第 " + std::to_string(cell.route + 1) + " 路");
             if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
@@ -643,7 +670,7 @@ void WorkshopScene::UpdateTooltip() {
         if (Workshop::CanUpgradeMachine(type) && level < Workshop::MaxUpgradeLevel)
             lines.push_back("下一级：" + MachineEffect(type, level + 1));
     }
-    if (hoveredShooter || Workshop::CanUpgradeMachine(type)) {
+    if ((hoveredShooter && Workshop::FindPlant(hoveredShooter->mPlantType) && Workshop::FindPlant(hoveredShooter->mPlantType)->upgrades) || (!hoveredShooter && Workshop::CanUpgradeMachine(type))) {
         if (level < Workshop::MaxUpgradeLevel)
             lines.push_back(std::format("升级需 {} 阳光，守住第 {} 波开放", Workshop::UpgradeCost(baseCost, level), Workshop::UpgradeWaves[level]));
         else lines.push_back("已满级（3 级）");
@@ -704,13 +731,13 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
     if (cell.type == M::Solar) PlantIcon(g, true, x + 10, y + 7, 29, 34);
     else if (cell.type == M::Grower) {
         g->FillRect(x + 10, y + 11, 30, 25, glm::vec4(63, 64, 35, 255));
-        Sprite(g, "IMAGE_PROJECTILEPEA", x + 15, y + 15, 20, 20);
-        g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::GrowPeriods[cell.level - 1]), 3, kGold);
+        DrawItemIcon(g, Workshop::ProducedItem(cell.type), x + 15, y + 15, 20);
+        g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::ProductionPeriod(cell.type, cell.level)), 3, kGold);
     } else if (cell.type == M::Cooler) {
         g->FillRect(x + 8, y + 10, 34, 28, glm::vec4(68, 126, 142, 255));
         g->DrawRect(x + 8, y + 10, 34, 28, glm::vec4(173, 231, 239, 255));
-        Sprite(g, "IMAGE_PROJECTILESNOWPEA", x + 16, y + 13, 19, 19);
-        g->FillRect(x + 9, y + 36, 32 * std::min(1.0f, cell.clock / Workshop::GrowPeriods[cell.level - 1]), 3, glm::vec4(150, 234, 255, 255));
+        DrawItemIcon(g, cell.recipe == 1 ? Workshop::Ammo::IceMelon : Workshop::Ammo::Ice, x + 16, y + 13, 19);
+        g->FillRect(x + 9, y + 36, 32 * std::min(1.0f, cell.clock / Workshop::ProductionPeriod(cell.type, cell.level)), 3, glm::vec4(150, 234, 255, 255));
     } else if (cell.type == M::Belt || cell.type == M::Splitter) {
         g->FillRect(x + 8, y + 9, 34, 30, glm::vec4(43, 46, 38, 255));
         for (int n = 0; n < 5; ++n) {
@@ -724,21 +751,28 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
         g->FillRect(x + 10, y + 11, 30, 27, glm::vec4(149, 108, 53, 255));
         for (int n = 0; n < 4; ++n) g->DrawLine(x + 11, y + 12 + n * 8, x + 39, y + 12 + n * 8, kInk);
         g->DrawRect(x + 10, y + 11, 30, 27, kGold);
+    } else if (cell.type == M::SalvagePort || cell.type == M::Recycler) {
+        g->FillRect(x + 9, y + 10, 32, 27, glm::vec4(92, 72, 56, 255));
+        DrawItemIcon(g, Workshop::Ammo::Scrap, x + 14, y + 12, 23);
+        if (cell.type == M::Recycler) label("+5", x + 13, y + 28, 11);
+        else Arrow(g, x + 37, y + 27, cell.direction, kGold);
     } else if (cell.type == M::Feeder) {
         PlantIcon(g, false, x + 11, y + 6, 28, 28);
         if (details && displayScale >= 0.85f) label(std::to_string(cell.route + 1) + "路", x + 14, y + 27, 12);
     } else {
         const char* glyph = cell.type == M::And ? "&" : cell.type == M::Or ? "OR" : cell.type == M::Not ? "!"
             : cell.type == M::Latch ? "M" : cell.type == M::Timer ? "T" : cell.type == M::EnemySensor ? "Z"
-            : cell.type == M::StockSensor ? "#" : "I/O";
+            : cell.type == M::StockSensor ? "#" : cell.type == M::Counter ? "N" : "I/O";
         label(glyph, x + 13, y + 12, 21);
+        if (cell.type == M::Counter && details && displayScale >= 0.85f) label(std::to_string(cell.count), x + 13, y + 34, 10);
         g->FillCircle(x + 40, y + 11, 4, cell.signal ? glm::vec4(131, 255, 93, 255) : glm::vec4(32, 43, 36, 255));
     }
     if (!logic && cell.type != M::Solar) {
-        if (cell.stock > 0) Sprite(g, "IMAGE_PROJECTILEPEA", x + 3, y + 37, 11, 11);
-        if (cell.iceStock > 0) Sprite(g, "IMAGE_PROJECTILESNOWPEA", x + 15, y + 37, 11, 11);
+        int icon = 0;
+        for (int a = 0; a < Workshop::ItemCount && icon < 2; ++a) if (cell.Inventory(static_cast<Workshop::Ammo>(a)) > 0)
+            DrawItemIcon(g, static_cast<Workshop::Ammo>(a), x + 3 + icon++ * 12, y + 37, 11);
         if (details && displayScale >= 0.85f) label(std::to_string(cell.TotalStock()), x + 28, y + 37, 11);
-        if (cell.type != M::Feeder) {
+        if (Workshop::HasDirectionalOutput(cell.type)) {
             Arrow(g, x + 42, y + 54, cell.direction, glm::vec4(24, 37, 24, 255));
             Arrow(g, x + 42, y + 52, cell.direction, kGold);
         }
@@ -757,29 +791,20 @@ void WorkshopScene::DrawFront(Graphics* g) {
         const int enemies = World().EnemyCounts()[row];
         if (!mFrontView) {
             const float y = 479 + row * 22.0f;
-            Text(std::format("{}路 普{} 冰{} 敌{}", row + 1, lane.ammo, lane.iceAmmo, enemies), 813, y, 12, kGreen);
+            Text(std::format("{}路 库存{}/80 敌{}", row + 1, lane.TotalStock(), enemies), 813, y, 12, kGreen);
             continue;
         }
         const float y = kFrontY + row * kFrontRowHeight;
         g->FillRect(12, y + 4, 195, 98, glm::vec4(232, 220, 168, 238));
-        Text(std::format("{}路 普{} 冰{}", row + 1, lane.ammo, lane.iceAmmo), 25, y + 8, 16);
-        Text(std::format("配额 {}/{} · 敌人 {}", lane.plainQuota, Workshop::MagazineCapacity - lane.plainQuota, enemies), 25, y + 27, 11, kGreen);
-        const auto* selected = SelectedShooter();
-        std::string detail = "点击射手查看升级";
+        Text(std::format("第{}路 · 敌{} · 仓{}/80", row + 1, enemies, lane.TotalStock()), 25, y + 8, 13);
+        Text(std::format("普{} 冰{} 孢{} 瓜{} 冻{}", lane.ammo, lane.iceAmmo, lane.Inventory(Workshop::Ammo::Spore), lane.Inventory(Workshop::Ammo::Melon), lane.Inventory(Workshop::Ammo::IceMelon)), 25, y + 27, 11, kGreen);
+        const auto* selected = SelectedFrontPlant();
         if (selected && selected->mRow == row) {
-            const int level = selected->GetWorkshopUpgradeLevel();
-            detail = std::format("Lv.{}  {:.1f}秒", level, Workshop::ShooterCooldowns[level - 1]);
-            if (level < Workshop::MaxUpgradeLevel) detail += std::format(" → {:.1f}秒", Workshop::ShooterCooldowns[level]);
-        }
-        Text(detail, 25, y + 41, 11, kGreen);
-    }
-    if (mFrontView) for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
-        const auto* p = dynamic_cast<const Shooter*>(mBoard->mEntityRegistry.GetPlant(id));
-        if (!p || !p->IsActive()) continue;
-        const auto anchor = p->GetVisualAnchorPosition();
-        if (id == mSelectedShooter) g->DrawRect(anchor.x - 37, anchor.y - 43, 74, 81, kGold);
-        g->FillRect(anchor.x - 21, anchor.y + 38, 42, 19, glm::vec4(42, 49, 32, 220));
-        Text("Lv." + std::to_string(p->GetWorkshopUpgradeLevel()), anchor.x - 17, anchor.y + 40, 13, kGold);
+            const auto* info = Workshop::FindPlant(selected->mPlantType);
+            Text(info ? info->name : "植物", 25, y + 42, 13, kGreen);
+            Text(std::format("HP {}", selected->mPlantHealth), 123, y + 44, 10);
+        } else Text("点击格子种植 / 选择", 25, y + 43, 12, kGreen);
+
     }
 }
 
@@ -853,7 +878,7 @@ void WorkshopScene::DrawFactoryPanel(Graphics* g) {
         Text(World().Status(mSelected), 815, 344, 14);
         const auto effect = MachineEffect(cell.type, cell.level);
         if (!effect.empty()) Text(effect + (cell.level < Workshop::MaxUpgradeLevel ? " → " + MachineEffect(cell.type, cell.level + 1) : " · 满级"), 815, 365, 13);
-        else if (cell.type == Workshop::Machine::Timer || cell.type == Workshop::Machine::StockSensor)
+        else if (cell.type == Workshop::Machine::Timer || cell.type == Workshop::Machine::StockSensor || cell.type == Workshop::Machine::EnemySensor || cell.type == Workshop::Machine::Counter)
             Text("当前设定 " + std::to_string(cell.setting) + (cell.type == Workshop::Machine::Timer ? " 秒" : " 颗"), 815, 365, 13);
         Text(std::format("格位 {},{}", mSelected / Workshop::MaxColumns + 1, mSelected % Workshop::MaxColumns + 1), 815, 428, 12);
     } else {
@@ -863,7 +888,7 @@ void WorkshopScene::DrawFactoryPanel(Graphics* g) {
         Text("R 旋转 · Esc / 右键取消", 815, 376, 13);
     }
     Text("前线库存", 815, 454, 15, kGreen);
-    Text("配额 普/冰", 1003, 455, 12, kGreen);
+    Text("弹仓配额", 1003, 455, 12, kGreen);
     DrawFront(g);
 }
 
@@ -887,6 +912,9 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     Text(mSaveFailed ? "保存失败 · 检查磁盘权限" : mPaused ? "已暂停 · 可以施工"
         : World().State() == Workshop::Phase::Planning ? "准备停机 · 开波后运行" : "独立基地 · 自动保存", 780, 18, 18, kGreen);
     Text(std::format("{}×{} · {:.0f}%", World().Columns(), World().FactoryRows(), mMapZoom * 100), 891, 99, 16, kGreen);
+    for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
+        Text(std::to_string(threat.wave) + "波 " + threat.name, 646, 21, 14, kGreen); break;
+    }
     DrawFactoryMap(g);
     DrawFactoryPanel(g);
     g->PushClipRect(16, 580, 780, 20);
@@ -905,6 +933,11 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["factoryTextureReady"] = ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_BACKGROUND_WORKSHOP_GARDEN, false) != nullptr;
     j["savePath"] = mSavePath;
     j["frontView"] = mFrontView;
+    j["frontTool"] = static_cast<int>(mFrontTool); j["frontBuildType"] = static_cast<int>(mFrontBuildType);
+    j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
+    j["frontColumns"] = Workshop::FrontColumns;
+    j["threats"] = nlohmann::json::array();
+    for (const auto& threat : Workshop::Threats) j["threats"].push_back({{"wave", threat.wave}, {"name", threat.name}});
     j["tool"] = static_cast<int>(mTool); j["toolName"] = ToolName();
     j["draggingMap"] = mMapDragging || mLeftPanning; j["leftGesturePending"] = mLeftPending;
     j["hoveredMachine"] = HoveredMachine(); j["wireSource"] = mWireSource;
@@ -926,7 +959,7 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["nativeFrontline"] = true;
     j["nativePlants"] = nlohmann::json::array();
     j["nativePlantsByCell"] = nlohmann::json::object();
-    j["selectedShooter"] = SelectedShooter() ? mSelectedShooter : -1;
+    j["selectedShooter"] = SelectedFrontPlant() ? mSelectedShooter : -1;
     j["upgradeEnabled"] = GetControlButton("upgrade") && GetControlButton("upgrade")->IsEnabled();
     j["nativeZombies"] = nlohmann::json::array();
     j["hasShootingAnimation"] = false;
@@ -941,9 +974,9 @@ nlohmann::json WorkshopScene::Inspect() const {
             const auto* shooter = dynamic_cast<const Shooter*>(p);
             const std::string headTrack = shooter && shooter->GetHeadAnimator() ? shooter->GetHeadAnimator()->GetCurrentTrackName() : "";
             if (headTrack == "anim_shooting") j["hasShootingAnimation"] = true;
-            const int level = shooter ? shooter->GetWorkshopUpgradeLevel() : 1;
+            const int level = p->GetWorkshopUpgradeLevel();
             nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
-                {"level", level}, {"ice", p->mPlantType == PlantType::PLANT_SNOWPEA}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
+                {"level", level}, {"type", static_cast<int>(p->mPlantType)}, {"ice", p->mPlantType == PlantType::PLANT_SNOWPEA}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
             j["nativePlants"].push_back(plant);
             j["nativePlantsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plant;
         }

@@ -1,4 +1,6 @@
 #include "MelonPult.h"
+#include "Game/Workshop/WorkshopRoster.h"
+#include <stdexcept>
 #include "../../GameApp.h"
 
 #include "Game/Board/Board.h"
@@ -51,16 +53,19 @@ void MelonPult::SetupPlant()
 
 void MelonPult::PlantUpdate()
 {
-	const float attackSpeed = GetAttackSpeedMultiplier();
+	const float attackSpeed = GetAttackSpeedMultiplier() * WorkshopSpeed();
 	mShootTimer += DeltaTime::GetDeltaTime() * attackSpeed;
 	if (mShootTimer < mShootInterval) return;
 
-	// 到期即开始下一周期；无目标时不会每个逻辑帧重复遍历行桶。
-	mShootTimer = 0.0f;
-	mShootInterval = GameRandom::Range(
-		kRepeatShootIntervalMin, kRepeatShootIntervalMax);
-	if ((!mBoard || (!mBoard->GetIceWallInRow(mRow) && !FindTarget()))
-		|| !mAnimator) return;
+    const bool hasTarget = mBoard && mAnimator && (mBoard->GetIceWallInRow(mRow) || FindTarget());
+    // 工坊断供时保持攻击就绪，不重抽周期或推进随机序列；非工坊沿用到期索敌节奏。
+    if (hasTarget && !mBoard->ReserveWorkshopAmmo(mRow, mPlantType)) {
+        mShootTimer = mShootInterval;
+        return;
+    }
+    mShootTimer = 0.0f;
+    mShootInterval = GameRandom::Range(kRepeatShootIntervalMin, kRepeatShootIntervalMax);
+    if (!hasTarget) return;
 
 	const float shootSpeed =
 		(kShootFramesPerSecond / kReanimFramesPerSecond) * attackSpeed;
@@ -136,6 +141,7 @@ void MelonPult::FireMelon()
 	Bullet* melon = mBoard->CreatePlantBullet(
 		bulletType, mRow, launchPosition, mPlantType);
 	if (!melon) return;
+    mBoard->RecordWorkshopPlantShot(mPlantType);
 	const bool polarGuided = mBoard->IsPolarWindDangerous()
 		&& mBoard->PreparePolarLobbedNavigation(this);
 	melon->ConfigureLobbedMotion(landingPosition, kFlightDuration,
@@ -150,11 +156,21 @@ BulletType MelonPult::GetMelonBulletType() const
 void MelonPult::SaveExtraData(nlohmann::json& j) const
 {
 	j["shootTimer"] = mShootTimer;
+    if (mBoard && mBoard->IsWorkshop()) j["workshopUpgradeLevel"] = mWorkshopUpgradeLevel;
 	j["shootInterval"] = mShootInterval;
 }
 
 void MelonPult::LoadExtraData(const nlohmann::json& j)
 {
+    mWorkshopUpgradeLevel = 1;
+    if (mBoard && mBoard->IsWorkshop() && j.contains("workshopUpgradeLevel")) {
+        const auto& level = j.at("workshopUpgradeLevel");
+        if (!level.is_number_integer() || level < 1 || level > Workshop::MaxUpgradeLevel)
+            throw std::runtime_error("无效的工坊投手等级");
+        mWorkshopUpgradeLevel = level.get<int>();
+        if (mBoard->GetWorkshop().CompletedWaves() < Workshop::UpgradeWaves[mWorkshopUpgradeLevel - 1])
+            throw std::runtime_error("工坊投手等级尚未解锁");
+    }
 	mShootInterval = std::clamp(
 		j.value("shootInterval", kInitialShootInterval),
 		kRepeatShootIntervalMin, kRepeatShootIntervalMax);
@@ -168,4 +184,19 @@ void MelonPult::SetShootCycleForTesting(
 	mShootInterval = std::clamp(
 		intervalSeconds, kRepeatShootIntervalMin, kRepeatShootIntervalMax);
 	mShootTimer = std::clamp(elapsedSeconds, 0.0f, mShootInterval);
+}
+
+float MelonPult::WorkshopSpeed() const {
+    return mBoard && mBoard->IsWorkshop() ? Workshop::ShooterCooldowns[0] / Workshop::ShooterCooldowns[mWorkshopUpgradeLevel - 1] : 1;
+}
+void MelonPult::InheritWorkshopLevel(int level) {
+    if (mBoard && mBoard->IsWorkshop()) mWorkshopUpgradeLevel = std::clamp(level, 1, Workshop::MaxUpgradeLevel);
+}
+bool MelonPult::TryUpgradeWorkshop() {
+    const auto* info = Workshop::FindPlant(mPlantType);
+    if (!mBoard || !mBoard->IsWorkshop() || !info || !IsActive() || mPlantHealth <= 0
+        || !mBoard->GetWorkshop().BuyUpgrade(info->cost, mWorkshopUpgradeLevel)) return false;
+    const float oldSpeed = WorkshopSpeed(); ++mWorkshopUpgradeLevel;
+    if (mAnimator && GetCurrentTrackName() == "anim_shooting") mAnimator->SetClipSpeed(mAnimator->GetClipSpeed() * WorkshopSpeed() / oldSpeed);
+    return true;
 }

@@ -104,6 +104,9 @@ public:
 		AnimationType animType, float scale = 1.0f, bool isPreview = false);
 
 	~Plant() = default;
+    /** 工坊展示与购买统一查询；非升级品种保持一级并拒绝购买。 */
+    virtual int GetWorkshopUpgradeLevel() const { return 1; }
+    virtual bool TryUpgradeWorkshop() { return false; }
 	void Start() override;
 	/** 并行动画阶段也遵守通用停机与屋顶径流暂停，避免帧事件先于串行行为守卫触发。 */
 	void UpdateParallel(std::vector<DeferredEvent>& outBuf) override;

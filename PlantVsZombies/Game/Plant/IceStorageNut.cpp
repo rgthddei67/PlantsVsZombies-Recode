@@ -1,4 +1,5 @@
 #include "IceStorageNut.h"
+#include "Game/Workshop/Workshop.h"
 #include "Game/Board/Board.h"
 #include "ResourceManager.h"
 #include "Graphics.h"
@@ -30,7 +31,8 @@ const std::string& IceStorageNut::GetCrackedTextureKey(int stage) const
 /** 加速修复能力冷却，保护窗口仍按普通游戏秒推进。 */
 void IceStorageNut::Update()
 {
-	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME && !DeltaTime::IsPaused()) {
+	if (!mIsPreview && mBoard && mBoard->GetState() == BoardState::GAME && !DeltaTime::IsPaused()
+        && (!mBoard->IsWorkshop() || mBoard->GetWorkshop().State() == Workshop::Phase::Assault)) {
 		const float delta = DeltaTime::GetDeltaTime();
 		mCooldownRemaining = std::max(0.0f, mCooldownRemaining - delta * GetIndependentActionSpeedMultiplier());
 		mProtection.Advance(delta);
@@ -65,6 +67,7 @@ void IceStorageNut::PlantUpdate()
 bool IceStorageNut::IsReadyToActivate() const
 {
 	return mBoard && mBoard->GetState() == BoardState::GAME && !mBoard->mTrophySpawned
+        && (!mBoard->IsWorkshop() || mBoard->GetWorkshop().State() == Workshop::Phase::Assault)
 		&& !DeltaTime::IsPaused() && !mIsPreview && IsActive() && !IsSquished()
 		&& !IsBungeeTargeted() && !IsActionPaused() && mPlantHealth > 0
 		&& mPlantHealth < mPlantMaxHealth && mCooldownRemaining <= 0.0f;
@@ -72,7 +75,7 @@ bool IceStorageNut::IsReadyToActivate() const
 
 bool IceStorageNut::CanAffordActivation() const
 {
-	return mBoard && (mBoard->IsColdStorage()
+	return mBoard && (mBoard->IsWorkshop() ? mBoard->GetWorkshop().Energy() >= kRepairSun : mBoard->IsColdStorage()
 		? mBoard->mColdStorage.playerIce >= mBoard->GetPlantAbilityIceCost(kRepairIce) : mBoard->GetSun() >= kRepairSun);
 }
 

@@ -2348,6 +2348,7 @@ void Zombie::Die()
 	mEatZombieID = NULL_ZOMBIE_ID;
 
 	if (mBoard && !mTemporalReplacementRetirement) {
+		mBoard->RecordWorkshopKill(*this);
 		mBoard->SettleColdStorageZombieDeath(*this);
 		mBoard->RelayZombieDeathWard(this);
 		mBoard->CollectMistFuelFromZombie(this);

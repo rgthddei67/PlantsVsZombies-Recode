@@ -37,6 +37,7 @@ void WorkshopScene::CancelMapGesture() {
 }
 void WorkshopScene::CancelTool() {
     mTool = Tool::Inspect; mWireSource = -1; mSelected = -1;
+    mFrontTool = FrontTool::Inspect; mSelectedShooter = -1;
     CancelMapGesture(); mHoverKey = -1; mTooltipLines.clear();
     mNotice = "查看模式：指向机器按 R 旋转；左键拖地图，轻点选择。";
 }
@@ -138,7 +139,7 @@ std::string WorkshopScene::WireHint(int index) const {
     const int port = mTool == Tool::WireB ? 1 : 0;
     if (World().CanConnect(mWireSource, index, port)) return "点击连接；Shift 保留来源继续接";
     const auto type = World().Cells()[index].type;
-    if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch)
+    if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch && type != Workshop::Machine::Counter)
         return "此机器没有 B 口，请换目标";
     return "库存来源只能接库存器 A 口";
 }

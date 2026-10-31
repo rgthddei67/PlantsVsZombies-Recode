@@ -1,10 +1,11 @@
 #pragma once
 #include "Scene.h"
-#include "Workshop/Workshop.h"
+#include "Workshop/WorkshopRoster.h"
 #include <memory>
 
 class Board;
 class Shooter;
+class Plant;
 
 /** 独立基地入口。工坊存档、解锁、暂停和败局检查点均不借用冒险状态。 */
 class WorkshopScene : public Scene {
@@ -31,6 +32,7 @@ private:
     static constexpr float kViewW = 780, kViewH = 410; // 工厂视口尺寸，逻辑像素
     static constexpr float kCellW = 64, kCellH = 64; // 工厂世界格尺寸，像素
     enum class Tool { Inspect, Build, Remove, WireA, WireB };
+    enum class FrontTool { Inspect, Plant, Remove };
     enum class Pending { None, Back, Reset, Retry };
     std::unique_ptr<Board> mBoard;
     Workshop::World& World() const;
@@ -38,7 +40,9 @@ private:
     Tool mTool = Tool::Inspect;
     Pending mPending = Pending::None;
     int mSelected = -1, mDirection = 0, mWireSource = -1;
-    int mSelectedShooter = -1;
+    int mSelectedShooter = -1; // 稳定前线植物 ID，保留旧诊断字段名
+    PlantType mFrontBuildType = PlantType::PLANT_PEASHOOTER;
+    FrontTool mFrontTool = FrontTool::Inspect, mFrontPressTool = FrontTool::Inspect;
     float mMapZoom = 1.0f;
     Vector mMapOffset, mDragPoint;
     bool mMapDragging = false;
@@ -64,8 +68,11 @@ private:
     int mCatalogCategory = 0;
     std::string mCatalogNotice;
     std::vector<std::shared_ptr<Button>> mFactoryControls, mFrontControls;
-    std::vector<std::shared_ptr<Button>> mFrontUpgradeButtons;
-    std::vector<std::shared_ptr<Button>> mQuotaButtons, mIceShooterButtons;
+    std::vector<std::shared_ptr<Button>> mQuotaButtons;
+    std::shared_ptr<GameMessageBox> mPlantCatalog, mQuotaDialog;
+    std::vector<std::shared_ptr<Button>> mPlantButtons;
+    std::shared_ptr<Button> mPlantCatalogButton, mFrontRemoveButton, mFrontUpgradeButton, mAbilityButton, mAutomaticButton;
+    std::string mPlantCatalogNotice;
     std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
@@ -103,8 +110,19 @@ private:
     void UpdateTooltip();
     void DrawTooltip(Graphics* g);
     void SelectBuild(Workshop::Machine type);
-    Shooter* SelectedShooter() const;
-    Shooter* ShooterAt(Vector point) const;
+    Plant* SelectedFrontPlant() const;
+    Plant* FrontPlantAt(Vector point) const;
+    int FrontCellAt(Vector point) const;
+    void CreateFrontControls();
+    void UpdateFrontInput();
+    void SelectFrontPlant(PlantType type);
+    void OpenPlantCatalog();
+    void ClosePlantCatalog(bool cancel = true);
+    void DrawPlantCatalog(Graphics* g);
+    void DrawFrontOverlay(Graphics* g);
+    void OpenAmmoQuotas(int row);
+    void DrawAmmoQuotas(Graphics* g, int row);
+    void DrawItemIcon(Graphics* g, Workshop::Ammo item, float x, float y, float size);
     void UpdateUpgradeControls();
     void FitFactory();
     void ZoomFactory(float zoom, Vector anchor);

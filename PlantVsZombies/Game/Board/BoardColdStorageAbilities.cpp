@@ -1,3 +1,4 @@
+#include "Game/Workshop/Workshop.h"
 #include "Board.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Plant/GameDataManager.h"
@@ -158,6 +159,7 @@ void Board::DrawColdStoragePrecisionStrike(Graphics* g) const
 bool Board::TrySpendPlantAbilityResource(int ice, int sun)
 {
 	if (mBoardState != BoardState::GAME || mTrophySpawned || ice < 0 || sun < 0) return false;
+    if (IsWorkshop()) return mWorkshop->State() == Workshop::Phase::Assault && mWorkshop->SpendEnergy(static_cast<float>(sun));
 	if (IsColdStorage()) {
 		ice = GetPlantAbilityIceCost(ice);
 		if (mColdStorage.playerIce < ice) return false;

@@ -24,7 +24,12 @@ constexpr std::array<Definition, static_cast<size_t>(Machine::Count)> kDefinitio
     {"not", "非门", "把 A 口信号反转；每个逻辑步传播一级。", 15, 2, 0},
     {"timer", "定时器", "按设定周期输出半周期高电平；A 口可控制运行。", 25, 2, 0},
     {"latch", "记忆器", "A 置位、B 复位，复位优先；断开后保留状态。", 25, 2, 0},
-    {"cooler", "冷凝机", "普通豌豆加阳光加工成寒冰弹；输入普通弹，沿箭头输出寒冰弹。", 100, ColdUnlockWave, 10}
+    {"cooler", "冷凝机", "选择冰豌豆或冰瓜配方，原料加阳光加工，沿箭头出料。", 100, ColdUnlockWave, 10},
+    {"spore_grower", "孢子培养机", "消耗阳光培养孢子，供精英胆小菇持续射击。", 100, 4, 10},
+    {"melon_grower", "瓜果培育机", "消耗阳光生产西瓜，可直接供弹或送去冷凝。", 150, 5, 5},
+    {"salvage_port", "回收入口", "从全基地共享的击杀残骸队列取料，沿箭头交给物流。", 30, 1, 5},
+    {"recycler", "回收机", "接收残骸，每份加工为5阳光；准备阶段停止回收。", 100, 1, 10},
+    {"counter", "计数器", "A上升沿计数，B清零；达到设定值时输出高电平。", 40, 4, 0}
 }};
 
 void Require(bool condition, const char* reason) {
@@ -45,6 +50,16 @@ float ReadFloat(const nlohmann::json& j, const char* key, float min, float max) 
     Require(std::isfinite(n) && n >= min && n <= max, "数值超出允许范围");
     return static_cast<float>(n);
 }
+/** 固定长度库存与配额逐项验证整数，防止 JSON 浮点或溢出被隐式截断。 */
+template<size_t N> std::array<int, N> ReadCounts(const nlohmann::json& j, const char* key, int maximum) {
+    const auto& values = j.at(key); Require(values.is_array() && values.size() == N, "库存或配额长度错误");
+    std::array<int, N> result{};
+    for (size_t i = 0; i < N; ++i) {
+        Require(values[i].is_number_integer() && values[i] >= 0 && values[i] <= maximum, "库存或配额越界");
+        result[i] = values[i].get<int>();
+    }
+    return result;
+}
 bool ReadBool(const nlohmann::json& j, const char* key) {
     Require(j.at(key).is_boolean(), "布尔类型错误");
     return j.at(key).get<bool>();
@@ -57,17 +72,45 @@ Machine FindMachine(const std::string& key) {
         if (key == kDefinitions[i].key) return static_cast<Machine>(i);
     return Machine::Count;
 }
-bool IsLogic(Machine type) { return type >= Machine::Switch && type <= Machine::Latch; }
+bool IsLogic(Machine type) { return (type >= Machine::Switch && type <= Machine::Latch) || type == Machine::Counter; }
 bool HasDirectionalOutput(Machine type) {
     return type == Machine::Grower || type == Machine::Belt || type == Machine::Splitter
-        || type == Machine::Store || type == Machine::Cooler;
+        || type == Machine::Store || type == Machine::Cooler || type == Machine::SporeGrower
+        || type == Machine::MelonGrower || type == Machine::SalvagePort;
 }
 const char* DirectionName(int direction) {
     constexpr std::array<const char*, 4> names{"右", "下", "左", "上"};
     return names[direction & 3];
 }
-bool CanUpgradeMachine(Machine type) { return type == Machine::Solar || type == Machine::Grower || type == Machine::Store || type == Machine::Cooler; }
-const char* AmmoName(int filter) { return filter == 0 ? "普通" : filter == 1 ? "寒冰" : "混合"; }
+bool CanUpgradeMachine(Machine type) { return type == Machine::Solar || type == Machine::Store || ProductionPeriod(type, 1) > 0; }
+const char* AmmoName(int filter) {
+    constexpr std::array<const char*, ItemCount> names{"普通", "寒冰", "孢子", "西瓜", "冰瓜", "残骸"};
+    return filter >= 0 && filter < ItemCount ? names[filter] : "混合";
+}
+float ProductionPeriod(Machine type, int level) {
+    if (type == Machine::Grower || type == Machine::Cooler) return GrowPeriods.at(level - 1);
+    if (type == Machine::SporeGrower) return SporePeriods.at(level - 1);
+    if (type == Machine::MelonGrower) return MelonPeriods.at(level - 1);
+    if (type == Machine::Recycler) return RecyclePeriods.at(level - 1);
+    return 0;
+}
+Ammo ProducedItem(Machine type) {
+    if (type == Machine::SporeGrower) return Ammo::Spore;
+    if (type == Machine::MelonGrower) return Ammo::Melon;
+    if (type == Machine::SalvagePort) return Ammo::Scrap;
+    return Ammo::Pea;
+}
+namespace {
+/** 冷凝机只交出成品，原料留在输入缓冲；物流设备可运送全部物料。 */
+bool CanOutputItem(const Cell& cell, Ammo item) {
+    if (cell.type == Machine::Cooler) return item == Ammo::Ice || item == Ammo::IceMelon;
+    if (cell.type == Machine::Grower || cell.type == Machine::SporeGrower || cell.type == Machine::MelonGrower || cell.type == Machine::SalvagePort)
+        return item == ProducedItem(cell.type);
+    return HasDirectionalOutput(cell.type) || cell.type == Machine::Feeder;
+}
+int CoolerInputCount(const Cell& cell) { return cell.stock + cell.Inventory(Ammo::Melon); }
+int CoolerOutputCount(const Cell& cell) { return cell.iceStock + cell.Inventory(Ammo::IceMelon); }
+}
 int UpgradeCost(int baseCost, int currentLevel) {
     return currentLevel > 0 && currentLevel < MaxUpgradeLevel ? baseCost * currentLevel : 0;
 }
@@ -82,7 +125,7 @@ void World::Reset() {
     mEnergy = kInitialEnergy; mTransportClock = 0; mSpawnClock = 0;
     mRemainingSpawns = 0; mSpawned = 0;
     mProduced = 0; mFired = 0; mDelivered = 0; mCheckpoint = nullptr;
-    mProcessed = 0; mIceFired = 0;
+    mProcessed = 0; mIceFired = 0; mPendingScrap = 0; mWaveScrap = 0; mRecycled = 0;
     // 两座集光器避免拆线耗尽能源后无法恢复；拆除仍返还原价。
     mCells[0].type = Machine::Solar;
     mCells[MaxColumns].type = Machine::Solar;
@@ -107,6 +150,7 @@ bool World::Build(int i, Machine type, int direction) {
     mCells[i].route = (i / MaxColumns) % Rows;
     if (type == Machine::Feeder) mCells[i].filter = 0;
     if (type == Machine::Timer) mCells[i].setting = 4;
+    if (type == Machine::EnemySensor) mCells[i].setting = 1;
     return true;
 }
 int World::RemoveRefund(int i) const {
@@ -135,7 +179,7 @@ bool World::Upgrade(int i) {
     if (!Valid(i) || !CanUpgradeMachine(mCells[i].type)) return false;
     auto& c = mCells[i];
     if (!BuyUpgrade(Describe(c.type).cost, c.level)) return false;
-    if (c.type == Machine::Grower || c.type == Machine::Cooler) c.clock *= GrowPeriods[c.level] / GrowPeriods[c.level - 1];
+    if (const float period = ProductionPeriod(c.type, c.level); period > 0) c.clock *= ProductionPeriod(c.type, c.level + 1) / period;
     ++c.level;
     return true;
 }
@@ -148,7 +192,7 @@ bool World::CanConnect(int source, int target, int input) const {
         || mCells[target].type == Machine::Empty) return false;
     if (source != -1 && (!Valid(source) || mCells[source].type == Machine::Empty)) return false;
     const auto targetType = mCells[target].type;
-    if (input == 1 && targetType != Machine::And && targetType != Machine::Or && targetType != Machine::Latch) return false;
+    if (input == 1 && targetType != Machine::And && targetType != Machine::Or && targetType != Machine::Latch && targetType != Machine::Counter) return false;
     if (source != -1 && !IsLogic(mCells[source].type) && targetType != Machine::StockSensor) return false;
     return true;
 }
@@ -161,7 +205,8 @@ bool World::Configure(int i) {
     auto& c = mCells[i];
     if (c.type == Machine::Switch) c.manual = !c.manual;
     else if (c.type == Machine::Timer) { c.setting = c.setting >= 16 ? 2 : c.setting * 2; c.clock = 0; }
-    else if (c.type == Machine::StockSensor) c.setting = c.setting >= 40 ? 5 : c.setting * 2;
+    else if (c.type == Machine::StockSensor || c.type == Machine::Counter) c.setting = c.setting >= 40 ? 5 : c.setting * 2;
+    else if (c.type == Machine::EnemySensor) c.setting = c.setting >= 16 ? 1 : c.setting * 2;
     else return false;
     return true;
 }
@@ -172,14 +217,49 @@ bool World::SetRoute(int i, int row) {
     mCells[i].route = row; return true;
 }
 bool World::SetFilter(int i, int filter) {
-    if (!Valid(i) || filter < -1 || filter > 1 || mPhase == Phase::Dead) return false;
+    if (!Valid(i) || filter < -1 || filter >= ItemCount || mPhase == Phase::Dead) return false;
     const auto type = mCells[i].type;
     if (type != Machine::Feeder && type != Machine::Store && type != Machine::Splitter && type != Machine::StockSensor) return false;
+    if (type == Machine::Feeder && filter == static_cast<int>(Ammo::Scrap)) return false;
     mCells[i].filter = filter; return true;
 }
 bool World::SetQuota(int row, int plainQuota) {
     if (row < 0 || row >= Rows || plainQuota < 0 || plainQuota > MagazineCapacity || mPhase == Phase::Dead) return false;
-    mLanes[row].plainQuota = plainQuota; return true;
+    mLanes[row].plainQuota = plainQuota; mLanes[row].iceQuota = MagazineCapacity - plainQuota;
+    mLanes[row].extraQuota = {}; return true;
+}
+bool World::SetAmmoQuota(int row, Ammo type, int quota) {
+    const int item = static_cast<int>(type);
+    if (row < 0 || row >= Rows || item < 0 || item >= AmmoCount || quota < 0 || quota > MagazineCapacity || mPhase == Phase::Dead) return false;
+    auto& lane = mLanes[row];
+    int difference = quota - lane.Quota(type);
+    lane.Quota(type) = quota;
+    while (difference > 0) {
+        int donor = -1;
+        for (int a = 0; a < AmmoCount; ++a) if (a != item && (donor < 0 || lane.Quota(static_cast<Ammo>(a)) > lane.Quota(static_cast<Ammo>(donor)))) donor = a;
+        --lane.Quota(static_cast<Ammo>(donor)); --difference;
+    }
+    if (difference < 0) lane.Quota(type == Ammo::Pea ? Ammo::Ice : Ammo::Pea) -= difference;
+    return true;
+}
+void World::EnsureAmmoQuota(int row, Ammo type) {
+    if (row >= 0 && row < Rows && static_cast<int>(type) < AmmoCount && mLanes[row].Quota(type) == 0) SetAmmoQuota(row, type, 20);
+}
+bool World::SetRecipe(int i, int recipe) {
+    if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type != Machine::Cooler || recipe < 0 || recipe > 1
+        || (recipe == 1 && mCompletedWaves < 8) || CoolerInputCount(mCells[i]) != 0) return false;
+    mCells[i].recipe = recipe; mCells[i].clock = 0; return true;
+}
+bool World::SpendEnergy(float amount) {
+    if (mPhase == Phase::Dead || !std::isfinite(amount) || amount < 0 || mEnergy < amount) return false;
+    mEnergy -= amount; return true;
+}
+void World::RefundEnergy(float amount) {
+    if (std::isfinite(amount) && amount > 0) mEnergy = std::min(kEnergyLimit, mEnergy + amount);
+}
+void World::RecordKill() {
+    if (mPhase != Phase::Assault || mWaveScrap >= ScrapPerWave) return;
+    ++mWaveScrap; ++mPendingScrap;
 }
 bool World::AddShooter(int row, bool ice) {
     const int cost = ice ? IceShooterCost : ShooterCost;
@@ -198,7 +278,7 @@ bool World::Repair() {
 bool World::StartAssault() {
     if (mPhase != Phase::Planning) return false;
     mCheckpoint = SaveState();
-    mPhase = Phase::Assault; mSpawned = 0;
+    mPhase = Phase::Assault; mSpawned = 0; mWaveScrap = 0;
     mRemainingSpawns = 5 + std::min(100, mCompletedWaves * 2);
     mSpawnClock = 1; return true;
 }
@@ -214,14 +294,16 @@ int World::Neighbor(int i, int direction) const {
 
 /** 只约束入库类型；改变筛选时不销毁已经储存的其他弹药。 */
 bool World::Accepts(const Cell& cell, Ammo type) const {
-    if (cell.type == Machine::Cooler) return type == Ammo::Pea;
+    if (cell.type == Machine::Cooler) return type == (cell.recipe == 1 ? Ammo::Melon : Ammo::Pea);
+    if (cell.type == Machine::Recycler) return type == Ammo::Scrap;
+    if (cell.type == Machine::Feeder && type == Ammo::Scrap) return false;
     if (cell.type == Machine::Store || cell.type == Machine::Feeder)
         return cell.filter < 0 || cell.filter == static_cast<int>(type);
     return cell.type == Machine::Belt || cell.type == Machine::Splitter;
 }
 int World::ReceivingRoom(const Cell& cell, Ammo type) const {
     if (!Accepts(cell, type)) return 0;
-    return cell.type == Machine::Cooler ? 5 - cell.stock : Capacity(cell.type, cell.level) - cell.TotalStock();
+    return cell.type == Machine::Cooler ? 5 - CoolerInputCount(cell) : Capacity(cell.type, cell.level) - cell.TotalStock();
 }
 
 OutputInfo World::InspectOutput(int i, bool side) const {
@@ -235,10 +317,12 @@ OutputInfo World::InspectOutput(int i, bool side) const {
     const auto& target = mCells[result.target];
     if (target.type == Machine::Empty) { result.message = prefix + "没有接收设备"; return result; }
     bool accepts = false, hasCargoType = false;
-    for (const auto ammo : {Ammo::Pea, Ammo::Ice}) {
-        if ((cell.type == Machine::Grower && ammo != Ammo::Pea) || (cell.type == Machine::Cooler && ammo != Ammo::Ice)) continue;
+    for (int a = 0; a < ItemCount; ++a) {
+        const auto ammo = static_cast<Ammo>(a);
+        if (!CanOutputItem(cell, ammo)) continue;
+        if (cell.type == Machine::Cooler && CoolerOutputCount(cell) == 0 && ammo != (cell.recipe == 1 ? Ammo::IceMelon : Ammo::Ice)) continue;
         if (cell.type == Machine::Splitter && cell.filter >= 0 && ((cell.filter == static_cast<int>(ammo)) != side)) continue;
-        if (cell.type != Machine::Grower && cell.type != Machine::Cooler && cell.TotalStock() > 0 && cell.Inventory(ammo) == 0) continue;
+        if ((cell.type == Machine::Cooler ? CoolerOutputCount(cell) : cell.TotalStock()) > 0 && cell.Inventory(ammo) == 0) continue;
         hasCargoType = true;
         if (!Accepts(target, ammo)) continue;
         accepts = true;
@@ -260,18 +344,22 @@ void World::TransportStep() {
         switch (c.type) {
         case Machine::Switch: c.signal = c.manual; break;
         case Machine::EnemySensor:
-            c.signal = mEnemyCounts[c.route] > 0; break;
+            c.signal = mEnemyCounts[c.route] >= c.setting; break;
         case Machine::StockSensor: {
             const auto& source = c.inputs[0] >= 0 ? before[c.inputs[0]] : c;
             const auto& lane = mLanes[c.route];
-            const int plain = c.inputs[0] >= 0 ? source.stock : lane.ammo;
-            const int ice = c.inputs[0] >= 0 ? source.iceStock : lane.iceAmmo;
-            c.signal = (c.filter == 0 ? plain : c.filter == 1 ? ice : plain + ice) >= c.setting; break;
+            const int count = c.inputs[0] >= 0 ? (c.filter < 0 ? source.TotalStock() : source.Inventory(static_cast<Ammo>(c.filter)))
+                : c.filter < 0 ? lane.TotalStock() : c.filter < AmmoCount ? lane.Inventory(static_cast<Ammo>(c.filter)) : 0;
+            c.signal = count >= c.setting; break;
         }
         case Machine::And: c.signal = a && b; break;
         case Machine::Or: c.signal = a || b; break;
         case Machine::Not: c.signal = !a; break;
         case Machine::Latch: if (b) c.signal = false; else if (a) c.signal = true; break;
+        case Machine::Counter:
+            if (b) c.count = 0;
+            else if (a && !c.previousInput) c.count = std::min(1000000, c.count + 1);
+            c.previousInput = a; c.signal = c.count >= c.setting; break;
         case Machine::Timer:
             if (c.inputs[0] < 0 || a) c.clock = std::fmod(c.clock + TransportPeriod, static_cast<float>(c.setting));
             else c.clock = 0;
@@ -279,18 +367,18 @@ void World::TransportStep() {
         default: c.signal = false; break;
         }
     }
-    std::array<std::array<int, 2>, CellCount> incoming{};
+    std::array<std::array<int, ItemCount>, CellCount> incoming{};
     for (int i = 0; i < CellCount; ++i) {
         auto& c = mCells[i];
         if (!Valid(i) || before[i].TotalStock() <= 0 || (!Enabled(i) && c.type != Machine::Splitter)) continue;
         bool moved = false;
-        for (int choice = 0; choice < 2 && !moved; ++choice) {
-            const Ammo ammo = (c.iceNext != (choice != 0)) ? Ammo::Ice : Ammo::Pea;
-            if (before[i].Inventory(ammo) <= 0 || (c.type == Machine::Cooler && ammo != Ammo::Ice)) continue;
+        for (int choice = 0; choice < ItemCount && !moved; ++choice) {
+            const auto ammo = static_cast<Ammo>((c.nextItem + choice) % ItemCount);
+            if (before[i].Inventory(ammo) <= 0 || !CanOutputItem(c, ammo)) continue;
             if (c.type == Machine::Feeder) {
-                if (c.filter >= 0 && c.filter != static_cast<int>(ammo)) continue;
+                if (ammo == Ammo::Scrap || (c.filter >= 0 && c.filter != static_cast<int>(ammo))) continue;
                 auto& lane = mLanes[c.route];
-                if (lane.ammo + lane.iceAmmo < MagazineCapacity && lane.Inventory(ammo) < lane.Quota(ammo)) {
+                if (lane.TotalStock() < MagazineCapacity && lane.Inventory(ammo) < lane.Quota(ammo)) {
                     --c.Inventory(ammo); ++lane.Inventory(ammo); ++mDelivered; moved = true;
                 }
             } else {
@@ -303,15 +391,16 @@ void World::TransportStep() {
                     const int next = Neighbor(i, direction);
                     if (next < 0) continue;
                     const auto& target = before[next];
-                    const int reserved = target.type == Machine::Cooler ? incoming[next][0] : incoming[next][0] + incoming[next][1];
+                    const int reserved = std::accumulate(incoming[next].begin(), incoming[next].end(), 0);
                     if (ReceivingRoom(target, ammo) <= reserved) continue;
                     --c.Inventory(ammo); ++incoming[next][static_cast<int>(ammo)]; c.alternate = !c.alternate; moved = true; break;
                 }
             }
-            if (moved) c.iceNext = ammo == Ammo::Pea;
+            if (moved) { c.nextItem = (static_cast<int>(ammo) + 1) % ItemCount; c.iceNext = ammo == Ammo::Pea; }
         }
     }
-    for (int i = 0; i < CellCount; ++i) { mCells[i].stock += incoming[i][0]; mCells[i].iceStock += incoming[i][1]; }
+    for (int i = 0; i < CellCount; ++i)
+        for (int a = 0; a < ItemCount; ++a) mCells[i].Inventory(static_cast<Ammo>(a)) += incoming[i][a];
 }
 
 void World::Tick(float seconds) {
@@ -324,19 +413,38 @@ void World::Tick(float seconds) {
             auto& c = mCells[i];
             if (!Enabled(i)) continue;
             if (c.type == Machine::Solar) mEnergy = std::min(kEnergyLimit, mEnergy + SolarRates[c.level - 1] * dt);
-            if (c.type == Machine::Grower) {
-                const float period = GrowPeriods[c.level - 1];
-                // 正常生产保留跨周期余时，避免逐帧截断让各级产速持续偏慢；堵塞只缓存一颗的准备进度。
+            const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
+            if (producer) {
+                const float period = ProductionPeriod(c.type, c.level);
+                const auto item = ProducedItem(c.type);
+                const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
+                // 正常生产保留跨周期余时；堵塞最多保留一份准备进度。
                 c.clock = std::min(period, c.clock) + dt;
-                if (c.clock >= period && c.stock < Capacity(c.type, c.level) && mEnergy >= GrowEnergy) {
-                    c.clock -= period; mEnergy -= GrowEnergy; ++c.stock; ++mProduced;
+                if (c.clock >= period && c.TotalStock() < Capacity(c.type, c.level) && mEnergy >= cost) {
+                    c.clock -= period; mEnergy -= cost; ++c.Inventory(item); ++mProduced;
                 } else c.clock = std::min(period, c.clock);
             }
-            if (c.type == Machine::Cooler && c.stock > 0) {
-                const float period = GrowPeriods[c.level - 1];
+            if (c.type == Machine::Cooler) {
+                const auto input = c.recipe == 1 ? Ammo::Melon : Ammo::Pea;
+                const auto output = c.recipe == 1 ? Ammo::IceMelon : Ammo::Ice;
+                if (c.Inventory(input) <= 0) continue;
+                const float period = ProductionPeriod(c.type, c.level), cost = c.recipe == 1 ? IceMelonEnergy : CoolingEnergy;
                 c.clock = std::min(period, c.clock) + dt;
-                if (c.clock >= period && c.iceStock < 5 && mEnergy >= CoolingEnergy) {
-                    c.clock -= period; --c.stock; ++c.iceStock; mEnergy -= CoolingEnergy; ++mProcessed;
+                if (c.clock >= period && CoolerOutputCount(c) < 5 && mEnergy >= cost) {
+                    c.clock -= period; --c.Inventory(input); ++c.Inventory(output); mEnergy -= cost; ++mProcessed;
+                } else c.clock = std::min(period, c.clock);
+            }
+            if (c.type == Machine::SalvagePort && mPendingScrap > 0) {
+                c.clock = std::min(TransportPeriod, c.clock) + dt;
+                if (c.clock >= TransportPeriod && c.TotalStock() < Capacity(c.type, c.level)) {
+                    c.clock -= TransportPeriod; --mPendingScrap; ++c.Inventory(Ammo::Scrap);
+                } else c.clock = std::min(TransportPeriod, c.clock);
+            }
+            if (c.type == Machine::Recycler && c.Inventory(Ammo::Scrap) > 0) {
+                const float period = ProductionPeriod(c.type, c.level);
+                c.clock = std::min(period, c.clock) + dt;
+                if (c.clock >= period && mEnergy < kEnergyLimit) {
+                    c.clock -= period; --c.Inventory(Ammo::Scrap); RefundEnergy(ScrapEnergy); ++mRecycled;
                 } else c.clock = std::min(period, c.clock);
             }
         }
@@ -351,7 +459,7 @@ void World::ObserveFrontline(const std::array<int, Rows>& enemies, const std::ar
     for (int row = 0; row < Rows; ++row) mLanes[row].shooters = shooters[row];
 }
 bool World::ReserveAmmo(int row, Ammo type) {
-    if (mPhase != Phase::Assault || row < 0 || row >= Rows || mLanes[row].Inventory(type) <= 0) return false;
+    if (mPhase != Phase::Assault || row < 0 || row >= Rows || static_cast<int>(type) < 0 || static_cast<int>(type) >= AmmoCount || mLanes[row].Inventory(type) <= 0) return false;
     --mLanes[row].Inventory(type); return true;
 }
 int World::NextSpawnRow() const {
@@ -383,21 +491,29 @@ std::string World::Status(int i) const {
     if (IsLogic(c.type)) return c.signal ? "信号：高" : "信号：低";
     if (!Enabled(i) && c.type != Machine::Splitter) return "信号关闭";
     if (c.type == Machine::Solar) return mEnergy >= kEnergyLimit ? "储能已满" : "采集阳光";
-    if (c.type == Machine::Grower && c.stock == 0 && mEnergy < GrowEnergy) return "缺少能源";
+    const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
+    const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
+    if (producer && c.TotalStock() == 0 && mEnergy < cost) return "缺少能源";
+    if (c.type == Machine::Recycler) return c.TotalStock() == 0 ? "等待残骸" : mEnergy >= kEnergyLimit ? "储能已满" : "回收残骸中";
+    if (c.type == Machine::SalvagePort && c.TotalStock() == 0) return mPendingScrap > 0 ? "提取击杀残骸" : "等待击杀残骸";
     if (c.type == Machine::Cooler) {
-        if (c.iceStock > 0 && !InspectOutput(i).ready) return InspectOutput(i).message;
-        if (c.iceStock >= 5) return "等待输出寒冰弹";
-        if (c.stock == 0) return "等待普通豌豆";
-        return mEnergy < CoolingEnergy ? "缺少能源" : "冷凝加工中";
+        if (CoolerOutputCount(c) > 0 && !InspectOutput(i).ready) return InspectOutput(i).message;
+        if (CoolerOutputCount(c) >= 5) return "等待冷凝成品出料";
+        if (c.Inventory(c.recipe == 1 ? Ammo::Melon : Ammo::Pea) == 0) return c.recipe == 1 ? "等待西瓜" : "等待普通豌豆";
+        return mEnergy < (c.recipe == 1 ? IceMelonEnergy : CoolingEnergy) ? "缺少能源" : "冷凝加工中";
     }
-    if (c.TotalStock() == 0) return c.type == Machine::Grower ? "生产中" : "等待弹药";
+    if (c.TotalStock() == 0) return producer ? "生产中" : "等待物料";
     if (c.type == Machine::Feeder) {
         const auto& lane = mLanes[c.route];
-        if (lane.ammo + lane.iceAmmo >= MagazineCapacity) return "前线弹仓已满";
-        const bool plain = c.stock > 0 && c.filter != 1, ice = c.iceStock > 0 && c.filter != 0;
-        if (!plain && !ice) return "等待指定弹种";
-        return (!plain || lane.ammo >= lane.plainQuota) && (!ice || lane.iceAmmo >= MagazineCapacity - lane.plainQuota)
-            ? "对应弹种配额已满" : "装填中";
+        if (lane.TotalStock() >= MagazineCapacity) return "前线弹仓已满";
+        bool hasMatching = false;
+        for (int a = 0; a < AmmoCount; ++a) {
+            const auto item = static_cast<Ammo>(a);
+            if (c.Inventory(item) <= 0 || (c.filter >= 0 && c.filter != a)) continue;
+            hasMatching = true;
+            if (lane.Inventory(item) < lane.Quota(item)) return "装填中";
+        }
+        return hasMatching ? "对应弹种配额已满" : "等待指定弹种";
     }
     const auto output = InspectOutput(i);
     if (!output.ready && (c.type != Machine::Splitter || !InspectOutput(i, true).ready))
@@ -408,16 +524,19 @@ std::string World::Status(int i) const {
 nlohmann::json World::SaveState() const {
     nlohmann::json cells = nlohmann::json::array(), lanes = nlohmann::json::array();
     for (const auto& c : mCells) cells.push_back({{"type", Describe(c.type).key}, {"level", c.level}, {"direction", c.direction}, {"stock", c.stock},
-        {"iceStock", c.iceStock}, {"route", c.route}, {"filter", c.filter}, {"iceNext", c.iceNext},
+        {"iceStock", c.iceStock}, {"extraStock", c.extraStock}, {"nextItem", c.nextItem}, {"recipe", c.recipe},
+        {"count", c.count}, {"previousInput", c.previousInput}, {"route", c.route}, {"filter", c.filter}, {"iceNext", c.iceNext},
         {"inputs", c.inputs}, {"setting", c.setting}, {"clock", c.clock}, {"signal", c.signal}, {"manual", c.manual}, {"alternate", c.alternate}});
-    for (const auto& l : mLanes) lanes.push_back({{"ammo", l.ammo}, {"iceAmmo", l.iceAmmo}, {"plainQuota", l.plainQuota}, {"shooters", l.shooters}});
+    for (const auto& l : mLanes) lanes.push_back({{"ammo", l.ammo}, {"iceAmmo", l.iceAmmo}, {"plainQuota", l.plainQuota}, {"shooters", l.shooters},
+        {"iceQuota", l.iceQuota}, {"extraAmmo", l.extraAmmo}, {"extraQuota", l.extraQuota}});
     return {{"phase", static_cast<int>(mPhase)}, {"columns", mColumns}, {"rows", mRows}, {"health", mHealth}, {"completedWaves", mCompletedWaves},
         {"energy", mEnergy}, {"transportClock", mTransportClock}, {"spawnClock", mSpawnClock}, {"remainingSpawns", mRemainingSpawns},
         {"spawned", mSpawned}, {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
+        {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
         {"cells", cells}, {"lanes", lanes}};
 }
-nlohmann::json World::Save() const { return {{"schemaVersion", 2}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
+nlohmann::json World::Save() const { return {{"schemaVersion", 3}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
 
 /** 所有实体与信号索引在临时 World 中验证，避免坏档引入越界或部分覆盖。 */
 void World::ReadState(const nlohmann::json& s) {
@@ -433,6 +552,8 @@ void World::ReadState(const nlohmann::json& s) {
     mSpawned = ReadInt(s, "spawned", 0, 105);
     mProduced = ReadInt(s, "produced", 0, 1000000000); mFired = ReadInt(s, "fired", 0, 1000000000); mDelivered = ReadInt(s, "delivered", 0, 1000000000);
     mProcessed = ReadInt(s, "processed", 0, 1000000000); mIceFired = ReadInt(s, "iceFired", 0, 1000000000);
+    mPendingScrap = ReadInt(s, "pendingScrap", 0, 1000000000);
+    mWaveScrap = ReadInt(s, "waveScrap", 0, ScrapPerWave); mRecycled = ReadInt(s, "recycled", 0, 1000000000);
     const auto& cells = s.at("cells"); Require(cells.is_array() && cells.size() == CellCount, "工厂格数错误");
     for (int i = 0; i < CellCount; ++i) {
         const auto& j = cells[i]; auto& c = mCells[i];
@@ -442,9 +563,15 @@ void World::ReadState(const nlohmann::json& s) {
         Require(c.level == 1 || (CanUpgradeMachine(c.type) && mCompletedWaves >= UpgradeWaves[c.level - 1]), "机器等级尚未解锁或类型不支持升级");
         c.direction = ReadInt(j, "direction", 0, 3); c.stock = ReadInt(j, "stock", 0, Capacity(c.type, c.level));
         c.iceStock = ReadInt(j, "iceStock", 0, Capacity(c.type, c.level));
+        c.extraStock = ReadCounts<ItemCount - 2>(j, "extraStock", Capacity(c.type, c.level));
+        c.nextItem = ReadInt(j, "nextItem", 0, ItemCount - 1); c.recipe = ReadInt(j, "recipe", 0, 1);
+        c.count = ReadInt(j, "count", 0, 1000000); c.previousInput = ReadBool(j, "previousInput");
+        Require(c.recipe == 0 || (c.type == Machine::Cooler && mCompletedWaves >= 8), "配方尚未解锁或设备不支持");
         Require(c.TotalStock() <= Capacity(c.type, c.level), "混合库存超过设备容量");
-        Require(c.type != Machine::Cooler || (c.stock <= 5 && c.iceStock <= 5), "冷凝机输入输出缓冲越界");
-        c.route = ReadInt(j, "route", 0, Rows - 1); c.filter = ReadInt(j, "filter", -1, 1); c.iceNext = ReadBool(j, "iceNext");
+        Require(c.type != Machine::Cooler || (CoolerInputCount(c) <= 5 && CoolerOutputCount(c) <= 5
+            && c.Inventory(Ammo::Spore) == 0 && c.Inventory(Ammo::Scrap) == 0), "冷凝机输入输出缓冲越界");
+        c.route = ReadInt(j, "route", 0, Rows - 1); c.filter = ReadInt(j, "filter", -1, ItemCount - 1); c.iceNext = ReadBool(j, "iceNext");
+        Require(c.type != Machine::Feeder || c.filter != static_cast<int>(Ammo::Scrap), "装填口不接收残骸");
         c.setting = ReadInt(j, "setting", 1, 80); c.clock = ReadFloat(j, "clock", 0, 80);
         c.signal = ReadBool(j, "signal"); c.manual = ReadBool(j, "manual"); c.alternate = ReadBool(j, "alternate");
         const auto& inputs = j.at("inputs"); Require(inputs.is_array() && inputs.size() == 2, "信号端口错误");
@@ -458,24 +585,30 @@ void World::ReadState(const nlohmann::json& s) {
         const int source = mCells[i].inputs[p];
         Require(Valid(source) && mCells[source].type != Machine::Empty && mCells[i].type != Machine::Empty, "信号引用空格");
         Require(IsLogic(mCells[source].type) || mCells[i].type == Machine::StockSensor, "无效信号来源");
-        Require(p == 0 || mCells[i].type == Machine::And || mCells[i].type == Machine::Or || mCells[i].type == Machine::Latch, "不存在的 B 口");
+        Require(p == 0 || mCells[i].type == Machine::And || mCells[i].type == Machine::Or || mCells[i].type == Machine::Latch || mCells[i].type == Machine::Counter, "不存在的 B 口");
     }
     const auto& lanes = s.at("lanes"); Require(lanes.is_array() && lanes.size() == Rows, "前线行数错误");
     for (int i = 0; i < Rows; ++i) {
         mLanes[i].ammo = ReadInt(lanes[i], "ammo", 0, MagazineCapacity); mLanes[i].shooters = ReadInt(lanes[i], "shooters", 0, MaxShootersPerLane);
         mLanes[i].iceAmmo = ReadInt(lanes[i], "iceAmmo", 0, MagazineCapacity);
         mLanes[i].plainQuota = ReadInt(lanes[i], "plainQuota", 0, MagazineCapacity);
-        Require(mLanes[i].ammo + mLanes[i].iceAmmo <= MagazineCapacity, "前线混合弹仓超出总容量");
+        mLanes[i].iceQuota = ReadInt(lanes[i], "iceQuota", 0, MagazineCapacity);
+        mLanes[i].extraAmmo = ReadCounts<AmmoCount - 2>(lanes[i], "extraAmmo", MagazineCapacity);
+        mLanes[i].extraQuota = ReadCounts<AmmoCount - 2>(lanes[i], "extraQuota", MagazineCapacity);
+        int quota = 0; for (int a = 0; a < AmmoCount; ++a) quota += mLanes[i].Quota(static_cast<Ammo>(a));
+        Require(quota == MagazineCapacity, "前线弹种配额总数错误");
+        Require(mLanes[i].TotalStock() <= MagazineCapacity, "前线混合弹仓超出总容量");
     }
     Require(mPhase != Phase::Planning || mRemainingSpawns == 0, "准备阶段存在未完成生成队列");
 
 }
 bool World::Load(const nlohmann::json& document, std::string& error) {
     try {
-        const int version = ReadInt(document, "schemaVersion", 1, 2);
+        const int version = ReadInt(document, "schemaVersion", 1, 3);
         // 旧厂房固定 5×12 存储跨度；同时重映射信号引用和袭击检查点，已买到的第 11/12 列保留。
         auto migrate = [version](nlohmann::json state) {
-            if (version == 2 || state.is_null()) return state;
+            if (state.is_null()) return state;
+            if (version == 1) {
             const int oldWidth = ReadInt(state, "columns", 8, 12);
             Require(oldWidth % 2 == 0, "旧工厂宽度无效");
             const auto oldCells = state.at("cells");
@@ -498,6 +631,20 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
             state["cells"] = std::move(cells); state["columns"] = std::max(10, oldWidth); state["rows"] = 10;
             state["processed"] = 0; state["iceFired"] = 0;
             for (auto& lane : state.at("lanes")) { lane["iceAmmo"] = 0; lane["plainQuota"] = 60; }
+            }
+            if (version < 3) {
+                state["pendingScrap"] = 0; state["waveScrap"] = 0; state["recycled"] = 0;
+                for (auto& cell : state.at("cells")) {
+                    cell["extraStock"] = std::array<int, ItemCount - 2>{}; cell["recipe"] = 0;
+                    cell["count"] = 0; cell["previousInput"] = false;
+                    cell["nextItem"] = cell.value("iceNext", false) ? 1 : 0;
+                    if (cell.at("type") == "enemy") cell["setting"] = 1;
+                }
+                for (auto& lane : state.at("lanes")) {
+                    lane["iceQuota"] = MagazineCapacity - ReadInt(lane, "plainQuota", 0, MagazineCapacity);
+                    lane["extraAmmo"] = std::array<int, AmmoCount - 2>{}; lane["extraQuota"] = std::array<int, AmmoCount - 2>{};
+                }
+            }
             return state;
         };
         World candidate; candidate.ReadState(migrate(document.at("state")));

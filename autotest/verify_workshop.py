@@ -22,7 +22,7 @@ assert all(p["shadow"] for p in combat["nativePlants"])
 assert all(z["shadow"] for z in combat["nativeZombies"])
 assert read("native_eating.json")["workshop"]["hasEatingZombie"]
 tooltip = read("machine_tooltip.json")["workshop"]
-assert tooltip["paused"] and tooltip["tooltipVisible"] and "2.5 秒/颗" in " ".join(tooltip["tooltipLines"])
+assert tooltip["paused"] and tooltip["tooltipVisible"] and "2.5 秒/份" in " ".join(tooltip["tooltipLines"])
 recovered = read("recovered.json")["workshop"]
 assert recovered["phaseName"] == "planning" and recovered["health"] == 3
 assert recovered["machineCount"] == 2 and recovered["fired"] == 0

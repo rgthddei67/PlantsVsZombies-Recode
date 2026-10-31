@@ -1861,6 +1861,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 
 bool Board::HasPlantingQuota(PlantType type) const
 {
+    if (IsWorkshop()) return true; // 工坊的解锁与 5×6 同时占格由独立种植入口约束，不继承冒险累计名额
 	if (type == PlantType::PLANT_DAWNLOTUS) {
 		for (int plantID : mEntityRegistry.GetAllPlantIDs()) {
 			const Plant* plant = mEntityRegistry.GetPlant(plantID);
@@ -1950,6 +1951,7 @@ bool Board::HasPlantingRequirement(PlantType type) const
 
 int Board::GetEliteScaredyShroomPlantLimit() const
 {
+	if (IsWorkshop()) return Workshop::Rows * Workshop::FrontColumns;
 	// 支援增加本关累计次数；死亡、铲除和模仿者预占继续共用原有计数。
 	if (HasColdStorageOpeningBonus(ColdStorageOpeningBonus::ELITE_QUOTA))
 		return GetColdStorageOpeningElitePlantLimit();
@@ -1958,6 +1960,7 @@ int Board::GetEliteScaredyShroomPlantLimit() const
 
 int Board::GetEliteScaredyShroomTotalPlantLimit() const
 {
+	if (IsWorkshop()) return std::numeric_limits<int>::max(); // 工坊补种无累计名额；读档不得截断历史种植计数
 	return GetEliteScaredyShroomPlantLimit() + (HasColdStorageOpeningBonus(ColdStorageOpeningBonus::ELITE_QUOTA)
 		? ColdStorageSkillRules::EliteReplacements : 0);
 }

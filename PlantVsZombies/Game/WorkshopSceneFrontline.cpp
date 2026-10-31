@@ -1,0 +1,224 @@
+#include "WorkshopScene.h"
+#include "Board/Board.h"
+#include "Plant/Plant.h"
+#include "Plant/GameDataManager.h"
+#include "../GameApp.h"
+#include "../DeltaTime.h"
+#include <algorithm>
+#include <format>
+
+namespace {
+const glm::vec4 kFrontInk{57, 48, 32, 255}; // 前线说明文字
+const glm::vec4 kFrontGreen{52, 102, 49, 255}; // 可种植和选中卡片
+const glm::vec4 kFrontRed{172, 47, 38, 255}; // 铲除与不可种植提示
+void FrontText(const std::string& text, float x, float y, int size = 15, glm::vec4 color = kFrontInk) {
+    GameAPP::GetInstance().DrawText(text, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
+}
+void PlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h) {
+    const auto* texture = ResourceManager::GetInstance().GetTexture(GameDataManager::GetInstance().GetPlantTextureKey(type), false);
+    if (texture) g->DrawTexture(texture, x, y, w, h);
+}
+Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 4) * 244.0f, 145 + (index / 4) * 190.0f); }
+}
+
+void WorkshopScene::CreateFrontControls() {
+    const auto first = mUIManager.GetButtonCount();
+    mPlantCatalogButton = MakeButton("植物图册 [B]", 216, 48, 140, [this] { OpenPlantCatalog(); }, 31, 16);
+    mFrontRemoveButton = MakeButton("铲除植物", 364, 48, 90, [this] {
+        const bool removing = mFrontTool == FrontTool::Remove; CancelTool();
+        if (!removing) mFrontTool = FrontTool::Remove;
+    }, 31, 14);
+    mFrontUpgradeButton = MakeButton("选中植物升级", 462, 48, 145, [this] { Act("upgrade"); }, 31, 14);
+    mAbilityButton = MakeButton("阳光修复", 615, 48, 115, [this] { Act("plant_ability"); }, 31, 14);
+    mAutomaticButton = MakeButton("自动修复：关", 738, 48, 125, [this] { Act("plant_auto"); }, 31, 13);
+    for (int row = 0; row < Workshop::Rows; ++row)
+        MakeButton("弹药库存 / 配额", 25, 165 + row * 100.0f, 170, [this, row] { OpenAmmoQuotas(row); }, 20, 12);
+    for (size_t i = first; i < mUIManager.GetButtonCount(); ++i) mFrontControls.push_back(mUIManager.GetButton(i));
+}
+
+Plant* WorkshopScene::SelectedFrontPlant() const {
+    auto* plant = mBoard->mEntityRegistry.GetPlant(mSelectedShooter);
+    return plant && plant->IsActive() && plant->mPlantHealth > 0 && Workshop::FindPlant(plant->mPlantType) ? plant : nullptr;
+}
+int WorkshopScene::FrontCellAt(Vector point) const {
+    if (point.y < 88 || point.y >= 584) return -1;
+    for (int row = 0; row < Workshop::Rows; ++row) for (int col = 0; col < Workshop::FrontColumns; ++col) {
+        const auto center = mBoard->GetCellCenterPosition(row, col);
+        if (std::abs(point.x - center.x) < 40 && std::abs(point.y - center.y) < 50) return row * Workshop::FrontColumns + col;
+    }
+    return -1;
+}
+Plant* WorkshopScene::FrontPlantAt(Vector point) const {
+    const int cell = FrontCellAt(point);
+    return cell >= 0 ? mBoard->GetNormalPlantAt(cell / Workshop::FrontColumns, cell % Workshop::FrontColumns) : nullptr;
+}
+void WorkshopScene::SelectFrontPlant(PlantType type) {
+    const auto* definition = Workshop::FindPlant(type);
+    if (!definition || World().CompletedWaves() < definition->unlockWave) return;
+    CancelTool(); mFrontTool = FrontTool::Plant; mFrontBuildType = type;
+    mNotice = std::string("选择格子种植") + definition->name + "；Esc / 右键取消。";
+}
+
+/** 前线也在松手后提交点击，拖过多个格子不会误种或误铲。 */
+void WorkshopScene::UpdateFrontInput() {
+    auto& input = GameAPP::GetInstance().GetInputHandler();
+    const auto point = input.GetMousePosition();
+    if (input.IsMouseButtonPressed(SDL_BUTTON_LEFT) && FrontCellAt(point) >= 0) {
+        mLeftPending = true; mLeftPanning = false; mLeftStart = point;
+        mPressCell = FrontCellAt(point); mFrontPressTool = mFrontTool;
+    }
+    if (!mLeftPending) return;
+    const auto delta = point - mLeftStart;
+    if (delta.x * delta.x + delta.y * delta.y >= 64) mLeftPanning = true;
+    if (input.IsMouseButtonReleased(SDL_BUTTON_LEFT)) {
+        const int cell = FrontCellAt(point);
+        const bool click = !mLeftPanning && cell == mPressCell && cell >= 0 && mFrontTool == mFrontPressTool;
+        CancelMapGesture();
+        if (!click) return;
+        const int row = cell / Workshop::FrontColumns, col = cell % Workshop::FrontColumns;
+        if (mFrontTool == FrontTool::Plant) {
+            const auto* definition = Workshop::FindPlant(mFrontBuildType);
+            const auto reason = mBoard->WorkshopPlantPlacementReason(mFrontBuildType, row, col);
+            if (reason.empty() && Act("plant", row, definition->key, col)) {
+                if (auto* plant = mBoard->GetNormalPlantAt(row, col)) mSelectedShooter = plant->mPlantID;
+            } else mNotice = reason;
+        } else if (mFrontTool == FrontTool::Remove) {
+            if (Act("remove_plant", row, "", col)) {
+                if (!input.IsKeyDown(SDLK_LSHIFT) && !input.IsKeyDown(SDLK_RSHIFT)) CancelTool();
+                mNotice = "植物已铲除，不返还阳光；Shift 可连续铲除。";
+            }
+        } else if (auto* plant = mBoard->GetNormalPlantAt(row, col)) mSelectedShooter = plant->mPlantID;
+        else mSelectedShooter = -1;
+        UpdateUpgradeControls();
+    } else if (!input.IsMouseButtonDown(SDL_BUTTON_LEFT)) CancelMapGesture();
+}
+
+void WorkshopScene::OpenPlantCatalog() {
+    if (!mFrontView || mLoadFailed || mUIManager.GetTopActiveMessageBox()) return;
+    CancelMapGesture(); mPlantCatalogNotice.clear(); mTooltipLines.clear();
+    auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(1012, 552);
+    builder.Button("返回", Vector(973, 47), Vector(64, 34), 16, [this] { ClosePlantCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
+        const auto type = Workshop::Plants[i].type;
+        builder.Button("", PlantCardPosition(i), Vector(228, 176), 12, [this, type] {
+            const auto& info = *Workshop::FindPlant(type);
+            if (World().CompletedWaves() < info.unlockWave) { mPlantCatalogNotice = "守住第 " + std::to_string(info.unlockWave) + " 波后解锁"; return; }
+            SelectFrontPlant(type); ClosePlantCatalog(false);
+        }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    }
+    mPlantCatalog = builder.Show(); mPlantButtons.clear();
+    for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
+        auto button = mPlantCatalog->GetButton(i + 1); button->SetSkipDraw(true); mPlantButtons.push_back(button);
+    }
+    mPlantCatalog->SetCustomDraw([this](Graphics* g) { DrawPlantCatalog(g); });
+    DeltaTime::SetPaused(true);
+}
+void WorkshopScene::ClosePlantCatalog(bool cancel) {
+    if (cancel) CancelTool();
+    if (mPlantCatalog) mPlantCatalog->Close();
+    mPlantCatalog.reset(); mPlantButtons.clear(); mTooltipLines.clear(); mHoverKey = -1;
+}
+void WorkshopScene::DrawPlantCatalog(Graphics* g) {
+    g->FillRect(44, 24, 1012, 552, glm::vec4(232, 220, 168, 255));
+    g->DrawRect(44, 24, 1012, 552, kFrontGreen);
+    FrontText("前线植物图册", 72, 49, 28, kFrontGreen);
+    FrontText("选植物，再点左侧六列种植 · 冰瓜需要现有西瓜投手", 72, 101, 17);
+    mPlantCatalog->GetButton(0)->Draw(g);
+    for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
+        const auto& info = Workshop::Plants[i]; const auto pos = PlantCardPosition(i);
+        const bool unlocked = World().CompletedWaves() >= info.unlockWave, hover = mPlantButtons[i]->IsHovered();
+        g->FillRect(pos.x, pos.y, 228, 176, hover ? glm::vec4(252, 239, 190, 255) : glm::vec4(216, 211, 168, 255));
+        g->DrawRect(pos.x, pos.y, 228, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
+        FrontText(info.name, pos.x + 12, pos.y + 10, 17, unlocked ? kFrontGreen : kFrontInk);
+        FrontText(std::to_string(info.cost) + " 阳光", pos.x + 151, pos.y + 13, 13, World().Energy() >= info.cost ? kFrontInk : kFrontRed);
+        PlantPicture(g, info.type, pos.x + 73, pos.y + 40, 82, 73);
+        FrontText(info.role, pos.x + 9, pos.y + 120, 12);
+        FrontText(unlocked ? "点击选择 · 放下时扣费" : "守住第 " + std::to_string(info.unlockWave) + " 波解锁", pos.x + 12, pos.y + 150, 14, unlocked ? kFrontGreen : kFrontRed);
+    }
+    FrontText(mPlantCatalogNotice.empty() ? "防御植物不耗弹药；输出植物缺弹停火。原有布局、血量和成长跨波保留。" : mPlantCatalogNotice, 72, 541, 15);
+}
+
+/** 五种弹药共用每路八十份总容量；改配额保留已有库存，并明确显示当前分配。 */
+void WorkshopScene::OpenAmmoQuotas(int row) {
+    if (row < 0 || row >= Workshop::Rows || mUIManager.GetTopActiveMessageBox()) return;
+    CancelMapGesture();
+    auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(700, 450);
+    builder.Button("返回", Vector(795, 95), Vector(76, 30), 15, [] {});
+    for (int a = 0; a < Workshop::AmmoCount; ++a) for (int sign : {-1, 1}) {
+        builder.Button(sign < 0 ? "－5" : "＋5", Vector(sign < 0 ? 675 : 770, 166 + a * 62.0f), Vector(80, 34), 16,
+            [this, row, a, sign] {
+                const auto item = static_cast<Workshop::Ammo>(a);
+                if (World().SetAmmoQuota(row, item, std::clamp(World().Lanes()[row].Quota(item) + sign * 5, 0, Workshop::MagazineCapacity))) SaveBase();
+            }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    }
+    mQuotaDialog = builder.Show(); mDismissibleDialog = mQuotaDialog;
+    mQuotaDialog->SetCustomDraw([this, row](Graphics* g) { DrawAmmoQuotas(g, row); }); DeltaTime::SetPaused(true);
+}
+void WorkshopScene::DrawAmmoQuotas(Graphics* g, int row) {
+    g->FillRect(200, 75, 700, 450, glm::vec4(232, 220, 168, 255)); g->DrawRect(200, 75, 700, 450, kFrontGreen);
+    FrontText("第 " + std::to_string(row + 1) + " 路弹仓", 230, 97, 24, kFrontGreen);
+    const auto& lane = World().Lanes()[row];
+    FrontText(std::format("总库存 {}/80 · 所有弹种配额合计80", lane.TotalStock()), 230, 137, 16);
+    for (int a = 0; a < Workshop::AmmoCount; ++a) {
+        const auto item = static_cast<Workshop::Ammo>(a); const float y = 170 + a * 62.0f;
+        DrawItemIcon(g, item, 230, y, 28);
+        FrontText(Workshop::AmmoName(a), 275, y + 4, 17);
+        FrontText(std::format("库存 {} / 配额 {}", lane.Inventory(item), lane.Quota(item)), 402, y + 4, 17);
+    }
+    for (size_t i = 0; i < 1 + Workshop::AmmoCount * 2; ++i) mQuotaDialog->GetButton(i)->Draw(g);
+    FrontText("增额从其他弹种腾出空间；减额保留超额库存，暂停继续装填。", 230, 490, 14);
+}
+
+void WorkshopScene::DrawFrontOverlay(Graphics* g) {
+    if (!mFrontView || mLoadFailed || mUIManager.GetTopActiveMessageBox()) return;
+    const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
+    const int cell = FrontCellAt(mouse);
+    const auto* selected = SelectedFrontPlant();
+    if (mFrontTool != FrontTool::Inspect) {
+        for (int row = 0; row < Workshop::Rows; ++row) for (int col = 0; col < Workshop::FrontColumns; ++col) {
+            const auto center = mBoard->GetCellCenterPosition(row, col);
+            g->DrawRect(center.x - 40, center.y - 50, 80, 100, glm::vec4(240, 232, 152, 110));
+        }
+    }
+    if (selected) {
+        const auto center = mBoard->GetCellCenterPosition(selected->mRow, selected->mColumn);
+        g->DrawRect(center.x - 39, center.y - 49, 78, 98, glm::vec4(255, 227, 113, 255));
+    }
+    if (cell >= 0 && !mLeftPanning) {
+        const int row = cell / Workshop::FrontColumns, col = cell % Workshop::FrontColumns;
+        const auto center = mBoard->GetCellCenterPosition(row, col);
+        const auto* plant = mBoard->GetNormalPlantAt(row, col);
+        const auto reason = mFrontTool == FrontTool::Plant ? mBoard->WorkshopPlantPlacementReason(mFrontBuildType, row, col) : std::string{};
+        const bool remove = mFrontTool == FrontTool::Remove;
+        const auto color = remove || !reason.empty() ? kFrontRed : kFrontGreen;
+        g->DrawRect(center.x - 38, center.y - 48, 76, 96, color);
+        if (mFrontTool == FrontTool::Plant && !plant) PlantPicture(g, mFrontBuildType, center.x - 31, center.y - 39, 62, 72);
+        if (remove && plant) {
+            g->DrawLine(center.x - 30, center.y - 35, center.x + 30, center.y + 35, kFrontRed);
+            g->DrawLine(center.x - 30, center.y + 35, center.x + 30, center.y - 35, kFrontRed);
+        }
+        if (mFrontTool != FrontTool::Inspect) {
+            const auto* definition = Workshop::FindPlant(mFrontBuildType);
+            const std::string label = remove ? "铲除植物 · 不返还阳光" : reason.empty() ? std::string("种植：") + definition->name : reason;
+            const float x = std::clamp(mouse.x + 16, 210.0f, 780.0f), y = std::clamp(mouse.y + 25, 90.0f, 540.0f);
+            g->FillRect(x, y, 305, 31, color); FrontText(label, x + 9, y + 7, 15, glm::vec4(255, 247, 217, 255));
+        }
+    }
+    std::string status = mFrontTool == FrontTool::Remove ? "铲除中 · 点一株后退出，Shift 连铲 · Esc / 右键取消"
+        : mFrontTool == FrontTool::Plant ? std::string("种植中：") + Workshop::FindPlant(mFrontBuildType)->name + " · 选格放置 · Esc / 右键取消"
+        : "B 打开植物图册 · 点植物查看升级与能力 · 左侧按钮配置本路弹药";
+    g->FillRect(216, 575, 872, 25, mFrontTool == FrontTool::Remove ? kFrontRed : glm::vec4(232, 220, 168, 245));
+    FrontText(status, 225, 580, 14, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);
+    for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
+        FrontText("第 " + std::to_string(threat.wave) + " 波：" + threat.name, 875, 56, 15, kFrontRed); break;
+    }
+}
+
+/** 物料在机器、弹仓与预览中使用同一原版资源身份。 */
+void WorkshopScene::DrawItemIcon(Graphics* g, Workshop::Ammo item, float x, float y, float size) {
+    constexpr std::array<const char*, Workshop::ItemCount> keys{
+        "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_PUFFSHROOM_PUFF1",
+        "IMAGE_REANIM_MELONPULT_MELON", "IMAGE_REANIM_WINTERMELON_PROJECTILE", "IMAGE_ZOMBIE_HEAD_GROSSOUT"};
+    const auto* texture = ResourceManager::GetInstance().GetTexture(keys.at(static_cast<int>(item)), false);
+    if (texture) g->DrawTexture(texture, x, y, size, size);
+}

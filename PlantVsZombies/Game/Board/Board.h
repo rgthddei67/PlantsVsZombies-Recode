@@ -209,6 +209,7 @@ public:
 private:
 	std::unique_ptr<Workshop::World> mWorkshop;
 	nlohmann::json mWorkshopBattleCheckpoint;
+    int mWorkshopRetiringBreach = -1; // 同步越线清理期间排除残骸；瞬态，不写存档
 	void UpdateWorkshop();
 	BoardState mBoardState = BoardState::CHOOSE_CARD;
 	int mSun = 50;
@@ -221,6 +222,12 @@ public:
     void InitializeWorkshopFrontline();
     void RefreshWorkshopObservation();
     bool AddWorkshopShooter(int row, bool ice = false);
+    /** 预览与正式种植共用资格检查，空串表示可以种植。 */
+    std::string WorkshopPlantPlacementReason(PlantType type, int row, int column);
+    bool PlaceWorkshopPlant(PlantType type, int row, int column);
+    bool RemoveWorkshopPlant(int row, int column);
+    void RecordWorkshopPlantShot(PlantType type);
+    void RecordWorkshopKill(const Zombie& zombie);
     bool BeginWorkshopAssault();
     bool ReserveWorkshopAmmo(int row, PlantType type = PlantType::PLANT_PEASHOOTER);
     void RecordWorkshopShot(bool ice = false);

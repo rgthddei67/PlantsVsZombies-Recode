@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <numeric>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -16,22 +17,35 @@ inline constexpr int ShooterCost = 150; // 每株新增射手的阳光费用
 inline constexpr int IceShooterCost = 200; // 每株寒冰射手的阳光费用
 inline constexpr int ColdUnlockWave = 3; // 守住此波后开放寒冰生产线和寒冰射手
 inline constexpr float CoolingEnergy = 2.0f; // 每颗普通豌豆加工为寒冰弹额外消耗的阳光
-inline constexpr int MaxShootersPerLane = 3; // 每行同时部署的射手上限
+inline constexpr int FrontColumns = 6; // 前线可种植的列数，每格一株主植物
+inline constexpr int MaxShootersPerLane = FrontColumns; // 旧增援入口也服从同时占格上限
 inline constexpr int RepairCost = 100; // 修复一点基地生命的阳光费用
 inline constexpr int ExpansionCost = 250; // 工厂宽、高各扩建两格的阳光费用，分别不超过 20 格
 inline constexpr float GrowPeriod = 2.5f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
 inline constexpr float GrowEnergy = 2.0f; // 每颗豌豆消耗的阳光能源
-inline constexpr float SolarRate = 1.5f; // 基础集光器每秒产生的阳光能源
+inline constexpr float SolarRate = 1.2f; // 基础集光器每秒产生的阳光能源
 inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍，单位：秒
 inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
 inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 2.0f, 1.6f}; // 各级育豆机与冷凝机生产间隔，单位：秒/颗
-inline constexpr std::array<float, 3> SolarRates{SolarRate, 2.25f, 3.0f}; // 各级集光器产能，单位：阳光/秒
+inline constexpr std::array<float, 3> SolarRates{SolarRate, 1.8f, 2.4f}; // 各级集光器产能，单位：阳光/秒
 inline constexpr std::array<int, 3> StoreCapacities{60, 120, 200}; // 各级弹药仓容量，单位：颗
 inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各级射手基础冷却，单位：秒；索敌与动画同比例提速
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
-    Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler, Count };
-enum class Ammo { Pea, Ice };
+    Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler,
+    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Count };
+// 前五类进入前线弹仓，残骸只参与工厂物流；追加枚举不改变旧弹种编号。
+enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, Scrap, Count };
+inline constexpr int AmmoCount = static_cast<int>(Ammo::Scrap);
+inline constexpr int ItemCount = static_cast<int>(Ammo::Count);
+inline constexpr int ScrapPerWave = 40; // 每波全基地累计残骸掉落上限，召唤物也共用
+inline constexpr float ScrapEnergy = 5; // 每份残骸完成回收获得的阳光
+inline constexpr std::array<float, 3> SporePeriods{0.6f, 0.45f, 0.35f}; // 孢子培养间隔，秒/份
+inline constexpr std::array<float, 3> MelonPeriods{4.0f, 3.2f, 2.5f}; // 瓜果培养间隔，秒/份
+inline constexpr std::array<float, 3> RecyclePeriods{1.5f, 1.2f, 1.0f}; // 残骸回收间隔，秒/份
+inline constexpr float SporeEnergy = 0.5f; // 每份孢子的阳光成本
+inline constexpr float MelonEnergy = 8; // 每颗西瓜的阳光成本
+inline constexpr float IceMelonEnergy = 6; // 每颗西瓜冷凝为冰瓜的额外阳光成本
 enum class Phase { Planning, Assault, Dead };
 
 struct Definition {
@@ -52,6 +66,9 @@ bool CanUpgradeMachine(Machine type);
 int UpgradeCost(int baseCost, int currentLevel);
 int Capacity(Machine type, int level = 1);
 const char* AmmoName(int filter);
+/** 生产和升级共用的周期，秒；非生产设备返回 0。 */
+float ProductionPeriod(Machine type, int level);
+Ammo ProducedItem(Machine type);
 
 struct Cell {
     Machine type = Machine::Empty;
@@ -61,25 +78,33 @@ struct Cell {
     int iceStock = 0;
     int route = 0;
     int filter = -1; // -1 混合，0 普通，1 寒冰；筛选分流器把匹配弹种送向右侧
-    bool iceNext = false;
+    bool iceNext = false; // 保留旧档兼容投影；物流轮询由 nextItem 持有
+    std::array<int, ItemCount - 2> extraStock{};
+    int nextItem = 0, recipe = 0; // recipe: 冷凝机 0 冰豌豆，1 冰瓜
+    int count = 0;
+    bool previousInput = false;
     std::array<int, 2> inputs{ -1, -1 };
     int setting = 10;
     float clock = 0;
     bool signal = false;
     bool manual = true;
     bool alternate = false;
-    int TotalStock() const { return stock + iceStock; }
-    int& Inventory(Ammo type) { return type == Ammo::Ice ? iceStock : stock; }
-    int Inventory(Ammo type) const { return type == Ammo::Ice ? iceStock : stock; }
+    int TotalStock() const { return stock + iceStock + std::accumulate(extraStock.begin(), extraStock.end(), 0); }
+    int& Inventory(Ammo type) { return type == Ammo::Pea ? stock : type == Ammo::Ice ? iceStock : extraStock.at(static_cast<int>(type) - 2); }
+    int Inventory(Ammo type) const { return type == Ammo::Pea ? stock : type == Ammo::Ice ? iceStock : extraStock.at(static_cast<int>(type) - 2); }
 };
 struct Lane {
     int ammo = 0;
     int iceAmmo = 0;
     int plainQuota = 60; // 总弹仓 80 颗，剩余额度预留给寒冰弹；调额不销毁已有库存
     int shooters = 1;
-    int& Inventory(Ammo type) { return type == Ammo::Ice ? iceAmmo : ammo; }
-    int Inventory(Ammo type) const { return type == Ammo::Ice ? iceAmmo : ammo; }
-    int Quota(Ammo type) const { return type == Ammo::Ice ? MagazineCapacity - plainQuota : plainQuota; }
+    int iceQuota = 20;
+    std::array<int, AmmoCount - 2> extraAmmo{}, extraQuota{};
+    int TotalStock() const { return ammo + iceAmmo + std::accumulate(extraAmmo.begin(), extraAmmo.end(), 0); }
+    int& Inventory(Ammo type) { return type == Ammo::Pea ? ammo : type == Ammo::Ice ? iceAmmo : extraAmmo.at(static_cast<int>(type) - 2); }
+    int Inventory(Ammo type) const { return type == Ammo::Pea ? ammo : type == Ammo::Ice ? iceAmmo : extraAmmo.at(static_cast<int>(type) - 2); }
+    int& Quota(Ammo type) { return type == Ammo::Pea ? plainQuota : type == Ammo::Ice ? iceQuota : extraQuota.at(static_cast<int>(type) - 2); }
+    int Quota(Ammo type) const { return type == Ammo::Pea ? plainQuota : type == Ammo::Ice ? iceQuota : extraQuota.at(static_cast<int>(type) - 2); }
 };
 /** 当前出料口的只读诊断；ready 表示目标此刻可接收，不预留容量或推进物流。 */
 struct OutputInfo {
@@ -109,6 +134,17 @@ public:
     bool SetRoute(int index, int row);
     bool SetFilter(int index, int filter);
     bool SetQuota(int row, int plainQuota);
+    /** 修改一种弹药配额，优先从最大其他配额转移；不销毁既有库存，总配额固定为弹仓容量。 */
+    bool SetAmmoQuota(int row, Ammo type, int quota);
+    /** 首次部署一种弹药消费者时，若当前配额为零，自动从其他配额拨出空间。 */
+    void EnsureAmmoQuota(int row, Ammo type);
+    bool SetRecipe(int index, int recipe);
+    bool SpendEnergy(float amount);
+    void RefundEnergy(float amount);
+    /** 仅由真实战斗死亡入口调用；越线和场景销毁不得调用。 */
+    void RecordKill();
+    int PendingScrap() const { return mPendingScrap; }
+    int WaveScrap() const { return mWaveScrap; }
     bool AddShooter(int row, bool ice = false);
     bool Expand();
     bool Repair();
@@ -159,6 +195,7 @@ private:
     int mRemainingSpawns = 0, mSpawned = 0;
     int mProduced = 0, mFired = 0, mDelivered = 0;
     int mProcessed = 0, mIceFired = 0;
+    int mPendingScrap = 0, mWaveScrap = 0, mRecycled = 0;
     float mEnergy = 300, mTransportClock = 0, mSpawnClock = 0;
     nlohmann::json mCheckpoint;
     bool Valid(int index) const;
