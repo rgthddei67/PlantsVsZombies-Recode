@@ -36,8 +36,10 @@ void WorkshopScene::OpenMachineConfig(int index) {
     add("cfg_close", "返回", 888, 48, 88, [this] { CloseMachineConfig(); });
     add("cfg_reason", "看原因", 665, 48, 105, [this] { OpenMachineReason(mConfigMachine); });
     add("cfg_guide", "图解", 785, 48, 88, [this, type] { OpenGuide(static_cast<int>(type)); });
-    add("cfg_disconnect_a", "断开 A", 699, 124, 120, [action] { action("disconnect_a"); });
-    add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
+    if (World().Unlocked(M::Switch)) {
+        add("cfg_disconnect_a", "断开 A", 699, 124, 120, [action] { action("disconnect_a"); });
+        add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
+    }
     if (Workshop::HasSelectionInput(type)) {
         add("cfg_plan0", "手动方案 1", (type == M::Splitter ? 140.0f : 235.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 0); });
         add("cfg_plan1", "手动方案 2", (type == M::Splitter ? 345.0f : 665.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 1); });
@@ -130,9 +132,10 @@ void WorkshopScene::RefreshMachineConfig() {
     set("cfg_plan0", c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
     set("cfg_plan1", c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
     for (int plan = 0; plan < 2; ++plan) {
-        set("cfg_route" + std::to_string(plan), "送往：第 " + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
+        const bool sensor = c.type == M::StockSensor || c.type == M::EnemySensor;
+        set("cfg_route" + std::to_string(plan), std::string(sensor ? "监视：第 " : "送往：第 ") + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
         const int filter = plan ? c.filter2 : c.filter;
-        set("cfg_filter" + std::to_string(plan), std::string("接收：") + (filter == 0 ? "普通豌豆" : filter == 1 ? "寒冰豌豆" : Workshop::AmmoName(filter)),
+        set("cfg_filter" + std::to_string(plan), std::string(c.type == M::StockSensor ? "检测：" : c.type == M::Counter ? "计量：" : "接收：") + (filter == 0 ? "普通豌豆" : filter == 1 ? "寒冰豌豆" : Workshop::AmmoName(filter)),
             !(c.type == M::Counter && c.counterMode == Workshop::CounterMode::Signal) && !(c.type == M::Splitter && c.strictSplit));
     }
     set("cfg_counter_mode", std::string("计数：") + std::array<const char*, 3>{"信号从关到开", "来源机器产出", "来源机器出库 / 发射"}[static_cast<int>(c.counterMode)]);
@@ -156,15 +159,16 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         return Workshop::PortLabel(c, port) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
             + (measuring ? "（读取数量）" : std::string(" ") + Workshop::SignalName(World().Cells()[source].signal)));
     };
-    Label(connection(0), 140, 133, 14, SignalWireColor(0, false));
-    if (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter) Label(connection(1), 415, 133, 14, SignalWireColor(1, false));
+    const bool circuits = World().Unlocked(M::Switch);
+    if (circuits) Label(connection(0), 140, 133, 14, SignalWireColor(0, false));
+    if (circuits && (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter)) Label(connection(1), 415, 133, 14, SignalWireColor(1, false));
     if (type == M::Splitter) Label("当前方案 " + std::to_string(World().ActivePlan(mConfigMachine) + 1)
-        + (c.inputs[1] >= 0 ? " · B 关选1，开选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
+        + (!circuits ? " · 手动选择" : c.inputs[1] >= 0 ? " · B 关选1，开选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
     if (type == M::Feeder || type == M::Cannon || type == M::Cooler) {
         DrawProfileCards(g);
     } else if (type == M::Splitter) {
         Label(c.strictSplit ? "严格选路：只送选定出口，堵住时等待，不偷偷换路。" : "普通模式：无筛选时轮流/优先；有筛选时按弹种固定分路。", 140, 330, 17, kConfigGreen);
-        Label("A 口可停止输出；B 口在严格模式下直接选择前方 / 右侧。", 140, 371, 16);
+        Label(circuits ? "A 口可停止输出；B 口在严格模式下直接选择前方 / 右侧。" : "严格模式下，点击正前方 / 右侧即可选择出料口。", 140, 371, 16);
         Label("切回普通模式会保留原来的筛选配置，旧基地迁移后仍是普通模式。", 140, 410, 14);
     } else if (type == M::Counter || type == M::StockSensor || type == M::EnemySensor || type == M::Timer) {
         Label(std::string(type == M::Timer ? "周期（秒）：" : type == M::Counter ? "每批 / 门槛：" : "触发门槛：") + std::to_string(c.setting), 140, 290, 22, kConfigGreen);
@@ -177,12 +181,12 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         else Label("前半周期关闭，后半周期开启；A 不接时自动计时。", 140, 400, 16);
     } else {
         Label(Workshop::Describe(type).description, 140, 285, 17, kConfigGreen);
-        Label("需要接法示例时可点右上角图解；A / B 的作用以本页端口说明为准。", 140, 390, 15);
+        Label(circuits ? "需要接法示例时可点右上角图解；A / B 的作用以本页端口说明为准。" : "需要使用示例时可点右上角图解；也可以进入动手练习。", 140, 390, 15);
     }
     if (Workshop::RatedPower(type, c.level) > 0) {
         Label(std::format("用电 {:.1f} / 额定 {:.1f} · 待机 {:.0f}% · 加工速度 {:.0f}%", World().MachinePower(mConfigMachine),
             Workshop::RatedPower(type, c.level), Workshop::StandbyPowerRatio * 100, World().Power().speed * 100), 350, 464, 14, kConfigGreen);
-        Label("手动开关与 A 口同时允许才运行；关机为 0 用电。", 140, 495, 13);
+        Label(circuits ? "手动开关与 A 口同时允许才运行；关机为 0 用电。" : "手动关闭闲置加工设备后，该机用电降为 0。", 140, 495, 13);
     }
     g->PushClipRect(125, 509, 846, 46);
     const auto warning = World().MaterialWarning(mConfigMachine);

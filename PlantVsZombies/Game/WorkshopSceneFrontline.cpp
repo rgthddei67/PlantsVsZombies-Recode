@@ -274,7 +274,7 @@ void WorkshopScene::DrawFrontOverlay(Graphics* g) {
     FrontText(status, 225, 580, 13, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);
     g->PopClipRect();
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        FrontText("第 " + std::to_string(threat.wave) + " 波：" + threat.name, 875, 580, 14, kFrontRed); break;
+        FrontText("第" + std::to_string(threat.wave) + "波预告：" + threat.name + "僵尸", 875, 580, 14, kFrontRed); break;
     }
 }
 

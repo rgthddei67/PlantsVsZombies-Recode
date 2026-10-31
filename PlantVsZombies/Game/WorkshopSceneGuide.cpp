@@ -52,11 +52,11 @@ void Gate(Lesson& lesson, M gate, M first, M second) {
         {Topic(gate), Vector(635, 411), {}}, {Topic(M::Grower), Vector(915, 411), {}}};
     lesson.edges = {{0, 2, true, "A"}, {1, 2, true, "B"}, {2, 3, true, "接 A 口"}};
 }
-Lesson Explain(int topic) {
+Lesson Explain(int topic, bool circuits) {
     Lesson lesson;
     if (topic == Workshop::PowerGuide) {
         lesson.purpose = "阳光付钱，电网决定同时能加工多少。";
-        lesson.steps = {"1. 顶部电网显示需求、容量与加工速度。", "2. 超载时双击闲置产线，关闭加工电源。", "3. 对比下方三种操作，看紧缺路线得到多少弹药。"};
+        lesson.steps = {"1. 顶部电网显示需求、容量与加工速度。", "2. 超载时双击闲置产线，关闭加工电源。", "3. 对比下方操作，看紧缺路线得到多少弹药。"};
         lesson.tip = "升级电网受波次限制；准备期停机，库存和进度跨波保留。";
         return lesson;
     }
@@ -113,7 +113,7 @@ Lesson Explain(int topic) {
     switch (static_cast<M>(topic)) {
     case M::Empty:
         lesson.purpose = "工厂造弹药，弹仓收货，前线植物取弹攻击。";
-        lesson.steps = {"1. 育豆机、运输带、装填口相邻放，箭头朝右。", "2. 选中装填口，目标路线设为射手所在路。", "3. 点开始袭击才会生产；空格暂停时仍可施工。"};
+        lesson.steps = {"1. 育豆机、运输带、装填口相邻放，箭头朝右。", "2. 选中装填口，目标路线设为射手所在路。", "3. 五路都要供弹再开波；生产会持续消耗阳光。"};
         lesson.tip = "工厂第几行不决定送哪路，装填口的目标路线才决定。";
         lesson.example = "最小供弹线：先给一条前线供货，再照着搭其他路";
         Chain(lesson, {Topic(M::Grower), Topic(M::Belt), Topic(M::Feeder), PlantTopic(PlantType::PLANT_PEASHOOTER)});
@@ -149,8 +149,9 @@ Lesson Explain(int topic) {
         lesson.edges.back().label = "本路弹仓";
         break;
     case M::Feeder:
-        lesson.purpose = "从同一缓存供货，B 信号切换两套路线与弹种。";
+        lesson.purpose = circuits ? "从同一缓存供货，B 信号切换两套路线与弹种。" : "把工厂弹药送到指定路线，供这一路的植物使用。";
         lesson.steps = {"1. 用运输带送货，再打开装填口配置。", "2. 两套方案分别设置路线和弹种筛选。", "3. B 关选方案1，开选方案2；A 控制送不送。"};
+        if (!circuits) lesson.steps[2] = "3. 点击方案卡选择送货路线；五路都需检查供弹。";
         lesson.tip = "切换不清库存；同一路仍共用弹仓容量，筛选不匹配的物料会留在缓存。";
         lesson.example = "工厂与前线的桥梁：跨区域送入本路弹仓";
         Chain(lesson, {Topic(M::Grower), Topic(M::Belt), topic, PlantTopic(PlantType::PLANT_PEASHOOTER)});
@@ -167,7 +168,9 @@ Lesson Explain(int topic) {
     case M::Splitter:
         lesson.purpose = "把一条物料线分给正前方和右侧两个出口。";
         lesson.steps = {"1. 放在产出机器后面，正前方和右侧都接设备。", "2. 保持混合且不接线：轮流分配，堵住会换另路。", "3. 若筛选弹种：该弹种固定走右侧，其余走前方。"};
-        lesson.tip = "严格模式：B关只走前方，开只走右侧，堵住不换路；A可停机。";
+        if (!circuits) lesson.steps[1] = "2. 保持普通模式与混合筛选：轮流分配，堵住换路。";
+        lesson.tip = circuits ? "严格模式：B关只走前方，开只走右侧，堵住不换路；A可停机。"
+            : "严格模式只送手动选中的出口，堵住时等待；打开配置即可切换。";
         lesson.example = "箭头朝右：正前方在右，右侧出口在下；R 旋转后一起转";
         lesson.nodes = {{Topic(M::Grower), Vector(355, 365), {}}, {topic, Vector(625, 365), {}},
             {Topic(M::Feeder), Vector(915, 365), {}}, {Topic(M::Store), Vector(625, 461), {}}};
@@ -302,7 +305,7 @@ void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
     for (int mode = 0; mode < 3; ++mode)
         builder.Button(std::array<const char*, 3>{"1 全部开启", "2 手动关闲线", "3 电路自动关"}[mode], Vector(286 + mode * 224.0f, 264), Vector(214, 34), 15,
             [this, mode] { ResetPowerDemo(mode); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
-    builder.Button("动手练习", Vector(746, 43), Vector(160, 34), 16, [this] { OpenPractice(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("动手练习", Vector(746, 43), Vector(160, 34), 16, [this] { OpenPractice(RecommendedPracticeLesson(mGuideTopics[mGuidePage])); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mGuide = builder.Show();
     for (int i = 0; i < 9 + kContentsRows; ++i) {
         mGuide->GetButton(i)->SetTextColor(glm::vec4(255, 228, 142, 255));
@@ -331,8 +334,7 @@ void WorkshopScene::RefreshGuide() {
     if (!mGuide || mGuideTopics.empty()) return;
     mGuidePage = std::clamp(mGuidePage, 0, static_cast<int>(mGuideTopics.size()) - 1);
     const bool powerLesson = mGuideTopics[mGuidePage] == Workshop::PowerGuide;
-    for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->SetEnabled(powerLesson && (i < 2 || World().CompletedWaves() >= 2));
-    mGuide->GetButton(15)->SetText(World().CompletedWaves() >= 2 ? "3 电路自动关" : "守住 2 波后解锁");
+    for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->SetEnabled(powerLesson && (i < 2 || World().Unlocked(M::Switch)));
     if (powerLesson && !mPowerDemo) ResetPowerDemo(0);
     if (!powerLesson) mPowerDemo.reset();
     mGuide->GetButton(1)->SetEnabled(mGuidePage > 0);
@@ -366,7 +368,7 @@ void WorkshopScene::DrawGuide(Graphics* g) {
     g->FillRect(65, 89, 185, 467, glm::vec4(215, 210, 169, 255));
     Label(mGuideUnlockWave >= 0 ? "守住第 " + std::to_string(mGuideUnlockWave) + " 波 · 新内容已解锁" : "戴夫的图解指南", 76, 49, 24, kGreen);
     Label(mGuideUnlockWave >= 0 ? "这次解锁" : "已解锁目录", 88, 101, 17, kGreen);
-    const int topic = mGuideTopics[mGuidePage]; const auto lesson = Explain(topic);
+    const int topic = mGuideTopics[mGuidePage]; const auto lesson = Explain(topic, World().Unlocked(M::Switch));
     auto picture = [this, g](int id, float x, float y, float size) {
         if (id == Workshop::PowerGuide || id == Workshop::DispatchGuide || id == Workshop::FocusGuide) {
             g->FillRect(x, y, size, size, glm::vec4(60, 85, 51, 255));
@@ -411,8 +413,10 @@ void WorkshopScene::DrawGuide(Graphics* g) {
     if (topic == Workshop::PowerGuide) {
         DrawPowerDemo(g);
         Label(lesson.tip, 280, 508, 12);
-        for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->Draw(g);
-    } else Label("绿色箭头：物料 · 蓝实线 A / 橙虚线 B：控制或计量 · 高=开，低=关", 280, 508, 12);
+        for (int i = 0; i < (World().Unlocked(M::Switch) ? 3 : 2); ++i) mGuide->GetButton(13 + i)->Draw(g);
+    } else Label(std::any_of(lesson.edges.begin(), lesson.edges.end(), [](const Edge& edge) { return edge.wire; })
+        ? "绿色箭头：物料 · 蓝实线 A / 橙虚线 B：控制或计量 · 高=开，低=关"
+        : "绿色箭头：物料或资源去向；工厂行号不决定前线的送货路线。", 280, 508, 12);
     Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  查看时暂停，随时可重看", 280, 542, 13);
     for (int i = 0; i < 5; ++i) mGuide->GetButton(i)->Draw(g);
     mGuide->GetButton(16)->Draw(g);

@@ -57,9 +57,12 @@ void WorkshopScene::DrawMachineReason(Graphics* g, int index) {
     const auto& cell = World().Cells()[index];
     g->FillRect(85, 35, 930, 530, glm::vec4(237, 227, 188, 255)); g->DrawRect(85, 35, 930, 530, kSignalGreen);
     Text(std::string(Workshop::Describe(cell.type).name) + " · 为什么这样运行", 120, 59, 24, kSignalGreen);
-    g->FillRect(120, 106, 395, 31, glm::vec4(42, 50, 43, 255));
-    Text("蓝色实线：A　　橙色虚线：B", 133, 112, 16, glm::vec4(247, 229, 168, 255));
-    Text("开（高）=条件成立；关（低）=条件不成立", 535, 113, 15);
+    const bool circuits = World().Unlocked(Workshop::Machine::Switch);
+    if (circuits) {
+        g->FillRect(120, 106, 395, 31, glm::vec4(42, 50, 43, 255));
+        Text("蓝色实线：A　　橙色虚线：B", 133, 112, 16, glm::vec4(247, 229, 168, 255));
+        Text("开（高）=条件成立；关（低）=条件不成立", 535, 113, 15);
+    } else Text("先检查手动电源、出料方向、物料种类和弹仓配额。", 120, 113, 16);
     std::vector<std::string> lines;
     for (const auto& explanation : World().Explain(index)) {
         std::string line;
@@ -75,7 +78,7 @@ void WorkshopScene::DrawMachineReason(Graphics* g, int index) {
     mReasonPage = std::clamp(mReasonPage, 0, pages - 1);
     for (int row = 0, at = mReasonPage * kReasonLinesPerPage; row < kReasonLinesPerPage && at < static_cast<int>(lines.size()); ++row, ++at)
         Text(lines[at], 120, 155 + row * 25.0f, 15);
-    Text("查看时基地暂停；信号逐拍传播，开波后刷新。", 120, 532, 14, kSignalGreen);
+    Text(circuits ? "查看时基地暂停；信号逐拍传播，开波后刷新。" : "查看时基地暂停；关闭窗口后继续，准备期仍停机。", 120, 532, 14, kSignalGreen);
     mReasonDialog->GetButton(1)->SetEnabled(mReasonPage > 0); mReasonDialog->GetButton(2)->SetEnabled(mReasonPage + 1 < pages);
     if (pages > 1) { Text(std::format("{} / {}", mReasonPage + 1, pages), 680, 530, 14); mReasonDialog->GetButton(1)->Draw(g); mReasonDialog->GetButton(2)->Draw(g); }
     mReasonDialog->GetButton(0)->Draw(g);

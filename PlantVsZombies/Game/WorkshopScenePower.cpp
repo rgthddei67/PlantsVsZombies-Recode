@@ -35,7 +35,7 @@ void WorkshopScene::DrawPowerGrid(Graphics* g) {
     g->FillRect(85, 32, 930, 536, glm::vec4(235, 225, 184, 255)); g->DrawRect(85, 32, 930, 536, kPowerGreen);
     Label("基地电网 · 全厂自动接电", 125, 53, 25, kPowerGreen);
     Label(World().LegacyAssault() ? "旧袭击保护：本波与重试保留原产速、原出怪；结算后启用新规则。"
-        : World().State() == Workshop::Phase::Planning ? "准备期全部停机。下方显示开波后的负载预估，可先关机或接线。"
+        : World().State() == Workshop::Phase::Planning ? "准备期全部停机。下方显示开波后的负载预估，可先关闭闲置设备。"
         : "打开面板时已暂停；关掉多余加工设备，可以把电力让给紧缺产线。", 125, 98, 16);
     Label(std::format("需求 {:.1f} / 容量 {:.0f}     加工速度 {:.0f}%", power.demand, power.capacity, power.speed * 100), 125, 137, 23,
         power.speed < .999f ? kPowerRed : kPowerGreen);
@@ -48,8 +48,10 @@ void WorkshopScene::DrawPowerGrid(Graphics* g) {
         Label(i == 0 ? "初始电网" : std::format("守住 {} 波", Workshop::GridUnlockWaves[i]), x + 7, 249, 14);
         Label(i + 1 <= World().GridLevel() ? "已接入" : std::format("{} 阳光", Workshop::GridCosts[i]), x + 7, 276, 13);
     }
-    Label("工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。手动或 A 口关闭为 0。", 125, 323, 16);
-    Label("超载时所有加工同比减速，进度保留。运输、电路不耗电，炮台沿用弹药与充能。", 125, 352, 16);
+    Label(World().Unlocked(Workshop::Machine::Switch) ? "工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。手动或 A 口关闭为 0。"
+        : "工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。手动关闭为 0。", 125, 323, 16);
+    Label(World().Unlocked(Workshop::Machine::Switch) ? "超载时所有加工同比减速，进度保留；运输与电路不耗电。"
+        : "超载时所有加工同比减速，进度保留；运输和装填不消耗电力。", 125, 352, 16);
     Label("集光器只采阳光；加工机器升级的产速增长高于耗电增长。", 125, 381, 16);
     const int stage = World().AssaultStage();
     Label(World().FocusRoute(0) < 0 ? "本波各路均匀来敌；第 3 波起分段主攻，其他路线仍有零星敌人。"
@@ -68,6 +70,7 @@ void WorkshopScene::DrawPowerGrid(Graphics* g) {
 /** 三种操作从同一隔离样例开始，走正式 World 生产/接线入口；绝不改动玩家基地。 */
 void WorkshopScene::ResetPowerDemo(int mode) {
     using M = Workshop::Machine;
+    if (mode == 2 && !World().Unlocked(M::Switch)) return;
     mPowerDemoMode = mode; mPowerDemo = std::make_unique<Workshop::World>();
     auto save = mPowerDemo->Save(); auto& state = save["state"];
     state["completedWaves"] = 2; state["energy"] = 10000;

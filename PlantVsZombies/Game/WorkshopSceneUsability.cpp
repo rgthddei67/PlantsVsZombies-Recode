@@ -25,7 +25,8 @@ int ProfileAt(Vector point) {
 void WorkshopScene::DrawProfileCards(Graphics* g) {
     const auto& c = World().Cells()[mConfigMachine]; const int active = World().ActivePlan(mConfigMachine);
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
-    Text(c.inputs[1] >= 0 ? "自动切换：B 关闭选左边，开启选右边。" : "点击整张方案卡即可启用；接上 B 线后，也能让电路自动切换。", 140, 177, 16, kGreen);
+    Text(!World().Unlocked(M::Switch) ? "点击整张方案卡即可启用，按所选路线与弹种配送。"
+        : c.inputs[1] >= 0 ? "自动切换：B 关闭选左边，开启选右边。" : "点击整张方案卡即可启用；接上 B 线后，也能让电路自动切换。", 140, 177, 16, kGreen);
     for (int plan = 0; plan < 2; ++plan) {
         const float x = 125 + plan * 430.0f;
         const bool locked = c.type == M::Cooler && plan == 1 && World().CompletedWaves() < 8;

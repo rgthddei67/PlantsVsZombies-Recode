@@ -59,6 +59,19 @@
       "equals": true
     },
     {
+      "op": "assert_state",
+      "path": "workshop.practiceLessons",
+      "equals": [
+        0,
+        1
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireToolsVisible",
+      "equals": false
+    },
+    {
       "op": "click",
       "x": 672,
       "y": 104,
@@ -119,6 +132,242 @@
       "equals": false
     },
     {
+      "op": "workshop",
+      "action": "practice_open",
+      "index": 2,
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 40,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "15_basic_power_guide.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "15_basic_power_guide.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 1
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "16_basic_power_practice.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "16_basic_power_practice.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_3",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_power",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.complete",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_next",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 3,
+      "value": 0,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 3,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "17_basic_feeder_config.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "17_basic_feeder_config.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_reason",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "18_basic_reason.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "18_basic_reason.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
       "op": "workshop_snapshot",
       "action": "load",
       "name": "starter",
@@ -161,6 +410,16 @@
     {
       "op": "wait_frames",
       "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceLessons",
+      "equals": [
+        0,
+        1,
+        2,
+        3
+      ]
     },
     {
       "op": "workshop_snapshot",
@@ -1172,6 +1431,224 @@
     {
       "op": "dump_state",
       "name": "lessons_closed.json"
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 41,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "19_dispatch_entry.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "19_dispatch_entry.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 8,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "20_enemy_entry.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "20_enemy_entry.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 40,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 1
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 9,
+      "value": 0,
+      "type": "stock"
+    },
+    {
+      "op": "workshop",
+      "action": "route",
+      "index": 9,
+      "value": 2,
+      "type": ""
+    },
+    {
+      "op": "workshop",
+      "action": "filter",
+      "index": 9,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 9,
+      "value": 0,
+      "type": ""
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "21_sensor_labels.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "21_sensor_labels.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
     },
     {
       "op": "workshop",

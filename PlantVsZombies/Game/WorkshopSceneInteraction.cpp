@@ -44,6 +44,7 @@ void WorkshopScene::CancelTool() {
     mNotice = "查看模式：指向机器按 R 旋转；左键拖地图，轻点选择。";
 }
 void WorkshopScene::SelectTool(Tool tool) {
+    if ((tool == Tool::WireA || tool == Tool::WireB) && !World().Unlocked(Workshop::Machine::Switch)) return;
     if (mTool == tool || tool == Tool::Inspect) { CancelTool(); return; }
     CancelTool(); mTool = tool;
     mNotice = tool == Tool::Remove ? "拆除模式：点击拆一台后退出；Shift 连拆，Esc / 右键取消。"

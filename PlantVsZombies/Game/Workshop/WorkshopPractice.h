@@ -25,6 +25,8 @@ public:
     int EnemyCount() const { return mEnemies[2]; }
     const std::string& Notice() const { return mNotice; }
     static const char* Name(int lesson);
+    /** 课程跟随所需元件的实际解锁进度，基础物流与手动用电从开局提供。 */
+    static int UnlockWave(int lesson);
     std::string Instruction() const;
     std::string Hint() const;
     int HighlightCell() const;

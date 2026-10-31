@@ -125,6 +125,8 @@ private:
     void ConfirmReset();
     void ShowHelp();
     void OpenPractice(int lesson = 0);
+    /** 图解入口优先打开当前主题对应的已解锁课程，其余主题继续未完成课程。 */
+    int RecommendedPracticeLesson(int topic) const;
     void ClosePractice();
     bool PracticeAction(const std::string& action, int value = -1);
     void UpdatePractice();

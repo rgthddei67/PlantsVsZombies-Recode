@@ -383,10 +383,15 @@ void WorkshopScene::UpdateUpgradeControls() {
     if (mWireBButton) mWireBButton->SetText(mTool == Tool::WireB ? "接 B 中" : "接 B 口");
     if (mWireAButton) mWireAButton->SetTextColor(SignalWireColor(0));
     if (mWireBButton) mWireBButton->SetTextColor(SignalWireColor(1));
+    const bool circuits = World().Unlocked(M::Switch);
+    for (const auto& button : {mWireAButton, mWireBButton}) if (button) {
+        button->SetSkipDraw(mFrontView || !circuits); button->SetEnabled(!mFrontView && circuits);
+    }
+    if (mDisconnectButton) mDisconnectButton->SetSkipDraw(mFrontView || !circuits);
     if (mRotateButton) mRotateButton->SetEnabled(!mFrontView && (mTool == Tool::Build
         ? Workshop::HasDirectionalOutput(mBuildType) : selected && Workshop::HasDirectionalOutput(selected->type)));
     if (mConfigButton) mConfigButton->SetEnabled(!mFrontView && selected && selected->type != M::Empty);
-    if (mDisconnectButton) mDisconnectButton->SetEnabled(!mFrontView && selected && (selected->inputs[0] >= 0 || selected->inputs[1] >= 0));
+    if (mDisconnectButton) mDisconnectButton->SetEnabled(!mFrontView && circuits && selected && (selected->inputs[0] >= 0 || selected->inputs[1] >= 0));
     for (size_t i = 0; i < mQuickButtons.size(); ++i)
         mQuickButtons[i]->SetEnabled(!mFrontView && i < mRecentMachines.size() && World().Unlocked(mRecentMachines[i]));
     if (mUpgradeButton) {
@@ -416,8 +421,8 @@ void WorkshopScene::UpdateUpgradeControls() {
         const bool filter = type == M::Feeder || type == M::Cannon || type == M::Counter || type == M::Store || type == M::Splitter || type == M::StockSensor;
         mRouteButton->SetSkipDraw(mFrontView || !route); mRouteButton->SetEnabled(!mFrontView && route);
         mFilterButton->SetSkipDraw(mFrontView || !filter); mFilterButton->SetEnabled(!mFrontView && filter);
-        if (route) mRouteButton->SetText("目标 第" + std::to_string(World().ActiveRoute(mSelected) + 1) + "路");
-        if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "接收 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
+        if (route) mRouteButton->SetText(std::string(type == M::StockSensor || type == M::EnemySensor ? "监视 第" : "目标 第") + std::to_string(World().ActiveRoute(mSelected) + 1) + "路");
+        if (filter) mFilterButton->SetText(std::string(type == M::StockSensor ? "检测 " : type == M::Counter ? "计量 " : type == M::Splitter ? "右侧筛选 " : "接收 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
     }
     for (size_t row = 0; row < mQuotaButtons.size(); ++row) {
         mQuotaButtons[row]->SetText(std::format("　{}路弹仓 {}/80 · 调整配额", row + 1, World().Lanes()[row].TotalStock()), ResourceKeys::Fonts::FONT_FZCQ, 14);
@@ -436,7 +441,7 @@ void WorkshopScene::SelectBuild(Workshop::Machine type) {
 
 bool WorkshopScene::Act(const std::string& action, int index, const std::string& type, int value) {
     if (mLoadFailed) return false;
-    if (action == "practice_open") { OpenPractice(std::max(0, index)); return mPracticeDialog && mPracticeDialog->IsActive(); }
+    if (action == "practice_open") { const int lesson = std::max(0, index); OpenPractice(lesson); return mPracticeDialog && mPracticeDialog->IsActive() && mPractice->Lesson() == lesson; }
     if (action == "practice_close") { ClosePractice(); return true; }
     if (action == "practice_action") return PracticeAction(type, value);
     if (action == "reason_open") { OpenMachineReason(index); return mReasonDialog && mReasonDialog->IsActive(); }
@@ -744,7 +749,8 @@ void WorkshopScene::UpdateTooltip() {
         else if (info.capacity > 0) lines.push_back(std::format("输送：每 {:.2f} 秒至多 1 颗", Workshop::TransportPeriod));
         if (info.capacity > 0) lines.push_back("内部容量：" + std::to_string(Workshop::Capacity(type, level)) + " 颗");
         if (const float watts = Workshop::RatedPower(type, level); watts > 0) {
-            lines.push_back(std::format("加工用电 {:.1f} · 待机 {:.1f} · 手动/A口关闭为0", watts, watts * Workshop::StandbyPowerRatio));
+            lines.push_back(std::format("加工用电 {:.1f} · 待机 {:.1f} · ", watts, watts * Workshop::StandbyPowerRatio)
+                + (World().Unlocked(Workshop::Machine::Switch) ? "手动/A口关闭为0" : "手动关闭为0"));
             if (index >= 0) lines.push_back(std::format("此刻需求 {:.1f} · 全厂加工速度 {:.0f}%", World().MachinePower(index), World().Power().speed * 100));
             else lines.push_back(std::format("新增后满负荷预估：全厂加工速度 {:.0f}%", World().PowerAfterBuild(type).speed * 100));
         }
@@ -772,11 +778,11 @@ void WorkshopScene::UpdateTooltip() {
             if (type == Workshop::Machine::SalvagePort || type == Workshop::Machine::Recycler)
                 lines.push_back(std::format("待提取残骸 {}；本波掉落 {}/40", World().PendingScrap(), World().WaveScrap()));
             if (type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor)
-                lines.push_back("目标路线：第 " + std::to_string(World().ActiveRoute(index) + 1) + " 路");
+                lines.push_back(std::string(type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor ? "监视路线：第 " : "目标路线：第 ") + std::to_string(World().ActiveRoute(index) + 1) + " 路");
             if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::Counter || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
-                lines.push_back(std::string(type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
+                lines.push_back(std::string(type == Workshop::Machine::StockSensor ? "检测弹种：" : type == Workshop::Machine::Counter ? "计量弹种：" : type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
             if (Workshop::HasSelectionInput(type)) lines.push_back("A运行 / B选择；当前方案 " + std::to_string(World().ActivePlan(index) + 1) + "，可点配置分别设置。" );
-            if (type == Workshop::Machine::Splitter) lines.push_back(cell.strictSplit ? "严格选路：仅送选中出口，堵塞时等待。" : "普通模式：筛选优先；混合时轮流或按B信号优先供货。");
+            if (type == Workshop::Machine::Splitter) lines.push_back(cell.strictSplit ? "严格选路：仅送选中出口，堵塞时等待。" : World().Unlocked(Workshop::Machine::Switch) ? "普通模式：筛选优先；混合时轮流或按B信号优先供货。" : "普通模式：混合时轮流分配；筛选弹种固定送右侧。");
             if (type == Workshop::Machine::Counter) lines.push_back(std::format("当前批次 {} / {}；{}", cell.count, cell.setting, cell.counterOutput == Workshop::CounterOutput::Hold ? "达标保持" : "每批翻转"));
             if (type == Workshop::Machine::Cannon) lines.push_back(std::format("充能 {:.1f}/12秒 · 每轮3发 · 不限台数", cell.clock));
         } else if (!World().Unlocked(type)) lines.push_back("解锁：守住第 " + std::to_string(info.unlockWave) + " 波");
@@ -1028,10 +1034,11 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     const auto phase = World().State();
     Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
         + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 7, 17);
-    Text(World().FocusRoute(0) < 0 ? "各路均匀来敌" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
+    Text(World().FocusRoute(0) < 0 ? "五路来敌 · 逐路供弹" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
     Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 99, 13, kGreen);
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        Text(std::to_string(threat.wave) + "波 " + threat.name, 646, 14, 13, kGreen); break;
+        Text(std::format("第{}波预告", threat.wave), 655, 7, 12, kGreen);
+        Text(std::string(threat.name) + "僵尸", 655, 27, 13, kGreen); break;
     }
     DrawFactoryMap(g);
     DrawFactoryPanel(g);
@@ -1056,6 +1063,8 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
     j["gridOpen"] = mGridDialog && mGridDialog->IsActive(); j["powerGuideSeen"] = mPowerGuideSeen;
     j["practiceOpen"] = mPracticeDialog && mPracticeDialog->IsActive();
+    j["practiceLessons"] = nlohmann::json::array();
+    for (int i = 0; i < 4; ++i) if (World().CompletedWaves() >= Workshop::Practice::UnlockWave(i)) j["practiceLessons"].push_back(i);
     j["practice"] = mPractice ? mPractice->Inspect() : nlohmann::json(nullptr);
     j["reasonOpen"] = mReasonDialog && mReasonDialog->IsActive();
     if (mSelected >= 0) j["selectedReasons"] = World().Explain(mSelected);
@@ -1063,6 +1072,7 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
     j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;
     j["configOpen"] = mMachineConfig && mMachineConfig->IsActive(); j["configMachine"] = mConfigMachine;
+    j["wireToolsVisible"] = mWireAButton && !mWireAButton->IsSkipDraw();
     j["frontColumns"] = Workshop::FrontColumns;
     j["threats"] = nlohmann::json::array();
     for (const auto& threat : Workshop::Threats) j["threats"].push_back({{"wave", threat.wave}, {"name", threat.name}});

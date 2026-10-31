@@ -15,6 +15,11 @@ const char* Practice::Name(int lesson) {
     return names.at(lesson);
 }
 int Practice::StepCount() const { return std::array<int, 4>{4, 3, 5, 7}[mLesson]; }
+int Practice::UnlockWave(int lesson) {
+    if (lesson == 2) return Describe(Machine::EnemySensor).unlockWave;
+    if (lesson == 3) return std::max(Describe(Machine::StockSensor).unlockWave, Describe(Machine::Not).unlockWave);
+    return 0;
+}
 
 void Practice::Reset(int lesson) {
     mLesson = std::clamp(lesson, 0, 3); mStep = 0; mSelected = mSource = -1; mTool = Tool::Inspect;
@@ -143,7 +148,9 @@ void Practice::Advance(float seconds) {
 }
 
 std::string Practice::Instruction() const {
-    if (Complete()) return "已完成。试着改变条件，观察电力、信号和弹药去向。";
+    if (Complete()) return mLesson == 0 ? "本路已送通！正式开波前，也要给其余四路安排供弹。"
+        : mLesson == 1 ? "已完成。试着开关其他机器，观察全厂加工速度。"
+        : "已完成。试着改变条件，观察电力、信号和弹药去向。";
     static const std::array<std::vector<const char*>, 4> text{{
         {"点运输带卡片，再点育豆机右边的亮格。", "点装填口卡片，再点运输带右边的亮格。", "点选装填口，把目标路线改成第3路。", "点运行练习，看豌豆走进第3路弹仓。"},
         {"点运行练习，先看电网过载让加工速度下降。", "点选亮框里的育豆机，关闭它的加工电源。", "再运行练习，确认停机释放电力，其他机器恢复全速。"},
@@ -153,7 +160,7 @@ std::string Practice::Instruction() const {
     return text[mLesson][mStep];
 }
 std::string Practice::Hint() const {
-    if (mLesson == 0) return "运输带搬物料；装填口决定送哪一路。工厂所在行不等于前线路线。";
+    if (mLesson == 0) return "装填口决定送哪路，工厂行号不决定路线。正式基地五路都会来敌，开波前逐路检查供弹。";
     if (mLesson == 1) return "本例7台育豆机需求14，电网容量12。关掉一台，释放2电力。";
     if (mLesson == 2 && mWorld.Cells()[Feeder].inputs[0] >= 0) return "您接到了装填口 A启停。点选装填口断开输入，再改接 B方案。";
     if (mLesson == 2) return "高信号=开：B选方案2；低信号=关：B选方案1。A控制送不送，B控制送哪路。";

@@ -29,14 +29,22 @@ def generate():
     wait(90); add('click', target='main_menu_workshop', hold_frames=6, trace=True); wait(20)
     act('pause'); snap('starter'); add('dump_state', name='initial.json')
     click('help'); click('practice'); check('practiceOpen', True)
-    # Starter has only the first two lessons. Disabled control must not start a locked lesson.
+    # Starter exposes only basic lessons; hidden lesson regions cannot start locked circuits.
+    check("practiceLessons", [0, 1]); check("wireToolsVisible", False)
     add('click', x=672, y=104, hold_frames=4, trace=True); wait(); check('practice.lesson', 0); picture('01_starter_locked')
     esc(); check('guideOpen', True); esc(); check('modalOpen', False)
+    # Early entry points must not reveal circuit teaching or controls.
+    add('workshop', action='practice_open', index=2, expectedSuccess=False); check('practiceOpen', False)
+    act('guide', 40); picture('15_basic_power_guide'); click('practice'); check('practice.lesson', 1)
+    picture('16_basic_power_practice'); p('tick'); p('cell_3'); p('power'); p('tick'); check('practice.complete', True)
+    p('next'); check('practiceOpen', False); check('guideOpen', True); esc()
+    act('build', 3, type='feeder'); act('select_machine', 3); click('configure_tool'); picture('17_basic_feeder_config')
+    click('cfg_reason'); picture('18_basic_reason'); esc(); esc()
     add('workshop_snapshot', action='load', name='starter', patch=[
         {'op':'add','path':'/state/completedWaves','value':2},
         {'op':'add','path':'/guideSeenWave','value':2},
         {'op':'add','path':'/state/energy','value':10000}])
-    click('help'); click('practice'); snap('practice_before')
+    click('help'); click('practice'); check('practiceLessons', [0, 1, 2, 3]); snap('practice_before')
     p('belt'); p('cell_24'); step(0); check('practice.world.cells.24.type', 'empty')
     p('cell_22'); step(1); p('feeder'); p('cell_23'); step(2); p('route'); step(3)
     picture('02_supply_built')
@@ -56,6 +64,12 @@ def generate():
     p('stock_empty'); ticks(4); check('practice.complete', True); picture('10_stock_restart')
     snap('practice_after'); p('reset'); step(0); picture('11_replay'); esc(); check('guideOpen', True); esc()
     check('modalOpen', False); add('dump_state', name='lessons_closed.json')
+    # A guide opens its matching exercise, including the newly unlocked circuits.
+    act('guide', 41); click('practice'); check('practice.lesson', 3); picture('19_dispatch_entry'); esc(); esc()
+    act('guide', 8); click('practice'); check('practice.lesson', 2); picture('20_enemy_entry'); esc(); esc()
+    act('guide', 40); click('practice'); check('practice.lesson', 1); esc(); esc()
+    act('build', 9, type='stock'); act('route', 9, 2); act('filter', 9, 0)
+    act('select_machine', 9); click('configure_tool'); picture('21_sensor_labels'); esc()
     # Concrete two-route rule and per-ammo blockage, mirroring the user's design, in this isolated save.
     for index, machine in [(5,'enemy'), (6,'enemy'), (7,'not'), (8,'and'), (23,'feeder')]: act('build', index, type=machine)
     act('route',5,2); act('route',6,1); act('wire_a',7,6); act('wire_a',8,5); act('wire_b',8,7); act('wire_b',23,8)
@@ -106,7 +120,11 @@ def verify():
         w=read(name)['workshop']
         assert not w['modalOpen'] and not w['practiceOpen'] and not w['reasonOpen']
         assert w['uiButtonCount']==read('initial')['workshop']['uiButtonCount'], 'modal button leak'
-    assert len(list(out.glob('*.png')))==14
+    assert read('01_starter_locked')['workshop']['practiceLessons'] == [0, 1]
+    assert not read('01_starter_locked')['workshop']['wireToolsVisible']
+    early_reason=' '.join(read('18_basic_reason')['workshop']['selectedReasons'])
+    assert not any(token in early_reason for token in ('A ', 'B ', '高信号', '低信号'))
+    assert len(list(out.glob('*.png')))==21
     print('Workshop practice passed: real input in four lessons, incorrect port feedback, isolation during native combat, diagnostics and UI cleanup')
 
 

@@ -24,9 +24,10 @@ std::string PortLabel(const Cell& cell, int port) {
 std::vector<std::string> World::Explain(int index) const {
     if (!Valid(index) || mCells[index].type == Machine::Empty) return {};
     const auto& c = mCells[index];
+    const bool circuits = Unlocked(Machine::Switch);
     std::vector<std::string> result;
-    result.push_back(mPhase == Phase::Planning ? "准备期全厂停机；线上的开/关保留上次结果，开波后重新计算。"
-        : mPhase == Phase::Dead ? "基地失守，所有经营计时已停止。" : "高信号=开，低信号=关；表示条件成立与否，不表示电力大小。");
+    result.push_back(mPhase == Phase::Planning ? (circuits ? "准备期全厂停机；线上的开/关保留上次结果，开波后重新计算。" : "准备期全厂停机；布局与库存保留，开始袭击后生产。")
+        : mPhase == Phase::Dead ? "基地失守，所有经营计时已停止。" : circuits ? "高信号=开，低信号=关；表示条件成立与否，不表示电力大小。" : "袭击中工厂持续运行；加工会消耗阳光与电力。");
     // 有限展开，环路保留为有名元件，不把反馈电路递归展开到无限长。
     std::function<std::string(int, int)> rule = [&](int at, int depth) -> std::string {
         if (!Valid(at)) return "未连接";
@@ -45,7 +46,7 @@ std::vector<std::string> World::Explain(int index) const {
             + (node.type == Machine::And ? " 且 " : " 或 ") + rule(node.inputs[1], depth - 1) + "）";
         return Describe(node.type).name;
     };
-    for (int port = 0; port < 2; ++port) {
+    for (int port = 0; circuits && port < 2; ++port) {
         const int source = c.inputs[port];
         if (port == 1 && !HasSelectionInput(c.type) && c.type != Machine::And && c.type != Machine::Or && c.type != Machine::Latch && c.type != Machine::Counter) continue;
         if (source < 0) {
@@ -67,10 +68,11 @@ std::vector<std::string> World::Explain(int index) const {
     }
     if (IsLogic(c.type)) result.push_back(std::string("当前输出：") + SignalName(c.signal) + "；每拍传播一级，开波后可能需数拍才稳定。");
     if (HasSelectionInput(c.type)) {
-        result.push_back(std::format("B 关（低）→方案1；B 开（高）→方案2。当前方案{}。", ActivePlan(index) + 1));
+        if (circuits) result.push_back(std::format("B 关（低）→方案1；B 开（高）→方案2。当前方案{}。", ActivePlan(index) + 1));
         if (c.type == Machine::Feeder) result.push_back(std::format("当前送第{}路的{}弹药；不会因另一方案缺弹而自行切换。", ActiveRoute(index) + 1, AmmoName(ActiveFilter(index))));
     }
-    if (RatedPower(c.type, c.level) > 0) result.push_back(std::format("加工电源{}，本机需求{:.1f}电力；手动开关与 A口同时允许才运行。", c.manual ? "开" : "关", MachinePower(index)));
+    if (RatedPower(c.type, c.level) > 0) result.push_back(std::format("加工电源{}，本机需求{:.1f}电力。", c.manual ? "开" : "关", MachinePower(index))
+        + (circuits ? "手动开关与 A口同时允许才运行。" : "手动关闭后不消耗电力。"));
     if (const auto warning = MaterialWarning(index); !warning.empty()) result.push_back(warning);
     if (c.type == Machine::Feeder) {
         const auto& lane = mLanes[ActiveRoute(index)];

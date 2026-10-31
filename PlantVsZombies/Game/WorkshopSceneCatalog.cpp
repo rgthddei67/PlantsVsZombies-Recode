@@ -42,9 +42,9 @@ std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     case M::Counter: return {"计信号 / 产出 / 出库", "每批完成可翻转方案"};
     case M::Cannon: return {"充能12秒，连射3发瓜弹", "A许可开火，B切换方案"};
     case M::Belt: return {"沿箭头逐格输送弹药", "连接相邻机器"};
-    case M::Splitter: return {"一条输入分成两路", "可严格按B口选择出口"};
+    case M::Splitter: return {"一条输入分成两路", "可轮流、筛选或严格选路"};
     case M::Store: return {"缓存运输中的弹药", "平衡供需波动"};
-    case M::Feeder: return {"给前线弹仓补货", "B切换两套路线与弹种"};
+    case M::Feeder: return {"给前线弹仓补货", completedWaves >= Workshop::Describe(M::Switch).unlockWave ? "B切换两套路线与弹种" : "选择配送路线和弹种"};
     case M::Switch: return {"手动切换开关", "控制所连机器"};
     case M::EnemySensor: return {"检测指定路线敌人数", "有敌人才开工"};
     case M::StockSensor: return {"检测指定库存", "够货时发出开启信号"};

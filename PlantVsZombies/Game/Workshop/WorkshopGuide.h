@@ -10,7 +10,8 @@ inline constexpr int PowerGuide = 40, DispatchGuide = 41, FocusGuide = 42; // ç”
 inline int GuideUnlockWave(int topic) {
     if (topic == 0) return 0;
     if (topic == PowerGuide) return 0;
-    if (topic == DispatchGuide || topic == FocusGuide) return 2;
+    if (topic == DispatchGuide) return std::max(Describe(Machine::StockSensor).unlockWave, Describe(Machine::Not).unlockWave);
+    if (topic == FocusGuide) return Describe(Machine::EnemySensor).unlockWave;
     if (topic > 0 && topic < static_cast<int>(Machine::Count)) return Describe(static_cast<Machine>(topic)).unlockWave;
     if (topic >= PlantGuideBase && topic < PlantGuideBase + static_cast<int>(Plants.size())) return Plants[topic - PlantGuideBase].unlockWave;
     return -1;
