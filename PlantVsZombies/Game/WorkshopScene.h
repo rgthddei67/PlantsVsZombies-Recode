@@ -21,6 +21,7 @@ public:
     Board* GetBoard() const { return mBoard.get(); }
     std::shared_ptr<Button> GetControlButton(const std::string& action) const;
     std::shared_ptr<Button> GetMachineButton(Workshop::Machine type) const;
+    bool IsCatalogOpen() const;
     /** 同一坐标变换供格位绘制、输入与 AutoTest 使用；返回逻辑画布坐标。 */
     Vector CellScreenCenter(int row, int column) const;
     bool IsCellVisible(int row, int column) const { return !mFrontView && FactoryCellAt(CellScreenCenter(row, column)) == row * Workshop::MaxColumns + column; }
@@ -47,6 +48,12 @@ private:
     std::vector<std::string> mTooltipLines;
     Vector mTooltipPosition;
     std::vector<std::shared_ptr<Button>> mMachineButtons;
+    std::shared_ptr<GameMessageBox> mCatalog;
+    std::shared_ptr<Button> mCatalogButton;
+    std::vector<std::shared_ptr<Button>> mQuickButtons;
+    std::vector<Workshop::Machine> mRecentMachines{Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
+    int mCatalogCategory = 0;
+    std::string mCatalogNotice;
     std::vector<std::shared_ptr<Button>> mFactoryControls, mFrontControls;
     std::vector<std::shared_ptr<Button>> mFrontUpgradeButtons;
     std::vector<std::shared_ptr<Button>> mQuotaButtons, mIceShooterButtons;
@@ -68,6 +75,18 @@ private:
     void ShowDeath();
     void DrawWorkshop(Graphics* g);
     void DrawMachine(Graphics* g, int index, float x, float y);
+    /** 地图实体、建造预览与展板共用机器外观；details 只控制运行标注，不改变造型。 */
+    void DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, float x, float y,
+        float displayScale, bool enabled, bool details);
+    void DrawMachineImage(Graphics* g, Workshop::Machine type, float x, float y, float scale, int direction = 0);
+    void OpenCatalog();
+    void CloseCatalog();
+    void RefreshCatalog();
+    void DrawCatalog(Graphics* g);
+    void DrawQuickBuild(Graphics* g);
+    void RememberMachine(Workshop::Machine type);
+    int BuildPreviewIndex() const;
+    std::string BuildPreviewReason(int index) const;
     void DrawFront(Graphics* g);
     void SetFrontView(bool front);
     void UpdateTooltip();

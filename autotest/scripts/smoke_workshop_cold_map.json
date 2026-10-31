@@ -277,6 +277,16 @@
     },
     {
       "op": "click",
+      "target": "workshop_control",
+      "control": "catalog",
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
       "hold_frames": 6,
       "target": "workshop_machine",
       "type": 15,

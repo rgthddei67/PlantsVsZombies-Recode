@@ -40,6 +40,10 @@ void ClearWave(World& world) {
 }
 int main() {
     World world;
+    const auto beforePreview = world.Save();
+    Check(world.CanBuild(2, Machine::Grower, 0) && !world.CanBuild(0, Machine::Grower, 0)
+        && !world.CanBuild(CellCount, Machine::Belt, 0) && !world.CanBuild(2, Machine::Belt, 4)
+        && !world.CanBuild(2, Machine::Latch, 0) && world.Save() == beforePreview, "preview shares build eligibility without mutation");
     Check(!world.Build(CellCount, Machine::Belt, 0), "reject out-of-range build");
     Check(!world.Build(10, Machine::Belt, 0), "reject unexpanded land");
     Check(!world.Build(2, Machine::Latch, 0), "unlock progression isolated");

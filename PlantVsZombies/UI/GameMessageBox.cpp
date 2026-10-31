@@ -475,6 +475,7 @@ void GameMessageBox::DrawStandardDialog(Graphics* g) const
 void GameMessageBox::Draw(Graphics* g)
 {
 	if (!m_active) return;
+	if (m_customDraw) { m_customDraw(g); return; }
 
 	const bool autoSized = (m_explicitSize.x > 0.0f && m_explicitSize.y > 0.0f);
 	if (m_backgroundMode == BackgroundMode::STANDARD_DIALOG) {

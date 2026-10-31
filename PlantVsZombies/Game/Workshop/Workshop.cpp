@@ -87,10 +87,13 @@ bool World::Enabled(int i) const {
     const int source = mCells[i].inputs[0];
     return source < 0 || mCells[source].signal;
 }
+bool World::CanBuild(int i, Machine type, int direction) const {
+    return Valid(i) && mPhase != Phase::Dead && type > Machine::Empty && Unlocked(type)
+        && direction >= 0 && direction <= 3 && mCells[i].type == Machine::Empty
+        && mEnergy >= Describe(type).cost;
+}
 bool World::Build(int i, Machine type, int direction) {
-    if (!Valid(i) || mPhase == Phase::Dead || type <= Machine::Empty || !Unlocked(type)
-        || direction < 0 || direction > 3 || mCells[i].type != Machine::Empty
-        || mEnergy < Describe(type).cost) return false;
+    if (!CanBuild(i, type, direction)) return false;
     mEnergy -= Describe(type).cost;
     mCells[i] = {}; mCells[i].type = type; mCells[i].direction = direction;
     mCells[i].route = (i / MaxColumns) % Rows;

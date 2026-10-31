@@ -83,6 +83,8 @@ struct Lane {
 class World {
 public:
     World();
+    /** 建造预览与正式事务共用的只读检查，包含格位、占用、方向、解锁及阳光资格。 */
+    bool CanBuild(int index, Machine type, int direction) const;
     /** 玩家建造事务；拒绝时状态和资源不变。 */
     bool Build(int index, Machine type, int direction);
     bool Remove(int index);

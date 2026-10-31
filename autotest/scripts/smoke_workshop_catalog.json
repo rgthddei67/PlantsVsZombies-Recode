@@ -1,0 +1,1134 @@
+{
+  "name": "smoke_workshop_catalog",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "main_menu_workshop"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "dump_state",
+      "name": "initial.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 700,
+      "y": 75,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "01_production.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 15
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 600
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 700,
+      "y": 75,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02_locked.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogCategory",
+      "equals": 1
+    },
+    {
+      "op": "move_mouse",
+      "x": 700,
+      "y": 75,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "03_logistics.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logic"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogCategory",
+      "equals": 2
+    },
+    {
+      "op": "move_mouse",
+      "x": 700,
+      "y": 75,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "04_logic.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "x": 75,
+      "y": 65
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": false
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_production"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 600
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "grower"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.valid",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.index",
+      "equals": 62
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "05_valid_preview.png"
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.direction",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.62.type",
+      "equals": "grower"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.62.direction",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 525
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "grower"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 525
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.valid",
+      "equals": false
+    },
+    {
+      "op": "screenshot",
+      "name": "06_occupied_preview.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 450
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 3,
+      "button": "right"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "empty"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.index",
+      "equals": -1
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "belt"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 450
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "built"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "built",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 700,
+      "y": 75,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "07_unaffordable.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 5,
+      "column": 5,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.valid",
+      "equals": false
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_cell",
+      "row": 5,
+      "column": 5
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.105.type",
+      "equals": "empty"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "08_shortage_preview.png"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "built",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        },
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_production"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 1
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_production"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_production"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 15
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 5
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logistics"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logic"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 13
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recentMachines",
+      "equals": [
+        "timer",
+        "feeder",
+        "store",
+        "splitter",
+        "belt",
+        "cooler"
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1090,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "09_recent.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "recent.json"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogCategory",
+      "equals": 2
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_production"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_machine",
+      "type": 1
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.energy",
+      "equals": 2000
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 4
+    },
+    {
+      "op": "set_timescale",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "running_modal_before"
+    },
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "running_modal_after"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 3
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "running_resumed"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "manual_before"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logic"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "manual_after"
+    },
+    {
+      "op": "dump_state",
+      "name": "finished.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

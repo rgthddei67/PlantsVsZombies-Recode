@@ -80,6 +80,9 @@ public:
 	~GameMessageBox();
 
 	void Draw(Graphics* g);
+	/** 替换本框的绘制（含自有控件）；输入、模态遮挡与销毁仍由 UIManager 管理。
+	 * 回调自行处理 Graphics 坐标变换并绘制自有按钮，不得改变控件生命周期。 */
+	void SetCustomDraw(std::function<void(Graphics*)> draw) { m_customDraw = std::move(draw); }
 
 	void SetActive(bool active);
 	bool IsActive() const { return m_active; }
@@ -107,6 +110,7 @@ private:
 	UIManager* m_owner = nullptr;   // 非拥有指针；UIManager::ClearAll 会在销毁前解除关联
 	bool m_active = true;
 	bool m_closeRequested = false;
+	std::function<void(Graphics*)> m_customDraw;
 	Vector m_position;
 	float m_scale = 1.0f;
 	Vector m_size;
