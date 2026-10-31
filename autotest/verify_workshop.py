@@ -22,7 +22,7 @@ assert all(p["shadow"] for p in combat["nativePlants"])
 assert all(z["shadow"] for z in combat["nativeZombies"])
 assert read("native_eating.json")["workshop"]["hasEatingZombie"]
 tooltip = read("machine_tooltip.json")["workshop"]
-assert tooltip["paused"] and tooltip["tooltipVisible"] and "2.0 秒/颗" in " ".join(tooltip["tooltipLines"])
+assert tooltip["paused"] and tooltip["tooltipVisible"] and "2.5 秒/颗" in " ".join(tooltip["tooltipLines"])
 recovered = read("recovered.json")["workshop"]
 assert recovered["phaseName"] == "planning" and recovered["health"] == 3
 assert recovered["machineCount"] == 2 and recovered["fired"] == 0
@@ -34,4 +34,7 @@ for filename in ("01_main_menu.png", "02_new_base.png", "02_help.png", "03_suppl
                  "04_factory_during_assault.png", "05_signals.png", "06_continued_base.png",
                  "07_reset_confirmation.png", "08_defeat.png"):
     assert (out / filename).stat().st_size > 0, f"missing screenshot: {filename}"
+
+for before, after in (("planning_before.json", "planning_after.json"), ("recovered_before_wait.json", "recovered_after_wait.json")):
+    assert read(before)["state"] == read(after)["state"], "preparation advanced factory resources or clocks"
 print("Workshop state round trip, independent progress, recovery and screenshot artifacts passed")

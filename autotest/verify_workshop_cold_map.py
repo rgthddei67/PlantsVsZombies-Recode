@@ -24,7 +24,7 @@ assert math.isclose(b["x"] - a["x"], 40, abs_tol=1)
 assert math.isclose(b["y"] - a["y"], 20, abs_tol=1)
 assert read("cold") == read("cold_restored"), "cold factory round trip"
 p = state("production")
-assert p["processed"] >= 2 and p["lanes"][0]["iceAmmo"] >= 2 and p["lanes"][0]["ammo"] == 0
+assert p["processed"] >= 2 and p["iceFired"] > 0 and p["lanes"][0]["ammo"] == 0
 c = state("ice_combat")
 assert c["iceFired"] > 0 and c["fired"] == c["iceFired"], "ordinary plants consumed ice supply"
 assert c["hasChilledZombie"] and c["hasIceHitParticles"]
@@ -34,4 +34,6 @@ for key in ("cells", "lanes", "nativePlants", "nativeZombies", "fired", "iceFire
 assert read("windup") == read("windup_restored"), "cold windup restore changed snapshot"
 for name in ("01_grid", "02_zoom_drag", "03_cold_tooltip", "04_expanded", "05_ice_combat"):
     assert (out / (name + ".png")).stat().st_size > 0
+
+assert read("planning_before")["state"] == read("planning_after")["state"] == read("planning_restored")["state"], "preparation or reload advanced cold factory"
 print("Factory camera, cold logistics, native combat and snapshot contracts passed")

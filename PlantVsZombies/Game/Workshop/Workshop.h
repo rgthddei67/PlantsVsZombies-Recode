@@ -19,12 +19,12 @@ inline constexpr float CoolingEnergy = 2.0f; // 每颗普通豌豆加工为寒�
 inline constexpr int MaxShootersPerLane = 3; // 每行同时部署的射手上限
 inline constexpr int RepairCost = 100; // 修复一点基地生命的阳光费用
 inline constexpr int ExpansionCost = 250; // 工厂宽、高各扩建两格的阳光费用，分别不超过 20 格
-inline constexpr float GrowPeriod = 2.0f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
+inline constexpr float GrowPeriod = 2.5f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
 inline constexpr float GrowEnergy = 2.0f; // 每颗豌豆消耗的阳光能源
 inline constexpr float SolarRate = 1.5f; // 基础集光器每秒产生的阳光能源
 inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍，单位：秒
 inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
-inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 1.6f, 1.3f}; // 各级育豆机生产间隔，单位：秒/颗
+inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 2.0f, 1.6f}; // 各级育豆机与冷凝机生产间隔，单位：秒/颗
 inline constexpr std::array<float, 3> SolarRates{SolarRate, 2.25f, 3.0f}; // 各级集光器产能，单位：阳光/秒
 inline constexpr std::array<int, 3> StoreCapacities{60, 120, 200}; // 各级弹药仓容量，单位：颗
 inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各级射手基础冷却，单位：秒；索敌与动画同比例提速

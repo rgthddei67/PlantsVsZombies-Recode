@@ -267,9 +267,10 @@ void World::TransportStep() {
 }
 
 void World::Tick(float seconds) {
-    if (mPhase == Phase::Dead || !std::isfinite(seconds) || seconds <= 0) return;
+    // 准备期只允许施工，不能靠等待囤阳光、弹药或推进电路；保留所有周期余时到开波。
+    if (mPhase != Phase::Assault || !std::isfinite(seconds) || seconds <= 0) return;
     // 有限子步避免游戏倍速改变物流/战斗结果，并允许纯逻辑测试推进长时间。
-    while (seconds > 0.000001f && mPhase != Phase::Dead) {
+    while (seconds > 0.000001f && mPhase == Phase::Assault) {
         const float dt = std::min(seconds, 1.0f / 60.0f); seconds -= dt;
         for (int i = 0; i < CellCount; ++i) {
             auto& c = mCells[i];
@@ -329,6 +330,8 @@ std::string World::Status(int i) const {
     if (!Valid(i)) return "完成第 3 波后可扩建";
     const auto& c = mCells[i];
     if (c.type == Machine::Empty) return "空地";
+    if (mPhase == Phase::Planning) return "准备停机 · 开波后运行";
+    if (mPhase == Phase::Dead) return "基地失守 · 已停机";
     if (IsLogic(c.type)) return c.signal ? "信号：高" : "信号：低";
     if (!Enabled(i) && c.type != Machine::Splitter) return "信号关闭";
     if (c.type == Machine::Solar) return mEnergy >= kEnergyLimit ? "储能已满" : "采集阳光";

@@ -33,8 +33,7 @@ void FinishSchedule(World& world) {
 }
 void ClearWave(World& world) {
     const int previous = world.CompletedWaves();
-    Step(world, 20);
-    Check(world.StartAssault(), "start assault");
+    if (world.State() == Phase::Planning) Check(world.StartAssault(), "start assault");
     FinishSchedule(world);
     Check(world.State() == Phase::Planning && world.CompletedWaves() == previous + 1, "Board clear acknowledgement advances progression");
 }
@@ -44,9 +43,9 @@ int main() {
     Check(!world.Build(CellCount, Machine::Belt, 0), "reject out-of-range build");
     Check(!world.Build(10, Machine::Belt, 0), "reject unexpanded land");
     Check(!world.Build(2, Machine::Latch, 0), "unlock progression isolated");
-    Supply(world); Step(world, 5);
-    Check(world.Delivered() > 0 && world.Fired() == 0, "transport supplies magazines during planning");
-    Check(world.Lanes()[4].ammo > 0, "bottom lane receives supply");
+    Supply(world);
+    const auto prepared = world.Save(); Step(world, 600);
+    Check(world.Save() == prepared, "planning does not advance resources or clocks");
     const auto save = world.Save(); World restored; std::string error;
     Check(restored.Load(save, error) && restored.Save() == save, "exact planning round trip");
     Step(world, 4); Step(restored, 4);
@@ -56,12 +55,14 @@ int main() {
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "bad wire rejected transactionally");
     bad = save; bad["schemaVersion"] = 3;
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "future schema protected");
-    Check(world.StartAssault(), "start save test"); Step(world, 3);
+    Check(world.StartAssault(), "start save test"); Step(world, 4);
+    Check(world.Delivered() > 0 && world.Lanes()[4].ammo > 0, "empty magazines receive first supply after assault begins");
     const auto assault = world.Save(); Check(restored.Load(assault, error), "load in-flight combat");
     Step(world, 9); Step(restored, 9);
     Check(world.Save() == restored.Save(), "factory and spawn countdown round trip");
     FinishSchedule(world); Check(world.CompletedWaves() == 1 && world.Unlocked(Machine::Splitter), "wave completion unlocks logistics");
     ClearWave(world); Check(world.Unlocked(Machine::Latch), "second wave unlocks circuits");
+    Check(world.StartAssault(), "run circuit wave");
     Step(world, 100);
     Check(world.Build(5, Machine::Switch, 0), "build control switch");
     Check(world.Build(6, Machine::Not, 0), "build not gate");
@@ -93,9 +94,10 @@ int main() {
     // 一个运输节拍内不能级联穿过整条带；堵塞不得复制或遗失弹药。
     World transport; Check(transport.Build(2, Machine::Grower, 0), "transport grower");
     for (int i = 3; i <= 7; ++i) Check(transport.Build(i, Machine::Belt, 0), "long belt");
+    Check(transport.StartAssault(), "run transport");
     Step(transport, GrowPeriod + 0.1f);
     Check(transport.Produced() == 1 && transport.Cells()[7].stock == 0, "produced pea cannot instantly cross the line");
-    Step(transport, 20);
+    Step(transport, 30);
     int stock = 0; for (const auto& cell : transport.Cells()) stock += cell.stock;
     Check(stock == transport.Produced() && stock == 10, "blocked line conserves all produced ammo");
     Check(transport.Status(7) == "出口堵塞", "blocked outlet is observable");
@@ -109,6 +111,7 @@ int main() {
     for (int gate : {4, 5}) {
         Check(circuits.Connect(2, gate, 0) && circuits.Connect(3, gate, 1), "two-port wiring");
     }
+    Check(circuits.StartAssault(), "run circuits");
     Step(circuits, 1); Check(circuits.Cells()[4].signal && circuits.Cells()[5].signal, "both high");
     Check(circuits.Configure(2), "lower A"); Step(circuits, 1);
     Check(!circuits.Cells()[4].signal && circuits.Cells()[5].signal, "AND and OR differ for mixed inputs");
@@ -124,6 +127,7 @@ int main() {
     Check(split.Load(splitFixture, error), "splitter fixture");
     Check(split.Build(2, Machine::Grower, 0) && split.Build(3, Machine::Splitter, 0), "splitter supply");
     Check(split.Build(4, Machine::Store, 0) && split.Build(MaxColumns + 3, Machine::Store, 0), "front and right outputs");
+    Check(split.StartAssault(), "run splitter");
     Step(split, 12);
     const int forward = split.Cells()[4].stock, side = split.Cells()[MaxColumns + 3].stock;
     Check(forward > 0 && side > 0 && std::abs(forward - side) <= 1, "unwired splitter balances both exits");
@@ -139,6 +143,7 @@ int main() {
     auto fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 2; fixture["state"]["energy"] = 1000;
     Check(upgrades.Load(fixture, error), "upgrade fixture");
     Check(upgrades.Build(2, Machine::Grower, 0) && upgrades.Build(3, Machine::Store, 0), "upgradable production line");
+    Check(upgrades.StartAssault(), "run upgrade production");
     Step(upgrades, 1);
     const auto beforeUpgrade = upgrades.Save();
     Check(upgrades.Upgrade(2), "buy grower level two");
@@ -152,6 +157,7 @@ int main() {
     Check(upgrades.Remove(2), "remove grower before measuring solar");
     Step(upgrades, 10);
     Check(std::abs(upgrades.Energy() - solarBefore - 150 - 37.5f) < 0.1f, "level two solar produces 2.25 per second plus base 1.5");
+    FinishSchedule(upgrades);
     fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 5;
     fixture["state"]["cells"][3]["stock"] = 120;
     Check(upgrades.Load(fixture, error) && upgrades.Upgrade(3), "full level two warehouse upgrades without losing stock");
@@ -176,10 +182,11 @@ int main() {
         fixture = line.Save(); fixture["state"]["completedWaves"] = 5; fixture["state"]["energy"] = 1000;
         Check(line.Load(fixture, error) && line.Build(2, Machine::Grower, 0) && line.Build(3, Machine::Feeder, 0), "rate fixture");
         for (int l = 1; l < level; ++l) Check(line.Upgrade(2), "rate upgrade");
+        Check(line.StartAssault(), "run rate fixture");
         Step(line, 20.1f); production[level - 1] = line.Produced();
         Check(restored.Load(line.Save(), error) && restored.Save() == line.Save(), "upgraded production round trip");
     }
-    Check(production[0] == 10 && production[1] == 12 && production[2] == 15, "actual production follows 2.0 / 1.6 / 1.3 second periods");
+    Check(production[0] == 8 && production[1] == 10 && production[2] == 12, "actual production follows 2.5 / 2.0 / 1.6 second periods");
     // 冷加工守恒、远程路线与混合弹仓：任何阶段均不能用另一种弹药代付。
     World cold;
     fixture = cold.Save(); fixture["state"]["completedWaves"] = 5; fixture["state"]["energy"] = 1000;
@@ -188,11 +195,11 @@ int main() {
     Check(cold.SetRoute(143, 4) && cold.SetFilter(143, 1), "explicit typed remote delivery");
     fixture = cold.Save(); fixture["state"]["cells"][142]["stock"] = 5;
     Check(cold.Load(fixture, error), "five input peas");
-    const float coldEnergy = cold.Energy(); Step(cold, 10.5f);
+    Check(cold.StartAssault(), "run cold production");
+    const float coldEnergy = cold.Energy(); Step(cold, 13.25f);
     Check(cold.Lanes()[4].iceAmmo == 5 && cold.Lanes()[4].ammo == 0 && cold.Cells()[142].TotalStock() == 0, "one pea becomes one ice pea");
-    Check(std::abs(cold.Energy() - coldEnergy - (10.5f * 3 - 5 * CoolingEnergy)) < 0.1f, "cold energy accounting");
+    Check(std::abs(cold.Energy() - coldEnergy - (13.25f * 3 - 5 * CoolingEnergy)) < 0.1f, "cold energy accounting");
     Check(cold.SetQuota(4, 80) && cold.Lanes()[4].iceAmmo == 5, "quota change preserves existing inventory");
-    Check(cold.StartAssault(), "begin typed ammo reservation");
     Check(!cold.ReserveAmmo(4, Ammo::Pea) && cold.ReserveAmmo(4, Ammo::Ice), "no ammo type substitution");
     Check(cold.Upgrade(142) && cold.Upgrade(142), "cooler shares three level upgrades");
     Check(restored.Load(cold.Save(), error) && restored.Save() == cold.Save(), "typed stock round trip");
@@ -213,13 +220,26 @@ int main() {
         && sorting.Build(23, Machine::Store, 0), "typed splitter outlets");
     Check(sorting.SetFilter(3, 1) && sorting.SetFilter(4, 0) && sorting.SetFilter(23, 1), "typed splitter and warehouses");
     fixture = sorting.Save(); fixture["state"]["cells"][3]["stock"] = 1; fixture["state"]["cells"][3]["iceStock"] = 1;
-    Check(sorting.Load(fixture, error), "mixed cargo fixture"); Step(sorting, 1);
+    Check(sorting.Load(fixture, error) && sorting.StartAssault(), "mixed cargo fixture"); Step(sorting, 1);
     Check(sorting.Cells()[4].stock == 1 && sorting.Cells()[4].iceStock == 0 && sorting.Cells()[23].stock == 0
         && sorting.Cells()[23].iceStock == 1, "filter sends ice to side and pea forward");
     Check(sorting.SetFilter(23, 0), "change warehouse acceptance");
     fixture = sorting.Save(); fixture["state"]["cells"][3]["iceStock"] = 1;
     Check(sorting.Load(fixture, error), "blocked filter fixture"); Step(sorting, 1);
     Check(sorting.Cells()[3].iceStock == 1 && sorting.Cells()[4].iceStock == 0, "blocked sorted output never contaminates forward line");
+
+    // 带库存与半周期进度的准备期、读档和死亡继续均不得靠等待获益。
+    Check(cold.Build(141, Machine::Grower, 0) && cold.Build(144, Machine::Timer, 0), "planning freeze fixture");
+    FinishSchedule(cold);
+    const auto betweenWaves = cold.Save(); Step(cold, 600);
+    Check(cold.Save() == betweenWaves, "between-wave factory freezes inventory, solar and circuit clocks");
+    Check(restored.Load(betweenWaves, error), "load frozen factory"); Step(restored, 600);
+    Check(restored.Save() == betweenWaves, "loading does not restart preparation production");
+    Check(restored.StartAssault(), "resume frozen factory"); Step(restored, 1);
+    Check(restored.Energy() != cold.Energy() && restored.Cells()[144].clock != cold.Cells()[144].clock, "assault resumes economy and circuits");
+    restored.RecordBreach(); restored.RecordBreach(); restored.RecordBreach();
+    Check(restored.Retry(), "retry frozen factory"); Step(restored, 600);
+    Check(restored.Save() == betweenWaves, "death retry keeps old inventory without free preparation gains");
 
     // 旧版 12 列跨度包含已购买末列、电线和死亡检查点，迁移必须同时处理。
     auto old = World().Save(); old["schemaVersion"] = 1;

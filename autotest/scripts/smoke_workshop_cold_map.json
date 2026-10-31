@@ -471,8 +471,47 @@
       "name": "03_cold_tooltip.png"
     },
     {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning_before"
+    },
+    {
       "op": "workshop",
       "action": "pause"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning_after"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning_restored"
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
     },
     {
       "op": "wait_seconds",
@@ -484,7 +523,7 @@
     },
     {
       "op": "assert_state",
-      "path": "workshop.lanes.0.iceAmmo",
+      "path": "workshop.processed",
       "atLeast": 2
     },
     {
@@ -668,7 +707,11 @@
     },
     {
       "op": "workshop",
-      "action": "start"
+      "action": "view_front"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
     },
     {
       "op": "wait_value",

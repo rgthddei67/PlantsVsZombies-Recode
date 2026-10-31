@@ -130,7 +130,7 @@ void WorkshopScene::OnEnter() {
     CreateControls();
     // 默认以建造尺寸进入；全图按钮承担总览，避免一开始把机器和文字压成小点。
     mMapZoom = 1.25f; mMapOffset = Vector(20, 20); ClampFactoryCamera();
-    mNotice = "中键拖动，滚轮缩放；装填口可指定路线和弹种，准备好后主动开波。";
+    mNotice = "准备阶段全厂停机，可施工；点击开始袭击后产能恢复。中键拖动，滚轮缩放。";
 }
 
 void WorkshopScene::OnExit() {
@@ -460,7 +460,7 @@ void WorkshopScene::ConfirmReset() {
 }
 void WorkshopScene::ShowHelp() {
     GameMessageBox::Builder(Vector(550, 290)).Title("戴夫工坊 · 从一条生产线开始")
-        .Message("育豆机 → 运输带 → 装填口；装填口可指定前线的路线和弹种，无对应弹药就停火。\n守住第 3 波开放冷却机与寒冰射手：普通豌豆 + 2 阳光加工成寒冰弹。分流器筛选弹种，仓库可设收货类型。\n每路弹仓共 80 颗，右侧按钮调整普通/寒冰配额；调额保留已有库存。\n中键拖动地图，滚轮缩放，适应按钮查看全图。R 旋转，右键退出建造；暂停可施工。\n选中机器或前线射手后花阳光升级，守住第 2/5 波开放二/三级。\n基地与冒险独立，持续经营；死亡可回到本波开战前调整，或重开整个基地。")
+        .Message("准备阶段阳光、生产、运输与电路全部停机，可自由施工；开波后恢复，已有库存保留。\n育豆机 → 运输带 → 装填口；装填口可指定前线的路线和弹种，无对应弹药就停火。\n守住第 3 波开放冷却机与寒冰射手：普通豌豆 + 2 阳光加工成寒冰弹。分流器筛选弹种，仓库可设收货类型。\n每路弹仓共 80 颗，右侧按钮调整普通/寒冰配额；调额保留已有库存。\n中键拖动地图，滚轮缩放，适应按钮查看全图。R 旋转，右键退出建造；暂停可施工。\n选中机器或前线射手后花阳光升级，守住第 2/5 波开放二/三级。\n基地与冒险独立，持续经营；死亡可回到本波开战前调整，或重开整个基地。")
         .Button("开始经营", Vector(0, 0), Vector(200, 50), 20, [] {}).Show();
 }
 void WorkshopScene::ShowDeath() {
@@ -505,7 +505,7 @@ void WorkshopScene::Update() {
     }
     if (!mPaused && !modal) {
         const float dt = DeltaTime::GetDeltaTime();
-        mVisualTime += dt;
+        if (World().State() == Workshop::Phase::Assault) mVisualTime += dt;
         mSaveClock += dt;
         if (mSaveClock >= kAutosaveSeconds) { mSaveClock = 0; SaveBase(); }
     }
@@ -806,7 +806,8 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     const auto phase = World().State();
     Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
         + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 19, 19);
-    Text(mSaveFailed ? "保存失败 · 检查磁盘权限" : mPaused ? "已暂停 · 可以施工" : "独立基地 · 自动保存", 780, 18, 18, kGreen);
+    Text(mSaveFailed ? "保存失败 · 检查磁盘权限" : mPaused ? "已暂停 · 可以施工"
+        : World().State() == Workshop::Phase::Planning ? "准备停机 · 开波后运行" : "独立基地 · 自动保存", 780, 18, 18, kGreen);
     Text(std::format("{}×{} · {:.0f}%", World().Columns(), World().FactoryRows(), mMapZoom * 100), 891, 99, 16, kGreen);
     DrawFactoryMap(g);
     DrawFactoryPanel(g);

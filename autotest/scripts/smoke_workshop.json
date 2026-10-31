@@ -327,18 +327,28 @@
       "equals": 19
     },
     {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning_before"
+    },
+    {
       "op": "wait_seconds",
       "value": 12
     },
     {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning_after"
+    },
+    {
       "op": "assert_state",
       "path": "workshop.delivered",
-      "atLeast": 15
+      "equals": 0
     },
     {
       "op": "assert_state",
       "path": "workshop.lanes.4.ammo",
-      "atLeast": 2
+      "equals": 0
     },
     {
       "op": "move_mouse",
@@ -586,6 +596,29 @@
       "value": 6
     },
     {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 0
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 2
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 3
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
       "op": "wait_seconds",
       "value": 1
     },
@@ -639,40 +672,6 @@
     {
       "op": "screenshot",
       "name": "05_signals.png"
-    },
-    {
-      "op": "wait_seconds",
-      "value": 160,
-      "timeout": 40
-    },
-    {
-      "op": "workshop",
-      "action": "shooter",
-      "index": 0
-    },
-    {
-      "op": "workshop",
-      "action": "shooter",
-      "index": 1
-    },
-    {
-      "op": "workshop",
-      "action": "shooter",
-      "index": 2
-    },
-    {
-      "op": "workshop",
-      "action": "shooter",
-      "index": 3
-    },
-    {
-      "op": "workshop",
-      "action": "shooter",
-      "index": 4
-    },
-    {
-      "op": "workshop",
-      "action": "start"
     },
     {
       "op": "wait_value",
@@ -912,6 +911,20 @@
     {
       "op": "dump_state",
       "name": "recovered.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "recovered_before_wait"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "recovered_after_wait"
     },
     {
       "op": "set_timescale",
