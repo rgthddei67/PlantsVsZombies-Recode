@@ -1,0 +1,1145 @@
+{
+  "name": "smoke_workshop_guide",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "main_menu_workshop"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.resourcesReady",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "initial.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "01_locked_production.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "02_intro.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logic"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "03_locked_logic.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "plant_catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "04_locked_plants.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 10
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCatalogOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "05_pea_guide.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCatalogOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideTopics",
+      "equals": [
+        4,
+        5,
+        18,
+        19
+      ]
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "06_splitter_unlock.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "07_recycler_unlock.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 1
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "08_switch_unlock.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 8
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "09_and_gate.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "10_or_gate.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "11_stock_not.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "12_latch.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "message_box_button",
+      "index": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "13_wallnut.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 10
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "14_counter.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 16
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "15_spore.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 17
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "16_melon_factory.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 15
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "17_cooler.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 103
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "18_elite_plant.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 106
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "19_wintermelon.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 107
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "20_ice_nut.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog_production",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "21_unlocked_production.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 41,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "empty"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guidePage",
+      "equals": 24
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "16_melon_factory.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "catalog_logic"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "22_unlocked_logic.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "plant_catalog"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "23_unlocked_plants.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "set_timescale",
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "trace": true,
+      "target": "workshop_control",
+      "control": "help"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 2
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "guide_paused_before"
+    },
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "guide_paused_after"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selectedTimeScale",
+      "equals": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "guide_resumed"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "finished.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

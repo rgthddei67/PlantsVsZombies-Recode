@@ -63,6 +63,7 @@ private:
     std::vector<std::string> mTooltipLines;
     Vector mTooltipPosition;
     std::vector<std::shared_ptr<Button>> mMachineButtons;
+    std::vector<std::shared_ptr<Button>> mMachineGuideButtons;
     std::shared_ptr<GameMessageBox> mCatalog;
     std::weak_ptr<GameMessageBox> mDismissibleDialog; // 仅帮助/重开确认可用 Esc 关闭，失败和坏档提示必须明确处理
     std::shared_ptr<Button> mCatalogButton;
@@ -74,6 +75,10 @@ private:
     std::vector<std::shared_ptr<Button>> mQuotaButtons;
     std::shared_ptr<GameMessageBox> mPlantCatalog, mQuotaDialog;
     std::vector<std::shared_ptr<Button>> mPlantButtons;
+    std::vector<std::shared_ptr<Button>> mPlantGuideButtons;
+    std::shared_ptr<GameMessageBox> mGuide;
+    std::vector<int> mGuideTopics;
+    int mGuidePage = 0, mGuideSeenWave = 0, mGuideUnlockWave = -1;
     std::shared_ptr<Button> mPlantCatalogButton, mFrontRemoveButton, mFrontUpgradeButton, mAbilityButton, mAutomaticButton;
     std::string mPlantCatalogNotice;
     std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
@@ -94,6 +99,13 @@ private:
     void HandleGridClick(int index);
     void ConfirmReset();
     void ShowHelp();
+    void OpenGuide(int topic = 0, bool newUnlocks = false);
+    void CloseGuide(bool acknowledge = true);
+    void RefreshGuide();
+    void DrawGuide(Graphics* g);
+    void CheckGuideUnlocks();
+    void DrawLockedItem(Graphics* g, float centerX, float top, float size);
+    void DrawPlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h);
     void ShowDeath();
     void DrawWorkshop(Graphics* g);
     void DrawMachine(Graphics* g, int index, float x, float y);

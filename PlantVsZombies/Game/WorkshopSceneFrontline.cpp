@@ -2,6 +2,7 @@
 #include "Board/Board.h"
 #include "Plant/Plant.h"
 #include "Plant/GameDataManager.h"
+#include "Workshop/WorkshopGuide.h"
 #include "../GameApp.h"
 #include "../DeltaTime.h"
 #include <algorithm>
@@ -14,14 +15,15 @@ const glm::vec4 kFrontRed{172, 47, 38, 255}; // 铲除与不可种植提示
 void FrontText(const std::string& text, float x, float y, int size = 15, glm::vec4 color = kFrontInk) {
     GameAPP::GetInstance().DrawText(text, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
 }
-void PlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h) {
+Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 4) * 244.0f, 145 + (index / 4) * 190.0f); }
+}
+
+void WorkshopScene::DrawPlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h) {
     const auto* texture = ResourceManager::GetInstance().GetTexture(GameDataManager::GetInstance().GetPlantTextureKey(type), false);
     if (!texture || texture->width <= 0 || texture->height <= 0) return;
     const float scale = std::min(w / texture->width, h / texture->height);
     const float width = texture->width * scale, height = texture->height * scale;
     g->DrawTexture(texture, x + (w - width) / 2, y + (h - height) / 2, width, height);
-}
-Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 4) * 244.0f, 145 + (index / 4) * 190.0f); }
 }
 
 void WorkshopScene::CreateFrontControls() {
@@ -128,17 +130,28 @@ void WorkshopScene::OpenPlantCatalog() {
     CancelMapGesture(); mPlantCatalogNotice.clear(); mTooltipLines.clear();
     auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(1012, 552);
     builder.Button("返回", Vector(973, 47), Vector(64, 34), 16, [this] { ClosePlantCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("图解指南", Vector(810, 47), Vector(140, 34), 16, [this] { OpenGuide(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
         const auto type = Workshop::Plants[i].type;
-        builder.Button("", PlantCardPosition(i), Vector(228, 176), 12, [this, type] {
+        builder.Button("", PlantCardPosition(i), Vector(228, 143), 12, [this, type] {
             const auto& info = *Workshop::FindPlant(type);
             if (World().CompletedWaves() < info.unlockWave) { mPlantCatalogNotice = "守住第 " + std::to_string(info.unlockWave) + " 波后解锁"; return; }
             SelectFrontPlant(type); ClosePlantCatalog(false);
         }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
-    mPlantCatalog = builder.Show(); mPlantButtons.clear();
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
-        auto button = mPlantCatalog->GetButton(i + 1); button->SetSkipDraw(true); mPlantButtons.push_back(button);
+        const auto pos = PlantCardPosition(i);
+        builder.Button("图解", pos + Vector(167, 145), Vector(51, 25), 13,
+            [this, i] { OpenGuide(Workshop::PlantGuideBase + static_cast<int>(i)); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    }
+    mPlantCatalog = builder.Show(); mPlantButtons.clear(); mPlantGuideButtons.clear();
+    mPlantCatalog->GetButton(1)->SetTextColor(glm::vec4(255, 228, 142, 255));
+    mPlantCatalog->GetButton(1)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
+    for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
+        auto button = mPlantCatalog->GetButton(i + 2); button->SetSkipDraw(true); mPlantButtons.push_back(button);
+        auto guide = mPlantCatalog->GetButton(i + 2 + Workshop::Plants.size());
+        guide->SetTextColor(glm::vec4(255, 228, 142, 255)); guide->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
+        guide->SetEnabled(World().CompletedWaves() >= Workshop::Plants[i].unlockWave); mPlantGuideButtons.push_back(guide);
     }
     mPlantCatalog->SetCustomDraw([this](Graphics* g) { DrawPlantCatalog(g); });
     DeltaTime::SetPaused(true);
@@ -146,24 +159,32 @@ void WorkshopScene::OpenPlantCatalog() {
 void WorkshopScene::ClosePlantCatalog(bool cancel) {
     if (cancel) CancelTool();
     if (mPlantCatalog) mPlantCatalog->Close();
-    mPlantCatalog.reset(); mPlantButtons.clear(); mTooltipLines.clear(); mHoverKey = -1;
+    mPlantCatalog.reset(); mPlantButtons.clear(); mPlantGuideButtons.clear(); mTooltipLines.clear(); mHoverKey = -1;
 }
 void WorkshopScene::DrawPlantCatalog(Graphics* g) {
     g->FillRect(44, 24, 1012, 552, glm::vec4(232, 220, 168, 255));
     g->DrawRect(44, 24, 1012, 552, kFrontGreen);
     FrontText("前线植物图册", 72, 49, 28, kFrontGreen);
-    FrontText("选植物，再点左侧六列种植 · 冰瓜需要现有西瓜投手", 72, 101, 17);
+    FrontText("选植物，再点左侧六列种植 · 点图解查看供弹与摆法", 72, 101, 17);
     mPlantCatalog->GetButton(0)->Draw(g);
+    mPlantCatalog->GetButton(1)->Draw(g);
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
         const auto& info = Workshop::Plants[i]; const auto pos = PlantCardPosition(i);
         const bool unlocked = World().CompletedWaves() >= info.unlockWave, hover = mPlantButtons[i]->IsHovered();
         g->FillRect(pos.x, pos.y, 228, 176, hover ? glm::vec4(252, 239, 190, 255) : glm::vec4(216, 211, 168, 255));
         g->DrawRect(pos.x, pos.y, 228, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
+        if (!unlocked) {
+            DrawLockedItem(g, pos.x + 114, pos.y + 25, 60);
+            FrontText("尚未解锁", pos.x + 78, pos.y + 101, 17);
+            FrontText("守住第 " + std::to_string(info.unlockWave) + " 波后解锁", pos.x + 32, pos.y + 140, 15);
+            continue;
+        }
         FrontText(info.name, pos.x + 12, pos.y + 10, 17, unlocked ? kFrontGreen : kFrontInk);
         FrontText(std::to_string(info.cost) + " 阳光", pos.x + 151, pos.y + 13, 13, World().Energy() >= info.cost ? kFrontInk : kFrontRed);
-        PlantPicture(g, info.type, pos.x + 54, pos.y + 38, 120, 78);
+        DrawPlantPicture(g, info.type, pos.x + 54, pos.y + 38, 120, 78);
         FrontText(info.role, pos.x + 9, pos.y + 120, 12);
-        FrontText(unlocked ? "点击选择 · 放下时扣费" : "守住第 " + std::to_string(info.unlockWave) + " 波解锁", pos.x + 12, pos.y + 150, 14, unlocked ? kFrontGreen : kFrontRed);
+        FrontText("点击图卡选择种植", pos.x + 12, pos.y + 151, 13, kFrontGreen);
+        mPlantGuideButtons[i]->Draw(g);
     }
     FrontText(mPlantCatalogNotice.empty() ? "防御植物不耗弹药；输出植物缺弹停火。原有布局、血量和成长跨波保留。" : mPlantCatalogNotice, 72, 541, 15);
 }

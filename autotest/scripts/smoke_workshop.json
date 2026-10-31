@@ -557,6 +557,36 @@
     },
     {
       "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "unlock_wave_1.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
       "path": "workshop.phaseName",
       "equals": "planning"
     },
@@ -574,6 +604,36 @@
       "path": "workshop.completedWaves",
       "equals": 2,
       "timeout": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "unlock_wave_2.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 2
     },
     {
       "op": "workshop",
@@ -686,6 +746,36 @@
       "path": "workshop.completedWaves",
       "equals": 3,
       "timeout": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.effectivePaused",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "unlock_wave_3.png"
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 0,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 3
     },
     {
       "op": "workshop",

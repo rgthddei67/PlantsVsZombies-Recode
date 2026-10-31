@@ -17,6 +17,7 @@
 #include "../UI/GameMessageBox.h"
 #include "../Logger.h"
 #include "Plant/GameDataManager.h"
+#include "Workshop/WorkshopGuide.h"
 #include <algorithm>
 #include <cmath>
 #include <format>
@@ -78,6 +79,7 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
+    CloseGuide(false);
     ClearFrontPreview();
     GameObjectManager::GetInstance().DestroyAllGameObjects();
     if (g_particleSystem) g_particleSystem->ClearAll();
@@ -124,7 +126,7 @@ void WorkshopScene::OnEnter() {
     }
     auto& resources = ResourceManager::GetInstance();
     mResourcesReady = resources.HasReanimation("NormalZombie") && resources.HasReanimation("PeaShooter") && resources.HasReanimation("SnowPeaShooter");
-    for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL"})
+    for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL", "IMAGE_REANIM_SUN1"})
         mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
     for (const auto& definition : Workshop::Plants) {
         const auto& data = GameDataManager::GetInstance();
@@ -145,6 +147,7 @@ void WorkshopScene::OnEnter() {
 
 void WorkshopScene::OnExit() {
     if (!mLoadFailed) SaveBase();
+    CloseGuide(false);
     CloseCatalog(); mQuickButtons.clear(); mCatalogButton.reset();
     mMachineButtons.clear(); mFactoryControls.clear(); mFrontControls.clear();
     ClosePlantCatalog(); mQuotaDialog.reset(); mPlantButtons.clear();
@@ -160,7 +163,8 @@ void WorkshopScene::OnExit() {
 bool WorkshopScene::SaveBase() {
     if (mLoadFailed || mSavePath.empty()) return false;
     const auto directory = FileManager::GetDirectory(mSavePath);
-    const auto document = mBoard->SaveWorkshopDocument();
+    auto document = mBoard->SaveWorkshopDocument();
+    if (document.is_object()) document["guideSeenWave"] = std::min(mGuideSeenWave, World().CompletedWaves());
     const bool result = document.is_object()
         && (FileManager::IsDirectory(directory) || FileManager::CreateDirectory(directory))
         && FileManager::SaveJsonFile(mSavePath, document);
@@ -177,6 +181,7 @@ bool WorkshopScene::ReloadBase() {
         if (mLoadError.empty()) mLoadError = "无法读取工坊存档。";
         return false;
     }
+    mGuideSeenWave = Workshop::ReadGuideSeenWave(document, World().CompletedWaves());
     mLoadFailed = false; mDeathShown = false; CancelTool(); ClampFactoryCamera(); return true;
 }
 
@@ -232,7 +237,7 @@ void WorkshopScene::CreateControls() {
     mStartButton = MakeButton("开始袭击", 142, 52, 115, [this] { Act("start"); });
     MakeButton("扩建 " + std::to_string(Workshop::ExpansionCost), 264, 52, 115, [this] { Act("expand"); });
     MakeButton("修复 " + std::to_string(Workshop::RepairCost), 386, 52, 115, [this] { Act("repair"); });
-    MakeButton("玩法帮助", 508, 52, 115, [this] { ShowHelp(); });
+    MakeButton("图解指南", 508, 52, 115, [this] { ShowHelp(); });
     MakeButton("重开基地", 630, 52, 115, [this] { ConfirmReset(); });
     MakeButton("保存并返回", 752, 52, 150, [this] { if (SaveBase()) mPending = Pending::Back; });
     mViewButton = MakeButton("查看前线", 916, 52, 165, [this] { SetFrontView(!mFrontView); });
@@ -397,6 +402,8 @@ void WorkshopScene::SelectBuild(Workshop::Machine type) {
 
 bool WorkshopScene::Act(const std::string& action, int index, const std::string& type, int value) {
     if (mLoadFailed) return false;
+    if (action == "guide") { OpenGuide(std::max(0, index)); return mGuide && mGuide->IsActive(); }
+    if (action == "guide_close") { CloseGuide(); return true; }
     bool result = false;
     if (action == "build") result = World().Build(index, Workshop::FindMachine(type), value);
     else if (action == "select_machine") {
@@ -443,7 +450,12 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "view_factory") { SetFrontView(false); return true; }
     else if (action == "pause") { mPaused = !mPaused; DeltaTime::SetPaused(mPaused); return true; }
     else if (action == "retry") { CancelTool(); const auto retry = mBoard->WorkshopRetryDocument(); result = !retry.is_null() && RebuildFrontline(retry); mDeathShown = false; mPaused = false; mSelectedShooter = -1; SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false); }
-    else if (action == "reset") { CancelTool(); result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false; mSelected = -1; mSelectedShooter = -1; SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false); }
+    else if (action == "reset") {
+        CancelTool(); result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false;
+        mSelected = -1; mSelectedShooter = -1; mGuideSeenWave = 0; mFirstVisit = true;
+        mRecentMachines = {Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
+        SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false);
+    }
     else if (action == "save") return SaveBase();
     else if (action == "reload") return ReloadBase();
     if (result) {
@@ -502,10 +514,16 @@ void WorkshopScene::ConfirmReset() {
         .Button("重开基地", Vector(0, 0), Vector(200, 50), 20, [this] { mPending = Pending::Reset; }).Show();
 }
 void WorkshopScene::ShowHelp() {
-    CancelMapGesture();
-    mDismissibleDialog = GameMessageBox::Builder(Vector(550, 290)).Title("戴夫工坊 · 从一条生产线开始")
-        .Message("准备阶段阳光、生产、运输、电路与回收全部停机，可施工；开波后恢复。\n工厂按B选机器：育豆、孢子、瓜果生产后，经运输带和装填口送到指定路线。\n冷凝机可做寒冰弹或冰瓜；原料清空后切配方。每路五种弹药共用80份容量，可点配额调整。\n前线按B选植物，点击左侧六列种植；冰瓜需要现有西瓜。铲除不退款，Esc或右键取消工具。\n输出植物缺对应弹药就停火；精英菇跨波保留成长，受惊归零；冰仓坚果开波后可花阳光修复。\n击杀残骸经回收入口、运输带、回收机转为阳光；每波全基地最多40份，越线不算击杀。\n按住左键拖工厂地图，滚轮缩放；R旋转指向机器，空地时旋转预览。暂停允许施工。\n基地与冒险独立，持续经营；死亡可恢复本波开战前，或重开基地。")
-        .Button("开始经营", Vector(0, 0), Vector(200, 50), 20, [] {}).Show();
+    if (mFrontView) {
+        if (const auto* plant = SelectedFrontPlant()) {
+            for (size_t i = 0; i < Workshop::Plants.size(); ++i) if (Workshop::Plants[i].type == plant->mPlantType) {
+                OpenGuide(Workshop::PlantGuideBase + static_cast<int>(i)); return;
+            }
+        }
+    } else if (mSelected >= 0 && World().Cells()[mSelected].type != Workshop::Machine::Empty) {
+        OpenGuide(static_cast<int>(World().Cells()[mSelected].type)); return;
+    }
+    OpenGuide();
 }
 void WorkshopScene::ShowDeath() {
     CancelTool();
@@ -538,7 +556,8 @@ void WorkshopScene::Update() {
     auto& catalogInput = GameAPP::GetInstance().GetInputHandler();
     bool escapeConsumed = false;
     if (catalogInput.IsKeyPressed(SDLK_ESCAPE)) {
-        if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
+        if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
+        else if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
         else if (mPlantCatalog && mPlantCatalog->IsActive()) { ClosePlantCatalog(); escapeConsumed = true; }
         else if (const auto box = mDismissibleDialog.lock(); box && box == mUIManager.GetTopActiveMessageBox()) {
             box->Close(); mDismissibleDialog.reset(); CancelTool(); escapeConsumed = true;
@@ -564,6 +583,7 @@ void WorkshopScene::Update() {
     if (before != World().State()) SaveBase();
     if (waves != World().CompletedWaves()) mNotice = "守住了第 " + std::to_string(World().CompletedWaves()) + " 波！基地保留，准备好再开启下一波。";
     if (World().State() == Workshop::Phase::Dead && !mDeathShown && !modal) ShowDeath();
+    CheckGuideUnlocks();
     DeltaTime::SetPaused(mPaused || mUIManager.GetTopActiveMessageBox() != nullptr || World().State() == Workshop::Phase::Dead);
     mPauseButton->SetText(mPaused ? "继续运行" : "暂停规划");
     mStartButton->SetEnabled(World().State() == Workshop::Phase::Planning);
@@ -586,6 +606,7 @@ void WorkshopScene::BuildDrawCommands() {
 
 /** 使用墙钟延迟显示：暂停施工时仍可阅读功能，状态内容从正式模型实时生成。 */
 void WorkshopScene::UpdateTooltip() {
+    if (mGuide && mGuide->IsActive()) { mTooltipLines.clear(); mHoverKey = -1; return; }
     if (!IsCatalogOpen() && (mLeftPending || mMapDragging || mFrontTool != FrontTool::Inspect
         || mTool == Tool::Remove || mTool == Tool::WireA || mTool == Tool::WireB)) {
         mTooltipLines.clear(); mHoverKey = -1; return;
@@ -611,6 +632,7 @@ void WorkshopScene::UpdateTooltip() {
         }
     }
     mTooltipLines.clear();
+    if (type != Workshop::Machine::Empty && !World().Unlocked(type)) { mHoverKey = -1; return; }
     if (key != mHoverKey) { mHoverKey = key; mHoverStarted = SDL_GetTicks64(); }
     if (key < 0 || SDL_GetTicks64() - mHoverStarted < 300) return;
     const auto& info = Workshop::Describe(type);
@@ -644,8 +666,8 @@ void WorkshopScene::UpdateTooltip() {
         if (type == Workshop::Machine::Grower)
             lines.push_back("产速：" + MachineEffect(type, level) + std::format("；消耗：{:.0f} 阳光/颗", Workshop::GrowEnergy));
         else if (type == Workshop::Machine::Cooler) {
-            lines.push_back("加工：" + MachineEffect(type, level) + "；冰瓜配方守住第8波开放");
-            lines.push_back("普通弹 + 2阳光 → 寒冰弹；西瓜 + 6阳光 → 冰瓜");
+            lines.push_back("加工：" + MachineEffect(type, level));
+            lines.push_back(World().CompletedWaves() >= 8 ? "普通弹 + 2阳光 → 寒冰弹；西瓜 + 6阳光 → 冰瓜" : "普通弹 + 2阳光 → 寒冰弹");
         } else if (type == Workshop::Machine::SporeGrower || type == Workshop::Machine::MelonGrower)
             lines.push_back("产速：" + MachineEffect(type, level) + std::format("；每份消耗 {:g} 阳光", type == Workshop::Machine::SporeGrower ? Workshop::SporeEnergy : Workshop::MelonEnergy));
         else if (type == Workshop::Machine::Recycler) lines.push_back("加工：" + MachineEffect(type, level) + "；每份残骸获得5阳光");
@@ -740,7 +762,7 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
         g->FillCircle(x + dx, y + dy, 1.5f, glm::vec4(211, 211, 169, 255));
     using M = Workshop::Machine;
     if (cell.type == M::Solar) PlantIcon(g, true, x + 10, y + 7, 29, 34);
-    else if (cell.type == M::Grower) {
+    else if (cell.type == M::Grower || cell.type == M::SporeGrower || cell.type == M::MelonGrower) {
         g->FillRect(x + 10, y + 11, 30, 25, glm::vec4(63, 64, 35, 255));
         DrawItemIcon(g, Workshop::ProducedItem(cell.type), x + 15, y + 15, 20);
         g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::ProductionPeriod(cell.type, cell.level)), 3, kGold);
@@ -949,6 +971,8 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["frontView"] = mFrontView;
     j["frontTool"] = static_cast<int>(mFrontTool); j["frontBuildType"] = static_cast<int>(mFrontBuildType);
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
+    j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
+    j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
     j["frontColumns"] = Workshop::FrontColumns;
     j["threats"] = nlohmann::json::array();
     for (const auto& threat : Workshop::Threats) j["threats"].push_back({{"wave", threat.wave}, {"name", threat.name}});

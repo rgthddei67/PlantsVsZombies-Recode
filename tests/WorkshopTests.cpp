@@ -1,5 +1,6 @@
 #include "Game/Workshop/Workshop.h"
 #include "Game/Workshop/WorkshopRoster.h"
+#include "Game/Workshop/WorkshopGuide.h"
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
@@ -40,6 +41,21 @@ void ClearWave(World& world) {
 }
 }
 int main() {
+    const auto starterGuide = GuideTopics(0);
+    Check(starterGuide.size() == 6 && starterGuide.front() == 0, "newcomer guide contains only starter machines and pea");
+    const auto firstUnlock = GuideTopics(1, 0), circuitsUnlock = GuideTopics(2, 1);
+    Check(firstUnlock.size() == 4 && circuitsUnlock.size() == 9, "each completed wave produces one complete unlock batch");
+    for (int topic : circuitsUnlock) Check(GuideUnlockWave(topic) == 2, "unlock popup does not reveal future or repeat older items");
+    Check(GuideTopics(2, 2).empty() && GuideTopics(10).size() == static_cast<int>(Machine::Count) + Plants.size(), "read batches stay quiet and every item has a guide entry");
+    nlohmann::json guideSave = nlohmann::json::object();
+    Check(ReadGuideSeenWave(guideSave, 8) == 8, "legacy saves do not replay historical unlock tutorials");
+    guideSave["guideSeenWave"] = 2;
+    const auto guideRestored = nlohmann::json::parse(guideSave.dump());
+    Check(ReadGuideSeenWave(guideRestored, 3) == 2 && GuideTopics(3, ReadGuideSeenWave(guideRestored, 3)).size() == 2, "unread batch survives a save round trip");
+    guideSave["guideSeenWave"] = 100000000000ull;
+    Check(ReadGuideSeenWave(guideSave, 3) == 3, "future guide watermark is clamped after progression rewind");
+    guideSave["guideSeenWave"] = "bad";
+    Check(ReadGuideSeenWave(guideSave, 3) == 3, "optional malformed guide metadata cannot invalidate a base");
     World world;
     const auto beforePreview = world.Save();
     Check(world.CanBuild(2, Machine::Grower, 0) && !world.CanBuild(0, Machine::Grower, 0)

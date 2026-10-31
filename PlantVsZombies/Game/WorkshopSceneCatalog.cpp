@@ -29,29 +29,29 @@ CardLayout Layout(int category, int slot) {
 void Label(const std::string& value, float x, float y, int size = 16, glm::vec4 color = kCatalogInk) {
     GameAPP::GetInstance().DrawText(value, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
 }
-std::array<std::string, 2> Summary(Workshop::Machine type) {
+std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     using M = Workshop::Machine;
     switch (type) {
     case M::Solar: return {"为全基地采集阳光", std::format("每秒 {:g} 阳光", Workshop::SolarRate)};
     case M::Grower: return {std::format("{:g} 阳光 → 1 普通弹", Workshop::GrowEnergy), std::format("每 {:.1f} 秒生产一颗", Workshop::GrowPeriod)};
-    case M::Cooler: return {"选择冰豌豆 / 冰瓜配方", "原料 + 阳光 → 冷凝成品"};
+    case M::Cooler: return {completedWaves >= 8 ? "选择冰豌豆 / 冰瓜配方" : "普通豌豆加工成寒冰弹", "原料 + 阳光 → 冷凝成品"};
     case M::SporeGrower: return {"培养精英菇需要的孢子", std::format("每 {:.1f} 秒一份", Workshop::SporePeriods[0])};
     case M::MelonGrower: return {"培育可投掷的西瓜", std::format("每 {:.1f} 秒一颗", Workshop::MelonPeriods[0])};
     case M::SalvagePort: return {"提取击杀掉落的残骸", "连接运输带送往回收机"};
     case M::Recycler: return {"1 份残骸 → 5 阳光", "准备阶段停止加工"};
-    case M::Counter: return {"A 上升沿计数，B 清零", "达到阈值输出高电平"};
+    case M::Counter: return {"每次开启计一次", "数够后启动下游"};
     case M::Belt: return {"沿箭头逐格输送弹药", "连接相邻机器"};
     case M::Splitter: return {"一条输入分成两路", "可按弹种筛选出口"};
     case M::Store: return {"缓存运输中的弹药", "平衡供需波动"};
     case M::Feeder: return {"给前线弹仓补货", "指定路线与弹种"};
     case M::Switch: return {"手动切换开关", "控制所连机器"};
-    case M::EnemySensor: return {"检测指定路线敌人数", "达到设定阈值输出高"};
-    case M::StockSensor: return {"检测指定库存", "达到阈值输出高"};
-    case M::And: return {"A、B 同时为高", "才输出高电平"};
-    case M::Or: return {"A、B 任一为高", "就输出高电平"};
-    case M::Not: return {"反转输入信号", "高变低，低变高"};
-    case M::Timer: return {"周期输出开关", "A 口控制运行"};
-    case M::Latch: return {"A 口记住开启", "B 口清除记忆"};
+    case M::EnemySensor: return {"检测指定路线敌人数", "有敌人才开工"};
+    case M::StockSensor: return {"检测指定库存", "够货时发出开启信号"};
+    case M::And: return {"两个条件都满足", "才允许下游开工"};
+    case M::Or: return {"任一个条件满足", "就允许下游开工"};
+    case M::Not: return {"把开与关反过来", "搭配库存器：够货停产"};
+    case M::Timer: return {"开一会，关一会", "周期自动重复"};
+    case M::Latch: return {"A 触发一次就记住", "B 清除开启状态"};
     default: return {};
     }
 }
@@ -69,20 +69,30 @@ void WorkshopScene::OpenCatalog() {
     for (int category = 0; category < 3; ++category)
         builder.Button(tabs[category], Vector(72 + category * 172.0f, 99), Vector(160, 34), 18,
             [this, category] { mCatalogCategory = category; mCatalogNotice.clear(); RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("图解指南", Vector(602, 99), Vector(140, 34), 16, [this] { OpenGuide(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i) {
         const auto type = static_cast<Workshop::Machine>(i);
         builder.Button("", Vector(-2000, -2000), Vector(1, 1), 12, [this, type] {
             if (!World().Unlocked(type)) {
-                mCatalogNotice = "守住第 " + std::to_string(Workshop::Describe(type).unlockWave) + " 波后解锁；当前可以先查看用途。";
+                mCatalogNotice = "守住第 " + std::to_string(Workshop::Describe(type).unlockWave) + " 波后解锁，届时会介绍用途与接法。";
                 return;
             }
             SelectBuild(type); CloseCatalog(false);
         }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
+    for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i)
+        builder.Button("图解", Vector(-2000, -2000), Vector(64, 23), 13, [this, i] { OpenGuide(i); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mCatalog = builder.Show();
     mCatalog->SetCustomDraw([this](Graphics* g) { DrawCatalog(g); });
-    mMachineButtons.clear();
-    for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i) mMachineButtons.push_back(mCatalog->GetButton(i + 3));
+    mCatalog->GetButton(4)->SetTextColor(glm::vec4(255, 228, 142, 255));
+    mCatalog->GetButton(4)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
+    mMachineButtons.clear(); mMachineGuideButtons.clear();
+    for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i) {
+        mMachineButtons.push_back(mCatalog->GetButton(i + 4));
+        mMachineGuideButtons.push_back(mCatalog->GetButton(i + 3 + static_cast<int>(Workshop::Machine::Count)));
+        mMachineGuideButtons.back()->SetTextColor(glm::vec4(255, 228, 142, 255));
+        mMachineGuideButtons.back()->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
+    }
     RefreshCatalog();
     DeltaTime::SetPaused(true);
 }
@@ -90,7 +100,7 @@ void WorkshopScene::OpenCatalog() {
 void WorkshopScene::CloseCatalog(bool cancelTool) {
     if (cancelTool) CancelTool();
     if (mCatalog) mCatalog->Close();
-    mCatalog.reset(); mMachineButtons.clear(); mCatalogNotice.clear();
+    mCatalog.reset(); mMachineButtons.clear(); mMachineGuideButtons.clear(); mCatalogNotice.clear();
     mHoverKey = -1; mTooltipLines.clear();
     // Scene::Update 在模态释放帧结束后统一恢复时钟，避免释放事件穿透或覆盖手动暂停。
 }
@@ -101,11 +111,14 @@ void WorkshopScene::RefreshCatalog() {
     for (size_t i = 0; i < mMachineButtons.size(); ++i) {
         auto& button = mMachineButtons[i];
         const bool visible = Category(static_cast<Workshop::Machine>(i + 1)) == mCatalogCategory;
+        auto& guide = mMachineGuideButtons[i];
         button->ForceResetHoverState(); button->ResetFrameState(); button->SetEnabled(visible);
+        guide->ForceResetHoverState(); guide->ResetFrameState(); guide->SetEnabled(visible && World().Unlocked(static_cast<Workshop::Machine>(i + 1)));
         if (visible) {
             const auto card = Layout(mCatalogCategory, slot++);
-            button->SetPosition(card.pos); button->SetSize(card.size);
-        } else button->SetPosition(Vector(-2000, -2000));
+            button->SetPosition(card.pos); button->SetSize(Vector(card.size.x, card.size.y - 31));
+            guide->SetPosition(card.pos + Vector(card.size.x - 80, card.size.y - 28));
+        } else { button->SetPosition(Vector(-2000, -2000)); guide->SetPosition(Vector(-2000, -2000)); }
     }
     for (int category = 0; category < 3; ++category)
         mCatalog->GetButton(category + 1)->SetTextColor(category == mCatalogCategory ? glm::vec4(255, 225, 135, 255) : glm::vec4(225, 225, 192, 255));
@@ -141,8 +154,8 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
     Label("戴夫的施工图册", 75, 49, 27, kCatalogGreen);
     Label("阳光 " + std::to_string(static_cast<int>(World().Energy())), 770, 55, 18);
     Label("先认机器，再把生产线接起来", 380, 59, 16);
-    for (int i = 0; i < 4; ++i) mCatalog->GetButton(i)->Draw(g);
-    Label("查看时已暂停 · Esc 返回", 735, 107, 15, kCatalogGreen);
+    for (int i = 0; i < 5; ++i) mCatalog->GetButton(i)->Draw(g);
+    Label("查看时已暂停 · Esc 返回", 785, 107, 14, kCatalogGreen);
     int slot = 0;
     std::string detail = mCatalogNotice;
     for (size_t i = 0; i < mMachineButtons.size(); ++i) {
@@ -157,6 +170,13 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         g->FillRect(x, y, w, h, unlocked ? glm::vec4(252, 243, 211, 255) : glm::vec4(220, 215, 194, 255));
         g->FillRect(x, y, w, 4, hover ? glm::vec4(226, 173, 60, 255) : glm::vec4(108, 136, 69, 255));
         g->DrawRect(x, y, w, h, hover ? glm::vec4(180, 123, 30, 255) : glm::vec4(167, 149, 96, 255));
+        if (!unlocked) {
+            const bool compact = mCatalogCategory == 2;
+            DrawLockedItem(g, x + w / 2, y + (compact ? 10 : 28), compact ? 38 : 60);
+            Label("守住第 " + std::to_string(info.unlockWave) + " 波后解锁", x + (w - 172) / 2, y + h - 32, 16);
+            if (hover && mCatalogNotice.empty()) detail = "尚未解锁：守住第 " + std::to_string(info.unlockWave) + " 波后会展示用途与示例。";
+            continue;
+        }
         Label(info.name, x + 14, y + 13, 20, unlocked ? kCatalogGreen : kCatalogInk);
         Label(std::to_string(info.cost) + " 阳光", x + w - 91, y + 17, 15, affordable ? kCatalogInk : kCatalogRed);
         const bool compact = mCatalogCategory == 2;
@@ -165,14 +185,13 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         const float imageY = y + (compact ? 34 : 45);
         g->FillRect(imageX - 3, imageY - 3, 53 * scale, 57 * scale, glm::vec4(209, 222, 180, 255));
         DrawMachineImage(g, type, imageX, imageY, scale);
-        if (!unlocked) g->FillRect(imageX - 3, imageY - 3, 53 * scale, 57 * scale, glm::vec4(199, 199, 185, 105));
-        const auto summary = Summary(type);
+        const auto summary = Summary(type, World().CompletedWaves());
         for (int line = 0; line < 2; ++line)
             Label(summary[line], compact ? x + 74 : x + 109, y + (compact ? 38 : 61) + line * 24.0f, compact ? 13 : 14);
-        const std::string status = !unlocked ? "守住第 " + std::to_string(info.unlockWave) + " 波解锁"
-            : affordable ? "点击选择 · 放置时扣费" : "缺 " + std::to_string(static_cast<int>(std::ceil(info.cost - World().Energy()))) + " 阳光 · 可先选中";
+        const std::string status = affordable ? "点击图卡选择建造" : "阳光不足 · 可先选中";
         g->FillRect(x + 9, y + h - 29, w - 18, 23, unlocked && affordable ? glm::vec4(221, 232, 190, 255) : glm::vec4(209, 201, 179, 255));
         Label(status, x + 16, y + h - 25, 13, unlocked && affordable ? kCatalogGreen : kCatalogRed);
+        mMachineGuideButtons[i]->Draw(g);
         if (hover && mCatalogNotice.empty()) detail = info.description;
     }
     Label(detail.empty() ? "选择后返回地图，可连续放置；R 旋转指向的机器 / 空地预览，Esc 取消。" : detail, 75, 532, 15,
@@ -189,6 +208,10 @@ void WorkshopScene::DrawQuickBuild(Graphics* g) {
         const bool unlocked = World().Unlocked(type), hover = mQuickButtons[i]->IsHovered();
         g->FillRect(x, y, 86, 56, hover ? glm::vec4(253, 242, 199, 255) : glm::vec4(216, 210, 164, 255));
         g->DrawRect(x, y, 86, 56, glm::vec4(139, 126, 77, 255));
+        if (!unlocked) {
+            DrawLockedItem(g, x + 43, y + 3, 25);
+            Label(std::to_string(Workshop::Describe(type).unlockWave) + " 波解锁", x + 15, y + 36, 12); continue;
+        }
         DrawMachineImage(g, type, x + 29, y + 2, 0.55f);
         Label(Workshop::Describe(type).name, x + 15, y + 36, 13, unlocked ? kCatalogGreen : kCatalogRed);
     }
