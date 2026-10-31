@@ -131,8 +131,9 @@
       "op": "click",
       "hold_frames": 6,
       "trace": true,
-      "x": 155,
-      "y": 163
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 2
     },
     {
       "op": "wait_frames",
@@ -376,8 +377,10 @@
     },
     {
       "op": "move_mouse",
-      "x": 263,
-      "y": 163
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 4,
+      "hold_frames": 60
     },
     {
       "op": "wait_value",
@@ -437,7 +440,8 @@
     {
       "op": "move_mouse",
       "x": 450,
-      "y": 138
+      "y": 138,
+      "hold_frames": 60
     },
     {
       "op": "wait_value",
@@ -504,10 +508,6 @@
         },
         {
           "op": "remove",
-          "path": "/state/cells/1/level"
-        },
-        {
-          "op": "remove",
           "path": "/state/cells/2/level"
         },
         {
@@ -520,223 +520,7 @@
         },
         {
           "op": "remove",
-          "path": "/state/cells/5/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/6/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/7/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/8/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/9/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/10/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/11/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/12/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/13/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/14/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/15/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/16/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/17/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/18/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/19/level"
-        },
-        {
-          "op": "remove",
           "path": "/state/cells/20/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/21/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/22/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/23/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/24/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/25/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/26/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/27/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/28/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/29/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/30/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/31/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/32/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/33/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/34/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/35/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/36/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/37/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/38/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/39/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/40/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/41/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/42/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/43/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/44/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/45/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/46/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/47/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/48/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/49/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/50/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/51/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/52/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/53/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/54/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/55/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/56/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/57/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/58/level"
-        },
-        {
-          "op": "remove",
-          "path": "/state/cells/59/level"
         },
         {
           "op": "remove",

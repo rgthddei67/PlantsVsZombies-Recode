@@ -20,6 +20,10 @@ public:
     bool ReloadBase();
     Board* GetBoard() const { return mBoard.get(); }
     std::shared_ptr<Button> GetControlButton(const std::string& action) const;
+    std::shared_ptr<Button> GetMachineButton(Workshop::Machine type) const;
+    /** 同一坐标变换供格位绘制、输入与 AutoTest 使用；返回逻辑画布坐标。 */
+    Vector CellScreenCenter(int row, int column) const;
+    bool IsCellVisible(int row, int column) const { return !mFrontView && FactoryCellAt(CellScreenCenter(row, column)) == row * Workshop::MaxColumns + column; }
 
 private:
     enum class Tool { Inspect, Build, Remove, WireA, WireB };
@@ -31,6 +35,9 @@ private:
     Pending mPending = Pending::None;
     int mSelected = -1, mDirection = 0, mWireSource = -1;
     int mSelectedShooter = -1;
+    float mMapZoom = 1.0f;
+    Vector mMapOffset, mDragPoint;
+    bool mMapDragging = false;
     bool mPaused = false, mDeathShown = false, mLoadFailed = false, mResourcesReady = false;
     bool mFirstVisit = false, mFrontView = false, mSaveFailed = false;
     float mSaveClock = 0, mVisualTime = 0;
@@ -42,6 +49,8 @@ private:
     std::vector<std::shared_ptr<Button>> mMachineButtons;
     std::vector<std::shared_ptr<Button>> mFactoryControls, mFrontControls;
     std::vector<std::shared_ptr<Button>> mFrontUpgradeButtons;
+    std::vector<std::shared_ptr<Button>> mQuotaButtons, mIceShooterButtons;
+    std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mViewButton;
@@ -67,4 +76,12 @@ private:
     Shooter* SelectedShooter() const;
     Shooter* ShooterAt(Vector point) const;
     void UpdateUpgradeControls();
+    void FitFactory();
+    void ZoomFactory(float zoom, Vector anchor);
+    void ClampFactoryCamera();
+    Vector FactoryPoint(Vector screen) const;
+    int FactoryCellAt(Vector screen) const;
+    void UpdateFactoryInput();
+    void DrawFactoryMap(Graphics* g);
+    void DrawFactoryPanel(Graphics* g);
 };

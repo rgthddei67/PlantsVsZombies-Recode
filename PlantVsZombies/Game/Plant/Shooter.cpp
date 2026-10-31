@@ -150,9 +150,9 @@ float Shooter::GetWorkshopAttackSpeedMultiplier() const
 
 bool Shooter::TryUpgradeWorkshop()
 {
-	if (!mBoard || !mBoard->IsWorkshop() || mPlantType != PlantType::PLANT_PEASHOOTER
+	if (!mBoard || !mBoard->IsWorkshop() || (mPlantType != PlantType::PLANT_PEASHOOTER && mPlantType != PlantType::PLANT_SNOWPEA)
 		|| !IsActive() || mPlantHealth <= 0
-		|| !mBoard->GetWorkshop().BuyUpgrade(Workshop::ShooterCost, mWorkshopUpgradeLevel)) return false;
+		|| !mBoard->GetWorkshop().BuyUpgrade(mPlantType == PlantType::PLANT_SNOWPEA ? Workshop::IceShooterCost : Workshop::ShooterCost, mWorkshopUpgradeLevel)) return false;
 	const float oldSpeed = GetWorkshopAttackSpeedMultiplier();
 	++mWorkshopUpgradeLevel;
 	// 只改变正在播放的速度，保留当前帧与已消费事件；不因升级重新开始一次射击。
@@ -169,7 +169,7 @@ void Shooter::PlantUpdate()
 	if (this->mShootTimer >= this->mShootTime)
 	{
 		// 工坊在射击前摇提交时预留一颗弹药；原有头动画与发弹事件原样续接存档。
-		if (HasZombieInRow() && mBoard->ReserveWorkshopAmmo(mRow))
+		if (HasZombieInRow() && mBoard->ReserveWorkshopAmmo(mRow, mPlantType))
 		{
 			mShootTimer = 0;
 			// 动画同比例加快：吐弹的第 64 帧 frame event 跟上更短间隔

@@ -220,10 +220,10 @@ public:
     const Workshop::World& GetWorkshop() const { return *mWorkshop; }
     void InitializeWorkshopFrontline();
     void RefreshWorkshopObservation();
-    bool AddWorkshopShooter(int row);
+    bool AddWorkshopShooter(int row, bool ice = false);
     bool BeginWorkshopAssault();
-    bool ReserveWorkshopAmmo(int row);
-    void RecordWorkshopShot();
+    bool ReserveWorkshopAmmo(int row, PlantType type = PlantType::PLANT_PEASHOOTER);
+    void RecordWorkshopShot(bool ice = false);
     void RecordWorkshopBreach(int zombieID);
     nlohmann::json SaveWorkshopDocument();
     bool RestoreWorkshopDocument(const nlohmann::json& document, std::string& error);

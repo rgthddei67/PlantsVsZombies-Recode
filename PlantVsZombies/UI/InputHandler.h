@@ -38,6 +38,7 @@ private:
 	Vector m_mousePosition;
 
 	Vector m_mouseDelta;
+	float m_mouseWheel = 0.0f; // 本逻辑步累计滚轮刻度；正值向上
 
 	KeyState m_mouseButtons[5] = { KeyState::UP, KeyState::UP, KeyState::UP, KeyState::UP, KeyState::UP };
 
@@ -70,6 +71,7 @@ public:
 	Vector GetMouseWorldPosition() const;
 
 	Vector GetMouseDelta() const;
+	float GetMouseWheel() const { return mSceneMouseBlocked ? 0.0f : m_mouseWheel; }
 
 	/** Scene 在 UI 处理后屏蔽世界鼠标查询，原始事件状态保留给下一轮 UI。 */
 	void SetSceneMouseBlocked(bool blocked) { mSceneMouseBlocked = blocked; }

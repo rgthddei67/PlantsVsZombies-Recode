@@ -12,8 +12,8 @@ protected:
 	{
 		if (!mBoard) return;
 		Vector bulletPosition = GetPosition() + Vector(30, -30);
-		mBoard->CreatePlantBullet(
-			BulletType::BULLET_SNOWPEA, mRow, bulletPosition, mPlantType);
+		if (mBoard->CreatePlantBullet(BulletType::BULLET_SNOWPEA, mRow, bulletPosition, mPlantType))
+			mBoard->RecordWorkshopShot(true);
 	}
 };
 

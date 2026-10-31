@@ -2,6 +2,7 @@
 <Resources>
   <!-- 游戏图片资源 -->
   <GameImages>
+    <Image>./resources/image/background_workshop_garden.png</Image>
     <Image>./resources/image/Engineering_ship_waterjet.png</Image>
     <Image>./resources/image/Engineering_ship_splash.png</Image>
     <Image>./resources/image/Engineering_ship_body_damaged.png</Image>

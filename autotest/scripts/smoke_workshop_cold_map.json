@@ -1,0 +1,768 @@
+{
+  "name": "smoke_workshop_cold_map",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "main_menu_workshop",
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "screenshot",
+      "name": "00_build_view.png"
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.rows",
+      "equals": 10
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.factoryTextureReady",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.resourcesReady",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 0,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 9,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 9
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 9,
+      "column": 0,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 180
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 9,
+      "column": 9,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 189
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 4,
+      "column": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 84
+    },
+    {
+      "op": "screenshot",
+      "name": "01_grid.png"
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 4,
+      "column": 4,
+      "hold_frames": 60
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "zoom_before.json"
+    },
+    {
+      "op": "mouse_wheel",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "zoom_after.json"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 4,
+      "column": 4,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 84
+    },
+    {
+      "op": "workshop",
+      "action": "zoom",
+      "value": 150
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 330
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "drag_before.json"
+    },
+    {
+      "op": "mouse_button",
+      "button": "middle",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 440,
+      "y": 350
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "mouse_button",
+      "button": "middle",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "drag_after.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "02_zoom_drag.png"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_control",
+      "control": "fit",
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.camera.probeCell",
+      "equals": 84
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "fresh"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "fresh",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 10000
+        }
+      ]
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_machine",
+      "type": 15,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 7,
+      "column": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.142.type",
+      "equals": "cooler"
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "x": 55,
+      "y": 107,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 7,
+      "column": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_control",
+      "control": "upgrade",
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.142.level",
+      "equals": 2
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 143,
+      "type": "feeder"
+    },
+    {
+      "op": "workshop",
+      "action": "select_machine",
+      "index": 143
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_control",
+      "control": "route",
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.143.route",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_control",
+      "control": "filter",
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.143.filter",
+      "equals": 1
+    },
+    {
+      "op": "workshop",
+      "action": "route",
+      "index": 143,
+      "value": 0
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 141,
+      "type": "grower"
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade_machine",
+      "index": 141
+    },
+    {
+      "op": "workshop",
+      "action": "ice_shooter",
+      "index": 0
+    },
+    {
+      "op": "workshop",
+      "action": "ice_shooter",
+      "index": 1
+    },
+    {
+      "op": "workshop",
+      "action": "ice_shooter",
+      "index": 2
+    },
+    {
+      "op": "workshop",
+      "action": "ice_shooter",
+      "index": 3
+    },
+    {
+      "op": "workshop",
+      "action": "ice_shooter",
+      "index": 4
+    },
+    {
+      "op": "workshop",
+      "action": "view_front"
+    },
+    {
+      "op": "workshop",
+      "action": "select_shooter",
+      "index": 0,
+      "value": 1
+    },
+    {
+      "op": "workshop",
+      "action": "upgrade"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_1.ice",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.nativePlantsByCell.0_1.level",
+      "equals": 2
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory"
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 7,
+      "column": 2,
+      "hold_frames": 60
+    },
+    {
+      "op": "wait_frames",
+      "value": 60
+    },
+    {
+      "op": "screenshot",
+      "name": "03_cold_tooltip.png"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_seconds",
+      "value": 9
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.lanes.0.iceAmmo",
+      "atLeast": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "production.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cold"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cold_restored"
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "workshop",
+      "action": "expand"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.rows",
+      "equals": 20
+    },
+    {
+      "op": "workshop",
+      "action": "expand",
+      "expectedSuccess": false
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 0,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 19,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 19
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 19,
+      "column": 0,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 380
+    },
+    {
+      "op": "click",
+      "hold_frames": 6,
+      "target": "workshop_cell",
+      "row": 19,
+      "column": 19,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 399
+    },
+    {
+      "op": "screenshot",
+      "name": "04_expanded.png"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.columns",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.142.level",
+      "equals": 2
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "cold",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/lanes/0/iceAmmo",
+          "value": 20
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/1/iceAmmo",
+          "value": 20
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/2/iceAmmo",
+          "value": 20
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/3/iceAmmo",
+          "value": 20
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/4/iceAmmo",
+          "value": 20
+        }
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "start"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.hasChilledZombie",
+      "equals": true,
+      "timeout": 25
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.hasIceHitParticles",
+      "equals": true,
+      "timeout": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "ice_combat.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "05_ice_combat.png"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "dump_state",
+      "name": "ice_restored.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "combat"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.nativePlantsByCell.0_1.headTrack",
+      "equals": "anim_shooting",
+      "timeout": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup"
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "windup_restored"
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.nativePlantsByCell.0_1.headTrack",
+      "equals": "anim_head_idle",
+      "timeout": 10
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "dump_state",
+      "name": "resolved.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 
 ### 射击类惯例
 
-工坊供弹仅在 `Board::IsWorkshop()` 时生效：`Shooter::PlantUpdate` 在前摇提交处通过 `ReserveWorkshopAmmo(row)` 预留弹药，吐弹继续走原有帧事件与 `CreatePlantBullet`，前摇和在途弹丸复用正式存档。禁止给工坊复制简化射击/命中/死亡模拟。仅在该模式开放新品种时，才定义它的连发、多头或多弹耗弹契约；不能把基础豌豆射手的一次预留直接解释为所有品种的一颗弹药。实现与专项入口见 [戴夫工坊](../../../../docs/systems/WORKSHOP.md)。
+工坊供弹仅在 `Board::IsWorkshop()` 时生效：`Shooter::PlantUpdate` 在前摇提交处通过 `ReserveWorkshopAmmo(row, plantType)` 预留对应弹种，吐弹继续走原有帧事件与 `CreatePlantBullet`，前摇和在途弹丸复用正式存档。普通与寒冰射手分别消费普通/寒冰弹；使用正式 `SnowPeaShooter` 发弹和减速，缺对应库存时等待，不能互相代付。禁止给工坊复制简化射击/命中/死亡模拟。仅在该模式开放新品种时，才定义它的连发、多头或多弹耗弹契约；不能把基础豌豆射手的一次预留直接解释为所有品种的一颗弹药。实现与专项入口见 [戴夫工坊](../../../../docs/systems/WORKSHOP.md)。
 
 工坊单株等级由 `Shooter` 自身保存，创建新株从一级开始；旧档缺字段按一级恢复。升级倍率同时作用于冷却、索敌节流和射击动画；在播前摇只通过 `SetClipSpeed` 提速，不能重新 `PlayTrackOnce` 导致帧事件重复。升级付款与对象资格先通过再提交等级，不回满生命、不再次扣前摇已预留的弹药。专项 `smoke_workshop_upgrades` 比较同一真实战斗快照的发弹数，并验证前摇升级、存读档和死亡检查点。
 

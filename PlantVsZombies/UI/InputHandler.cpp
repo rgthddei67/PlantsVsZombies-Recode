@@ -16,6 +16,7 @@ void InputHandler::ResetInput()
 		m_mouseButtons[i] = m_prevMouseButtons[i] = KeyState::UP;
 	}
 	m_mouseDelta = Vector(0, 0);
+	m_mouseWheel = 0;
 #if defined(__ANDROID__)
 	mTouchActive = mNextTouchRight = mPrimaryTouchRight = false;
 	for (bool& pending : mTouchReleasePending) pending = false;
@@ -134,12 +135,14 @@ void InputHandler::ProcessEvent(SDL_Event* event)
 		break;
 
 	case SDL_MOUSEWHEEL:
+		m_mouseWheel += static_cast<float>(event->wheel.y) * (event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -1.0f : 1.0f);
 		break;
 	}
 }
 
 void InputHandler::Update()
 {
+	m_mouseWheel = 0;
 	Vector prevMousePos = m_mousePosition;
 
 	for (int i = 0; i < 5; i++)

@@ -4356,15 +4356,41 @@ bool TestDriver::ExecuteCurrent() {
 	}
 
 	if (op == "move_mouse") {
-		if (!cmd.contains("x")) { Fail("move_mouse 缺 x 字段"); return false; }
-		if (!cmd.contains("y")) { Fail("move_mouse 缺 y 字段"); return false; }
+		float x = cmd.value("x", 0.0f), y = cmd.value("y", 0.0f);
+		if (cmd.value("target", "") == "workshop_cell") {
+			auto* scene = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+			const int row = cmd.value("row", -1), column = cmd.value("column", -1);
+			if (!scene || !scene->IsCellVisible(row, column)) { Fail("move_mouse: 工坊格子不可见"); return false; }
+			const auto center = scene->CellScreenCenter(row, column); x = center.x; y = center.y;
+		} else if (!cmd.contains("x") || !cmd.contains("y")) { Fail("move_mouse 缺 x/y 字段"); return false; }
 
 		SDL_Event move{};
 		move.type = SDL_MOUSEMOTION;
-		move.motion.x = static_cast<Sint32>(cmd.value("x", 0.0f));
-		move.motion.y = static_cast<Sint32>(cmd.value("y", 0.0f));
+		move.motion.x = static_cast<Sint32>(x);
+		move.motion.y = static_cast<Sint32>(y);
 		SDL_PushEvent(&move);
+		// 悬停验收可逐帧钉住目标；仍由正式鼠标事件和 tooltip 的真实延时决定显示。
+		const int holdFrames = cmd.value("hold_frames", 0);
+		if (holdFrames > 0) {
+			if (mInputPhase < 0) mInputPhase = holdFrames;
+			return --mInputPhase <= 0;
+		}
 		return true;
+	}
+
+	if (op == "mouse_wheel") {
+		SDL_Event wheel{}; wheel.type = SDL_MOUSEWHEEL;
+		wheel.wheel.y = cmd.value("value", 0); SDL_PushEvent(&wheel); return true;
+	}
+	if (op == "mouse_button") {
+		const auto found = kMouseButtonNames.find(cmd.value("button", "left"));
+		const auto action = cmd.value("action", "");
+		if (found == kMouseButtonNames.end() || (action != "down" && action != "up")) { Fail("mouse_button: 无效按钮或动作"); return false; }
+		SDL_Event event{}; event.type = action == "down" ? SDL_MOUSEBUTTONDOWN : SDL_MOUSEBUTTONUP;
+		event.button.button = found->second;
+		const auto point = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
+		event.button.x = static_cast<Sint32>(point.x); event.button.y = static_cast<Sint32>(point.y);
+		SDL_PushEvent(&event); return true;
 	}
 
 	if (op == "click") {
@@ -4501,6 +4527,19 @@ bool TestDriver::ExecuteCurrent() {
 			auto button = workshop ? workshop->GetControlButton(cmd.value("control", "")) : nullptr;
 			if (!button || !button->IsEnabled()) { Fail("click: 工坊按钮不可用"); return false; }
 			const Vector center = button->GetCenter(); x = center.x; y = center.y;
+		}
+		else if (target == "workshop_cell" || target == "workshop_machine") {
+			auto* scene = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+			if (!scene) { Fail("click: 不在工坊"); return false; }
+			if (target == "workshop_cell") {
+				const int row = cmd.value("row", -1), column = cmd.value("column", -1);
+				if (!scene->IsCellVisible(row, column)) { Fail("click: 工坊格子不可见"); return false; }
+				const auto center = scene->CellScreenCenter(row, column); x = center.x; y = center.y;
+			} else {
+				const auto button = scene->GetMachineButton(static_cast<Workshop::Machine>(cmd.value("type", 0)));
+				if (!button || !button->IsEnabled()) { Fail("click: 工坊机器按钮不可用"); return false; }
+				const auto center = button->GetCenter(); x = center.x; y = center.y;
+			}
 		}
 		else if (target == "main_menu_survival" || target == "main_menu_minigames" || target == "main_menu_workshop") {
 			auto* mainMenu = dynamic_cast<MainMenuScene*>(

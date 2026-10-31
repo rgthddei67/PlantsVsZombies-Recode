@@ -42,14 +42,16 @@ void Board::RefreshWorkshopObservation()
     mWorkshop->ObserveFrontline(enemies, shooters);
 }
 
-bool Board::AddWorkshopShooter(int row)
+bool Board::AddWorkshopShooter(int row, bool ice)
 {
     if (!mWorkshop || row < 0 || row >= Workshop::Rows || mWorkshop->State() == Workshop::Phase::Dead) return false;
     RefreshWorkshopObservation();
-    if (mWorkshop->Energy() < Workshop::ShooterCost || mWorkshop->Lanes()[row].shooters >= Workshop::MaxShootersPerLane) return false;
+    if (mWorkshop->Energy() < (ice ? Workshop::IceShooterCost : Workshop::ShooterCost)
+        || (ice && mWorkshop->CompletedWaves() < Workshop::ColdUnlockWave)
+        || mWorkshop->Lanes()[row].shooters >= Workshop::MaxShootersPerLane) return false;
+    const auto type = ice ? PlantType::PLANT_SNOWPEA : PlantType::PLANT_PEASHOOTER;
     for (int col = kWorkshopFirstShooterColumn; col >= 0; --col) {
-        if (CanPlantAt(PlantType::PLANT_PEASHOOTER, row, col)
-            && CreatePlant(PlantType::PLANT_PEASHOOTER, row, col)) return mWorkshop->AddShooter(row);
+        if (CanPlantAt(type, row, col) && CreatePlant(type, row, col)) return mWorkshop->AddShooter(row, ice);
     }
     return false;
 }
@@ -65,13 +67,13 @@ bool Board::BeginWorkshopAssault()
     return true;
 }
 
-bool Board::ReserveWorkshopAmmo(int row)
+bool Board::ReserveWorkshopAmmo(int row, PlantType type)
 {
-    return !mWorkshop || mWorkshop->ReserveAmmo(row);
+    return !mWorkshop || mWorkshop->ReserveAmmo(row, type == PlantType::PLANT_SNOWPEA ? Workshop::Ammo::Ice : Workshop::Ammo::Pea);
 }
-void Board::RecordWorkshopShot()
+void Board::RecordWorkshopShot(bool ice)
 {
-    if (mWorkshop) mWorkshop->RecordShot();
+    if (mWorkshop) mWorkshop->RecordShot(ice ? Workshop::Ammo::Ice : Workshop::Ammo::Pea);
 }
 
 /** 入侵者沿用 Zombie 的房屋判定；每只越线只扣一次基地生命，不干预走路或啃食。 */
