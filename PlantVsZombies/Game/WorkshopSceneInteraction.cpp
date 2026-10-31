@@ -9,7 +9,6 @@ namespace {
 constexpr float kDragThreshold = 8; // 左键移动超过此逻辑像素距离才进入拖图，过滤点击抖动
 constexpr float kKeyboardPanSpeed = 400; // 方向键平移速度，逻辑像素/秒；暂停时仍可操作视图
 const glm::vec4 kRemoveColor{164, 44, 37, 255}; // 拆除模式警示底色
-const glm::vec4 kWireColor{94, 65, 137, 255}; // 接线模式底色
 const glm::vec4 kHoverColor{91, 217, 245, 255}; // 鼠标指向的机器；与已选中金框区分
 void Label(const std::string& value, float x, float y, int size = 15, glm::vec4 color = glm::vec4(255, 249, 219, 255)) {
     GameAPP::GetInstance().DrawText(value, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
@@ -140,7 +139,10 @@ std::string WorkshopScene::WireHint(int index) const {
         return "点击设为来源，再点目标机器";
     }
     const int port = mTool == Tool::WireB ? 1 : 0;
-    if (World().CanConnect(mWireSource, index, port)) return "点击连接；Shift 保留来源继续接";
+    if (World().CanConnect(mWireSource, index, port)) {
+        const auto& target = World().Cells()[index];
+        return "目标 " + Workshop::PortLabel(target, port) + (port == 1 && Workshop::HasSelectionInput(target.type) ? "：关选1，开选2" : "；点击接入，Shift 连续接");
+    }
     const auto type = World().Cells()[index].type;
     if (port == 1 && type == Workshop::Machine::Cooler && World().CompletedWaves() < 8) return "守住第 8 波开放冷凝配方选择口";
     if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch && type != Workshop::Machine::Counter && !Workshop::HasSelectionInput(type))
@@ -152,11 +154,11 @@ std::string WorkshopScene::WireHint(int index) const {
 void WorkshopScene::DrawInteraction(Graphics* g) {
     if (mFrontView || mLoadFailed) return;
     const bool removing = mTool == Tool::Remove, wiring = mTool == Tool::WireA || mTool == Tool::WireB;
-    const auto color = removing ? kRemoveColor : wiring ? kWireColor : glm::vec4(45, 91, 63, 255);
+    const auto color = removing ? kRemoveColor : wiring ? SignalWireColor(mTool == Tool::WireB ? 1 : 0, false) : glm::vec4(45, 91, 63, 255);
     g->FillRect(kGridX, 128, kViewW, 34, color);
     Label(std::string(ToolName()) + (mTool == Tool::Inspect ? "模式" : "中"), 27, 135, 19);
     const std::string instruction = removing ? "点一台后退出 · Shift 连拆 · Esc / 右键取消"
-        : wiring ? (mWireSource < 0 ? "先点来源，再点目标 · Esc / 右键取消" : "已选来源，请点目标 · Shift 连续接线 · Esc 取消")
+        : wiring ? (mWireSource < 0 ? "A蓝实线 · B橙虚线；先点来源，再点目标" : "来源已选好，请点目标 · Shift 连续接线 · Esc 取消")
         : mTool == Tool::Build ? std::string(Workshop::Describe(mBuildType).name) + " · R 旋转指向的机器 / 空地预览 · Esc 结束"
         : "R 旋转 · 单击选择 / 双击配置 · 按住左键拖图";
     Label(instruction, 132, 138, 14);
@@ -196,8 +198,7 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
     }
     if (wiring && mWireSource >= 0 && !panning) {
         const auto source = CellScreenCenter(mWireSource / Workshop::MaxColumns, mWireSource % Workshop::MaxColumns);
-        const bool valid = hover >= 0 && World().CanConnect(mWireSource, hover, mTool == Tool::WireB ? 1 : 0);
-        g->DrawLine(source.x, source.y, mouse.x, mouse.y, valid ? glm::vec4(113, 237, 129, 255) : glm::vec4(246, 160, 75, 255));
+        DrawSignalWire(g, source, mouse, mTool == Tool::WireB ? 1 : 0, World().Cells()[mWireSource].signal);
         g->FillCircle(source.x, source.y, 5, glm::vec4(241, 221, 255, 255));
     }
     g->PopClipRect();

@@ -20,10 +20,10 @@ constexpr std::array<Definition, static_cast<size_t>(Machine::Count)> kDefinitio
     {"switch", "开关", "配置切换开关；输出到机器 A 口可控制启停。", 5, 2, 0},
     {"enemy", "敌情器", "选定路线敌人数达到门槛时输出开启信号。", 10, 2, 0},
     {"stock", "库存器", "检测指定弹种库存；A 口未连接时检测选定路线的弹仓。", 10, 2, 0},
-    {"and", "与门", "A、B 同时为高时输出高电平。", 5, 2, 0},
-    {"or", "或门", "A、B 任意一个为高时输出高电平。", 5, 2, 0},
+    {"and", "与门", "A、B 两个条件都成立，才输出开（高）信号。", 5, 2, 0},
+    {"or", "或门", "A、B 至少一个条件成立，就输出开（高）信号。", 5, 2, 0},
     {"not", "非门", "把 A 口信号反转；每个逻辑步传播一级。", 5, 2, 0},
-    {"timer", "定时器", "按设定周期输出半周期高电平；A 口可控制运行。", 10, 2, 0},
+    {"timer", "定时器", "每周期先关后开，各占一半时间；A 口可控制计时。", 10, 2, 0},
     {"latch", "记忆器", "A 置位、B 复位，复位优先；断开后保留状态。", 10, 2, 0},
     {"cooler", "冷凝机", "A 控制运行，B 切换配方；做完当前一份再切，不清空原料和成品。", 100, ColdUnlockWave, 20},
     {"spore_grower", "孢子培养机", "消耗阳光培养孢子，供精英胆小菇持续射击。", 100, 4, 10},
@@ -577,7 +577,7 @@ std::string World::Status(int i) const {
     if (c.type == Machine::Empty) return "空地";
     if (mPhase == Phase::Planning) return "准备停机 · 开波后运行";
     if (mPhase == Phase::Dead) return "基地失守 · 已停机";
-    if (IsLogic(c.type)) return c.signal ? "信号：高" : "信号：低";
+    if (IsLogic(c.type)) return std::string("信号：") + SignalName(c.signal);
     if (c.type == Machine::Cannon) {
         if (c.volleyRemaining > 0) return "齐射中 · 本轮路线与弹种已锁定";
         if (c.clock < CannonChargeSeconds) return "炮台充能中";

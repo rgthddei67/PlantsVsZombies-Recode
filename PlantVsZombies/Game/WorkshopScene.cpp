@@ -79,6 +79,9 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
+    ClosePractice();
+    if (mReasonDialog) mReasonDialog->Close();
+    mReasonDialog.reset();
     CloseMachineConfig();
     if (mGridDialog) mGridDialog->Close();
     mGridDialog.reset();
@@ -151,6 +154,9 @@ void WorkshopScene::OnEnter() {
 }
 
 void WorkshopScene::OnExit() {
+    ClosePractice();
+    if (mReasonDialog) mReasonDialog->Close();
+    mReasonDialog.reset();
     if (!mLoadFailed) SaveBase();
     CloseMachineConfig();
     CloseGuide(false);
@@ -315,6 +321,8 @@ void WorkshopScene::SetFrontView(bool front) {
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (auto found = mPracticeControls.find(action); found != mPracticeControls.end()) return found->second;
+    if (action == "practice") return mGuide && mGuide->IsActive() ? mGuide->GetButton(16) : nullptr;
     if (action == "grid") return mGridButton;
     if (action == "grid_upgrade") return mGridDialog && mGridDialog->IsActive() ? mGridDialog->GetButton(1) : nullptr;
     if (action == "grid_guide") return mGridDialog && mGridDialog->IsActive() ? mGridDialog->GetButton(2) : nullptr;
@@ -373,6 +381,8 @@ void WorkshopScene::UpdateUpgradeControls() {
     if (mRemoveButton) mRemoveButton->SetText(mTool == Tool::Remove ? "拆除中" : "拆除");
     if (mWireAButton) mWireAButton->SetText(mTool == Tool::WireA ? "接 A 中" : "接 A 口");
     if (mWireBButton) mWireBButton->SetText(mTool == Tool::WireB ? "接 B 中" : "接 B 口");
+    if (mWireAButton) mWireAButton->SetTextColor(SignalWireColor(0));
+    if (mWireBButton) mWireBButton->SetTextColor(SignalWireColor(1));
     if (mRotateButton) mRotateButton->SetEnabled(!mFrontView && (mTool == Tool::Build
         ? Workshop::HasDirectionalOutput(mBuildType) : selected && Workshop::HasDirectionalOutput(selected->type)));
     if (mConfigButton) mConfigButton->SetEnabled(!mFrontView && selected && selected->type != M::Empty);
@@ -426,6 +436,10 @@ void WorkshopScene::SelectBuild(Workshop::Machine type) {
 
 bool WorkshopScene::Act(const std::string& action, int index, const std::string& type, int value) {
     if (mLoadFailed) return false;
+    if (action == "practice_open") { OpenPractice(std::max(0, index)); return mPracticeDialog && mPracticeDialog->IsActive(); }
+    if (action == "practice_close") { ClosePractice(); return true; }
+    if (action == "practice_action") return PracticeAction(type, value);
+    if (action == "reason_open") { OpenMachineReason(index); return mReasonDialog && mReasonDialog->IsActive(); }
     if (action == "grid_open") { OpenPowerGrid(); return mGridDialog && mGridDialog->IsActive(); }
     if (action == "config_open") { OpenMachineConfig(index); return mMachineConfig && mMachineConfig->IsActive(); }
     if (action == "guide") { OpenGuide(std::max(0, index)); return mGuide && mGuide->IsActive(); }
@@ -602,11 +616,13 @@ void WorkshopScene::Update() {
                 .Button("返回主菜单", Vector(0, 0), Vector(200, 50), 20, [this] { mPending = Pending::Back; }).Show();
         return;
     }
-    if (mFirstVisit) { mFirstVisit = false; if (!GameAPP::mAutoTestMode) ShowHelp(); }
+    if (mFirstVisit) { mFirstVisit = false; if (!GameAPP::mAutoTestMode) OpenPractice(); }
     auto& catalogInput = GameAPP::GetInstance().GetInputHandler();
     bool escapeConsumed = false;
     if (catalogInput.IsKeyPressed(SDLK_ESCAPE)) {
-        if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
+        if (mReasonDialog && mReasonDialog->IsActive()) { mReasonDialog->Close(); escapeConsumed = true; }
+        else if (mPracticeDialog && mPracticeDialog->IsActive()) { ClosePractice(); escapeConsumed = true; }
+        else if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
         else if (mMachineConfig && mMachineConfig->IsActive()) { CloseMachineConfig(); escapeConsumed = true; }
         else if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
         else if (mPlantCatalog && mPlantCatalog->IsActive()) { ClosePlantCatalog(); escapeConsumed = true; }
@@ -616,6 +632,7 @@ void WorkshopScene::Update() {
     }
     if (!mUIManager.GetTopActiveMessageBox() && catalogInput.IsKeyPressed(SDLK_b)) { if (mFrontView) OpenPlantCatalog(); else OpenCatalog(); }
     const bool modal = mUIManager.GetTopActiveMessageBox() != nullptr;
+    UpdatePractice();
     UpdateMaterialWarnings();
     if (modal) { CancelMapGesture(); ClearFrontPreview(); }
     if (!modal) {
@@ -750,7 +767,7 @@ void WorkshopScene::UpdateTooltip() {
             }
             if (type == Workshop::Machine::Counter) lines.push_back(std::string("计量：")
                 + std::array<const char*, 3>{"信号上升沿", "来源机器的实际产出", "来源机器的实际出库/发射"}[static_cast<int>(cell.counterMode)] + "；B 清零");
-            if (type == Workshop::Machine::EnemySensor) lines.push_back(std::format("本行敌人达到 {} 只时输出高电平", cell.setting));
+            if (type == Workshop::Machine::EnemySensor) lines.push_back(std::format("监视路线敌人达到 {} 只时输出开（高）", cell.setting));
             if (type == Workshop::Machine::Cooler) lines.push_back(cell.recipe == 1 ? "当前配方：冰瓜" : "当前配方：寒冰豌豆");
             if (type == Workshop::Machine::SalvagePort || type == Workshop::Machine::Recycler)
                 lines.push_back(std::format("待提取残骸 {}；本波掉落 {}/40", World().PendingScrap(), World().WaveScrap()));
@@ -949,11 +966,9 @@ void WorkshopScene::DrawFactoryMap(Graphics* g) {
     if (mTool == Tool::WireA || mTool == Tool::WireB || mTool == Tool::Inspect)
         for (int i = 0; i < Workshop::CellCount; ++i) for (int port = 0; port < 2; ++port) {
             const int source = World().Cells()[i].inputs[port]; if (source < 0) continue;
-            const auto color = World().Cells()[source].signal ? glm::vec4(70, 250, 96, 230) : glm::vec4(117, 55, 165, 230);
             const float x = i % Workshop::MaxColumns * kCellW + 18 + port * 28;
             const float y = i / Workshop::MaxColumns * kCellH + 12;
-            g->DrawLine(source % Workshop::MaxColumns * kCellW + 32, source / Workshop::MaxColumns * kCellH + 12, x, y, color);
-            g->FillCircle(x, y, 3, color);
+            DrawSignalWire(g, Vector(source % Workshop::MaxColumns * kCellW + 32, source / Workshop::MaxColumns * kCellH + 12), Vector(x, y), port, World().Cells()[source].signal);
         }
     for (int index : {mSelected, mWireSource}) if (index >= 0) {
         const float x = index % Workshop::MaxColumns * kCellW, y = index / Workshop::MaxColumns * kCellH;
@@ -1040,6 +1055,10 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
     j["gridOpen"] = mGridDialog && mGridDialog->IsActive(); j["powerGuideSeen"] = mPowerGuideSeen;
+    j["practiceOpen"] = mPracticeDialog && mPracticeDialog->IsActive();
+    j["practice"] = mPractice ? mPractice->Inspect() : nlohmann::json(nullptr);
+    j["reasonOpen"] = mReasonDialog && mReasonDialog->IsActive();
+    if (mSelected >= 0) j["selectedReasons"] = World().Explain(mSelected);
     j["powerDemo"] = mPowerDemo ? mPowerDemo->Inspect() : nlohmann::json(nullptr);
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
     j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;

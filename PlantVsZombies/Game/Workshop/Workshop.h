@@ -125,6 +125,9 @@ struct Cell {
     int& Inventory(Ammo type) { return type == Ammo::Pea ? stock : type == Ammo::Ice ? iceStock : extraStock.at(static_cast<int>(type) - 2); }
     int Inventory(Ammo type) const { return type == Ammo::Pea ? stock : type == Ammo::Ice ? iceStock : extraStock.at(static_cast<int>(type) - 2); }
 };
+/** 端口字母表示身份，具体用途随设备而变；正式界面和独立练习共用。 */
+std::string PortLabel(const Cell& cell, int port);
+const char* SignalName(bool signal);
 struct Lane {
     int ammo = 0;
     int iceAmmo = 0;
@@ -215,6 +218,8 @@ public:
     void StartPlantCooldown(const std::string& key, float seconds);
     /** 当前库存或真实上游来料与接收配置不符时的只读说明；不丢料或自动改方案。 */
     std::string MaterialWarning(int index) const;
+    /** 只读解释当前接线、选择方案及阻塞原因，不推进信号或修改配置。 */
+    std::vector<std::string> Explain(int index) const;
     void Reset();
     /** 独立 schema 文档含当前局面和本次袭击前检查点。 */
     nlohmann::json Save() const;

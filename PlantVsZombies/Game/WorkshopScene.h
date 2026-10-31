@@ -1,6 +1,7 @@
 #pragma once
 #include "Scene.h"
 #include "Workshop/WorkshopRoster.h"
+#include "Workshop/WorkshopPractice.h"
 #include <memory>
 #include <unordered_map>
 
@@ -101,6 +102,13 @@ private:
     bool mPowerGuideSeen = true;
     int mPowerDemoMode = 0;
     std::unique_ptr<Workshop::World> mPowerDemo;
+    std::unique_ptr<Workshop::Practice> mPractice;
+    std::shared_ptr<GameMessageBox> mPracticeDialog, mReasonDialog;
+    std::unordered_map<std::string, std::shared_ptr<Button>> mPracticeControls;
+    std::unordered_map<std::string, Vector> mPracticeControlSizes;
+    std::array<bool, 4> mPracticeFinished{};
+    Uint64 mPracticeTickAt = 0;
+    int mReasonPage = 0;
     std::shared_ptr<Button> mViewButton;
     std::shared_ptr<Slider> mSpeedSlider;
     std::shared_ptr<Button> mInspectButton, mRemoveButton, mWireAButton, mWireBButton;
@@ -116,6 +124,16 @@ private:
     void HandleGridClick(int index);
     void ConfirmReset();
     void ShowHelp();
+    void OpenPractice(int lesson = 0);
+    void ClosePractice();
+    bool PracticeAction(const std::string& action, int value = -1);
+    void UpdatePractice();
+    void RefreshPractice();
+    void DrawPractice(Graphics* g);
+    void OpenMachineReason(int index);
+    void DrawMachineReason(Graphics* g, int index);
+    static glm::vec4 SignalWireColor(int port, bool on = true);
+    void DrawSignalWire(Graphics* g, Vector from, Vector to, int port, bool on);
     void OpenPowerGrid();
     void DrawPowerGrid(Graphics* g);
     void ResetPowerDemo(int mode);

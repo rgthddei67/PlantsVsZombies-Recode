@@ -21,6 +21,8 @@
 
 `smoke_workshop_power` 配合 `verify_workshop_power.py` 验证可见电网面板、隔离教程的三种操作、正式 Board 中的开关供给、暂停与原生快照往返、旧档一次性教学。教程使用独立 `Workshop::World`，不能写玩家基地；读档后的实体数组按稳定 ID 归一后比较。暂停窗口使用 `wait_frames`，不能用按游戏时间累计的 `wait_seconds`。
 
+`smoke_workshop_practice` 配合 `verify_workshop_practice.py` 覆盖四课实际点击、错接 A 口的纠正、B 口随敌情来回切线、库存经非门停机/重启、跳过与重玩，以及配置页的运行原因。练习由 `Workshop::Practice` 持有独立 `World`，正式基地暂停时用独立时钟推进；不能复用正式 Board 或调用 `SaveBase`。每个验证步骤必须看到实际生产/物流/信号传播后才完成。脚本同时核对准备期及原生战斗中练习前后存档完全一致、弹种配额诊断和模态控件清理；`--generate` 重建脚本。A/B 的颜色、线型和字母标识固定，高低信号只改变亮度，须检查同步截图。
+
 电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。工坊 schema v6 的 `legacyAssault` 必须同时保存在未结束袭击及其检查点，死亡重试沿用旧产速和轮流出怪，首次守住后才启用新规则。旧档按已守住的波次授予可用电网等级；布局、物料与真实战斗快照保留，禁止通过重置库存制造电网需求。
 
 ## 框架阶段与 Board 子域

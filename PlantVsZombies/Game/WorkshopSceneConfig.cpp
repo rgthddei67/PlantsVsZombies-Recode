@@ -12,19 +12,7 @@ const glm::vec4 kConfigGold{255, 229, 144, 255}; // 按钮文字颜色
 void Label(const std::string& text, float x, float y, int size = 16, glm::vec4 color = kConfigInk) {
     GameAPP::GetInstance().DrawText(text, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
 }
-const char* PortName(const Workshop::Cell& c, int port) {
-    if (port == 1) {
-        if (Workshop::HasSelectionInput(c.type)) return "B 方案选择";
-        if (c.type == M::Counter) return "B 清零";
-        if (c.type == M::Latch) return "B 复位";
-        return "B 条件输入";
-    }
-    if (c.type == M::StockSensor) return "A 检测来源";
-    if (c.type == M::Counter) return c.counterMode == Workshop::CounterMode::Signal ? "A 信号来源" : "A 计量来源";
-    if (c.type == M::Latch) return "A 置位";
-    if (c.type == M::Cannon) return "A 开火许可";
-    return Workshop::IsLogic(c.type) && c.type != M::Timer ? "A 条件输入" : "A 运行许可";
-}
+
 }
 
 void WorkshopScene::CloseMachineConfig() {
@@ -46,6 +34,7 @@ void WorkshopScene::OpenMachineConfig(int index) {
     };
     auto action = [this](const std::string& name, int value = 0) { Act(name, mConfigMachine, "", value); };
     add("cfg_close", "返回", 888, 48, 88, [this] { CloseMachineConfig(); });
+    add("cfg_reason", "看原因", 665, 48, 105, [this] { OpenMachineReason(mConfigMachine); });
     add("cfg_guide", "图解", 785, 48, 88, [this, type] { OpenGuide(static_cast<int>(type)); });
     add("cfg_disconnect_a", "断开 A", 699, 124, 120, [action] { action("disconnect_a"); });
     add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
@@ -163,13 +152,14 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；配置保留库存与进度，关闭窗口后继续运行。", 130, 96, 15);
     auto connection = [&](int port) {
         const int source = c.inputs[port];
-        return std::string(PortName(c, port)) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
-            + " " + std::to_string(source / Workshop::MaxColumns + 1) + "," + std::to_string(source % Workshop::MaxColumns + 1));
+        const bool measuring = port == 0 && (c.type == M::StockSensor || (c.type == M::Counter && c.counterMode != Workshop::CounterMode::Signal));
+        return Workshop::PortLabel(c, port) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
+            + (measuring ? "（读取数量）" : std::string(" ") + Workshop::SignalName(World().Cells()[source].signal)));
     };
-    Label(connection(0), 140, 133, 14);
-    if (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter) Label(connection(1), 415, 133, 14);
+    Label(connection(0), 140, 133, 14, SignalWireColor(0, false));
+    if (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter) Label(connection(1), 415, 133, 14, SignalWireColor(1, false));
     if (type == M::Splitter) Label("当前方案 " + std::to_string(World().ActivePlan(mConfigMachine) + 1)
-        + (c.inputs[1] >= 0 ? " · B 口低选1，高选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
+        + (c.inputs[1] >= 0 ? " · B 关选1，开选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
     if (type == M::Feeder || type == M::Cannon || type == M::Cooler) {
         DrawProfileCards(g);
     } else if (type == M::Splitter) {

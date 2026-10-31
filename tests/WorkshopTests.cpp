@@ -9,6 +9,7 @@
 using namespace Workshop;
 void TestWorkshopCircuits();
 void TestWorkshopPower();
+void TestWorkshopPractice();
 namespace {
 // 多个完整基地夹具放堆上，避免 Cell 扩展后超过 Windows 测试进程默认栈。
 World& TestWorld() {
@@ -387,5 +388,6 @@ int main() {
         && SpawnType(26, 10) == ZombieType::ZOMBIE_ADAPTIVE_HELMET, "threat milestones and one-giant debut");
     TestWorkshopCircuits();
     TestWorkshopPower();
+    TestWorkshopPractice();
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

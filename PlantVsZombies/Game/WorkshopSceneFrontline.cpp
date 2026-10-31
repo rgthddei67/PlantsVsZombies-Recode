@@ -214,14 +214,21 @@ void WorkshopScene::DrawAmmoQuotas(Graphics* g, int row) {
     FrontText("第 " + std::to_string(row + 1) + " 路弹仓", 230, 97, 24, kFrontGreen);
     const auto& lane = World().Lanes()[row];
     FrontText(std::format("总库存 {}/80 · 所有弹种配额合计80", lane.TotalStock()), 230, 137, 16);
+    std::array<bool, Workshop::AmmoCount> used{};
+    for (int id : mBoard->mEntityRegistry.GetAllPlantIDs()) {
+        const auto* plant = mBoard->mEntityRegistry.GetPlant(id);
+        if (!plant || !plant->IsActive() || plant->mPlantHealth <= 0 || plant->mRow != row) continue;
+        if (const auto* info = Workshop::FindPlant(plant->mPlantType); info && info->ammo != Workshop::Ammo::Count) used[static_cast<int>(info->ammo)] = true;
+    }
     for (int a = 0; a < Workshop::AmmoCount; ++a) {
         const auto item = static_cast<Workshop::Ammo>(a); const float y = 170 + a * 62.0f;
         DrawItemIcon(g, item, 230, y, 28);
         FrontText(Workshop::AmmoName(a), 275, y + 4, 17);
         FrontText(std::format("库存 {} / 配额 {}", lane.Inventory(item), lane.Quota(item)), 402, y + 4, 17);
+        FrontText(used[a] ? "本路有植物使用这种弹药" : "本路目前没有植物使用此弹种", 275, y + 27, 12, used[a] ? kFrontGreen : kFrontInk);
     }
     for (size_t i = 0; i < 1 + Workshop::AmmoCount * 2; ++i) mQuotaDialog->GetButton(i)->Draw(g);
-    FrontText("增额从其他弹种腾出空间；减额保留超额库存，暂停继续装填。", 230, 490, 14);
+    FrontText("各弹种配额独立：总仓没满，也可能已达到某种弹药配额。减额不删库存。", 230, 490, 14);
 }
 
 void WorkshopScene::DrawFrontOverlay(Graphics* g) {

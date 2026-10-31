@@ -10,7 +10,6 @@ constexpr int kContentsRows = 8; // 每页目录条目数，避免长目录越�
 const glm::vec4 kPaper{240, 230, 191, 255}; // 图解纸面颜色
 const glm::vec4 kInk{62, 54, 36, 255}; // 正文颜色
 const glm::vec4 kGreen{59, 102, 47, 255}; // 标题与物料箭头颜色
-const glm::vec4 kWire{111, 70, 160, 255}; // 控制线颜色，与物料路径区分
 using M = Workshop::Machine;
 int Topic(M type) { return static_cast<int>(type); }
 int PlantTopic(PlantType type) {
@@ -39,7 +38,7 @@ struct Lesson {
     std::vector<Node> nodes;
     std::vector<Edge> edges;
 };
-/** 示意图表达连接关系，不伪造经营实体；箭头的含义由实线/虚线及端口文字说明。 */
+/** 示意图表达连接关系，不伪造经营实体；绿色箭头表示物料，蓝/橙线及字母表示端口。 */
 void Chain(Lesson& lesson, std::initializer_list<int> topics, bool wires = false) {
     const float step = topics.size() > 1 ? 580.0f / (topics.size() - 1) : 0;
     for (int topic : topics) {
@@ -104,7 +103,7 @@ Lesson Explain(int topic) {
             if (plant.ammo == Workshop::Ammo::IceMelon) {
                 Chain(lesson, {Topic(M::MelonGrower), Topic(M::Cooler), Topic(M::Feeder), topic});
                 lesson.steps[0] = "1. 先种西瓜，再选冰瓜点原株升级。";
-                lesson.steps[1] = "2. 冷凝机选方案2，或向 B 口输入高信号。";
+                lesson.steps[1] = "2. 冷凝机选方案2，或向 B 口输入开（高）信号。";
                 lesson.tip = "冰瓜消耗冰瓜弹药；升级继承西瓜的攻速等级和剩余血量比例。";
             }
             if (!lesson.edges.empty()) lesson.edges.back().label = "本路弹仓";
@@ -151,7 +150,7 @@ Lesson Explain(int topic) {
         break;
     case M::Feeder:
         lesson.purpose = "从同一缓存供货，B 信号切换两套路线与弹种。";
-        lesson.steps = {"1. 用运输带送货，再打开装填口配置。", "2. 两套方案分别设置路线和弹种筛选。", "3. B 低选方案1，高选方案2；A 可暂停输出。"};
+        lesson.steps = {"1. 用运输带送货，再打开装填口配置。", "2. 两套方案分别设置路线和弹种筛选。", "3. B 关选方案1，开选方案2；A 控制送不送。"};
         lesson.tip = "切换不清库存；同一路仍共用弹仓容量，筛选不匹配的物料会留在缓存。";
         lesson.example = "工厂与前线的桥梁：跨区域送入本路弹仓";
         Chain(lesson, {Topic(M::Grower), Topic(M::Belt), topic, PlantTopic(PlantType::PLANT_PEASHOOTER)});
@@ -168,7 +167,7 @@ Lesson Explain(int topic) {
     case M::Splitter:
         lesson.purpose = "把一条物料线分给正前方和右侧两个出口。";
         lesson.steps = {"1. 放在产出机器后面，正前方和右侧都接设备。", "2. 保持混合且不接线：轮流分配，堵住会换另路。", "3. 若筛选弹种：该弹种固定走右侧，其余走前方。"};
-        lesson.tip = "配置可选严格模式：B低只走前方，高只走右侧，堵住也不换路；A可停机。";
+        lesson.tip = "严格模式：B关只走前方，开只走右侧，堵住不换路；A可停机。";
         lesson.example = "箭头朝右：正前方在右，右侧出口在下；R 旋转后一起转";
         lesson.nodes = {{Topic(M::Grower), Vector(355, 365), {}}, {topic, Vector(625, 365), {}},
             {Topic(M::Feeder), Vector(915, 365), {}}, {Topic(M::Store), Vector(625, 461), {}}};
@@ -193,7 +192,7 @@ Lesson Explain(int topic) {
     case M::Switch:
         lesson.purpose = "手动发出开或关的指令，远程控制机器。";
         lesson.steps = {"1. 点接 A 口，再点开关，最后点育豆机。", "2. 选中开关，点配置所选来切换开与关。", "3. 信号亮时机器运行，暗时机器停机。"};
-        lesson.tip = "虚线只传控制信号，不运输弹药；普通机器没接 A 口时默认运行。";
+        lesson.tip = "高=开，低=关，不是电力大小；蓝A、橙B只传信号，不运输弹药。";
         lesson.example = "一个开关控制一台育豆机";
         Chain(lesson, {topic, Topic(M::Grower)}, true);
         break;
@@ -255,7 +254,7 @@ Lesson Explain(int topic) {
         break;
     case M::Cannon:
         lesson.purpose = "工厂直接为前线提供可调度的三连发瓜弹。";
-        lesson.steps = {"1. 用物流送入瓜弹，两方案分别选路线和弹种。", "2. A 许可开火，B低选方案1，高选方案2。", "3. 充能12秒后消耗3瓜连射；无目标不扣弹。"};
+        lesson.steps = {"1. 用物流送入瓜弹，两方案分别选路线和弹种。", "2. A 许可开火；B关选方案1，开选方案2。", "3. 充能12秒后消耗3瓜连射；无目标不扣弹。"};
         lesson.tip = "不限台数，新建从零充能；第8波后可选冰瓜，已开始的一轮会完整发完。";
         lesson.example = "先生产与备弹，再让电路决定火力投向";
         Chain(lesson, {Topic(M::MelonGrower), Topic(M::Belt), topic});
@@ -303,8 +302,9 @@ void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
     for (int mode = 0; mode < 3; ++mode)
         builder.Button(std::array<const char*, 3>{"1 全部开启", "2 手动关闲线", "3 电路自动关"}[mode], Vector(286 + mode * 224.0f, 264), Vector(214, 34), 15,
             [this, mode] { ResetPowerDemo(mode); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("动手练习", Vector(746, 43), Vector(160, 34), 16, [this] { OpenPractice(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mGuide = builder.Show();
-    for (int i = 0; i < 8 + kContentsRows; ++i) {
+    for (int i = 0; i < 9 + kContentsRows; ++i) {
         mGuide->GetButton(i)->SetTextColor(glm::vec4(255, 228, 142, 255));
         mGuide->GetButton(i)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
     }
@@ -392,13 +392,10 @@ void WorkshopScene::DrawGuide(Graphics* g) {
         const float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
         direction = direction * (1.0f / length);
         const auto start = source + direction * 34, end = target - direction * 34;
-        const auto color = edge.wire ? kWire : kGreen;
-        if (edge.wire) {
-            for (float d = 0; d < length - 68; d += 14) {
-                const auto a = start + direction * d, b = start + direction * std::min(d + 8, length - 68);
-                g->DrawLine(a.x, a.y, b.x, b.y, color);
-            }
-        } else g->DrawLine(start.x, start.y, end.x, end.y, color);
+        const int port = edge.label.find('B') != std::string::npos ? 1 : 0;
+        const auto color = edge.wire ? SignalWireColor(port, false) : kGreen;
+        if (edge.wire) DrawSignalWire(g, start, end, port, true);
+        else g->DrawLine(start.x, start.y, end.x, end.y, color);
         const Vector normal(-direction.y, direction.x);
         const auto a = end - direction * 8 + normal * 4, b = end - direction * 8 - normal * 4;
         g->DrawLine(a.x, a.y, end.x, end.y, color); g->DrawLine(b.x, b.y, end.x, end.y, color);
@@ -415,9 +412,10 @@ void WorkshopScene::DrawGuide(Graphics* g) {
         DrawPowerDemo(g);
         Label(lesson.tip, 280, 508, 12);
         for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->Draw(g);
-    } else Label("实线：物料/资源去向  ·  虚线：信号或计量连接，按标注接 A/B", 280, 508, 12);
+    } else Label("绿色箭头：物料 · 蓝实线 A / 橙虚线 B：控制或计量 · 高=开，低=关", 280, 508, 12);
     Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  查看时暂停，随时可重看", 280, 542, 13);
     for (int i = 0; i < 5; ++i) mGuide->GetButton(i)->Draw(g);
+    mGuide->GetButton(16)->Draw(g);
     const int first = mGuidePage / kContentsRows * kContentsRows;
     for (int row = 0; row < kContentsRows && first + row < static_cast<int>(mGuideTopics.size()); ++row) mGuide->GetButton(5 + row)->Draw(g);
 }
