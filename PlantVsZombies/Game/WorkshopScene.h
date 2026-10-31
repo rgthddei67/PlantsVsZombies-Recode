@@ -2,6 +2,7 @@
 #include "Scene.h"
 #include "Workshop/WorkshopRoster.h"
 #include <memory>
+#include <unordered_map>
 
 class Board;
 class Shooter;
@@ -81,6 +82,10 @@ private:
     int mGuidePage = 0, mGuideSeenWave = 0, mGuideUnlockWave = -1;
     std::shared_ptr<Button> mPlantCatalogButton, mFrontRemoveButton, mFrontUpgradeButton, mAbilityButton, mAutomaticButton;
     std::string mPlantCatalogNotice;
+    std::shared_ptr<GameMessageBox> mMachineConfig;
+    std::unordered_map<std::string, std::shared_ptr<Button>> mConfigControls;
+    int mConfigMachine = -1;
+    std::string mConfigNotice;
     std::shared_ptr<Button> mFitButton, mZoomInButton, mZoomOutButton, mRouteButton, mFilterButton;
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
@@ -99,6 +104,10 @@ private:
     void HandleGridClick(int index);
     void ConfirmReset();
     void ShowHelp();
+    void OpenMachineConfig(int index);
+    void CloseMachineConfig();
+    void RefreshMachineConfig();
+    void DrawMachineConfig(Graphics* g);
     void OpenGuide(int topic = 0, bool newUnlocks = false);
     void CloseGuide(bool acknowledge = true);
     void RefreshGuide();

@@ -211,6 +211,8 @@ private:
 	nlohmann::json mWorkshopBattleCheckpoint;
     int mWorkshopRetiringBreach = -1; // 同步越线清理期间排除残骸；瞬态，不写存档
 	void UpdateWorkshop();
+	void UpdateWorkshopCannons();
+    Zombie* FindWorkshopCannonTarget(int row);
 	BoardState mBoardState = BoardState::CHOOSE_CARD;
 	int mSun = 50;
 	int mCurrentWave = 0;			// 当前波
@@ -222,6 +224,8 @@ public:
     void InitializeWorkshopFrontline();
     void RefreshWorkshopObservation();
     bool AddWorkshopShooter(int row, bool ice = false);
+    /** 配置面板的手动齐射入口；暂停时只预留，恢复运行后发射。 */
+    bool FireWorkshopCannon(int machineIndex);
     /** 预览与正式种植共用资格检查，空串表示可以种植。 */
     std::string WorkshopPlantPlacementReason(PlantType type, int row, int column);
     bool PlaceWorkshopPlant(PlantType type, int row, int column);

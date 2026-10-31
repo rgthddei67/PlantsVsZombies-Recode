@@ -140,9 +140,10 @@ std::string WorkshopScene::WireHint(int index) const {
     const int port = mTool == Tool::WireB ? 1 : 0;
     if (World().CanConnect(mWireSource, index, port)) return "点击连接；Shift 保留来源继续接";
     const auto type = World().Cells()[index].type;
-    if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch && type != Workshop::Machine::Counter)
+    if (port == 1 && type == Workshop::Machine::Cooler && World().CompletedWaves() < 8) return "守住第 8 波开放冷凝配方选择口";
+    if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch && type != Workshop::Machine::Counter && !Workshop::HasSelectionInput(type))
         return "此机器没有 B 口，请换目标";
-    return "库存来源只能接库存器 A 口";
+    return "检查来源类型：机器可接库存器或物料计数器 A 口；其他端口需要逻辑信号";
 }
 
 /** 状态使用文字、工具按钮描边、目标轮廓和光标标签共同表达，不能只依靠底部颜色。 */

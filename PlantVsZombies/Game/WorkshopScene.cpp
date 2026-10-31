@@ -79,6 +79,7 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
+    CloseMachineConfig();
     CloseGuide(false);
     ClearFrontPreview();
     GameObjectManager::GetInstance().DestroyAllGameObjects();
@@ -133,6 +134,7 @@ void WorkshopScene::OnEnter() {
         mResourcesReady = resources.HasReanimation(data.PlantTypeToAnimName(definition.type))
             && resources.GetTexture(data.GetPlantTextureKey(definition.type), false) && mResourcesReady;
     }
+    mResourcesReady = resources.GetTexture(GameDataManager::GetInstance().GetPlantTextureKey(PlantType::PLANT_COBCANNON), false) && mResourcesReady;
     for (const char* key : {"IMAGE_PUFFSHROOM_PUFF1", "IMAGE_REANIM_MELONPULT_MELON", "IMAGE_REANIM_WINTERMELON_PROJECTILE", "IMAGE_ZOMBIE_HEAD_GROSSOUT"})
         mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
     if (!mResourcesReady) {
@@ -147,6 +149,7 @@ void WorkshopScene::OnEnter() {
 
 void WorkshopScene::OnExit() {
     if (!mLoadFailed) SaveBase();
+    CloseMachineConfig();
     CloseGuide(false);
     CloseCatalog(); mQuickButtons.clear(); mCatalogButton.reset();
     mMachineButtons.clear(); mFactoryControls.clear(); mFrontControls.clear();
@@ -249,8 +252,8 @@ void WorkshopScene::CreateControls() {
     mWireBButton = MakeButton("接 B 口", 370, 92, 90, [this] { SelectTool(Tool::WireB); });
     mDisconnectButton = MakeButton("断开输入", 465, 92, 100, [this] { Act("disconnect", mSelected); });
     mConfigButton = MakeButton("配置所选", 570, 92, 90, [this] {
-        if (mSelected >= 0 && World().Cells()[mSelected].type == Workshop::Machine::Cooler) Act("recipe", mSelected, "", 1 - World().Cells()[mSelected].recipe);
-        else Act("configure", mSelected);
+        if (mSelected >= 0 && World().Cells()[mSelected].type == Workshop::Machine::Switch) Act("configure", mSelected);
+        else OpenMachineConfig(mSelected);
     });
     mFitButton = MakeButton("查看全图", 670, 92, 95, [this] { FitFactory(); });
     mZoomOutButton = MakeButton("－", 775, 92, 45, [this] { ZoomFactory(mMapZoom / 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
@@ -263,10 +266,12 @@ void WorkshopScene::CreateControls() {
         button->SetSkipDraw(true); mQuickButtons.push_back(button);
     }
     mRouteButton = MakeButton("目标路线", 813, 390, 110, [this] {
-        if (mSelected >= 0) Act("route", mSelected, "", (World().Cells()[mSelected].route + 1) % Workshop::Rows);
+        if (mSelected >= 0) Act("route", mSelected, "", (World().ActiveRoute(mSelected) + 1) % Workshop::Rows);
     }, 27, 13);
     mFilterButton = MakeButton("弹种", 933, 390, 145, [this] {
-        if (mSelected >= 0) Act("filter", mSelected, "", World().Cells()[mSelected].filter >= (World().Cells()[mSelected].type == Workshop::Machine::Feeder ? Workshop::AmmoCount - 1 : Workshop::ItemCount - 1) ? -1 : World().Cells()[mSelected].filter + 1);
+        if (mSelected < 0) return;
+        if (World().Cells()[mSelected].type == Workshop::Machine::Cannon) OpenMachineConfig(mSelected);
+        else Act("filter", mSelected, "", World().ActiveFilter(mSelected) >= (World().Cells()[mSelected].type == Workshop::Machine::Feeder ? Workshop::AmmoCount - 1 : Workshop::ItemCount - 1) ? -1 : World().ActiveFilter(mSelected) + 1);
     }, 27, 13);
     mUpgradeButton = MakeButton("选中机器升级", 928, 422, 150, [this] { Act("upgrade"); }, 27, 14);
     for (int row = 0; row < Workshop::Rows; ++row) {
@@ -301,6 +306,9 @@ void WorkshopScene::SetFrontView(bool front) {
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (auto found = mConfigControls.find(action); found != mConfigControls.end()) return found->second;
+    for (size_t i = 0; i < mMachineGuideButtons.size(); ++i)
+        if (action == "machine_guide_" + std::to_string(i + 1)) return mMachineGuideButtons[i];
     if (action == "plant_catalog") return mPlantCatalogButton;
     if (action == "front_remove") return mFrontRemoveButton;
     if (action == "front_ability") return mAbilityButton;
@@ -349,8 +357,7 @@ void WorkshopScene::UpdateUpgradeControls() {
     if (mWireBButton) mWireBButton->SetText(mTool == Tool::WireB ? "接 B 中" : "接 B 口");
     if (mRotateButton) mRotateButton->SetEnabled(!mFrontView && (mTool == Tool::Build
         ? Workshop::HasDirectionalOutput(mBuildType) : selected && Workshop::HasDirectionalOutput(selected->type)));
-    if (mConfigButton) mConfigButton->SetEnabled(!mFrontView && selected
-        && (selected->type == M::Switch || selected->type == M::Timer || selected->type == M::StockSensor || selected->type == M::Counter || selected->type == M::EnemySensor || selected->type == M::Cooler));
+    if (mConfigButton) mConfigButton->SetEnabled(!mFrontView && selected && selected->type != M::Empty);
     if (mDisconnectButton) mDisconnectButton->SetEnabled(!mFrontView && selected && (selected->inputs[0] >= 0 || selected->inputs[1] >= 0));
     for (size_t i = 0; i < mQuickButtons.size(); ++i)
         mQuickButtons[i]->SetEnabled(!mFrontView && i < mRecentMachines.size() && World().Unlocked(mRecentMachines[i]));
@@ -372,18 +379,17 @@ void WorkshopScene::UpdateUpgradeControls() {
     const auto* nut = dynamic_cast<const IceStorageNut*>(plant);
     if (mAbilityButton) { mAbilityButton->SetText("阳光修复"); mAbilityButton->SetEnabled(mFrontView && nut && nut->IsReadyToActivate() && nut->CanAffordActivation()); }
     if (mAutomaticButton) { mAutomaticButton->SetText(nut && nut->IsAutomatic() ? "自动修复：开" : "自动修复：关"); mAutomaticButton->SetEnabled(mFrontView && nut); }
-    if (mConfigButton && selected && selected->type == M::Cooler) mConfigButton->SetText(selected->recipe == 1 ? "配方：冰瓜" : "配方：冰豆");
-    else if (mConfigButton) mConfigButton->SetText("配置所选");
+    if (mConfigButton) mConfigButton->SetText(selected && selected->type == M::Switch ? "切换开关" : "配置所选");
     if (mRouteButton && mFilterButton) {
         const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
         const auto type = cell ? cell->type : Workshop::Machine::Empty;
         using M = Workshop::Machine;
-        const bool route = type == M::Feeder || type == M::EnemySensor || type == M::StockSensor;
-        const bool filter = type == M::Feeder || type == M::Store || type == M::Splitter || type == M::StockSensor;
+        const bool route = type == M::Feeder || type == M::Cannon || type == M::EnemySensor || type == M::StockSensor;
+        const bool filter = type == M::Feeder || type == M::Cannon || type == M::Counter || type == M::Store || type == M::Splitter || type == M::StockSensor;
         mRouteButton->SetSkipDraw(mFrontView || !route); mRouteButton->SetEnabled(!mFrontView && route);
         mFilterButton->SetSkipDraw(mFrontView || !filter); mFilterButton->SetEnabled(!mFrontView && filter);
-        if (route) mRouteButton->SetText("目标 第" + std::to_string(cell->route + 1) + "路");
-        if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "弹种 ") + Workshop::AmmoName(cell->filter));
+        if (route) mRouteButton->SetText("目标 第" + std::to_string(World().ActiveRoute(mSelected) + 1) + "路");
+        if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "弹种 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
     }
     for (size_t row = 0; row < mQuotaButtons.size(); ++row) {
         mQuotaButtons[row]->SetText("配额 " + std::to_string(World().Lanes()[row].TotalStock()) + "/80");
@@ -402,6 +408,7 @@ void WorkshopScene::SelectBuild(Workshop::Machine type) {
 
 bool WorkshopScene::Act(const std::string& action, int index, const std::string& type, int value) {
     if (mLoadFailed) return false;
+    if (action == "config_open") { OpenMachineConfig(index); return mMachineConfig && mMachineConfig->IsActive(); }
     if (action == "guide") { OpenGuide(std::max(0, index)); return mGuide && mGuide->IsActive(); }
     if (action == "guide_close") { CloseGuide(); return true; }
     bool result = false;
@@ -424,6 +431,13 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "rotate") result = World().Rotate(index);
     else if (action == "configure") result = World().Configure(index);
     else if (action == "recipe") result = World().SetRecipe(index, value);
+    else if (action == "plan") result = World().SetPlan(index, value);
+    else if (action == "strict_split") result = World().SetStrictSplit(index, value != 0);
+    else if (action == "setting") result = World().SetSetting(index, value);
+    else if (action == "counter_mode") result = World().SetCounterMode(index, static_cast<Workshop::CounterMode>(value));
+    else if (action == "counter_output") result = World().SetCounterOutput(index, static_cast<Workshop::CounterOutput>(value));
+    else if (action == "counter_reset" && index >= 0 && index < Workshop::CellCount) result = World().SetCounterMode(index, World().Cells()[index].counterMode);
+    else if (action == "fire_cannon") result = mBoard->FireWorkshopCannon(index);
     else if (action == "plant") { const auto* info = Workshop::FindPlant(type); result = info && mBoard->PlaceWorkshopPlant(info->type, index, value); }
     else if (action == "remove_plant") result = mBoard->RemoveWorkshopPlant(index, value);
     else if (action == "plant_ability") { if (auto* plant = SelectedFrontPlant()) result = plant->TryActivateManualAbility(); }
@@ -434,11 +448,14 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     }
     else if (action == "route") result = World().SetRoute(index, value);
     else if (action == "filter") result = World().SetFilter(index, value);
+    else if (action == "route0" || action == "route1") result = World().SetRoute(index, value, action == "route1" ? 1 : 0);
+    else if (action == "filter0" || action == "filter1") result = World().SetFilter(index, value, action == "filter1" ? 1 : 0);
     else if (action == "quota") result = World().SetQuota(index, value);
     else if (action == "wire_a" || action == "wire_b") result = World().Connect(value, index, action == "wire_b" ? 1 : 0);
     else if (action == "disconnect") {
         result = World().Connect(-1, index, 0); World().Connect(-1, index, 1);
     }
+    else if (action == "disconnect_a" || action == "disconnect_b") result = World().Connect(-1, index, action == "disconnect_b" ? 1 : 0);
     else if (action == "shooter") result = mBoard->AddWorkshopShooter(index);
     else if (action == "ice_shooter") result = mBoard->AddWorkshopShooter(index, true);
     else if (action == "expand") { result = World().Expand(); if (result) FitFactory(); }
@@ -466,10 +483,12 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     } else {
         mNotice = action == "expand" ? "扩建需守住第 3 波、250 阳光，宽高各增加 2 格，最多 20×20。"
             : action == "shooter" || action == "ice_shooter" ? "前线左侧六列可种植；检查空格、解锁波次与阳光。"
-            : action == "recipe" ? "冰瓜配方需守住第8波；原料缓冲清空后才能换配方。"
+            : action == "recipe" ? "冰瓜配方需守住第8波；已开工时做完当前一份再切换。"
+            : action == "fire_cannon" ? "未能开火：需要开波、充能完成、三颗对应瓜弹及本路合法目标。"
             : "操作未完成：检查能源、空地、解锁条件或信号端口。";
     }
     UpdateUpgradeControls();
+    if (mMachineConfig && mMachineConfig->IsActive()) { mConfigNotice = mNotice; RefreshMachineConfig(); }
     return result;
 }
 
@@ -557,6 +576,7 @@ void WorkshopScene::Update() {
     bool escapeConsumed = false;
     if (catalogInput.IsKeyPressed(SDLK_ESCAPE)) {
         if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
+        else if (mMachineConfig && mMachineConfig->IsActive()) { CloseMachineConfig(); escapeConsumed = true; }
         else if (IsCatalogOpen()) { CloseCatalog(); escapeConsumed = true; }
         else if (mPlantCatalog && mPlantCatalog->IsActive()) { ClosePlantCatalog(); escapeConsumed = true; }
         else if (const auto box = mDismissibleDialog.lock(); box && box == mUIManager.GetTopActiveMessageBox()) {
@@ -606,7 +626,7 @@ void WorkshopScene::BuildDrawCommands() {
 
 /** 使用墙钟延迟显示：暂停施工时仍可阅读功能，状态内容从正式模型实时生成。 */
 void WorkshopScene::UpdateTooltip() {
-    if (mGuide && mGuide->IsActive()) { mTooltipLines.clear(); mHoverKey = -1; return; }
+    if ((mGuide && mGuide->IsActive()) || (mMachineConfig && mMachineConfig->IsActive())) { mTooltipLines.clear(); mHoverKey = -1; return; }
     if (!IsCatalogOpen() && (mLeftPending || mMapDragging || mFrontTool != FrontTool::Inspect
         || mTool == Tool::Remove || mTool == Tool::WireA || mTool == Tool::WireB)) {
         mTooltipLines.clear(); mHoverKey = -1; return;
@@ -689,16 +709,20 @@ void WorkshopScene::UpdateTooltip() {
                     inventory += std::string(Workshop::AmmoName(a)) + " " + std::to_string(cell.Inventory(static_cast<Workshop::Ammo>(a))) + "  ";
                 lines.push_back(cell.TotalStock() > 0 ? inventory : "库存：空");
             }
-            if (type == Workshop::Machine::Counter) lines.push_back(std::format("计数 {} / 阈值 {}；A上升沿 +1，B清零", cell.count, cell.setting));
+            if (type == Workshop::Machine::Counter) lines.push_back(std::string("计量：")
+                + std::array<const char*, 3>{"信号上升沿", "来源机器的实际产出", "来源机器的实际出库/发射"}[static_cast<int>(cell.counterMode)] + "；B 清零");
             if (type == Workshop::Machine::EnemySensor) lines.push_back(std::format("本行敌人达到 {} 只时输出高电平", cell.setting));
             if (type == Workshop::Machine::Cooler) lines.push_back(cell.recipe == 1 ? "当前配方：冰瓜" : "当前配方：寒冰豌豆");
             if (type == Workshop::Machine::SalvagePort || type == Workshop::Machine::Recycler)
                 lines.push_back(std::format("待提取残骸 {}；本波掉落 {}/40", World().PendingScrap(), World().WaveScrap()));
-            if (type == Workshop::Machine::Feeder || type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor)
-                lines.push_back("目标路线：第 " + std::to_string(cell.route + 1) + " 路");
-            if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
-                lines.push_back(std::string(type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(cell.filter));
-            if (type == Workshop::Machine::Splitter && cell.filter >= 0) lines.push_back("匹配弹种走右侧，其余走前方；堵塞时等待，不混入另一出口。" );
+            if (type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor)
+                lines.push_back("目标路线：第 " + std::to_string(World().ActiveRoute(index) + 1) + " 路");
+            if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::Counter || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
+                lines.push_back(std::string(type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
+            if (Workshop::HasSelectionInput(type)) lines.push_back("A运行 / B选择；当前方案 " + std::to_string(World().ActivePlan(index) + 1) + "，可点配置分别设置。" );
+            if (type == Workshop::Machine::Splitter) lines.push_back(cell.strictSplit ? "严格选路：仅送选中出口，堵塞时等待。" : "普通模式：筛选优先；混合时轮流或按B信号优先供货。");
+            if (type == Workshop::Machine::Counter) lines.push_back(std::format("当前批次 {} / {}；{}", cell.count, cell.setting, cell.counterOutput == Workshop::CounterOutput::Hold ? "达标保持" : "每批翻转"));
+            if (type == Workshop::Machine::Cannon) lines.push_back(std::format("充能 {:.1f}/12秒 · 每轮3发 · 不限台数", cell.clock));
         } else if (!World().Unlocked(type)) lines.push_back("解锁：守住第 " + std::to_string(info.unlockWave) + " 波");
         if (Workshop::CanUpgradeMachine(type) && level < Workshop::MaxUpgradeLevel)
             lines.push_back("下一级：" + MachineEffect(type, level + 1));
@@ -791,7 +815,14 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
         else Arrow(g, x + 37, y + 27, cell.direction, kGold);
     } else if (cell.type == M::Feeder) {
         PlantIcon(g, false, x + 11, y + 6, 28, 28);
-        if (details && displayScale >= 0.85f) label(std::to_string(cell.route + 1) + "路", x + 14, y + 27, 12);
+        const int plan = cell.inputs[1] >= 0 ? static_cast<int>(World().Cells()[cell.inputs[1]].signal) : cell.plan;
+        if (details && displayScale >= 0.85f) label(std::to_string((plan ? cell.route2 : cell.route) + 1) + "路", x + 14, y + 27, 12);
+    } else if (cell.type == M::Cannon) {
+        const float recoil = cell.volleyRemaining > 0 && cell.volleyClock > .1f ? 2.0f : 0;
+        DrawPlantPicture(g, PlantType::PLANT_COBCANNON, x + 6 - recoil, y + 7, 39, 29);
+        const int plan = cell.inputs[1] >= 0 ? static_cast<int>(World().Cells()[cell.inputs[1]].signal) : cell.plan;
+        DrawItemIcon(g, (plan ? cell.filter2 : cell.filter) == static_cast<int>(Workshop::Ammo::IceMelon) ? Workshop::Ammo::IceMelon : Workshop::Ammo::Melon, x + 32, y + 8, 13);
+        g->FillRect(x + 8, y + 43, 34 * cell.clock / Workshop::CannonChargeSeconds, 3, kGold);
     } else {
         const char* glyph = cell.type == M::And ? "&" : cell.type == M::Or ? "OR" : cell.type == M::Not ? "!"
             : cell.type == M::Latch ? "M" : cell.type == M::Timer ? "T" : cell.type == M::EnemySensor ? "Z"
@@ -973,6 +1004,7 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
+    j["configOpen"] = mMachineConfig && mMachineConfig->IsActive(); j["configMachine"] = mConfigMachine;
     j["frontColumns"] = Workshop::FrontColumns;
     j["threats"] = nlohmann::json::array();
     for (const auto& threat : Workshop::Threats) j["threats"].push_back({{"wave", threat.wave}, {"name", threat.name}});
@@ -1026,7 +1058,7 @@ nlohmann::json WorkshopScene::Inspect() const {
             if (z->IsDying()) j["hasDyingZombie"] = true;
             if (z->GetCooldownTimer() > 0) j["hasChilledZombie"] = true;
             const auto animator = z->GetAnimatorInternal();
-            j["nativeZombies"].push_back({{"id", id}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
+            j["nativeZombies"].push_back({{"id", id}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"helmetHp", z->mHelmHealth}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
                 {"track", animator ? animator->GetCurrentTrackName() : ""}, {"tongue", animator && animator->GetTrackVisible("anim_tongue")}});
         }
     }

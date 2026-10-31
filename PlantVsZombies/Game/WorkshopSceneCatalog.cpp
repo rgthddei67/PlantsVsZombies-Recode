@@ -39,11 +39,12 @@ std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     case M::MelonGrower: return {"培育可投掷的西瓜", std::format("每 {:.1f} 秒一颗", Workshop::MelonPeriods[0])};
     case M::SalvagePort: return {"提取击杀掉落的残骸", "连接运输带送往回收机"};
     case M::Recycler: return {"1 份残骸 → 5 阳光", "准备阶段停止加工"};
-    case M::Counter: return {"每次开启计一次", "数够后启动下游"};
+    case M::Counter: return {"计信号 / 产出 / 出库", "每批完成可翻转方案"};
+    case M::Cannon: return {"充能12秒，连射3发瓜弹", "A许可开火，B切换方案"};
     case M::Belt: return {"沿箭头逐格输送弹药", "连接相邻机器"};
-    case M::Splitter: return {"一条输入分成两路", "可按弹种筛选出口"};
+    case M::Splitter: return {"一条输入分成两路", "可严格按B口选择出口"};
     case M::Store: return {"缓存运输中的弹药", "平衡供需波动"};
-    case M::Feeder: return {"给前线弹仓补货", "指定路线与弹种"};
+    case M::Feeder: return {"给前线弹仓补货", "B切换两套路线与弹种"};
     case M::Switch: return {"手动切换开关", "控制所连机器"};
     case M::EnemySensor: return {"检测指定路线敌人数", "有敌人才开工"};
     case M::StockSensor: return {"检测指定库存", "够货时发出开启信号"};
@@ -65,7 +66,7 @@ void WorkshopScene::OpenCatalog() {
     mCatalogNotice.clear(); CancelMapGesture(); mTooltipLines.clear(); mHoverKey = -1;
     auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(1012, 552);
     builder.Button("返回", Vector(973, 47), Vector(64, 34), 16, [this] { CloseCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
-    constexpr std::array<const char*, 3> tabs{"生产", "物流", "电路"};
+    constexpr std::array<const char*, 3> tabs{"生产", "物流 / 战术", "电路"};
     for (int category = 0; category < 3; ++category)
         builder.Button(tabs[category], Vector(72 + category * 172.0f, 99), Vector(160, 34), 18,
             [this, category] { mCatalogCategory = category; mCatalogNotice.clear(); RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);

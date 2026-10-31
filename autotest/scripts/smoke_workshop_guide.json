@@ -886,10 +886,10 @@
     },
     {
       "op": "click",
-      "target": "message_box_button",
-      "index": 41,
+      "target": "workshop_control",
       "hold_frames": 6,
-      "trace": true
+      "trace": true,
+      "control": "machine_guide_17"
     },
     {
       "op": "wait_frames",

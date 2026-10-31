@@ -2818,10 +2818,12 @@ bool TestDriver::ExecuteCurrent() {
 	}
 	if (op == "spawn_zombie") {
 		GameScene* gs = CurrentGameScene();
-		if (!gs || !gs->GetBoard()) { Fail("spawn_zombie: 不在 GameScene 或 Board 为空"); return false; }
+		auto* workshop = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+		Board* board = gs ? gs->GetBoard() : workshop ? workshop->GetBoard() : nullptr;
+		if (!board) { Fail("spawn_zombie: 当前场景没有 Board"); return false; }
 		auto it = kZombieNames.find(cmd.value("type", ""));
 		if (it == kZombieNames.end()) { Fail("未知僵尸类型: " + cmd.value("type", "")); return false; }
-		Zombie* z = gs->GetBoard()->CreateZombie(it->second,
+		Zombie* z = board->CreateZombie(it->second,
 			cmd.value("row", 0), cmd.value("x", 900.0f));
 		if (!z) { Fail("CreateZombie 返回空"); return false; }
         if(cmd.contains("bodyTrack")) {

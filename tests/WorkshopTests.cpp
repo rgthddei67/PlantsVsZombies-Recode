@@ -4,9 +4,17 @@
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
+#include <memory>
 
 using namespace Workshop;
+void TestWorkshopCircuits();
 namespace {
+// 多个完整基地夹具放堆上，避免 Cell 扩展后超过 Windows 测试进程默认栈。
+World& TestWorld() {
+    static std::vector<std::unique_ptr<World>> worlds;
+    worlds.push_back(std::make_unique<World>());
+    return *worlds.back();
+}
 void Check(bool value, const char* message) {
     if (!value) { std::cerr << "FAILED workshop: " << message << '\n'; std::exit(1); }
 }
@@ -56,7 +64,7 @@ int main() {
     Check(ReadGuideSeenWave(guideSave, 3) == 3, "future guide watermark is clamped after progression rewind");
     guideSave["guideSeenWave"] = "bad";
     Check(ReadGuideSeenWave(guideSave, 3) == 3, "optional malformed guide metadata cannot invalidate a base");
-    World world;
+    World& world = TestWorld();
     const auto beforePreview = world.Save();
     Check(world.CanBuild(2, Machine::Grower, 0) && !world.CanBuild(0, Machine::Grower, 0)
         && !world.CanBuild(CellCount, Machine::Belt, 0) && !world.CanBuild(2, Machine::Belt, 4)
@@ -67,14 +75,14 @@ int main() {
     Supply(world);
     const auto prepared = world.Save(); Step(world, 600);
     Check(world.Save() == prepared, "planning does not advance resources or clocks");
-    const auto save = world.Save(); World restored; std::string error;
+    const auto save = world.Save(); World& restored = TestWorld(); std::string error;
     Check(restored.Load(save, error) && restored.Save() == save, "exact planning round trip");
     Step(world, 4); Step(restored, 4);
     Check(restored.Save() == world.Save(), "restored transport continues identically");
     auto bad = save; bad["state"]["cells"][0]["inputs"][0] = 999;
     const auto unchanged = restored.Save();
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "bad wire rejected transactionally");
-    bad = save; bad["schemaVersion"] = 4;
+    bad = save; bad["schemaVersion"] = save.at("schemaVersion").get<int>() + 1;
     Check(!restored.Load(bad, error) && restored.Save() == unchanged, "future schema protected");
     Check(world.StartAssault(), "start save test"); Step(world, 4);
     Check(world.Delivered() > 0 && world.Lanes()[4].ammo > 0, "empty magazines receive first supply after assault begins");
@@ -102,7 +110,7 @@ int main() {
     Check(world.Cells()[2].inputs[0] == -1, "removal disconnects dangling wire");
     ClearWave(world); Check(world.Expand() && world.Columns() == 12, "third wave expands factory");
 
-    World empty;
+    World& empty = TestWorld();
     const auto checkpoint = empty.Save();
     Check(empty.StartAssault(), "start unarmed attack");
     Check(!empty.ReserveAmmo(0), "empty magazine cannot reserve attack");
@@ -113,7 +121,7 @@ int main() {
     restored.Reset(); Check(restored.Save() == World().Save(), "reset only creates fresh independent state");
 
     // 一个运输节拍内不能级联穿过整条带；堵塞不得复制或遗失弹药。
-    World transport; Check(transport.Build(2, Machine::Grower, 0), "transport grower");
+    World& transport = TestWorld(); Check(transport.Build(2, Machine::Grower, 0), "transport grower");
     for (int i = 3; i <= 7; ++i) Check(transport.Build(i, Machine::Belt, 0), "long belt");
     Check(transport.StartAssault(), "run transport");
     Step(transport, GrowPeriod + 0.1f);
@@ -131,7 +139,7 @@ int main() {
     Check(!transport.Rotate(0), "non-directional machines do not pretend to rotate");
     Check(transport.Rotate(2) && transport.Rotate(2), "restore grower direction");
 
-    World circuits;
+    World& circuits = TestWorld();
     auto circuitFixture = circuits.Save(); circuitFixture["state"]["completedWaves"] = 2;
     circuitFixture["state"]["energy"] = 1000;
     Check(circuits.Load(circuitFixture, error), "load isolated unlocked circuit fixture");
@@ -155,7 +163,7 @@ int main() {
     Check(circuits.Build(7, Machine::Not, 0) && circuits.Connect(7, 7, 0), "feedback circuit");
     Step(circuits, 10); Check(restored.Load(circuits.Save(), error), "cyclic circuit is finite and serializable");
 
-    World split;
+    World& split = TestWorld();
     auto splitFixture = split.Save(); splitFixture["state"]["completedWaves"] = 1;
     Check(split.Load(splitFixture, error), "splitter fixture");
     Check(split.Build(2, Machine::Grower, 0) && split.Build(3, Machine::Splitter, 0), "splitter supply");
@@ -171,7 +179,7 @@ int main() {
     bad = empty.Save(); bad["checkpoint"] = nullptr;
     Check(!restored.Load(bad, error), "dead save requires recoverable checkpoint");
 
-    World upgrades;
+    World& upgrades = TestWorld();
     Check(!upgrades.Upgrade(0), "second level locked before wave two");
     auto fixture = upgrades.Save(); fixture["state"]["completedWaves"] = 2; fixture["state"]["energy"] = 1000;
     Check(upgrades.Load(fixture, error), "upgrade fixture");
@@ -211,7 +219,7 @@ int main() {
     Check(upgrades.Load(legacy, error) && upgrades.Save() == World().Save(), "old workshop saves start at level one");
     std::array<int, 3> production{};
     for (int level = 1; level <= 3; ++level) {
-        World line;
+        World& line = TestWorld();
         fixture = line.Save(); fixture["state"]["completedWaves"] = 5; fixture["state"]["energy"] = 1000;
         Check(line.Load(fixture, error) && line.Build(2, Machine::Grower, 0) && line.Build(3, Machine::Feeder, 0), "rate fixture");
         for (int l = 1; l < level; ++l) Check(line.Upgrade(2), "rate upgrade");
@@ -221,14 +229,14 @@ int main() {
     }
     Check(production[0] == 8 && production[1] == 10 && production[2] == 12, "actual production follows 2.5 / 2.0 / 1.6 second periods");
     // 冷加工守恒、远程路线与混合弹仓：任何阶段均不能用另一种弹药代付。
-    World cold;
+    World& cold = TestWorld();
     fixture = cold.Save(); fixture["state"]["completedWaves"] = 5; fixture["state"]["energy"] = 1000;
     Check(cold.Load(fixture, error), "cold fixture");
     Check(cold.Build(142, Machine::Cooler, 0) && cold.Build(143, Machine::Feeder, 0), "cold line beyond frontline rows");
     Check(cold.SetRoute(143, 4) && cold.SetFilter(143, 1), "explicit typed remote delivery");
     fixture = cold.Save(); fixture["state"]["cells"][142]["stock"] = 5;
     Check(cold.Load(fixture, error), "five input peas");
-    World outletProbe; Check(outletProbe.Load(fixture, error), "output preview fixture");
+    World& outletProbe = TestWorld(); Check(outletProbe.Load(fixture, error), "output preview fixture");
     Check(outletProbe.Build(141, Machine::Grower, 0), "output preview input line");
     Check(outletProbe.InspectOutput(141).message == "右侧目标缓存已满", "cooler has a separate five-pea input buffer");
     Check(outletProbe.InspectOutput(142).ready, "cooler output probes ice rather than its plain input inventory");
@@ -252,7 +260,7 @@ int main() {
     fixture = cold.Save(); fixture["state"]["lanes"][4]["ammo"] = 77;
     Check(!restored.Load(fixture, error), "shared eighty round capacity enforced");
 
-    World sorting;
+    World& sorting = TestWorld();
     fixture = sorting.Save(); fixture["state"]["completedWaves"] = 3;
     Check(sorting.Load(fixture, error), "sort fixture");
     Check(sorting.Build(3, Machine::Splitter, 0) && sorting.Build(4, Machine::Store, 0)
@@ -303,7 +311,7 @@ int main() {
     Check(restored.Columns() == 20 && restored.FactoryRows() == 20 && restored.Cells()[90].inputs[0] == 91, "expansion preserves stable wires and clamps both dimensions");
 
     // 新版五弹种共用总弹仓，残骸不进入前线；冷凝配方和存档同时保留。
-    World advanced;
+    World& advanced = TestWorld();
     fixture = advanced.Save(); fixture["state"]["completedWaves"] = 10; fixture["state"]["energy"] = 6000;
     Check(advanced.Load(fixture, error), "advanced production fixture");
     Check(advanced.Build(21, Machine::SporeGrower, 0) && advanced.Build(22, Machine::Belt, 0)
@@ -329,7 +337,7 @@ int main() {
     Check(!advanced.Load(bad, error) && advanced.Save() == advancedUnchanged, "invalid quota rejected transactionally");
 
     // 击杀收入必须经过物流加工，多个入口共享一次掉落；每波上限独立于机器数量。
-    World recycling;
+    World& recycling = TestWorld();
     fixture = recycling.Save(); fixture["state"]["completedWaves"] = 1; fixture["state"]["energy"] = 1000;
     Check(recycling.Load(fixture, error) && recycling.Remove(0) && recycling.Remove(MaxColumns), "recycling isolates passive solar");
     for (int start : {2, 22}) Check(recycling.Build(start, Machine::SalvagePort, 0)
@@ -350,7 +358,7 @@ int main() {
     recycling.RecordKill(); recycling.RecordBreach(); recycling.RecordBreach(); recycling.RecordBreach();
     Check(recycling.Retry() && recycling.Save() == salvagePlanning, "retry rolls back salvage along with the base");
 
-    World counter;
+    World& counter = TestWorld();
     fixture = counter.Save(); fixture["state"]["completedWaves"] = 4; fixture["state"]["energy"] = 1000;
     Check(counter.Load(fixture, error) && counter.Build(2, Machine::Switch, 0) && counter.Build(3, Machine::Counter, 0)
         && counter.Build(4, Machine::Switch, 0) && counter.Configure(4)
@@ -375,5 +383,6 @@ int main() {
     Check(giantDebut == 1 && SpawnType(8, 3) == ZombieType::ZOMBIE_FOOTBALL
         && SpawnType(18, 12) == ZombieType::ZOMBIE_HEALER && SpawnType(22, 16) == ZombieType::ZOMBIE_CRYSTAL_DRUMMER
         && SpawnType(26, 10) == ZombieType::ZOMBIE_ADAPTIVE_HELMET, "threat milestones and one-giant debut");
+    TestWorkshopCircuits();
     std::cout << "Workshop production, spawn transactions, signals, persistence and recovery passed\n";
 }

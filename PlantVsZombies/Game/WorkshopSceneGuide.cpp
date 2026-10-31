@@ -79,7 +79,7 @@ Lesson Explain(int topic) {
             if (plant.ammo == Workshop::Ammo::IceMelon) {
                 Chain(lesson, {Topic(M::MelonGrower), Topic(M::Cooler), Topic(M::Feeder), topic});
                 lesson.steps[0] = "1. 先种西瓜，再选冰瓜点原株升级。";
-                lesson.steps[1] = "2. 冷凝机清空原料后，配置切到冰瓜配方。";
+                lesson.steps[1] = "2. 冷凝机选方案2，或向 B 口输入高信号。";
                 lesson.tip = "冰瓜消耗冰瓜弹药；升级继承西瓜的攻速等级和剩余血量比例。";
             }
             if (!lesson.edges.empty()) lesson.edges.back().label = "本路弹仓";
@@ -125,9 +125,9 @@ Lesson Explain(int topic) {
         lesson.edges.back().label = "本路弹仓";
         break;
     case M::Feeder:
-        lesson.purpose = "把工厂物料装进指定路线的前线弹仓。";
-        lesson.steps = {"1. 用运输带把物料送到装填口。", "2. 选中它，点目标路线；需要时切换弹种筛选。", "3. 前线同一路植物自动从该路弹仓取弹。"};
-        lesson.tip = "同一路可建多个装填口；它们共用弹仓容量，不会复制弹药。";
+        lesson.purpose = "从同一缓存供货，B 信号切换两套路线与弹种。";
+        lesson.steps = {"1. 用运输带送货，再打开装填口配置。", "2. 两套方案分别设置路线和弹种筛选。", "3. B 低选方案1，高选方案2；A 可暂停输出。"};
+        lesson.tip = "切换不清库存；同一路仍共用弹仓容量，筛选不匹配的物料会留在缓存。";
         lesson.example = "工厂与前线的桥梁：跨区域送入本路弹仓";
         Chain(lesson, {Topic(M::Grower), Topic(M::Belt), topic, PlantTopic(PlantType::PLANT_PEASHOOTER)});
         lesson.edges.back().label = "目标第 1 路";
@@ -143,7 +143,7 @@ Lesson Explain(int topic) {
     case M::Splitter:
         lesson.purpose = "把一条物料线分给正前方和右侧两个出口。";
         lesson.steps = {"1. 放在产出机器后面，正前方和右侧都接设备。", "2. 保持混合且不接线：轮流分配，堵住会换另路。", "3. 若筛选弹种：该弹种固定走右侧，其余走前方。"};
-        lesson.tip = "筛选后堵塞不改道；混合时接信号，亮优先右侧，暗优先前方。";
+        lesson.tip = "配置可选严格模式：B低只走前方，高只走右侧，堵住也不换路；A可停机。";
         lesson.example = "箭头朝右：正前方在右，右侧出口在下；R 旋转后一起转";
         lesson.nodes = {{Topic(M::Grower), Vector(355, 365), {}}, {topic, Vector(625, 365), {}},
             {Topic(M::Feeder), Vector(915, 365), {}}, {Topic(M::Store), Vector(625, 461), {}}};
@@ -159,8 +159,8 @@ Lesson Explain(int topic) {
         break;
     case M::Cooler:
         lesson.purpose = "给普通弹药降温，做出寒冰射手需要的寒冰弹。";
-        lesson.steps = {"1. 用育豆机向冷凝机送普通豌豆。", "2. 留足阳光，冷凝机会消耗原料加工。", "3. 成品送装填口，选择寒冰射手所在路线。"};
-        lesson.tip = "原料和成品都有缓存；堵住时检查下游弹种筛选及寒冰配额。";
+        lesson.steps = {"1. 育豆机向冷凝机送普通豌豆，选方案1。", "2. 成品送装填口，目标选寒冰射手所在路。", "3. 第8波后方案2开放，B信号可自动切配方。"};
+        lesson.tip = "原料和成品各自缓存；切配方先做完在制品，再切换，保留余料和成品。";
         lesson.example = "进普通豌豆，出寒冰弹";
         Chain(lesson, {Topic(M::Grower), topic, Topic(M::Feeder), PlantTopic(PlantType::PLANT_SNOWPEA)});
         lesson.edges.back().label = "本路弹仓";
@@ -218,12 +218,20 @@ Lesson Explain(int topic) {
         lesson.nodes[0].label = "开启开关"; lesson.nodes[1].label = "关闭开关";
         break;
     case M::Counter:
-        lesson.purpose = "数开启信号出现了几次，数够后才启动下游。";
-        lesson.steps = {"1. 定时器接计数器 A 口，配置门槛设为 5。", "2. A 每次从关变开算 1 次，常开不会重复计数。", "3. B 接开关用于清零；输出接机器 A 口。"};
-        lesson.tip = "B 清零优先；它数的是信号次数，不是击杀数或运输的弹药数。";
-        lesson.example = "累计 5 次开启后启动生产，随时可清零";
-        Gate(lesson, M::Counter, M::Timer, M::Switch);
-        lesson.nodes[1].label = "清零开关";
+        lesson.purpose = "数实际物料，按批次切换工厂的工作方式。";
+        lesson.steps = {"1. 装填口方案1送第1路，方案2送第2路。", "2. 计数器设出库、10份、每批完成翻转。", "3. 装填口接计数器A，计数器接装填口B。"};
+        lesson.tip = "图中两端是同一台装填口：每送10份切一路；也可选择原来的信号计数。";
+        lesson.example = "按真正送出的份数轮换，缺料时不会空数";
+        Chain(lesson, {Topic(M::Feeder), topic, Topic(M::Feeder)}, true);
+        lesson.nodes[0].label = "装填口 · 统计出库"; lesson.nodes[2].label = "同一装填口 · 切方案";
+        lesson.edges[0].label = "计量 A"; lesson.edges[1].label = "选择 B";
+        break;
+    case M::Cannon:
+        lesson.purpose = "工厂直接为前线提供可调度的三连发瓜弹。";
+        lesson.steps = {"1. 用物流送入瓜弹，两方案分别选路线和弹种。", "2. A 许可开火，B低选方案1，高选方案2。", "3. 充能12秒后消耗3瓜连射；无目标不扣弹。"};
+        lesson.tip = "不限台数，新建从零充能；第8波后可选冰瓜，已开始的一轮会完整发完。";
+        lesson.example = "先生产与备弹，再让电路决定火力投向";
+        Chain(lesson, {Topic(M::MelonGrower), Topic(M::Belt), topic});
         break;
     default: break;
     }
@@ -277,6 +285,8 @@ void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
 void WorkshopScene::CloseGuide(bool acknowledge) {
     if (mGuide) mGuide->Close();
     mGuide.reset(); mGuideTopics.clear();
+    // 独立指南返回后退出拆除/接线等工具；嵌套指南只退回原配置或图册。
+    if (acknowledge && !mUIManager.GetTopActiveMessageBox()) CancelTool();
     if (acknowledge && mGuideUnlockWave >= 0) {
         mGuideSeenWave = std::max(mGuideSeenWave, mGuideUnlockWave); SaveBase();
     }
@@ -355,7 +365,7 @@ void WorkshopScene::DrawGuide(Graphics* g) {
         const float width = g->MeasureTextWidth(name, ResourceKeys::Fonts::FONT_FZCQ, 13);
         Label(name, node.pos.x - width / 2, node.pos.y + 27, 13);
     }
-    Label("实线：物料/资源去向  ·  虚线：控制线，接 A/B 口", 280, 508, 12);
+    Label("实线：物料/资源去向  ·  虚线：信号或计量连接，按标注接 A/B", 280, 508, 12);
     Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  查看时暂停，随时可重看", 280, 542, 13);
     for (int i = 0; i < 5; ++i) mGuide->GetButton(i)->Draw(g);
     const int first = mGuidePage / kContentsRows * kContentsRows;

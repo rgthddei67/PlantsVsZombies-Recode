@@ -34,3 +34,7 @@
 新弹型必须同时接入 `BulletPool::IsSupportedPooledBulletType`、表现/风力表、名称映射与存档；资源和枚举存在不能证明工厂能够创建。水陆等发射条件只在主弹离膛时快照。主弹命中先冻结不同次要目标的稳定 ID，再结算直击，使致死主目标仍可正常分裂；子弹继承原 `PlantDamageOrigin`，各自飞行后命中，目标失效不得改投。`BulletLotus.cpp` 的专属在途状态只为莲子分配，随固定弹型池槽复位，恢复不能重分裂；基础快照预检同步校验向量和目标 ID。命中粒子只由正式命中/落空边沿发射，不在轨迹更新或恢复中重播。入口与验证见 `LotusPult`、`smoke_lotus_pult`、`smoke_waterside_second_edges` 与 `verify_waterside_second.py`。
 
 共享卷心菜时间轴的变体复用 `CabbagePult` 的 `SetupPlant`、既有第43帧事件与周期存档，通过 `FireCabbage/NextShootInterval` 覆写弹丸与周期；不复制一组发射事件。两栖普通层植物的落种资格由 `IsAmphibiousPlantType` 表达，实体通过 `CanGrowDirectlyInWater` 声明水中自持；新增此类单位同时核对 `CanPlantAt`、整组搬运/台风地形资格与洪水受灾判断。两栖不自动免除干燥石地花盆要求，也不为其他层提供承载。
+
+### 工坊设备复用原生弹丸
+
+非植物设备发射现有弹型时，也经 Board::CreatePlantBullet 指定对应植物来源并使用原生弹道，不创建假植物或复制命中逻辑。工坊的齐射先预留整批弹药：Workshop 只保存未发射份数与本轮锁定路线/弹种，Board 保存已发射的在途弹丸；两者一同恢复，不能从累计发射数补弹。入口为 BoardWorkshopCannons.cpp；smoke_workshop_circuits 覆盖第一发后恢复、剩余两发及两种瓜弹命中。

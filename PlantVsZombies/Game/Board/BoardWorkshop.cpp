@@ -154,6 +154,7 @@ void Board::UpdateWorkshop()
         const auto type = Workshop::SpawnType(wave, number);
         if (CreateZombie(type, row, kWorkshopSpawnX)) mWorkshop->CommitSpawn();
     }
+    UpdateWorkshopCannons();
     bool anyZombie = false;
     for (int id : mEntityRegistry.GetAllZombieIDs()) {
         const auto* zombie = mEntityRegistry.GetZombie(id);
@@ -161,7 +162,7 @@ void Board::UpdateWorkshop()
     }
     if (mWorkshop->State() == Workshop::Phase::Assault && mWorkshop->RemainingSpawns() == 0 && !anyZombie) {
         mWorkshop->CompleteAssault();
-        mWorkshopBattleCheckpoint = nullptr;
+        if (mWorkshop->State() == Workshop::Phase::Planning) mWorkshopBattleCheckpoint = nullptr;
     }
     UpdateZombieMetrics();
     AudioSystem::UpdateAdaptiveMusic(dt, mHostileZombieCountForMusic);

@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -33,7 +34,7 @@ inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
     Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler,
-    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Count };
+    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, Count };
 // 前五类进入前线弹仓，残骸只参与工厂物流；追加枚举不改变旧弹种编号。
 enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, Scrap, Count };
 inline constexpr int AmmoCount = static_cast<int>(Ammo::Scrap);
@@ -46,7 +47,13 @@ inline constexpr std::array<float, 3> RecyclePeriods{1.5f, 1.2f, 1.0f}; // 残�
 inline constexpr float SporeEnergy = 0.5f; // 每份孢子的阳光成本
 inline constexpr float MelonEnergy = 8; // 每颗西瓜的阳光成本
 inline constexpr float IceMelonEnergy = 6; // 每颗西瓜冷凝为冰瓜的额外阳光成本
+inline constexpr float CannonChargeSeconds = 12; // 炮台从新建或上一轮齐射起充能的游戏秒数
+inline constexpr float CannonShotInterval = .18f; // 一轮三发之间的游戏秒数
+inline constexpr int CannonVolleySize = 3; // 每轮预留并发射的对应瓜弹数量
+inline constexpr int CannonBufferPerAmmo = 6; // 每种瓜弹的缓存容量，不含已预留的齐射弹药
 enum class Phase { Planning, Assault, Dead };
+enum class CounterMode { Signal, Produced, Transferred };
+enum class CounterOutput { Hold, Toggle };
 
 struct Definition {
     const char* key;
@@ -60,6 +67,8 @@ const Definition& Describe(Machine type);
 Machine FindMachine(const std::string& key);
 bool IsLogic(Machine type);
 bool HasDirectionalOutput(Machine type);
+/** 物料设备的 B 口用于选择两套工作方案，A 口仍负责运行许可。 */
+bool HasSelectionInput(Machine type);
 const char* DirectionName(int direction);
 bool CanUpgradeMachine(Machine type);
 /** 当前等级升一级的阳光费用；满级或无效等级返回 0。 */
@@ -81,6 +90,17 @@ struct Cell {
     bool iceNext = false; // 保留旧档兼容投影；物流轮询由 nextItem 持有
     std::array<int, ItemCount - 2> extraStock{};
     int nextItem = 0, recipe = 0; // recipe: 冷凝机 0 冰豌豆，1 冰瓜
+    int plan = 0; // 未连接选择口时使用的手动方案，0/1；冷凝机 recipe 保留当前在制品身份
+    int route2 = 0, filter2 = -1; // 装填口/炮台的第二套目标路线与弹种
+    bool strictSplit = false, processing = false; // 严格选路；冷凝机当前已有一份正在加工
+    int paidCost = 0; // 累计实际建造/升级支出，调价后拆除仍按原支付额退款
+    CounterMode counterMode = CounterMode::Signal;
+    CounterOutput counterOutput = CounterOutput::Hold;
+    std::array<std::uint64_t, ItemCount> producedItems{}, transferredItems{};
+    std::uint64_t counterObserved = 0; // 已读取的来源累计量，切来源/筛选或复位时重新对齐
+    int volleyRemaining = 0, volleyRoute = 0;
+    Ammo volleyAmmo = Ammo::Melon; // 一轮齐射锁定路线与弹种，选择口变化留到下一轮
+    float volleyClock = 0;
     int count = 0;
     bool previousInput = false;
     std::array<int, 2> inputs{ -1, -1 };
@@ -131,8 +151,24 @@ public:
     bool Connect(int source, int target, int input);
     bool CanConnect(int source, int target, int input) const;
     bool Configure(int index);
-    bool SetRoute(int index, int row);
-    bool SetFilter(int index, int filter);
+    /** plan 为 -1 时编辑当前生效方案，0/1 时明确编辑指定方案。 */
+    bool SetRoute(int index, int row, int plan = -1);
+    bool SetFilter(int index, int filter, int plan = -1);
+    bool SetPlan(int index, int plan);
+    bool SetStrictSplit(int index, bool strict);
+    /** 计量配置改变会清零并对齐来源累计量；不兼容的 A 来源自动断开，不补算旧产出。 */
+    bool SetCounterMode(int index, CounterMode mode);
+    bool SetCounterOutput(int index, CounterOutput output);
+    bool SetSetting(int index, int setting);
+    /** 当前逻辑时刻的控制选择；不推进机器或信号。 */
+    int ActivePlan(int index) const;
+    int ActiveRoute(int index) const;
+    int ActiveFilter(int index) const;
+    /** Board 先确认合法目标再预留一轮；手动请求只绕过待机/运行口，不绕过冷却和库存。 */
+    bool BeginCannonVolley(int index, bool manualRequest = false);
+    bool CannonShotReady(int index) const;
+    /** 真实弹丸创建成功后消费一个预留名额，同时登记出库计数。 */
+    void CommitCannonShot(int index);
     bool SetQuota(int row, int plainQuota);
     /** 修改一种弹药配额，优先从最大其他配额转移；不销毁既有库存，总配额固定为弹仓容量。 */
     bool SetAmmoQuota(int row, Ammo type, int quota);
@@ -203,6 +239,10 @@ private:
     void TransportStep();
     bool Accepts(const Cell& cell, Ammo type) const;
     int ReceivingRoom(const Cell& cell, Ammo type) const;
+    bool CanCountSource(int source, CounterMode mode) const;
+    int SelectedPlan(const Cell& cell) const;
+    std::uint64_t CounterSourceTotal(const Cell& counter) const;
+    void ResetCounterObservation(Cell& counter);
     nlohmann::json SaveState() const;
     void ReadState(const nlohmann::json& state);
 };
