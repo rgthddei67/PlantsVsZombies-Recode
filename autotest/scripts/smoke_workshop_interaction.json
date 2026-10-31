@@ -1,0 +1,1806 @@
+{
+  "name": "smoke_workshop_interaction",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "seed"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "seed",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 5
+        },
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 42,
+      "type": "grower",
+      "value": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 43,
+      "type": "belt",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 44,
+      "type": "belt",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 62,
+      "type": "switch",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 63,
+      "type": "and",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 64,
+      "type": "timer",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 65,
+      "type": "stock",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "fixture"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "fixture",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/cells/42/stock",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 3,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 1
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.22.direction",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.direction",
+      "equals": 1
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 3,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.direction",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.22.direction",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 3,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.23.direction",
+      "equals": 2
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.23.direction",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 2,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.22.direction",
+      "equals": 2
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.23.direction",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 2,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 4,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildPreview.direction",
+      "equals": 0
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": -1
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 3,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 2,
+      "hold_frames": 30
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.selected",
+      "equals": 43
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.hoverOutput.message",
+      "equals": "左侧没有接收设备"
+    },
+    {
+      "op": "screenshot",
+      "name": "01_wrong_outlet.png"
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.42.direction",
+      "equals": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.43.direction",
+      "equals": 0
+    },
+    {
+      "op": "key",
+      "name": "r"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.hoverOutput.ready",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "02_connected_outlet.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 3,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "build_before"
+    },
+    {
+      "op": "dump_state",
+      "name": "build_camera_before.json"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 75
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.leftGesturePending",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "held_2.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 450,
+      "y": 370,
+      "hold_frames": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "build_camera_drag.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "03_drag_build.png"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "build_after"
+    },
+    {
+      "op": "dump_state",
+      "name": "build_camera_after.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "remove_before"
+    },
+    {
+      "op": "dump_state",
+      "name": "remove_camera_before.json"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 75
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.leftGesturePending",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "held_1.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 450,
+      "y": 370,
+      "hold_frames": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "remove_camera_drag.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "03_drag_remove.png"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "remove_after"
+    },
+    {
+      "op": "dump_state",
+      "name": "remove_camera_after.json"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "wire_a_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": 62
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "wire_before"
+    },
+    {
+      "op": "dump_state",
+      "name": "wire_camera_before.json"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 75
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.leftGesturePending",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "held_0.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "move_mouse",
+      "x": 450,
+      "y": 370,
+      "hold_frames": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": true
+    },
+    {
+      "op": "dump_state",
+      "name": "wire_camera_drag.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "03_drag_wire.png"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.draggingMap",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "wire_after"
+    },
+    {
+      "op": "dump_state",
+      "name": "wire_camera_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": 62
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 3,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 5,
+      "column": 5,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cancel_before"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cancel_after"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.105.type",
+      "equals": "empty"
+    },
+    {
+      "op": "click",
+      "target": "workshop_machine",
+      "type": 3,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "outside_before"
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 800,
+      "y": 60,
+      "hold_frames": 15
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "outside_after"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.frontView",
+      "equals": false
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 400,
+      "y": 340,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "middle_before.json"
+    },
+    {
+      "op": "mouse_button",
+      "button": "middle",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 430,
+      "y": 365,
+      "hold_frames": 12
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "mouse_button",
+      "button": "middle",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "middle_after.json"
+    },
+    {
+      "op": "dump_state",
+      "name": "keyboard_before.json"
+    },
+    {
+      "op": "key",
+      "name": "right",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 12
+    },
+    {
+      "op": "key",
+      "name": "right",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "keyboard_after.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "zoom",
+      "value": 110
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 3,
+      "hold_frames": 30
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "04_remove_warning.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 3,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.43.type",
+      "equals": "empty"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.44.type",
+      "equals": "belt"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "rshift",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 2
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 1,
+      "column": 3,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 2
+    },
+    {
+      "op": "key",
+      "name": "rshift",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 4,
+      "button": "right",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.44.type",
+      "equals": "belt"
+    },
+    {
+      "op": "workshop",
+      "action": "fit"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "wire_b_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": -1
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": 62
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": 62
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.44.inputs.1",
+      "equals": -1
+    },
+    {
+      "op": "move_mouse",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 3,
+      "hold_frames": 30
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "05_wire_target.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 3,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.63.inputs.1",
+      "equals": 62
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "wire_a_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "rshift",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": 62
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 2,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.64.inputs.0",
+      "equals": 62
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.44.inputs.0",
+      "equals": 62
+    },
+    {
+      "op": "key",
+      "name": "rshift",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 4,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "disconnect_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.64.inputs.0",
+      "equals": -1
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "configure_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.62.manual",
+      "equals": false
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "key",
+      "name": "b"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "view",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.frontView",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "view",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "wire_a_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 3,
+      "column": 2,
+      "button": "left",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "save"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "reload"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.wireSource",
+      "equals": -1
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "remove_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "help",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.modalOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.modalOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "reset",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.modalOpen",
+      "equals": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.modalOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.paused",
+      "equals": true
+    },
+    {
+      "op": "workshop",
+      "action": "reset"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tool",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.machineCount",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "finished.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "06_finished.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

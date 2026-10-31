@@ -412,6 +412,14 @@
       "action": "save"
     },
     {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
       "op": "dump_state",
       "name": "before_reload.json"
     },

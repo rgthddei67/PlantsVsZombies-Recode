@@ -58,6 +58,14 @@ Machine FindMachine(const std::string& key) {
     return Machine::Count;
 }
 bool IsLogic(Machine type) { return type >= Machine::Switch && type <= Machine::Latch; }
+bool HasDirectionalOutput(Machine type) {
+    return type == Machine::Grower || type == Machine::Belt || type == Machine::Splitter
+        || type == Machine::Store || type == Machine::Cooler;
+}
+const char* DirectionName(int direction) {
+    constexpr std::array<const char*, 4> names{"右", "下", "左", "上"};
+    return names[direction & 3];
+}
 bool CanUpgradeMachine(Machine type) { return type == Machine::Solar || type == Machine::Grower || type == Machine::Store || type == Machine::Cooler; }
 const char* AmmoName(int filter) { return filter == 0 ? "普通" : filter == 1 ? "寒冰" : "混合"; }
 int UpgradeCost(int baseCost, int currentLevel) {
@@ -101,12 +109,16 @@ bool World::Build(int i, Machine type, int direction) {
     if (type == Machine::Timer) mCells[i].setting = 4;
     return true;
 }
-bool World::Remove(int i) {
-    if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type == Machine::Empty) return false;
+int World::RemoveRefund(int i) const {
+    if (!Valid(i) || mCells[i].type == Machine::Empty) return 0;
     const auto& c = mCells[i];
     int refund = Describe(c.type).cost;
     for (int level = 1; level < c.level; ++level) refund += UpgradeCost(Describe(c.type).cost, level);
-    mEnergy = std::min(kEnergyLimit, mEnergy + refund);
+    return refund;
+}
+bool World::Remove(int i) {
+    if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type == Machine::Empty) return false;
+    mEnergy = std::min(kEnergyLimit, mEnergy + RemoveRefund(i));
     mCells[i] = {};
     for (auto& c : mCells) for (auto& input : c.inputs) if (input == i) input = -1;
     return true;
@@ -128,16 +140,20 @@ bool World::Upgrade(int i) {
     return true;
 }
 bool World::Rotate(int i) {
-    if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type == Machine::Empty) return false;
+    if (!Valid(i) || mPhase == Phase::Dead || !HasDirectionalOutput(mCells[i].type)) return false;
     mCells[i].direction = (mCells[i].direction + 1) % 4; return true;
 }
-bool World::Connect(int source, int target, int input) {
+bool World::CanConnect(int source, int target, int input) const {
     if (!Valid(target) || mPhase == Phase::Dead || input < 0 || input > 1
         || mCells[target].type == Machine::Empty) return false;
     if (source != -1 && (!Valid(source) || mCells[source].type == Machine::Empty)) return false;
     const auto targetType = mCells[target].type;
     if (input == 1 && targetType != Machine::And && targetType != Machine::Or && targetType != Machine::Latch) return false;
     if (source != -1 && !IsLogic(mCells[source].type) && targetType != Machine::StockSensor) return false;
+    return true;
+}
+bool World::Connect(int source, int target, int input) {
+    if (!CanConnect(source, target, input)) return false;
     mCells[target].inputs[input] = source; return true;
 }
 bool World::Configure(int i) {
@@ -203,6 +219,36 @@ bool World::Accepts(const Cell& cell, Ammo type) const {
         return cell.filter < 0 || cell.filter == static_cast<int>(type);
     return cell.type == Machine::Belt || cell.type == Machine::Splitter;
 }
+int World::ReceivingRoom(const Cell& cell, Ammo type) const {
+    if (!Accepts(cell, type)) return 0;
+    return cell.type == Machine::Cooler ? 5 - cell.stock : Capacity(cell.type, cell.level) - cell.TotalStock();
+}
+
+OutputInfo World::InspectOutput(int i, bool side) const {
+    OutputInfo result;
+    if (!Valid(i) || !HasDirectionalOutput(mCells[i].type)) { result.message = "此设备不通过格边出料"; return result; }
+    const auto& cell = mCells[i];
+    const int direction = (cell.direction + (side && cell.type == Machine::Splitter ? 1 : 0)) % 4;
+    const std::string prefix = std::string(DirectionName(direction)) + "侧";
+    result.target = Neighbor(i, direction);
+    if (result.target < 0) { result.message = prefix + "超出地界"; return result; }
+    const auto& target = mCells[result.target];
+    if (target.type == Machine::Empty) { result.message = prefix + "没有接收设备"; return result; }
+    bool accepts = false, hasCargoType = false;
+    for (const auto ammo : {Ammo::Pea, Ammo::Ice}) {
+        if ((cell.type == Machine::Grower && ammo != Ammo::Pea) || (cell.type == Machine::Cooler && ammo != Ammo::Ice)) continue;
+        if (cell.type == Machine::Splitter && cell.filter >= 0 && ((cell.filter == static_cast<int>(ammo)) != side)) continue;
+        if (cell.type != Machine::Grower && cell.type != Machine::Cooler && cell.TotalStock() > 0 && cell.Inventory(ammo) == 0) continue;
+        hasCargoType = true;
+        if (!Accepts(target, ammo)) continue;
+        accepts = true;
+        if (ReceivingRoom(target, ammo) > 0) result.ready = true;
+    }
+    result.message = result.ready ? std::string("朝") + DirectionName(direction) + " → " + Describe(target.type).name
+        : !hasCargoType ? "此出口暂无对应弹药"
+        : !accepts ? prefix + "目标不接收此弹种" : prefix + "目标缓存已满";
+    return result;
+}
 
 /** 同拍库存快照与目标预留共同保证混装弹药每拍只走一格，堵塞不复制、不丢货。 */
 void World::TransportStep() {
@@ -255,11 +301,10 @@ void World::TransportStep() {
                 for (int attempt = 0; attempt < (split && !filtered ? 2 : 1); ++attempt) {
                     const int direction = (c.direction + (split && (sideFirst != (attempt != 0)) ? 1 : 0)) % 4;
                     const int next = Neighbor(i, direction);
-                    if (next < 0 || !Accepts(before[next], ammo)) continue;
+                    if (next < 0) continue;
                     const auto& target = before[next];
-                    const int count = target.type == Machine::Cooler ? target.stock + incoming[next][0]
-                        : target.TotalStock() + incoming[next][0] + incoming[next][1];
-                    if (count >= (target.type == Machine::Cooler ? 5 : Capacity(target.type, target.level))) continue;
+                    const int reserved = target.type == Machine::Cooler ? incoming[next][0] : incoming[next][0] + incoming[next][1];
+                    if (ReceivingRoom(target, ammo) <= reserved) continue;
                     --c.Inventory(ammo); ++incoming[next][static_cast<int>(ammo)]; c.alternate = !c.alternate; moved = true; break;
                 }
             }
@@ -338,9 +383,10 @@ std::string World::Status(int i) const {
     if (IsLogic(c.type)) return c.signal ? "信号：高" : "信号：低";
     if (!Enabled(i) && c.type != Machine::Splitter) return "信号关闭";
     if (c.type == Machine::Solar) return mEnergy >= kEnergyLimit ? "储能已满" : "采集阳光";
-    if (c.type == Machine::Grower && mEnergy < GrowEnergy) return "缺少能源";
+    if (c.type == Machine::Grower && c.stock == 0 && mEnergy < GrowEnergy) return "缺少能源";
     if (c.type == Machine::Cooler) {
-        if (c.iceStock >= 5) return "寒冰出口堵塞";
+        if (c.iceStock > 0 && !InspectOutput(i).ready) return InspectOutput(i).message;
+        if (c.iceStock >= 5) return "等待输出寒冰弹";
         if (c.stock == 0) return "等待普通豌豆";
         return mEnergy < CoolingEnergy ? "缺少能源" : "冷凝加工中";
     }
@@ -353,9 +399,9 @@ std::string World::Status(int i) const {
         return (!plain || lane.ammo >= lane.plainQuota) && (!ice || lane.iceAmmo >= MagazineCapacity - lane.plainQuota)
             ? "对应弹种配额已满" : "装填中";
     }
-    const int next = Neighbor(i, c.direction);
-    if (c.type != Machine::Splitter && (next < 0 || Capacity(mCells[next].type, mCells[next].level) == 0
-        || mCells[next].TotalStock() >= Capacity(mCells[next].type, mCells[next].level))) return "出口堵塞";
+    const auto output = InspectOutput(i);
+    if (!output.ready && (c.type != Machine::Splitter || !InspectOutput(i, true).ready))
+        return c.type == Machine::Splitter ? "两侧出口均无法送出" : output.message;
     return "输送中";
 }
 

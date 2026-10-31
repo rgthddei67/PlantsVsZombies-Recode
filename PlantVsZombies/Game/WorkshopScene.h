@@ -27,6 +27,9 @@ public:
     bool IsCellVisible(int row, int column) const { return !mFrontView && FactoryCellAt(CellScreenCenter(row, column)) == row * Workshop::MaxColumns + column; }
 
 private:
+    static constexpr float kGridX = 16, kGridY = 168; // 工厂视口起点，逻辑像素；上方保留工具状态条
+    static constexpr float kViewW = 780, kViewH = 410; // 工厂视口尺寸，逻辑像素
+    static constexpr float kCellW = 64, kCellH = 64; // 工厂世界格尺寸，像素
     enum class Tool { Inspect, Build, Remove, WireA, WireB };
     enum class Pending { None, Back, Reset, Retry };
     std::unique_ptr<Board> mBoard;
@@ -39,6 +42,11 @@ private:
     float mMapZoom = 1.0f;
     Vector mMapOffset, mDragPoint;
     bool mMapDragging = false;
+    bool mLeftPending = false, mLeftPanning = false, mSuppressGridUntilRelease = false;
+    Vector mLeftStart, mLeftOffset;
+    int mPressCell = -1;
+    Tool mPressTool = Tool::Inspect;
+    std::array<int, static_cast<size_t>(Workshop::Machine::Count)> mBuildDirections{};
     bool mPaused = false, mDeathShown = false, mLoadFailed = false, mResourcesReady = false;
     bool mFirstVisit = false, mFrontView = false, mSaveFailed = false;
     float mSaveClock = 0, mVisualTime = 0;
@@ -49,6 +57,7 @@ private:
     Vector mTooltipPosition;
     std::vector<std::shared_ptr<Button>> mMachineButtons;
     std::shared_ptr<GameMessageBox> mCatalog;
+    std::weak_ptr<GameMessageBox> mDismissibleDialog; // 仅帮助/重开确认可用 Esc 关闭，失败和坏档提示必须明确处理
     std::shared_ptr<Button> mCatalogButton;
     std::vector<std::shared_ptr<Button>> mQuickButtons;
     std::vector<Workshop::Machine> mRecentMachines{Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
@@ -61,6 +70,8 @@ private:
     std::shared_ptr<Button> mUpgradeButton;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mViewButton;
+    std::shared_ptr<Button> mInspectButton, mRemoveButton, mWireAButton, mWireBButton;
+    std::shared_ptr<Button> mRotateButton, mConfigButton, mDisconnectButton;
 
     void BuildDrawCommands() override;
     void UpdateAfterGameObjects() override;
@@ -80,7 +91,7 @@ private:
         float displayScale, bool enabled, bool details);
     void DrawMachineImage(Graphics* g, Workshop::Machine type, float x, float y, float scale, int direction = 0);
     void OpenCatalog();
-    void CloseCatalog();
+    void CloseCatalog(bool cancelTool = true);
     void RefreshCatalog();
     void DrawCatalog(Graphics* g);
     void DrawQuickBuild(Graphics* g);
@@ -101,6 +112,15 @@ private:
     Vector FactoryPoint(Vector screen) const;
     int FactoryCellAt(Vector screen) const;
     void UpdateFactoryInput();
+    bool IsFactoryPointer(Vector point) const;
+    int HoveredMachine() const;
+    void SelectTool(Tool tool);
+    void CancelTool();
+    void CancelMapGesture();
+    void RotatePointedMachine();
+    const char* ToolName() const;
+    std::string WireHint(int index) const;
+    void DrawInteraction(Graphics* g);
     void DrawFactoryMap(Graphics* g);
     void DrawFactoryPanel(Graphics* g);
 };

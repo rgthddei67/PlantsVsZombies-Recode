@@ -45,6 +45,8 @@ struct Definition {
 const Definition& Describe(Machine type);
 Machine FindMachine(const std::string& key);
 bool IsLogic(Machine type);
+bool HasDirectionalOutput(Machine type);
+const char* DirectionName(int direction);
 bool CanUpgradeMachine(Machine type);
 /** 当前等级升一级的阳光费用；满级或无效等级返回 0。 */
 int UpgradeCost(int baseCost, int currentLevel);
@@ -79,6 +81,12 @@ struct Lane {
     int Inventory(Ammo type) const { return type == Ammo::Ice ? iceAmmo : ammo; }
     int Quota(Ammo type) const { return type == Ammo::Ice ? MagazineCapacity - plainQuota : plainQuota; }
 };
+/** 当前出料口的只读诊断；ready 表示目标此刻可接收，不预留容量或推进物流。 */
+struct OutputInfo {
+    int target = -1;
+    bool ready = false;
+    std::string message;
+};
 
 class World {
 public:
@@ -88,6 +96,7 @@ public:
     /** 玩家建造事务；拒绝时状态和资源不变。 */
     bool Build(int index, Machine type, int direction);
     bool Remove(int index);
+    int RemoveRefund(int index) const;
     /** 升级保留库存、线路和生产周期完成比例；失败不扣费。 */
     bool Upgrade(int index);
     bool CanBuyUpgrade(int baseCost, int currentLevel) const;
@@ -95,6 +104,7 @@ public:
     bool BuyUpgrade(int baseCost, int currentLevel);
     bool Rotate(int index);
     bool Connect(int source, int target, int input);
+    bool CanConnect(int source, int target, int input) const;
     bool Configure(int index);
     bool SetRoute(int index, int row);
     bool SetFilter(int index, int filter);
@@ -123,6 +133,8 @@ public:
     bool Load(const nlohmann::json& document, std::string& error);
     nlohmann::json Inspect() const;
     std::string Status(int index) const;
+    /** 准备阶段也可检查线路；side 仅用于分流器相对右侧的出口。 */
+    OutputInfo InspectOutput(int index, bool side = false) const;
     bool Unlocked(Machine type) const;
     bool Enabled(int index) const;
     const std::array<Cell, CellCount>& Cells() const { return mCells; }
@@ -153,6 +165,7 @@ private:
     int Neighbor(int index, int direction) const;
     void TransportStep();
     bool Accepts(const Cell& cell, Ammo type) const;
+    int ReceivingRoom(const Cell& cell, Ammo type) const;
     nlohmann::json SaveState() const;
     void ReadState(const nlohmann::json& state);
 };

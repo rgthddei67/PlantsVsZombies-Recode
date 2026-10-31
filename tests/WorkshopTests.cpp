@@ -104,7 +104,15 @@ int main() {
     Step(transport, 30);
     int stock = 0; for (const auto& cell : transport.Cells()) stock += cell.stock;
     Check(stock == transport.Produced() && stock == 10, "blocked line conserves all produced ammo");
-    Check(transport.Status(7) == "出口堵塞", "blocked outlet is observable");
+    Check(transport.Status(7) == "右侧没有接收设备", "blocked outlet identifies its direction and cause");
+    const auto blockedSave = transport.Save();
+    Check(!transport.InspectOutput(7).ready && transport.InspectOutput(7).target == 8
+        && transport.Save() == blockedSave, "output inspection never advances logistics");
+    Check(transport.InspectOutput(2).message == "右侧目标缓存已满", "full receiver is distinguished from a missing receiver");
+    Check(transport.Rotate(2) && transport.Rotate(2), "turn grower away from the belt");
+    Check(transport.InspectOutput(2).message == "左侧没有接收设备", "nearby belt cannot receive from the wrong direction");
+    Check(!transport.Rotate(0), "non-directional machines do not pretend to rotate");
+    Check(transport.Rotate(2) && transport.Rotate(2), "restore grower direction");
 
     World circuits;
     auto circuitFixture = circuits.Save(); circuitFixture["state"]["completedWaves"] = 2;
@@ -115,6 +123,10 @@ int main() {
     for (int gate : {4, 5}) {
         Check(circuits.Connect(2, gate, 0) && circuits.Connect(3, gate, 1), "two-port wiring");
     }
+    const auto wiredSave = circuits.Save();
+    Check(circuits.CanConnect(2, 5, 1) && !circuits.CanConnect(0, 5, 1)
+        && !circuits.CanConnect(2, 0, 1) && !circuits.CanConnect(2, 19, 0)
+        && circuits.Save() == wiredSave, "wire preview shares port validation without mutation");
     Check(circuits.StartAssault(), "run circuits");
     Step(circuits, 1); Check(circuits.Cells()[4].signal && circuits.Cells()[5].signal, "both high");
     Check(circuits.Configure(2), "lower A"); Step(circuits, 1);
@@ -199,6 +211,12 @@ int main() {
     Check(cold.SetRoute(143, 4) && cold.SetFilter(143, 1), "explicit typed remote delivery");
     fixture = cold.Save(); fixture["state"]["cells"][142]["stock"] = 5;
     Check(cold.Load(fixture, error), "five input peas");
+    World outletProbe; Check(outletProbe.Load(fixture, error), "output preview fixture");
+    Check(outletProbe.Build(141, Machine::Grower, 0), "output preview input line");
+    Check(outletProbe.InspectOutput(141).message == "右侧目标缓存已满", "cooler has a separate five-pea input buffer");
+    Check(outletProbe.InspectOutput(142).ready, "cooler output probes ice rather than its plain input inventory");
+    Check(outletProbe.SetFilter(143, 0) && outletProbe.InspectOutput(142).message == "右侧目标不接收此弹种",
+        "output preview identifies incompatible receiver filters");
     Check(cold.StartAssault(), "run cold production");
     const float coldEnergy = cold.Energy(); Step(cold, 13.25f);
     Check(cold.Lanes()[4].iceAmmo == 5 && cold.Lanes()[4].ammo == 0 && cold.Cells()[142].TotalStock() == 0, "one pea becomes one ice pea");

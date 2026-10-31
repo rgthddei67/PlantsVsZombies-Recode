@@ -57,7 +57,7 @@ bool WorkshopScene::IsCatalogOpen() const { return mCatalog && mCatalog->IsActiv
 /** 图册只是 UI 模态层，不改玩家手动暂停标志，也不创建或扣费任何机器。 */
 void WorkshopScene::OpenCatalog() {
     if (mLoadFailed || mFrontView || IsCatalogOpen() || mUIManager.GetTopActiveMessageBox()) return;
-    mCatalogNotice.clear(); mMapDragging = false; mTooltipLines.clear(); mHoverKey = -1;
+    mCatalogNotice.clear(); CancelMapGesture(); mTooltipLines.clear(); mHoverKey = -1;
     auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(1012, 552);
     builder.Button("返回", Vector(973, 47), Vector(64, 34), 16, [this] { CloseCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     constexpr std::array<const char*, 3> tabs{"生产", "物流", "电路"};
@@ -71,7 +71,7 @@ void WorkshopScene::OpenCatalog() {
                 mCatalogNotice = "守住第 " + std::to_string(Workshop::Describe(type).unlockWave) + " 波后解锁；当前可以先查看用途。";
                 return;
             }
-            SelectBuild(type); CloseCatalog();
+            SelectBuild(type); CloseCatalog(false);
         }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
     mCatalog = builder.Show();
@@ -82,7 +82,8 @@ void WorkshopScene::OpenCatalog() {
     DeltaTime::SetPaused(true);
 }
 
-void WorkshopScene::CloseCatalog() {
+void WorkshopScene::CloseCatalog(bool cancelTool) {
+    if (cancelTool) CancelTool();
     if (mCatalog) mCatalog->Close();
     mCatalog.reset(); mMachineButtons.clear(); mCatalogNotice.clear();
     mHoverKey = -1; mTooltipLines.clear();
@@ -169,7 +170,7 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         Label(status, x + 16, y + h - 29, 14, unlocked && affordable ? kCatalogGreen : kCatalogRed);
         if (hover && mCatalogNotice.empty()) detail = info.description;
     }
-    Label(detail.empty() ? "选择后返回地图，可连续放置；R 旋转，右键取消。" : detail, 75, 532, 15,
+    Label(detail.empty() ? "选择后返回地图，可连续放置；R 旋转指向的机器 / 空地预览，Esc 取消。" : detail, 75, 532, 15,
         mCatalogNotice.empty() ? kCatalogInk : kCatalogRed);
     DrawTooltip(g);
 }
@@ -189,14 +190,14 @@ void WorkshopScene::DrawQuickBuild(Graphics* g) {
 }
 
 int WorkshopScene::BuildPreviewIndex() const {
-    return !mFrontView && !mUIManager.GetTopActiveMessageBox() && mTool == Tool::Build
+    return !mFrontView && !mMapDragging && !mLeftPanning && !mUIManager.GetTopActiveMessageBox() && mTool == Tool::Build
         ? FactoryCellAt(GameAPP::GetInstance().GetInputHandler().GetMousePosition()) : -1;
 }
 std::string WorkshopScene::BuildPreviewReason(int index) const {
     if (index < 0) return "把机器移到空格上，点击放置";
     if (World().State() == Workshop::Phase::Dead) return "基地失守，暂时不能施工";
-    if (World().Cells()[index].type != Workshop::Machine::Empty) return "此格已有机器";
+    if (World().Cells()[index].type != Workshop::Machine::Empty) return "此格已有机器 · R 可直接旋转它";
     if (!World().Unlocked(mBuildType)) return "该机器尚未解锁";
     if (World().Energy() < Workshop::Describe(mBuildType).cost) return "阳光不足，放置不会扣费";
-    return "可放置 · 点击后扣费 · 右键取消";
+    return "可放置 · 点击后扣费 · Esc / 右键取消";
 }
