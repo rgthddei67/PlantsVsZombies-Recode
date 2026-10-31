@@ -100,6 +100,12 @@
     { "op": "assert_state", "path": "zombies.0.shieldHealth", "equals": 1000 },
     { "op": "assert_state", "path": "zombies.0.slowed", "equals": true },
     { "op": "screenshot", "name": "05_winter_melon_penetrates_and_slows_door.png" },
+    { "op": "save_level_snapshot", "name": "winter_melon_shield_slow" },
+    { "op": "reload_level_snapshot", "name": "winter_melon_shield_slow" },
+    { "op": "assert_state", "path": "zombies.0.shieldHealth", "equals": 1000 },
+    { "op": "assert_state", "path": "zombies.0.slowed", "equals": true },
+    { "op": "assert_state", "path": "zombies.0.bodyHealth", "equals": 170 },
+    { "op": "screenshot", "name": "05b_winter_melon_shield_slow_restored.png" },
 
     { "op": "goto_level", "level": 1, "resetTestState": true },
     { "op": "choose_cards", "cards": ["PLANT_MELONPULT", "PLANT_WINTERMELON"] },

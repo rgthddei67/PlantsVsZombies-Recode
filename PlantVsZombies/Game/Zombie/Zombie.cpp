@@ -371,7 +371,8 @@ void Zombie::LoadProtectedData(const nlohmann::json& j) {
 	}
 	float cooldown = j.value("cooldownTimer", 0.0f);
 	if (cooldown > 0.0f) {
-		this->SetCooldown(cooldown);
+		// 已生效状态可能来自穿盾冰瓜；恢复余时不能再以当前护盾挡掉一次。
+		this->SetCooldown(cooldown, true);
 	}
 	else if (mAnimator) {
 		UpdateAnimSpeed();   // 无减速也要恢复僵尸基准 × 当前雨势倍率
