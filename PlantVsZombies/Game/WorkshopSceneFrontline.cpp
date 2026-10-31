@@ -28,16 +28,16 @@ void WorkshopScene::DrawPlantPicture(Graphics* g, PlantType type, float x, float
 
 void WorkshopScene::CreateFrontControls() {
     const auto first = mUIManager.GetButtonCount();
-    mPlantCatalogButton = MakeButton("植物图册 [B]", 216, 48, 140, [this] { OpenPlantCatalog(); }, 31, 16);
-    mFrontRemoveButton = MakeButton("铲除植物", 364, 48, 90, [this] {
+    mPlantCatalogButton = MakeButton("　植物 [B]", 216, 48, 140, [this] { OpenPlantCatalog(); }, 31, 16);
+    mFrontRemoveButton = MakeButton("　铲除", 364, 48, 90, [this] {
         const bool removing = mFrontTool == FrontTool::Remove; CancelTool();
         if (!removing) mFrontTool = FrontTool::Remove;
     }, 31, 14);
     mFrontUpgradeButton = MakeButton("选中植物升级", 462, 48, 145, [this] { Act("upgrade"); }, 31, 14);
-    mAbilityButton = MakeButton("阳光修复", 615, 48, 115, [this] { Act("plant_ability"); }, 31, 14);
-    mAutomaticButton = MakeButton("自动修复：关", 738, 48, 125, [this] { Act("plant_auto"); }, 31, 13);
+    mAbilityButton = MakeButton("　修复", 615, 48, 115, [this] { Act("plant_ability"); }, 31, 14);
+    mAutomaticButton = MakeButton("　自动：关", 738, 48, 125, [this] { Act("plant_auto"); }, 31, 13);
     for (int row = 0; row < Workshop::Rows; ++row)
-        MakeButton("弹药库存 / 配额", 25, 165 + row * 100.0f, 170, [this, row] { OpenAmmoQuotas(row); }, 20, 12);
+        MakeButton("弹仓 / 配额", 22, 158 + row * 100.0f, 178, [this, row] { OpenAmmoQuotas(row); }, 28, 14);
     for (size_t i = first; i < mUIManager.GetButtonCount(); ++i) mFrontControls.push_back(mUIManager.GetButton(i));
 }
 
@@ -183,10 +183,14 @@ void WorkshopScene::DrawPlantCatalog(Graphics* g) {
         FrontText(std::to_string(info.cost) + " 阳光", pos.x + 151, pos.y + 13, 13, World().Energy() >= info.cost ? kFrontInk : kFrontRed);
         DrawPlantPicture(g, info.type, pos.x + 54, pos.y + 38, 120, 78);
         FrontText(info.role, pos.x + 9, pos.y + 120, 12);
-        FrontText("点击图卡选择种植", pos.x + 12, pos.y + 151, 13, kFrontGreen);
+        const float remaining = World().PlantCooldown(info.key);
+        if (remaining > 0) {
+            g->FillRect(pos.x + 8, pos.y + 111, 212 * std::clamp(remaining / GameDataManager::GetInstance().GetPlantCooldown(info.type), 0.0f, 1.0f), 5, kFrontRed);
+            FrontText(std::format("补种还需 {:.1f} 秒", remaining), pos.x + 12, pos.y + 151, 13, kFrontRed);
+        } else FrontText(World().State() == Workshop::Phase::Planning ? "准备期 · 可连续种植" : "点击选择种植", pos.x + 12, pos.y + 151, 13, kFrontGreen);
         mPlantGuideButtons[i]->Draw(g);
     }
-    FrontText(mPlantCatalogNotice.empty() ? "防御植物不耗弹药；输出植物缺弹停火。原有布局、血量和成长跨波保留。" : mPlantCatalogNotice, 72, 541, 15);
+    FrontText(mPlantCatalogNotice.empty() ? "战斗中同种植物共享补种冷却；准备期无冷却。已有植物、血量和成长跨波保留。" : mPlantCatalogNotice, 72, 541, 15);
 }
 
 /** 五种弹药共用每路八十份总容量；改配额保留已有库存，并明确显示当前分配。 */

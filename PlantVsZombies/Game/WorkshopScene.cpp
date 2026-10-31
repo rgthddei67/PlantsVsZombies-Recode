@@ -80,6 +80,7 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
     CloseMachineConfig();
+    mMaterialWarnings.fill({}); mMaterialNotice.clear(); mMaterialCheckAt = 0; mMaterialNoticeUntil = 0;
     CloseGuide(false);
     ClearFrontPreview();
     GameObjectManager::GetInstance().DestroyAllGameObjects();
@@ -127,7 +128,7 @@ void WorkshopScene::OnEnter() {
     }
     auto& resources = ResourceManager::GetInstance();
     mResourcesReady = resources.HasReanimation("NormalZombie") && resources.HasReanimation("PeaShooter") && resources.HasReanimation("SnowPeaShooter");
-    for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL", "IMAGE_REANIM_SUN1"})
+    for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL", "IMAGE_SHOVEL", "IMAGE_REANIM_SUN1"})
         mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
     for (const auto& definition : Workshop::Plants) {
         const auto& data = GameDataManager::GetInstance();
@@ -236,26 +237,26 @@ void WorkshopScene::ZoomFactory(float zoom, Vector anchor) {
 }
 
 void WorkshopScene::CreateControls() {
-    mPauseButton = MakeButton("暂停规划", 20, 52, 115, [this] { Act("pause"); });
-    mStartButton = MakeButton("开始袭击", 142, 52, 115, [this] { Act("start"); });
-    MakeButton("扩建 " + std::to_string(Workshop::ExpansionCost), 264, 52, 115, [this] { Act("expand"); });
-    MakeButton("修复 " + std::to_string(Workshop::RepairCost), 386, 52, 115, [this] { Act("repair"); });
-    MakeButton("图解指南", 508, 52, 115, [this] { ShowHelp(); });
-    MakeButton("重开基地", 630, 52, 115, [this] { ConfirmReset(); });
-    MakeButton("保存并返回", 752, 52, 150, [this] { if (SaveBase()) mPending = Pending::Back; });
-    mViewButton = MakeButton("查看前线", 916, 52, 165, [this] { SetFrontView(!mFrontView); });
+    mPauseButton = MakeButton("　暂停", 20, 52, 115, [this] { Act("pause"); });
+    mStartButton = MakeButton("　开波", 142, 52, 115, [this] { Act("start"); });
+    MakeButton("　扩建 " + std::to_string(Workshop::ExpansionCost), 264, 52, 115, [this] { Act("expand"); });
+    MakeButton("　修复 " + std::to_string(Workshop::RepairCost), 386, 52, 115, [this] { Act("repair"); });
+    MakeButton("　图解", 508, 52, 115, [this] { ShowHelp(); });
+    MakeButton("　重开", 630, 52, 115, [this] { ConfirmReset(); });
+    MakeButton("　保存返回", 752, 52, 150, [this] { if (SaveBase()) mPending = Pending::Back; });
+    mViewButton = MakeButton("　前线", 916, 52, 165, [this] { SetFrontView(!mFrontView); });
     const size_t firstFactoryControl = mUIManager.GetButtonCount();
-    mInspectButton = MakeButton("查看", 20, 92, 75, [this] { SelectTool(Tool::Inspect); });
-    mRemoveButton = MakeButton("拆除", 100, 92, 75, [this] { SelectTool(Tool::Remove); });
-    mRotateButton = MakeButton("旋转 R", 180, 92, 90, [this] { RotatePointedMachine(); });
-    mWireAButton = MakeButton("接 A 口", 275, 92, 90, [this] { SelectTool(Tool::WireA); });
-    mWireBButton = MakeButton("接 B 口", 370, 92, 90, [this] { SelectTool(Tool::WireB); });
-    mDisconnectButton = MakeButton("断开输入", 465, 92, 100, [this] { Act("disconnect", mSelected); });
-    mConfigButton = MakeButton("配置所选", 570, 92, 90, [this] {
+    mInspectButton = MakeButton("　查看", 20, 92, 75, [this] { SelectTool(Tool::Inspect); });
+    mRemoveButton = MakeButton("　拆除", 100, 92, 75, [this] { SelectTool(Tool::Remove); });
+    mRotateButton = MakeButton("　旋转 R", 180, 92, 90, [this] { RotatePointedMachine(); });
+    mWireAButton = MakeButton("　接 A", 275, 92, 90, [this] { SelectTool(Tool::WireA); });
+    mWireBButton = MakeButton("　接 B", 370, 92, 90, [this] { SelectTool(Tool::WireB); });
+    mDisconnectButton = MakeButton("　断线", 465, 92, 100, [this] { Act("disconnect", mSelected); });
+    mConfigButton = MakeButton("　配置", 570, 92, 90, [this] {
         if (mSelected >= 0 && World().Cells()[mSelected].type == Workshop::Machine::Switch) Act("configure", mSelected);
         else OpenMachineConfig(mSelected);
     });
-    mFitButton = MakeButton("查看全图", 670, 92, 95, [this] { FitFactory(); });
+    mFitButton = MakeButton("　全图", 670, 92, 95, [this] { FitFactory(); });
     mZoomOutButton = MakeButton("－", 775, 92, 45, [this] { ZoomFactory(mMapZoom / 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
     mZoomInButton = MakeButton("＋", 827, 92, 45, [this] { ZoomFactory(mMapZoom * 1.2f, Vector(kGridX + kViewW / 2, kGridY + kViewH / 2)); });
     mCatalogButton = MakeButton("建造图册  [B]", 813, 148, 265, [this] { OpenCatalog(); }, 33, 18);
@@ -265,17 +266,17 @@ void WorkshopScene::CreateControls() {
         }, 56, 12);
         button->SetSkipDraw(true); mQuickButtons.push_back(button);
     }
-    mRouteButton = MakeButton("目标路线", 813, 390, 110, [this] {
+    mRouteButton = MakeButton("目标路线", 813, 365, 110, [this] {
         if (mSelected >= 0) Act("route", mSelected, "", (World().ActiveRoute(mSelected) + 1) % Workshop::Rows);
     }, 27, 13);
-    mFilterButton = MakeButton("弹种", 933, 390, 145, [this] {
+    mFilterButton = MakeButton("接收", 933, 365, 145, [this] {
         if (mSelected < 0) return;
         if (World().Cells()[mSelected].type == Workshop::Machine::Cannon) OpenMachineConfig(mSelected);
         else Act("filter", mSelected, "", World().ActiveFilter(mSelected) >= (World().Cells()[mSelected].type == Workshop::Machine::Feeder ? Workshop::AmmoCount - 1 : Workshop::ItemCount - 1) ? -1 : World().ActiveFilter(mSelected) + 1);
     }, 27, 13);
-    mUpgradeButton = MakeButton("选中机器升级", 928, 422, 150, [this] { Act("upgrade"); }, 27, 14);
+    mUpgradeButton = MakeButton("选中机器升级", 813, 397, 265, [this] { Act("upgrade"); }, 27, 14);
     for (int row = 0; row < Workshop::Rows; ++row) {
-        auto quota = MakeButton("配额", 1003, 477 + row * 22.0f, 75, [this, row] { OpenAmmoQuotas(row); }, 21, 12);
+        auto quota = MakeButton("弹仓配额", 813, 430 + row * 29.0f, 265, [this, row] { OpenAmmoQuotas(row); }, 28, 14);
         mQuotaButtons.push_back(quota);
     }
     for (size_t i = firstFactoryControl; i < mUIManager.GetButtonCount(); ++i)
@@ -296,7 +297,7 @@ void WorkshopScene::SetFrontView(bool front) {
     for (const auto& button : mFactoryControls) { button->SetEnabled(!front); button->SetSkipDraw(front); }
     for (const auto& button : mQuickButtons) button->SetSkipDraw(true);
     for (const auto& button : mFrontControls) { button->SetEnabled(front); button->SetSkipDraw(!front); }
-    if (mViewButton) mViewButton->SetText(front ? "返回工厂" : "查看前线");
+    if (mViewButton) mViewButton->SetText(front ? "　工厂" : "　前线");
     // 前线工具栏压成一行，给第一行僵尸头部留出原版草坪的上沿空间。
     constexpr std::array<float, 8> toolbarX{20, 142, 264, 386, 508, 630, 752, 916};
     for (size_t i = 0; i < toolbarX.size(); ++i)
@@ -377,9 +378,9 @@ void WorkshopScene::UpdateUpgradeControls() {
     }
     if (mFrontRemoveButton) mFrontRemoveButton->SetText(mFrontTool == FrontTool::Remove ? "铲除中" : "铲除植物");
     const auto* nut = dynamic_cast<const IceStorageNut*>(plant);
-    if (mAbilityButton) { mAbilityButton->SetText("阳光修复"); mAbilityButton->SetEnabled(mFrontView && nut && nut->IsReadyToActivate() && nut->CanAffordActivation()); }
-    if (mAutomaticButton) { mAutomaticButton->SetText(nut && nut->IsAutomatic() ? "自动修复：开" : "自动修复：关"); mAutomaticButton->SetEnabled(mFrontView && nut); }
-    if (mConfigButton) mConfigButton->SetText(selected && selected->type == M::Switch ? "切换开关" : "配置所选");
+    if (mAbilityButton) { mAbilityButton->SetText("　修复"); mAbilityButton->SetEnabled(mFrontView && nut && nut->IsReadyToActivate() && nut->CanAffordActivation()); }
+    if (mAutomaticButton) { mAutomaticButton->SetText(nut && nut->IsAutomatic() ? "　自动：开" : "　自动：关"); mAutomaticButton->SetEnabled(mFrontView && nut); }
+    if (mConfigButton) mConfigButton->SetText(selected && selected->type == M::Switch ? "　开关" : "　配置");
     if (mRouteButton && mFilterButton) {
         const auto* cell = mSelected >= 0 ? &World().Cells()[mSelected] : nullptr;
         const auto type = cell ? cell->type : Workshop::Machine::Empty;
@@ -389,10 +390,10 @@ void WorkshopScene::UpdateUpgradeControls() {
         mRouteButton->SetSkipDraw(mFrontView || !route); mRouteButton->SetEnabled(!mFrontView && route);
         mFilterButton->SetSkipDraw(mFrontView || !filter); mFilterButton->SetEnabled(!mFrontView && filter);
         if (route) mRouteButton->SetText("目标 第" + std::to_string(World().ActiveRoute(mSelected) + 1) + "路");
-        if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "弹种 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
+        if (filter) mFilterButton->SetText(std::string(type == M::Splitter ? "右侧筛选 " : "接收 ") + Workshop::AmmoName(World().ActiveFilter(mSelected)));
     }
     for (size_t row = 0; row < mQuotaButtons.size(); ++row) {
-        mQuotaButtons[row]->SetText("配额 " + std::to_string(World().Lanes()[row].TotalStock()) + "/80");
+        mQuotaButtons[row]->SetText(std::format("　{}路弹仓 {}/80 · 调整配额", row + 1, World().Lanes()[row].TotalStock()), ResourceKeys::Fonts::FONT_FZCQ, 14);
     }
 }
 
@@ -497,6 +498,16 @@ void WorkshopScene::HandleGridClick(int index) {
     const bool occupied = World().Cells()[index].type != Workshop::Machine::Empty;
     auto& input = GameAPP::GetInstance().GetInputHandler();
     const bool continuous = input.IsKeyDown(SDLK_LSHIFT) || input.IsKeyDown(SDLK_RSHIFT);
+    if (occupied && (mTool == Tool::Inspect || mTool == Tool::Build)) {
+        const Uint64 now = SDL_GetTicks64();
+        const auto point = input.GetMousePosition(), delta = point - mLastMachineClickPoint;
+        constexpr Uint64 kDoubleClickMilliseconds = 400; // 双击配置的墙钟间隔，暂停/倍速不影响手感
+        if (mLastMachineClick == index && now - mLastMachineClickAt <= kDoubleClickMilliseconds
+            && delta.x * delta.x + delta.y * delta.y <= 64) {
+            CancelTool(); mSelected = index; OpenMachineConfig(index); UpdateUpgradeControls(); return;
+        }
+        mLastMachineClick = index; mLastMachineClickAt = now; mLastMachineClickPoint = point;
+    } else mLastMachineClick = -1;
     if (mTool == Tool::Build) {
         if (occupied) { mSelected = index; mNotice = "已选中现有机器；R 旋转它，空格继续建造。"; }
         else if (Act("build", index, Workshop::Describe(mBuildType).key, mDirection)) mSelected = index;
@@ -585,6 +596,7 @@ void WorkshopScene::Update() {
     }
     if (!mUIManager.GetTopActiveMessageBox() && catalogInput.IsKeyPressed(SDLK_b)) { if (mFrontView) OpenPlantCatalog(); else OpenCatalog(); }
     const bool modal = mUIManager.GetTopActiveMessageBox() != nullptr;
+    UpdateMaterialWarnings();
     if (modal) { CancelMapGesture(); ClearFrontPreview(); }
     if (!modal) {
         auto& input = GameAPP::GetInstance().GetInputHandler();
@@ -605,7 +617,7 @@ void WorkshopScene::Update() {
     if (World().State() == Workshop::Phase::Dead && !mDeathShown && !modal) ShowDeath();
     CheckGuideUnlocks();
     DeltaTime::SetPaused(mPaused || mUIManager.GetTopActiveMessageBox() != nullptr || World().State() == Workshop::Phase::Dead);
-    mPauseButton->SetText(mPaused ? "继续运行" : "暂停规划");
+    mPauseButton->SetText(mPaused ? "　继续" : "　暂停");
     mStartButton->SetEnabled(World().State() == Workshop::Phase::Planning);
     UpdateUpgradeControls();
     UpdateTooltip();
@@ -620,7 +632,7 @@ void WorkshopScene::BuildDrawCommands() {
         if (mFrontView && g_particleSystem) g_particleSystem->DrawFrom(LAYER_UI);
     }, LAYER_EFFECTS);
     RegisterDrawCommand("Workshop", [this](Graphics* g) { DrawWorkshop(g); }, LAYER_UI - 1);
-    RegisterDrawCommand("WorkshopInteraction", [this](Graphics* g) { DrawInteraction(g); DrawFrontOverlay(g); }, LAYER_UI + 4000);
+    RegisterDrawCommand("WorkshopInteraction", [this](Graphics* g) { DrawInteraction(g); DrawFrontOverlay(g); DrawToolbarIcons(g); }, LAYER_UI + 4000);
     RegisterDrawCommand("WorkshopTooltip", [this](Graphics* g) { if (!IsCatalogOpen()) DrawTooltip(g); }, LAYER_UI + 5000);
 }
 
@@ -703,6 +715,8 @@ void WorkshopScene::UpdateTooltip() {
                 lines.push_back("R 直接旋转这台机器，无需退出建造。");
             }
             const auto& cell = World().Cells()[index];
+            const auto warning = World().MaterialWarning(index);
+            if (!warning.empty()) lines.push_back(warning);
             if (info.capacity > 0) {
                 std::string inventory = "库存：";
                 for (int a = 0; a < Workshop::ItemCount; ++a) if (cell.Inventory(static_cast<Workshop::Ammo>(a)) > 0)
@@ -766,6 +780,10 @@ void WorkshopScene::DrawTooltip(Graphics* g) {
 
 void WorkshopScene::DrawMachine(Graphics* g, int index, float x, float y) {
     DrawMachineVisual(g, World().Cells()[index], x, y, mMapZoom, World().Enabled(index), true);
+    if (!mMaterialWarnings[index].empty()) {
+        g->FillCircle(x + 46, y + 5, 7, glm::vec4(180, 62, 27, 255));
+        g->FillRect(x + 45, y + 0, 2, 6, kGold); g->FillCircle(x + 46, y + 9, 1.2f, kGold);
+    }
 }
 
 void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, float x, float y,
@@ -814,9 +832,10 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
         if (cell.type == M::Recycler) label("+5", x + 13, y + 28, 11);
         else Arrow(g, x + 37, y + 27, cell.direction, kGold);
     } else if (cell.type == M::Feeder) {
-        PlantIcon(g, false, x + 11, y + 6, 28, 28);
+        DrawUtilityIcon(g, "magazine", x + 12, y + 9, 28);
+        Arrow(g, x + 9, y + 19, 0, kGold);
         const int plan = cell.inputs[1] >= 0 ? static_cast<int>(World().Cells()[cell.inputs[1]].signal) : cell.plan;
-        if (details && displayScale >= 0.85f) label(std::to_string((plan ? cell.route2 : cell.route) + 1) + "路", x + 14, y + 27, 12);
+        if (details && displayScale >= 0.85f) label(std::to_string((plan ? cell.route2 : cell.route) + 1) + "路", x + 14, y + 30, 12);
     } else if (cell.type == M::Cannon) {
         const float recoil = cell.volleyRemaining > 0 && cell.volleyClock > .1f ? 2.0f : 0;
         DrawPlantPicture(g, PlantType::PLANT_COBCANNON, x + 6 - recoil, y + 7, 39, 29);
@@ -854,9 +873,7 @@ void WorkshopScene::DrawFront(Graphics* g) {
         const auto& lane = World().Lanes()[row];
         const int enemies = World().EnemyCounts()[row];
         if (!mFrontView) {
-            const float y = 479 + row * 22.0f;
-            Text(std::format("{}路 库存{}/80 敌{}", row + 1, lane.TotalStock(), enemies), 813, y, 12, kGreen);
-            continue;
+            continue; // 工厂视图由整行弹仓按钮显示库存，扩大点击面积。
         }
         const float y = kFrontY + row * kFrontRowHeight;
         g->FillRect(12, y + 4, 195, 98, glm::vec4(232, 220, 168, 238));
@@ -938,22 +955,15 @@ void WorkshopScene::DrawFactoryPanel(Graphics* g) {
     DrawQuickBuild(g);
     if (mSelected >= 0) {
         const auto& cell = World().Cells()[mSelected];
-        Text(std::string(cell.type == Workshop::Machine::Empty ? "空地" : Workshop::Describe(cell.type).name)
-            + (Workshop::CanUpgradeMachine(cell.type) ? " Lv." + std::to_string(cell.level) : ""), 815, 320, 17, kGreen);
-        Text(World().Status(mSelected), 815, 344, 14);
-        const auto effect = MachineEffect(cell.type, cell.level);
-        if (!effect.empty()) Text(effect + (cell.level < Workshop::MaxUpgradeLevel ? " → " + MachineEffect(cell.type, cell.level + 1) : " · 满级"), 815, 365, 13);
-        else if (cell.type == Workshop::Machine::Timer || cell.type == Workshop::Machine::StockSensor || cell.type == Workshop::Machine::EnemySensor || cell.type == Workshop::Machine::Counter)
-            Text("当前设定 " + std::to_string(cell.setting) + (cell.type == Workshop::Machine::Timer ? " 秒" : " 颗"), 815, 365, 13);
-        Text(std::format("格位 {},{}", mSelected / Workshop::MaxColumns + 1, mSelected % Workshop::MaxColumns + 1), 815, 428, 12);
+        Text(std::string(Workshop::Describe(cell.type).name) + (Workshop::CanUpgradeMachine(cell.type) ? " Lv." + std::to_string(cell.level) : ""), 815, 320, 16, kGreen);
+        const auto warning = World().MaterialWarning(mSelected);
+        g->PushClipRect(813, 342, 265, 20);
+        Text(warning.empty() ? World().Status(mSelected) : "来料/设置不匹配 · 双击查看", 815, 342, 13, warning.empty() ? kInk : glm::vec4(170,57,27,255));
+        g->PopClipRect();
     } else {
-        Text(mTool == Tool::Build ? std::string("准备建造：") + Workshop::Describe(mBuildType).name : "选中机器查看或升级", 815, 323, 15, kGreen);
-        Text(mTool == Tool::Build ? std::to_string(Workshop::Describe(mBuildType).cost) + " 阳光/台 · 放下时扣费"
-            : "按住左键拖动 · 滚轮缩放", 815, 352, 13);
-        Text("R 旋转 · Esc / 右键取消", 815, 376, 13);
+        Text("单击选择 · 双击配置", 815, 323, 16, kGreen);
+        Text("R 旋转 · 按住左键拖图", 815, 347, 13);
     }
-    Text("前线库存", 815, 454, 15, kGreen);
-    Text("弹仓配额", 1003, 455, 12, kGreen);
     DrawFront(g);
 }
 
@@ -1004,6 +1014,7 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
+    j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;
     j["configOpen"] = mMachineConfig && mMachineConfig->IsActive(); j["configMachine"] = mConfigMachine;
     j["frontColumns"] = Workshop::FrontColumns;
     j["threats"] = nlohmann::json::array();

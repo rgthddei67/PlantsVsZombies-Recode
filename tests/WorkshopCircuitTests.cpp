@@ -121,4 +121,24 @@ void TestWorkshopCircuits() {
         "new controls use reduced prices");
     const auto original = l.Save(); save = original; save["state"]["cells"][3]["paidCost"] = -1; std::string error;
     Check(!l.Load(save, error) && l.Save() == original, "invalid new state rejected transactionally");
+
+    auto usability = Fixture(); auto& u = *usability;
+    u.StartPlantCooldown("pea", 7.5f);
+    Check(u.PlantCooldown("pea") == 0, "preparation has no planting cooldown");
+    Check(u.StartAssault(), "cooldown assault"); u.StartPlantCooldown("pea", 7.5f); Step(u, 2);
+    Check(u.PlantCooldown("pea") > 5.4f && u.PlantCooldown("snowpea") == 0, "species independent cooldown uses game time");
+    Load(*replay, u.Save()); Check(replay->Save() == u.Save(), "cooldown survives save without refresh");
+    Step(u, 6); Check(u.PlantCooldown("pea") == 0, "planting cooldown expires");
+    u.StartPlantCooldown("wallnut", 25); u.RecordBreach(); u.RecordBreach(); u.RecordBreach();
+    Check(u.Retry() && u.PlantCooldown("wallnut") == 0, "retry returns to ready planning cards");
+    Check(u.Build(2, Machine::Belt, 0) && u.Build(3, Machine::Cooler, 0) && u.Build(4, Machine::Feeder, 0), "material hint line");
+    save = u.Save(); save["state"]["cells"][2]["extraStock"][1] = 1; Load(u, save);
+    const auto beforeWarning = u.Save();
+    Check(u.MaterialWarning(3).find("西瓜") != std::string::npos && u.Save() == beforeWarning, "actual melon versus pea recipe warns without mutation");
+    Check(u.SetPlan(3, 1) && u.MaterialWarning(3).empty(), "recipe correction resolves warning");
+    save = u.Save(); save["state"]["cells"][3]["extraStock"][2] = 1; Load(u, save);
+    Check(u.MaterialWarning(4).find("冰瓜") != std::string::npos, "feeder warns about incoming incompatible ammunition");
+    Check(u.SetFilter(4, 4) && u.MaterialWarning(4).empty(), "feeder correction resolves warning");
+    save = u.Save(); save["schemaVersion"] = 4; save["state"].erase("plantCooldowns"); Load(*replay, save);
+    Check(replay->Save() == u.Save(), "v4 base migration preserves layout and supplies");
 }

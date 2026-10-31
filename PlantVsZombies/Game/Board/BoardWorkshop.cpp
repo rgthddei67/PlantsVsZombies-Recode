@@ -2,6 +2,7 @@
 #include "Game/Workshop/WorkshopRoster.h"
 #include "Game/Plant/MelonPult.h"
 #include "Game/Plant/Plant.h"
+#include "Game/Plant/GameDataManager.h"
 #include "Game/Zombie/Zombie.h"
 #include "Game/AudioSystem.h"
 #include "GameInfoSaver.h"
@@ -9,6 +10,7 @@
 #include "ResourceKeys.h"
 #include <limits>
 #include <stdexcept>
+#include <format>
 
 namespace {
 constexpr float kWorkshopSpawnX = 1060.0f; // 复用草坪右侧正常出生区域，单位：世界像素
@@ -49,6 +51,8 @@ std::string Board::WorkshopPlantPlacementReason(PlantType type, int row, int col
     if (mWorkshop->State() == Workshop::Phase::Dead) return "基地已失守";
     if (row < 0 || row >= Workshop::Rows || column < 0 || column >= Workshop::FrontColumns) return "只能种在左侧六列";
     if (mWorkshop->CompletedWaves() < info->unlockWave) return "守住第 " + std::to_string(info->unlockWave) + " 波后解锁";
+    if (const float seconds = mWorkshop->PlantCooldown(info->key); seconds > 0)
+        return std::format("{}补种冷却：还需 {:.1f} 秒", info->name, seconds);
     if (mWorkshop->Energy() < info->cost) return "阳光不足";
     if (!CanPlantAt(type, row, column)) return type == PlantType::PLANT_WINTERMELON ? "请选一株可升级的西瓜投手" : "此格已有植物或暂时不能种植";
     return {};
@@ -72,6 +76,7 @@ bool Board::PlaceWorkshopPlant(PlantType type, int row, int column) {
         melon->mPlantHealth = std::max(1, static_cast<int>(melon->mPlantMaxHealth * healthRatio));
     }
     if (info.ammo != Workshop::Ammo::Count) mWorkshop->EnsureAmmoQuota(row, info.ammo);
+    mWorkshop->StartPlantCooldown(info.key, GameDataManager::GetInstance().GetPlantCooldown(type));
     RefreshWorkshopObservation();
     return true;
 }

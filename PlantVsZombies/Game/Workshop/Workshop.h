@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <numeric>
+#include <map>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -198,6 +199,11 @@ public:
     int RemainingSpawns() const { return mRemainingSpawns; }
     int Spawned() const { return mSpawned; }
     void Tick(float seconds);
+    /** 同种植物共享补种冷却，单位游戏秒；准备阶段返回零且不启动冷却。 */
+    float PlantCooldown(const std::string& key) const;
+    void StartPlantCooldown(const std::string& key, float seconds);
+    /** 当前库存或真实上游来料与接收配置不符时的只读说明；不丢料或自动改方案。 */
+    std::string MaterialWarning(int index) const;
     void Reset();
     /** 独立 schema 文档含当前局面和本次袭击前检查点。 */
     nlohmann::json Save() const;
@@ -226,6 +232,7 @@ private:
     std::array<Cell, CellCount> mCells{};
     std::array<Lane, Rows> mLanes{};
     std::array<int, Rows> mEnemyCounts{};
+    std::map<std::string, float> mPlantCooldowns;
     Phase mPhase = Phase::Planning;
     int mColumns = 10, mRows = 10, mHealth = 3, mCompletedWaves = 0;
     int mRemainingSpawns = 0, mSpawned = 0;

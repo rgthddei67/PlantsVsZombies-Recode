@@ -54,6 +54,13 @@ private:
     Vector mLeftStart, mLeftOffset;
     int mPressCell = -1;
     Tool mPressTool = Tool::Inspect;
+    int mLastMachineClick = -1;
+    Uint64 mLastMachineClickAt = 0;
+    Vector mLastMachineClickPoint;
+    std::array<std::string, Workshop::CellCount> mMaterialWarnings;
+    std::string mMaterialNotice;
+    Uint64 mMaterialCheckAt = 0, mMaterialNoticeUntil = 0;
+    int mMaterialNoticeCount = 0;
     std::array<int, static_cast<size_t>(Workshop::Machine::Count)> mBuildDirections{};
     bool mPaused = false, mDeathShown = false, mLoadFailed = false, mResourcesReady = false;
     bool mFirstVisit = false, mFrontView = false, mSaveFailed = false;
@@ -108,6 +115,10 @@ private:
     void CloseMachineConfig();
     void RefreshMachineConfig();
     void DrawMachineConfig(Graphics* g);
+    void DrawProfileCards(Graphics* g);
+    void UpdateMaterialWarnings();
+    void DrawToolbarIcons(Graphics* g);
+    void DrawUtilityIcon(Graphics* g, const std::string& action, float x, float y, float size);
     void OpenGuide(int topic = 0, bool newUnlocks = false);
     void CloseGuide(bool acknowledge = true);
     void RefreshGuide();

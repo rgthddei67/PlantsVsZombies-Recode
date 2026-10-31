@@ -1,4 +1,5 @@
 #include "Workshop.h"
+#include "WorkshopRoster.h"
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -136,6 +137,7 @@ World::World() { Reset(); }
 
 void World::Reset() {
     mCells = {}; mLanes = {}; mEnemyCounts = {};
+    mPlantCooldowns.clear();
     mPhase = Phase::Planning; mColumns = 10; mRows = 10; mHealth = 3; mCompletedWaves = 0;
     mEnergy = kInitialEnergy; mTransportClock = 0; mSpawnClock = 0;
     mRemainingSpawns = 0; mSpawned = 0;
@@ -464,6 +466,10 @@ void World::Tick(float seconds) {
     // 有限子步避免游戏倍速改变物流/战斗结果，并允许纯逻辑测试推进长时间。
     while (seconds > 0.000001f && mPhase == Phase::Assault) {
         const float dt = std::min(seconds, 1.0f / 60.0f); seconds -= dt;
+        for (auto it = mPlantCooldowns.begin(); it != mPlantCooldowns.end();) {
+            it->second = std::max(0.0f, it->second - dt);
+            if (it->second <= 0) it = mPlantCooldowns.erase(it); else ++it;
+        }
         for (int i = 0; i < CellCount; ++i) {
             auto& c = mCells[i];
             // 炮台 A 口只许可开火；待机时仍充能，已开始的一轮也不会被信号变化截断。
@@ -542,6 +548,7 @@ void World::CompleteAssault() {
     if (mPhase != Phase::Assault || mRemainingSpawns != 0) return;
     for (const auto& cell : mCells) if (cell.volleyRemaining > 0) return;
     mPhase = Phase::Planning; ++mCompletedWaves;
+    mPlantCooldowns.clear();
     mEnergy = std::min(kEnergyLimit, mEnergy + 150 + mCompletedWaves * 20.0f);
     mCheckpoint = nullptr;
 }
@@ -615,9 +622,9 @@ nlohmann::json World::SaveState() const {
         {"spawned", mSpawned}, {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
         {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
-        {"cells", cells}, {"lanes", lanes}};
+        {"cells", cells}, {"lanes", lanes}, {"plantCooldowns", mPlantCooldowns}};
 }
-nlohmann::json World::Save() const { return {{"schemaVersion", 4}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
+nlohmann::json World::Save() const { return {{"schemaVersion", 5}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
 
 /** 所有实体与信号索引在临时 World 中验证，避免坏档引入越界或部分覆盖。 */
 void World::ReadState(const nlohmann::json& s) {
@@ -626,6 +633,15 @@ void World::ReadState(const nlohmann::json& s) {
     mRows = ReadInt(s, "rows", 10, MaxRows); Require(mRows % 2 == 0, "无效工厂高度");
     mHealth = ReadInt(s, "health", 0, 3); Require((mHealth == 0) == (mPhase == Phase::Dead), "死亡状态不一致");
     mCompletedWaves = ReadInt(s, "completedWaves", 0, 100000);
+    const auto& cooldowns = s.at("plantCooldowns");
+    Require(cooldowns.is_object() && cooldowns.size() <= Plants.size(), "种植冷却记录错误");
+    mPlantCooldowns.clear();
+    for (const auto& entry : cooldowns.items()) {
+        Require(FindPlant(std::string_view(entry.key())) != nullptr, "种植冷却引用未知植物");
+        const float seconds = ReadFloat(cooldowns, entry.key().c_str(), 0, 600);
+        Require(mPhase != Phase::Planning || seconds == 0, "准备阶段不应有种植冷却");
+        if (seconds > 0) mPlantCooldowns.emplace(entry.key(), seconds);
+    }
     mEnergy = ReadFloat(s, "energy", 0, kEnergyLimit);
     mTransportClock = ReadFloat(s, "transportClock", 0, TransportPeriod);
     mSpawnClock = ReadFloat(s, "spawnClock", -1, 3);
@@ -720,10 +736,11 @@ void World::ReadState(const nlohmann::json& s) {
 }
 bool World::Load(const nlohmann::json& document, std::string& error) {
     try {
-        const int version = ReadInt(document, "schemaVersion", 1, 4);
+        const int version = ReadInt(document, "schemaVersion", 1, 5);
         // 旧厂房固定 5×12 存储跨度；同时重映射信号引用和袭击检查点，已买到的第 11/12 列保留。
         auto migrate = [version](nlohmann::json state) {
             if (state.is_null()) return state;
+            if (version < 5) state["plantCooldowns"] = nlohmann::json::object();
             if (version == 1) {
             const int oldWidth = ReadInt(state, "columns", 8, 12);
             Require(oldWidth % 2 == 0, "旧工厂宽度无效");
@@ -799,6 +816,7 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
 }
 nlohmann::json World::Inspect() const {
     auto j = SaveState(); j["phaseName"] = mPhase == Phase::Planning ? "planning" : mPhase == Phase::Assault ? "assault" : "dead";
+    for (const auto& plant : Plants) j["plantCooldownRemaining"][plant.key] = PlantCooldown(plant.key);
     j["cannonCount"] = 0; j["cannonShots"] = std::uint64_t{};
     for (int i = 0; i < CellCount; ++i) if (mCells[i].type != Machine::Empty) {
         auto& cell = j["cells"][i];

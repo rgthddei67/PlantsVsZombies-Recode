@@ -50,17 +50,17 @@ void WorkshopScene::OpenMachineConfig(int index) {
     add("cfg_disconnect_a", "断开 A", 699, 124, 120, [action] { action("disconnect_a"); });
     add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
     if (Workshop::HasSelectionInput(type)) {
-        add("cfg_plan0", "手动方案 1", 140, 172, 170, [action] { action("plan", 0); });
-        add("cfg_plan1", "手动方案 2", 325, 172, 170, [action] { action("plan", 1); });
+        add("cfg_plan0", "手动方案 1", (type == M::Splitter ? 140.0f : 235.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 0); });
+        add("cfg_plan1", "手动方案 2", (type == M::Splitter ? 345.0f : 665.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 1); });
     }
     if (type == M::Feeder || type == M::Cannon) {
         for (int plan = 0; plan < 2; ++plan) {
-            const float x = plan ? 548.0f : 140.0f;
-            add("cfg_route" + std::to_string(plan), "目标路线", x, 260, 155, [this, action, plan] {
+            const float x = plan ? 573.0f : 143.0f;
+            add("cfg_route" + std::to_string(plan), "目标路线", x, 322, 155, [this, action, plan] {
                 const auto& c = World().Cells()[mConfigMachine];
                 action(plan ? "route1" : "route0", ((plan ? c.route2 : c.route) + 1) % Workshop::Rows);
             });
-            add("cfg_filter" + std::to_string(plan), "弹种", x + 168, 260, 170, [this, action, plan, type] {
+            add("cfg_filter" + std::to_string(plan), "弹种", x + 168, 322, 210, [this, action, plan, type] {
                 const auto& c = World().Cells()[mConfigMachine]; const int current = plan ? c.filter2 : c.filter;
                 const int next = type == M::Cannon ? (current == static_cast<int>(Workshop::Ammo::Melon) && World().CompletedWaves() >= 8
                     ? static_cast<int>(Workshop::Ammo::IceMelon) : static_cast<int>(Workshop::Ammo::Melon))
@@ -95,8 +95,29 @@ void WorkshopScene::OpenMachineConfig(int index) {
         }
     }
     if (type == M::Switch || type == M::Cannon)
-        add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 405.0f : 190.0f, 150, [action] { action("configure"); });
-    if (type == M::Cannon) add("cfg_fire", "手动齐射", 798, 405, 150, [action] { action("fire_cannon"); });
+        add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 458.0f : 190.0f, 150, [action] { action("configure"); });
+    if (type == M::Cannon) add("cfg_fire", "手动齐射", 798, 458, 150, [action] { action("fire_cannon"); });
+    if (type == M::Cooler || type == M::Feeder || type == M::Cannon) {
+        // 空白区拆成互不重叠的命中块，复用模态按钮输入；不能遮住路线/弹种按钮。
+        for (int plan = 0; plan < 2; ++plan) {
+            const float x = 125 + 430.0f * plan;
+            int region = 0;
+            auto area = [&](float dx, float y, float w, float h) {
+                keys.push_back("cfg_card" + std::to_string(plan) + "_" + std::to_string(region++));
+                builder.Button("", Vector(x + dx, y), Vector(w, h), 12, [this, action, plan] {
+                    if (World().Cells()[mConfigMachine].type == M::Cooler && plan == 1 && World().CompletedWaves() < 8) mConfigNotice = "守住第 8 波后开放冰瓜配方。";
+                    else if (World().Cells()[mConfigMachine].inputs[1] >= 0) mConfigNotice = "电路正在选择方案；手动切换前请先断开 B。";
+                    else action("plan", plan);
+                }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+            };
+            if (type == M::Cooler) area(0, 210, 420, 172);
+            else {
+                area(0, 210, 420, 112); area(0, 353, 420, 29);
+                area(0, 322, 18, 31); area(173, 322, 13, 31); area(396, 322, 24, 31);
+            }
+            area(0, 382, 110, 31); area(300, 382, 120, 31); area(0, 413, 420, 9);
+        }
+    }
     mMachineConfig = builder.Show(); mConfigControls.clear();
     for (size_t i = 0; i < keys.size(); ++i) {
         auto button = mMachineConfig->GetButton(i);
@@ -115,12 +136,12 @@ void WorkshopScene::RefreshMachineConfig() {
     };
     set("cfg_disconnect_a", "断开 A", c.inputs[0] >= 0);
     set("cfg_disconnect_b", "断开 B", c.inputs[1] >= 0);
-    set("cfg_plan0", std::string(c.plan == 0 ? "● " : "") + (c.type == M::Splitter ? "正前方" : "手动方案 1"), c.inputs[1] < 0);
-    set("cfg_plan1", std::string(c.plan == 1 ? "● " : "") + (c.type == M::Splitter ? "右侧" : "手动方案 2"), c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
+    set("cfg_plan0", c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
+    set("cfg_plan1", c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
     for (int plan = 0; plan < 2; ++plan) {
-        set("cfg_route" + std::to_string(plan), "目标：第 " + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
+        set("cfg_route" + std::to_string(plan), "送往：第 " + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
         const int filter = plan ? c.filter2 : c.filter;
-        set("cfg_filter" + std::to_string(plan), std::string("物料：") + Workshop::AmmoName(filter),
+        set("cfg_filter" + std::to_string(plan), std::string("接收：") + (filter == 0 ? "普通豌豆" : filter == 1 ? "寒冰豌豆" : Workshop::AmmoName(filter)),
             !(c.type == M::Counter && c.counterMode == Workshop::CounterMode::Signal) && !(c.type == M::Splitter && c.strictSplit));
     }
     set("cfg_counter_mode", std::string("计数：") + std::array<const char*, 3>{"信号从关到开", "来源机器产出", "来源机器出库 / 发射"}[static_cast<int>(c.counterMode)]);
@@ -136,7 +157,7 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     g->FillRect(100, 30, 900, 540, glm::vec4(234, 224, 182, 255));
     g->DrawRect(100, 30, 900, 540, kConfigGreen);
     Label(std::string(Workshop::Describe(type).name) + " · 运行配置", 130, 55, 25, kConfigGreen);
-    Label("查看时已暂停；配置会保存，恢复运行后信号继续传播。", 130, 96, 15);
+    Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；点击下方方案卡片即可切换，库存会保留。", 130, 96, 15);
     auto connection = [&](int port) {
         const int source = c.inputs[port];
         return std::string(PortName(c, port)) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
@@ -144,37 +165,10 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     };
     Label(connection(0), 140, 133, 14);
     if (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter) Label(connection(1), 415, 133, 14);
-    if (Workshop::HasSelectionInput(type)) Label("当前方案 " + std::to_string(World().ActivePlan(mConfigMachine) + 1)
+    if (type == M::Splitter) Label("当前方案 " + std::to_string(World().ActivePlan(mConfigMachine) + 1)
         + (c.inputs[1] >= 0 ? " · B 口低选1，高选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
     if (type == M::Feeder || type == M::Cannon || type == M::Cooler) {
-        for (int plan = 0; plan < 2; ++plan) {
-            const float x = plan ? 530.0f : 122.0f;
-            g->FillRect(x, 220, 365, 150, glm::vec4(218, 218, 175, 255));
-            g->DrawRect(x, 220, 365, 150, World().ActivePlan(mConfigMachine) == plan ? kConfigGreen : glm::vec4(157, 142, 97, 255));
-            Label("方案 " + std::to_string(plan + 1) + (plan ? " · B 高信号" : " · B 低信号"), x + 18, 234, 18, kConfigGreen);
-            if (type == M::Cooler) {
-                const auto input = plan ? Workshop::Ammo::Melon : Workshop::Ammo::Pea, output = plan ? Workshop::Ammo::IceMelon : Workshop::Ammo::Ice;
-                Label(plan && World().CompletedWaves() < 8 ? "守住第 8 波开放" : plan ? "西瓜 → 冰瓜" : "普通豌豆 → 寒冰弹", x + 18, 273, 18);
-                Label(std::format("原料 {}/5 · 成品 {}/5", c.Inventory(input), c.Inventory(output)), x + 18, 309, 16);
-                Label(std::format("每份消耗 {:g} 阳光", plan ? Workshop::IceMelonEnergy : Workshop::CoolingEnergy), x + 18, 337, 14);
-            } else {
-                const int filter = plan ? c.filter2 : c.filter;
-                Label(type == M::Feeder ? "缓存保留，恢复运行后送向该路弹仓。" : "本轮开火时锁定路线和弹种。", x + 18, 310, 14);
-                if (type == M::Cannon) Label(std::format("{}瓜弹 {} / {} · 每轮消耗 3 颗", filter == static_cast<int>(Workshop::Ammo::IceMelon) ? "冰" : "普通",
-                    c.Inventory(static_cast<Workshop::Ammo>(filter)), Workshop::CannonBufferPerAmmo), x + 18, 339, 14);
-                else Label("配额由该路弹仓控制；这里不增加容量。", x + 18, 339, 14);
-            }
-        }
-        if (type == M::Cooler) {
-            Label(std::string("当前加工：") + (c.recipe ? "冰瓜" : "寒冰弹") + (c.processing ? " · 在制品完成后再切换" : " · 等待原料 / 开工"), 140, 400, 17, kConfigGreen);
-            Label("两种原料和两种成品各有独立缓存；切换不清料、不丢货。", 140, 436, 15);
-        } else if (type == M::Cannon) {
-            Label(std::format("充能 {:.1f} / {:.0f} 秒", c.clock, Workshop::CannonChargeSeconds), 140, 400, 17, kConfigGreen);
-            g->FillRect(140, 433, 430, 10, glm::vec4(91, 102, 75, 255));
-            g->FillRect(140, 433, 430 * c.clock / Workshop::CannonChargeSeconds, 10, glm::vec4(220, 183, 75, 255));
-            Label("手动齐射需要合法目标；关闭窗口恢复后发射。", 630, 450, 13);
-            Label("A 口控制开火，不影响充能；已开始的三发会完整发完。", 140, 470, 14);
-        } else Label("方案可以分别设路线与物料；B 切换后从同一缓存继续供货。", 140, 410, 16);
+        DrawProfileCards(g);
     } else if (type == M::Splitter) {
         Label(c.strictSplit ? "严格选路：只送选定出口，堵住时等待，不偷偷换路。" : "普通模式：无筛选时轮流/优先；有筛选时按弹种固定分路。", 140, 330, 17, kConfigGreen);
         Label("A 口可停止输出；B 口在严格模式下直接选择前方 / 右侧。", 140, 371, 16);
@@ -193,7 +187,8 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         Label("需要接法示例时可点右上角图解；A / B 的作用以本页端口说明为准。", 140, 390, 15);
     }
     g->PushClipRect(125, 509, 846, 46);
-    Label(mConfigNotice.empty() ? "Esc 返回 · 准备期仍全部停机，开波后生效" : mConfigNotice, 140, 521, 14);
+    const auto warning = World().MaterialWarning(mConfigMachine);
+    Label(!warning.empty() ? warning : mConfigNotice.empty() ? "Esc 返回 · 准备期仍全部停机，开波后生效" : mConfigNotice, 140, 521, 14, warning.empty() ? kConfigInk : glm::vec4(163, 53, 33, 255));
     g->PopClipRect();
-    for (const auto& entry : mConfigControls) entry.second->Draw(g);
+    for (const auto& entry : mConfigControls) if (!entry.first.starts_with("cfg_card")) entry.second->Draw(g);
 }

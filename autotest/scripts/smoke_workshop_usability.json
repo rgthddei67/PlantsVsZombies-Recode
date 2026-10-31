@@ -1,0 +1,907 @@
+{
+  "name": "smoke_workshop_usability",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 8
+        },
+        {
+          "op": "add",
+          "path": "/state/energy",
+          "value": 10000
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 2,
+      "value": 0,
+      "type": "belt",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 3,
+      "value": 0,
+      "type": "cooler",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 4,
+      "value": 0,
+      "type": "feeder",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 5,
+      "value": 0,
+      "type": "switch",
+      "expectedSuccess": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "01_toolbar_and_quota.png"
+    },
+    {
+      "op": "click",
+      "x": 830,
+      "y": 443,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.modalOpen",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "01b_large_quota_hit.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 3,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 3,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.configOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.configMachine",
+      "equals": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "02_recipe_cards.png"
+    },
+    {
+      "op": "click",
+      "x": 790,
+      "y": 285,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.3.plan",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "x": 330,
+      "y": 285,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.3.plan",
+      "equals": 0
+    },
+    {
+      "op": "move_mouse",
+      "x": 330,
+      "y": 285,
+      "hold_frames": 3
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "down"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 790,
+      "y": 285,
+      "hold_frames": 5
+    },
+    {
+      "op": "mouse_button",
+      "button": "left",
+      "action": "up"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.3.plan",
+      "equals": 0
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 4,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 4,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.configOpen",
+      "equals": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "03_feeder_explained.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "cfg_route1",
+      "hold_frames": 3,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.4.plan",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.cells.4.route2",
+      "equals": 2
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "configured"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "configured",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/cells/2/extraStock",
+          "value": [
+            0,
+            1,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.materialWarnings.3",
+      "equals": "配方不匹配：送来西瓜，当前加工普通豌豆；可点击方案切换"
+    },
+    {
+      "op": "dump_state",
+      "name": "warning_first.json"
+    },
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "dump_state",
+      "name": "warning_held.json"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "04_wrong_recipe.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 3,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 3,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "05_recipe_warning.png"
+    },
+    {
+      "op": "click",
+      "x": 790,
+      "y": 285,
+      "hold_frames": 3
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.materialWarnings.3",
+      "equals": ""
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "correct_recipe"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "correct_recipe",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/cells/3/extraStock",
+          "value": [
+            0,
+            0,
+            1,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.materialWarnings.4",
+      "equals": "来料不匹配：上游送来冰瓜，本机接收普通豌豆"
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 4,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_cell",
+      "row": 0,
+      "column": 4,
+      "hold_frames": 2,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "06_wrong_feeder.png"
+    },
+    {
+      "op": "workshop",
+      "action": "filter0",
+      "index": 4,
+      "value": 4,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.materialWarnings.4",
+      "equals": ""
+    },
+    {
+      "op": "workshop",
+      "action": "view_front",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 0,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 1,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 0,
+      "value": 0,
+      "type": "pea",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 1,
+      "value": 0,
+      "type": "pea",
+      "expectedSuccess": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.wallnut",
+      "equals": 0
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.pea",
+      "equals": 0
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "planning"
+    },
+    {
+      "op": "workshop",
+      "action": "start",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 2
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 2,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 2,
+      "value": 0,
+      "type": "pea",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 0,
+      "type": "pea",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 0,
+      "value": 1,
+      "type": "snowpea",
+      "expectedSuccess": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.wallnut",
+      "equals": 25
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.pea",
+      "equals": 7.5
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.snowpea",
+      "equals": 7.5
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "plant_catalog",
+      "hold_frames": 3,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "07_combat_cooldowns.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cooldown"
+    },
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cooldown_paused"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "cooldown",
+      "patch": []
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "cooldown_restored"
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "rejected_plant"
+    },
+    {
+      "op": "set_timescale",
+      "value": 3
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "wait_value",
+      "path": "workshop.plantCooldownRemaining.pea",
+      "equals": 0,
+      "timeout": 12
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 0,
+      "type": "pea",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "expired_pea"
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "08_plant_again.png"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "planning",
+      "patch": []
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.plantCooldownRemaining.pea",
+      "equals": 0
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 2,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": true
+    },
+    {
+      "op": "workshop",
+      "action": "plant",
+      "index": 3,
+      "value": 5,
+      "type": "wallnut",
+      "expectedSuccess": true
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "09_preparation_free_build.png"
+    },
+    {
+      "op": "workshop",
+      "action": "view_factory",
+      "index": -1,
+      "value": 0,
+      "type": "",
+      "expectedSuccess": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog",
+      "hold_frames": 3,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "move_mouse",
+      "x": 1080,
+      "y": 590,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "10_catalog_feeder_icon.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "finished.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

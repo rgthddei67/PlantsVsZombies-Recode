@@ -32,10 +32,12 @@ int WorkshopScene::HoveredMachine() const {
     return index >= 0 && World().Cells()[index].type != Workshop::Machine::Empty ? index : -1;
 }
 void WorkshopScene::CancelMapGesture() {
+    mLastMachineClick = -1;
     mMapDragging = mLeftPending = mLeftPanning = mSuppressGridUntilRelease = false;
     mPressCell = -1;
 }
 void WorkshopScene::CancelTool() {
+    mLastMachineClick = -1;
     ClearFrontPreview();
     mTool = Tool::Inspect; mWireSource = -1; mSelected = -1;
     mFrontTool = FrontTool::Inspect; mSelectedShooter = -1;
@@ -101,7 +103,7 @@ void WorkshopScene::UpdateFactoryInput() {
     }
     if (mLeftPending && (input.IsMouseButtonDown(SDL_BUTTON_LEFT) || input.IsMouseButtonReleased(SDL_BUTTON_LEFT))) {
         const auto delta = point - mLeftStart;
-        if (delta.x * delta.x + delta.y * delta.y >= kDragThreshold * kDragThreshold) mLeftPanning = true;
+        if (delta.x * delta.x + delta.y * delta.y >= kDragThreshold * kDragThreshold) { mLeftPanning = true; mLastMachineClick = -1; }
         if (mLeftPanning) { mMapOffset = mLeftOffset + delta; ClampFactoryCamera(); }
     }
     const auto offsetBefore = mMapOffset;
@@ -156,7 +158,7 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
     const std::string instruction = removing ? "点一台后退出 · Shift 连拆 · Esc / 右键取消"
         : wiring ? (mWireSource < 0 ? "先点来源，再点目标 · Esc / 右键取消" : "已选来源，请点目标 · Shift 连续接线 · Esc 取消")
         : mTool == Tool::Build ? std::string(Workshop::Describe(mBuildType).name) + " · R 旋转指向的机器 / 空地预览 · Esc 结束"
-        : "指向机器按 R 旋转 · 轻点选择 · 按住左键拖地图";
+        : "R 旋转 · 单击选择 / 双击配置 · 按住左键拖图";
     Label(instruction, 132, 138, 14);
     if (mTool == Tool::Inspect || removing || wiring) {
         const auto button = removing ? mRemoveButton : mTool == Tool::WireA ? mWireAButton : mTool == Tool::WireB ? mWireBButton : mInspectButton;
