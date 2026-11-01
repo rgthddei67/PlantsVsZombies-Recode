@@ -16,6 +16,7 @@
 ### 夹具与诊断
 
 - 时序：`wait_seconds` 是游戏秒；关卡 20 秒起第一波普通僵尸会混入 dump。精确断言碰撞目标或僵尸数量的隔离专项应在进入 `GAME` 后立即 `set_spawn_paused=true`；只有测试自然波本身时才保留生成，不能把首波当固定对照数。
+- 独立模式复用原生僵尸时，核对 Board 模式早退之前是否仍推进共享 AI 决策预算；在同一 Board 上验证多只就绪对象及第二次治疗，不能靠重建/读档清零预算。工坊专项为 `smoke_workshop_healer` 与 `verify_workshop_regressions.py`。
 - 站位/影子不对 → 本体调 gamedata offset（免编译）、影子通过 `GetShadow()` 调 `ShadowComponent` 参数。
 - 父类测试钩子或状态投影使用 `dynamic_cast` 时会同时命中派生精英；先判断具体派生类，或以 `mZombieType` 排除变体，避免普通品种计数和命令误操作精英。
 - Release Fatal Error / Access Violation 先保留崩溃报告与最小脚本，并用同次构建的 EXE/PDB 符号化；若仍不足以定位，给最小复现补充针对性的状态投影、日志或断言，能在 `clang-debug` 复现时可辅助诊断。优先检查资源注册/键和首个空对象来源；修复后重跑 Release 的新类型脚本和父类回归，禁止只交付 Debug 结果。

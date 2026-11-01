@@ -85,6 +85,12 @@
     },
     {
       "op": "workshop",
+      "action": "wire_power",
+      "index": 22,
+      "value": 40
+    },
+    {
+      "op": "workshop",
       "action": "build",
       "index": 23,
       "value": 0,
@@ -670,6 +676,7 @@
             0,
             6,
             6,
+            0,
             0
           ]
         },

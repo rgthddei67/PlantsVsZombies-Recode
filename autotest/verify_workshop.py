@@ -25,7 +25,7 @@ tooltip = read("machine_tooltip.json")["workshop"]
 assert tooltip["paused"] and tooltip["tooltipVisible"] and "2.5 秒/份" in " ".join(tooltip["tooltipLines"])
 recovered = read("recovered.json")["workshop"]
 assert recovered["phaseName"] == "planning" and recovered["health"] == 3
-assert recovered["machineCount"] == 2 and recovered["fired"] == 0
+assert recovered["machineCount"] == 3 and recovered["fired"] == 0
 assert recovered["resourcesReady"] and not recovered["saveProtected"]
 assert not recovered["saveFailed"]
 assert read("menu_before.json")["adventureLevel"] == read("menu_after.json")["adventureLevel"], "workshop changed adventure progress"

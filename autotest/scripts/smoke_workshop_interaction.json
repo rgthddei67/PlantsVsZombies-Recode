@@ -1808,7 +1808,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "dump_state",

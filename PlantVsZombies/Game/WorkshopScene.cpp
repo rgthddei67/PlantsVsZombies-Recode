@@ -4,6 +4,7 @@
 #include "../GameApp.h"
 #include "../DeltaTime.h"
 #include "../FileManager.h"
+#include "../Utf8.h"
 #include "../GameInfoSaver.h"
 #include "Board/Board.h"
 #include "Plant/Plant.h"
@@ -532,11 +533,11 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "retry") { CancelTool(); const auto retry = mBoard->WorkshopRetryDocument(); result = !retry.is_null() && RebuildFrontline(retry); mDeathShown = false; mPaused = false; mSelectedShooter = -1; SetFrontView(false); FitFactory(); DeltaTime::SetPaused(false); }
     else if (action == "reset") {
         if (mLoadFailed && FileManager::FileExists(mSavePath)) {
-            nlohmann::json previous;
-            if (!FileManager::LoadJsonFile(mSavePath, previous)) return false;
             std::string backup = mSavePath + ".before-power.json";
             for (int suffix = 1; FileManager::FileExists(backup); ++suffix) backup = mSavePath + ".before-power-" + std::to_string(suffix) + ".json";
-            if (!FileManager::SaveJsonFile(backup, previous)) return false;
+            // 坏档可能为空或不是合法 JSON；按原始字节备份，读取/写入失败仍保留原档并拒绝重建。
+            std::error_code error;
+            if (!std::filesystem::copy_file(Utf8::ToPath(mSavePath), Utf8::ToPath(backup), error)) return false;
         }
         CancelTool(); result = RebuildFrontline(nullptr); mDeathShown = false; mPaused = false;
         mSelected = -1; mSelectedShooter = -1; mGuideSeenWave = 0; mPowerGuideSeen = true; mFirstVisit = true;

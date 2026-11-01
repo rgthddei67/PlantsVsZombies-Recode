@@ -36,6 +36,12 @@
     },
     {
       "op": "workshop",
+      "action": "wire_power",
+      "index": 2,
+      "value": 40
+    },
+    {
+      "op": "workshop",
       "action": "build",
       "index": 3,
       "type": "feeder"

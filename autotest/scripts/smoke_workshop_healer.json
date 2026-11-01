@@ -1,0 +1,30 @@
+{
+  "description": "Workshop shares native AI budgets: two healers both decide and heal twice without recreating Board.",
+  "commands": [
+    {"op":"wait_frames","value":90},
+    {"op":"click","target":"main_menu_workshop","hold_frames":6,"trace":true},
+    {"op":"wait_frames","value":15},
+    {"op":"workshop","action":"pause"},
+    {"op":"spawn_zombie","type":"ZOMBIE_HEALER","row":0,"x":760,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":0,"x":790,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_HEALER","row":4,"x":760,"stationary":true},
+    {"op":"spawn_zombie","type":"ZOMBIE_NORMAL","row":4,"x":790,"stationary":true},
+    {"op":"damage_zombie","type":"ZOMBIE_NORMAL","row":0,"damage":80},
+    {"op":"damage_zombie","type":"ZOMBIE_NORMAL","row":4,"damage":80},
+    {"op":"make_healer_ready","all":true},
+    {"op":"workshop_snapshot","action":"save","name":"wounded_0"},
+    {"op":"workshop","action":"pause"},
+    {"op":"wait_seconds","value":8},
+    {"op":"workshop","action":"pause"},
+    {"op":"workshop_snapshot","action":"save","name":"healed_0"},
+    {"op":"damage_zombie","type":"ZOMBIE_NORMAL","row":0,"damage":80},
+    {"op":"damage_zombie","type":"ZOMBIE_NORMAL","row":4,"damage":80},
+    {"op":"make_healer_ready","all":true},
+    {"op":"workshop_snapshot","action":"save","name":"wounded_1"},
+    {"op":"workshop","action":"pause"},
+    {"op":"wait_seconds","value":8},
+    {"op":"workshop","action":"pause"},
+    {"op":"workshop_snapshot","action":"save","name":"healed_1"},
+    {"op":"quit"}
+  ]
+}

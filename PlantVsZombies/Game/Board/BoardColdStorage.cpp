@@ -2122,9 +2122,11 @@ void Board::PlanColdStorageAttack(bool background, ColdStorageSearch::Probe* pro
                 if(const auto* cotton=dynamic_cast<const MendingCotton*>(entity)) plant.cottonRemaining=cotton->GetHealRemaining();
 				plant.ladderTarget=entity->SupportsLadderPlacement();
                 plant.magnetRemaining=p.abilityCooldownRemaining;
+                // 挂泥由后台按剩余时长推进；采样只折算其他倍率，避免重复减速及到期后仍延长充能。
+                const float magnetRate=std::max(.01f,entity->GetSkillSpeedMultiplier()/entity->GetSludgeActionMultiplier());
                 if(const auto* magnet=dynamic_cast<const MagnetShroom*>(entity))
-                    plant.magnetRemaining=magnet->GetRechargeTimeRemaining()/std::max(.01f,entity->GetSkillSpeedMultiplier());
-                plant.magnetRecharge/=std::max(.01f,entity->GetSkillSpeedMultiplier());
+                    plant.magnetRemaining=magnet->GetRechargeTimeRemaining()/magnetRate;
+                plant.magnetRecharge/=magnetRate;
                 if(const auto* blover=dynamic_cast<const Blover*>(entity); blover && !blover->HasTriggeredBlow()) {
                     ColdStorageSearch::WindCounter wind;
                     wind.committed=true; wind.plantID=entity->mPlantID; wind.ready=blover->GetForecastBlowRemaining()/std::max(.01f,entity->GetSkillSpeedMultiplier());

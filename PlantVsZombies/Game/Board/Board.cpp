@@ -3489,7 +3489,6 @@ void Board::FinalizeWaveSpawnThreshold()
 
 void Board::Update()
 {
-	if (IsWorkshop()) { CleanupExpiredObjects(); UpdateWorkshop(); return; }
 	// 固定步预算不依赖渲染帧；间隔覆盖一次最多三步的追帧，避免同一渲染帧重叠推演。
 	if (DeltaTime::GetDeltaTime() > 0.0f) {
 		if (mMonteCarloHealerDecisionCooldownSteps > 0) {
@@ -3502,6 +3501,8 @@ void Board::Update()
 			--mMonteCarloFloodMortarDecisionCooldownSteps;
 		}
 	}
+	// 工坊沿用原生僵尸决策，也必须推进以上共享预算，不能被模式分支提前跳过。
+	if (IsWorkshop()) { CleanupExpiredObjects(); UpdateWorkshop(); return; }
 	// 节拍帧随游戏时间而非逻辑步推进：暂停时逻辑步照跑（UI 要消费点击）但 dt=0，
 	// 若无条件 ++，暂停中舞王/伴舞会随节拍翻转瞬间切轨；倍速下也与 Animator 的缩放 dt 同步。
 	mBoardFrameAccum += DeltaTime::GetDeltaTime() / DeltaTime::GetFixedStep();

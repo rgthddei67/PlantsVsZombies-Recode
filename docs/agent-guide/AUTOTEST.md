@@ -26,7 +26,9 @@
 
 `smoke_workshop_teaching_clarity` / `verify_workshop_teaching_clarity.py` 覆盖配电箱快捷入口、按主题固定的练习入口、暂停信号说明、独立分组验收真实点击及正式基地不变。错误门槛、误停另一支路、手动关机和检验中篡改配置由 `WorkshopPracticeTests.cpp` 检查。
 
-电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。当前工坊 schema v7 明确拒绝旧档；必须由玩家确认后才备份旧 JSON 并建立新版基地。普通读取、返回和拒绝加载不应覆盖旧档。供需对照夹具跨波保留库存，禁止用清空库存制造电网压力；独立教学验收会明确告知并只重置练习副本的测试物料。
+电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。当前工坊 schema v7 明确拒绝旧档；必须由玩家确认后才按原始字节备份旧文件并建立新版基地，空档和非法 JSON 同样保留。普通读取、返回和拒绝加载不应覆盖旧档。供需对照夹具跨波保留库存，禁止用清空库存制造电网压力；独立教学验收会明确告知并只重置练习副本的测试物料。
+
+`smoke_workshop_recovery` 使用 `workshop_snapshot` 的 `rawContent` 只损坏本脚本隔离档，覆盖取消、确认、空档/截断/内嵌 NUL 原字节备份和编号避让。`smoke_workshop_healer` 在同一 Board 上让两名急救员分别治疗两次，防止工坊提前返回跳过共享决策冷却。两者由 `verify_workshop_regressions.py` 校验。工坊生产夹具必须显式连接配电箱；初始格位与机器数以 `World::Reset` 为准。
 
 ## 框架阶段与 Board 子域
 

@@ -85,6 +85,17 @@ void RunColdStorageWatersideForecastTests() {
     ConstructionStats clean,dirty;Evaluate(s,{},&clean);s.plants[0].sludgeUntil=8;Evaluate(s,{},&dirty);
     Check(dirty.opponentAssets<clean.opponentAssets,"sludge must slow production and expire on game time");
 
+    s=Field();magnet=Target(20,1,0);
+    magnet.magnetRadius=magnet.magnetEatingRadius=1000;magnet.magnetRows=1;
+    magnet.magnetRemaining=12;magnet.magnetRecharge=15;s.plants={magnet};
+    for(int id=1;id<=5;++id) {
+        auto armored=Body(id,1,700);armored.magneticLayer=1;armored.helmHealth=armored.maximumHelm=100;
+        s.current.push_back(armored);
+    }
+    Evaluate(s,{},&clean);s.plants[0].sludgeUntil=8;Evaluate(s,{},&dirty);
+    Check(clean.magneticExtractions==4 && dirty.magneticExtractions==3,
+        "eight seconds of mud must delay magnet charge once, then restore the normal fifteen-second cycle");
+
     s=Field();auto parasol=Body(1,1,700);parasol.parasol=true;parasol.parasolHealth=1;
     auto ally=Body(2,0,700);s.current={parasol,ally};auto melon=Target(10,0,0);
     melon.dps=100;melon.hitDamage=100;melon.melon=melon.parasolInterceptable=true;s.plants={melon};

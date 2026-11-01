@@ -248,6 +248,7 @@ struct Plant {
     float targetValue=0; // 精英盒贪心选点的阳光及产能价值，不计入僵尸资源账本
     bool pumpkin=false, targetsAir=false;
     float magneticPulseRadius=0, magneticPulseParalysis=0; // 金磁消耗装备后的独立脉冲范围及麻痹秒数
+    // 冷却为剥离临时挂泥后的游戏秒；推演按 sludgeUntil 独立施加/解除减速。
     float magnetRemaining=0, magnetRecharge=0, magnetRadius=0, magnetEatingRadius=0, magnetRowPenalty=0;
     int magnetRows=0; // 零半径禁用；充能与搜索均采样正式能力参数
     bool catapultTargetable=true; // 选靶跳过地刺，格内仍按正式 overlay/宿主/南瓜/承载层顺序

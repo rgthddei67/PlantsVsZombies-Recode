@@ -1090,11 +1090,18 @@ bool TestDriver::ExecuteCurrent() {
 			const auto document = scene->GetBoard()->SaveWorkshopDocument();
 			if (!document.is_object() || !FileManager::SaveJsonFile(path, document)) Fail("workshop_snapshot: 保存失败");
 		} else {
-			nlohmann::json document;
-			if (!FileManager::LoadJsonFile(path, document)) { Fail("workshop_snapshot: 读取失败"); return false; }
-			if (cmd.contains("patch")) document = document.patch(cmd.at("patch"));
 			const auto isolatedPath = FileManager::CombinePath(mOutDir, "workshop.json");
-			if (!FileManager::SaveJsonFile(isolatedPath, document)) { Fail("workshop_snapshot: 写入隔离夹具失败"); return false; }
+			bool saved = false;
+			if (cmd.contains("rawContent")) {
+				// 只损坏本脚本隔离档，以真实读取/确认入口覆盖空档、截断及非法 JSON 的恢复。
+				saved = FileManager::SaveFile(isolatedPath, cmd.at("rawContent").get<std::string>());
+			} else {
+				nlohmann::json document;
+				if (!FileManager::LoadJsonFile(path, document)) { Fail("workshop_snapshot: 读取失败"); return false; }
+				if (cmd.contains("patch")) document = document.patch(cmd.at("patch"));
+				saved = FileManager::SaveJsonFile(isolatedPath, document);
+			}
+			if (!saved) { Fail("workshop_snapshot: 写入隔离夹具失败"); return false; }
 			if (scene->ReloadBase() != cmd.value("expectedSuccess", true)) Fail("workshop_snapshot: 恢复结果不符");
 		}
 		return true;
@@ -1276,6 +1283,7 @@ bool TestDriver::ExecuteCurrent() {
         report["watersidePlants"]=nlohmann::json::array();
         for(const auto& p:probe.snapshot.plants) report["watersidePlants"].push_back({{"id",p.id},{"row",p.row},{"column",p.column},
             {"foundation",p.foundationKind},{"salvageable",p.salvageable},{"sludgeUntil",p.sludgeUntil},
+            {"magnetRemaining",p.magnetRemaining},{"magnetRecharge",p.magnetRecharge},
             {"diverResisted",p.diverResisted},{"parasolInterceptable",p.parasolInterceptable}});
         for(const auto& u:probe.snapshot.current) if(u.ferry.present)
             report["ferryCurrent"].push_back({{"id",u.id},{"row",u.body.row},{"spawnAt",u.body.spawnAt},
@@ -3163,19 +3171,21 @@ bool TestDriver::ExecuteCurrent() {
 	}
 	if (op == "make_healer_ready") {
 		GameScene* gs = CurrentGameScene();
-		if (!gs || !gs->GetBoard()) {
-			Fail("make_healer_ready: 不在 GameScene 或 Board 为空");
+		auto* workshop = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+		Board* board = gs ? gs->GetBoard() : workshop ? workshop->GetBoard() : nullptr;
+		if (!board) {
+			Fail("make_healer_ready: 当前场景没有 Board");
 			return false;
 		}
 		const int row = cmd.value("row", -1);
 		const int index = cmd.value("index", 0);
 		const bool makeAll = cmd.value("all", false);
 		int seen = 0;
-		std::vector<int> zombieIDs = gs->GetBoard()->mEntityRegistry.GetAllZombieIDs();
+		std::vector<int> zombieIDs = board->mEntityRegistry.GetAllZombieIDs();
 		std::sort(zombieIDs.begin(), zombieIDs.end());
 		for (const int id : zombieIDs) {
 			auto* healer = dynamic_cast<HealerZombie*>(
-				gs->GetBoard()->mEntityRegistry.GetZombie(id));
+				board->mEntityRegistry.GetZombie(id));
 			if (!healer || !healer->IsActive()) continue;
 			if (row >= 0 && healer->mRow != row) continue;
 			if (makeAll) {
@@ -3493,8 +3503,9 @@ bool TestDriver::ExecuteCurrent() {
 	}
 	if (op == "damage_zombie" || op == "ash_damage_zombie") {
 		GameScene* gs = CurrentGameScene();
-		if (!gs || !gs->GetBoard()) { Fail(op + ": 不在 GameScene 或 Board 为空"); return false; }
-		Board* board = gs->GetBoard();
+		auto* workshop = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
+		Board* board = gs ? gs->GetBoard() : workshop ? workshop->GetBoard() : nullptr;
+		if (!board) { Fail(op + ": 当前场景没有 Board"); return false; }
 		const int row = cmd.value("row", -1);     // -1 = 不过滤行
 		const int index = cmd.value("index", 0);  // 行过滤后按 ID 升序第 index 只
 		const int damage = cmd.value("damage", 0);

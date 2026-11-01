@@ -312,7 +312,7 @@
     {
       "op": "workshop",
       "action": "build",
-      "index": 40,
+      "index": 80,
       "type": "solar"
     },
     {
@@ -322,9 +322,39 @@
       "type": "solar"
     },
     {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 2,
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 22,
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 42,
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 62,
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 82,
+      "value": 40
+    },
+    {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 19
+      "equals": 20
     },
     {
       "op": "workshop_snapshot",
@@ -636,6 +666,52 @@
       "equals": 2
     },
     {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "wave_three_setup"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "wave_three_setup",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/energy",
+          "value": 2000
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/0/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/1/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/2/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/3/ammo",
+          "value": 80
+        },
+        {
+          "op": "replace",
+          "path": "/state/lanes/4/ammo",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "op": "set_timescale",
+      "value": 8
+    },
+    {
       "op": "workshop",
       "action": "view_factory"
     },
@@ -660,7 +736,7 @@
     {
       "op": "workshop",
       "action": "wire_a",
-      "index": 2,
+      "index": 40,
       "value": 6
     },
     {
@@ -676,7 +752,17 @@
     {
       "op": "workshop",
       "action": "shooter",
+      "index": 1
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
       "index": 3
+    },
+    {
+      "op": "workshop",
+      "action": "shooter",
+      "index": 4
     },
     {
       "op": "workshop",
@@ -906,7 +992,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "assert_state",
@@ -999,7 +1085,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "assert_state",
@@ -1051,5 +1137,6 @@
     {
       "op": "quit"
     }
-  ]
+  ],
+  "description": "Native combat, circuits and save/retry lifecycle; the third-wave circuit fixture starts with explicit reserves independent of balance tuning."
 }

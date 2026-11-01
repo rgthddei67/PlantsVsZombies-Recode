@@ -478,6 +478,18 @@
     },
     {
       "op": "workshop",
+      "action": "wire_power",
+      "index": 141,
+      "value": 40
+    },
+    {
+      "op": "workshop",
+      "action": "wire_power",
+      "index": 142,
+      "value": 40
+    },
+    {
+      "op": "workshop",
       "action": "upgrade_machine",
       "index": 141
     },

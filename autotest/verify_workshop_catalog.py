@@ -18,7 +18,7 @@ assert read("running_modal_after")["state"] != read("running_resumed")["state"],
 initial, recent, finished = (read(n)["workshop"] for n in ("initial", "recent", "finished"))
 assert initial["uiButtonCount"] == recent["uiButtonCount"] == finished["uiButtonCount"], "catalog leaked controls across repeated opens"
 assert not finished["catalogOpen"] and finished["paused"] and finished["effectivePaused"]
-assert recent["energy"] == 2000 and recent["machineCount"] == 4, "selection paid or placed a machine"
+assert recent["energy"] == 2000 and recent["machineCount"] == 5, "selection paid or placed a machine"
 for name in ("01_production", "02_locked", "03_logistics", "04_logic", "05_valid_preview", "06_occupied_preview", "07_unaffordable", "08_shortage_preview", "09_recent"):
     assert (out / (name + ".png")).stat().st_size > 0
 print("Workshop catalog: categories, previews, transactions, recents and pause restoration passed")

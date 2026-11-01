@@ -92,7 +92,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "move_mouse",
@@ -267,7 +267,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "assert_state",
@@ -309,7 +309,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 2
+      "equals": 3
     },
     {
       "op": "screenshot",
@@ -358,7 +358,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 3
+      "equals": 4
     },
     {
       "op": "assert_state",
@@ -385,7 +385,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 3
+      "equals": 4
     },
     {
       "op": "assert_state",
@@ -416,7 +416,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 4
+      "equals": 5
     },
     {
       "op": "click",
@@ -567,7 +567,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 4
+      "equals": 5
     },
     {
       "op": "screenshot",
@@ -874,7 +874,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 4
+      "equals": 5
     },
     {
       "op": "move_mouse",
@@ -940,7 +940,7 @@
     {
       "op": "assert_state",
       "path": "workshop.machineCount",
-      "equals": 4
+      "equals": 5
     },
     {
       "op": "click",
