@@ -24,7 +24,7 @@ inline constexpr std::array<PlantDefinition, 8> Plants{{
     {PlantType::PLANT_MELONPULT, "melon", "西瓜投手", "西瓜 · 三行范围溅射", 300, 5, Ammo::Melon, true},
     {PlantType::PLANT_TALLNUT, "tallnut", "高坚果", "不耗弹药 · 高耐久阻挡", 125, 7, Ammo::Count, false},
     {PlantType::PLANT_WINTERMELON, "wintermelon", "冰瓜", "升级现有西瓜 · 冰瓜范围减速", 350, 8, Ammo::IceMelon, true},
-    {PlantType::PLANT_ICESTORAGENUT, "ice_nut", "冰仓坚果", "抗巨人重击 · 阳光修复与护体", 300, 10, Ammo::Count, false}
+    {PlantType::PLANT_ICESTORAGENUT, "ice_nut", "冰仓坚果", "抗巨人重击 · 维修包与阳光修复", 300, 10, Ammo::Count, false}
 }}; // cost 单位阳光，unlockWave 为必须守住的波数；同时部署只受 5×6 格位约束
 inline const PlantDefinition* FindPlant(PlantType type) {
     for (const auto& plant : Plants) if (plant.type == type) return &plant;

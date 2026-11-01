@@ -56,6 +56,7 @@ const char* WorkshopScene::ToolName() const {
     case Tool::Remove: return "拆除";
     case Tool::WireA: return "接 A 线";
     case Tool::WireB: return "接 B 线";
+    case Tool::Power: return "接供电线";
     default: return "查看";
     }
 }
@@ -145,6 +146,7 @@ std::string WorkshopScene::WireHint(int index) const {
         return "目标 " + Workshop::PortLabel(target, port) + (port == 1 && Workshop::HasSelectionInput(target.type) ? "：关选1，开选2" : "；点击接入，Shift 连续接");
     }
     const auto type = World().Cells()[index].type;
+    if (!Workshop::HasSignalInput(type, port)) return "此设备没有该信号口；生产机需从配电箱接电";
     if (port == 1 && type == Workshop::Machine::Cooler && World().CompletedWaves() < 8) return "守住第 8 波开放冷凝配方选择口";
     if (port == 1 && type != Workshop::Machine::And && type != Workshop::Machine::Or && type != Workshop::Machine::Latch && type != Workshop::Machine::Counter && !Workshop::HasSelectionInput(type))
         return "此机器没有 B 口，请换目标";
@@ -154,23 +156,27 @@ std::string WorkshopScene::WireHint(int index) const {
 /** 状态使用文字、工具按钮描边、目标轮廓和光标标签共同表达，不能只依靠底部颜色。 */
 void WorkshopScene::DrawInteraction(Graphics* g) {
     if (mFrontView || mLoadFailed) return;
-    const bool removing = mTool == Tool::Remove, wiring = mTool == Tool::WireA || mTool == Tool::WireB;
-    const auto color = removing ? kRemoveColor : wiring ? SignalWireColor(mTool == Tool::WireB ? 1 : 0, false) : glm::vec4(45, 91, 63, 255);
+    const bool removing = mTool == Tool::Remove, wiring = mTool == Tool::WireA || mTool == Tool::WireB, power = mTool == Tool::Power;
+    const auto color = removing ? kRemoveColor : power ? glm::vec4(111, 87, 32, 255) : wiring ? SignalWireColor(mTool == Tool::WireB ? 1 : 0, false) : glm::vec4(45, 91, 63, 255);
     g->FillRect(kGridX, 128, kViewW, 34, color);
     Label(std::string(ToolName()) + (mTool == Tool::Inspect ? "模式" : "中"), 27, 135, 19);
     const std::string instruction = removing ? "点一台后退出 · Shift 连拆 · Esc / 右键取消"
         : wiring ? (mWireSource < 0 ? "A蓝实线 · B橙虚线；先点来源，再点目标" : "来源已选好，请点目标 · Shift 连续接线 · Esc 取消")
         : mTool == Tool::Build ? std::string(Workshop::Describe(mBuildType).name) + " · R 旋转指向的机器 / 空地预览 · Esc 结束"
         : "R 旋转 · 单击选择 / 双击配置 · 按住左键拖图";
-    Label(instruction, 132, 138, 14);
-    if (mTool == Tool::Inspect || removing || wiring) {
-        const auto button = removing ? mRemoveButton : mTool == Tool::WireA ? mWireAButton : mTool == Tool::WireB ? mWireBButton : mInspectButton;
-        const float width = wiring ? 90 : 75;
+    g->PushClipRect(130, 132, 440, 31);
+    Label(mTool == Tool::Power ? "总站 → 配电箱 → 机器；Esc 结束接电" : instruction, 132, 138, 14);
+    g->PopClipRect();
+    if (mTool == Tool::Inspect || removing || wiring || power) {
+        const auto button = power ? mPowerWireButton : removing ? mRemoveButton : mTool == Tool::WireA ? mWireAButton : mTool == Tool::WireB ? mWireBButton : mInspectButton;
+        const float width = power ? 102 : wiring ? 90 : 75;
         if (button) {
             const auto center = button->GetCenter();
             for (int edge = 0; edge < 3; ++edge) g->DrawRect(center.x - width / 2 - edge, center.y - 15 - edge, width + edge * 2, 30 + edge * 2, color);
         }
     }
+    // 供电线先绘制，鼠标说明最后盖上，避免跨格线路压住操作提示。
+    DrawPowerNetwork(g);
     if (mUIManager.GetTopActiveMessageBox()) return;
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
     const bool panning = mMapDragging || mLeftPanning;
@@ -183,7 +189,7 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
         const auto outline = removing ? glm::vec4(255, 94, 71, 255) : kHoverColor;
         for (int edge = 0; edge < 2; ++edge) g->DrawRect(center.x - size / 2 + edge, center.y - size / 2 + edge, size - edge * 2, size - edge * 2, outline);
         if (removing) Cross(g, center, size * 0.32f, outline);
-        else if (!wiring && Workshop::HasDirectionalOutput(World().Cells()[hover].type)) {
+        else if (!wiring && !power && Workshop::HasDirectionalOutput(World().Cells()[hover].type)) {
             for (int port = 0; port < (World().Cells()[hover].type == Workshop::Machine::Splitter ? 2 : 1); ++port) {
                 const auto output = World().InspectOutput(hover, port == 1);
                 const int direction = (World().Cells()[hover].direction + port) % 4;
@@ -202,6 +208,11 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
         DrawSignalWire(g, source, mouse, mTool == Tool::WireB ? 1 : 0, World().Cells()[mWireSource].signal);
         g->FillCircle(source.x, source.y, 5, glm::vec4(241, 221, 255, 255));
     }
+    if (power && mWireSource != -1 && !panning) {
+        const auto source = mWireSource == Workshop::MainPowerSource ? mPowerSourceButton->GetCenter()
+            : CellScreenCenter(mWireSource / Workshop::MaxColumns, mWireSource % Workshop::MaxColumns) + Vector(0, 23 * mMapZoom);
+        g->DrawLine(source.x, source.y, mouse.x, mouse.y, glm::vec4(255, 218, 87, 255));
+    }
     g->PopClipRect();
     if (!IsFactoryPointer(mouse)) return;
     std::string title, detail;
@@ -210,6 +221,11 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
     else if (removing) {
         title = hover >= 0 ? std::string("拆除：") + Workshop::Describe(World().Cells()[hover].type).name : "拆除模式";
         detail = hover >= 0 ? std::format("最多退 {} 阳光，丢弃 {} 颗弹药", World().RemoveRefund(hover), World().Cells()[hover].TotalStock()) : "点机器拆除 · Esc 取消";
+    } else if (power) {
+        title = mWireSource == Workshop::MainPowerSource ? "供电：选择配电箱" : mWireSource >= 0 ? "供电：选择加工机器" : "供电：先选择配电箱";
+        detail = mWireSource != -1 && World().CanConnectPower(mWireSource, hover) ? "点击接电 · 可继续连接多台机器"
+            : hover >= 0 && World().Cells()[hover].type == Workshop::Machine::PowerBox ? "点击选择此箱 · 点总站可重新接入"
+            : "总站接配电箱；配电箱接加工机器";
     } else if (wiring) { title = mWireSource < 0 ? "接线：选择来源" : "接线：选择目标"; detail = WireHint(hover); }
     else if (mTooltipLines.empty() && hover >= 0 && Workshop::HasDirectionalOutput(World().Cells()[hover].type)) {
         title = std::string("R 旋转这台 · 朝") + Workshop::DirectionName(World().Cells()[hover].direction) + "出料";

@@ -40,6 +40,8 @@ void WorkshopScene::OpenMachineConfig(int index) {
     add("cfg_guide", "图解", 785, 48, 88, [this, type] { OpenGuide(static_cast<int>(type)); });
     if (Workshop::CanUpgradeMachine(type))
         add("cfg_upgrade", "升级", 480, 48, 170, [action] { action("upgrade_machine"); });
+    if (type == M::PowerBox || Workshop::RatedPower(type) > 0)
+        add("cfg_disconnect_power", "断开供电", 140, 173, 165, [action] { action("disconnect_power"); });
     if (type == M::Feeder)
         add("cfg_cleanup", "清理旧料…", 755, 468, 190, [this] { ConfirmCargoCleanup(); });
     if (World().Unlocked(M::Switch)) {
@@ -47,8 +49,8 @@ void WorkshopScene::OpenMachineConfig(int index) {
         add("cfg_disconnect_b", "断开 B", 835, 124, 120, [action] { action("disconnect_b"); });
     }
     if (Workshop::HasSelectionInput(type)) {
-        add("cfg_plan0", "手动方案 1", (type == M::Splitter ? 140.0f : 235.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 0); });
-        add("cfg_plan1", "手动方案 2", (type == M::Splitter ? 345.0f : 665.0f), (type == M::Splitter ? 172.0f : 382.0f), 190, [action] { action("plan", 1); });
+        add("cfg_plan0", "手动方案 1", (type == M::Splitter || type == M::PowerBox ? 140.0f : 235.0f), (type == M::Splitter ? 172.0f : type == M::PowerBox ? 253.0f : 382.0f), 190, [action] { action("plan", 0); });
+        add("cfg_plan1", "手动方案 2", (type == M::Splitter || type == M::PowerBox ? 345.0f : 665.0f), (type == M::Splitter ? 172.0f : type == M::PowerBox ? 253.0f : 382.0f), 190, [action] { action("plan", 1); });
     }
     if (type == M::Feeder || type == M::Cannon) {
         for (int plan = 0; plan < 2; ++plan) {
@@ -59,9 +61,10 @@ void WorkshopScene::OpenMachineConfig(int index) {
             });
             add("cfg_filter" + std::to_string(plan), "弹种", x + 168, 322, 210, [this, action, plan, type] {
                 const auto& c = World().Cells()[mConfigMachine]; const int current = plan ? c.filter2 : c.filter;
-                const int next = type == M::Cannon ? (current == static_cast<int>(Workshop::Ammo::Melon) && World().CompletedWaves() >= 8
+                int next = type == M::Cannon ? (current == static_cast<int>(Workshop::Ammo::Melon) && World().CompletedWaves() >= 8
                     ? static_cast<int>(Workshop::Ammo::IceMelon) : static_cast<int>(Workshop::Ammo::Melon))
                     : current >= Workshop::AmmoCount - 1 ? -1 : current + 1;
+                while (next >= 0 && !World().ItemUnlocked(next)) next = next >= Workshop::AmmoCount - 1 ? -1 : next + 1;
                 action(plan ? "filter1" : "filter0", next);
             });
         }
@@ -81,7 +84,9 @@ void WorkshopScene::OpenMachineConfig(int index) {
     if (type == M::Counter || type == M::StockSensor || type == M::Store || type == M::Splitter) {
         add("cfg_filter0", "筛选", 140, type == M::Splitter ? 282.0f : 230.0f, 260, [this, action] {
             const int current = World().Cells()[mConfigMachine].filter;
-            action("filter0", current >= Workshop::ItemCount - 1 ? -1 : current + 1);
+            int next = current >= Workshop::ItemCount - 1 ? -1 : current + 1;
+            while (next >= 0 && !World().ItemUnlocked(next)) next = next >= Workshop::ItemCount - 1 ? -1 : next + 1;
+            action("filter0", next);
         });
     }
     if (type == M::Timer || type == M::StockSensor || type == M::EnemySensor || type == M::Counter) {
@@ -91,8 +96,8 @@ void WorkshopScene::OpenMachineConfig(int index) {
                 [this, action, delta, type] { action("setting", std::clamp(World().Cells()[mConfigMachine].setting + delta, 1, type == M::Timer ? 120 : 1000000)); });
         }
     }
-    if (type == M::Switch || type == M::Cannon)
-        add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 458.0f : 190.0f, 150, [action] { action("configure"); });
+    if (type == M::Switch || type == M::Cannon || type == M::PowerBox)
+        add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 458.0f : type == M::PowerBox ? 420.0f : 190.0f, 150, [action] { action("configure"); });
     if (Workshop::RatedPower(type) > 0)
         add("cfg_power", "加工电源", 140, 458, 190, [this, action] { action("machine_running", !World().Cells()[mConfigMachine].manual); });
     if (type == M::Cannon) add("cfg_fire", "手动齐射", 798, 458, 150, [action] { action("fire_cannon"); });
@@ -135,14 +140,15 @@ void WorkshopScene::RefreshMachineConfig() {
             it->second->SetText(text, ResourceKeys::Fonts::FONT_FZCQ, 14); it->second->SetEnabled(enabled);
         }
     };
+    set("cfg_disconnect_power", "断开供电", c.powerSource != -1);
     set("cfg_disconnect_a", "断开 A", c.inputs[0] >= 0);
     set("cfg_disconnect_b", "断开 B", c.inputs[1] >= 0);
     set("cfg_upgrade", std::format("升级 Lv.{} · {} 阳光", c.level + 1, Workshop::UpgradeCost(Workshop::Describe(c.type).cost, c.level)),
         World().CanBuyUpgrade(Workshop::Describe(c.type).cost, c.level));
     const auto obsolete = World().ObsoleteCargo(mConfigMachine);
     set("cfg_cleanup", "清理旧料…", std::accumulate(obsolete.begin(), obsolete.end(), 0) > 0);
-    set("cfg_plan0", c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
-    set("cfg_plan1", c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
+    set("cfg_plan0", c.type == M::PowerBox ? "方案1：普通供电" : c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
+    set("cfg_plan1", c.type == M::PowerBox ? "方案2：优先供电" : c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
     for (int plan = 0; plan < 2; ++plan) {
         const bool sensor = c.type == M::StockSensor || c.type == M::EnemySensor;
         set("cfg_route" + std::to_string(plan), std::string(sensor ? "监视：第 " : "送往：第 ") + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
@@ -152,7 +158,7 @@ void WorkshopScene::RefreshMachineConfig() {
     }
     set("cfg_counter_mode", std::string("计数：") + std::array<const char*, 3>{"信号从关到开", "来源机器产出", "来源机器出库 / 发射"}[static_cast<int>(c.counterMode)]);
     set("cfg_counter_output", c.counterOutput == Workshop::CounterOutput::Hold ? "输出：达标后保持开启" : "输出：每批完成翻转开 / 关");
-    set("cfg_manual", c.type == M::Switch ? (c.manual ? "开关：开" : "开关：关") : (c.manual ? "自动：开" : "自动：待机"));
+    set("cfg_manual", (c.type == M::Switch || c.type == M::PowerBox) ? (c.manual ? "开关：开" : "开关：关") : (c.manual ? "自动：开" : "自动：待机"));
     set("cfg_power", c.manual ? "加工电源：开" : "加工电源：关");
     set("cfg_fire", "手动齐射", c.type == M::Cannon && World().State() == Workshop::Phase::Assault && c.volleyRemaining == 0 && c.clock >= Workshop::CannonChargeSeconds
         && c.Inventory(static_cast<Workshop::Ammo>(World().ActiveFilter(mConfigMachine))) >= Workshop::CannonVolleySize);
@@ -184,12 +190,22 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
             + (measuring ? "（读取数量）" : std::string(" ") + Workshop::SignalName(World().Cells()[source].signal)));
     };
     const bool circuits = World().Unlocked(M::Switch);
-    if (circuits) Label(connection(0), 140, 133, 14, SignalWireColor(0, false));
+    if (circuits && Workshop::HasSignalInput(type, 0)) Label(connection(0), 140, 133, 14, SignalWireColor(0, false));
     if (circuits && (Workshop::HasSelectionInput(type) || type == M::And || type == M::Or || type == M::Latch || type == M::Counter)) Label(connection(1), 415, 133, 14, SignalWireColor(1, false));
+    if (Workshop::RatedPower(type) > 0 || type == M::PowerBox) {
+        const auto source = c.powerSource;
+        Label(source == Workshop::MainPowerSource ? "供电来源：总站" : source < 0 ? (type == M::PowerBox ? "未接总站：点总站，再点本配电箱" : "未接电：按P先点配电箱，再点机器") : std::format("供电来源：配电箱 ({},{})", source / Workshop::MaxColumns + 1, source % Workshop::MaxColumns + 1), 325, 183, 15, kConfigGreen);
+    }
     if (type == M::Splitter) Label("当前方案 " + std::to_string(World().ActivePlan(mConfigMachine) + 1)
         + (!circuits ? " · 手动选择" : c.inputs[1] >= 0 ? " · B 关选1，开选2" : " · 未接 B，使用手动选择"), 530, 180, 15, kConfigGreen);
     if (type == M::Feeder || type == M::Cannon || type == M::Cooler) {
         DrawProfileCards(g);
+    } else if (type == M::PowerBox) {
+        const auto b = World().Distribution().branches[mConfigMachine];
+        Label(std::format("当前：{} · 需求 {:.1f} / 分到 {:.1f} · 本支路产速 {:.0f}%", b.priority ? "优先供电" : "普通供电", b.demand, b.allocated, b.speed * 100), 140, 325, 18, kConfigGreen);
+        Label("优先支路先分配，同级按需求比例分配；未用电力交给其他支路。", 140, 365, 15);
+        Label("不足时产速为供电比的平方，断电保留进度，成品仍能运出。", 140, 395, 15);
+        Label(circuits ? "A控制整组通断；B关闭选普通，开启选优先。" : "先练习手动切换方案；电路元件解锁后开放自动控制。", 140, 475, 15);
     } else if (type == M::Splitter) {
         Label(c.strictSplit ? "严格选路：只送选定出口，堵住时等待，不偷偷换路。" : "普通模式：无筛选时轮流/优先；有筛选时按弹种固定分路。", 140, 330, 17, kConfigGreen);
         Label(circuits ? "A 口可停止输出；B 口在严格模式下直接选择前方 / 右侧。" : "严格模式下，点击正前方 / 右侧即可选择出料口。", 140, 371, 16);
@@ -213,8 +229,8 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     }
     if (Workshop::RatedPower(type, c.level) > 0) {
         Label(std::format("用电 {:.1f} / 额定 {:.1f} · 待机 {:.0f}% · 加工速度 {:.0f}%", World().MachinePower(mConfigMachine),
-            Workshop::RatedPower(type, c.level), Workshop::StandbyPowerRatio * 100, World().Power().speed * 100), 350, 464, 14, kConfigGreen);
-        Label(circuits ? "手动开关与 A 口同时允许才运行；关机为 0 用电。" : "手动关闭闲置加工设备后，该机用电降为 0。", 140, 495, 13);
+            Workshop::RatedPower(type, c.level), Workshop::StandbyPowerRatio * 100, World().MachineSpeed(mConfigMachine) * 100), 350, 464, 14, kConfigGreen);
+        Label("自动调度请接配电箱；本机手动关闭后为0用电，保留进度和库存。", 140, 495, 13);
     }
     g->PushClipRect(125, 509, 846, 46);
     const auto warning = World().MaterialWarning(mConfigMachine);

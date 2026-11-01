@@ -25,7 +25,7 @@ int ProfileAt(Vector point) {
 void WorkshopScene::DrawProfileCards(Graphics* g) {
     const auto& c = World().Cells()[mConfigMachine]; const int active = World().ActivePlan(mConfigMachine);
     const auto mouse = GameAPP::GetInstance().GetInputHandler().GetMousePosition();
-    Text(!World().Unlocked(M::Switch) ? "点击整张方案卡即可启用，按所选路线与弹种配送。"
+    if (c.type != M::Cooler) Text(!World().Unlocked(M::Switch) ? "点击整张方案卡即可启用，按所选路线与弹种配送。"
         : c.inputs[1] >= 0 ? "自动切换：B 关闭选左边，开启选右边。" : "点击整张方案卡即可启用；接上 B 线后，也能让电路自动切换。", 140, 177, 16, kGreen);
     for (int plan = 0; plan < 2; ++plan) {
         const float x = 125 + plan * 430.0f;
@@ -47,12 +47,12 @@ void WorkshopScene::DrawProfileCards(Graphics* g) {
         } else {
             const int filter = plan ? c.filter2 : c.filter, route = plan ? c.route2 : c.route;
             if (filter >= 0) DrawItemIcon(g, static_cast<Workshop::Ammo>(filter), x + 22, 268, 35);
-            else for (int a = 0; a < Workshop::AmmoCount; ++a) DrawItemIcon(g, static_cast<Workshop::Ammo>(a), x + 12 + a * 14, 273, 18);
+            else for (int a = 0; a < Workshop::AmmoCount; ++a) if (World().ItemUnlocked(a)) DrawItemIcon(g, static_cast<Workshop::Ammo>(a), x + 12 + a * 14, 273, 18);
             Text("→", x + 88, 274, 22, kGreen);
             DrawUtilityIcon(g, "magazine", x + 129, 265, 34);
             Text(std::format("第 {} 路{}", route + 1, c.type == M::Cannon ? "炮击目标" : "公共弹仓"), x + 180, 273, 21, kGreen);
             if (c.type == M::Feeder) {
-                const char* consumers[]{"豌豆射手", "寒冰射手", "精英胆小菇", "西瓜投手", "冰瓜"};
+                const char* consumers[]{"豌豆射手", "寒冰射手", "精英胆小菇", "西瓜投手", "冰瓜", "冰仓坚果修复"};
                 Text(filter < 0 ? "混合配送；各植物只取自己需要的弹药。" : std::string("供给：") + consumers[filter] + "（不会改变植物弹种）", x + 18, 361, 13);
             } else Text(std::format("库存 {} / {} · 一轮消耗 3 颗", c.Inventory(static_cast<Workshop::Ammo>(filter)), Workshop::CannonBufferPerAmmo), x + 18, 361, 14);
         }
@@ -90,7 +90,9 @@ void WorkshopScene::UpdateMaterialWarnings() {
 void WorkshopScene::DrawUtilityIcon(Graphics* g, const std::string& action, float x, float y, float size) {
     g->PushTransform(); g->Translate(x, y); g->Scale(size / 24, size / 24);
     auto line = [&](float a, float b, float c, float d) { for (int k = 0; k < 2; ++k) g->DrawLine(a, b + k, c, d + k, kGold); };
-    if (action == "remove_tool" || action == "front_remove") {
+    if (action == "power") {
+        line(15, 1, 5, 13); line(5, 13, 13, 13); line(13, 13, 8, 23); line(8, 23, 21, 9); line(21, 9, 13, 9); line(13, 9, 15, 1);
+    } else if (action == "remove_tool" || action == "front_remove") {
         auto* texture = ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_SHOVEL, false);
         if (texture) { const float scale = 23.0f / std::max(texture->width, texture->height); g->DrawTexture(texture, (24-texture->width*scale)/2, 0, texture->width*scale, texture->height*scale); }
     } else if (action == "pause") {

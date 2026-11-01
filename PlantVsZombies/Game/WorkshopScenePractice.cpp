@@ -38,9 +38,9 @@ void WorkshopScene::OpenPractice(int lesson) {
     button("close", "跳过 / 返回", 912, 37, 120, [this] { ClosePractice(); });
     for (int i = 0; i < 4; ++i) if (World().CompletedWaves() >= Workshop::Practice::UnlockWave(i))
         button("lesson_" + std::to_string(i), Workshop::Practice::Name(i), 72 + i * 242.0f, 88, 232, [this, i] { OpenPractice(i); });
-    const std::array<std::string, 6> tools{"inspect", "belt", "feeder", "wire_a", "wire_b", "disconnect"};
-    const std::array<const char*, 6> names{"查看", "运输带", "装填口", "接 A口", "接 B口", "断开输入"};
-    for (int i = 0; i < 6; ++i) button(tools[i], names[i], 72 + i * 98.0f, 182, 92, [this, key = tools[i]] { PracticeAction(key); });
+    const std::array<std::string, 8> tools{"inspect", "station", "wire_power", "belt", "feeder", "wire_a", "wire_b", "disconnect"};
+    const std::array<const char*, 8> names{"查看", "总站", "接电", "运输带", "装填口", "接 A口", "接 B口", "断开输入"};
+    for (int i = 0; i < 8; ++i) button(tools[i], names[i], 72 + i * 82.0f, 182, 76, [this, key = tools[i]] { PracticeAction(key); });
     button("run", "运行练习", 754, 182, 130, [this] { PracticeAction("run"); });
     button("tick", "推进1秒", 896, 182, 136, [this] { PracticeAction("tick"); });
     for (int row = 0; row < 3; ++row) for (int col = 0; col < 8; ++col) {
@@ -54,6 +54,7 @@ void WorkshopScene::OpenPractice(int lesson) {
     button("setting_minus", "门槛 -1", 857, 315, 82, [this] { PracticeAction("setting", -1); });
     button("setting_plus", "门槛 +1", 951, 315, 81, [this] { PracticeAction("setting", 1); });
     button("power", "加工电源", 675, 358, 170, [this] { PracticeAction("power"); });
+    button("priority", "供电优先级", 857, 358, 175, [this] { PracticeAction("priority"); });
     button("enemy_minus", "僵尸 -1", 857, 405, 82, [this] { if (mPractice) PracticeAction("enemy", mPractice->EnemyCount() - 1); });
     button("enemy_plus", "僵尸 +1", 951, 405, 81, [this] { if (mPractice) PracticeAction("enemy", mPractice->EnemyCount() + 1); });
     button("stock_empty", "设为0颗", 857, 405, 82, [this] { PracticeAction("stock", 0); });
@@ -100,7 +101,7 @@ void WorkshopScene::RefreshPractice() {
     if (!mPractice || !mPracticeDialog) return;
     if (mPractice->Complete()) mPracticeFinished[mPractice->Lesson()] = true;
     auto set = [&](const std::string& key, const std::string& text, bool enabled = true) {
-        auto& control = mPracticeControls.at("practice_" + key); control->SetText(text); control->SetEnabled(enabled);
+        auto& control = mPracticeControls.at("practice_" + key); control->SetText(text, ResourceKeys::Fonts::FONT_FZCQ, 14); control->SetEnabled(enabled);
     };
     const int lesson = mPractice->Lesson(), selected = mPractice->Selected();
     const Workshop::Cell* c = selected >= 0 ? &mPractice->Model().Cells()[selected] : nullptr;
@@ -117,7 +118,8 @@ void WorkshopScene::RefreshPractice() {
     set("filter", c ? std::string("检测：") + Workshop::AmmoName(c->filter) : "弹种筛选", lesson == 3 && c && c->type == Workshop::Machine::StockSensor);
     const bool setting = c && c->type == Workshop::Machine::StockSensor;
     set("setting_minus", "门槛 -1", setting && c->setting > 1); set("setting_plus", "门槛 +1", setting && c->setting < 10);
-    set("power", c ? std::string("手动电源：") + (c->manual ? "开" : "关") : "手动电源", c && Workshop::RatedPower(c->type, c->level) > 0);
+    set("power", c ? std::string("手动电源：") + (c->manual ? "开" : "关") : "手动电源", c && (Workshop::RatedPower(c->type, c->level) > 0 || c->type == Workshop::Machine::PowerBox));
+    set("priority", c && c->plan == 1 ? "方案：优先供电" : "方案：普通供电", c && c->type == Workshop::Machine::PowerBox && c->inputs[1] < 0);
     set("enemy_minus", "僵尸 -1", lesson == 2 && mPractice->EnemyCount() > 0); set("enemy_plus", "僵尸 +1", lesson == 2 && mPractice->EnemyCount() < 6);
     set("stock_empty", "设为0颗", lesson == 3); set("stock_full", "设为5颗", lesson == 3);
     set("run", mPractice->Running() ? "暂停练习" : "运行练习");
@@ -136,8 +138,7 @@ void WorkshopScene::DrawPractice(Graphics* g) {
     if (mPractice->SelectedTool() == Workshop::Practice::Tool::WireA || mPractice->SelectedTool() == Workshop::Practice::Tool::WireB)
         Text(mPractice->Source() < 0 ? "接线：先点信号来源" : "接线：来源已选好，现在点目标机器", 72, 162, 13, kPracticeGreen);
     else Text(lesson >= 2 ? "蓝色实线 A · 橙色虚线 B · 亮线是开（高），暗线是关（低）"
-        : lesson == 0 ? "相邻设备沿箭头送货 · 装填口决定送哪路 · 五路都需供弹"
-        : "关闭闲置加工设备，释放电力，让其他机器恢复速度", 72, 162, 13);
+        : "黄色供电线：总站→配电箱→机器 · 物流不耗电", 72, 162, 13);
     for (int row = 0; row < 3; ++row) for (int col = 0; col < 8; ++col) {
         const int index = row * Workshop::MaxColumns + col; const auto center = Center(index);
         const auto& cell = model.Cells()[index];
@@ -149,6 +150,12 @@ void WorkshopScene::DrawPractice(Graphics* g) {
         }
         if (index == mPractice->Selected() || index == mPractice->HighlightCell() || index == mPractice->Source())
             for (int edge = 0; edge < 3; ++edge) g->DrawRect(center.x - 35 + edge, center.y - 35 + edge, 68 - edge * 2, 68 - edge * 2, index == mPractice->HighlightCell() ? kPracticeGold : glm::vec4(75, 206, 225, 255));
+    }
+    for (int i = 0; i < 3 * Workshop::MaxColumns; ++i) if (i % Workshop::MaxColumns < 8 && model.Cells()[i].powerSource != -1) {
+        const int source = model.Cells()[i].powerSource;
+        const auto from = source == Workshop::MainPowerSource ? mPracticeControls.at("practice_station")->GetCenter() : Center(source);
+        const auto to = Center(i);
+        for (int d = 0; d < 2; ++d) g->DrawLine(from.x, from.y + 24 + d, to.x, to.y + 24 + d, kPracticeGold);
     }
     for (int i = 0; i < 3 * Workshop::MaxColumns; ++i) if (i % Workshop::MaxColumns < 8) {
         const auto& c = model.Cells()[i];
@@ -168,14 +175,20 @@ void WorkshopScene::DrawPractice(Graphics* g) {
             Text(std::format("当前方案{} → 第{}路", model.ActivePlan(selected) + 1, model.ActiveRoute(selected) + 1), 675, 365, 16, kPracticeGreen);
         }
         if (Workshop::RatedPower(c.type, c.level) > 0) {
-            Text(lesson < 2 ? "使用手动电源控制加工" : c.inputs[0] < 0 ? "A 未接线，默认允许运行" : std::string("A 启停信号：") + Workshop::SignalName(model.Cells()[c.inputs[0]].signal), 675, 280, 16);
-            Text(std::string("实际状态：") + (model.Enabled(selected) ? "允许运行" : "已停机 · 不耗电"), 675, 322, 16, kPracticeGreen);
+            Text(c.powerSource < 0 ? "未接配电箱" : "已接配电箱，自动启停由箱控制", 675, 280, 15);
+            Text(std::format("本机实际产速 {:.0f}%", model.MachineSpeed(selected) * 100), 675, 322, 16, kPracticeGreen);
+        }
+        if (c.type == Workshop::Machine::PowerBox) {
+            const auto b = model.Distribution().branches[selected];
+            Text(b.connected ? "已接总站" : "未接总站", 675, 280, 16);
+            Text(std::format("需求{:.1f} / 分到{:.1f} · {:.0f}%", b.demand, b.allocated, b.speed * 100), 675, 321, 15, kPracticeGreen);
+            if (c.inputs[1] >= 0) Text(b.priority ? "B控制：优先供电" : "B控制：普通供电", 857, 368, 15, kPracticeGreen);
         }
     } else Text("点亮框里的机器或空格", 675, 239, 18, kPracticeGreen);
     if (lesson == 2) Text(std::format("第3路僵尸：{}只", mPractice->EnemyCount()), 675, 413, 17);
     if (lesson == 3) Text(std::format("第3路库存：{}颗", model.Lanes()[2].ammo), 675, 413, 17);
     const auto power = model.Power();
-    Text(std::format("电力 {:.1f}/{:.0f} · 加工 {:.0f}%", power.demand, power.capacity, power.speed * 100), 675, 458, 17, power.speed < .99f ? glm::vec4(177, 62, 28, 255) : kPracticeGreen);
+    Text(std::format("电力 {:.1f}/{:.0f} · 平均 {:.0f}%", power.demand, power.capacity, power.speed * 100), 675, 458, 17, power.speed < .99f ? glm::vec4(177, 62, 28, 255) : kPracticeGreen);
     Text(std::format("弹仓：第2路 {}颗 · 第3路 {}颗", model.Lanes()[1].ammo, model.Lanes()[2].ammo), 675, 488, 15);
     g->PushClipRect(72, 464, 576, 58);
     // 课程提示按中文字符分行；主指令始终独占顶部一行。
@@ -191,14 +204,15 @@ void WorkshopScene::DrawPractice(Graphics* g) {
     g->PushClipRect(72, 529, 596, 34); Text(mPractice->Notice(), 72, 537, 14, kPracticeGreen); g->PopClipRect();
     const std::string highlighted = "practice_" + mPractice->HighlightControl();
     for (const auto& [key, control] : mPracticeControls) {
-        if (key.starts_with("practice_cell_")) continue;
+        if (key.starts_with("practice_cell_") || !control->IsEnabled()) continue;
         const auto type = selected < 0 ? Workshop::Machine::Empty : model.Cells()[selected].type;
         if ((key == "practice_belt" || key == "practice_feeder") && lesson != 0) continue;
         if ((key == "practice_wire_a" || key == "practice_wire_b" || key == "practice_disconnect") && lesson < 2) continue;
         if (key == "practice_route" && type != Workshop::Machine::Feeder && type != Workshop::Machine::EnemySensor && type != Workshop::Machine::StockSensor) continue;
         if (key == "practice_route2" && (lesson != 2 || type != Workshop::Machine::Feeder)) continue;
         if ((key == "practice_filter" || key == "practice_setting_minus" || key == "practice_setting_plus") && (lesson != 3 || type != Workshop::Machine::StockSensor)) continue;
-        if (key == "practice_power" && (selected < 0 || Workshop::RatedPower(model.Cells()[selected].type, model.Cells()[selected].level) == 0)) continue;
+        if (key == "practice_power" && (selected < 0 || (Workshop::RatedPower(model.Cells()[selected].type, model.Cells()[selected].level) == 0 && type != Workshop::Machine::PowerBox))) continue;
+        if (key == "practice_priority" && type != Workshop::Machine::PowerBox) continue;
         if ((key == "practice_stock_empty" || key == "practice_stock_full") && lesson != 3) continue;
         if ((key == "practice_enemy_minus" || key == "practice_enemy_plus") && lesson != 2) continue;
         control->Draw(g);

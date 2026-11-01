@@ -8,10 +8,14 @@ namespace Workshop {
 const char* SignalName(bool signal) { return signal ? "开（高）" : "关（低）"; }
 std::string PortLabel(const Cell& cell, int port) {
     if (port == 1) {
+        if (cell.type == Machine::Cooler) return "B 配方";
+        if (cell.type == Machine::PowerBox) return "B 优先级";
         if (HasSelectionInput(cell.type)) return "B 方案";
         if (cell.type == Machine::Counter || cell.type == Machine::Latch) return "B 清零";
         return "B 条件";
     }
+    if (cell.type == Machine::PowerBox) return "A 支路通断";
+    if (RatedPower(cell.type) > 0) return "无 A 口";
     if (cell.type == Machine::StockSensor) return "A 看库存";
     if (cell.type == Machine::EnemySensor || cell.type == Machine::Switch) return "A 未使用";
     if (cell.type == Machine::Counter) return cell.counterMode == CounterMode::Signal ? "A 信号" : "A 计量";
@@ -72,7 +76,17 @@ std::vector<std::string> World::Explain(int index) const {
         if (c.type == Machine::Feeder) result.push_back(std::format("当前送第{}路的{}弹药；不会因另一方案缺弹而自行切换。", ActiveRoute(index) + 1, AmmoName(ActiveFilter(index))));
     }
     if (RatedPower(c.type, c.level) > 0) result.push_back(std::format("加工电源{}，本机需求{:.1f}电力。", c.manual ? "开" : "关", MachinePower(index))
-        + (circuits ? "手动开关与 A口同时允许才运行。" : "手动关闭后不消耗电力。"));
+        + "自动启停请控制所接配电箱；本机手动关闭为0用电。");
+    if (RatedPower(c.type) > 0) {
+        result.push_back(c.powerSource < 0 ? "未接配电箱：按P，先点配电箱再点本机。"
+            : std::format("连接配电箱({},{})；实际加工速度{:.0f}%。", c.powerSource / MaxColumns + 1, c.powerSource % MaxColumns + 1, MachineSpeed(index) * 100));
+    }
+    if (c.type == Machine::PowerBox) {
+        const auto b = Distribution().branches[index];
+        result.push_back(b.connected ? "总站已接入。" : "未接总站：点总站按钮，再点本配电箱。");
+        result.push_back(std::format("{}支路：需求{:.1f}，分到{:.1f}，加工速度{:.0f}%。", b.priority ? "优先" : "普通", b.demand, b.allocated, b.speed * 100));
+        result.push_back("优先层先分配，同层按需求比例分配；产速为供电比的平方。");
+    }
     if (const auto warning = MaterialWarning(index); !warning.empty()) result.push_back(warning);
     if (c.type == Machine::Feeder) {
         const auto& lane = mLanes[ActiveRoute(index)];
@@ -103,14 +117,15 @@ std::string World::MaterialWarning(int i) const {
     if (!Valid(i)) return {};
     const auto& c = mCells[i];
     if (c.type != Machine::Cooler && c.type != Machine::Feeder && c.type != Machine::Store
-        && c.type != Machine::Cannon && c.type != Machine::Recycler) return {};
+        && c.type != Machine::Cannon && c.type != Machine::Recycler && c.type != Machine::RepairAssembler) return {};
     const int expected = c.type == Machine::Cooler ? static_cast<int>(ActivePlan(i) ? Ammo::Melon : Ammo::Pea)
-        : c.type == Machine::Recycler ? static_cast<int>(Ammo::Scrap) : ActiveFilter(i);
+        : (c.type == Machine::Recycler || c.type == Machine::RepairAssembler) ? static_cast<int>(Ammo::Scrap) : ActiveFilter(i);
     auto name = [](int item) -> std::string { return item == 0 ? "普通豌豆" : item == 1 ? "寒冰豌豆" : AmmoName(item); };
     // 已缓存的成品不是来料；冷凝时只对比两种原料。B 接管后的备料属于正常调度。
     if (expected >= 0 && c.inputs[1] < 0 && c.Inventory(static_cast<Ammo>(expected)) == 0) {
         for (int a = 0; a < ItemCount; ++a) {
             if (a == expected || c.Inventory(static_cast<Ammo>(a)) == 0) continue;
+            if (c.type == Machine::RepairAssembler && a == static_cast<int>(Ammo::RepairKit)) continue;
             if (c.type == Machine::Cooler && a != 0 && a != static_cast<int>(Ammo::Melon)) continue;
             if (c.type == Machine::Cannon) continue;
             return "库存待切换：现有" + name(a) + "，当前方案使用" + name(expected);
@@ -127,6 +142,7 @@ std::string World::MaterialWarning(int i) const {
             for (int a = 0; a < ItemCount; ++a) {
                 const auto item = static_cast<Ammo>(a);
                 if (upstream.Inventory(item) == 0) continue;
+                if (upstream.type == Machine::RepairAssembler && item != Ammo::RepairKit) continue;
                 if (upstream.type == Machine::Cooler && item != Ammo::Ice && item != Ammo::IceMelon) continue;
                 if (upstream.type == Machine::Splitter && !upstream.strictSplit && upstream.filter >= 0
                     && (upstream.filter == a) != (port == 1)) continue;

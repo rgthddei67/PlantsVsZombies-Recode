@@ -75,13 +75,16 @@ bool IceStorageNut::IsReadyToActivate() const
 
 bool IceStorageNut::CanAffordActivation() const
 {
-	return mBoard && (mBoard->IsWorkshop() ? mBoard->GetWorkshop().Energy() >= kRepairSun : mBoard->IsColdStorage()
+	return mBoard && (mBoard->IsWorkshop() ? mBoard->GetWorkshop().CanRepair(mRow, kRepairSun) : mBoard->IsColdStorage()
 		? mBoard->mColdStorage.playerIce >= mBoard->GetPlantAbilityIceCost(kRepairIce) : mBoard->GetSun() >= kRepairSun);
 }
 
 bool IceStorageNut::TryActivate()
 {
-	if (!IsReadyToActivate() || !mBoard->TrySpendPlantAbilityResource(kRepairIce, kRepairSun)) return false;
+	if (!IsReadyToActivate()) return false;
+    const bool paid = mBoard->IsWorkshop() ? mBoard->GetWorkshop().SpendRepair(mRow, kRepairSun)
+        : mBoard->TrySpendPlantAbilityResource(kRepairIce, kRepairSun);
+    if (!paid) return false;
 	mPlantHealth = std::min(mPlantMaxHealth, mPlantHealth + kRepairHealth);
 	mCooldownRemaining = kRepairCooldown;
 	UpdateTexture(false);
@@ -94,7 +97,7 @@ std::string IceStorageNut::GetManualAbilityDescription() const
 {
 	return mBoard && mBoard->IsColdStorage()
 		? "每次" + std::to_string(mBoard->GetPlantAbilityIceCost(kRepairIce)) + "冰块 · 恢复1000生命"
-		: "每次" + std::to_string(kRepairSun) + "阳光 · 恢复1000生命";
+		: "每次" + std::to_string(kRepairSun) + (mBoard && mBoard->IsWorkshop() ? "阳光＋本路1维修包 · 恢复1000生命" : "阳光 · 恢复1000生命");
 }
 
 bool IceStorageNut::TakeCrushImpact()

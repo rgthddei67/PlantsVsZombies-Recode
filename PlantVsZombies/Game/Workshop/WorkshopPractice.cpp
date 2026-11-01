@@ -11,10 +11,10 @@ constexpr float kPracticeStepSeconds = 1.0f / 60; // 独立模拟步长，单位
 }
 Practice::Practice() { Reset(0); }
 const char* Practice::Name(int lesson) {
-    constexpr std::array<const char*, 4> names{"给第3路补弹", "关机释放电力", "有敌时切换路线", "够用停机，缺弹再开"};
+    constexpr std::array<const char*, 4> names{"接电并给第3路补弹", "优先供电与断电", "有敌时优先供电", "够用停机，缺弹再开"};
     return names.at(lesson);
 }
-int Practice::StepCount() const { return std::array<int, 4>{4, 3, 5, 7}[mLesson]; }
+int Practice::StepCount() const { return std::array<int, 4>{6, 5, 4, 7}[mLesson]; }
 int Practice::UnlockWave(int lesson) {
     if (lesson == 2) return Describe(Machine::EnemySensor).unlockWave;
     if (lesson == 3) return std::max(Describe(Machine::StockSensor).unlockWave, Describe(Machine::Not).unlockWave);
@@ -30,14 +30,19 @@ void Practice::Reset(int lesson) {
     std::string error;
     if (!mWorld.Load(setup, error)) throw std::logic_error("Invalid workshop practice fixture: " + error);
     mWorld.Build(Grower, Machine::Grower, 0);
+    if (mLesson == 0) mWorld.ConnectPower(-1, PowerBox);
+    else mWorld.ConnectPower(PowerBox, Grower);
     if (mLesson != 0) {
         mWorld.Build(Conveyor, Machine::Belt, 0); mWorld.Build(Feeder, Machine::Feeder, 0);
         mWorld.SetRoute(Feeder, kPracticeRoute);
     }
-    if (mLesson == 1) for (int i = 1; i <= 6; ++i) mWorld.Build(i, Machine::Grower, 1);
+    if (mLesson == 1 || mLesson == 2) {
+        mWorld.Build(BackgroundBox, Machine::PowerBox, 0); mWorld.ConnectPower(MainPowerSource, BackgroundBox);
+        for (int i : {0, 1, 2, 3, 4, 6}) { mWorld.Build(i, Machine::Grower, 1); mWorld.ConnectPower(BackgroundBox, i); }
+    }
     if (mLesson == 2) {
         mWorld.Build(Sensor, Machine::EnemySensor, 0);
-        mWorld.SetRoute(Feeder, 1, 0); mWorld.SetRoute(Feeder, 1, 1);
+
     }
     if (mLesson == 3) { mWorld.Build(Sensor, Machine::StockSensor, 0); mWorld.Build(Inverter, Machine::Not, 0); }
     mWorld.StartAssault(); // 没有真实战斗对象，开波仅允许独立产线和电路推进。
@@ -46,6 +51,14 @@ void Practice::Reset(int lesson) {
 bool Practice::ClickCell(int index) {
     if (index < 0 || index / MaxColumns >= 3 || index % MaxColumns >= 8) return false;
     const auto type = mWorld.Cells()[index].type;
+    if (mTool == Tool::Power) {
+        if (type == Machine::PowerBox) {
+            if (mSource == MainPowerSource && !mWorld.ConnectPower(mSource, index)) return false;
+            mSource = mSelected = index; return true;
+        }
+        if (mSource < 0 || !mWorld.ConnectPower(mSource, index)) { mNotice = "先从总站接配电箱，再由配电箱接生产机。"; return false; }
+        mSelected = index; return true;
+    }
     if (mTool == Tool::WireA || mTool == Tool::WireB) {
         if (type == Machine::Empty) { mNotice = "接线先点来源机器，再点目标机器；空格不是端口。"; return false; }
         if (mSource < 0) { mSource = index; mNotice = "来源已选好，现在点接收信号的目标机器。"; return true; }
@@ -75,6 +88,8 @@ bool Practice::SetStock(int amount) {
 
 bool Practice::Act(const std::string& action, int value) {
     mNotice.clear(); bool ok = false;
+    if (action == "station") { mTool = Tool::Power; mSource = MainPowerSource; return true; }
+    if (action == "wire_power") { mTool = Tool::Power; mSource = -1; return true; }
     if (action == "inspect") { mTool = Tool::Inspect; mSource = -1; return true; }
     if (action == "belt" || action == "feeder") {
         if (mLesson != 0) return false;
@@ -94,6 +109,7 @@ bool Practice::Act(const std::string& action, int value) {
         else if (action == "route2") ok = mWorld.SetRoute(mSelected, (c.route2 + 1) % Rows, 1);
         else if (action == "filter") ok = mWorld.SetFilter(mSelected, c.filter == -1 ? 0 : -1);
         else if (action == "setting") ok = mWorld.SetSetting(mSelected, std::clamp(c.setting + value, 1, 10));
+        else if (action == "priority") ok = mWorld.SetPlan(mSelected, 1 - c.plan);
         else if (action == "power") ok = mWorld.SetMachineRunning(mSelected, !c.manual);
         else if (action == "disconnect") { ok = mWorld.Connect(-1, mSelected, 0); mWorld.Connect(-1, mSelected, 1); }
     }
@@ -106,32 +122,35 @@ void Practice::CheckStep(bool simulated) {
     if (Complete()) return;
     const auto& cells = mWorld.Cells(); bool done = false;
     if (mLesson == 0) {
-        if (mStep == 0) done = cells[Conveyor].type == Machine::Belt;
-        if (mStep == 1) done = cells[Feeder].type == Machine::Feeder;
-        if (mStep == 2) done = cells[Feeder].route == kPracticeRoute;
-        if (mStep == 3) done = mWorld.Lanes()[kPracticeRoute].ammo > 0;
+        if (mStep == 0) done = cells[PowerBox].powerSource == MainPowerSource;
+        if (mStep == 1) done = cells[Grower].powerSource == PowerBox;
+        if (mStep == 2) done = cells[Conveyor].type == Machine::Belt;
+        if (mStep == 3) done = cells[Feeder].type == Machine::Feeder;
+        if (mStep == 4) done = cells[Feeder].route == kPracticeRoute;
+        if (mStep == 5) done = mWorld.Lanes()[kPracticeRoute].ammo > 0;
     } else if (mLesson == 1) {
-        if (mStep == 0) done = mLessonTime >= .2f && mWorld.Power().speed < .99f;
-        if (mStep == 1) { done = !cells[3].manual; if (done) mPowerClock = cells[Grower].clock; }
-        if (mStep == 2) done = mWorld.MachinePower(3) == 0 && mWorld.Power().speed == 1 && cells[Grower].clock > mPowerClock;
+        if (mStep == 0) done = mLessonTime >= .2f && mWorld.MachineSpeed(Grower) < .99f;
+        if (mStep == 1) done = mWorld.ActivePlan(PowerBox) == 1;
+        if (mStep == 2) done = mWorld.MachineSpeed(Grower) == 1 && mWorld.MachineSpeed(1) < .99f;
+        if (mStep == 3) { done = !cells[BackgroundBox].manual; if (done) mPowerClock = cells[Grower].clock; }
+        if (mStep == 4) done = mWorld.MachinePower(1) == 0 && mWorld.Power().speed == 1 && cells[Grower].clock > mPowerClock;
     } else if (mLesson == 2) {
         if (mStep == 0) done = cells[Sensor].route == kPracticeRoute;
-        if (mStep == 1) done = cells[Feeder].route2 == kPracticeRoute;
-        if (mStep == 2) done = cells[Feeder].inputs[1] == Sensor && cells[Feeder].inputs[0] == -1;
-        if (mStep == 3) done = mEnemies[kPracticeRoute] > 0 && mWorld.ActiveRoute(Feeder) == kPracticeRoute && mWorld.Lanes()[kPracticeRoute].ammo > 0;
-        if (mStep == 4) done = mEnemies[kPracticeRoute] == 0 && mWorld.ActiveRoute(Feeder) == 1 && mWorld.Lanes()[1].ammo > 0;
+        if (mStep == 1) done = cells[PowerBox].inputs[1] == Sensor && cells[PowerBox].inputs[0] == -1;
+        if (mStep == 2) done = mEnemies[kPracticeRoute] > 0 && mWorld.ActivePlan(PowerBox) == 1 && mWorld.MachineSpeed(Grower) == 1;
+        if (mStep == 3) done = mEnemies[kPracticeRoute] == 0 && mWorld.ActivePlan(PowerBox) == 0 && mWorld.MachineSpeed(Grower) < .99f;
     } else {
         if (mStep == 0) done = cells[Sensor].route == kPracticeRoute;
         if (mStep == 1) done = cells[Sensor].filter == 0;
         if (mStep == 2) done = cells[Sensor].setting == kPracticeStockGoal;
         if (mStep == 3) done = cells[Inverter].inputs[0] == Sensor;
-        if (mStep == 4) done = cells[Grower].inputs[0] == Inverter;
+        if (mStep == 4) done = cells[PowerBox].inputs[0] == Inverter;
         if (mStep == 5) done = mWorld.Lanes()[kPracticeRoute].ammo >= kPracticeStockGoal && cells[Sensor].signal && !cells[Inverter].signal
-            && !mWorld.Enabled(Grower) && mWorld.MachinePower(Grower) == 0;
-        if (mStep == 6) done = mLowStockSet && mWorld.Enabled(Grower) && mWorld.Produced() > mProducedBeforeLow;
+            && !mWorld.Enabled(PowerBox) && mWorld.MachinePower(Grower) == 0;
+        if (mStep == 6) done = mLowStockSet && mWorld.Enabled(PowerBox) && mWorld.Produced() > mProducedBeforeLow;
     }
-    const bool verification = (mLesson == 0 && mStep == 3) || (mLesson == 1 && mStep != 1)
-        || (mLesson == 2 && mStep >= 3) || (mLesson == 3 && mStep >= 5);
+    const bool verification = (mLesson == 0 && mStep == 5) || (mLesson == 1 && mStep % 2 == 0)
+        || (mLesson == 2 && mStep >= 2) || (mLesson == 3 && mStep >= 5);
     if (done && (!verification || simulated)) { ++mStep; mRunning = false; mSource = -1; mTool = Tool::Inspect; mNotice = Complete() ? "练习完成！可以改条件继续试，也可以重玩。" : "这一步完成，练习已暂停。按下一步提示继续。"; }
 }
 
@@ -149,38 +168,38 @@ void Practice::Advance(float seconds) {
 
 std::string Practice::Instruction() const {
     if (Complete()) return mLesson == 0 ? "本路已送通！正式开波前，也要给其余四路安排供弹。"
-        : mLesson == 1 ? "已完成。试着开关其他机器，观察全厂加工速度。"
+        : mLesson == 1 ? "已完成。试着开关配电箱，观察各支路加工速度。"
         : "已完成。试着改变条件，观察电力、信号和弹药去向。";
     static const std::array<std::vector<const char*>, 4> text{{
-        {"点运输带卡片，再点育豆机右边的亮格。", "点装填口卡片，再点运输带右边的亮格。", "点选装填口，把目标路线改成第3路。", "点运行练习，看豌豆走进第3路弹仓。"},
-        {"点运行练习，先看电网过载让加工速度下降。", "点选亮框里的育豆机，关闭它的加工电源。", "再运行练习，确认停机释放电力，其他机器恢复全速。"},
-        {"点选敌情器，把监视路线改成第3路。", "点选装填口，把方案2的目标改成第3路。", "选接 B口，先点敌情器，再点装填口。", "增加第3路僵尸数量，再运行，观察弹药转送第3路。", "把第3路僵尸数量减到0，再运行，看弹药回到第2路。"},
-        {"点选库存器，把检测路线改成第3路。", "把库存器的弹种改成普通豌豆。", "把库存器门槛减到5颗。", "选接 A口，先点库存器，再点非门。", "再选接 A口，先点非门，再点育豆机。", "把第3路库存设成5颗，再运行，看工厂自动断电。", "把库存设成0颗，再运行，看工厂自动开机生产。"}
+        {"点总站，再点左下亮框里的配电箱。", "点接电，再点配电箱和育豆机。", "点运输带卡片，再点育豆机右边的亮格。", "点装填口卡片，再点运输带右边的亮格。", "点选装填口，把目标路线改成第3路。", "点运行练习，看豌豆走进第3路弹仓。"},
+        {"点运行练习，看同级支路缺电时同比减速。", "点左下配电箱，把它改成优先供电。", "推进1秒，确认这条支路全速，其他支路减速。", "点旁边的配电箱，关闭这组背景负载。", "再推进1秒，确认剩余产线恢复全速。"},
+        {"点选敌情器，把监视路线改成第3路。", "选接 B口，先点敌情器，再点左下配电箱。", "增加第3路僵尸，再运行，观察本支路优先拿电。", "把僵尸减到0，再运行，看本支路恢复普通供电。"},
+        {"点选库存器，把检测路线改成第3路。", "把库存器的物料改成普通豌豆。", "把库存器门槛减到5颗。", "选接 A口，先点库存器，再点非门。", "再选接 A口，先点非门，再点左下配电箱。", "把第3路库存设成5颗，再运行，看整条支路断电。", "把库存设成0颗，再运行，看支路重新开机生产。"}
     }};
     return text[mLesson][mStep];
 }
 std::string Practice::Hint() const {
-    if (mLesson == 0) return "装填口决定送哪路，工厂行号不决定路线。正式基地五路都会来敌，开波前逐路检查供弹。";
-    if (mLesson == 1) return "本例7台育豆机需求14，电网容量12。关掉一台，释放2电力。";
-    if (mLesson == 2 && mWorld.Cells()[Feeder].inputs[0] >= 0) return "您接到了装填口 A启停。点选装填口断开输入，再改接 B方案。";
-    if (mLesson == 2) return "高信号=开：B选方案2；低信号=关：B选方案1。A控制送不送，B控制送哪路。";
-    return "库存器：够5颗就开；非门把它反过来。A收到关信号，育豆机停机。";
+    if (mLesson == 0) return "黄色是供电线，运输带搬物料。配电箱必须接总站，机器必须接箱；装填口不耗电。正式基地五路都要供弹。";
+    if (mLesson == 1) return "左箱只供育豆主线，右箱供6台背景机器。优先箱先拿电；同级同比分配，产速为供电比的平方。";
+    if (mLesson == 2 && mWorld.Cells()[PowerBox].inputs[0] >= 0) return "您接到了配电箱A通断口；断开输入，改接B优先级口。";
+    if (mLesson == 2) return "B开（高）选优先，B关（低）选普通；A控制整组通断。信号线不会搬运电力或弹药。";
+    return "库存器够5颗就开，非门反转后让配电箱A关闭。缺弹时重新供电，机器不用再接A线。";
 }
 int Practice::HighlightCell() const {
     if (Complete()) return -1;
-    if (mLesson == 0) return mStep == 0 ? Conveyor : mStep <= 2 ? Feeder : -1;
-    if (mLesson == 1) return mStep == 1 ? 3 : -1;
-    if (mLesson == 2) return mStep == 0 ? Sensor : mStep == 1 ? Feeder : mStep == 2 ? (mSource < 0 ? Sensor : Feeder) : -1;
+    if (mLesson == 0) return mStep == 0 ? PowerBox : mStep == 1 ? (mSource < 0 ? PowerBox : Grower) : mStep == 2 ? Conveyor : mStep <= 4 ? Feeder : -1;
+    if (mLesson == 1) return mStep == 1 ? PowerBox : mStep == 3 ? BackgroundBox : -1;
+    if (mLesson == 2) return mStep == 0 ? Sensor : mStep == 1 ? (mSource < 0 ? Sensor : PowerBox) : -1;
     if (mStep < 3) return Sensor;
     if (mStep == 3) return mSource < 0 ? Sensor : Inverter;
-    if (mStep == 4) return mSource < 0 ? Inverter : Grower;
+    if (mStep == 4) return mSource < 0 ? Inverter : PowerBox;
     return -1;
 }
 std::string Practice::HighlightControl() const {
     if (Complete()) return "next";
-    if (mLesson == 0) return mStep == 0 ? "belt" : mStep == 1 ? "feeder" : mStep == 2 ? "route" : "run";
-    if (mLesson == 1) return mStep == 1 ? "power" : "run";
-    if (mLesson == 2) return mStep == 0 ? "route" : mStep == 1 ? "route2" : mStep == 2 ? "wire_b" : mStep == 3 ? "enemy_plus" : "enemy_minus";
+    if (mLesson == 0) return std::array<const char*, 6>{"station", "wire_power", "belt", "feeder", "route", "run"}[mStep];
+    if (mLesson == 1) return mStep == 1 ? "priority" : mStep == 3 ? "power" : "tick";
+    if (mLesson == 2) return mStep == 0 ? "route" : mStep == 1 ? "wire_b" : mStep == 2 ? "enemy_plus" : "enemy_minus";
     return mStep == 0 ? "route" : mStep == 1 ? "filter" : mStep == 2 ? "setting_minus" : mStep <= 4 ? "wire_a" : mStep == 5 ? "stock_full" : "stock_empty";
 }
 nlohmann::json Practice::Inspect() const {

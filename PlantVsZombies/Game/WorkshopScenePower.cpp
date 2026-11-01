@@ -33,11 +33,11 @@ void WorkshopScene::OpenPowerGrid() {
 void WorkshopScene::DrawPowerGrid(Graphics* g) {
     const auto power = World().Power();
     g->FillRect(85, 32, 930, 536, glm::vec4(235, 225, 184, 255)); g->DrawRect(85, 32, 930, 536, kPowerGreen);
-    Label("基地电网 · 全厂自动接电", 125, 53, 25, kPowerGreen);
+    Label("基地电网 · 总站与配电支路", 125, 53, 25, kPowerGreen);
     Label(World().LegacyAssault() ? "旧袭击保护：本波与重试保留原产速、原出怪；结算后启用新规则。"
         : World().State() == Workshop::Phase::Planning ? "准备期全部停机。下方显示开波后的负载预估，可先关闭闲置设备。"
         : "打开面板时已暂停；关掉多余加工设备，可以把电力让给紧缺产线。", 125, 98, 16);
-    Label(std::format("需求 {:.1f} / 容量 {:.0f}     加工速度 {:.0f}%", power.demand, power.capacity, power.speed * 100), 125, 137, 23,
+    Label(std::format("需求 {:.1f} / 容量 {:.0f}     平均产速 {:.0f}%", power.demand, power.capacity, power.speed * 100), 125, 137, 23,
         power.speed < .999f ? kPowerRed : kPowerGreen);
     g->FillRect(125, 175, 840, 13, glm::vec4(117, 112, 81, 255));
     g->FillRect(125, 175, 840 * std::min(1.0f, power.demand / power.capacity), 13, power.speed < .999f ? kPowerRed : kPowerGreen);
@@ -48,10 +48,10 @@ void WorkshopScene::DrawPowerGrid(Graphics* g) {
         Label(i == 0 ? "初始电网" : std::format("守住 {} 波", Workshop::GridUnlockWaves[i]), x + 7, 249, 14);
         Label(i + 1 <= World().GridLevel() ? "已接入" : std::format("{} 阳光", Workshop::GridCosts[i]), x + 7, 276, 13);
     }
-    Label(World().Unlocked(Workshop::Machine::Switch) ? "工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。手动或 A 口关闭为 0。"
+    Label(World().Unlocked(Workshop::Machine::Switch) ? "工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。关机器或关配电箱后为 0。"
         : "工作用额定功率；无料 / 满仓 / 缺阳光时待机用电 15%。手动关闭为 0。", 125, 323, 16);
-    Label(World().Unlocked(Workshop::Machine::Switch) ? "超载时所有加工同比减速，进度保留；运输与电路不耗电。"
-        : "超载时所有加工同比减速，进度保留；运输和装填不消耗电力。", 125, 352, 16);
+    Label(World().Unlocked(Workshop::Machine::Switch) ? "先供优先支路，再供普通支路；同级按需求分配，产速是供电比例的平方。"
+        : "先供优先支路，再供普通支路；只得到一半电力时，产速剩四分之一。", 125, 352, 16);
     Label("集光器只采阳光；加工机器升级的产速增长高于耗电增长。", 125, 381, 16);
     const int stage = World().AssaultStage();
     Label(World().FocusRoute(0) < 0 ? "本波各路均匀来敌；第 3 波起分段主攻，其他路线仍有零星敌人。"
@@ -80,18 +80,20 @@ void WorkshopScene::ResetPowerDemo(int mode) {
     state["lanes"][1]["ammo"] = 60;
     std::string error;
     if (!mPowerDemo->Load(save, error)) { mPowerDemo.reset(); return; }
+    mPowerDemo->Build(41, M::PowerBox, 0); mPowerDemo->ConnectPower(Workshop::MainPowerSource, 41);
     for (int row = 0; row < 10; ++row) {
         const int i = row * Workshop::MaxColumns + 2;
         mPowerDemo->Build(i, M::Grower, 0); mPowerDemo->Build(i + 1, M::Feeder, 0);
         mPowerDemo->SetRoute(i + 1, row < 4 ? 0 : 1);
-        if (mode == 1 && row >= 4) mPowerDemo->SetMachineRunning(i, false);
+        mPowerDemo->ConnectPower(row < 4 ? Workshop::StarterPowerBox : 41, i);
     }
+    if (mode == 1) mPowerDemo->SetMachineRunning(41, false);
     // 三案购买相同元件，比较只改变开关或接线，预算与场地完全一致。
     mPowerDemo->Build(5, M::StockSensor, 0); mPowerDemo->SetRoute(5, 1); mPowerDemo->SetSetting(5, 60);
     mPowerDemo->Build(6, M::Not, 0);
     if (mode == 2) {
         mPowerDemo->Connect(5, 6, 0);
-        for (int row = 4; row < 10; ++row) mPowerDemo->Connect(6, row * Workshop::MaxColumns + 2, 0);
+        mPowerDemo->Connect(6, 41, 0);
     }
     mPowerDemo->StartAssault(); mPowerDemo->Tick(8);
 }
@@ -106,6 +108,6 @@ void WorkshopScene::DrawPowerDemo(Graphics* g) {
     Label(std::format("新增 {} 颗", mPowerDemo->Lanes()[0].ammo), 576, 365, 20, kPowerGreen);
     Label("6 台补第 2 路", 362, 400, 16);
     Label("已有 60 颗，无需继续囤", 576, 400, 16);
-    Label(mPowerDemoMode == 0 ? "全开互相争电，重要路线也变慢。" : mPowerDemoMode == 1 ? "关掉后六台，电力留给第 1 路。" : "库存器 → 非门 → 后六台 A 口；缺弹会自动再开。", 291, 441, 15, kPowerGreen);
+    Label(mPowerDemoMode == 0 ? "全开互相争电，重要路线也变慢。" : mPowerDemoMode == 1 ? "关掉第2路配电箱，把电留给第1路。" : "库存器 → 非门 → 第2路配电箱 A；缺弹会自动再开。", 291, 441, 15, kPowerGreen);
     Label("只演示供给，不模拟战斗；随时切换对照，不消耗真实基地资源。", 291, 477, 13);
 }

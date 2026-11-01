@@ -15,16 +15,16 @@ const glm::vec4 kCatalogRed{150, 53, 37, 255}; // 锁定及阳光不足提示颜
 
 int Category(Workshop::Machine type) {
     using M = Workshop::Machine;
-    if (type == M::Solar || type == M::Grower || type == M::Cooler || type == M::SporeGrower || type == M::MelonGrower || type == M::Recycler) return 0;
+    if (type == M::Solar || type == M::Grower || type == M::Cooler || type == M::SporeGrower || type == M::MelonGrower || type == M::Recycler || type == M::RepairAssembler) return 0;
     return Workshop::IsLogic(type) ? 2 : 1;
 }
 struct CardLayout { Vector pos, size; };
-/** 命中框和绘制共用布局；生产/物流六卡两行，九种电路三行，不裁掉新增设备。 */
-CardLayout Layout(int category, int slot) {
+/** 命中框和绘制共用布局；统一三列三行，新增维修机和配电箱也不裁出图册。 */
+CardLayout Layout(int, int slot) {
     const int columns = 3;
     const float width = (kCardsWidth - (columns - 1) * kCardGap) / columns;
-    return {Vector(72 + (slot % columns) * (width + kCardGap), 147 + (slot / columns) * (category == 2 ? 123.0f : 190.0f)),
-        Vector(width, category == 2 ? 112 : 176)};
+    return {Vector(72 + (slot % columns) * (width + kCardGap), 147 + (slot / columns) * 123.0f),
+        Vector(width, 112)};
 }
 void Label(const std::string& value, float x, float y, int size = 16, glm::vec4 color = kCatalogInk) {
     GameAPP::GetInstance().DrawText(value, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
@@ -40,6 +40,8 @@ std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     case M::SalvagePort: return {"提取击杀掉落的残骸", "连接运输带送往回收机"};
     case M::Recycler: return {"1 份残骸 → 5 阳光", "准备阶段停止加工"};
     case M::Counter: return {"计信号 / 产出 / 出库", "每批完成可翻转方案"};
+    case M::PowerBox: return {"总站接箱，箱再接机器", "整组通断与优先分电"};
+    case M::RepairAssembler: return {"1残骸＋10阳光→1维修包", "送到前线供坚果修复"};
     case M::Cannon: return {"充能12秒，连射3发瓜弹", "A许可开火，B切换方案"};
     case M::Belt: return {"沿箭头逐格输送弹药", "连接相邻机器"};
     case M::Splitter: return {"一条输入分成两路", "可轮流、筛选或严格选路"};
@@ -172,23 +174,21 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         g->FillRect(x, y, w, 4, hover ? glm::vec4(226, 173, 60, 255) : glm::vec4(108, 136, 69, 255));
         g->DrawRect(x, y, w, h, hover ? glm::vec4(180, 123, 30, 255) : glm::vec4(167, 149, 96, 255));
         if (!unlocked) {
-            const bool compact = mCatalogCategory == 2;
-            DrawLockedItem(g, x + w / 2, y + (compact ? 10 : 28), compact ? 38 : 60);
+            DrawLockedItem(g, x + w / 2, y + 10, 38);
             Label("守住第 " + std::to_string(info.unlockWave) + " 波后解锁", x + (w - 172) / 2, y + h - 32, 16);
             if (hover && mCatalogNotice.empty()) detail = "尚未解锁：守住第 " + std::to_string(info.unlockWave) + " 波后会展示用途与示例。";
             continue;
         }
         Label(info.name, x + 14, y + 13, 20, unlocked ? kCatalogGreen : kCatalogInk);
         Label(std::to_string(info.cost) + " 阳光", x + w - 91, y + 17, 15, affordable ? kCatalogInk : kCatalogRed);
-        const bool compact = mCatalogCategory == 2;
-        const float scale = compact ? 0.86f : 1.5f;
+        const float scale = 0.86f;
         const float imageX = x + 14;
-        const float imageY = y + (compact ? 34 : 45);
+        const float imageY = y + 34;
         g->FillRect(imageX - 3, imageY - 3, 53 * scale, 57 * scale, glm::vec4(209, 222, 180, 255));
         DrawMachineImage(g, type, imageX, imageY, scale);
         const auto summary = Summary(type, World().CompletedWaves());
         for (int line = 0; line < 2; ++line)
-            Label(summary[line], compact ? x + 74 : x + 109, y + (compact ? 38 : 61) + line * 24.0f, compact ? 13 : 14);
+            Label(summary[line], x + 74, y + 38 + line * 24.0f, 13);
         const std::string status = affordable ? "点击图卡选择建造" : "阳光不足 · 可先选中";
         g->FillRect(x + 9, y + h - 29, w - 18, 23, unlocked && affordable ? glm::vec4(221, 232, 190, 255) : glm::vec4(209, 201, 179, 255));
         Label(status, x + 16, y + h - 25, 13, unlocked && affordable ? kCatalogGreen : kCatalogRed);
@@ -228,7 +228,7 @@ std::string WorkshopScene::BuildPreviewReason(int index) const {
     if (World().Cells()[index].type != Workshop::Machine::Empty) return "此格已有机器 · R 可直接旋转它";
     if (!World().Unlocked(mBuildType)) return "该机器尚未解锁";
     if (World().Energy() < Workshop::Describe(mBuildType).cost) return "阳光不足，放置不会扣费";
-    if (Workshop::RatedPower(mBuildType) > 0) return std::format("可放置 · 新增额定 {:.0f} 电力 · 全厂满负荷预估 {:.0f}% 产速",
+    if (Workshop::RatedPower(mBuildType) > 0) return std::format("放置后需接配电箱 · 额定 {:.0f} 电力 · 总负载预估 {:.0f}% 产速",
         Workshop::RatedPower(mBuildType), World().PowerAfterBuild(mBuildType).speed * 100);
     return "可放置 · 点击后扣费 · Esc / 右键取消";
 }

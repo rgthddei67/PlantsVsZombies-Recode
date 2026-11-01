@@ -11,7 +11,7 @@ float RatedPower(Machine type, int level) {
     switch (type) {
     case Machine::Grower: case Machine::Recycler: base = 2; break;
     case Machine::SporeGrower: base = 3; break;
-    case Machine::Cooler: base = 4; break;
+    case Machine::Cooler: case Machine::RepairAssembler: base = 4; break;
     case Machine::MelonGrower: base = 6; break;
     default: break;
     }
@@ -30,7 +30,7 @@ bool World::UpgradeGrid() {
 }
 
 bool World::SetMachineRunning(int index, bool running) {
-    if (!Valid(index) || mPhase == Phase::Dead || RatedPower(mCells[index].type, mCells[index].level) == 0) return false;
+    if (!Valid(index) || mPhase == Phase::Dead || (RatedPower(mCells[index].type, mCells[index].level) == 0 && mCells[index].type != Machine::PowerBox)) return false;
     mCells[index].manual = running; return true;
 }
 
@@ -48,29 +48,97 @@ bool World::CanProcess(int index) const {
         return c.Inventory(recipe ? Ammo::Melon : Ammo::Pea) > 0
             && c.Inventory(recipe ? Ammo::IceMelon : Ammo::Ice) < 5 && mEnergy >= (recipe ? IceMelonEnergy : CoolingEnergy);
     }
+    case Machine::RepairAssembler: return c.Inventory(Ammo::Scrap) > 0 && c.Inventory(Ammo::RepairKit) < 5 && mEnergy >= RepairKitEnergy;
     case Machine::Recycler: return c.Inventory(Ammo::Scrap) > 0 && mEnergy < EnergyLimit;
     default: return false;
     }
 }
 
+bool HasSignalInput(Machine type, int port) {
+    if (port == 1) return HasSelectionInput(type) || type == Machine::And || type == Machine::Or || type == Machine::Latch || type == Machine::Counter;
+    return port == 0 && type != Machine::Empty && RatedPower(type) == 0 && type != Machine::Switch && type != Machine::EnemySensor;
+}
+
+bool World::CanConnectPower(int source, int target) const {
+    if (!Valid(target) || mPhase == Phase::Dead) return false;
+    const auto type = mCells[target].type;
+    if (type != Machine::PowerBox && RatedPower(type) == 0) return false;
+    if (source == -1) return true;
+    if (type == Machine::PowerBox) return source == MainPowerSource;
+    return Valid(source) && mCells[source].type == Machine::PowerBox;
+}
+
+bool World::ConnectPower(int source, int target) {
+    if (!CanConnectPower(source, target)) return false;
+    mCells[target].powerSource = source; return true;
+}
+
 float World::MachinePower(int index) const {
-    if (!Valid(index) || !Enabled(index)) return 0;
+    if (!Valid(index) || !Enabled(index) || RatedPower(mCells[index].type) == 0) return 0;
+    const int box = mCells[index].powerSource;
+    if (!Valid(box) || mCells[box].type != Machine::PowerBox || mCells[box].powerSource != MainPowerSource || !Enabled(box)) return 0;
     return RatedPower(mCells[index].type, mCells[index].level) * (CanProcess(index) ? 1 : StandbyPowerRatio);
 }
 
-PowerInfo World::Power() const {
-    PowerInfo result{GridCapacities[mGridLevel - 1]};
-    for (int i = 0; i < CellCount; ++i) result.demand += MachinePower(i);
-    result.speed = mLegacyAssault || result.demand <= result.capacity ? 1 : result.capacity / result.demand;
+/** 每拍先汇总真实负载，再按优先层级分配；同级同比分配，未使用电力立即供下一层。 */
+PowerNetwork World::Distribution() const {
+    PowerNetwork result;
+    result.total.capacity = GridCapacities[mGridLevel - 1];
+    for (int i = 0; i < CellCount; ++i) if (mCells[i].type == Machine::PowerBox) {
+        auto& b = result.branches[i];
+        b.connected = mCells[i].powerSource == MainPowerSource;
+        b.enabled = b.connected && Enabled(i);
+        b.priority = ActivePlan(i) == 1;
+        b.speed = b.enabled ? 1 : 0;
+    }
+    for (int i = 0; i < CellCount; ++i) if (RatedPower(mCells[i].type) > 0) {
+        const int box = mCells[i].powerSource;
+        if (box >= 0) result.branches[box].demand += MachinePower(i);
+    }
+    float remaining = result.total.capacity, weighted = 0;
+    for (bool priority : {true, false}) {
+        float demand = 0;
+        for (const auto& b : result.branches) if (b.priority == priority) demand += b.demand;
+        const float supply = std::min(remaining, demand);
+        remaining -= supply; result.total.demand += demand;
+        const float ratio = demand > 0 ? supply / demand : 1;
+        for (auto& b : result.branches) if (b.priority == priority && b.enabled) {
+            b.allocated = b.demand * ratio;
+            b.speed = ratio * ratio;
+            weighted += b.demand * b.speed;
+        }
+    }
+    result.total.speed = result.total.demand > 0 ? weighted / result.total.demand : 1;
     return result;
 }
 
+float World::MachineSpeed(int index) const {
+    if (!Valid(index) || !Enabled(index) || mCells[index].powerSource < 0) return 0;
+    return Distribution().branches[mCells[index].powerSource].speed;
+}
+
+PowerInfo World::Power() const { return Distribution().total; }
+
 PowerInfo World::PowerAfterBuild(Machine type) const {
     auto result = Power();
-    // 新增设备以额定满负荷预估，避免缺料时看似不占电、开始加工后突然降速。
     result.demand += RatedPower(type);
-    result.speed = mLegacyAssault || result.demand <= result.capacity ? 1 : result.capacity / result.demand;
-    return result;
+    const float ratio = result.demand > result.capacity ? result.capacity / result.demand : 1;
+    result.speed = ratio * ratio; return result;
+}
+
+bool World::ItemUnlocked(int item) const {
+    constexpr std::array<int, ItemCount> waves{0, 3, 4, 5, 8, 10, 1}; // 各物资的已守住波次门槛
+    return item < 0 || (item < ItemCount && mCompletedWaves >= waves[item]);
+}
+
+bool World::CanRepair(int row, float sunCost) const {
+    return mPhase == Phase::Assault && row >= 0 && row < Rows && sunCost >= 0
+        && mEnergy >= sunCost && mLanes[row].Inventory(Ammo::RepairKit) > 0;
+}
+
+bool World::SpendRepair(int row, float sunCost) {
+    if (!CanRepair(row, sunCost)) return false;
+    mEnergy -= sunCost; --mLanes[row].Inventory(Ammo::RepairKit); return true;
 }
 
 int World::StageSpawnEnd(int stage) const {

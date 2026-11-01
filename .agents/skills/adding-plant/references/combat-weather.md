@@ -4,7 +4,7 @@
 
 ### 射击类惯例
 
-工坊供弹仅在 `Board::IsWorkshop()` 时生效：`Shooter`、`ScaredyShroom` 与 `MelonPult` 在前摇提交处通过 `ReserveWorkshopAmmo(row, plantType)` 预留对应弹种，吐弹继续走原有帧事件与 `CreatePlantBullet`，前摇和在途弹丸复用正式存档。弹种和开放名单以 `WorkshopRoster.h` 为准；每次已提交攻击消费一份对应库存，缺弹时等待，不能互相代付。孢子只在真实发弹后增长精英胆小菇进度，断供不重置成长；冰瓜原位替换继承工坊等级和剩余生命比例。防御能力通过 `TrySpendPlantAbilityResource` 支付本模式阳光，不读取冒险 Board 的独立 `mSun`。禁止给工坊复制简化射击/命中/死亡模拟。仅在该模式开放新品种时，才定义它的连发、多头或多弹耗弹契约；不能把基础豌豆射手的一次预留直接解释为所有品种的一颗弹药。实现与专项入口见 [戴夫工坊](../../../../docs/systems/WORKSHOP.md)。
+工坊供弹仅在 `Board::IsWorkshop()` 时生效：`Shooter`、`ScaredyShroom` 与 `MelonPult` 在前摇提交处通过 `ReserveWorkshopAmmo(row, plantType)` 预留对应弹种，吐弹继续走原有帧事件与 `CreatePlantBullet`，前摇和在途弹丸复用正式存档。弹种和开放名单以 `WorkshopRoster.h` 为准；每次已提交攻击消费一份对应库存，缺弹时等待，不能互相代付。孢子只在真实发弹后增长精英胆小菇进度，断供不重置成长；冰瓜原位替换继承工坊等级和剩余生命比例。工坊冰仓坚果的手动/自动修复通过 `Workshop::World::SpendRepair` 原子扣除本路维修包与工坊阳光，`CanRepair` 用于可用性提示；缺少任一资源均不扣费。其他模式继续使用 `TrySpendPlantAbilityResource`，不可把工坊物料要求扩散到冒险或冷库。禁止给工坊复制简化射击/命中/死亡模拟。仅在该模式开放新品种时，才定义它的连发、多头或多弹耗弹契约；不能把基础豌豆射手的一次预留直接解释为所有品种的一颗弹药。实现与专项入口见 [戴夫工坊](../../../../docs/systems/WORKSHOP.md)。
 
 工坊单株等级由支持购买的 `Shooter` / `MelonPult` 自身保存，UI 通过 `Plant` 的窄虚接口查询和购买，创建新株从一级开始；旧档缺字段按一级恢复。升级倍率同时作用于冷却、索敌节流和射击动画；在播前摇只通过 `SetClipSpeed` 提速，不能重新 `PlayTrackOnce` 导致帧事件重复。升级付款与对象资格先通过再提交等级，不回满生命、不再次扣前摇已预留的弹药。专项 `smoke_workshop_upgrades` 比较同一真实战斗快照的发弹数，并验证前摇升级、存读档和死亡检查点。
 

@@ -31,7 +31,7 @@ bool World::CanCountSource(int source, CounterMode mode) const {
     const auto type = mCells[source].type;
     if (mode == CounterMode::Signal) return IsLogic(type);
     if (mode == CounterMode::Produced) return type == Machine::Grower || type == Machine::SporeGrower || type == Machine::MelonGrower
-        || type == Machine::Cooler || type == Machine::SalvagePort;
+        || type == Machine::Cooler || type == Machine::SalvagePort || type == Machine::RepairAssembler;
     return mode == CounterMode::Transferred && (HasDirectionalOutput(type) || type == Machine::Feeder || type == Machine::Cannon);
 }
 

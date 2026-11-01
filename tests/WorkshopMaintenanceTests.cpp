@@ -23,8 +23,8 @@ void TestWorkshopMaintenance() {
         && world->Build(24, Machine::Belt, 3) && world->Build(25, Machine::Belt, 3)
         && world->Build(45, Machine::Store, 3) && world->Build(6, Machine::Belt, 0), "branched line with cycle and warehouse boundary");
     fixture = world->Save();
-    for (int index : {2, 3, 4, 5, 6, 24, 25, 45}) fixture["state"]["cells"][index]["extraStock"] = {0, 1, 0, 0};
-    fixture["state"]["cells"][5]["extraStock"] = {0, 2, 1, 0};
+    for (int index : {2, 3, 4, 5, 6, 24, 25, 45}) fixture["state"]["cells"][index]["extraStock"] = {0, 1, 0, 0, 0};
+    fixture["state"]["cells"][5]["extraStock"] = {0, 2, 1, 0, 0};
     Check(world->Load(fixture, error), "load old melon cargo");
     Check(world->SetFilter(5, static_cast<int>(Ammo::IceMelon)), "switch feeder to ice melon");
     Check(world->Cells()[5].Inventory(Ammo::Melon) == 2, "filter change preserves stock");
@@ -41,7 +41,7 @@ void TestWorkshopMaintenance() {
     Check(world->Lanes()[0].Inventory(Ammo::IceMelon) == 1, "line resumes with new ammo without rebuilding");
 
     world->Reset(); fixture = world->Save();
-    for (auto& cell : fixture["state"]["cells"]) { cell["type"] = "empty"; cell["level"] = 1; }
+    for (auto& cell : fixture["state"]["cells"]) { cell["type"] = "empty"; cell["level"] = 1; cell["powerSource"] = -1; }
     fixture["state"]["completedWaves"] = 9;
     for (int i = 0; i < 25; ++i) {
         const int index = i / 10 * MaxColumns + i % 10;
@@ -53,7 +53,7 @@ void TestWorkshopMaintenance() {
     world->Tick(2); Check(world->Energy() == energy, "planning still freezes solar");
     Check(world->StartAssault(), "start solar test"); world->Tick(2);
     Check(std::abs(world->Energy() - energy - 51.6f) < .02f, "effective rate is actual simulation income");
-    for (auto& cell : fixture["state"]["cells"]) { cell["type"] = "empty"; cell["level"] = 1; }
+    for (auto& cell : fixture["state"]["cells"]) { cell["type"] = "empty"; cell["level"] = 1; cell["powerSource"] = -1; }
     for (int i = 0; i < 7; ++i) {
         fixture["state"]["cells"][i]["type"] = "solar";
         fixture["state"]["cells"][i]["level"] = i == 0 ? 1 : 3;

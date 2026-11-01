@@ -33,7 +33,7 @@ private:
     static constexpr float kGridX = 16, kGridY = 168; // 工厂视口起点，逻辑像素；上方保留工具状态条
     static constexpr float kViewW = 780, kViewH = 410; // 工厂视口尺寸，逻辑像素
     static constexpr float kCellW = 64, kCellH = 64; // 工厂世界格尺寸，像素
-    enum class Tool { Inspect, Build, Remove, WireA, WireB };
+    enum class Tool { Inspect, Build, Remove, WireA, WireB, Power };
     enum class FrontTool { Inspect, Plant, Remove };
     enum class Pending { None, Back, Reset, Retry };
     std::unique_ptr<Board> mBoard;
@@ -98,6 +98,7 @@ private:
     std::shared_ptr<GameMessageBox> mCleanupDialog;
     std::shared_ptr<Button> mPauseButton, mStartButton;
     std::shared_ptr<Button> mGridButton;
+    std::shared_ptr<Button> mPowerSourceButton, mPowerWireButton;
     std::shared_ptr<GameMessageBox> mGridDialog;
     bool mPowerGuideSeen = true;
     int mPowerDemoMode = 0;
@@ -138,6 +139,10 @@ private:
     void DrawSignalWire(Graphics* g, Vector from, Vector to, int port, bool on);
     void OpenPowerGrid();
     void DrawPowerGrid(Graphics* g);
+    bool PowerLayerVisible() const;
+    void SelectPowerStation();
+    void DrawPowerNetwork(Graphics* g);
+    void HandlePowerClick(int index);
     void ResetPowerDemo(int mode);
     void DrawPowerDemo(Graphics* g);
     void OpenMachineConfig(int index);

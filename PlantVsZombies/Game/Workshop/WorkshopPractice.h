@@ -5,8 +5,9 @@ namespace Workshop {
 /** 独立练习只拥有自己的 World。操作复用正式事务，既不引用 Board，也不保存到玩家基地。 */
 class Practice {
 public:
-    enum class Tool { Inspect, Belt, Feeder, WireA, WireB };
+    enum class Tool { Inspect, Belt, Feeder, WireA, WireB, Power };
     static constexpr int Grower = 21, Conveyor = 22, Feeder = 23, Sensor = 5, Inverter = 7;
+    static constexpr int PowerBox = StarterPowerBox, BackgroundBox = StarterPowerBox + 1;
     Practice();
     void Reset(int lesson);
     /** 玩家练习控件入口；无任意跳步骤或写正式存档能力。 */

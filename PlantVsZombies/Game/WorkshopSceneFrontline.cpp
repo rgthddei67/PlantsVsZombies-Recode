@@ -200,7 +200,7 @@ void WorkshopScene::OpenAmmoQuotas(int row) {
     auto builder = GameMessageBox::Builder(Vector(550, 300)).Panel(700, 450);
     builder.Button("返回", Vector(795, 95), Vector(76, 30), 15, [] {});
     for (int a = 0; a < Workshop::AmmoCount; ++a) for (int sign : {-1, 1}) {
-        builder.Button(sign < 0 ? "－5" : "＋5", Vector(sign < 0 ? 675 : 770, 166 + a * 62.0f), Vector(80, 34), 16,
+        builder.Button(sign < 0 ? "－5" : "＋5", Vector(sign < 0 ? 675 : 770, 160 + a * 52.0f), Vector(80, 34), 16,
             [this, row, a, sign] {
                 const auto item = static_cast<Workshop::Ammo>(a);
                 for (int r = 0; r < Workshop::Rows; ++r) if (row < 0 || row == r)
@@ -226,11 +226,15 @@ void WorkshopScene::DrawAmmoQuotas(Graphics* g, int row) {
         const auto* plant = mBoard->mEntityRegistry.GetPlant(id);
         if (!plant || !plant->IsActive() || plant->mPlantHealth <= 0 || (!all && plant->mRow != row)) continue;
         if (const auto* info = Workshop::FindPlant(plant->mPlantType); info && info->ammo != Workshop::Ammo::Count) used[static_cast<int>(info->ammo)] = true;
+        if (plant->mPlantType == PlantType::PLANT_ICESTORAGENUT) used[static_cast<int>(Workshop::Ammo::RepairKit)] = true;
     }
     mQuotaDialog->GetButton(0)->Draw(g);
     if (!all) mQuotaDialog->GetButton(1 + Workshop::AmmoCount * 2)->Draw(g);
     for (int a = 0; a < Workshop::AmmoCount; ++a) {
-        const auto item = static_cast<Workshop::Ammo>(a); const float y = 170 + a * 62.0f;
+        if (!World().ItemUnlocked(a)) {
+            mQuotaDialog->GetButton(1 + a * 2)->SetEnabled(false); mQuotaDialog->GetButton(2 + a * 2)->SetEnabled(false); continue;
+        }
+        const auto item = static_cast<Workshop::Ammo>(a); const float y = 164 + a * 52.0f;
         int minimum = Workshop::MagazineCapacity, maximum = 0, count = 0;
         for (int r = 0; r < Workshop::Rows; ++r) if (all || row == r) {
             const auto& lane = World().Lanes()[r];
@@ -300,9 +304,17 @@ void WorkshopScene::DrawFrontOverlay(Graphics* g) {
 
 /** 物料在机器、弹仓与预览中使用同一原版资源身份。 */
 void WorkshopScene::DrawItemIcon(Graphics* g, Workshop::Ammo item, float x, float y, float size) {
+    if (item == Workshop::Ammo::RepairKit) {
+        g->FillRect(x + size*.06f, y + size*.22f, size*.88f, size*.66f, glm::vec4(81, 71, 49, 255));
+        g->FillRect(x, y + size*.18f, size*.86f, size*.64f, glm::vec4(238, 225, 176, 255));
+        g->DrawRect(x, y + size*.18f, size*.86f, size*.64f, glm::vec4(128, 104, 63, 255));
+        g->DrawRect(x + size*.26f, y, size*.34f, size*.18f, glm::vec4(83, 79, 49, 255));
+        g->FillRect(x + size*.35f, y + size*.29f, size*.16f, size*.42f, kFrontRed);
+        g->FillRect(x + size*.22f, y + size*.42f, size*.42f, size*.16f, kFrontRed); return;
+    }
     constexpr std::array<const char*, Workshop::ItemCount> keys{
         "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_PUFFSHROOM_PUFF1",
-        "IMAGE_REANIM_MELONPULT_MELON", "IMAGE_REANIM_WINTERMELON_PROJECTILE", "IMAGE_ZOMBIE_HEAD_GROSSOUT"};
+        "IMAGE_REANIM_MELONPULT_MELON", "IMAGE_REANIM_WINTERMELON_PROJECTILE", "", "IMAGE_ZOMBIE_HEAD_GROSSOUT"};
     const auto* texture = ResourceManager::GetInstance().GetTexture(keys.at(static_cast<int>(item)), false);
     if (texture) g->DrawTexture(texture, x, y, size, size);
 }

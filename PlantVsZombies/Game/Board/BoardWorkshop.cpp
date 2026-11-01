@@ -76,6 +76,7 @@ bool Board::PlaceWorkshopPlant(PlantType type, int row, int column) {
         melon->mPlantHealth = std::max(1, static_cast<int>(melon->mPlantMaxHealth * healthRatio));
     }
     if (info.ammo != Workshop::Ammo::Count) mWorkshop->EnsureAmmoQuota(row, info.ammo);
+    if (type == PlantType::PLANT_ICESTORAGENUT) mWorkshop->EnsureAmmoQuota(row, Workshop::Ammo::RepairKit);
     mWorkshop->StartPlantCooldown(info.key, GameDataManager::GetInstance().GetPlantCooldown(type));
     RefreshWorkshopObservation();
     return true;

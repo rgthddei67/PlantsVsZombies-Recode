@@ -32,25 +32,25 @@ def generate():
     act('wire_b', 5, value=6)
     snap('layout')
     patch = {'/guideSeenWave':9, '/powerGuideSeen':True,
-             '/state/cells/4/extraStock':[0,1,0,0], '/state/cells/5/extraStock':[0,2,1,0],
+             '/state/cells/4/extraStock':[0,1,0,0,0], '/state/cells/5/extraStock':[0,2,1,0,0],
              '/state/cells/5/filter':3}
     for row in range(5):
         patch[f'/state/lanes/{row}/plainQuota'] = 40-row*5
         patch[f'/state/lanes/{row}/iceQuota'] = 20
-        patch[f'/state/lanes/{row}/extraQuota'] = [0,20,row*5]
+        patch[f'/state/lanes/{row}/extraQuota'] = [0,20,row*5,0]
     load('layout', patch)
     act('select_machine',5); click('sidebar_config'); click('cfg_filter0')
     check('cells.5.activeFilter',4); picture('02_feeder_config')
     click('cfg_cleanup'); picture('03_cleanup_confirm'); esc()
-    check('cells.5.extraStock',[0,2,1,0]); click('cfg_cleanup'); click('cleanup_confirm')
-    check('cells.4.extraStock',[0,0,0,0]); check('cells.5.extraStock',[0,0,1,0]); picture('04_cleaned_config')
+    check('cells.5.extraStock',[0,2,1,0,0]); click('cfg_cleanup'); click('cleanup_confirm')
+    check('cells.4.extraStock',[0,0,0,0,0]); check('cells.5.extraStock',[0,0,1,0,0]); picture('04_cleaned_config')
     esc(); act('select_machine',2); click('configure_tool'); click('cfg_upgrade'); check('cells.2.level',2)
     picture('05_upgrade_in_config'); esc()
     # Recreate mismatch and capture the warning above B wiring, using an isolated snapshot.
-    snap('cleaned'); load('cleaned', {'/guideSeenWave':9,'/state/cells/4/extraStock':[0,1,0,0]})
+    snap('cleaned'); load('cleaned', {'/guideSeenWave':9,'/state/cells/4/extraStock':[0,1,0,0,0]})
     act('select_machine',5); wait(24); picture('06_warning_top')
     click('quota_all'); picture('07_mixed_quotas'); button(10); picture('08_batch_quotas'); esc()
-    click('quota_2'); picture('09_single_quota'); button(11); picture('10_all_from_single'); esc()
+    click('quota_2'); picture('09_single_quota'); button(13); picture('10_all_from_single'); esc()
     click('catalog'); add('click',target='workshop_machine',type=15,hold_frames=6,trace=True); wait(); esc()
     click('catalog'); add('click',target='workshop_machine',type=17,hold_frames=6,trace=True); wait(); esc()
     add('click', x=1070, y=105, hold_frames=6, trace=True); wait(); check('selectedTimeScale',3)

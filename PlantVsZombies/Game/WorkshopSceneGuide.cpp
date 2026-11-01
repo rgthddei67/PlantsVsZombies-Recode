@@ -22,6 +22,7 @@ std::string TopicName(int topic) {
     if (topic == Workshop::FocusGuide) return "主攻路线预告";
     if (topic == -1) return "全基地阳光";
     if (topic == -2) return "击杀残骸";
+    if (topic == -3) return "电源总站";
     if (topic == 0) return "第一条生产线";
     if (topic >= Workshop::PlantGuideBase) return Workshop::Plants[topic - Workshop::PlantGuideBase].name;
     return Workshop::Describe(static_cast<M>(topic)).name;
@@ -49,23 +50,23 @@ void Chain(Lesson& lesson, std::initializer_list<int> topics, bool wires = false
 }
 void Gate(Lesson& lesson, M gate, M first, M second) {
     lesson.nodes = {{Topic(first), Vector(355, 366), {}}, {Topic(second), Vector(355, 458), {}},
-        {Topic(gate), Vector(635, 411), {}}, {Topic(M::Grower), Vector(915, 411), {}}};
+        {Topic(gate), Vector(635, 411), {}}, {Topic(M::PowerBox), Vector(915, 411), {}}};
     lesson.edges = {{0, 2, true, "A"}, {1, 2, true, "B"}, {2, 3, true, "接 A 口"}};
 }
 Lesson Explain(int topic, bool circuits) {
     Lesson lesson;
     if (topic == Workshop::PowerGuide) {
         lesson.purpose = "阳光付钱，电网决定同时能加工多少。";
-        lesson.steps = {"1. 顶部电网显示需求、容量与加工速度。", "2. 超载时双击闲置产线，关闭加工电源。", "3. 对比下方操作，看紧缺路线得到多少弹药。"};
+        lesson.steps = {"1. 点总站，再点配电箱；选箱后点机器接电。", "2. 超载时把紧缺支路设为优先，或关闭闲线。", "3. 只得到一半所需电力时，产速只剩四分之一。"};
         lesson.tip = "升级电网受波次限制；准备期停机，库存和进度跨波保留。";
         return lesson;
     }
     if (topic == Workshop::DispatchGuide) {
         lesson.purpose = "把手动关闲线的操作，交给电路持续执行。";
-        lesson.steps = {"1. 库存器看第1路，门槛20，弹种选普通。", "2. 库存器接非门 A，非门接育豆机 A。", "3. 少于20就开工，达到20就断电，把电让给别路。"};
+        lesson.steps = {"1. 库存器看第1路，门槛20，弹种选普通。", "2. 库存器接非门 A，非门接配电箱 A。", "3. 少于20就开工，达到20就断电，把电让给别路。"};
         lesson.tip = "进阶：敌情器与缺弹信号接与门，控制额外增援线；保留基础补给应付转火。";
         lesson.example = "自动补货：够用就断电，库存下降后再开";
-        Chain(lesson, {Topic(M::StockSensor), Topic(M::Not), Topic(M::Grower)}, true);
+        Chain(lesson, {Topic(M::StockSensor), Topic(M::Not), Topic(M::PowerBox)}, true);
         return lesson;
     }
     if (topic == Workshop::FocusGuide) {
@@ -87,8 +88,8 @@ Lesson Explain(int topic, bool circuits) {
             Chain(lesson, {PlantTopic(PlantType::PLANT_PEASHOOTER), topic});
             lesson.edges.clear();
             if (plant.type == PlantType::PLANT_ICESTORAGENUT) {
-                lesson.steps[2] = "3. 选中后点阳光修复，也可切换自动修复。";
-                lesson.tip = "修复支付工坊阳光，准备阶段停止；护体可抵抗巨人重击。";
+                lesson.steps[2] = "3. 修复需本路1维修包＋100阳光，可设自动修复。";
+                lesson.tip = "装填口选维修包并送本路；每次回1000血，冷却10秒。";
             } else if (plant.type == PlantType::PLANT_TALLNUT) lesson.tip = "高耐久阻挡，但仍要给后排留输出空间；不能代替火力。";
         } else {
             lesson.steps = {"1. 建好对应生产线，运输带接入装填口。", "2. 装填口的目标路线设为这株植物所在路。", "3. 左侧弹仓按钮可分配弹种配额；缺弹会停火。"};
@@ -113,11 +114,28 @@ Lesson Explain(int topic, bool circuits) {
     switch (static_cast<M>(topic)) {
     case M::Empty:
         lesson.purpose = "工厂造弹药，弹仓收货，前线植物取弹攻击。";
-        lesson.steps = {"1. 育豆机、运输带、装填口相邻放，箭头朝右。", "2. 选中装填口，目标路线设为射手所在路。", "3. 五路都要供弹再开波；生产会持续消耗阳光。"};
+        lesson.steps = {"1. 育豆机、运输带、装填口相邻放，箭头朝右。", "2. 点总站接配电箱，再从配电箱接育豆机。", "3. 装填口设射手所在路；各路供弹接好再开波。"};
         lesson.tip = "工厂第几行不决定送哪路，装填口的目标路线才决定。";
         lesson.example = "最小供弹线：先给一条前线供货，再照着搭其他路";
         Chain(lesson, {Topic(M::Grower), Topic(M::Belt), Topic(M::Feeder), PlantTopic(PlantType::PLANT_PEASHOOTER)});
         lesson.edges.back().label = "第 1 路弹仓";
+        break;
+    case M::PowerBox:
+        lesson.purpose = "把总站的电送给一组机器，统一开关并分配优先级。";
+        lesson.steps = {"1. 点地图上方总站，再点配电箱，接通主电源。", "2. 点接电[P]、点配电箱，再逐个点加工机器。", "3. 双击箱子，可手动开关，或切换普通／优先。"};
+        lesson.tip = circuits ? "蓝A控制整箱通断；橙B低=普通、高=优先；同级按需求比例分电。"
+            : "每台机器只接一个箱，箱子不能串接；交叉的电线不会相连。";
+        lesson.example = "黄色线供电；物流仍需相邻设备，不能靠电线送货";
+        Chain(lesson, {-3, topic, Topic(M::Grower)}, true);
+        for (auto& edge : lesson.edges) edge.label = "接电";
+        break;
+    case M::RepairAssembler:
+        lesson.purpose = "把残骸加工成维修包，为冰仓坚果提供持续修复补给。";
+        lesson.steps = {"1. 回收入口送残骸，生产机接配电箱。", "2. 1残骸＋10阳光制1包；装填口选维修包和路线。", "3. 冰仓坚果每次修复再消耗本路1包＋100阳光。"};
+        lesson.tip = "维修包和弹药共用本路80容量，要分配配额；无包时不扣阳光，不修复。";
+        lesson.example = "击杀残骸 → 加工 → 配送到坚果所在路线";
+        Chain(lesson, {Topic(M::SalvagePort), topic, Topic(M::Feeder), PlantTopic(PlantType::PLANT_ICESTORAGENUT)});
+        lesson.edges.back().label = "本路维修包";
         break;
     case M::Solar:
         lesson.purpose = "开战后采集阳光，供全基地建造和生产使用。";
@@ -133,7 +151,7 @@ Lesson Explain(int topic, bool circuits) {
         const auto machine = static_cast<M>(topic);
         const auto plant = machine == M::Grower ? PlantType::PLANT_PEASHOOTER : machine == M::SporeGrower ? PlantType::PLANT_ELITE_SCAREDYSHROOM : PlantType::PLANT_MELONPULT;
         lesson.purpose = machine == M::Grower ? "把阳光变成普通豌豆，供豌豆射手使用。" : machine == M::SporeGrower ? "把阳光变成孢子，供精英胆小菇使用。" : "把阳光变成西瓜，供西瓜投手使用。";
-        lesson.steps = {"1. 建在运输带旁边，箭头朝向运输带。", "2. 用运输带送到装填口，再指定目标路线。", "3. 开波后消耗阳光生产；堵塞时先检查出口。"};
+        lesson.steps = {"1. 建在运输带旁边，箭头朝向运输带。", "2. 用运输带送到装填口，再指定目标路线。", "3. 从已接总站的配电箱接电，开波后才会生产。"};
         lesson.tip = "只有产能还不够：弹种、装填口路线和弹仓配额都要对应。";
         lesson.example = "一台生产机器如何给前线供货";
         Chain(lesson, {topic, Topic(M::Belt), Topic(M::Feeder), PlantTopic(plant)});
@@ -180,39 +198,39 @@ Lesson Explain(int topic, bool circuits) {
     case M::Recycler:
         lesson.purpose = topic == Topic(M::SalvagePort) ? "把击杀掉落的残骸提取到工厂物流中。" : "消耗残骸，回收阳光，给工厂补充能源。";
         lesson.steps = {"1. 前线真正击杀僵尸后，残骸进入共享队列。", "2. 回收入口接运输带，再接回收机。", "3. 回收机每加工一份残骸，获得 5 阳光。"};
-        lesson.tip = "每波全基地最多掉落 40 份；越线不算击杀，准备时整条回收线停机。";
+        lesson.tip = "回收机需接配电箱；每波最多40份残骸，越线不算击杀，准备期停机。";
         lesson.example = "击杀 → 提取 → 运输 → 加工 → 阳光";
         Chain(lesson, {-2, Topic(M::SalvagePort), Topic(M::Belt), Topic(M::Recycler), -1});
         break;
     case M::Cooler:
         lesson.purpose = "给普通弹药降温，做出寒冰射手需要的寒冰弹。";
         lesson.steps = {"1. 育豆机向冷凝机送普通豌豆，选方案1。", "2. 成品送装填口，目标选寒冰射手所在路。", "3. 第8波后方案2开放，B信号可自动切配方。"};
-        lesson.tip = "原料和成品各自缓存；切配方先做完在制品，再切换，保留余料和成品。";
+        lesson.tip = "冷凝机也需接配电箱；切配方先做完在制品，余料与成品保留。";
         lesson.example = "进普通豌豆，出寒冰弹";
         Chain(lesson, {Topic(M::Grower), topic, Topic(M::Feeder), PlantTopic(PlantType::PLANT_SNOWPEA)});
         lesson.edges.back().label = "本路弹仓";
         break;
     case M::Switch:
         lesson.purpose = "手动发出开或关的指令，远程控制机器。";
-        lesson.steps = {"1. 点接 A 口，再点开关，最后点育豆机。", "2. 选中开关，点配置所选来切换开与关。", "3. 信号亮时机器运行，暗时机器停机。"};
+        lesson.steps = {"1. 点接 A 口，再点开关，最后点配电箱。", "2. 选中开关，点配置所选来切换开与关。", "3. 信号亮时机器运行，暗时机器停机。"};
         lesson.tip = "高=开，低=关，不是电力大小；蓝A、橙B只传信号，不运输弹药。";
-        lesson.example = "一个开关控制一台育豆机";
-        Chain(lesson, {topic, Topic(M::Grower)}, true);
+        lesson.example = "一个开关控制整箱机器";
+        Chain(lesson, {topic, Topic(M::PowerBox)}, true);
         break;
     case M::EnemySensor:
         lesson.purpose = "看指定路线的僵尸数量，满足条件才发出开启信号。";
-        lesson.steps = {"1. 选中敌情器，目标路线设为要监视的路线。", "2. 配置所选调整数量门槛；设 1 就是有敌人。", "3. 接 A 口：先点敌情器，再点育豆机。"};
+        lesson.steps = {"1. 选中敌情器，目标路线设为要监视的路线。", "2. 配置所选调整数量门槛；设 1 就是有敌人。", "3. 接 A 口：先点敌情器，再点配电箱。"};
         lesson.tip = "看的是指定前线路线，不是它在工厂里的行号；多余资源可留给别路。";
         lesson.example = "第 1 路有敌人，就开机生产";
-        Chain(lesson, {topic, Topic(M::Grower)}, true);
+        Chain(lesson, {topic, Topic(M::PowerBox)}, true);
         break;
     case M::StockSensor:
     case M::Not:
         lesson.purpose = topic == Topic(M::StockSensor) ? "库存达到设定数量时亮起，供其他元件做判断。" : "把开变关、关变开，让条件反过来使用。";
-        lesson.steps = {"1. 库存器选第 1 路，配置门槛为 20。", "2. 接 A 口：库存器 → 非门，再非门 → 育豆机。", "3. 库存不足就生产，达到 20 就暂停生产。"};
+        lesson.steps = {"1. 库存器选第 1 路，配置门槛为 20。", "2. 接 A 口：库存器 → 非门，再非门 → 配电箱。", "3. 库存不足就生产，达到 20 就暂停生产。"};
         lesson.tip = "库存器 A 口不接线时看该路弹仓；接到某台机器时改看那台机器库存。";
         lesson.example = "够了就断电，不够再开：把加工能力留给紧缺产线";
-        Chain(lesson, {Topic(M::StockSensor), Topic(M::Not), Topic(M::Grower)}, true);
+        Chain(lesson, {Topic(M::StockSensor), Topic(M::Not), Topic(M::PowerBox)}, true);
         break;
     case M::And:
         lesson.purpose = "有敌人而且缺弹时，才把共享产线转供这一路。";
@@ -225,22 +243,22 @@ Lesson Explain(int topic, bool circuits) {
         break;
     case M::Or:
         lesson.purpose = "两个条件有一个成立，就发出开启信号。";
-        lesson.steps = {"1. 两路库存器分别接非门，得到两路缺弹请求。", "2. 两个请求分别接或门的 A 口和 B 口。", "3. 或门接生产线 A，任一路缺弹就开工。"};
-        lesson.tip = "装填口 B 决定送谁；生产线 A 决定开不开。冷凝线的两台加工设备都要接 A。";
+        lesson.steps = {"1. 两路库存器分别接非门，得到两路缺弹请求。", "2. 两个请求分别接或门的 A 口和 B 口。", "3. 或门接配电箱 A，任一路缺弹就开工。"};
+        lesson.tip = "装填口 B 决定送谁；配电箱 A 决定开不开；两台加工机接同一个箱即可。";
         lesson.example = "两路共享产能：任一路缺弹就开工，都够用才断电";
         Gate(lesson, M::Or, M::Not, M::Not);
         lesson.nodes[0].label = "第1路库存器 → 非门"; lesson.nodes[1].label = "第3路库存器 → 非门";
         break;
     case M::Timer:
         lesson.purpose = "周期性地关一会、开一会，让机器间歇运行。";
-        lesson.steps = {"1. 选中定时器，配置所选设为 4 秒。", "2. 接 A 口：定时器 → 育豆机。", "3. 每轮先关 2 秒，再开 2 秒，然后重复。"};
+        lesson.steps = {"1. 选中定时器，配置所选设为 4 秒。", "2. 接 A 口：定时器 → 配电箱。", "3. 每轮先关 2 秒，再开 2 秒，然后重复。"};
         lesson.tip = "定时器 A 口可以再接开关；没接线时自动计时，准备阶段冻结。";
         lesson.example = "用节奏控制生产，不必反复手点开关";
-        Chain(lesson, {topic, Topic(M::Grower)}, true);
+        Chain(lesson, {topic, Topic(M::PowerBox)}, true);
         break;
     case M::Latch:
         lesson.purpose = "收到一次开启指令后保持开启，直到收到关闭指令。";
-        lesson.steps = {"1. 库存器门槛10，接非门，再接记忆器 A。", "2. 另一库存器门槛30，直接接记忆器 B。", "3. 输出接机器 A：低于10开工，补到30再停。"};
+        lesson.steps = {"1. 库存器门槛10，接非门，再接记忆器 A。", "2. 另一库存器门槛30，直接接记忆器 B。", "3. 输出接配电箱 A：低于10开工，补到30再停。"};
         lesson.tip = "两个库存器看同一路、同弹种；避免门槛附近反复开关，B 停机优先。";
         lesson.example = "批量补仓：低库存启动，补足后释放电力";
         Gate(lesson, M::Latch, M::Not, M::StockSensor);
@@ -375,7 +393,8 @@ void WorkshopScene::DrawGuide(Graphics* g) {
             DrawUtilityIcon(g, "wire_a_tool", x + size * .15f, y + size * .15f, size * .7f); return;
         }
         if (id == 0) id = Topic(M::Grower);
-        if (id == -2) DrawItemIcon(g, Workshop::Ammo::Scrap, x, y, size);
+        if (id == -3) DrawUtilityIcon(g, "power", x, y, size);
+        else if (id == -2) DrawItemIcon(g, Workshop::Ammo::Scrap, x, y, size);
         else if (id == -1) g->DrawTexture(ResourceManager::GetInstance().GetTexture("IMAGE_REANIM_SUN1", false), x, y, size, size);
         else if (id >= Workshop::PlantGuideBase) DrawPlantPicture(g, Workshop::Plants[id - Workshop::PlantGuideBase].type, x, y, size, size);
         else DrawMachineImage(g, static_cast<M>(id), x, y, size / 57);
@@ -395,8 +414,9 @@ void WorkshopScene::DrawGuide(Graphics* g) {
         direction = direction * (1.0f / length);
         const auto start = source + direction * 34, end = target - direction * 34;
         const int port = edge.label.find('B') != std::string::npos ? 1 : 0;
-        const auto color = edge.wire ? SignalWireColor(port, false) : kGreen;
-        if (edge.wire) DrawSignalWire(g, start, end, port, true);
+        const bool powerWire = edge.label == "接电";
+        const auto color = powerWire ? glm::vec4(177, 128, 20, 255) : edge.wire ? SignalWireColor(port, false) : kGreen;
+        if (edge.wire && !powerWire) DrawSignalWire(g, start, end, port, true);
         else g->DrawLine(start.x, start.y, end.x, end.y, color);
         const Vector normal(-direction.y, direction.x);
         const auto a = end - direction * 8 + normal * 4, b = end - direction * 8 - normal * 4;
@@ -414,7 +434,8 @@ void WorkshopScene::DrawGuide(Graphics* g) {
         DrawPowerDemo(g);
         Label(lesson.tip, 280, 508, 12);
         for (int i = 0; i < (World().Unlocked(M::Switch) ? 3 : 2); ++i) mGuide->GetButton(13 + i)->Draw(g);
-    } else Label(std::any_of(lesson.edges.begin(), lesson.edges.end(), [](const Edge& edge) { return edge.wire; })
+    } else if (topic == Topic(M::PowerBox)) Label("黄色线：供电；运输带：相邻搬运物料。供电接线不消耗阳光。", 280, 508, 12);
+    else Label(std::any_of(lesson.edges.begin(), lesson.edges.end(), [](const Edge& edge) { return edge.wire; })
         ? "绿色箭头：物料 · 蓝实线 A / 橙虚线 B：控制或计量 · 高=开，低=关"
         : "绿色箭头：物料或资源去向；工厂行号不决定前线的送货路线。", 280, 508, 12);
     Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  查看时暂停，随时可重看", 280, 542, 13);

@@ -4,6 +4,12 @@
 #include <memory>
 
 namespace {
+// 这些用例隔离物流/配方行为，生产机显式接入起始箱；断电与配电由专项测试覆盖。
+bool Build(Workshop::World& world, int index, Workshop::Machine type, int direction) {
+    return world.Build(index, type, direction) && (!Workshop::RatedPower(type)
+        || world.ConnectPower(Workshop::StarterPowerBox, index));
+}
+
 using namespace Workshop;
 void Check(bool ok, const char* reason) {
     if (!ok) { std::cerr << "FAILED workshop circuits: " << reason << '\n'; std::exit(1); }
@@ -28,8 +34,8 @@ void Step(World& world, float seconds) {
 void TestWorkshopCircuits() {
     // 同一装填口既是计量来源，又由计数器选择路线，连续出货不能漏计或多送一份。
     auto batch = Fixture(); auto& b = *batch;
-    Check(b.Build(2, Machine::Store, 0) && b.Build(3, Machine::Feeder, 0)
-        && b.Build(4, Machine::Counter, 0), "batch line");
+    Check(Build(b, 2, Machine::Store, 0) && Build(b, 3, Machine::Feeder, 0)
+        && Build(b, 4, Machine::Counter, 0), "batch line");
     Check(b.SetRoute(3, 0, 0) && b.SetRoute(3, 1, 1) && b.SetCounterMode(4, CounterMode::Transferred)
         && b.SetCounterOutput(4, CounterOutput::Toggle) && b.SetSetting(4, 10)
         && b.Connect(3, 4, 0) && b.Connect(4, 3, 1), "closed-loop batch routing");
@@ -43,9 +49,9 @@ void TestWorkshopCircuits() {
         && !b.Connect(3, 4, 0), "incompatible source removed on counting mode change");
 
     auto split = Fixture(); auto& s = *split;
-    Check(s.Build(2, Machine::Splitter, 0) && s.Build(3, Machine::Store, 0)
-        && s.Build(22, Machine::Store, 0) && s.Build(4, Machine::Switch, 0)
-        && s.Build(5, Machine::Switch, 0) && s.SetStrictSplit(2, true)
+    Check(Build(s, 2, Machine::Splitter, 0) && Build(s, 3, Machine::Store, 0)
+        && Build(s, 22, Machine::Store, 0) && Build(s, 4, Machine::Switch, 0)
+        && Build(s, 5, Machine::Switch, 0) && s.SetStrictSplit(2, true)
         && s.Connect(4, 2, 1) && s.Connect(5, 2, 0), "strict routing controls");
     save = s.Save(); save["state"]["cells"][2]["stock"] = 3; save["state"]["cells"][22]["stock"] = 60;
     Load(s, save); Check(s.StartAssault(), "strict start"); Step(s, 1);
@@ -57,8 +63,8 @@ void TestWorkshopCircuits() {
     Check(s.Cells()[2].stock == 1, "A low really stops splitter output");
 
     auto cooler = Fixture(); auto& c = *cooler;
-    Check(c.Build(2, Machine::Cooler, 0) && c.Build(4, Machine::Switch, 0)
-        && c.Configure(4) && c.Connect(4, 2, 1) && c.Build(5, Machine::Counter, 0)
+    Check(Build(c, 2, Machine::Cooler, 0) && Build(c, 4, Machine::Switch, 0)
+        && c.Configure(4) && c.Connect(4, 2, 1) && Build(c, 5, Machine::Counter, 0)
         && c.SetCounterMode(5, CounterMode::Produced) && c.Connect(2, 5, 0), "recipe selection and production counting");
     save = c.Save(); save["state"]["cells"][2]["stock"] = 2; save["state"]["cells"][2]["extraStock"][1] = 2;
     Load(c, save); Check(c.StartAssault(), "cooler start"); Step(c, 1);
@@ -74,22 +80,22 @@ void TestWorkshopCircuits() {
 
     // 库存器 + 非门/与门 + 记忆器让一台冷凝机自动补两类库存，到量后停机。
     auto shared = Fixture(); auto& q = *shared;
-    Check(q.Build(2, Machine::Cooler, 0), "shared cooler");
-    for (int i : {4, 5}) Check(q.Build(i, Machine::StockSensor, 0) && q.Connect(2, i, 0) && q.SetSetting(i, 2), "quota sensor");
-    Check(q.SetFilter(4, 1) && q.SetFilter(5, 4) && q.Build(6, Machine::Latch, 0)
+    Check(Build(q, 2, Machine::Cooler, 0), "shared cooler");
+    for (int i : {4, 5}) Check(Build(q, i, Machine::StockSensor, 0) && q.Connect(2, i, 0) && q.SetSetting(i, 2), "quota sensor");
+    Check(q.SetFilter(4, 1) && q.SetFilter(5, 4) && Build(q, 6, Machine::Latch, 0)
         && q.Connect(4, 6, 0) && q.Connect(5, 6, 1) && q.Connect(6, 2, 1)
-        && q.Build(7, Machine::And, 0) && q.Connect(4, 7, 0) && q.Connect(5, 7, 1)
-        && q.Build(8, Machine::Not, 0) && q.Connect(7, 8, 0) && q.Connect(8, 2, 0), "dual stock feedback");
+        && Build(q, 7, Machine::And, 0) && q.Connect(4, 7, 0) && q.Connect(5, 7, 1)
+        && Build(q, 8, Machine::Not, 0) && q.Connect(7, 8, 0) && q.Connect(8, StarterPowerBox, 0), "dual stock feedback");
     save = q.Save(); save["state"]["cells"][2]["stock"] = 5; save["state"]["cells"][2]["extraStock"][1] = 5;
     Load(q, save); Check(q.StartAssault(), "feedback start"); Step(q, 25);
-    Check(q.Cells()[2].iceStock >= 2 && q.Cells()[2].Inventory(Ammo::IceMelon) >= 2 && !q.Enabled(2), "both quotas met and shared production stops");
+    Check(q.Cells()[2].iceStock >= 2 && q.Cells()[2].Inventory(Ammo::IceMelon) >= 2 && !q.Enabled(StarterPowerBox), "both quotas met and shared production stops");
     const auto outputCount = q.Cells()[2].producedItems; Step(q, 10);
     Check(q.Cells()[2].producedItems == outputCount, "feedback remains stopped without consuming extras");
 
     auto cannon = Fixture(); auto& n = *cannon;
-    for (int i = 2; i <= 7; ++i) Check(n.Build(i, Machine::Cannon, 0), "unlimited affordable cannons");
+    for (int i = 2; i <= 7; ++i) Check(Build(n, i, Machine::Cannon, 0), "unlimited affordable cannons");
     Check(n.SetRoute(2, 0, 0) && n.SetRoute(2, 3, 1) && n.SetFilter(2, 4, 1), "dual cannon profiles");
-    save = n.Save(); save["state"]["cells"][2]["extraStock"] = {0, 6, 6, 0}; Load(n, save);
+    save = n.Save(); save["state"]["cells"][2]["extraStock"] = {0, 6, 6, 0, 0}; Load(n, save);
     const auto planning = n.Save(); Step(n, 100);
     Check(n.Save() == planning && !n.BeginCannonVolley(2), "new cannon cannot charge or fire during preparation");
     Check(n.StartAssault(), "cannon start"); Step(n, 11.9f); Check(!n.BeginCannonVolley(2), "twelve seconds required");
@@ -108,17 +114,9 @@ void TestWorkshopCircuits() {
     n.CompleteAssault(); Check(n.State() == Phase::Planning, "wave completes once volley emitted");
     auto locked = Fixture(6); Check(locked->Build(2, Machine::Cannon, 0) && !locked->SetFilter(2, 4, 1), "ice cannon profile locked until eight");
 
-    // v3 的分流 A 是优先口，迁移为 B；旧门电路按原价退款，新建按新价退款。
-    auto legacy = Fixture(); auto& l = *legacy;
-    Check(l.Build(2, Machine::Splitter, 0) && l.Build(3, Machine::Switch, 0) && l.Build(4, Machine::Counter, 0), "legacy machines");
-    save = l.Save(); save["schemaVersion"] = 3; save["state"]["cells"][2]["inputs"][0] = 3;
-    save["checkpoint"] = save["state"]; save["state"]["phase"] = 2; save["state"]["health"] = 0;
-    Load(l, save); Check(l.Cells()[2].inputs[0] == -1 && l.Cells()[2].inputs[1] == 3 && !l.Cells()[2].strictSplit,
-        "old splitter meaning retained");
-    Check(l.Retry() && l.Cells()[2].inputs[1] == 3 && l.RemoveRefund(3) == 15 && l.RemoveRefund(4) == 40,
-        "checkpoint and historic prices migrated");
-    Check(l.Build(5, Machine::Switch, 0) && l.Build(6, Machine::Counter, 0) && l.RemoveRefund(5) == 5 && l.RemoveRefund(6) == 15,
-        "new controls use reduced prices");
+    auto controls = Fixture(); auto& l = *controls;
+    Check(Build(l, 3, Machine::Switch, 0) && Build(l, 4, Machine::Counter, 0)
+        && l.RemoveRefund(3) == 5 && l.RemoveRefund(4) == 15, "controls retain reduced prices");
     const auto original = l.Save(); save = original; save["state"]["cells"][3]["paidCost"] = -1; std::string error;
     Check(!l.Load(save, error) && l.Save() == original, "invalid new state rejected transactionally");
 
@@ -131,7 +129,7 @@ void TestWorkshopCircuits() {
     Step(u, 6); Check(u.PlantCooldown("pea") == 0, "planting cooldown expires");
     u.StartPlantCooldown("wallnut", 25); u.RecordBreach(); u.RecordBreach(); u.RecordBreach();
     Check(u.Retry() && u.PlantCooldown("wallnut") == 0, "retry returns to ready planning cards");
-    Check(u.Build(2, Machine::Belt, 0) && u.Build(3, Machine::Cooler, 0) && u.Build(4, Machine::Feeder, 0), "material hint line");
+    Check(Build(u, 2, Machine::Belt, 0) && Build(u, 3, Machine::Cooler, 0) && Build(u, 4, Machine::Feeder, 0), "material hint line");
     save = u.Save(); save["state"]["cells"][2]["extraStock"][1] = 1; Load(u, save);
     const auto beforeWarning = u.Save();
     Check(u.MaterialWarning(3).find("西瓜") != std::string::npos && u.Save() == beforeWarning, "actual melon versus pea recipe warns without mutation");
@@ -139,7 +137,5 @@ void TestWorkshopCircuits() {
     save = u.Save(); save["state"]["cells"][3]["extraStock"][2] = 1; Load(u, save);
     Check(u.MaterialWarning(4).find("冰瓜") != std::string::npos, "feeder warns about incoming incompatible ammunition");
     Check(u.SetFilter(4, 4) && u.MaterialWarning(4).empty(), "feeder correction resolves warning");
-    save = u.Save(); save["schemaVersion"] = 4; save["state"].erase("plantCooldowns"); Load(*replay, save);
-    auto migrated = u.Save(); migrated["state"]["gridLevel"] = UnlockedGridLevel(u.CompletedWaves());
-    Check(replay->Save() == migrated, "v4 base migration preserves layout and supplies and grants progress grid");
+
 }

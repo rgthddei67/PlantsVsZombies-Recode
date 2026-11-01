@@ -14,7 +14,7 @@ inline constexpr int Rows = 5; // 前线行数，与独立工厂的行数无关
 inline constexpr int MaxColumns = 20; // 工厂最大列数；同时作为稳定格位索引的行跨度
 inline constexpr int MaxRows = 20; // 工厂最大行数
 inline constexpr int CellCount = MaxRows * MaxColumns;
-inline constexpr int MagazineCapacity = 80; // 每行共用弹仓的豌豆数量上限
+inline constexpr int MagazineCapacity = 80; // 每行弹药与维修包共用的总容量
 inline constexpr int ShooterCost = 150; // 每株新增射手的阳光费用
 inline constexpr int IceShooterCost = 200; // 每株寒冰射手的阳光费用
 inline constexpr int ColdUnlockWave = 3; // 守住此波后开放寒冰生产线和寒冰射手
@@ -38,9 +38,9 @@ inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
     Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler,
-    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, Count };
-// 前五类进入前线弹仓，残骸只参与工厂物流；追加枚举不改变旧弹种编号。
-enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, Scrap, Count };
+    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, PowerBox, RepairAssembler, Count };
+// 弹药与维修包进入前线弹仓，残骸只参与工厂物流；本版存档单独校验。
+enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, RepairKit, Scrap, Count };
 inline constexpr int AmmoCount = static_cast<int>(Ammo::Scrap);
 inline constexpr int ItemCount = static_cast<int>(Ammo::Count);
 inline constexpr int ScrapPerWave = 40; // 每波全基地累计残骸掉落上限，召唤物也共用
@@ -51,6 +51,11 @@ inline constexpr std::array<float, 3> RecyclePeriods{1.5f, 1.2f, 1.0f}; // 残�
 inline constexpr float SporeEnergy = 0.5f; // 每份孢子的阳光成本
 inline constexpr float MelonEnergy = 8; // 每颗西瓜的阳光成本
 inline constexpr float IceMelonEnergy = 6; // 每颗西瓜冷凝为冰瓜的额外阳光成本
+inline constexpr float RepairKitEnergy = 10; // 每份维修包加工消耗的阳光，另需一份残骸
+inline constexpr std::array<float, 3> RepairKitPeriods{4, 3.2f, 2.5f}; // 维修机各级生产周期，游戏秒/包
+inline constexpr int MainPowerSource = -2; // 固定总站身份，不占工厂格；-1 表示未接电
+inline constexpr int StarterPowerBox = 2 * MaxColumns; // 开局配电箱格位，位于两台集光器下方
+inline constexpr int SaveVersion = 7; // 配电支路与维修物资重构的独立工坊存档版本
 inline constexpr float CannonChargeSeconds = 12; // 炮台从新建或上一轮齐射起充能的游戏秒数
 inline constexpr float CannonShotInterval = .18f; // 一轮三发之间的游戏秒数
 inline constexpr int CannonVolleySize = 3; // 每轮预留并发射的对应瓜弹数量
@@ -71,8 +76,10 @@ const Definition& Describe(Machine type);
 Machine FindMachine(const std::string& key);
 bool IsLogic(Machine type);
 bool HasDirectionalOutput(Machine type);
-/** 物料设备的 B 口用于选择两套工作方案，A 口仍负责运行许可。 */
+/** B 口选择两套方案；是否具有 A 口由 HasSignalInput 独立判断。 */
 bool HasSelectionInput(Machine type);
+/** 判断真实存在的信号端口；电源端口独立，不与 A/B 互换。 */
+bool HasSignalInput(Machine type, int port);
 const char* DirectionName(int direction);
 bool CanUpgradeMachine(Machine type);
 /** 当前等级升一级的阳光费用；满级或无效等级返回 0。 */
@@ -92,11 +99,20 @@ int UnlockedGridLevel(int completedWaves);
 struct PowerInfo {
     float capacity = 0, demand = 0, speed = 1;
 };
+struct BranchPower {
+    float demand = 0, allocated = 0, speed = 0;
+    bool connected = false, enabled = false, priority = false;
+};
+struct PowerNetwork {
+    PowerInfo total;
+    std::array<BranchPower, CellCount> branches{};
+};
 
 struct Cell {
     Machine type = Machine::Empty;
     int level = 1;
     int direction = 0;
+    int powerSource = -1; // 配电箱只能接总站；耗电机器只能接一个配电箱
     int stock = 0;
     int iceStock = 0;
     int route = 0;
@@ -167,6 +183,15 @@ public:
     bool Rotate(int index);
     bool Connect(int source, int target, int input);
     bool CanConnect(int source, int target, int input) const;
+    bool CanConnectPower(int source, int target) const;
+    /** 改线/断线均保留缓存与进度，拆除来源时自动断开引用。 */
+    bool ConnectPower(int source, int target);
+    PowerNetwork Distribution() const;
+    float MachineSpeed(int index) const;
+    /** 修复的资源预检与原子付款；任一资源不足时均不扣除。 */
+    bool CanRepair(int row, float sunCost) const;
+    bool SpendRepair(int row, float sunCost);
+    bool ItemUnlocked(int item) const;
     bool Configure(int index);
     /** plan 为 -1 时编辑当前生效方案，0/1 时明确编辑指定方案。 */
     bool SetRoute(int index, int row, int plan = -1);
