@@ -7,23 +7,24 @@ namespace Workshop {
 namespace {
 constexpr int kPracticeRoute = 2; // 练习统一监视第 3 路，避免把工厂格行号误当战场路线
 constexpr int kPracticeStockGoal = 5; // 库存练习的停止补货门槛，单位：颗普通豌豆
+constexpr float kStopVerificationSeconds = 4, kResumeVerificationSeconds = 6; // 两种库存情形的运行时长，练习秒
 constexpr float kPracticeStepSeconds = 1.0f / 60; // 独立模拟步长，单位：练习秒
 }
 Practice::Practice() { Reset(0); }
 const char* Practice::Name(int lesson) {
-    constexpr std::array<const char*, 4> names{"接电并给第3路补弹", "优先供电与断电", "有敌时优先供电", "够用停机，缺弹再开"};
+    constexpr std::array<const char*, LessonCount> names{"接电并给第3路补弹", "优先供电与断电", "有敌时优先供电", "够用停机，缺弹再开", "独立分组验收"};
     return names.at(lesson);
 }
-int Practice::StepCount() const { return std::array<int, 4>{6, 5, 4, 7}[mLesson]; }
+int Practice::StepCount() const { return std::array<int, LessonCount>{6, 5, 4, 7, 2}[mLesson]; }
 int Practice::UnlockWave(int lesson) {
     if (lesson == 2) return Describe(Machine::EnemySensor).unlockWave;
-    if (lesson == 3) return std::max(Describe(Machine::StockSensor).unlockWave, Describe(Machine::Not).unlockWave);
+    if (lesson == 3 || lesson == ChallengeLesson) return std::max(Describe(Machine::StockSensor).unlockWave, Describe(Machine::Not).unlockWave);
     return 0;
 }
 
 void Practice::Reset(int lesson) {
-    mLesson = std::clamp(lesson, 0, 3); mStep = 0; mSelected = mSource = -1; mTool = Tool::Inspect;
-    mRunning = false; mLowStockSet = false; mLessonTime = mPowerClock = 0; mProducedBeforeLow = 0; mEnemies = {}; mNotice.clear();
+    mLesson = std::clamp(lesson, 0, LessonCount - 1); mStep = 0; mSelected = mSource = -1; mTool = Tool::Inspect;
+    mRunning = mVerifying = false; mVerificationTime = 0; mLowStockSet = false; mLessonTime = mPowerClock = 0; mProducedBeforeLow = 0; mEnemies = {}; mNotice.clear();
     mWorld.Reset(); mWorld.Remove(0); mWorld.Remove(MaxColumns);
     // 练习统一开放已用于课程的电路；此副本没有正式基地的布局或奖励进度。
     auto setup = mWorld.Save(); setup["state"]["completedWaves"] = 2; setup["state"]["energy"] = EnergyLimit;
@@ -44,7 +45,15 @@ void Practice::Reset(int lesson) {
         mWorld.Build(Sensor, Machine::EnemySensor, 0);
 
     }
-    if (mLesson == 3) { mWorld.Build(Sensor, Machine::StockSensor, 0); mWorld.Build(Inverter, Machine::Not, 0); }
+    if (mLesson == 3 || IsChallenge()) { mWorld.Build(Sensor, Machine::StockSensor, 0); mWorld.Build(Inverter, Machine::Not, 0); }
+    if (IsChallenge()) {
+        mWorld.Build(BackgroundBox, Machine::PowerBox, 0);
+        mWorld.Build(BackgroundGrower, Machine::Grower, 0);
+        mWorld.ConnectPower(PowerBox, BackgroundGrower);
+        mWorld.Build(BackgroundGrower + 1, Machine::Belt, 0);
+        mWorld.Build(BackgroundGrower + 2, Machine::Feeder, 0);
+        mWorld.SetRoute(BackgroundGrower + 2, 1);
+    }
     mWorld.StartAssault(); // 没有真实战斗对象，开波仅允许独立产线和电路推进。
 }
 
@@ -68,7 +77,7 @@ bool Practice::ClickCell(int index) {
     }
     if (type != Machine::Empty) { mSelected = index; mTool = Tool::Inspect; return true; }
     const auto build = mTool == Tool::Belt ? Machine::Belt : mTool == Tool::Feeder ? Machine::Feeder : Machine::Empty;
-    if (mLesson != 0 || build == Machine::Empty) { mNotice = "先选上方的机器卡片，再点发亮的空格。"; return false; }
+    if (mLesson != 0 || build == Machine::Empty) { mNotice = IsChallenge() ? "本课使用现有机器，请调整分组、配置与接线。" : "先选上方的机器卡片，再点发亮的空格。"; return false; }
     if ((build == Machine::Belt && index != Conveyor) || (build == Machine::Feeder && index != Feeder)) {
         mNotice = "这一课先把机器放在发亮格里，让物料线连续相邻。"; return false;
     }
@@ -77,7 +86,7 @@ bool Practice::ClickCell(int index) {
 }
 
 bool Practice::SetStock(int amount) {
-    if (mLesson != 3 || amount < 0 || amount > 10) return false;
+    if ((mLesson != 3 && !IsChallenge()) || amount < 0 || amount > 10) return false;
     auto setup = mWorld.Save(); setup["state"]["lanes"][kPracticeRoute]["ammo"] = amount;
     std::string error;
     if (!mWorld.Load(setup, error)) return false;
@@ -88,6 +97,10 @@ bool Practice::SetStock(int amount) {
 
 bool Practice::Act(const std::string& action, int value) {
     mNotice.clear(); bool ok = false;
+    if (mVerifying && action != "run" && action != "tick" && action != "inspect" && action != "cell") {
+        mNotice = "正在检验真实运行结果；先等检验结束，或重做本课再修改。"; return false;
+    }
+    if (action == "verify") return StartVerification();
     if (action == "station") { mTool = Tool::Power; mSource = MainPowerSource; return true; }
     if (action == "wire_power") { mTool = Tool::Power; mSource = -1; return true; }
     if (action == "inspect") { mTool = Tool::Inspect; mSource = -1; return true; }
@@ -119,7 +132,7 @@ bool Practice::Act(const std::string& action, int value) {
 }
 
 void Practice::CheckStep(bool simulated) {
-    if (Complete()) return;
+    if (Complete() || IsChallenge()) return;
     const auto& cells = mWorld.Cells(); bool done = false;
     if (mLesson == 0) {
         if (mStep == 0) done = cells[PowerBox].powerSource == MainPowerSource;
@@ -154,19 +167,68 @@ void Practice::CheckStep(bool simulated) {
     if (done && (!verification || simulated)) { ++mStep; mRunning = false; mSource = -1; mTool = Tool::Inspect; mNotice = Complete() ? "练习完成！可以改条件继续试，也可以重玩。" : "这一步完成，练习已暂停。按下一步提示继续。"; }
 }
 
+bool Practice::StartVerification() {
+    if (!IsChallenge() || mVerifying) return false;
+    auto setup = mWorld.Save(); auto& state = setup["state"];
+    // 清理练习中的待发缓存，确保恢复项必须真的重新生产，而非搬运之前囤下的弹药。
+    for (int index : {Grower, Conveyor, Feeder, BackgroundGrower, BackgroundGrower + 1, BackgroundGrower + 2}) {
+        state["cells"][index]["stock"] = 0; state["cells"][index]["clock"] = 0;
+    }
+    state["lanes"][kPracticeRoute]["ammo"] = kPracticeStockGoal;
+    state["lanes"][1]["ammo"] = 0; state["energy"] = EnergyLimit;
+    std::string error;
+    if (!mWorld.Load(setup, error)) { mNotice = "无法准备本次练习检验，请重做本课。"; return false; }
+    mStep = 0; mVerificationTime = 0; mVerifying = mRunning = true;
+    mSelected = mSource = -1; mTool = Tool::Inspect;
+    mVerificationTargetProduced = mWorld.Cells()[Grower].producedItems[0];
+    mVerificationBackgroundProduced = mWorld.Cells()[BackgroundGrower].producedItems[0];
+    mNotice = "检验中会依次设置5颗、4颗；只改变练习库存，不影响正式基地。";
+    return true;
+}
+
+void Practice::CheckVerification(float dt) {
+    if (!mVerifying) return;
+    mVerificationTime += dt;
+    if (mVerificationTime < (mStep == 0 ? kStopVerificationSeconds : kResumeVerificationSeconds)) return;
+    const auto& target = mWorld.Cells()[Grower]; const auto& background = mWorld.Cells()[BackgroundGrower];
+    const bool backgroundRuns = mWorld.MachinePower(BackgroundGrower) > 0
+        && background.producedItems[0] > mVerificationBackgroundProduced && mWorld.Lanes()[1].ammo > 0;
+    std::string failure;
+    if (!backgroundRuns) failure = "第2路没有继续生产供货，不能为了停第3路而一起断供。";
+    else if (mStep == 0 && (target.producedItems[0] > mVerificationTargetProduced || target.powerSource < 0 || !target.manual || mWorld.Enabled(target.powerSource)
+        || mWorld.MachinePower(Grower) > 0)) failure = "第3路已够5颗，但没有通过支路自动停机。";
+    else if (mStep == 1 && (target.producedItems[0] <= mVerificationTargetProduced
+        || mWorld.Lanes()[kPracticeRoute].ammo < kPracticeStockGoal)) failure = "第3路降至4颗后，没有重新生产并补到前线。";
+    if (!failure.empty()) {
+        mNotice = "未通过：" + failure; mVerifying = mRunning = false; mStep = 0; return;
+    }
+    if (mStep == 0) {
+        mVerificationTargetProduced = target.producedItems[0];
+        mVerificationBackgroundProduced = background.producedItems[0];
+        SetStock(kPracticeStockGoal - 1);
+        mStep = 1; mVerificationTime = 0; mNotice = "够弹停机已通过；现在检验低于门槛后的自动恢复。";
+    } else {
+        mStep = StepCount(); mVerifying = mRunning = false;
+        mNotice = "独立验收通过：够弹停机、缺弹重启，而且没有拖停另一条产线。";
+    }
+}
+
 void Practice::Advance(float seconds) {
     if (!std::isfinite(seconds) || seconds <= 0) return;
-    const int startStep = mStep;
+    const int startStep = mStep; const bool verifying = mVerifying;
     while (seconds > .000001f) {
         const float dt = std::min(seconds, kPracticeStepSeconds); seconds -= dt;
         mLessonTime += dt; mWorld.ObserveFrontline(mEnemies, {}); mWorld.Tick(dt);
         if (mWorld.NextSpawnRow() >= 0) mWorld.CommitSpawn();
-        CheckStep(true);
-        if (mStep != startStep) break;
+        if (IsChallenge()) CheckVerification(dt);
+        else CheckStep(true);
+        if (mStep != startStep || (verifying && !mVerifying)) break;
     }
 }
 
 std::string Practice::Instruction() const {
+    if (IsChallenge()) return Complete() ? "验收通过：目标产线能停能开，另一条产线始终正常供货。"
+        : "第3路普通弹够5颗就停、少于5颗再补；第2路必须持续供货。";
     if (Complete()) return mLesson == 0 ? "本路已送通！正式开波前，也要给其余四路安排供弹。"
         : mLesson == 1 ? "已完成。试着开关配电箱，观察各支路加工速度。"
         : "已完成。试着改变条件，观察电力、信号和弹药去向。";
@@ -179,14 +241,17 @@ std::string Practice::Instruction() const {
     return text[mLesson][mStep];
 }
 std::string Practice::Hint() const {
-    if (mLesson == 0) return "黄色是供电线，运输带搬物料。配电箱必须接总站，机器必须接箱；装填口不耗电。正式基地五路都要供弹。";
+    if (IsChallenge()) return mVerifying ? (mStep == 0 ? "检验1：第3路已放5颗。观察目标是否停产，第2路是否仍出货。"
+        : "检验2：第3路降至4颗。观察目标是否重新生产，第2路是否仍出货。")
+        : "自行分组、配置与接线，无操作高亮。点开始检验，系统只改变练习库存并运行检查；可回前课重看。";
+    if (mLesson == 0) return "黄色是供电线，运输带搬物料。配电箱必须接总站，机器必须接箱；装填口不耗电。正式基地准备期停机，开波后才产弹。";
     if (mLesson == 1) return "左箱只供育豆主线，右箱供6台背景机器。优先箱先拿电；同级同比分配，产速为供电比的平方。";
     if (mLesson == 2 && mWorld.Cells()[PowerBox].inputs[0] >= 0) return "您接到了配电箱A通断口；断开输入，改接B优先级口。";
     if (mLesson == 2) return "B开（高）选优先，B关（低）选普通；A控制整组通断。信号线不会搬运电力或弹药。";
     return "库存器够5颗就开，非门反转后让配电箱A关闭。缺弹时重新供电，机器不用再接A线。";
 }
 int Practice::HighlightCell() const {
-    if (Complete()) return -1;
+    if (Complete() || IsChallenge()) return -1;
     if (mLesson == 0) return mStep == 0 ? PowerBox : mStep == 1 ? (mSource < 0 ? PowerBox : Grower) : mStep == 2 ? Conveyor : mStep <= 4 ? Feeder : -1;
     if (mLesson == 1) return mStep == 1 ? PowerBox : mStep == 3 ? BackgroundBox : -1;
     if (mLesson == 2) return mStep == 0 ? Sensor : mStep == 1 ? (mSource < 0 ? Sensor : PowerBox) : -1;
@@ -196,6 +261,7 @@ int Practice::HighlightCell() const {
     return -1;
 }
 std::string Practice::HighlightControl() const {
+    if (IsChallenge()) return {};
     if (Complete()) return "next";
     if (mLesson == 0) return std::array<const char*, 6>{"station", "wire_power", "belt", "feeder", "route", "run"}[mStep];
     if (mLesson == 1) return mStep == 1 ? "priority" : mStep == 3 ? "power" : "tick";
@@ -204,6 +270,7 @@ std::string Practice::HighlightControl() const {
 }
 nlohmann::json Practice::Inspect() const {
     return {{"lesson", mLesson}, {"step", mStep}, {"complete", Complete()}, {"running", mRunning}, {"selected", mSelected},
+        {"verifying", mVerifying}, {"signalPaused", !mRunning}, {"highlightCell", HighlightCell()}, {"highlightControl", HighlightControl()},
         {"source", mSource}, {"tool", static_cast<int>(mTool)}, {"enemies", mEnemies}, {"notice", mNotice}, {"world", mWorld.Inspect()}};
 }
 }

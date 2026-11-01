@@ -14,6 +14,14 @@ void Text(const std::string& text, float x, float y, int size = 16, glm::vec4 co
 }
 }
 
+/** 暂停不重算电路；所有正式界面明确这些灯是上次运行的结果。 */
+std::string WorkshopScene::PausedSignalHint() const {
+    if (!World().Unlocked(Workshop::Machine::Switch)) return {};
+    if (World().State() == Workshop::Phase::Planning) return "准备期信号停机：灯为上次结果，开波后逐拍刷新。";
+    if (mPaused || mUIManager.GetTopActiveMessageBox()) return "暂停中：信号灯为上次结果，继续运行后逐拍刷新。";
+    return {};
+}
+
 glm::vec4 WorkshopScene::SignalWireColor(int port, bool on) {
     const auto bright = port ? glm::vec4(255, 166, 55, 255) : glm::vec4(61, 170, 255, 255);
     return on ? bright : glm::vec4(bright.r * .63f, bright.g * .63f, bright.b * .63f, 210);
@@ -61,7 +69,7 @@ void WorkshopScene::DrawMachineReason(Graphics* g, int index) {
     if (circuits) {
         g->FillRect(120, 106, 395, 31, glm::vec4(42, 50, 43, 255));
         Text("蓝色实线：A　　橙色虚线：B", 133, 112, 16, glm::vec4(247, 229, 168, 255));
-        Text("开（高）=条件成立；关（低）=条件不成立", 535, 113, 15);
+        Text("上次信号：开=条件成立，关=条件不成立", 535, 113, 15);
     } else Text("先检查手动电源、出料方向、物料种类和弹仓配额。", 120, 113, 16);
     std::vector<std::string> lines;
     for (const auto& explanation : World().Explain(index)) {
@@ -78,7 +86,7 @@ void WorkshopScene::DrawMachineReason(Graphics* g, int index) {
     mReasonPage = std::clamp(mReasonPage, 0, pages - 1);
     for (int row = 0, at = mReasonPage * kReasonLinesPerPage; row < kReasonLinesPerPage && at < static_cast<int>(lines.size()); ++row, ++at)
         Text(lines[at], 120, 155 + row * 25.0f, 15);
-    Text(circuits ? "查看时基地暂停；信号逐拍传播，开波后刷新。" : "查看时基地暂停；关闭窗口后继续，准备期仍停机。", 120, 532, 14, kSignalGreen);
+    Text(circuits ? PausedSignalHint() : "查看时基地暂停；关闭窗口后继续，准备期仍停机。", 120, 532, 14, kSignalGreen);
     mReasonDialog->GetButton(1)->SetEnabled(mReasonPage > 0); mReasonDialog->GetButton(2)->SetEnabled(mReasonPage + 1 < pages);
     if (pages > 1) { Text(std::format("{} / {}", mReasonPage + 1, pages), 680, 530, 14); mReasonDialog->GetButton(1)->Draw(g); mReasonDialog->GetButton(2)->Draw(g); }
     mReasonDialog->GetButton(0)->Draw(g);

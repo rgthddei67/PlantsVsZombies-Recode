@@ -1,0 +1,1207 @@
+{
+  "name": "smoke_workshop_teaching_clarity",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "move_mouse",
+      "x": 820,
+      "y": 568
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "workshop",
+      "action": "pause",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "dump_state",
+      "name": "initial.json"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "workshop",
+      "action": "practice_open",
+      "index": 4,
+      "type": "",
+      "value": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog_logic",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "01_power_box_shortcut.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "catalog_power_box",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.catalogOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.buildType",
+      "equals": "power_box"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "after_shortcut"
+    },
+    {
+      "op": "key",
+      "hold_frames": 3,
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "add",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceLessons",
+      "equals": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 4,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceEntryLabel",
+      "equals": "基础练习：接电补弹"
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recommendedPractice",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "02_named_practice_entry.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 0
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 22,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recommendedPractice",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 8,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recommendedPractice",
+      "equals": 2
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 2
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 9,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recommendedPractice",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide",
+      "index": 12,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.recommendedPractice",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.lesson",
+      "equals": 3
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close",
+      "index": -1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "practice_open",
+      "index": 1,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_40",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_priority",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_41",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "03_supply_and_speed.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "supply_and_speed.json"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "practice_open",
+      "index": 3,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_wire_a",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_5",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_7",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.signalPaused",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.world.cells.7.signal",
+      "equals": false
+    },
+    {
+      "op": "screenshot",
+      "name": "04_paused_signal_hint.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.world.cells.7.signal",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 5,
+      "type": "stock",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "build",
+      "index": 7,
+      "type": "not",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "wire_a",
+      "index": 7,
+      "type": "",
+      "value": 5
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "before_practice"
+    },
+    {
+      "op": "workshop",
+      "action": "config_open",
+      "index": 7,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "05_config_paused.png"
+    },
+    {
+      "op": "key",
+      "hold_frames": 3,
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "reason_open",
+      "index": 7,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "06_reason_paused.png"
+    },
+    {
+      "op": "key",
+      "hold_frames": 3,
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "wire_a_tool",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "11_paused_wiring_bar.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "practice_open",
+      "index": 4,
+      "type": "",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.highlightCell",
+      "equals": -1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.highlightControl",
+      "equals": ""
+    },
+    {
+      "op": "screenshot",
+      "name": "07_independent_goal.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_station",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_41",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_wire_power",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_41",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_21",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_inspect",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_5",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_route",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_route",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_filter",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_setting_minus",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_setting_minus",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_setting_minus",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_setting_minus",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_setting_minus",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_wire_a",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_5",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_7",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_wire_a",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_7",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_cell_41",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "08_independent_wiring.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_verify",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.verifying",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_run",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "practice_action",
+      "index": -1,
+      "type": "stock",
+      "value": 0,
+      "expectedSuccess": false
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.step",
+      "equals": 1
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.verifying",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "09_recovery_test.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_tick",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.complete",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.verifying",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practice.running",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "independent_passed.json"
+    },
+    {
+      "op": "screenshot",
+      "name": "10_independent_passed.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_next",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "after_practice"
+    },
+    {
+      "op": "dump_state",
+      "name": "final.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

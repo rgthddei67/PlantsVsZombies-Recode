@@ -53,6 +53,44 @@ void TestWorkshopPractice() {
     Check(p.Complete() && p.Model().Enabled(Practice::PowerBox) && p.Model().Produced() > 0, "low stock restarts actual production");
     p.Reset(0); Check(p.Step() == 0 && p.Model().Produced() == 0 && p.Model().Lanes()[2].ammo == 0, "replay clears only the practice world");
 
+    // 独立题只检查生产结果，不要求特定接线顺序；错误分组和手动关机不能冒充自动控制。
+    auto configureChallenge = [&](int threshold, bool separate) {
+        p.Reset(Practice::ChallengeLesson);
+        Check(p.HighlightCell() == -1 && p.HighlightControl().empty(), "challenge gives no placement or action answer");
+        if (separate) {
+            p.Act("station"); p.Act("cell", Practice::BackgroundBox);
+            Wire(p, "wire_power", Practice::BackgroundBox, Practice::Grower);
+        }
+        p.Act("inspect"); p.Act("cell", Practice::Sensor); p.Act("route"); p.Act("route"); p.Act("filter");
+        p.Act("setting", threshold - p.Model().Cells()[Practice::Sensor].setting);
+        Wire(p, "wire_a", Practice::Sensor, Practice::Inverter);
+        Wire(p, "wire_a", Practice::Inverter, separate ? Practice::BackgroundBox : Practice::PowerBox);
+    };
+    auto finishVerification = [&] {
+        for (int i = 0; i < 14 && p.Verifying(); ++i) p.Advance(1);
+    };
+    configureChallenge(5, false); p.Act("verify"); finishVerification();
+    Check(!p.Complete() && p.Notice().find("第2路") != std::string::npos, "stopping both lines fails independent grouping");
+    configureChallenge(6, true); p.Act("verify"); finishVerification();
+    Check(!p.Complete() && p.Notice().find("自动停机") != std::string::npos, "too-high threshold fails full-stock stop");
+    configureChallenge(4, true); p.Act("verify"); finishVerification();
+    Check(!p.Complete() && p.Notice().find("重新生产") != std::string::npos, "too-low threshold fails low-stock recovery");
+    configureChallenge(5, true); p.Act("inspect"); p.Act("cell", Practice::Grower); p.Act("power");
+    p.Act("verify"); finishVerification();
+    Check(!p.Complete(), "manual processor off cannot pass automated stop");
+    configureChallenge(5, true);
+    Check(p.Act("verify") && p.Verifying() && !p.Act("stock", 0) && !p.Act("wire_a"), "verification locks configuration and injected stock");
+    p.Advance(4.1f);
+    Check(p.Step() == 1 && p.Verifying() && p.Model().Lanes()[2].ammo == 4, "automatic stop passes before testing real recovery");
+    const auto backgroundProduced = p.Model().Cells()[Practice::BackgroundGrower].producedItems[0];
+    finishVerification();
+    Check(p.Complete() && !p.Verifying() && !p.Running() && p.Model().Lanes()[2].ammo >= 5
+        && p.Model().Cells()[Practice::Grower].producedItems[0] > 0
+        && p.Model().Cells()[Practice::BackgroundGrower].producedItems[0] > backgroundProduced,
+        "independent challenge requires delivery and uninterrupted background production in both phases");
+    p.Reset(Practice::ChallengeLesson);
+    Check(!p.Complete() && !p.Verifying() && p.Model().Produced() == 0, "challenge replay resets validation and practice only");
+
     auto world = std::make_unique<World>(); auto setup = world->Save(); setup["state"]["completedWaves"] = 2; setup["state"]["energy"] = 10000;
     std::string error; Check(world->Load(setup, error), "diagnostic fixture");
     for (auto [i, type] : {std::pair{5, Machine::EnemySensor}, {6, Machine::EnemySensor}, {7, Machine::Not}, {8, Machine::And}, {23, Machine::Feeder}}) world->Build(i, type, 0);

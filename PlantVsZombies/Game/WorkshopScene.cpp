@@ -361,6 +361,7 @@ std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& actio
     if (action == "configure_tool") return mConfigButton;
     if (action == "disconnect_tool") return mDisconnectButton;
     if (action == "catalog") return mCatalogButton;
+    if (action == "catalog_power_box") return mCatalogPowerBoxButton;
     if (action == "catalog_close") return IsCatalogOpen() ? mCatalog->GetButton(0) : nullptr;
     constexpr std::array<const char*, 3> categories{"catalog_production", "catalog_logistics", "catalog_logic"};
     for (size_t i = 0; i < categories.size(); ++i)
@@ -817,6 +818,7 @@ void WorkshopScene::UpdateTooltip() {
                 lines.push_back(std::string(type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor ? "监视路线：第 " : "目标路线：第 ") + std::to_string(World().ActiveRoute(index) + 1) + " 路");
             if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::Counter || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
                 lines.push_back(std::string(type == Workshop::Machine::StockSensor ? "检测弹种：" : type == Workshop::Machine::Counter ? "计量弹种：" : type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
+            if ((Workshop::IsLogic(type) || Workshop::HasSignalInput(type, 0) || Workshop::HasSignalInput(type, 1)) && !PausedSignalHint().empty()) lines.push_back(PausedSignalHint());
             if (Workshop::HasSelectionInput(type)) lines.push_back((World().Unlocked(Workshop::Machine::Switch) ? Workshop::PortLabel(cell, 1) + "；" : std::string()) + "当前方案 " + std::to_string(World().ActivePlan(index) + 1) + "，双击打开配置。" );
             if (type == Workshop::Machine::Splitter) lines.push_back(cell.strictSplit ? "严格选路：仅送选中出口，堵塞时等待。" : World().Unlocked(Workshop::Machine::Switch) ? "普通模式：筛选优先；混合时轮流或按B信号优先供货。" : "普通模式：混合时轮流分配；筛选弹种固定送右侧。");
             if (type == Workshop::Machine::Counter) lines.push_back(std::format("当前批次 {} / {}；{}", cell.count, cell.setting, cell.counterOutput == Workshop::CounterOutput::Hold ? "达标保持" : "每批翻转"));
@@ -1103,8 +1105,13 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["gridOpen"] = mGridDialog && mGridDialog->IsActive(); j["powerGuideSeen"] = mPowerGuideSeen;
     j["practiceOpen"] = mPracticeDialog && mPracticeDialog->IsActive();
     j["practiceLessons"] = nlohmann::json::array();
-    for (int i = 0; i < 4; ++i) if (World().CompletedWaves() >= Workshop::Practice::UnlockWave(i)) j["practiceLessons"].push_back(i);
+    for (int i = 0; i < Workshop::Practice::LessonCount; ++i) if (World().CompletedWaves() >= Workshop::Practice::UnlockWave(i)) j["practiceLessons"].push_back(i);
     j["practice"] = mPractice ? mPractice->Inspect() : nlohmann::json(nullptr);
+    j["pausedSignalHint"] = PausedSignalHint();
+    if (mGuide && mGuide->IsActive() && !mGuideTopics.empty()) {
+        j["practiceEntryLabel"] = PracticeEntryLabel(mGuideTopics[mGuidePage]);
+        j["recommendedPractice"] = RecommendedPracticeLesson(mGuideTopics[mGuidePage]);
+    }
     j["reasonOpen"] = mReasonDialog && mReasonDialog->IsActive();
     if (mSelected >= 0) j["selectedReasons"] = World().Explain(mSelected);
     j["powerDemo"] = mPowerDemo ? mPowerDemo->Inspect() : nlohmann::json(nullptr);

@@ -75,7 +75,7 @@ private:
     std::vector<std::shared_ptr<Button>> mMachineGuideButtons;
     std::shared_ptr<GameMessageBox> mCatalog;
     std::weak_ptr<GameMessageBox> mDismissibleDialog; // 仅帮助/重开确认可用 Esc 关闭，失败和坏档提示必须明确处理
-    std::shared_ptr<Button> mCatalogButton;
+    std::shared_ptr<Button> mCatalogButton, mCatalogPowerBoxButton;
     std::vector<std::shared_ptr<Button>> mQuickButtons;
     std::vector<Workshop::Machine> mRecentMachines{Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
     int mCatalogCategory = 0;
@@ -107,7 +107,7 @@ private:
     std::shared_ptr<GameMessageBox> mPracticeDialog, mReasonDialog;
     std::unordered_map<std::string, std::shared_ptr<Button>> mPracticeControls;
     std::unordered_map<std::string, Vector> mPracticeControlSizes;
-    std::array<bool, 4> mPracticeFinished{};
+    std::array<bool, Workshop::Practice::LessonCount> mPracticeFinished{};
     Uint64 mPracticeTickAt = 0;
     int mReasonPage = 0;
     std::shared_ptr<Button> mViewButton;
@@ -126,8 +126,11 @@ private:
     void ConfirmReset();
     void ShowHelp();
     void OpenPractice(int lesson = 0);
-    /** 图解入口优先打开当前主题对应的已解锁课程，其余主题继续未完成课程。 */
+    /** 图解入口固定打开主题对应课程，其余主题明确标为基础练习。 */
     int RecommendedPracticeLesson(int topic) const;
+    std::string PracticeEntryLabel(int topic) const;
+    /** 指出准备期或暂停中显示的是上次信号结果；正常运行时为空。 */
+    std::string PausedSignalHint() const;
     void ClosePractice();
     bool PracticeAction(const std::string& action, int value = -1);
     void UpdatePractice();

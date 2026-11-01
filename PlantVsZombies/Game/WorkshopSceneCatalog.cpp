@@ -85,7 +85,13 @@ void WorkshopScene::OpenCatalog() {
     }
     for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i)
         builder.Button("图解", Vector(-2000, -2000), Vector(64, 23), 13, [this, i] { OpenGuide(i); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("建造配电箱", Vector(790, 99), Vector(235, 34), 16, [this] {
+        SelectBuild(Workshop::Machine::PowerBox); CloseCatalog(false);
+    }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mCatalog = builder.Show();
+    mCatalogPowerBoxButton = mCatalog->GetButton(5 + 2 * (static_cast<int>(Workshop::Machine::Count) - 1));
+    mCatalogPowerBoxButton->SetText("　建造配电箱 · " + std::to_string(Workshop::Describe(Workshop::Machine::PowerBox).cost) + " 阳光", ResourceKeys::Fonts::FONT_FZCQ, 16);
+    mCatalogPowerBoxButton->SetTextColor(glm::vec4(255, 228, 142, 255));
     mCatalog->SetCustomDraw([this](Graphics* g) { DrawCatalog(g); });
     mCatalog->GetButton(4)->SetTextColor(glm::vec4(255, 228, 142, 255));
     mCatalog->GetButton(4)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
@@ -103,7 +109,7 @@ void WorkshopScene::OpenCatalog() {
 void WorkshopScene::CloseCatalog(bool cancelTool) {
     if (cancelTool) CancelTool();
     if (mCatalog) mCatalog->Close();
-    mCatalog.reset(); mMachineButtons.clear(); mMachineGuideButtons.clear(); mCatalogNotice.clear();
+    mCatalog.reset(); mCatalogPowerBoxButton.reset(); mMachineButtons.clear(); mMachineGuideButtons.clear(); mCatalogNotice.clear();
     mHoverKey = -1; mTooltipLines.clear();
     // Scene::Update 在模态释放帧结束后统一恢复时钟，避免释放事件穿透或覆盖手动暂停。
 }
@@ -156,9 +162,10 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
     }
     Label("戴夫的施工图册", 75, 49, 27, kCatalogGreen);
     Label("阳光 " + std::to_string(static_cast<int>(World().Energy())), 770, 55, 18);
-    Label("先认机器，再把生产线接起来", 380, 59, 16);
+    Label("查看时已暂停 · Esc 返回", 380, 59, 16);
     for (int i = 0; i < 5; ++i) mCatalog->GetButton(i)->Draw(g);
-    Label("查看时已暂停 · Esc 返回", 785, 107, 14, kCatalogGreen);
+    mCatalogPowerBoxButton->Draw(g);
+    DrawMachineImage(g, Workshop::Machine::PowerBox, 800, 104, .42f);
     int slot = 0;
     std::string detail = mCatalogNotice;
     for (size_t i = 0; i < mMachineButtons.size(); ++i) {

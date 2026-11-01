@@ -202,9 +202,11 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         DrawProfileCards(g);
     } else if (type == M::PowerBox) {
         const auto b = World().Distribution().branches[mConfigMachine];
-        Label(std::format("当前：{} · 需求 {:.1f} / 分到 {:.1f} · 本支路产速 {:.0f}%", b.priority ? "优先供电" : "普通供电", b.demand, b.allocated, b.speed * 100), 140, 325, 18, kConfigGreen);
-        Label("优先支路先分配，同级按需求比例分配；未用电力交给其他支路。", 140, 365, 15);
-        Label("不足时产速为供电比的平方，断电保留进度，成品仍能运出。", 140, 395, 15);
+        Label(std::format("当前：{} · 需求 {:.1f} / 分到 {:.1f}", b.priority ? "优先供电" : "普通供电", b.demand, b.allocated), 140, 325, 18, kConfigGreen);
+        Label(b.demand > 0 ? std::format("供电率 {:.0f}% → 本支路加工速度 {:.0f}%", b.allocated / b.demand * 100, b.speed * 100)
+            : b.connected && !b.enabled ? "支路已关闭 · 不占电力" : "暂无用电需求", 140, 361, 18, kConfigGreen);
+        Label("优先支路先分配，同级按需求比例分配；未用电力交给其他支路。", 140, 400, 15);
+        Label("不足时产速为供电比的平方，断电保留进度，成品仍能运出。", 140, 430, 15);
         Label(circuits ? "A控制整组通断；B关闭选普通，开启选优先。" : "先练习手动切换方案；电路元件解锁后开放自动控制。", 140, 475, 15);
     } else if (type == M::Splitter) {
         Label(c.strictSplit ? "严格选路：只送选定出口，堵住时等待，不偷偷换路。" : "普通模式：无筛选时轮流/优先；有筛选时按弹种固定分路。", 140, 330, 17, kConfigGreen);
@@ -234,7 +236,7 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     }
     g->PushClipRect(125, 509, 846, 46);
     const auto warning = World().MaterialWarning(mConfigMachine);
-    Label(!warning.empty() ? warning : mConfigNotice.empty() ? "Esc 返回 · 准备期仍全部停机，开波后生效" : mConfigNotice, 140, 521, 14, warning.empty() ? kConfigInk : glm::vec4(163, 53, 33, 255));
+    Label(!warning.empty() ? warning : mConfigNotice.empty() ? (PausedSignalHint().empty() ? "Esc 返回 · 准备期仍全部停机，开波后生效" : "Esc 返回 · " + PausedSignalHint()) : mConfigNotice, 140, 521, 14, warning.empty() ? kConfigInk : glm::vec4(163, 53, 33, 255));
     g->PopClipRect();
     for (const auto& entry : mConfigControls) if (!entry.first.starts_with("cfg_card") && entry.second->IsEnabled()) entry.second->Draw(g);
 }

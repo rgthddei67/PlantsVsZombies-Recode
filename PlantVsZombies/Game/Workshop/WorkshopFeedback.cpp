@@ -85,6 +85,7 @@ std::vector<std::string> World::Explain(int index) const {
         const auto b = Distribution().branches[index];
         result.push_back(b.connected ? "总站已接入。" : "未接总站：点总站按钮，再点本配电箱。");
         result.push_back(std::format("{}支路：需求{:.1f}，分到{:.1f}，加工速度{:.0f}%。", b.priority ? "优先" : "普通", b.demand, b.allocated, b.speed * 100));
+        if (b.demand > 0) result.push_back(std::format("供电率{:.0f}%；这与加工速度不同，产速为供电率的平方。", b.allocated / b.demand * 100));
         result.push_back("优先层先分配，同层按需求比例分配；产速为供电比的平方。");
     }
     if (const auto warning = MaterialWarning(index); !warning.empty()) result.push_back(warning);

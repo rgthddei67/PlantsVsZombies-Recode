@@ -19,12 +19,14 @@
 
 `smoke_workshop_maintenance` 配合 `verify_workshop_maintenance.py` 验证装填口旧料清理的确认/取消、配置内升级、五路不同配额的批量增减、真实保存返回再进入后的倍速和最近机器，以及旧档/无效界面偏好的兼容。清理只逆向穿过运输带和分流器，遇生产机或仓库停止；分支、回路和正确弹药保留由 `WorkshopMaintenanceTests.cpp` 覆盖。该纯逻辑测试同时核对采光衰减的等级优先级、准备期冻结与实际产量。`workshop_snapshot` 保存的是 Board 战斗文档，不含界面偏好；偏好恢复必须通过 `SaveBase` 与真实重进场验证。
 
-`workshop` CTest 包含 `WorkshopPowerTests.cpp`：电网阶段上限、过载同比减速、待机/手动/A 口、准备期冻结、升级效率、分段主攻及 v5 旧袭击宽限。对照夹具让相同预算与布局从满弹仓开始，跨十波保留库存，比较常开、库存启停、共享产线切线；它是供需压力代理，不能作为原生战斗胜率或最终平衡结论。
+`workshop` CTest 包含 `WorkshopPowerTests.cpp`：电网阶段上限、优先支路分配与平方减速、待机/手动/配电箱 A 口、准备期冻结、升级效率与分段主攻。对照夹具让相同预算与布局从满弹仓开始，跨十波保留库存，比较常开、库存启停、共享产线切线；它是供需压力代理，不能作为原生战斗胜率或最终平衡结论。
 
 `smoke_workshop_power_network` 配合 `verify_workshop_power_network.py` 替代旧供电/练习专项，覆盖四课真实点击、配电优先级与存读档、教学不改正式基地、维修包手动/自动修复和旧档确认后备份重建。电路课程仅守住第2波后开放。暂停窗口用 `wait_frames`，不能用按游戏时间累计的 `wait_seconds`；原生实体数组按稳定 ID 归一后比较。
 
 
-电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。工坊 schema v6 的 `legacyAssault` 必须同时保存在未结束袭击及其检查点，死亡重试沿用旧产速和轮流出怪，首次守住后才启用新规则。旧档按已守住的波次授予可用电网等级；布局、物料与真实战斗快照保留，禁止通过重置库存制造电网需求。
+`smoke_workshop_teaching_clarity` / `verify_workshop_teaching_clarity.py` 覆盖配电箱快捷入口、按主题固定的练习入口、暂停信号说明、独立分组验收真实点击及正式基地不变。错误门槛、误停另一支路、手动关机和检验中篡改配置由 `WorkshopPracticeTests.cpp` 检查。
+
+电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。当前工坊 schema v7 明确拒绝旧档；必须由玩家确认后才备份旧 JSON 并建立新版基地。普通读取、返回和拒绝加载不应覆盖旧档。供需对照夹具跨波保留库存，禁止用清空库存制造电网压力；独立教学验收会明确告知并只重置练习副本的测试物料。
 
 ## 框架阶段与 Board 子域
 

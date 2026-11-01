@@ -323,7 +323,7 @@ void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
     for (int mode = 0; mode < 3; ++mode)
         builder.Button(std::array<const char*, 3>{"1 全部开启", "2 手动关闲线", "3 电路自动关"}[mode], Vector(286 + mode * 224.0f, 264), Vector(214, 34), 15,
             [this, mode] { ResetPowerDemo(mode); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
-    builder.Button("动手练习", Vector(746, 43), Vector(160, 34), 16, [this] { OpenPractice(RecommendedPracticeLesson(mGuideTopics[mGuidePage])); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("动手练习", Vector(689, 43), Vector(217, 34), 15, [this] { OpenPractice(RecommendedPracticeLesson(mGuideTopics[mGuidePage])); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mGuide = builder.Show();
     for (int i = 0; i < 9 + kContentsRows; ++i) {
         mGuide->GetButton(i)->SetTextColor(glm::vec4(255, 228, 142, 255));
@@ -351,6 +351,7 @@ void WorkshopScene::CloseGuide(bool acknowledge) {
 void WorkshopScene::RefreshGuide() {
     if (!mGuide || mGuideTopics.empty()) return;
     mGuidePage = std::clamp(mGuidePage, 0, static_cast<int>(mGuideTopics.size()) - 1);
+    mGuide->GetButton(16)->SetText(PracticeEntryLabel(mGuideTopics[mGuidePage]), ResourceKeys::Fonts::FONT_FZCQ, 14);
     const bool powerLesson = mGuideTopics[mGuidePage] == Workshop::PowerGuide;
     for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->SetEnabled(powerLesson && (i < 2 || World().Unlocked(M::Switch)));
     if (powerLesson && !mPowerDemo) ResetPowerDemo(0);

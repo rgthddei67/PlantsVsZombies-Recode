@@ -164,8 +164,15 @@ void WorkshopScene::DrawInteraction(Graphics* g) {
         : wiring ? (mWireSource < 0 ? "A蓝实线 · B橙虚线；先点来源，再点目标" : "来源已选好，请点目标 · Shift 连续接线 · Esc 取消")
         : mTool == Tool::Build ? std::string(Workshop::Describe(mBuildType).name) + " · R 旋转指向的机器 / 空地预览 · Esc 结束"
         : "R 旋转 · 单击选择 / 双击配置 · 按住左键拖图";
-    g->PushClipRect(130, 132, 440, 31);
-    Label(mTool == Tool::Power ? "总站 → 配电箱 → 机器；Esc 结束接电" : instruction, 132, 138, 14);
+    const auto signalHint = PausedSignalHint();
+    const auto selectedType = mSelected >= 0 ? World().Cells()[mSelected].type : Workshop::Machine::Empty;
+    const bool signalView = wiring || (mTool == Tool::Inspect && (Workshop::IsLogic(selectedType)
+        || Workshop::HasSignalInput(selectedType, 0) || Workshop::HasSignalInput(selectedType, 1)));
+    const bool showSignalPause = signalView && !signalHint.empty();
+    // 右侧留给总站和接电按钮；暂停说明与接线步骤在左侧分两行，不能相互遮盖。
+    g->PushClipRect(130, 129, 440, 33);
+    Label(mTool == Tool::Power ? "总站 → 配电箱 → 机器；Esc 结束接电" : instruction, 132, showSignalPause ? 130 : 138, showSignalPause ? 12 : 14);
+    if (showSignalPause) Label(signalHint, 132, 147, 11, glm::vec4(255, 228, 142, 255));
     g->PopClipRect();
     if (mTool == Tool::Inspect || removing || wiring || power) {
         const auto button = power ? mPowerWireButton : removing ? mRemoveButton : mTool == Tool::WireA ? mWireAButton : mTool == Tool::WireB ? mWireBButton : mInspectButton;
