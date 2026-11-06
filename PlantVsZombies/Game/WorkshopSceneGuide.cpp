@@ -2,8 +2,10 @@
 #include "Workshop/WorkshopGuide.h"
 #include "../GameApp.h"
 #include "../DeltaTime.h"
+#include "../Logger.h"
 #include <algorithm>
 #include <cmath>
+#include <format>
 
 namespace {
 constexpr int kContentsRows = 8; // 每页目录条目数，避免长目录越出弹窗
@@ -20,6 +22,7 @@ std::string TopicName(int topic) {
     if (topic == Workshop::PowerGuide) return "电力与手动调度";
     if (topic == Workshop::DispatchGuide) return "电路自动调度";
     if (topic == Workshop::FocusGuide) return "主攻路线预告";
+    if (topic == Workshop::CommissionGuide) return "戴夫委托与蓝图";
     if (topic == -1) return "全基地阳光";
     if (topic == -2) return "击杀残骸";
     if (topic == -3) return "电源总站";
@@ -55,6 +58,13 @@ void Gate(Lesson& lesson, M gate, M first, M second) {
 }
 Lesson Explain(int topic, bool circuits) {
     Lesson lesson;
+    if (topic == Workshop::CommissionGuide) {
+        lesson.purpose = "主动接取限时委托，获得阳光或本基地专属蓝图。";
+        lesson.steps = {"1. 点主工具栏的戴夫委托，查看目标、时限与奖励。", "2. 同时最多接2项；只计接取后的生产和战斗。", "3. 完成后手动领奖；蓝图附送1次免费建造或种植。"};
+        lesson.tip = "10分钟袭击时间刷新；蓝图概率：简单0%、中等5%、困难25%，无保底。";
+        lesson.example = "准备、暂停、离线均停表；已接任务跨刷新保留，超时只失去奖励。";
+        return lesson;
+    }
     if (topic == Workshop::PowerGuide) {
         lesson.purpose = "阳光付钱，电网决定同时能加工多少。";
         lesson.steps = {"1. 点总站，再点配电箱；选箱后点机器接电。", "2. 超载时把紧缺支路设为优先，或关闭闲线。", "3. 只得到一半所需电力时，产速只剩四分之一。"};
@@ -80,6 +90,13 @@ Lesson Explain(int topic, bool circuits) {
     if (topic >= Workshop::PlantGuideBase) {
         const auto& plant = Workshop::Plants[topic - Workshop::PlantGuideBase];
         lesson.purpose = plant.role;
+        if (plant.type == PlantType::PLANT_TORCHWOOD) {
+            lesson.steps = {std::format("1. 守住第{}波后，委托可能奖励炽焰树桩蓝图。", plant.unlockWave), "2. 种在射手前方，让同路豌豆经过树桩。", std::format("3. 普通与重装弹伤害乘{}，重装穿透保持不变。", Workshop::BlazeTorchDamageMultiplier)};
+            lesson.tip = std::format("同颗弹不叠加增幅；寒冰先融冰。首株免费，之后每株{}阳光。", plant.cost);
+            lesson.example = "树桩通过独立委托获得；普通豌豆也能受益";
+            Chain(lesson, {PlantTopic(PlantType::PLANT_GATLINGPEA), topic});
+            return lesson;
+        }
         lesson.example = "供弹示例：装填口送到植物所在路线";
         if (plant.ammo == Workshop::Ammo::Count) {
             lesson.steps = {"1. 从植物图册选择，再点前线左侧六列空格。", "2. 放在输出植物前面，替后排承受啃食。", "3. 防御植物不耗弹药，身后的射手仍需要供弹。"};
@@ -95,6 +112,10 @@ Lesson Explain(int topic, bool circuits) {
             lesson.steps = {"1. 建好对应生产线，运输带接入装填口。", "2. 装填口的目标路线设为这株植物所在路。", "3. 左侧弹仓按钮可分配弹种配额；缺弹会停火。"};
             lesson.tip = "同一路植物共用弹仓；增加输出植物时，也要增加产能与配额。";
             if (plant.ammo == Workshop::Ammo::Pea) Chain(lesson, {Topic(M::Grower), Topic(M::Belt), Topic(M::Feeder), topic});
+            if (plant.type == PlantType::PLANT_GATLINGPEA) {
+                lesson.steps = {"1. 委托取得蓝图后，点普通射手原位改造。", "2. 一轮先扣4颗普通弹；不足时整轮等待。", "3. 每发双倍伤害，穿透的第二名敌人承受半伤。"};
+                lesson.tip = std::format("首株改造免费，之后{}阳光；继承等级与血量比例，可继续升级。", plant.cost);
+            }
             if (plant.ammo == Workshop::Ammo::Ice) Chain(lesson, {Topic(M::Grower), Topic(M::Cooler), Topic(M::Feeder), topic});
             if (plant.ammo == Workshop::Ammo::Spore) {
                 Chain(lesson, {Topic(M::SporeGrower), Topic(M::Belt), Topic(M::Feeder), topic});
@@ -146,13 +167,16 @@ Lesson Explain(int topic, bool circuits) {
         lesson.edges[0].label = "自动入账"; lesson.edges[1].label = "花阳光生产";
         break;
     case M::Grower:
+    case M::PressureGrower:
     case M::SporeGrower:
     case M::MelonGrower: {
         const auto machine = static_cast<M>(topic);
-        const auto plant = machine == M::Grower ? PlantType::PLANT_PEASHOOTER : machine == M::SporeGrower ? PlantType::PLANT_ELITE_SCAREDYSHROOM : PlantType::PLANT_MELONPULT;
-        lesson.purpose = machine == M::Grower ? "把阳光变成普通豌豆，供豌豆射手使用。" : machine == M::SporeGrower ? "把阳光变成孢子，供精英胆小菇使用。" : "把阳光变成西瓜，供西瓜投手使用。";
+        const bool pea = machine == M::Grower || machine == M::PressureGrower;
+        const auto plant = pea ? PlantType::PLANT_PEASHOOTER : machine == M::SporeGrower ? PlantType::PLANT_ELITE_SCAREDYSHROOM : PlantType::PLANT_MELONPULT;
+        lesson.purpose = pea ? "把阳光变成普通豌豆，供豌豆射手使用。" : machine == M::SporeGrower ? "把阳光变成孢子，供精英胆小菇使用。" : "把阳光变成西瓜，供西瓜投手使用。";
         lesson.steps = {"1. 建在运输带旁边，箭头朝向运输带。", "2. 用运输带送到装填口，再指定目标路线。", "3. 从已接总站的配电箱接电，开波后才会生产。"};
         lesson.tip = "只有产能还不够：弹种、装填口路线和弹仓配额都要对应。";
+        if (machine == M::PressureGrower) lesson.tip = std::format("委托蓝图：同级{:g}倍产能、{:g}倍耗电；每颗{:g}阳光，首台免费。", Workshop::PressureGrowerRate, Workshop::PressureGrowerPower, Workshop::GrowEnergy);
         lesson.example = "一台生产机器如何给前线供货";
         Chain(lesson, {topic, Topic(M::Belt), Topic(M::Feeder), PlantTopic(plant)});
         lesson.edges.back().label = "本路弹仓";
@@ -297,10 +321,42 @@ void WorkshopScene::DrawLockedItem(Graphics* g, float centerX, float top, float 
     g->FillRect(centerX - size * .035f, top + size * .66f, size * .07f, size * .14f, kInk);
 }
 
-/** 新解锁在准备阶段合并成一本图册；查看时暂停，关闭后保留原手动暂停状态。 */
+bool WorkshopScene::TutorialSeen(const std::string& key) const {
+    const auto& seen = GameAPP::GetInstance().mWorkshopTutorialsSeen;
+    return std::find(seen.begin(), seen.end(), key) != seen.end();
+}
+
+void WorkshopScene::RememberTutorials(const std::vector<std::string>& keys) {
+    auto& app = GameAPP::GetInstance();
+    bool changed = false;
+    for (const auto& key : keys) if (!key.empty() && !TutorialSeen(key)) {
+        app.mWorkshopTutorialsSeen.push_back(key); changed = true;
+    }
+    if (!changed) return;
+    std::sort(app.mWorkshopTutorialsSeen.begin(), app.mWorkshopTutorialsSeen.end());
+    if (!app.mGameInfoSaver.SavePlayerInfo()) {
+        mNotice = "教程记录保存失败；请检查存档目录，退出前会再次尝试保存。";
+        LOG_ERROR("Workshop") << "无法立即保存工坊教程记录。";
+    }
+}
+
+void WorkshopScene::ImportLegacyTutorials() {
+    // 仅在玩家还没有任何工坊记录时继承；以后新增主题不能被旧基地的波次水位误标为已提示。
+    if (!GameAPP::GetInstance().mWorkshopTutorialsSeen.empty()) return;
+    std::vector<std::string> keys{"practice:intro"};
+    for (const int topic : Workshop::GuideTopics(mGuideSeenWave)) {
+        if (topic == Workshop::CommissionGuide || topic == static_cast<int>(M::PressureGrower)
+            || topic >= Workshop::PlantGuideBase + 8) continue;
+        if (topic != Workshop::PowerGuide || mPowerGuideSeen) keys.push_back(Workshop::GuideKey(topic));
+    }
+    RememberTutorials(keys);
+}
+
+/** 新解锁在准备阶段合并提示；显示即记入玩家档，手动教程书始终保留全部已解锁目录。 */
 void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
     if (mLoadFailed || (mGuide && mGuide->IsActive())) return;
-    auto topics = Workshop::GuideTopics(World().CompletedWaves(), newUnlocks ? mGuideSeenWave : -1);
+    auto topics = Workshop::AvailableGuideTopics(World(), newUnlocks ? mGuideSeenWave : -1);
+    if (newUnlocks) std::erase_if(topics, [this](int id) { return TutorialSeen(Workshop::GuideKey(id)); });
     if (topics.empty()) return;
     if (!newUnlocks && std::find(topics.begin(), topics.end(), topic) == topics.end()) return;
     mGuideTopics = std::move(topics);
@@ -325,6 +381,11 @@ void WorkshopScene::OpenGuide(int topic, bool newUnlocks) {
             [this, mode] { ResetPowerDemo(mode); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     builder.Button("动手练习", Vector(689, 43), Vector(217, 34), 15, [this] { OpenPractice(RecommendedPracticeLesson(mGuideTopics[mGuidePage])); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mGuide = builder.Show();
+    if (newUnlocks) {
+        std::vector<std::string> keys;
+        for (int id : mGuideTopics) keys.push_back(Workshop::GuideKey(id));
+        RememberTutorials(keys);
+    }
     for (int i = 0; i < 9 + kContentsRows; ++i) {
         mGuide->GetButton(i)->SetTextColor(glm::vec4(255, 228, 142, 255));
         mGuide->GetButton(i)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
@@ -351,6 +412,7 @@ void WorkshopScene::CloseGuide(bool acknowledge) {
 void WorkshopScene::RefreshGuide() {
     if (!mGuide || mGuideTopics.empty()) return;
     mGuidePage = std::clamp(mGuidePage, 0, static_cast<int>(mGuideTopics.size()) - 1);
+    RememberTutorials({Workshop::GuideKey(mGuideTopics[mGuidePage])});
     mGuide->GetButton(16)->SetText(PracticeEntryLabel(mGuideTopics[mGuidePage]), ResourceKeys::Fonts::FONT_FZCQ, 14);
     const bool powerLesson = mGuideTopics[mGuidePage] == Workshop::PowerGuide;
     for (int i = 0; i < 3; ++i) mGuide->GetButton(13 + i)->SetEnabled(powerLesson && (i < 2 || World().Unlocked(M::Switch)));
@@ -370,12 +432,21 @@ void WorkshopScene::RefreshGuide() {
 }
 
 void WorkshopScene::CheckGuideUnlocks() {
-    if (!mLoadFailed && !mPowerGuideSeen && !World().LegacyAssault() && World().State() == Workshop::Phase::Planning && !mUIManager.GetTopActiveMessageBox()) {
+    if (!mLoadFailed && World().State() == Workshop::Phase::Planning && !mUIManager.GetTopActiveMessageBox()) {
+        for (int topic : {Workshop::CommissionGuide, static_cast<int>(Workshop::Machine::PressureGrower), Workshop::PlantGuideBase + 8, Workshop::PlantGuideBase + 9}) {
+            const bool unlocked = topic == Workshop::CommissionGuide ? World().CompletedWaves() >= 1 && World().CompletedWaves() <= mGuideSeenWave
+                : topic < Workshop::PlantGuideBase ? World().Unlocked(Workshop::Machine::PressureGrower)
+                : Workshop::PlantUnlocked(World(), Workshop::Plants[topic - Workshop::PlantGuideBase]);
+            if (unlocked && !TutorialSeen(Workshop::GuideKey(topic))) { OpenGuide(topic); return; }
+        }
+    }
+    if (!mLoadFailed && !mPowerGuideSeen && !TutorialSeen(Workshop::GuideKey(Workshop::PowerGuide)) && !World().LegacyAssault() && World().State() == Workshop::Phase::Planning && !mUIManager.GetTopActiveMessageBox()) {
         OpenGuide(Workshop::PowerGuide); return;
     }
     if (mLoadFailed || World().State() != Workshop::Phase::Planning || mUIManager.GetTopActiveMessageBox()
         || World().CompletedWaves() <= mGuideSeenWave) return;
-    if (Workshop::GuideTopics(World().CompletedWaves(), mGuideSeenWave).empty()) {
+    const auto topics = Workshop::AvailableGuideTopics(World(), mGuideSeenWave);
+    if (std::all_of(topics.begin(), topics.end(), [this](int id) { return TutorialSeen(Workshop::GuideKey(id)); })) {
         mGuideSeenWave = World().CompletedWaves(); SaveBase();
     } else OpenGuide(0, true);
 }
@@ -389,7 +460,8 @@ void WorkshopScene::DrawGuide(Graphics* g) {
     Label(mGuideUnlockWave >= 0 ? "这次解锁" : "已解锁目录", 88, 101, 17, kGreen);
     const int topic = mGuideTopics[mGuidePage]; const auto lesson = Explain(topic, World().Unlocked(M::Switch));
     auto picture = [this, g](int id, float x, float y, float size) {
-        if (id == Workshop::PowerGuide || id == Workshop::DispatchGuide || id == Workshop::FocusGuide) {
+        if (id == Workshop::CommissionGuide) DrawMachineImage(g, M::Store, x, y, size / 50.0f);
+        else if (id == Workshop::PowerGuide || id == Workshop::DispatchGuide || id == Workshop::FocusGuide) {
             g->FillRect(x, y, size, size, glm::vec4(60, 85, 51, 255));
             DrawUtilityIcon(g, "wire_a_tool", x + size * .15f, y + size * .15f, size * .7f); return;
         }
@@ -439,7 +511,7 @@ void WorkshopScene::DrawGuide(Graphics* g) {
     else Label(std::any_of(lesson.edges.begin(), lesson.edges.end(), [](const Edge& edge) { return edge.wire; })
         ? "绿色箭头：物料 · 蓝实线 A / 橙虚线 B：控制或计量 · 高=开，低=关"
         : "绿色箭头：物料或资源去向；工厂行号不决定前线的送货路线。", 280, 508, 12);
-    Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  查看时暂停，随时可重看", 280, 542, 13);
+    Label(std::to_string(mGuidePage + 1) + " / " + std::to_string(mGuideTopics.size()) + "  ·  教程仅自动提示一次，可随时在教程书重看", 280, 542, 13);
     for (int i = 0; i < 5; ++i) mGuide->GetButton(i)->Draw(g);
     mGuide->GetButton(16)->Draw(g);
     const int first = mGuidePage / kContentsRows * kContentsRows;

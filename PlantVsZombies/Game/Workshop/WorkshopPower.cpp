@@ -10,6 +10,7 @@ float RatedPower(Machine type, int level) {
     float base = 0;
     switch (type) {
     case Machine::Grower: case Machine::Recycler: base = 2; break;
+    case Machine::PressureGrower: base = 2 * PressureGrowerPower; break;
     case Machine::SporeGrower: base = 3; break;
     case Machine::Cooler: case Machine::RepairAssembler: base = 4; break;
     case Machine::MelonGrower: base = 6; break;
@@ -39,8 +40,8 @@ bool World::CanProcess(int index) const {
     const auto& c = mCells[index];
     if (!Enabled(index)) return false;
     switch (c.type) {
-    case Machine::Grower: case Machine::SporeGrower: case Machine::MelonGrower: {
-        const float cost = c.type == Machine::Grower ? GrowEnergy : c.type == Machine::SporeGrower ? SporeEnergy : MelonEnergy;
+    case Machine::Grower: case Machine::PressureGrower: case Machine::SporeGrower: case Machine::MelonGrower: {
+        const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
         return c.TotalStock() < Capacity(c.type, c.level) && mEnergy >= cost;
     }
     case Machine::Cooler: {

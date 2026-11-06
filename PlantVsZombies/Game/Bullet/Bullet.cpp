@@ -5,6 +5,7 @@
 #include "../Zombie/Zombie.h"
 #include "../Plant/Plant.h"
 #include "Bullet.h"
+#include "Game/Workshop/Workshop.h"
 #include "Game/Plant/LotusPultRules.h"
 #include "Game/Zombie/SludgeZombieRules.h"
 #include "Game/AutoTest/TestDriver.h"
@@ -350,6 +351,8 @@ void Bullet::Reset(Board* board, int row,
 	mThermalConfigured = false;
 	mHitTorchwoodColumn = -1;
 	mHitAuroraTorchwoodColumn = -1;
+	mWorkshopHeavyShot = mWorkshopFlamedShot = false;
+	mWorkshopHitZombieIDs.clear();
 	if (mSpikeState) mSpikeState->count = 0;
 	mAuroraState.reset();
 	mLotusState.reset();
@@ -1580,7 +1583,7 @@ void Bullet::HandleZombieContact(ColliderComponent* other)
 		|| !zombie->CanBeTargetedByProjectile(mTargetsFlying)) return;
 	const bool bypassShield = zombie->ShouldProjectileBypassShield(mVelocityX);
 
-	if (mBulletType == BulletType::BULLET_AURORA_PEA) {
+	if (mBulletType == BulletType::BULLET_AURORA_PEA || mWorkshopHeavyShot) {
 		HandleAuroraContacts();
 		return;
 	}
@@ -1650,7 +1653,7 @@ void Bullet::HandleZombieContact(ColliderComponent* other)
 
 void Bullet::HandleAuroraContacts()
 {
-	if (!mBoard || !IsActive() || mBulletType != BulletType::BULLET_AURORA_PEA) return;
+	if (!mBoard || !IsActive() || (mBulletType != BulletType::BULLET_AURORA_PEA && !mWorkshopHeavyShot)) return;
 	const ColliderComponent* bulletCollider = GetColliderComponent();
 	if (!bulletCollider) return;
 	const SDL_FRect bulletBounds = bulletCollider->GetBoundingBox();
@@ -1682,8 +1685,37 @@ void Bullet::HandleAuroraContacts()
 
 	for (Zombie* target : targets) {
 		if (!IsActive()) break;
-		HitAuroraZombie(target);
+		if (mWorkshopHeavyShot) HitWorkshopHeavyZombie(target);
+		else HitAuroraZombie(target);
 	}
+}
+
+void Bullet::EnableWorkshopHeavyPea() {
+	if (!mBoard || !mBoard->IsWorkshop() || mBulletType != BulletType::BULLET_PEA || mWorkshopHeavyShot) return;
+	mWorkshopHeavyShot = true;
+	mDamage *= Workshop::HeavyGatlingDamageMultiplier;
+}
+
+void Bullet::RestoreWorkshopShot(bool heavy, bool flamed, const std::vector<int>& hitIDs) {
+	if ((heavy || flamed || !hitIDs.empty()) && (!mBoard || !mBoard->IsWorkshop())) throw std::runtime_error("非工坊弹丸带有工坊强化状态");
+	if (hitIDs.size() > 1 || (!heavy && !hitIDs.empty()) || (!hitIDs.empty() && hitIDs.front() < 0)
+		|| (heavy && mBulletType != BulletType::BULLET_PEA && mBulletType != BulletType::BULLET_FIREBALL)
+		|| (flamed && mBulletType != BulletType::BULLET_FIREBALL && mBulletType != BulletType::BULLET_TOXICFIREBALL))
+		throw std::runtime_error("工坊弹丸穿透或点燃状态错误");
+	mWorkshopHeavyShot = heavy; mWorkshopFlamedShot = flamed; mWorkshopHitZombieIDs = hitIDs;
+}
+
+/** 按飞行次序击中两名不同敌人；第二名固定半伤，点燃只改变基准伤害，不叠加火球溅射。 */
+void Bullet::HitWorkshopHeavyZombie(Zombie* zombie) {
+	if (!zombie || !zombie->IsActive() || mWorkshopHitZombieIDs.size() >= 2
+		|| std::find(mWorkshopHitZombieIDs.begin(), mWorkshopHitZombieIDs.end(), zombie->mZombieID) != mWorkshopHitZombieIDs.end()) return;
+	const int damage = mWorkshopHitZombieIDs.empty() ? GetWindAdjustedDamage() : GetWindAdjustedDamage() / 2;
+	mWorkshopHitZombieIDs.push_back(zombie->mZombieID);
+	PlayStandardImpactSound(zombie);
+	zombie->TakeProjectileDamage(zombie->ModifyProjectileDamage(damage, mBulletType), DamageSource::PLANT,
+		mVelocityX, false, false, false, mPlantDamageOrigin);
+	if (g_particleSystem) g_particleSystem->EmitEffect("PeaBulletHit", GetPosition());
+	if (mWorkshopHitZombieIDs.size() == 2) { mHasHit = true; Die(); }
 }
 
 void Bullet::HitAuroraZombie(Zombie* zombie)
@@ -1741,6 +1773,7 @@ void Bullet::SetVelocityX(float x)
 
 void Bullet::ConvertToFireball(int torchwoodColumn)
 {
+	if (mWorkshopFlamedShot) return;
 	if ((mBulletType != BulletType::BULLET_PEA
 		&& mBulletType != BulletType::BULLET_TOXICPEA
 		&& mBulletType != BulletType::BULLET_AURORA_PEA)
@@ -1752,7 +1785,10 @@ void Bullet::ConvertToFireball(int torchwoodColumn)
 		|| mPlantDamageOrigin.lineage == PlantType::PLANT_TOXICPEASHOOTER)
 		? BulletType::BULLET_TOXICFIREBALL
 		: BulletType::BULLET_FIREBALL;
-	mDamage = kFireballDamage;
+	if (mBoard && mBoard->IsWorkshop()) {
+		mDamage *= Workshop::BlazeTorchDamageMultiplier;
+		mWorkshopFlamedShot = true;
+	} else mDamage = kFireballDamage;
 	mHitTorchwoodColumn = torchwoodColumn;
 	ConfigurePresentation();
 	if (GetTransform()) {

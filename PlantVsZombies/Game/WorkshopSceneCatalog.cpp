@@ -15,7 +15,7 @@ const glm::vec4 kCatalogRed{150, 53, 37, 255}; // 锁定及阳光不足提示颜
 
 int Category(Workshop::Machine type) {
     using M = Workshop::Machine;
-    if (type == M::Solar || type == M::Grower || type == M::Cooler || type == M::SporeGrower || type == M::MelonGrower || type == M::Recycler || type == M::RepairAssembler) return 0;
+    if (type == M::Solar || type == M::Grower || type == M::PressureGrower || type == M::Cooler || type == M::SporeGrower || type == M::MelonGrower || type == M::Recycler || type == M::RepairAssembler) return 0;
     return Workshop::IsLogic(type) ? 2 : 1;
 }
 struct CardLayout { Vector pos, size; };
@@ -33,6 +33,7 @@ std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     using M = Workshop::Machine;
     switch (type) {
     case M::Solar: return {"前6台全速，其余25%", std::format("额定每秒 {:g} 阳光", Workshop::SolarRate)};
+    case M::PressureGrower: return {"三倍产能 · 两倍耗电", "委托蓝图 · 每颗仍耗2阳光"};
     case M::Grower: return {std::format("{:g} 阳光 → 1 普通弹", Workshop::GrowEnergy), std::format("每 {:.1f} 秒生产一颗", Workshop::GrowPeriod)};
     case M::Cooler: return {completedWaves >= 8 ? "选择冰豌豆 / 冰瓜配方" : "普通豌豆加工成寒冰弹", "原料 + 阳光 → 冷凝成品"};
     case M::SporeGrower: return {"培养精英菇需要的孢子", std::format("每 {:.1f} 秒一份", Workshop::SporePeriods[0])};
@@ -77,7 +78,7 @@ void WorkshopScene::OpenCatalog() {
         const auto type = static_cast<Workshop::Machine>(i);
         builder.Button("", Vector(-2000, -2000), Vector(1, 1), 12, [this, type] {
             if (!World().Unlocked(type)) {
-                mCatalogNotice = "守住第 " + std::to_string(Workshop::Describe(type).unlockWave) + " 波后解锁，届时会介绍用途与接法。";
+                mCatalogNotice = type == Workshop::Machine::PressureGrower && World().CompletedWaves() >= 6 ? "需要在戴夫委托中获得高压育豆机蓝图。" : "守住第 " + std::to_string(Workshop::Describe(type).unlockWave) + " 波后解锁，届时会介绍用途与接法。";
                 return;
             }
             SelectBuild(type); CloseCatalog(false);
@@ -174,7 +175,7 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         const auto card = Layout(mCatalogCategory, slot++);
         const float x = card.pos.x, y = card.pos.y, w = card.size.x, h = card.size.y;
         const auto& info = Workshop::Describe(type);
-        const bool unlocked = World().Unlocked(type), affordable = World().Energy() >= info.cost;
+        const bool unlocked = World().Unlocked(type), affordable = World().Energy() >= World().BuildCost(type);
         const bool hover = mMachineButtons[i]->IsHovered();
         g->FillRect(x + 3, y + 4, w, h, glm::vec4(74, 64, 35, 90));
         g->FillRect(x, y, w, h, unlocked ? glm::vec4(252, 243, 211, 255) : glm::vec4(220, 215, 194, 255));
@@ -182,12 +183,12 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
         g->DrawRect(x, y, w, h, hover ? glm::vec4(180, 123, 30, 255) : glm::vec4(167, 149, 96, 255));
         if (!unlocked) {
             DrawLockedItem(g, x + w / 2, y + 10, 38);
-            Label("守住第 " + std::to_string(info.unlockWave) + " 波后解锁", x + (w - 172) / 2, y + h - 32, 16);
+            Label((type == Workshop::Machine::PressureGrower && World().CompletedWaves() >= info.unlockWave ? "委托蓝图尚未获得" : "守住第 " + std::to_string(info.unlockWave) + " 波后解锁"), x + (w - 172) / 2, y + h - 32, 16);
             if (hover && mCatalogNotice.empty()) detail = "尚未解锁：守住第 " + std::to_string(info.unlockWave) + " 波后会展示用途与示例。";
             continue;
         }
         Label(info.name, x + 14, y + 13, 20, unlocked ? kCatalogGreen : kCatalogInk);
-        Label(std::to_string(info.cost) + " 阳光", x + w - 91, y + 17, 15, affordable ? kCatalogInk : kCatalogRed);
+        Label(World().BuildCost(type) == 0 ? "免费1次" : std::to_string(info.cost) + " 阳光", x + w - 91, y + 17, 15, affordable ? kCatalogInk : kCatalogRed);
         const float scale = 0.86f;
         const float imageX = x + 14;
         const float imageY = y + 34;
@@ -234,7 +235,7 @@ std::string WorkshopScene::BuildPreviewReason(int index) const {
     if (World().State() == Workshop::Phase::Dead) return "基地失守，暂时不能施工";
     if (World().Cells()[index].type != Workshop::Machine::Empty) return "此格已有机器 · R 可直接旋转它";
     if (!World().Unlocked(mBuildType)) return "该机器尚未解锁";
-    if (World().Energy() < Workshop::Describe(mBuildType).cost) return "阳光不足，放置不会扣费";
+    if (World().Energy() < World().BuildCost(mBuildType)) return "阳光不足，放置不会扣费";
     if (Workshop::RatedPower(mBuildType) > 0) return std::format("放置后需接配电箱 · 额定 {:.0f} 电力 · 总负载预估 {:.0f}% 产速",
         Workshop::RatedPower(mBuildType), World().PowerAfterBuild(mBuildType).speed * 100);
     return "可放置 · 点击后扣费 · Esc / 右键取消";

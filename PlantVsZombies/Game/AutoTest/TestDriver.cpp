@@ -30,6 +30,7 @@
 #include "Game/Zombie/FogFerryZombie.h"
 #include "Game/Zombie/PressureShooterZombie.h"
 #include "../../GameInfoSaver.h"
+#include "Game/Workshop/WorkshopGuide.h"
 #include "../../Renderer/VulkanRenderer.h"
 #include "../../Renderer/VulkanContext.h"
 #include "../../Renderer/OpenGLRenderer.h"
@@ -848,6 +849,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
 	mDefaultColdStorageBonusSelection = mColdStorageBonusSelection;
 	mAdventureEntryNotices = j.value("adventureEntryNotices", false);
+	mWorkshopTutorials = j.value("workshopTutorials", false);
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
     mCommanderObservedRisk = j.value("commanderObservedRisk",true);
@@ -1079,6 +1081,22 @@ bool TestDriver::ExecuteCurrent() {
 	const auto& cmd = mCommands[mIndex];
 	const std::string op = cmd.value("op", "");
 	if (mInteractiveReady && op != "screenshot") return ExecuteInteractive(cmd);
+
+	// 仅对玩家教程字段做隔离往返，正式 PlayerInfo 的读写禁令保持不变。
+	if (op == "workshop_tutorial_history") {
+		auto& history = GameAPP::GetInstance().mWorkshopTutorialsSeen;
+		const auto path = FileManager::CombinePath(mOutDir, "tutorial-history.json");
+		const auto action = cmd.value("action", "save");
+		if (action == "clear") history.clear();
+		else if (action == "save") {
+			if (!FileManager::SaveJsonFile(path, {{"workshopTutorialsSeen", history}})) Fail("教程记录隔离保存失败");
+		} else if (action == "load") {
+			nlohmann::json document;
+			if (!FileManager::LoadJsonFile(path, document)) Fail("教程记录隔离读取失败");
+			else history = Workshop::ReadTutorialHistory(document);
+		} else Fail("未知教程记录操作");
+		return true;
+	}
 
 	// 工坊夹具只使用本脚本的隔离文件，随后走玩家的正式恢复入口；不修改真人基地。
 	if (op == "workshop_snapshot") {
@@ -10614,6 +10632,9 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			{ "auroraPlayedHitSound", bullet->HasPlayedAuroraHitSound() },
 			{ "piercedZombieCount", bullet->GetPiercedZombieCount() },
 			{ "piercedZombieIDs", bullet->GetPiercedZombieIDs() },
+			{ "workshopHeavyShot", bullet->IsWorkshopHeavyShot() },
+			{ "workshopFlamedShot", bullet->IsWorkshopFlamedShot() },
+			{ "workshopHitZombieIDs", bullet->GetWorkshopHitZombieIDs() },
             {"bambooHitIDs",bullet->GetBambooHitIDs()},
             {"lotus",bullet->SaveLotusState()},
             {"floodCharmed",bullet->GetFloodCharmed()},

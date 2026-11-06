@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include "WorkshopCommissions.h"
 
 /** 工坊的独立模拟；不访问 Board、冒险解锁或玩家存档。时间单位为游戏秒。 */
 namespace Workshop {
@@ -38,7 +39,7 @@ inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
     Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler,
-    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, PowerBox, RepairAssembler, Count };
+    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, PowerBox, RepairAssembler, PressureGrower, Count };
 // 弹药与维修包进入前线弹仓，残骸只参与工厂物流；本版存档单独校验。
 enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, RepairKit, Scrap, Count };
 inline constexpr int AmmoCount = static_cast<int>(Ammo::Scrap);
@@ -55,7 +56,11 @@ inline constexpr float RepairKitEnergy = 10; // 每份维修包加工消耗的�
 inline constexpr std::array<float, 3> RepairKitPeriods{4, 3.2f, 2.5f}; // 维修机各级生产周期，游戏秒/包
 inline constexpr int MainPowerSource = -2; // 固定总站身份，不占工厂格；-1 表示未接电
 inline constexpr int StarterPowerBox = 2 * MaxColumns; // 开局配电箱格位，位于两台集光器下方
-inline constexpr int SaveVersion = 7; // 配电支路与维修物资重构的独立工坊存档版本
+inline constexpr int SaveVersion = 8; // v8 保存委托、基地蓝图与随机出兵；v7 无损补入新系统
+inline constexpr float PressureGrowerRate = 3, PressureGrowerPower = 2; // 相同等级的产能与耗电倍率
+inline constexpr int HeavyGatlingCost = 600, BlazeTorchCost = 350; // 蓝图解锁后改造/种植费用，阳光
+inline constexpr int HeavyGatlingVolley = 4; // 每轮预留普通弹数与实际发射数
+inline constexpr int HeavyGatlingDamageMultiplier = 2, BlazeTorchDamageMultiplier = 3; // 相对于普通豌豆/经过树桩前弹丸的伤害倍率
 inline constexpr float CannonChargeSeconds = 12; // 炮台从新建或上一轮齐射起充能的游戏秒数
 inline constexpr float CannonShotInterval = .18f; // 一轮三发之间的游戏秒数
 inline constexpr int CannonVolleySize = 3; // 每轮预留并发射的对应瓜弹数量
@@ -231,7 +236,7 @@ public:
     bool Retry();
     /** 真实 Board 提交的前线观测，仅用于库存器、敌情器和 UI；不模拟实体。 */
     void ObserveFrontline(const std::array<int, Rows>& enemies, const std::array<int, Rows>& shooters);
-    bool ReserveAmmo(int row, Ammo type = Ammo::Pea);
+    bool ReserveAmmo(int row, Ammo type = Ammo::Pea, int count = 1);
     void RecordShot(Ammo type = Ammo::Pea) { ++mFired; if (type == Ammo::Ice) ++mIceFired; }
     int NextSpawnRow() const;
     void CommitSpawn();
@@ -239,6 +244,9 @@ public:
     void RecordBreach();
     int RemainingSpawns() const { return mRemainingSpawns; }
     int Spawned() const { return mSpawned; }
+    int NextSpawnType() const { return mSpawned < static_cast<int>(mAssaultTypes.size()) ? mAssaultTypes[mSpawned] : 0; }
+    /** 新基地设置独立随机流，恢复档案不调用。 */
+    void SeedBase(std::uint32_t seed);
     void Tick(float seconds);
     /** 同种植物共享补种冷却，单位游戏秒；准备阶段返回零且不启动冷却。 */
     float PlantCooldown(const std::string& key) const;
@@ -263,6 +271,12 @@ public:
     /** 准备阶段也可检查线路；side 仅用于分流器相对右侧的出口。 */
     OutputInfo InspectOutput(int index, bool side = false) const;
     bool Unlocked(Machine type) const;
+    int BuildCost(Machine type) const;
+    bool AcceptCommission(int offer);
+    bool AbandonCommission(int active);
+    bool ClaimCommission(int active);
+    Commissions& Tasks() { return mCommissions; }
+    const Commissions& Tasks() const { return mCommissions; }
     bool Enabled(int index) const;
     /** 加工电源开关；与 A 口取 AND，关机保留原料、成品和加工进度。 */
     bool SetMachineRunning(int index, bool running);
@@ -296,9 +310,12 @@ private:
     std::array<Lane, Rows> mLanes{};
     std::array<int, Rows> mEnemyCounts{};
     std::map<std::string, float> mPlantCooldowns;
+    Commissions mCommissions;
     Phase mPhase = Phase::Planning;
     int mColumns = 10, mRows = 10, mHealth = 3, mCompletedWaves = 0;
     int mRemainingSpawns = 0, mSpawned = 0;
+    std::uint32_t mSpawnRandom = 0xA341316Cu;
+    std::vector<int> mAssaultTypes;
     int mGridLevel = 1;
     bool mLegacyAssault = false; // 旧档未结束的一波及其重试保留原产速/出怪，首次结算后取消
     int mProduced = 0, mFired = 0, mDelivered = 0;

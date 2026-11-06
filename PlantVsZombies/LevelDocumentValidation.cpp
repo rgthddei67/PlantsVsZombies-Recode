@@ -55,7 +55,7 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
         "fogBreakoutObserved fogBreakoutTriggered garlicRedirectActive garlicRowChanged hasArm hasHead hasTongue "
         "imitated inPool isCooldown isDying isEating isMindControlled isSleeping isSquished lobTargetsIceWall "
         "lobbedMotion mineTargetReturning mistFuelRewardClaimed needDropArm needDropHead occupiesGridSlot "
-        "polarGuided polarWindMiss small targetsFlying threepeaterMotion unyieldingRootsSpent wasObscuredByFog ", Kind::Bool, path, error);
+        "polarGuided polarWindMiss small targetsFlying threepeaterMotion unyieldingRootsSpent wasObscuredByFog workshopHeavyShot workshopFlamedShot ", Kind::Bool, path, error);
     Fields(object,
         "animClipSpeed animFrame animPlayState animSpeed animTargetTrackBlendTime animTargetTrackSpeed "
         "armorBreakRushTimer attackDamage bloverDirection bodyHealth bodyMaxHealth butterTimer cobDuration "
@@ -74,7 +74,7 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
     Fields(object,
         "animTargetTrack animTrack ", Kind::String, path, error);
     Fields(object,
-        "auroraHitZombieIDs bambooHitIDs piercedZombieIDs spikeDamageRemainders ", Kind::Array, path, error);
+        "auroraHitZombieIDs bambooHitIDs piercedZombieIDs spikeDamageRemainders workshopHitZombieIDs ", Kind::Array, path, error);
     Fields(object,
         "extraData anchorRoot ", Kind::Object, path, error);
     if (const auto root = object.find("anchorRoot"); root != object.end() && root->is_object()) {
@@ -97,7 +97,7 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
         }
     }
     // 所有者不共享生命周期；同名 ID 数组只允许有限数值，不允许嵌套对象。
-    for (const char* key : {"piercedZombieIDs", "spikeDamageRemainders", "bambooHitIDs", "auroraHitZombieIDs"}) {
+    for (const char* key : {"piercedZombieIDs", "spikeDamageRemainders", "bambooHitIDs", "auroraHitZombieIDs", "workshopHitZombieIDs"}) {
         const auto it = object.find(key);
         if (it == object.end() || !it->is_array()) continue;
         for (const auto& value : *it) if (!value.is_number() || !std::isfinite(value.get<double>())) {

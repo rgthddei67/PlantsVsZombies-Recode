@@ -52,6 +52,7 @@ public:
 	bool mEncounteredEliteDancer = false; // 是否曾由正式波次实际刷出精英舞王
 	unsigned mStationCounterTutorialsSeen=0; // 已看过的三类敌方控制台操作教学
 	std::vector<int> mCrazyDaveTutorialsSeen; // 已完整看过或主动跳过的关卡闲聊（稳定冒险关卡号）
+	std::vector<std::string> mWorkshopTutorialsSeen; // 工坊已自动提示/主动查看的稳定主题键；重建基地不清空
 	int mDeveloperSelectedLevel = 1; // 开发者面板上次选择的关卡号
 	std::string mDeveloperSelectedZombie = "ZOMBIE_NORMAL"; // 开发者面板上次选择的召唤僵尸枚举名
 	bool mShowPlantHP = false;  // 植物显示血量

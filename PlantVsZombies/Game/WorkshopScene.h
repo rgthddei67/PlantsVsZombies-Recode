@@ -86,6 +86,9 @@ private:
     std::vector<std::shared_ptr<Button>> mPlantButtons;
     std::vector<std::shared_ptr<Button>> mPlantGuideButtons;
     std::shared_ptr<GameMessageBox> mGuide;
+    std::shared_ptr<Button> mCommissionsButton;
+    std::shared_ptr<GameMessageBox> mCommissionsDialog;
+    std::string mCommissionNotice;
     std::vector<int> mGuideTopics;
     int mGuidePage = 0, mGuideSeenWave = 0, mGuideUnlockWave = -1;
     std::shared_ptr<Button> mPlantCatalogButton, mFrontRemoveButton, mFrontUpgradeButton, mAbilityButton, mAutomaticButton;
@@ -157,10 +160,18 @@ private:
     void DrawToolbarIcons(Graphics* g);
     void DrawUtilityIcon(Graphics* g, const std::string& action, float x, float y, float size);
     void OpenGuide(int topic = 0, bool newUnlocks = false);
+    void OpenCommissions();
+    void CloseCommissions();
+    void RefreshCommissions();
+    void DrawCommissions(Graphics* g);
     void CloseGuide(bool acknowledge = true);
     void RefreshGuide();
     void DrawGuide(Graphics* g);
     void CheckGuideUnlocks();
+    /** 玩家级提示记录独立于基地重建、波前重试与教程书目录。 */
+    bool TutorialSeen(const std::string& key) const;
+    void RememberTutorials(const std::vector<std::string>& keys);
+    void ImportLegacyTutorials();
     void DrawLockedItem(Graphics* g, float centerX, float top, float size);
     void DrawPlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h);
     void ShowDeath();

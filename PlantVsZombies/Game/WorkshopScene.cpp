@@ -19,6 +19,7 @@
 #include "../Logger.h"
 #include "Plant/GameDataManager.h"
 #include "Workshop/WorkshopGuide.h"
+#include "GameRandom.h"
 #include <algorithm>
 #include <cmath>
 #include <format>
@@ -80,6 +81,7 @@ Workshop::World& WorkshopScene::World() const { return mBoard->GetWorkshop(); }
 
 /** 重建只清理当前场景的正式战斗实体，UI 由 UIManager 独立持有。 */
 bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
+    CloseCommissions();
     ClosePractice();
     if (mReasonDialog) mReasonDialog->Close();
     mReasonDialog.reset();
@@ -93,7 +95,10 @@ bool WorkshopScene::RebuildFrontline(const nlohmann::json& document) {
     if (g_particleSystem) g_particleSystem->ClearAll();
     mBoard.reset();
     mBoard = std::make_unique<Board>(nullptr, Background::GROUND_DAY, Workshop::Level);
-    if (document.is_null()) mBoard->StartGame();
+    if (document.is_null()) {
+        mBoard->StartGame();
+        World().SeedBase(static_cast<std::uint32_t>(GameRandom::Range(1, 2147483647)));
+    }
     else if (!mBoard->RestoreWorkshopDocument(document, mLoadError)) {
         GameObjectManager::GetInstance().DestroyAllGameObjects();
         mLoadFailed = true; return false;
@@ -133,7 +138,9 @@ void WorkshopScene::OnEnter() {
         if (!mFirstVisit) ReloadBase();
     }
     auto& resources = ResourceManager::GetInstance();
-    mResourcesReady = resources.HasReanimation("NormalZombie") && resources.HasReanimation("PeaShooter") && resources.HasReanimation("SnowPeaShooter");
+    mResourcesReady = resources.HasReanimation("NormalZombie") && resources.HasReanimation("PeaShooter") && resources.HasReanimation("SnowPeaShooter") && resources.HasReanimation("FirePea");
+    for (const auto& threat : Workshop::Threats)
+        mResourcesReady = resources.HasReanimation(GameDataManager::GetInstance().GetZombieAnimName(threat.type)) && mResourcesReady;
     for (const char* key : {"IMAGE_BACKGROUND_DAY", "IMAGE_BACKGROUND_WORKSHOP_GARDEN", "IMAGE_PEASHOOTER", "IMAGE_SUNFLOWER", "IMAGE_PROJECTILEPEA", "IMAGE_PROJECTILESNOWPEA", "IMAGE_BUTTONSMALL", "IMAGE_SHOVEL", "IMAGE_REANIM_SUN1"})
         mResourcesReady = resources.GetTexture(key, false) && mResourcesReady;
     for (const auto& definition : Workshop::Plants) {
@@ -155,6 +162,7 @@ void WorkshopScene::OnEnter() {
 }
 
 void WorkshopScene::OnExit() {
+    CloseCommissions(); mCommissionsButton.reset();
     ClosePractice();
     if (mReasonDialog) mReasonDialog->Close();
     mReasonDialog.reset();
@@ -204,6 +212,7 @@ bool WorkshopScene::ReloadBase() {
     mGuideSeenWave = Workshop::ReadGuideSeenWave(document, World().CompletedWaves());
     mPowerGuideSeen = document.contains("powerGuideSeen") && document["powerGuideSeen"].is_boolean()
         ? document["powerGuideSeen"].get<bool>() : document.value("schemaVersion", 0) >= 6;
+    ImportLegacyTutorials();
     // 界面偏好是可选元数据，旧档用默认值；无效偏好不影响真实基地恢复。
     float speed = 1;
     if (document.contains("selectedTimeScale") && document["selectedTimeScale"].is_number()) {
@@ -284,6 +293,9 @@ void WorkshopScene::CreateControls() {
     MakeButton("　重开", 630, 52, 115, [this] { ConfirmReset(); });
     MakeButton("　保存返回", 752, 52, 150, [this] { if (SaveBase()) mPending = Pending::Back; });
     mViewButton = MakeButton("　前线", 916, 52, 165, [this] { SetFrontView(!mFrontView); });
+    constexpr std::array<float, 8> widths{86, 86, 106, 106, 86, 86, 148, 174}; // 留出委托入口后的主工具栏宽度，逻辑像素
+    for (size_t i = 0; i < widths.size(); ++i) mUIManager.GetButton(i)->SetSize(Vector(widths[i], 35));
+    mCommissionsButton = MakeButton("戴夫委托", 624, 52, 114, [this] { OpenCommissions(); }, 35, 15);
     const size_t firstFactoryControl = mUIManager.GetButtonCount();
     mPowerSourceButton = MakeButton("总站", 580, 132, 100, [this] { SelectPowerStation(); }, 29, 14);
     mPowerWireButton = MakeButton("接电 [P]", 688, 132, 102, [this] { SelectTool(Tool::Power); }, 29, 14);
@@ -331,14 +343,25 @@ void WorkshopScene::SetFrontView(bool front) {
     for (const auto& button : mFrontControls) { button->SetEnabled(front); button->SetSkipDraw(!front); }
     if (mViewButton) mViewButton->SetText(front ? "　工厂" : "　前线");
     // 前线工具栏压成一行，给第一行僵尸头部留出原版草坪的上沿空间。
-    constexpr std::array<float, 8> toolbarX{20, 142, 264, 386, 508, 630, 752, 916};
+    constexpr std::array<float, 8> toolbarX{20, 114, 208, 322, 436, 530, 748, 906}; // 前线/工厂共用的主工具栏列，逻辑像素
     for (size_t i = 0; i < toolbarX.size(); ++i)
         if (auto button = mUIManager.GetButton(i)) button->SetPosition(Vector(toolbarX[i], front ? 8.0f : 52.0f));
+    if (mCommissionsButton) mCommissionsButton->SetPosition(Vector(624, front ? 8.0f : 52.0f));
     mWireSource = -1;
     UpdateUpgradeControls();
 }
 
 std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& action) const {
+    if (action == "commissions") return mCommissionsButton;
+    if (mCommissionsDialog && mCommissionsDialog->IsActive()) {
+        if (action == "commission_close") return mCommissionsDialog->GetButton(0);
+        for (int i = 0; i < Workshop::CommissionOfferCount; ++i)
+            if (action == "commission_accept_" + std::to_string(i)) return mCommissionsDialog->GetButton(1 + i);
+        for (int i = 0; i < Workshop::CommissionActiveLimit; ++i) {
+            if (action == "commission_claim_" + std::to_string(i)) return mCommissionsDialog->GetButton(7 + i * 2);
+            if (action == "commission_abandon_" + std::to_string(i)) return mCommissionsDialog->GetButton(8 + i * 2);
+        }
+    }
     if (auto found = mPracticeControls.find(action); found != mPracticeControls.end()) return found->second;
     if (action == "practice") return mGuide && mGuide->IsActive() ? mGuide->GetButton(16) : nullptr;
     if (action == "grid") return mGridButton;
@@ -350,6 +373,8 @@ std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& actio
     if (auto found = mConfigControls.find(action); found != mConfigControls.end()) return found->second;
     for (size_t i = 0; i < mMachineGuideButtons.size(); ++i)
         if (action == "machine_guide_" + std::to_string(i + 1)) return mMachineGuideButtons[i];
+    for (size_t i = 0; i < mPlantGuideButtons.size(); ++i)
+        if (action == std::string("plant_guide_") + Workshop::Plants[i].key) return mPlantGuideButtons[i];
     if (action == "plant_catalog") return mPlantCatalogButton;
     if (action == "front_remove") return mFrontRemoveButton;
     if (action == "front_ability") return mAbilityButton;
@@ -467,6 +492,16 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     if (action == "reason_open") { OpenMachineReason(index); return mReasonDialog && mReasonDialog->IsActive(); }
     if (action == "grid_open") { OpenPowerGrid(); return mGridDialog && mGridDialog->IsActive(); }
     if (action == "config_open") { OpenMachineConfig(index); return mMachineConfig && mMachineConfig->IsActive(); }
+    if (action == "commissions") { OpenCommissions(); return mCommissionsDialog && mCommissionsDialog->IsActive(); }
+    if (action == "commission_accept" || action == "commission_claim" || action == "commission_abandon") {
+        const bool success = action == "commission_accept" ? World().AcceptCommission(index)
+            : action == "commission_claim" ? World().ClaimCommission(index) : World().AbandonCommission(index);
+        mCommissionNotice = success ? action == "commission_accept" ? "已接取；接取后才累计目标，袭击时开始计时。"
+            : action == "commission_claim" ? "奖励已领取；蓝图和免费次数可在图册查看。" : "已放弃此委托，本次不能重新接取。"
+            : "操作未完成：检查接取名额、任务状态或完成进度。";
+        if (success) SaveBase();
+        RefreshCommissions(); return success;
+    }
     if (action == "guide") { OpenGuide(std::max(0, index)); return mGuide && mGuide->IsActive(); }
     if (action == "guide_close") { CloseGuide(); return true; }
     bool result = false;
@@ -655,11 +690,15 @@ void WorkshopScene::Update() {
         }
         return;
     }
-    if (mFirstVisit) { mFirstVisit = false; if (!GameAPP::mAutoTestMode) OpenPractice(); }
+    if (mFirstVisit) {
+        mFirstVisit = false;
+        if (!TutorialSeen("practice:intro") && (!GameAPP::mAutoTestMode || TestDriver::GetInstance().WorkshopTutorials())) OpenPractice();
+    }
     auto& catalogInput = GameAPP::GetInstance().GetInputHandler();
     bool escapeConsumed = false;
     if (catalogInput.IsKeyPressed(SDLK_ESCAPE)) {
-        if (mReasonDialog && mReasonDialog->IsActive()) { mReasonDialog->Close(); escapeConsumed = true; }
+        if (mCommissionsDialog && mUIManager.GetTopActiveMessageBox() == mCommissionsDialog) { CloseCommissions(); escapeConsumed = true; }
+        else if (mReasonDialog && mReasonDialog->IsActive()) { mReasonDialog->Close(); escapeConsumed = true; }
         else if (mPracticeDialog && mPracticeDialog->IsActive()) { ClosePractice(); escapeConsumed = true; }
         else if (mGuide && mGuide->IsActive()) { CloseGuide(); escapeConsumed = true; }
         else if (mCleanupDialog && mCleanupDialog->IsActive()) { mCleanupDialog->Close(); escapeConsumed = true; }
@@ -772,7 +811,7 @@ void WorkshopScene::UpdateTooltip() {
         }
     } else {
         lines = {std::string(info.name) + (Workshop::CanUpgradeMachine(type) ? " · Lv." + std::to_string(level) : "")
-            + " · 建造 " + std::to_string(info.cost) + " 阳光", info.description};
+            + " · 建造 " + std::to_string(World().BuildCost(type)) + " 阳光", info.description};
         if (type == Workshop::Machine::Solar)
             lines.push_back(std::format("高等级优先6台全速，其余25%；全基地 {:.1f} 阳光/秒", World().SolarProduction()));
         if (type == Workshop::Machine::Grower)
@@ -893,8 +932,12 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
         DrawUtilityIcon(g, "power", x + 17, y + 12, 20);
         for (int n = 0; n < 3; ++n) g->DrawLine(x + 12, y + 34 + n * 2, x + 38, y + 34 + n * 2, kGold);
     }
-    else if (cell.type == M::Grower || cell.type == M::SporeGrower || cell.type == M::MelonGrower || cell.type == M::RepairAssembler) {
+    else if (cell.type == M::Grower || cell.type == M::PressureGrower || cell.type == M::SporeGrower || cell.type == M::MelonGrower || cell.type == M::RepairAssembler) {
         g->FillRect(x + 10, y + 11, 30, 25, glm::vec4(63, 64, 35, 255));
+        if (cell.type == M::PressureGrower) {
+            g->DrawRect(x + 8, y + 9, 34, 29, glm::vec4(255, 177, 66, 255));
+            for (int pipe = 0; pipe < 3; ++pipe) g->FillRect(x + 11 + pipe * 12, y + 3, 5, 8, glm::vec4(166, 115, 60, 255));
+        }
         DrawItemIcon(g, Workshop::ProducedItem(cell.type), x + 15, y + 15, 20);
         g->FillRect(x + 9, y + 38, 32 * std::min(1.0f, cell.clock / Workshop::ProductionPeriod(cell.type, cell.level)), 3, kGold);
     } else if (cell.type == M::Cooler) {
@@ -1103,6 +1146,8 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["frontTool"] = static_cast<int>(mFrontTool); j["frontBuildType"] = static_cast<int>(mFrontBuildType);
     j["plantCatalogOpen"] = mPlantCatalog && mPlantCatalog->IsActive();
     j["guideOpen"] = mGuide && mGuide->IsActive(); j["guideSeenWave"] = mGuideSeenWave;
+    j["commissionsOpen"] = mCommissionsDialog && mCommissionsDialog->IsActive();
+    j["tutorialsSeen"] = GameAPP::GetInstance().mWorkshopTutorialsSeen;
     j["gridOpen"] = mGridDialog && mGridDialog->IsActive(); j["powerGuideSeen"] = mPowerGuideSeen;
     j["practiceOpen"] = mPracticeDialog && mPracticeDialog->IsActive();
     j["practiceLessons"] = nlohmann::json::array();
@@ -1117,6 +1162,7 @@ nlohmann::json WorkshopScene::Inspect() const {
     if (mSelected >= 0) j["selectedReasons"] = World().Explain(mSelected);
     j["powerDemo"] = mPowerDemo ? mPowerDemo->Inspect() : nlohmann::json(nullptr);
     j["guideTopics"] = mGuideTopics; j["guidePage"] = mGuidePage; j["guideUnlockWave"] = mGuideUnlockWave;
+    j["guideTopic"] = mGuideTopics.empty() ? -1 : mGuideTopics[mGuidePage];
     j["materialWarnings"] = mMaterialWarnings; j["materialNoticeCount"] = mMaterialNoticeCount;
     j["solarProduction"] = World().SolarProduction();
     j["visibleControls"] = nlohmann::json::array();
@@ -1168,6 +1214,10 @@ nlohmann::json WorkshopScene::Inspect() const {
             const int level = p->GetWorkshopUpgradeLevel();
             nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
                 {"level", level}, {"type", static_cast<int>(p->mPlantType)}, {"ice", p->mPlantType == PlantType::PLANT_SNOWPEA}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
+            if (p->mPlantType == PlantType::PLANT_GATLINGPEA) {
+                nlohmann::json extra; p->SaveExtraData(extra);
+                plant["reservedShots"] = extra.value("workshopReservedShots", 0);
+            }
             j["nativePlants"].push_back(plant);
             j["nativePlantsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plant;
         }
@@ -1179,11 +1229,15 @@ nlohmann::json WorkshopScene::Inspect() const {
             if (z->IsDying()) j["hasDyingZombie"] = true;
             if (z->GetCooldownTimer() > 0) j["hasChilledZombie"] = true;
             const auto animator = z->GetAnimatorInternal();
-            j["nativeZombies"].push_back({{"id", id}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"helmetHp", z->mHelmHealth}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
+            j["nativeZombies"].push_back({{"id", id}, {"type", static_cast<int>(z->mZombieType)}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"helmetHp", z->mHelmHealth}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
                 {"track", animator ? animator->GetCurrentTrackName() : ""}, {"tongue", animator && animator->GetTrackVisible("anim_tongue")}});
         }
     }
     j["nativeBulletCount"] = mBoard->mEntityRegistry.GetAllBulletIDs().size();
+    j["nativeBullets"] = nlohmann::json::array();
+    for (int id : mBoard->mEntityRegistry.GetAllBulletIDs()) if (const auto* bullet = mBoard->mEntityRegistry.GetBullet(id); bullet && bullet->IsActive())
+        j["nativeBullets"].push_back({{"id", id}, {"row", bullet->mRow}, {"damage", bullet->GetBulletDamage()},
+            {"heavy", bullet->IsWorkshopHeavyShot()}, {"flamed", bullet->IsWorkshopFlamedShot()}, {"hitIDs", bullet->GetWorkshopHitZombieIDs()}});
     j["saveFailed"] = mSaveFailed;
     j["tooltipVisible"] = !mTooltipLines.empty();
     j["tooltipLines"] = mTooltipLines;

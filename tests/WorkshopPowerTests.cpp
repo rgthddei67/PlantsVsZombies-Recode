@@ -19,7 +19,7 @@ std::unique_ptr<World> Fixture(int completed = 8, int grid = 1) {
     save["state"]["completedWaves"] = completed; save["state"]["gridLevel"] = grid; save["state"]["energy"] = 10000;
     Load(*w, save); return w;
 }
-void Schedule(World& w) {
+[[maybe_unused]] void Schedule(World& w) {
     for (int frame = 0; frame < 12000 && w.RemainingSpawns(); ++frame) {
         w.Tick(1.0f / 60);
         if (w.NextSpawnRow() >= 0) w.CommitSpawn();

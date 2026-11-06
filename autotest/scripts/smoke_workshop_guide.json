@@ -189,8 +189,8 @@
       "op": "click",
       "hold_frames": 6,
       "trace": true,
-      "target": "message_box_button",
-      "index": 10
+      "target": "workshop_control",
+      "control": "plant_guide_pea"
     },
     {
       "op": "wait_frames",
@@ -284,11 +284,23 @@
       "op": "assert_state",
       "path": "workshop.guideTopics",
       "equals": [
+        43,
         4,
         5,
         18,
         19
       ]
+    },
+    {
+      "op": "click",
+      "target": "message_box_button",
+      "index": 2,
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 4
     },
     {
       "op": "assert_state",
@@ -912,8 +924,8 @@
     },
     {
       "op": "assert_state",
-      "path": "workshop.guidePage",
-      "equals": 27
+      "path": "workshop.guideTopic",
+      "equals": 17
     },
     {
       "op": "move_mouse",

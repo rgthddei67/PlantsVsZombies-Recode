@@ -1,0 +1,388 @@
+{
+  "name": "smoke_workshop_tutorial_history",
+  "workshopTutorials": true,
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 90
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.tutorialsSeen",
+      "equals": [
+        "practice:intro"
+      ]
+    },
+    {
+      "op": "screenshot",
+      "name": "01_first_visit.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "save",
+      "name": "starter"
+    },
+    {
+      "op": "workshop",
+      "action": "reset"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "help",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "02_manual_book.png"
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": true
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "practice_close",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 1
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideUnlockWave",
+      "equals": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "03_new_content.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "first_unlock.json"
+    },
+    {
+      "op": "workshop_tutorial_history",
+      "action": "save"
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "workshop_tutorial_history",
+      "action": "clear"
+    },
+    {
+      "op": "workshop_tutorial_history",
+      "action": "load"
+    },
+    {
+      "op": "workshop",
+      "action": "reset"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 1
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideSeenWave",
+      "equals": 1
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "help",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "screenshot",
+      "name": "04_replay_book.png"
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideUnlockWave",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "second_unlock.json"
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "click",
+      "target": "workshop_control",
+      "control": "back",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 20
+    },
+    {
+      "op": "click",
+      "target": "main_menu_workshop",
+      "hold_frames": 6,
+      "trace": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.practiceOpen",
+      "equals": false
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": false
+    },
+    {
+      "op": "dump_state",
+      "name": "reentered.json"
+    },
+    {
+      "op": "workshop_tutorial_history",
+      "action": "clear"
+    },
+    {
+      "op": "workshop_snapshot",
+      "action": "load",
+      "name": "starter",
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state/completedWaves",
+          "value": 2
+        },
+        {
+          "op": "add",
+          "path": "/guideSeenWave",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideOpen",
+      "equals": true
+    },
+    {
+      "op": "assert_state",
+      "path": "workshop.guideUnlockWave",
+      "equals": 2
+    },
+    {
+      "op": "dump_state",
+      "name": "legacy_import.json"
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
+      "op": "wait_frames",
+      "value": 6
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

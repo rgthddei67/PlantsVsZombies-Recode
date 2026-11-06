@@ -134,6 +134,14 @@
       "type": "store"
     },
     {
+      "op": "wait_frames",
+      "value": 4
+    },
+    {
+      "op": "workshop",
+      "action": "guide_close"
+    },
+    {
       "op": "click",
       "hold_frames": 6,
       "trace": true,

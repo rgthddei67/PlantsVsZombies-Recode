@@ -67,6 +67,7 @@ void WorkshopScene::OpenPractice(int lesson) {
     });
     button("verify", "开始检验", 830, 530, 202, [this] { PracticeAction("verify"); });
     mPracticeDialog = builder.Show();
+    if (lesson == 0) RememberTutorials({"practice:intro"});
     for (size_t i = 0; i < keys.size(); ++i) {
         auto control = mPracticeDialog->GetButton(i); control->SetTextColor(kPracticeGold);
         control->SetHoverTextColor(glm::vec4(255, 252, 210, 255)); mPracticeControls.emplace(keys[i], control);

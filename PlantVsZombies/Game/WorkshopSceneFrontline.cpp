@@ -15,7 +15,7 @@ const glm::vec4 kFrontRed{172, 47, 38, 255}; // 铲除与不可种植提示
 void FrontText(const std::string& text, float x, float y, int size = 15, glm::vec4 color = kFrontInk) {
     GameAPP::GetInstance().DrawText(text, Vector(x, y), color, ResourceKeys::Fonts::FONT_FZCQ, size);
 }
-Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 4) * 244.0f, 145 + (index / 4) * 190.0f); }
+Vector PlantCardPosition(size_t index) { return Vector(72 + (index % 5) * 194.0f, 145 + (index / 5) * 190.0f); }
 }
 
 void WorkshopScene::DrawPlantPicture(Graphics* g, PlantType type, float x, float y, float w, float h) {
@@ -59,7 +59,7 @@ Plant* WorkshopScene::FrontPlantAt(Vector point) const {
 }
 void WorkshopScene::SelectFrontPlant(PlantType type) {
     const auto* definition = Workshop::FindPlant(type);
-    if (!definition || World().CompletedWaves() < definition->unlockWave) return;
+    if (!definition || !Workshop::PlantUnlocked(World(), *definition)) return;
     CancelTool(); mFrontTool = FrontTool::Plant; mFrontBuildType = type;
     mNotice = std::string("选择格子种植") + definition->name + "；Esc / 右键取消。";
 }
@@ -133,15 +133,15 @@ void WorkshopScene::OpenPlantCatalog() {
     builder.Button("图解指南", Vector(810, 47), Vector(140, 34), 16, [this] { OpenGuide(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
         const auto type = Workshop::Plants[i].type;
-        builder.Button("", PlantCardPosition(i), Vector(228, 143), 12, [this, type] {
+        builder.Button("", PlantCardPosition(i), Vector(184, 143), 12, [this, type] {
             const auto& info = *Workshop::FindPlant(type);
-            if (World().CompletedWaves() < info.unlockWave) { mPlantCatalogNotice = "守住第 " + std::to_string(info.unlockWave) + " 波后解锁"; return; }
+            if (!Workshop::PlantUnlocked(World(), info)) { mPlantCatalogNotice = World().CompletedWaves() < info.unlockWave ? "守住第 " + std::to_string(info.unlockWave) + " 波后开放" : "需要在戴夫委托中获得本基地蓝图"; return; }
             SelectFrontPlant(type); ClosePlantCatalog(false);
         }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
         const auto pos = PlantCardPosition(i);
-        builder.Button("图解", pos + Vector(167, 145), Vector(51, 25), 13,
+        builder.Button("图解", pos + Vector(123, 145), Vector(51, 25), 13,
             [this, i] { OpenGuide(Workshop::PlantGuideBase + static_cast<int>(i)); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
     mPlantCatalog = builder.Show(); mPlantButtons.clear(); mPlantGuideButtons.clear();
@@ -151,7 +151,7 @@ void WorkshopScene::OpenPlantCatalog() {
         auto button = mPlantCatalog->GetButton(i + 2); button->SetSkipDraw(true); mPlantButtons.push_back(button);
         auto guide = mPlantCatalog->GetButton(i + 2 + Workshop::Plants.size());
         guide->SetTextColor(glm::vec4(255, 228, 142, 255)); guide->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
-        guide->SetEnabled(World().CompletedWaves() >= Workshop::Plants[i].unlockWave); mPlantGuideButtons.push_back(guide);
+        guide->SetEnabled(Workshop::PlantUnlocked(World(), Workshop::Plants[i])); mPlantGuideButtons.push_back(guide);
     }
     mPlantCatalog->SetCustomDraw([this](Graphics* g) { DrawPlantCatalog(g); });
     DeltaTime::SetPaused(true);
@@ -170,24 +170,24 @@ void WorkshopScene::DrawPlantCatalog(Graphics* g) {
     mPlantCatalog->GetButton(1)->Draw(g);
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
         const auto& info = Workshop::Plants[i]; const auto pos = PlantCardPosition(i);
-        const bool unlocked = World().CompletedWaves() >= info.unlockWave, hover = mPlantButtons[i]->IsHovered();
-        g->FillRect(pos.x, pos.y, 228, 176, hover ? glm::vec4(252, 239, 190, 255) : glm::vec4(216, 211, 168, 255));
-        g->DrawRect(pos.x, pos.y, 228, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
+        const bool unlocked = Workshop::PlantUnlocked(World(), info), hover = mPlantButtons[i]->IsHovered();
+        g->FillRect(pos.x, pos.y, 184, 176, hover ? glm::vec4(252, 239, 190, 255) : glm::vec4(216, 211, 168, 255));
+        g->DrawRect(pos.x, pos.y, 184, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
         if (!unlocked) {
-            DrawLockedItem(g, pos.x + 114, pos.y + 25, 60);
-            FrontText("尚未解锁", pos.x + 78, pos.y + 101, 17);
-            FrontText("守住第 " + std::to_string(info.unlockWave) + " 波后解锁", pos.x + 32, pos.y + 140, 15);
+            DrawLockedItem(g, pos.x + 92, pos.y + 25, 60);
+            FrontText("尚未解锁", pos.x + 56, pos.y + 101, 17);
+            FrontText(World().CompletedWaves() < info.unlockWave ? "守住第 " + std::to_string(info.unlockWave) + " 波后开放" : "通过委托获得蓝图", pos.x + 16, pos.y + 140, 13);
             continue;
         }
         FrontText(info.name, pos.x + 12, pos.y + 10, 17, unlocked ? kFrontGreen : kFrontInk);
-        FrontText(std::to_string(info.cost) + " 阳光", pos.x + 151, pos.y + 13, 13, World().Energy() >= info.cost ? kFrontInk : kFrontRed);
-        DrawPlantPicture(g, info.type, pos.x + 54, pos.y + 38, 120, 78);
-        FrontText(info.role, pos.x + 9, pos.y + 120, 12);
+        FrontText((Workshop::PlantCost(World(), info) == 0 ? "免费" : std::to_string(info.cost)), pos.x + 139, pos.y + 14, 12, World().Energy() >= Workshop::PlantCost(World(), info) ? kFrontInk : kFrontRed);
+        DrawPlantPicture(g, info.type, pos.x + 32, pos.y + 38, 120, 78);
+        FrontText(info.role, pos.x + 9, pos.y + 120, 10);
         const float remaining = World().PlantCooldown(info.key);
         if (remaining > 0) {
-            g->FillRect(pos.x + 8, pos.y + 111, 212 * std::clamp(remaining / GameDataManager::GetInstance().GetPlantCooldown(info.type), 0.0f, 1.0f), 5, kFrontRed);
-            FrontText(std::format("补种还需 {:.1f} 秒", remaining), pos.x + 12, pos.y + 151, 13, kFrontRed);
-        } else FrontText(World().State() == Workshop::Phase::Planning ? "准备期 · 可连续种植" : "点击选择种植", pos.x + 12, pos.y + 151, 13, kFrontGreen);
+            g->FillRect(pos.x + 8, pos.y + 111, 168 * std::clamp(remaining / GameDataManager::GetInstance().GetPlantCooldown(info.type), 0.0f, 1.0f), 5, kFrontRed);
+            FrontText(std::format("补种还需 {:.1f} 秒", remaining), pos.x + 10, pos.y + 151, 12, kFrontRed);
+        } else FrontText(World().State() == Workshop::Phase::Planning ? "准备期可种植" : "点击种植", pos.x + 10, pos.y + 151, 12, kFrontGreen);
         mPlantGuideButtons[i]->Draw(g);
     }
     FrontText(mPlantCatalogNotice.empty() ? "战斗中同种植物共享补种冷却；准备期无冷却。已有植物、血量和成长跨波保留。" : mPlantCatalogNotice, 72, 541, 15);

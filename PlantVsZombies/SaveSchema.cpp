@@ -447,6 +447,9 @@ namespace {
 				upgraded["schemaVersion"] = version;
 				break;
 			case 14:
+				// 玩家 v15 将工坊提示记录放到玩家档；旧基地的提醒进度在成功恢复后继承。
+				if (kind == DocumentKind::Player && !upgraded.contains("workshopTutorialsSeen"))
+					upgraded["workshopTutorialsSeen"] = nlohmann::json::array();
 				// v15 冻结矿道布局版本；旧关继续旧矿道，重开才进入新布局。
 				if (kind == DocumentKind::Level && upgraded.contains("mine") && upgraded["mine"].is_object())
 					upgraded["mine"]["layoutRevision"] = 0;
@@ -662,6 +665,15 @@ namespace {
                     }
                 }
                 version = 40; upgraded["schemaVersion"] = version; break;
+			case 40:
+                // 旧弹丸保持原伤害和弹型，不追溯补上机枪穿透或火炬增幅。
+                if (kind == DocumentKind::Level && upgraded.contains("bullets") && upgraded["bullets"].is_array())
+                    for (auto& bullet : upgraded["bullets"]) if (bullet.is_object()) {
+                        bullet["workshopHeavyShot"] = false;
+                        bullet["workshopFlamedShot"] = false;
+                        bullet["workshopHitZombieIDs"] = nlohmann::json::array();
+                    }
+                version = 41; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

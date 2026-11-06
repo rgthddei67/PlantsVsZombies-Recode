@@ -1800,7 +1800,7 @@ bool Board::CanPlantAtImpl(PlantType type, int row, int col, int vacatedPlantID)
 		return basePlant && basePlant->IsActive()
 			&& basePlant->mPlantHealth > 0 && !basePlant->IsSquished()
 			&& !basePlant->IsBungeeTargeted()
-			&& basePlant->mPlantType == GetUpgradeBasePlantType(type);
+			&& basePlant->mPlantType == UpgradeBasePlantType(type);
 	}
 	if (type == PlantType::PLANT_PUMPKINSHELL) {
 		// 南瓜有独立外壳层，但水路与屋顶仍分别要求正确的承载植物。
@@ -1937,7 +1937,7 @@ bool Board::HasPlantingRequirement(PlantType type) const
 		}
 		return false;
 	}
-	const PlantType baseType = GetUpgradeBasePlantType(type);
+	const PlantType baseType = UpgradeBasePlantType(type);
 	if (baseType == PlantType::NUM_PLANT_TYPES) return true;
 	for (const int plantID : mEntityRegistry.GetAllPlantIDs()) {
 		Plant* plant = mEntityRegistry.GetPlant(plantID);

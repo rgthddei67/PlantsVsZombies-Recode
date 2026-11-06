@@ -33,7 +33,8 @@ constexpr std::array<Definition, static_cast<size_t>(Machine::Count)> kDefinitio
     {"counter", "计数器", "可数信号、产出或出库；B清零，支持累计达标或每批翻转。", 15, 4, 0},
     {"cannon", "瓜弹炮台", "独立供弹，A许可开火，B选择路线与弹种方案；充能后连射三发。", 350, 6, CannonBufferPerAmmo * 2},
     {"power_box", "配电箱", "从总站接电，给一组机器供电；可统一开关和切换供电优先级。", 25, 0, 0},
-    {"repair_assembler", "维修包生产机", "1残骸加10阳光制成维修包，装填到前线供冰仓坚果修复。", 125, 10, 10}
+    {"repair_assembler", "维修包生产机", "1残骸加10阳光制成维修包，装填到前线供冰仓坚果修复。", 125, 10, 10},
+    {"pressure_grower", "高压育豆机", "委托蓝图：更高育豆产能与耗电，每颗阳光成本不变。", 200, BlueprintUnlockWaves[static_cast<int>(Blueprint::PressureGrower)], 5}
 }};
 
 void Require(bool condition, const char* reason) {
@@ -83,7 +84,7 @@ Machine FindMachine(const std::string& key) {
 bool IsLogic(Machine type) { return (type >= Machine::Switch && type <= Machine::Latch) || type == Machine::Counter; }
 bool HasSelectionInput(Machine type) { return type == Machine::Cooler || type == Machine::Feeder || type == Machine::Splitter || type == Machine::Cannon || type == Machine::PowerBox; }
 bool HasDirectionalOutput(Machine type) {
-    return type == Machine::Grower || type == Machine::Belt || type == Machine::Splitter
+    return type == Machine::Grower || type == Machine::PressureGrower || type == Machine::Belt || type == Machine::Splitter
         || type == Machine::Store || type == Machine::Cooler || type == Machine::SporeGrower
         || type == Machine::MelonGrower || type == Machine::SalvagePort || type == Machine::RepairAssembler;
 }
@@ -97,6 +98,7 @@ const char* AmmoName(int filter) {
     return filter >= 0 && filter < ItemCount ? names[filter] : "混合";
 }
 float ProductionPeriod(Machine type, int level) {
+    if (type == Machine::PressureGrower) return GrowPeriods.at(level - 1) / PressureGrowerRate;
     if (type == Machine::Grower || type == Machine::Cooler) return GrowPeriods.at(level - 1);
     if (type == Machine::SporeGrower) return SporePeriods.at(level - 1);
     if (type == Machine::MelonGrower) return MelonPeriods.at(level - 1);
@@ -116,7 +118,7 @@ namespace {
 bool CanOutputItem(const Cell& cell, Ammo item) {
     if (cell.type == Machine::Cooler) return item == Ammo::Ice || item == Ammo::IceMelon;
     if (cell.type == Machine::RepairAssembler) return item == Ammo::RepairKit;
-    if (cell.type == Machine::Grower || cell.type == Machine::SporeGrower || cell.type == Machine::MelonGrower || cell.type == Machine::SalvagePort)
+    if (cell.type == Machine::Grower || cell.type == Machine::PressureGrower || cell.type == Machine::SporeGrower || cell.type == Machine::MelonGrower || cell.type == Machine::SalvagePort)
         return item == ProducedItem(cell.type);
     return HasDirectionalOutput(cell.type) || cell.type == Machine::Feeder;
 }
@@ -131,6 +133,8 @@ int Capacity(Machine type, int level) {
 World::World() { Reset(); }
 
 void World::Reset() {
+    mCommissions.Reset();
+    mSpawnRandom = 0xA341316Cu; mAssaultTypes.clear();
     mCells = {}; mLanes = {}; mEnemyCounts = {};
     mPlantCooldowns.clear();
     mPhase = Phase::Planning; mColumns = 10; mRows = 10; mHealth = 3; mCompletedWaves = 0;
@@ -148,7 +152,19 @@ void World::Reset() {
 }
 bool World::Valid(int i) const { return i >= 0 && i < CellCount && i / MaxColumns < mRows && i % MaxColumns < mColumns; }
 bool World::Unlocked(Machine type) const {
-    return type >= Machine::Empty && type < Machine::Count && Describe(type).unlockWave <= mCompletedWaves;
+    return type >= Machine::Empty && type < Machine::Count && Describe(type).unlockWave <= mCompletedWaves
+        && (type != Machine::PressureGrower || mCommissions.Has(Blueprint::PressureGrower));
+}
+int World::BuildCost(Machine type) const {
+    return type == Machine::PressureGrower && mCommissions.FreeUses(Blueprint::PressureGrower) > 0 ? 0 : Describe(type).cost;
+}
+bool World::AcceptCommission(int offer) { return mPhase != Phase::Dead && mCommissions.Accept(offer); }
+bool World::AbandonCommission(int active) { return mPhase != Phase::Dead && mCommissions.Abandon(active); }
+bool World::ClaimCommission(int active) {
+    if (mPhase == Phase::Dead) return false;
+    const int reward = mCommissions.Claim(active);
+    if (reward < 0) return false;
+    RefundEnergy(static_cast<float>(reward)); return true;
 }
 bool World::Enabled(int i) const {
     const int source = mCells[i].inputs[0];
@@ -158,13 +174,15 @@ bool World::Enabled(int i) const {
 bool World::CanBuild(int i, Machine type, int direction) const {
     return Valid(i) && mPhase != Phase::Dead && type > Machine::Empty && Unlocked(type)
         && direction >= 0 && direction <= 3 && mCells[i].type == Machine::Empty
-        && mEnergy >= Describe(type).cost;
+        && mEnergy >= BuildCost(type);
 }
 bool World::Build(int i, Machine type, int direction) {
     if (!CanBuild(i, type, direction)) return false;
-    mEnergy -= Describe(type).cost;
+    const int cost = BuildCost(type);
+    mEnergy -= cost;
+    if (type == Machine::PressureGrower && cost == 0) mCommissions.ConsumeFreeUse(Blueprint::PressureGrower);
     mCells[i] = {}; mCells[i].type = type; mCells[i].direction = direction;
-    mCells[i].paidCost = Describe(type).cost;
+    mCells[i].paidCost = cost;
     mCells[i].route = (i / MaxColumns) % Rows;
     mCells[i].route2 = (mCells[i].route + 1) % Rows;
     if (type == Machine::Feeder) mCells[i].filter = mCells[i].filter2 = 0;
@@ -295,6 +313,7 @@ void World::RefundEnergy(float amount) {
     if (std::isfinite(amount) && amount > 0) mEnergy = std::min(EnergyLimit, mEnergy + amount);
 }
 void World::RecordKill() {
+    if (mPhase == Phase::Assault) mCommissions.Record(CommissionGoal::Defeat);
     if (mPhase != Phase::Assault || mWaveScrap >= ScrapPerWave) return;
     ++mWaveScrap; ++mPendingScrap;
 }
@@ -317,7 +336,13 @@ bool World::StartAssault() {
     mCheckpoint = SaveState();
     mPhase = Phase::Assault; mSpawned = 0; mWaveScrap = 0;
     mRemainingSpawns = 5 + std::min(100, mCompletedWaves * 2);
+    mAssaultTypes = RollAssaultTypes(mCompletedWaves + 1, mRemainingSpawns, mSpawnRandom);
     mSpawnClock = 1; return true;
+}
+void World::SeedBase(std::uint32_t seed) {
+    if (mCompletedWaves != 0 || mPhase != Phase::Planning) return;
+    mSpawnRandom = seed ? seed : 1;
+    mCommissions.Reset(seed ^ 0x9E3779B9u);
 }
 bool World::Retry() {
     if (mPhase != Phase::Dead || mCheckpoint.is_null()) return false;
@@ -441,6 +466,7 @@ void World::TransportStep() {
                 auto& lane = mLanes[ActiveRoute(i)];
                 if (lane.TotalStock() < MagazineCapacity && lane.Inventory(ammo) < lane.Quota(ammo)) {
                     --c.Inventory(ammo); ++lane.Inventory(ammo); ++mDelivered; moved = true;
+                    mCommissions.Record(CommissionGoal::Deliver);
                 }
             } else {
                 const bool split = c.type == Machine::Splitter;
@@ -471,6 +497,8 @@ void World::Tick(float seconds) {
     // 有限子步避免游戏倍速改变物流/战斗结果，并允许纯逻辑测试推进长时间。
     while (seconds > 0.000001f && mPhase == Phase::Assault) {
         const float dt = std::min(seconds, 1.0f / 60.0f); seconds -= dt;
+        mCommissions.Tick(dt, mCompletedWaves);
+        const int producedBefore = mProduced + mProcessed, recycledBefore = mRecycled;
         const auto network = Distribution();
         std::array<bool, CellCount> working{};
         for (int i = 0; i < CellCount; ++i) working[i] = CanProcess(i);
@@ -491,7 +519,7 @@ void World::Tick(float seconds) {
             const float speed = box >= 0 ? network.branches[box].speed : 0;
             if (RatedPower(c.type) > 0 && speed <= 0) continue;
             const float processingDt = working[i] ? dt * speed : 0;
-            const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
+            const bool producer = c.type == Machine::Grower || c.type == Machine::PressureGrower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
             if (producer) {
                 const float period = ProductionPeriod(c.type, c.level);
                 const auto item = ProducedItem(c.type);
@@ -542,6 +570,8 @@ void World::Tick(float seconds) {
                 } else c.clock = std::min(period, c.clock);
             }
         }
+        mCommissions.Record(CommissionGoal::Produce, mProduced + mProcessed - producedBefore);
+        mCommissions.Record(CommissionGoal::Recycle, mRecycled - recycledBefore);
         mTransportClock += dt;
         if (mTransportClock >= TransportPeriod) { mTransportClock -= TransportPeriod; TransportStep(); }
         if (mPhase == Phase::Assault && mRemainingSpawns > 0) mSpawnClock -= dt;
@@ -552,9 +582,10 @@ void World::ObserveFrontline(const std::array<int, Rows>& enemies, const std::ar
     mEnemyCounts = enemies;
     for (int row = 0; row < Rows; ++row) mLanes[row].shooters = shooters[row];
 }
-bool World::ReserveAmmo(int row, Ammo type) {
-    if (mPhase != Phase::Assault || row < 0 || row >= Rows || static_cast<int>(type) < 0 || static_cast<int>(type) >= AmmoCount || mLanes[row].Inventory(type) <= 0) return false;
-    --mLanes[row].Inventory(type); return true;
+bool World::ReserveAmmo(int row, Ammo type, int count) {
+    if (mPhase != Phase::Assault || row < 0 || row >= Rows || static_cast<int>(type) < 0 || static_cast<int>(type) >= AmmoCount
+        || count <= 0 || mLanes[row].Inventory(type) < count) return false;
+    mLanes[row].Inventory(type) -= count; return true;
 }
 int World::NextSpawnRow() const {
     if (mPhase != Phase::Assault || mRemainingSpawns <= 0 || mSpawnClock > 0) return -1;
@@ -574,6 +605,8 @@ void World::CompleteAssault() {
     if (mPhase != Phase::Assault || mRemainingSpawns != 0) return;
     for (const auto& cell : mCells) if (cell.volleyRemaining > 0) return;
     mPhase = Phase::Planning; ++mCompletedWaves;
+    mCommissions.Record(CommissionGoal::Survive);
+    mAssaultTypes.clear();
     mLegacyAssault = false;
     mPlantCooldowns.clear();
     mEnergy = std::min(EnergyLimit, mEnergy + 150 + mCompletedWaves * 20.0f);
@@ -611,7 +644,7 @@ std::string World::Status(int i) const {
     }
     if (!Enabled(i)) return RatedPower(c.type, c.level) > 0 && !c.manual ? "手动断电 · 进度保留" : "运行口关闭";
     if (c.type == Machine::Solar) return mEnergy >= EnergyLimit ? "储能已满" : "采集阳光";
-    const bool producer = c.type == Machine::Grower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
+    const bool producer = c.type == Machine::Grower || c.type == Machine::PressureGrower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
     const float cost = c.type == Machine::SporeGrower ? SporeEnergy : c.type == Machine::MelonGrower ? MelonEnergy : GrowEnergy;
     if (producer && c.TotalStock() == 0 && mEnergy < cost) return "缺少能源";
     if (c.type == Machine::RepairAssembler) return c.Inventory(Ammo::Scrap) == 0 ? "等待残骸" : c.Inventory(Ammo::RepairKit) >= 5 ? "成品缓存已满" : mEnergy < RepairKitEnergy ? "阳光不足" : "加工维修包";
@@ -657,10 +690,11 @@ nlohmann::json World::SaveState() const {
         {"iceQuota", l.iceQuota}, {"extraAmmo", l.extraAmmo}, {"extraQuota", l.extraQuota}});
     return {{"phase", static_cast<int>(mPhase)}, {"columns", mColumns}, {"rows", mRows}, {"health", mHealth}, {"completedWaves", mCompletedWaves},
         {"energy", mEnergy}, {"transportClock", mTransportClock}, {"spawnClock", mSpawnClock}, {"remainingSpawns", mRemainingSpawns},
-        {"spawned", mSpawned}, {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
+        {"spawned", mSpawned}, {"spawnRandom", mSpawnRandom}, {"assaultTypes", mAssaultTypes},
+        {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
         {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
-        {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault},
+        {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault}, {"commissions", mCommissions.Save()},
         {"cells", cells}, {"lanes", lanes}, {"plantCooldowns", mPlantCooldowns}};
 }
 nlohmann::json World::Save() const { return {{"schemaVersion", SaveVersion}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
@@ -672,6 +706,7 @@ void World::ReadState(const nlohmann::json& s) {
     mRows = ReadInt(s, "rows", 10, MaxRows); Require(mRows % 2 == 0, "无效工厂高度");
     mHealth = ReadInt(s, "health", 0, 3); Require((mHealth == 0) == (mPhase == Phase::Dead), "死亡状态不一致");
     mCompletedWaves = ReadInt(s, "completedWaves", 0, 100000);
+    mCommissions.Load(s.at("commissions"), mCompletedWaves);
     mGridLevel = ReadInt(s, "gridLevel", 1, UnlockedGridLevel(mCompletedWaves));
     mLegacyAssault = ReadBool(s, "legacyAssault");
     Require(!mLegacyAssault, "新版不使用旧袭击电网宽限");
@@ -689,6 +724,19 @@ void World::ReadState(const nlohmann::json& s) {
     mSpawnClock = ReadFloat(s, "spawnClock", -1, 3);
     mRemainingSpawns = ReadInt(s, "remainingSpawns", 0, 105);
     mSpawned = ReadInt(s, "spawned", 0, 105);
+    Require(s.at("spawnRandom").is_number_integer() && s.at("spawnRandom") > 0 && s.at("spawnRandom") <= UINT32_MAX, "出怪随机状态错误");
+    mSpawnRandom = s.at("spawnRandom").get<std::uint32_t>();
+    const auto& types = s.at("assaultTypes");
+    Require(types.is_array() && types.size() <= 105, "本波出怪名单错误");
+    Require(mPhase == Phase::Planning ? types.empty() : types.size() == mSpawned + mRemainingSpawns, "本波出怪名单与进度不符");
+    mAssaultTypes.clear();
+    for (const auto& value : types) {
+        Require(value.is_number_integer(), "出怪类型不是整数");
+        bool valid = value == static_cast<int>(ZombieType::ZOMBIE_NORMAL);
+        for (const auto& threat : Threats) if (threat.wave <= mCompletedWaves + 1 && value == static_cast<int>(threat.type)) valid = true;
+        Require(valid, "出怪名单包含未开放品种");
+        mAssaultTypes.push_back(value.get<int>());
+    }
     mProduced = ReadInt(s, "produced", 0, 1000000000); mFired = ReadInt(s, "fired", 0, 1000000000); mDelivered = ReadInt(s, "delivered", 0, 1000000000);
     mProcessed = ReadInt(s, "processed", 0, 1000000000); mIceFired = ReadInt(s, "iceFired", 0, 1000000000);
     mPendingScrap = ReadInt(s, "pendingScrap", 0, 1000000000);
@@ -790,10 +838,26 @@ void World::ReadState(const nlohmann::json& s) {
 }
 bool World::Load(const nlohmann::json& document, std::string& error) {
     try {
-        Require(document.contains("schemaVersion") && document["schemaVersion"].is_number_integer() && document["schemaVersion"] == SaveVersion,
+        Require(document.contains("schemaVersion") && document["schemaVersion"].is_number_integer() && (document["schemaVersion"] == SaveVersion || document["schemaVersion"] == 7),
             "配电与维修补给已重构，旧版工坊需要重新建造基地；原存档不会自动覆盖。");
-        World candidate; candidate.ReadState(document.at("state"));
-        candidate.mCheckpoint = document.at("checkpoint");
+        auto upgraded = document;
+        if (document["schemaVersion"] == 7) {
+            Commissions initial; initial.Reset();
+            // 旧基地第一次接入时按当前阶段生成任务；不存在历史任务或已走过的新时钟。
+            initial.Tick(CommissionRefreshSeconds, ReadInt(document.at("state"), "completedWaves", 0, 100000));
+            for (const char* key : {"state", "checkpoint"}) if (upgraded[key].is_object()) {
+                auto& state = upgraded[key]; state["commissions"] = initial.Save();
+                state["spawnRandom"] = 0xA341316Cu;
+                state["assaultTypes"] = nlohmann::json::array();
+                if (state.value("phase", 0) != 0) {
+                    const int count = ReadInt(state, "spawned", 0, 105) + ReadInt(state, "remainingSpawns", 0, 105);
+                    Require(count <= 105, "旧档本波出怪数量错误");
+                    for (int i = 0; i < count; ++i) state["assaultTypes"].push_back(static_cast<int>(SpawnType(ReadInt(state, "completedWaves", 0, 100000) + 1, i)));
+                }
+            }
+        }
+        World candidate; candidate.ReadState(upgraded.at("state"));
+        candidate.mCheckpoint = upgraded.at("checkpoint");
         if (candidate.mPhase != Phase::Planning) {
             World checkpoint; checkpoint.ReadState(candidate.mCheckpoint);
             Require(checkpoint.mPhase == Phase::Planning && checkpoint.mCompletedWaves == candidate.mCompletedWaves, "袭击检查点不一致");

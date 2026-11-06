@@ -14,6 +14,7 @@ namespace {
 void Torchwood::PlantUpdate()
 {
 	if (!mBoard) return;
+	if (mBoard->IsWorkshop() && mAnimator) mAnimator->SetOverlayColor(255, 176, 65, 65);
 
 	const float attackLeft = GetPosition().x + kTorchwoodAttackOffsetX;
 	const float attackRight = attackLeft + kTorchwoodAttackWidth;

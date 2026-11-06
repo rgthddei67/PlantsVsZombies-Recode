@@ -653,6 +653,23 @@ void TestAnchorRootMigration() {
 }
 
 int main() {
+    {
+        std::string error;
+        nlohmann::json level = {{"schemaVersion", 40}, {"bullets", nlohmann::json::array({{{"damage", 40}, {"type", 0}}})}};
+        Expect(SaveSchema::UpgradeLevelDocument(level, error) && level["bullets"][0]["damage"] == 40
+            && level["bullets"][0]["workshopHeavyShot"] == false && level["bullets"][0]["workshopFlamedShot"] == false
+            && level["bullets"][0]["workshopHitZombieIDs"].empty(), "old projectiles receive neutral workshop state without damage changes");
+    }
+    {
+        std::string error;
+        nlohmann::json player = {{"schemaVersion", 14}, {"adventureLevel", 1}};
+        Expect(SaveSchema::UpgradePlayerDocument(player, error) && player["workshopTutorialsSeen"] == nlohmann::json::array(),
+            "old players get empty workshop history for later base import");
+        player["workshopTutorialsSeen"] = {"practice:intro", "machine:grower"};
+        const auto saved = player;
+        Expect(SaveSchema::UpgradePlayerDocument(player, error) && player == saved,
+            "current workshop history remains unchanged by migration");
+    }
     TestAnchorRootMigration();
 	{
 		nlohmann::json previous={{"schemaVersion",17},{"coldStorage",{{"enemyIce",73},{"spent",500},
@@ -995,9 +1012,9 @@ int main() {
         }
         nlohmann::json level = {{"schemaVersion", 38},
             {"bullets", nlohmann::json::array({{{"type", 0}, {"damage", 47}}})}};
-        const auto bullets = level["bullets"];
         Expect(SaveSchema::UpgradeLevelDocument(level, error)
-            && level["salvageZombiesSpawnedThisWave"] == 0 && level["bullets"] == bullets,
+            && level["salvageZombiesSpawnedThisWave"] == 0 && level["bullets"][0]["damage"] == 47
+            && level["bullets"][0]["type"] == 0 && level["bullets"][0]["workshopHeavyShot"] == false,
             "salvage migration initializes quota without altering existing projectiles");
         level["salvageZombiesSpawnedThisWave"] = 1;
         const auto saved = level;

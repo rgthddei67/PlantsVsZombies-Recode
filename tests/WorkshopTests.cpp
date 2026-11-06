@@ -61,9 +61,9 @@ int main() {
     const auto starterGuide = GuideTopics(0);
     Check(starterGuide.size() == 8 && starterGuide.front() == 0, "newcomer guide contains only starter machines and pea");
     const auto firstUnlock = GuideTopics(1, 0), circuitsUnlock = GuideTopics(2, 1);
-    Check(firstUnlock.size() == 4 && circuitsUnlock.size() == 11, "each completed wave produces one complete unlock batch");
+    Check(firstUnlock.size() == 5 && circuitsUnlock.size() == 11, "each completed wave produces one complete unlock batch");
     for (int topic : circuitsUnlock) Check(GuideUnlockWave(topic) == 2, "unlock popup does not reveal future or repeat older items");
-    Check(GuideTopics(2, 2).empty() && GuideTopics(10).size() == static_cast<int>(Machine::Count) + Plants.size() + 3, "read batches stay quiet and every item has a guide entry");
+    Check(GuideTopics(2, 2).empty() && GuideTopics(14).size() == static_cast<int>(Machine::Count) + Plants.size() + 4, "read batches stay quiet and every item has a guide entry");
     nlohmann::json guideSave = nlohmann::json::object();
     Check(ReadGuideSeenWave(guideSave, 8) == 8, "legacy saves do not replay historical unlock tutorials");
     guideSave["guideSeenWave"] = 2;
@@ -73,6 +73,124 @@ int main() {
     Check(ReadGuideSeenWave(guideSave, 3) == 3, "future guide watermark is clamped after progression rewind");
     guideSave["guideSeenWave"] = "bad";
     Check(ReadGuideSeenWave(guideSave, 3) == 3, "optional malformed guide metadata cannot invalidate a base");
+    nlohmann::json history = {{"workshopTutorialsSeen", {"practice:intro", "machine:grower", "machine:grower", 7, "unknown", "plant:pea"}}};
+    const auto tutorialKeys = ReadTutorialHistory(nlohmann::json::parse(history.dump()));
+    Check(tutorialKeys == std::vector<std::string>{"machine:grower", "plant:pea", "practice:intro"}, "player tutorial history round trip filters malformed entries and duplicates");
+    Check(GuideKey(static_cast<int>(Machine::Grower)) == "machine:grower" && GuideKey(PlantGuideBase) == "plant:pea", "persisted tutorial keys use stable names");
+    for (const auto& invalid : {nlohmann::json(nullptr), nlohmann::json(5), nlohmann::json("bad")}) {
+        history["workshopTutorialsSeen"] = invalid;
+        Check(ReadTutorialHistory(history).empty(), "malformed optional history defaults to unseen");
+    }
+    {
+        Commissions tasks; tasks.Reset(42);
+        tasks.Record(CommissionGoal::Produce, 1000);
+        Check(tasks.Accept(4) && tasks.Accept(5) && !tasks.Accept(0), "commission simultaneous limit is two");
+        Check(tasks.Active()[0].progress == 0, "activity before acceptance is not credited");
+        const auto accepted = tasks.Active()[0];
+        tasks.Record(accepted.goal, accepted.target);
+        const float deadline = tasks.Active()[0].remaining;
+        tasks.Tick(600, 14);
+        Check(tasks.Active()[0].status == CommissionStatus::Ready && tasks.Active()[0].remaining == deadline,
+            "completed task stops deadline and survives board refresh");
+        Check(tasks.Active()[1].remaining == 120 || tasks.Active()[1].status == CommissionStatus::Ready,
+            "accepted hard task retains remaining time across refresh");
+        Check(tasks.Claim(0) == accepted.sunReward, "ready commission grants stated reward once");
+        tasks.Tick(721, 14);
+        if (!tasks.Active().empty() && tasks.Active()[0].status == CommissionStatus::Running) Check(false, "deadline expires unfinished task");
+        Commissions restored; restored.Load(nlohmann::json::parse(tasks.Save().dump()), 14);
+        tasks.Tick(600, 14); restored.Tick(600, 14);
+        Check(tasks.Save() == restored.Save(), "commission timer and random stream round trip without reroll");
+        auto badTasks = tasks.Save(); badTasks["offers"][0]["difficulty"] = 2;
+        bool rejected = false; try { restored.Load(badTasks, 14); } catch (...) { rejected = true; }
+        Check(rejected && tasks.Save() == restored.Save(), "bad commission load is transactional");
+        tasks.Reset(7);
+        int middle = 0, hard = 0, dry = 0;
+        for (int round = 0; round < 5000; ++round) {
+            tasks.Tick(600, 14);
+            int blueprints = 0;
+            for (const auto& offer : tasks.Offers()) if (offer.blueprint != Blueprint::Count) {
+                Check(offer.difficulty != 0, "easy commissions never offer blueprints");
+                ++blueprints;
+                if (offer.difficulty == 1) ++middle; else ++hard;
+            }
+            if (!blueprints) ++dry;
+        }
+        Check(middle > 400 && middle < 600 && hard > 2250 && hard < 2750 && dry > 0,
+            "seeded distribution follows 5 and 25 percent without guaranteed blueprint batches");
+        for (int round = 0; round < 1000 && !tasks.Has(Blueprint::HeavyGatling); ++round) {
+            tasks.Tick(600, 14);
+            for (int i = 0; i < CommissionOfferCount; ++i) if (tasks.Offers()[i].blueprint == Blueprint::HeavyGatling) {
+                const auto offer = tasks.Offers()[i]; Check(tasks.Accept(i), "accept blueprint commission");
+                tasks.Record(offer.goal, offer.target);
+                Check(tasks.Claim(0) == offer.sunReward && tasks.Claim(0) == -1, "blueprint claim cannot be duplicated");
+                break;
+            }
+        }
+        Check(tasks.Has(Blueprint::HeavyGatling) && tasks.FreeUses(Blueprint::HeavyGatling) == 1, "blueprint grants one free conversion");
+        Check(tasks.ConsumeFreeUse(Blueprint::HeavyGatling) && !tasks.ConsumeFreeUse(Blueprint::HeavyGatling), "free conversion consumed once");
+        for (int round = 0; round < 100; ++round) {
+            tasks.Tick(600, 14);
+            for (const auto& offer : tasks.Offers()) Check(offer.blueprint != Blueprint::HeavyGatling, "owned blueprints do not reappear");
+        }
+        tasks.Reset(); Check(!tasks.Has(Blueprint::HeavyGatling), "new base resets blueprints");
+        for (int difficulty = 0; difficulty < 3; ++difficulty) {
+            tasks.Reset();
+            Check(tasks.Accept(difficulty * 2), "accept each deadline tier");
+            tasks.Tick(CommissionDeadlines[difficulty] - 1, 0);
+            Check(tasks.Active()[0].status == CommissionStatus::Running && tasks.Active()[0].remaining == 1,
+                "each tier remains active before its deadline");
+            tasks.Tick(1, 0);
+            Check(tasks.Active()[0].status == CommissionStatus::Expired && tasks.Claim(0) == -1 && tasks.ActiveCount() == 0,
+                "deadline loses only reward and frees simultaneous slot");
+        }
+        tasks.Reset();
+        Check(tasks.Accept(0), "accept task for voluntary abandonment");
+        tasks.Record(tasks.Active()[0].goal, 1);
+        Check(tasks.Abandon(0) && tasks.Active().empty() && !tasks.Accept(0) && !tasks.Abandon(0),
+            "abandon clears progress without allowing same offer to be retaken");
+    }
+    {
+        for (const auto& threat : Threats) for (std::uint32_t seed = 1; seed <= 30; ++seed) {
+            auto random = seed;
+            const auto roster = RollAssaultTypes(threat.wave, 5 + std::min(100, (threat.wave - 1) * 2), random);
+            Check(std::count(roster.begin(), roster.end(), static_cast<int>(threat.type)) == 1, "every debut guarantees one newcomer");
+            Check(std::find(roster.begin(), roster.end(), static_cast<int>(ZombieType::ZOMBIE_NORMAL)) != roster.end(), "normal zombies remain in every wave");
+            for (int type : roster) if (type != static_cast<int>(ZombieType::ZOMBIE_NORMAL)) {
+                bool eligible = false;
+                for (const auto& available : Threats) if (available.wave <= threat.wave && type == static_cast<int>(available.type)) eligible = true;
+                Check(eligible, "random wave only samples unlocked zombies");
+            }
+        }
+        std::uint32_t first = 42, second = 42, third = 7;
+        Check(RollAssaultTypes(31, 65, first) == RollAssaultTypes(31, 65, second), "wave roll is reproducible from saved RNG");
+        Check(RollAssaultTypes(31, 65, first) != RollAssaultTypes(31, 65, third), "later waves use genuinely different compositions");
+    }
+    {
+        World& factory = TestWorld();
+        auto setup = factory.Save(); setup["state"]["completedWaves"] = 14; setup["state"]["energy"] = 10000;
+        std::string error;
+        Check(factory.Load(setup, error), "pressure factory setup");
+        for (int round = 0; round < 1000 && !factory.Tasks().Has(Blueprint::PressureGrower); ++round) {
+            factory.Tasks().Tick(600, 14);
+            for (int i = 0; i < CommissionOfferCount; ++i) if (factory.Tasks().Offers()[i].blueprint == Blueprint::PressureGrower) {
+                const auto offer = factory.Tasks().Offers()[i];
+                Check(factory.AcceptCommission(i), "pressure blueprint accepted");
+                factory.Tasks().Record(offer.goal, offer.target);
+                Check(factory.ClaimCommission(0), "pressure blueprint claimed"); break;
+            }
+        }
+        Check(factory.Tasks().Has(Blueprint::PressureGrower), "pressure blueprint appears without forcing rewards");
+        while (factory.UpgradeGrid()) {}
+        Check(Build(factory, 1, Machine::Grower, 0) && Build(factory, 2, Machine::Feeder, 0)
+            && Build(factory, 21, Machine::PressureGrower, 0) && Build(factory, 22, Machine::Feeder, 0), "two equivalent production lines built");
+        Check(factory.RemoveRefund(21) == 0 && factory.Tasks().FreeUses(Blueprint::PressureGrower) == 0,
+            "free machine has no construction refund");
+        Check(factory.StartAssault(), "pressure production starts");
+        Step(factory, 30);
+        const auto normal = factory.Cells()[1].producedItems[0], pressure = factory.Cells()[21].producedItems[0];
+        Check(normal >= 11 && pressure >= normal * 3 && pressure <= normal * 3 + 2, "live pressure output is three times equivalent normal production");
+        Check(RatedPower(Machine::PressureGrower) == RatedPower(Machine::Grower) * 2, "pressure power cost is doubled");
+    }
     World& world = TestWorld();
     const auto beforePreview = world.Save();
     Check(world.CanBuild(2, Machine::Grower, 0) && !world.CanBuild(0, Machine::Grower, 0)
@@ -297,11 +415,21 @@ int main() {
     Check(restored.Retry(), "retry frozen factory"); Step(restored, 600);
     Check(restored.Save() == betweenWaves, "death retry keeps old inventory without free preparation gains");
 
-    // 本次电网重构明确不兼容旧档；失败必须保留当前基地和检查点。
+    // v7 以前的电网重构仍拒绝；v7 可补入中性的委托与确定性出兵状态。
     const auto beforeLegacy = restored.Save();
-    for (int version = 1; version < SaveVersion; ++version) {
+    for (int version = 1; version < 7; ++version) {
         auto old = beforeLegacy; old["schemaVersion"] = version;
         Check(!restored.Load(old, error) && restored.Save() == beforeLegacy, "old schema rejected without modifying current world");
+    }
+    {
+        auto legacy = beforeLegacy;
+        legacy["schemaVersion"] = 7;
+        for (const char* key : {"state", "checkpoint"}) if (legacy[key].is_object()) {
+            legacy[key].erase("commissions"); legacy[key].erase("spawnRandom"); legacy[key].erase("assaultTypes");
+        }
+        World& imported = TestWorld();
+        Check(imported.Load(legacy, error) && imported.Energy() == restored.Energy()
+            && imported.CompletedWaves() == restored.CompletedWaves(), "v7 base migrates without losing resources or progress");
     }
     fixture = restored.Save(); fixture["state"]["energy"] = 10000;
     Check(restored.Load(fixture, error), "expansion budget");

@@ -1,4 +1,5 @@
 #include "GameInfoSaver.h"
+#include "Game/Workshop/WorkshopGuide.h"
 #include "LevelDocumentValidation.h"
 #include "Utf8.h"
 #include "SaveLocation.h"
@@ -250,6 +251,7 @@ bool GameInfoSaver::SavePlayerInfoImpl()
 	j["weatherStationEntryNoticeSeen"] = gameApp.mWeatherStationEntryNoticeSeen;
 	j["encounteredEliteDancer"] = gameApp.mEncounteredEliteDancer;
 	j["crazyDaveTutorialsSeen"] = gameApp.mCrazyDaveTutorialsSeen;
+	j["workshopTutorialsSeen"] = gameApp.mWorkshopTutorialsSeen;
 	j["stationCounterTutorialsSeen"]=gameApp.mStationCounterTutorialsSeen;
 	j["developerSelectedLevel"] = gameApp.mDeveloperSelectedLevel;
 	j["developerSelectedZombie"] = gameApp.mDeveloperSelectedZombie;
@@ -293,6 +295,7 @@ bool GameInfoSaver::LoadPlayerInfoImpl()
 	gameApp.mWeatherStationEntryNoticeSeen = j.value("weatherStationEntryNoticeSeen", false);
 	gameApp.mEncounteredEliteDancer = j.value("encounteredEliteDancer", false);
 	gameApp.mStationCounterTutorialsSeen=j.value("stationCounterTutorialsSeen",0u)&7u;
+	gameApp.mWorkshopTutorialsSeen = Workshop::ReadTutorialHistory(j);
 	gameApp.mCrazyDaveTutorialsSeen.clear();
 	if (auto it = j.find("crazyDaveTutorialsSeen"); it != j.end() && it->is_array()) {
 		// 旧档没有该字段时自然为空；损坏档只接收当前冒险流程内的整数关卡号。
@@ -721,6 +724,9 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		b["rotationDegrees"] = bullet->GetRotationDegrees();
 		b["rotationSpeedDegrees"] = bullet->GetRotationSpeedDegrees();
 		b["hitTorchwoodColumn"] = bullet->GetHitTorchwoodColumn();
+		b["workshopHeavyShot"] = bullet->IsWorkshopHeavyShot();
+		b["workshopFlamedShot"] = bullet->IsWorkshopFlamedShot();
+		b["workshopHitZombieIDs"] = bullet->GetWorkshopHitZombieIDs();
 		b["hitAuroraTorchwoodColumn"] = bullet->GetHitAuroraTorchwoodColumn();
 		b["auroraHitZombieIDs"] = bullet->GetAuroraHitZombieIDs();
         b["bambooHitIDs"]=bullet->GetBambooHitIDs();b["sludgeTravelRemaining"] = bullet->GetSludgeTravelRemaining();
@@ -1713,6 +1719,8 @@ void GameInfoSaver::RestoreRemainingDocument(Board* board, CardSlotManager* mana
 			bullet->SetRotationSpeedDegrees(
 				b.value("rotationSpeedDegrees", 0.0f));
 			bullet->SetTargetsFlying(b.value("targetsFlying", false));
+			bullet->RestoreWorkshopShot(b.value("workshopHeavyShot", false), b.value("workshopFlamedShot", false),
+				b.value("workshopHitZombieIDs", std::vector<int>{}));
 			bullet->RestorePiercedZombieState(
 				b.value("piercedZombieIDs", std::vector<int>{}),
 				b.value("spikeDamageRemainders", std::vector<float>{}));

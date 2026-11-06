@@ -100,6 +100,8 @@ protected:
 	BulletType mPoolType = BulletType::NUM_BULLETS; // 对象池槽位的固定类型；火炬树桩只改变当前表现类型
 	int mHitTorchwoodColumn = -1; // 最近处理过本子弹的火炬树桩列，防止同列反复转换
 	int mHitAuroraTorchwoodColumn = -1; // 最近处理过本子弹的极光树桩列
+	bool mWorkshopHeavyShot = false, mWorkshopFlamedShot = false;
+	std::vector<int> mWorkshopHitZombieIDs; // 已消费的重装穿透目标；与对象池重置和存档一起维护
 	std::unique_ptr<SpikeState> mSpikeState; // 仅尖刺首次接触目标时分配，固定四槽且随池槽复用
 	std::unique_ptr<AuroraState> mAuroraState; // 首次变为极光弹时分配，保存四目标历史与单次音效状态
 	std::unique_ptr<LotusState> mLotusState; // 仅莲子弹型持有分裂承诺或独立追踪状态
@@ -124,6 +126,7 @@ protected:
 	void HandleAuroraContacts();
 	/** 结算一只极光弹目标的伤害、来源状态与分段反馈。 */
 	void HitAuroraZombie(Zombie* zombie);
+	void HitWorkshopHeavyZombie(Zombie* zombie);
 	/** 处理投篮车篮球与植物的下降末段碰撞，并按格内投篮层级重定向目标。 */
 	void HandlePlantContact(ColliderComponent* other);
 	/** 按对象池固定弹型恢复碰撞阵营与回调，避免篮球槽位复用后沿用僵尸掩码。 */
@@ -235,6 +238,12 @@ public:
 	}
 	/** 普通/毒豆穿过火炬树桩后分别变为普通火豆或紫焰毒火豆。 */
 	void ConvertToFireball(int torchwoodColumn);
+	/** 工坊机枪发射时一次性配置双倍伤害及两目标穿透，普通冒险不可调用。 */
+	void EnableWorkshopHeavyPea();
+	bool IsWorkshopHeavyShot() const { return mWorkshopHeavyShot; }
+	bool IsWorkshopFlamedShot() const { return mWorkshopFlamedShot; }
+	const std::vector<int>& GetWorkshopHitZombieIDs() const { return mWorkshopHitZombieIDs; }
+	void RestoreWorkshopShot(bool heavy, bool flamed, const std::vector<int>& hitIDs);
 	/** 寒冰豌豆穿过火炬树桩后退化为普通豌豆；同列不会再被点燃。 */
 	void ConvertSnowPeaToPea(int torchwoodColumn);
 	/** 把合资格射手谱系的当前豌豆形态改为极光弹，保留原发射来源与命中历史。 */

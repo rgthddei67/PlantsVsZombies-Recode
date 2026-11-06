@@ -1,6 +1,8 @@
 #include "Board.h"
 #include "Game/Workshop/WorkshopRoster.h"
 #include "Game/Plant/MelonPult.h"
+#include "Game/Plant/GatlingPea.h"
+#include "Game/Plant/PlantUpgradeRules.h"
 #include "Game/Plant/Plant.h"
 #include "Game/Plant/GameDataManager.h"
 #include "Game/Zombie/Zombie.h"
@@ -51,10 +53,12 @@ std::string Board::WorkshopPlantPlacementReason(PlantType type, int row, int col
     if (mWorkshop->State() == Workshop::Phase::Dead) return "基地已失守";
     if (row < 0 || row >= Workshop::Rows || column < 0 || column >= Workshop::FrontColumns) return "只能种在左侧六列";
     if (mWorkshop->CompletedWaves() < info->unlockWave) return "守住第 " + std::to_string(info->unlockWave) + " 波后解锁";
+    if (!Workshop::PlantUnlocked(*mWorkshop, *info)) return "尚未获得本基地的委托蓝图";
     if (const float seconds = mWorkshop->PlantCooldown(info->key); seconds > 0)
         return std::format("{}补种冷却：还需 {:.1f} 秒", info->name, seconds);
-    if (mWorkshop->Energy() < info->cost) return "阳光不足";
-    if (!CanPlantAt(type, row, column)) return type == PlantType::PLANT_WINTERMELON ? "请选一株可升级的西瓜投手" : "此格已有植物或暂时不能种植";
+    if (mWorkshop->Energy() < Workshop::PlantCost(*mWorkshop, *info)) return "阳光不足";
+    if (!CanPlantAt(type, row, column)) return type == PlantType::PLANT_WINTERMELON ? "请选一株可升级的西瓜投手"
+        : type == PlantType::PLANT_GATLINGPEA ? "请选一株普通豌豆射手原位改造" : "此格已有植物或暂时不能种植";
     return {};
 }
 
@@ -62,14 +66,20 @@ bool Board::PlaceWorkshopPlant(PlantType type, int row, int column) {
     if (!WorkshopPlantPlacementReason(type, row, column).empty()) return false;
     const auto& info = *Workshop::FindPlant(type);
     int inheritedLevel = 1; float healthRatio = 1;
-    if (type == PlantType::PLANT_WINTERMELON) {
+    if (type == PlantType::PLANT_WINTERMELON || type == PlantType::PLANT_GATLINGPEA) {
         const auto* base = GetNormalPlantAt(row, column);
         inheritedLevel = base->GetWorkshopUpgradeLevel();
         healthRatio = static_cast<float>(base->mPlantHealth) / std::max(1, base->mPlantMaxHealth);
     }
-    if (!mWorkshop->SpendEnergy(static_cast<float>(info.cost))) return false;
+    const int cost = Workshop::PlantCost(*mWorkshop, info);
+    if (cost > 0 && !mWorkshop->SpendEnergy(static_cast<float>(cost))) return false;
     auto* plant = CreatePlayerPlant(type, row, column);
-    if (!plant) { mWorkshop->RefundEnergy(static_cast<float>(info.cost)); return false; }
+    if (!plant) { mWorkshop->RefundEnergy(static_cast<float>(cost)); return false; }
+    if (cost == 0) mWorkshop->Tasks().ConsumeFreeUse(info.blueprint);
+    if (type == PlantType::PLANT_GATLINGPEA) {
+        static_cast<GatlingPea*>(plant)->InheritWorkshopLevel(inheritedLevel);
+        plant->mPlantHealth = std::max(1, static_cast<int>(plant->mPlantMaxHealth * healthRatio));
+    }
     if (type == PlantType::PLANT_WINTERMELON) {
         auto* melon = static_cast<MelonPult*>(plant);
         melon->InheritWorkshopLevel(inheritedLevel);
@@ -109,11 +119,15 @@ bool Board::BeginWorkshopAssault()
     return true;
 }
 
-bool Board::ReserveWorkshopAmmo(int row, PlantType type)
+PlantType Board::UpgradeBasePlantType(PlantType type) const {
+    return IsWorkshop() && type == PlantType::PLANT_GATLINGPEA ? PlantType::PLANT_PEASHOOTER : GetUpgradeBasePlantType(type);
+}
+
+bool Board::ReserveWorkshopAmmo(int row, PlantType type, int count)
 {
     if (!mWorkshop) return true;
     const auto* info = Workshop::FindPlant(type);
-    return info && info->ammo != Workshop::Ammo::Count && mWorkshop->ReserveAmmo(row, info->ammo);
+    return info && info->ammo != Workshop::Ammo::Count && mWorkshop->ReserveAmmo(row, info->ammo, count);
 }
 void Board::RecordWorkshopShot(bool ice)
 {
@@ -155,9 +169,7 @@ void Board::UpdateWorkshop()
     while (mBoardFrameAccum >= 1) { mBoardFrameAccum -= 1; ++mBoardFrame; }
     const int row = mWorkshop->NextSpawnRow();
     if (row >= 0) {
-        const int wave = mWorkshop->CompletedWaves() + 1;
-        const int number = mWorkshop->Spawned();
-        const auto type = Workshop::SpawnType(wave, number);
+        const auto type = static_cast<ZombieType>(mWorkshop->NextSpawnType());
         if (CreateZombie(type, row, kWorkshopSpawnX)) mWorkshop->CommitSpawn();
     }
     UpdateWorkshopCannons();

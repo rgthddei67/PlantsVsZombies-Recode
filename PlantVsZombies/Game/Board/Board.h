@@ -233,7 +233,9 @@ public:
     void RecordWorkshopPlantShot(PlantType type);
     void RecordWorkshopKill(const Zombie& zombie);
     bool BeginWorkshopAssault();
-    bool ReserveWorkshopAmmo(int row, PlantType type = PlantType::PLANT_PEASHOOTER);
+    bool ReserveWorkshopAmmo(int row, PlantType type = PlantType::PLANT_PEASHOOTER, int count = 1);
+    /** 工坊重装机枪由普通射手改造，其他模式沿用经典升级底座。 */
+    PlantType UpgradeBasePlantType(PlantType type) const;
     void RecordWorkshopShot(bool ice = false);
     void RecordWorkshopBreach(int zombieID);
     nlohmann::json SaveWorkshopDocument();
