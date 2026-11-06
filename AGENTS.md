@@ -13,7 +13,7 @@
 - 涉及雨天天气本身，或任何按小/中/大雨生效的能力、变异、条件生成与系统联动时，必须使用 `.agents/skills/adding-rain-weather/SKILL.md`。
 - 新增经典植物、僵尸或子弹前，先查阅 `D:\PVZ\PlantsVsZombies.NET-master\Lawn_Shared\Lawn`。动画出问题时，同时检查对应的 `resources/reanim/` 文件和 C# 参考实现。
 - C# 原版逻辑场景为 800×600，本项目为 `SCENE_WIDTH=1100`、`SCENE_HEIGHT=600`；原版绝对坐标、偏移、碰撞框与粒子触发点不得直接照抄，必须换算到当前场景、Board 网格或对象稳定视觉原点并用相对量与可见截图验证。
-- 新工作需要添加动画帧事件时，必须先询问主人。
+- 新工作需要添加动画帧事件时，必须先询问主人；帧号换算与触发验收见[动画帧事件约定](docs/agent-guide/ARCHITECTURE_AND_RESOURCES.md#动画帧事件约定)。
 - 本项目需确认的关键决策包括未定的核心玩法、平衡、玩家体验与兼容承诺；当前源码统一规则和已批准方案可推导的边界自主处理。
 
 ## 构建与验证
@@ -33,7 +33,7 @@
 ## 仓库规则
 
 - 源文件由 `GLOB_RECURSE CONFIGURE_DEPENDS` 自动收集；新增 `.cpp` 无需手动修改构建列表。
-- 每个新 `.h` 必须以 `#pragma once` 开头；pre-commit hook 会自动检查。
+- 新头文件（`.h/.hpp/.hh/.hxx`）首行必须为 `#pragma once`，使用 UTF-8 无 BOM；pre-commit 检查暂存内容，既有头文件修改仍兼容原有守卫形式。
 - `build\clang-release\resources` 与同级 `font` 是唯一实体运行资产；`clang-debug` 与 `clang-release-noavx2` 通过 NTFS 目录联接共享。资源只修改权威目录，禁止复制或维护其他 preset 的资源副本。
 - `manifest.txt` 中出现文件不等于资源已按预期注册或能用目标键取得。新增或修改 reanim、运行时换图、粒子贴图时，必须核对“文件/清单 → 对应 loader 或 `resources.xml` 注册 → 实际资源键 → `HasReanimation`/`GetTexture(key,false)` AutoTest 断言”闭环；强制资源缺失应修注册或键来源，禁止用通用空 Animator/空纹理兜底掩盖根因。
 - 代码文件统一使用 UTF-8（无 BOM），由根目录 `.editorconfig` 约束；中文文本保持 UTF-8。逻辑网格位置与视觉偏移（`mVisualOffset`）必须分离。

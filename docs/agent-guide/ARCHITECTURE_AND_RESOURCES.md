@@ -172,8 +172,9 @@ Windows 首次发生真实存档访问时，会把当前工作目录旧 `./saves
 3. **动画故障排查**
    新植物或僵尸无法播放某段动画时，先检查 `./resources/reanim/` 中对应 `.reanim` 文件的轨道名称和帧数据，再对照 C# 参考代码确认预期动画序列与时序（动画文件基本一致）。
 
-4. **帧事件要求**
-   新植物或僵尸需要帧事件时，必须先询问主人。
+### 动画帧事件约定
+
+新增帧事件的确认要求遵循 [AGENTS.md](../../AGENTS.md#任务路由)。帧号由主人确认；`AddFrameEvent` 真实帧号 = 动画预览帧号 − 1。主人报的帧号默认已减 1，代码直接使用，不许再次换算；只有自己读取预览工具时才减 1。已确认帧号仍须实测触发，不能用超时回收代替死亡事件验收。
 
 ## 新增植物
 
@@ -193,4 +194,4 @@ Windows 首次发生真实存档访问时，会把当前工作目录旧 `./saves
 - 视觉偏移使用 `mVisualOffset`，与逻辑网格位置分离。
 - `mRow`、`mColumn` 表示游戏网格单元；像素位置存放在宿主唯一的 `Transform`，视觉偏移继续单独使用 `mVisualOffset`。
 - 代码文件统一使用 UTF-8（无 BOM），由根目录 `.editorconfig` 约束；中文 UI 字符串使用 UTF-8。
-- **头文件保护（每个 `.h`）：** 每个头文件必须以 `#pragma once` 开头。旧有的 `#pragma once` + `#ifndef _NAME_H` 双重形式也可接受。运行 `cmake --preset` 时会安装 `.githooks/pre-commit` hook（`git config core.hooksPath .githooks`），拒绝暂存区中缺少保护的头文件；同一配置步骤也会用 WARNING 列出仓库里已有的无保护头文件。检查支持 BOM：在前 512 字节内匹配 token，而不是锚定 `^`，因此 UTF-8 BOM 不会造成误报。原因是迁移掉 `.sln` 后，VS 的“添加新项”模板不再自动插入保护。
+- **头文件保护：** 格式要求见 [AGENTS.md](../../AGENTS.md#仓库规则)。CMake 配置会安装 `.githooks/pre-commit`（`git config core.hooksPath .githooks`）：新路径的头文件严格检查首行 `#pragma once` 和无 BOM，允许 LF/CRLF 与指令后的行注释；既有文件修改保留原有的前 512 字节守卫检查，兼容 BOM 和 `#ifndef`，不强制批量迁移旧文件。hook 读取暂存 blob，支持带空格和中文的路径。CMake 的全仓扫描仍只提示历史无守卫文件，不代替新增文件的提交检查。原因是迁移掉 `.sln` 后，VS 的“添加新项”模板不再自动插入保护。hook 回归可从仓库根目录运行 `python tests/test_pre_commit.py`，使用隔离临时仓库，不编译游戏。

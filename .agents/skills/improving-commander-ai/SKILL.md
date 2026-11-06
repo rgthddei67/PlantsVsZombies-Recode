@@ -21,12 +21,15 @@ description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in
 | 新地图／新章节复用指挥官 | 棋盘资格、章节注册、技能资格、经济配置与训练场景解析 | [地图接入限制与陷阱](references/map-integration.md) |
 | 新增僵尸需要接入 AI | 正式能力 → 新购／活体／付费队列画像 → 候选覆盖 → 反事实 → 必要的配对实战 | [新增单位的最小闭环](references/forecast-contracts.md#新增单位的最小闭环) |
 | 新兵不出、出现过早 | 正式卡池、解锁、地形、价格、剩余名额、策略加载 | 门槛小改通常不需要重训 |
-| 大兵池忽略工人／护卫／鼓手 | 能力是否被投影，候选是否有机会比较协同，再看边际收益 | [能力预测](references/forecast-contracts.md) |
+| 大兵池忽略工人／护卫／鼓手 | 能力是否被投影，候选是否有机会比较协同，再看边际收益 | [能力采样](references/forecast-units.md)、[候选覆盖](references/forecast-search.md) |
 | 一次买很多兵被灰烬／小推车清掉 | 实际伤害链、卡槽资金与冷却、已承诺反制、进场时序和战损 | 先修预测，再决定是否训练 |
-| 冰很多却循环单兵／长期观望 | 合法候选、队列、v1/v2 实际路径、计划与等待基线、资本拒绝原因 | 保留有效等待；区分运行缺陷和真实无收益 |
-| 付费技能打了低价值目标 | 目标身份、瞄准期间存活、相对不施法收益、买兵机会成本 | 验证同样预算下的替代方案 |
-| 决策瞬间卡顿 | 主线程采样／提交、工作线程搜索、过期重试、渲染分别计时 | 不以整体 FPS 代替决策耗时 |
+| 冰很多却循环单兵／长期观望 | 合法候选、队列、v1/v2 实际路径、计划与等待基线、资本拒绝原因 | [经济与容量](references/forecast-economy.md)、[停滞诊断](references/forecast-stalls.md) |
+| 付费技能打了低价值目标 | 目标身份、瞄准期间存活、相对不施法收益、买兵机会成本 | [玩家反制与精准技能](references/forecast-player-response.md) |
+| 决策瞬间卡顿 | 主线程采样／提交、工作线程搜索、过期重试、渲染分别计时 | [墙钟预算与后台线程](references/forecast-search.md#墙钟预算与后台线程) |
+| 天气、照明或迷雾改变预测 | 实际天气、燃料、公开视野、共用钱包与已承诺事务 | [天气与视野](references/forecast-weather.md) |
 | 需要训练、换陪练或替换配置 | 当前基线与实验身份、课程覆盖、独立留出证据 | [训练与发布](references/training-and-release.md) |
+
+跨系统修改先读[通用预测契约](references/forecast-contracts.md)，再按上表选择专题及章节；不要通读全部参考。
 
 当前实现是 **Board 采样 → 数值搜索 → Board 重新校验并提交**；离线训练通过真实游戏比较参数。日志不会自动把真人打法学习进正式配置。“接入机制”“改变搜索空间”“训练参数”“发布参数”是不同操作，交付时分别说明。
 
@@ -45,7 +48,7 @@ description: Diagnose and improve the PvZ Cold Storage commander AI, reuse it in
 
 ## 验证与交接
 
-选择本次能力的反事实单测和最小可见 `clang-release` 专项，再视风险做配对实战。测试路由见两个 reference；不把训练胜利代替交易、生命周期或线程验证，也不为文档整理重编游戏。
+选择本次能力的反事实单测和最小可见 `clang-release` 专项，再视风险做配对实战。测试路由见[通用验证入口](references/forecast-contracts.md#有意义的验证入口)及命中的专题；不把训练胜利代替交易、生命周期或线程验证，也不为文档整理重编游戏。
 
 新窗口无需继承聊天全文：先从正式策略的 `trainingSource`、`previousPolicyBackup`、`note` 和最近提交定位采用依据，再按本次新增能力读取对应 reference。现用权重、测试成绩和真人反馈不复制成 Skill 中的第二份配置；主人确认试玩无问题也不自动触发下一轮训练。
 

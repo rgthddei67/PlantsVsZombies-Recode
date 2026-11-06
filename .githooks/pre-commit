@@ -1,27 +1,34 @@
-#!/bin/sh
-# pre-commit —— 拒绝任何缺头文件守卫(#pragma once / #ifndef)的 .h/.hpp。
-#
-# 背景：迁离 .sln/.vcxproj 后，VS "添加新项 → 头文件" 模板不再自动塞 #pragma once，
-#       命令行/其它编辑器/工具直接写出的 .h 会漏守卫（SunShroom.h 即此例）。本钩子在
-#       提交关口兜底。通过 CMake configure 期 `git config core.hooksPath .githooks` 自动启用。
-#
-# BOM-aware：只在文件头 512 字节内查 token 是否"存在"，不锚定 ^，故 UTF-8 BOM 前缀
-#            （本仓库 BOM / 无 BOM 头文件混用）不会造成误判。读的是 staged blob，非工作树。
+#!/bin/bash
+# 新头文件严格遵循首行 #pragma once；既有文件保留旧守卫兼容检查。
+# 读取暂存 blob，避免工作树中尚未暂存的修复掩盖坏提交。Git for Windows 自带 Bash/awk。
+# CMake configure 通过 core.hooksPath .githooks 启用本钩子。
+set -o pipefail
 
-fail=0
-for f in $(git diff --cached --name-only --diff-filter=AM -- '*.h' '*.hpp' '*.hh' '*.hxx'); do
-    if ! git show ":$f" 2>/dev/null | head -c 512 | grep -qE '#pragma once|#ifndef'; then
-        echo "  ✗ 缺头文件守卫: $f"
-        fail=1
+# 禁用改名检测，使新路径也接受新增检查；NUL 分隔保留空格、中文等文件名。
+git diff --cached --name-status --no-renames -z --diff-filter=AM -- '*.h' '*.hpp' '*.hh' '*.hxx' |
+{
+    fail=0
+    while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+        if ! git show ":$path" | LC_ALL=C awk -v status="$status" '
+            NR == 1 { first = $0; sub(/\r$/, "", first) }
+            length(prefix) < 512 { prefix = prefix substr($0 "\n", 1, 512 - length(prefix)) }
+            END {
+                # 读完输入再退出，避免大头文件让 git show 收到 SIGPIPE。
+                if (status == "A")
+                    exit !(first ~ /^#pragma[ \t]+once([ \t]*(\/\/.*)?)?$/)
+                exit !(prefix ~ /#pragma once|#ifndef/)
+            }
+        '; then
+            if [ "$status" = A ]; then
+                printf '新增头文件首行须为 #pragma once（UTF-8 无 BOM）：%s\n' "$path"
+            else
+                printf '既有头文件缺少守卫（#pragma once / #ifndef）：%s\n' "$path"
+            fi
+            fail=1
+        fi
+    done
+    if [ "$fail" -ne 0 ]; then
+        printf '提交被拦截，请修正上述文件的暂存内容。\n'
     fi
-done
-
-if [ "$fail" -ne 0 ]; then
-    echo ""
-    echo "提交被拦截：上述头文件缺少守卫。请在文件顶部(若有 BOM 则在其后)加："
-    echo "    #pragma once"
-    echo "  或传统双守卫：#ifndef _XXX_H / #define _XXX_H ... #endif"
-    echo "（本仓库惯例：#pragma once，或 #pragma once + #ifndef 双保险）"
-    exit 1
-fi
-exit 0
+    exit "$fail"
+}
