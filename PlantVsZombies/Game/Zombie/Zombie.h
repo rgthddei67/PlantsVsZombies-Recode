@@ -768,7 +768,7 @@ protected:
 
 	// 这才是设置僵尸
 	virtual void SetupZombie();
-	/** 重建普通骨架变体的头饰与残端；出生和读档共用，不修改玩法状态。 */
+	/** 重建普通骨架变体的头饰与残端；出生、读档和回溯共用，不修改玩法状态。 */
 	void ConfigureIdentityVisuals() const;
 	const Texture* GetArmStumpTexture() const;
 	/** 从当前插值姿态发射配套离体部件；非定制服装品种返回 false。 */

@@ -8395,6 +8395,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["identityStumpVisible"] = anim->GetTrackImageOverride("Zombie_outerarm_upper")
 				== ResourceManager::GetInstance().GetTexture(ZombieIdentityVisuals::TextureKey(*identity, "outerarm_upper2"), false);
 			zombieState["identityHeadVisible"] = anim->GetTrackVisible("anim_head1");
+			zombieState["identityHairVisible"] = anim->GetTrackVisible("anim_hair");
 			zombieState["identityTongueVisible"] = anim->GetTrackVisible("anim_tongue");
 		}
         zombieState["pressureProtectorID"] = z->mPressureProtectorID;

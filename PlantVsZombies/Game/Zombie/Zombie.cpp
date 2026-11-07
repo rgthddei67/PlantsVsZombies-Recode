@@ -2024,6 +2024,8 @@ void Zombie::OnTemporalCoreStateRestored()
 		mAnimator->SetTrackVisible("anim_hair", true);
 		mAnimator->SetTrackVisible("anim_tongue", mHasTongue);
 	}
+	// 普通头部恢复会重新显出头发，最后重放服装约定，保留头饰遮挡与残端材质。
+	ConfigureIdentityVisuals();
 	SetGarlicYuckFaceVisible(IsGarlicYuckFaceVisible());
 }
 
