@@ -7,6 +7,7 @@
 
 namespace {
 constexpr int kRecentLimit = 6; // 侧栏最近选择的机器种类上限，不限制建造数量
+constexpr int kMachinesPerPage = 9; // 每类图册每页三列三行，增加电路不挤小图卡
 constexpr float kCardGap = 14; // 图册卡片间距，逻辑像素
 constexpr float kCardsWidth = 956; // 卡片区域总宽度，逻辑像素
 const glm::vec4 kCatalogInk{66, 54, 35, 255}; // 图册正文颜色
@@ -56,6 +57,9 @@ std::array<std::string, 2> Summary(Workshop::Machine type, int completedWaves) {
     case M::Not: return {"把开与关反过来", "搭配库存器：够货停产"};
     case M::Timer: return {"开一会，关一会", "周期自动重复"};
     case M::Latch: return {"A 触发一次就记住", "B 清除开启状态"};
+    case M::DelayRelay: return {"条件持续成立后开启", "断开条件立即复位"};
+    case M::Pulse: return {"从关变开触发一次", "输出指定秒数后关闭"};
+    case M::StockRegulator: return {"低于下限开，够上限停", "中间库存保持原状态"};
     default: return {};
     }
 }
@@ -72,7 +76,7 @@ void WorkshopScene::OpenCatalog() {
     constexpr std::array<const char*, 3> tabs{"生产", "物流 / 战术", "电路"};
     for (int category = 0; category < 3; ++category)
         builder.Button(tabs[category], Vector(72 + category * 172.0f, 99), Vector(160, 34), 18,
-            [this, category] { mCatalogCategory = category; mCatalogNotice.clear(); RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+            [this, category] { mCatalogCategory = category; mCatalogPage = 0; mCatalogNotice.clear(); RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     builder.Button("图解指南", Vector(602, 99), Vector(140, 34), 16, [this] { OpenGuide(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     for (int i = 1; i < static_cast<int>(Workshop::Machine::Count); ++i) {
         const auto type = static_cast<Workshop::Machine>(i);
@@ -89,6 +93,8 @@ void WorkshopScene::OpenCatalog() {
     builder.Button("建造配电箱", Vector(790, 99), Vector(235, 34), 16, [this] {
         SelectBuild(Workshop::Machine::PowerBox); CloseCatalog(false);
     }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("上一页", Vector(555, 47), Vector(80, 34), 14, [this] { --mCatalogPage; RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("下一页", Vector(647, 47), Vector(80, 34), 14, [this] { ++mCatalogPage; RefreshCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mCatalog = builder.Show();
     mCatalogPowerBoxButton = mCatalog->GetButton(5 + 2 * (static_cast<int>(Workshop::Machine::Count) - 1));
     mCatalogPowerBoxButton->SetText("　建造配电箱 · " + std::to_string(Workshop::Describe(Workshop::Machine::PowerBox).cost) + " 阳光", ResourceKeys::Fonts::FONT_FZCQ, 16);
@@ -117,21 +123,27 @@ void WorkshopScene::CloseCatalog(bool cancelTool) {
 
 void WorkshopScene::RefreshCatalog() {
     if (!IsCatalogOpen()) return;
+    mCatalogNotice.clear(); mTooltipLines.clear(); mHoverKey = -1;
     int slot = 0;
     for (size_t i = 0; i < mMachineButtons.size(); ++i) {
         auto& button = mMachineButtons[i];
-        const bool visible = Category(static_cast<Workshop::Machine>(i + 1)) == mCatalogCategory;
+        const bool category = Category(static_cast<Workshop::Machine>(i + 1)) == mCatalogCategory;
+        const int index = category ? slot++ : -1;
+        const bool visible = category && index / kMachinesPerPage == mCatalogPage;
         auto& guide = mMachineGuideButtons[i];
         button->ForceResetHoverState(); button->ResetFrameState(); button->SetEnabled(visible);
         guide->ForceResetHoverState(); guide->ResetFrameState(); guide->SetEnabled(visible && World().Unlocked(static_cast<Workshop::Machine>(i + 1)));
         if (visible) {
-            const auto card = Layout(mCatalogCategory, slot++);
+            const auto card = Layout(mCatalogCategory, index % kMachinesPerPage);
             button->SetPosition(card.pos); button->SetSize(Vector(card.size.x, card.size.y - 31));
             guide->SetPosition(card.pos + Vector(card.size.x - 80, card.size.y - 28));
         } else { button->SetPosition(Vector(-2000, -2000)); guide->SetPosition(Vector(-2000, -2000)); }
     }
     for (int category = 0; category < 3; ++category)
         mCatalog->GetButton(category + 1)->SetTextColor(category == mCatalogCategory ? glm::vec4(255, 225, 135, 255) : glm::vec4(225, 225, 192, 255));
+    const int pager = 6 + 2 * (static_cast<int>(Workshop::Machine::Count) - 1);
+    mCatalog->GetButton(pager)->SetEnabled(mCatalogPage > 0);
+    mCatalog->GetButton(pager + 1)->SetEnabled((mCatalogPage + 1) * kMachinesPerPage < slot);
 }
 
 void WorkshopScene::RememberMachine(Workshop::Machine type) {
@@ -163,15 +175,17 @@ void WorkshopScene::DrawCatalog(Graphics* g) {
     }
     Label("戴夫的施工图册", 75, 49, 27, kCatalogGreen);
     Label("阳光 " + std::to_string(static_cast<int>(World().Energy())), 770, 55, 18);
-    Label("查看时已暂停 · Esc 返回", 380, 59, 16);
+    Label(std::format("第 {} 页 · 已暂停", mCatalogPage + 1), 380, 59, 16);
     for (int i = 0; i < 5; ++i) mCatalog->GetButton(i)->Draw(g);
     mCatalogPowerBoxButton->Draw(g);
+    const int pager = 6 + 2 * (static_cast<int>(Workshop::Machine::Count) - 1);
+    for (int i : {pager, pager + 1}) if (mCatalog->GetButton(i)->IsEnabled()) mCatalog->GetButton(i)->Draw(g);
     DrawMachineImage(g, Workshop::Machine::PowerBox, 800, 104, .42f);
     int slot = 0;
     std::string detail = mCatalogNotice;
     for (size_t i = 0; i < mMachineButtons.size(); ++i) {
         const auto type = static_cast<Workshop::Machine>(i + 1);
-        if (Category(type) != mCatalogCategory) continue;
+        if (!mMachineButtons[i]->IsEnabled()) continue;
         const auto card = Layout(mCatalogCategory, slot++);
         const float x = card.pos.x, y = card.pos.y, w = card.size.x, h = card.size.y;
         const auto& info = Workshop::Describe(type);

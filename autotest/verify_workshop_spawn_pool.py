@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "build/clang-release/autotest/out/smoke_workshop_spawn_pool"
-WAVES = (11, 16, 20, 24, 28, 30)
+WAVES = (9, 10, 12, 16, 20, 24, 28, 30, 32, 34, 36, 38, 39, 40, 42, 44)
 
 
 def generate():
@@ -19,12 +19,12 @@ def generate():
                 dict(op="add", path="/state/completedWaves", value=wave - 1),
                 dict(op="add", path="/guideSeenWave", value=wave - 1)]),
             dict(op="wait_frames", value=4)]
-        for _ in range(4):
+        for _ in range(8):
             commands += [dict(op="workshop", action="guide_close"), dict(op="wait_frames", value=2)]
         commands += [dict(op="assert_state", path="workshop.resourcesReady", equals=True),
             dict(op="workshop", action="start"),
             dict(op="workshop_snapshot", action="save", name=f"plan_{wave}"),
-            dict(op="wait_seconds", value=10), dict(op="workshop", action="pause"),
+            dict(op="wait_value", path="workshop.spawned", equals=6), dict(op="workshop", action="pause"),
             dict(op="assert_state", path="workshop.fired", equals=0),
             dict(op="dump_state", name=f"wave_{wave}.json"),
             dict(op="screenshot", name=f"wave_{wave}.png"), dict(op="workshop", action="save"),
@@ -46,14 +46,18 @@ def verify():
         plan = read(f"plan_{wave}")["state"]["assaultTypes"]
         before, after = read(f"wave_{wave}")["workshop"], read(f"restored_{wave}")["workshop"]
         spawned = before["spawned"]
-        actual = [z["type"] for z in sorted(before["nativeZombies"], key=lambda z: z["id"])]
+        # Summoned backup dancers/imps are outside the frozen primary spawn plan.
+        actual = [z["type"] for z in sorted(before["nativeZombies"], key=lambda z: z["id"])
+                  if z["type"] in set(plan)]
         assert spawned >= 5 and actual == plan[:spawned], (wave, spawned, actual, plan)
         assert plan.count(plan[4]) == 1 and 0 in actual, (wave, plan)
+        if wave == 34:
+            assert plan[4] != plan[5] and plan.count(plan[5]) == 1, plan
         newcomers.append(plan[4])
         for key in ("assaultTypes", "spawnRandom", "spawned", "remainingSpawns", "nativeZombies"):
             assert before[key] == after[key], (wave, key)
     assert len(set(newcomers)) == len(WAVES), newcomers
-    print("Workshop native spawn pools passed: six distinct guaranteed debuts, ordinary zombies, exact rolled order and save restoration.")
+    print("Workshop native spawn pools passed: expanded guaranteed debuts including both wave-34 types, ordinary zombies, exact rolled order and save restoration.")
 
 
 if __name__ == "__main__":

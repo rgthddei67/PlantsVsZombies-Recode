@@ -9,6 +9,7 @@
 #include <format>
 
 namespace {
+constexpr int kPlantsPerPage = 10; // 每页五列两行，保留实机图卡尺寸
 const glm::vec4 kFrontInk{57, 48, 32, 255}; // 前线说明文字
 const glm::vec4 kFrontGreen{52, 102, 49, 255}; // 可种植和选中卡片
 const glm::vec4 kFrontRed{172, 47, 38, 255}; // 铲除与不可种植提示
@@ -144,6 +145,8 @@ void WorkshopScene::OpenPlantCatalog() {
         builder.Button("图解", pos + Vector(123, 145), Vector(51, 25), 13,
             [this, i] { OpenGuide(Workshop::PlantGuideBase + static_cast<int>(i)); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     }
+    builder.Button("上一页", Vector(620, 47), Vector(80, 34), 14, [this] { --mPlantCatalogPage; RefreshPlantCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
+    builder.Button("下一页", Vector(712, 47), Vector(80, 34), 14, [this] { ++mPlantCatalogPage; RefreshPlantCatalog(); }, ResourceKeys::Textures::IMAGE_BUTTONSMALL, false);
     mPlantCatalog = builder.Show(); mPlantButtons.clear(); mPlantGuideButtons.clear();
     mPlantCatalog->GetButton(1)->SetTextColor(glm::vec4(255, 228, 142, 255));
     mPlantCatalog->GetButton(1)->SetHoverTextColor(glm::vec4(255, 250, 201, 255));
@@ -154,7 +157,26 @@ void WorkshopScene::OpenPlantCatalog() {
         guide->SetEnabled(Workshop::PlantUnlocked(World(), Workshop::Plants[i])); mPlantGuideButtons.push_back(guide);
     }
     mPlantCatalog->SetCustomDraw([this](Graphics* g) { DrawPlantCatalog(g); });
+    RefreshPlantCatalog();
     DeltaTime::SetPaused(true);
+}
+
+void WorkshopScene::RefreshPlantCatalog() {
+    if (!mPlantCatalog) return;
+    const int pages = (static_cast<int>(Workshop::Plants.size()) + kPlantsPerPage - 1) / kPlantsPerPage;
+    mPlantCatalogPage = std::clamp(mPlantCatalogPage, 0, pages - 1);
+    mPlantCatalogNotice.clear(); mTooltipLines.clear(); mHoverKey = -1;
+    for (size_t i = 0; i < mPlantButtons.size(); ++i) {
+        const bool visible = static_cast<int>(i) / kPlantsPerPage == mPlantCatalogPage;
+        const auto pos = visible ? PlantCardPosition(i % kPlantsPerPage) : Vector(-2000, -2000);
+        auto& button = mPlantButtons[i]; auto& guide = mPlantGuideButtons[i];
+        button->ForceResetHoverState(); button->ResetFrameState(); button->SetEnabled(visible); button->SetPosition(pos);
+        guide->ForceResetHoverState(); guide->ResetFrameState();
+        guide->SetEnabled(visible && Workshop::PlantUnlocked(World(), Workshop::Plants[i]));
+        guide->SetPosition(pos + Vector(123, 145));
+    }
+    mPlantCatalog->GetButton(2 + 2 * Workshop::Plants.size())->SetEnabled(mPlantCatalogPage > 0);
+    mPlantCatalog->GetButton(3 + 2 * Workshop::Plants.size())->SetEnabled(mPlantCatalogPage + 1 < pages);
 }
 void WorkshopScene::ClosePlantCatalog(bool cancel) {
     if (cancel) CancelTool();
@@ -168,8 +190,12 @@ void WorkshopScene::DrawPlantCatalog(Graphics* g) {
     FrontText("选植物，再点左侧六列种植 · 点图解查看供弹与摆法", 72, 101, 17);
     mPlantCatalog->GetButton(0)->Draw(g);
     mPlantCatalog->GetButton(1)->Draw(g);
+    for (size_t i : {2 + 2 * Workshop::Plants.size(), 3 + 2 * Workshop::Plants.size()})
+        if (mPlantCatalog->GetButton(i)->IsEnabled()) mPlantCatalog->GetButton(i)->Draw(g);
+    FrontText(std::format("第 {} / {} 页", mPlantCatalogPage + 1, (Workshop::Plants.size() + kPlantsPerPage - 1) / kPlantsPerPage), 455, 57, 16);
     for (size_t i = 0; i < Workshop::Plants.size(); ++i) {
-        const auto& info = Workshop::Plants[i]; const auto pos = PlantCardPosition(i);
+        if (static_cast<int>(i) / kPlantsPerPage != mPlantCatalogPage) continue;
+        const auto& info = Workshop::Plants[i]; const auto pos = PlantCardPosition(i % kPlantsPerPage);
         const bool unlocked = Workshop::PlantUnlocked(World(), info), hover = mPlantButtons[i]->IsHovered();
         g->FillRect(pos.x, pos.y, 184, 176, hover ? glm::vec4(252, 239, 190, 255) : glm::vec4(216, 211, 168, 255));
         g->DrawRect(pos.x, pos.y, 184, 176, hover ? kFrontGreen : glm::vec4(145, 127, 78, 255));
@@ -299,9 +325,8 @@ void WorkshopScene::DrawFrontOverlay(Graphics* g) {
     g->PushClipRect(216, 575, 640, 25);
     FrontText(status, 225, 580, 13, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);
     g->PopClipRect();
-    for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        FrontText("第" + std::to_string(threat.wave) + "波预告：" + threat.name + "僵尸", 875, 580, 14, kFrontRed); break;
-    }
+    if (const auto preview = Workshop::NextThreatPreview(World().CompletedWaves()); preview.wave)
+        FrontText("第" + std::to_string(preview.wave) + "波：" + preview.names, 864, 581, 12, kFrontRed);
 }
 
 /** 物料在机器、弹仓与预览中使用同一原版资源身份。 */

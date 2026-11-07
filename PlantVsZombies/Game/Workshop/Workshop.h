@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <numeric>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
@@ -39,7 +40,8 @@ inline constexpr std::array<float, 3> ShooterCooldowns{1.5f, 1.2f, 0.9f}; // 各
 inline constexpr std::array<int, 3> UpgradeWaves{0, 2, 5}; // 达到对应等级前必须守住的累计波次
 enum class Machine { Empty, Solar, Grower, Belt, Splitter, Store, Feeder,
     Switch, EnemySensor, StockSensor, And, Or, Not, Timer, Latch, Cooler,
-    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, PowerBox, RepairAssembler, PressureGrower, Count };
+    SporeGrower, MelonGrower, SalvagePort, Recycler, Counter, Cannon, PowerBox, RepairAssembler, PressureGrower,
+    DelayRelay, Pulse, StockRegulator, Count };
 // 弹药与维修包进入前线弹仓，残骸只参与工厂物流；本版存档单独校验。
 enum class Ammo { Pea, Ice, Spore, Melon, IceMelon, RepairKit, Scrap, Count };
 inline constexpr int AmmoCount = static_cast<int>(Ammo::Scrap);
@@ -56,12 +58,17 @@ inline constexpr float RepairKitEnergy = 10; // 每份维修包加工消耗的�
 inline constexpr std::array<float, 3> RepairKitPeriods{4, 3.2f, 2.5f}; // 维修机各级生产周期，游戏秒/包
 inline constexpr int MainPowerSource = -2; // 固定总站身份，不占工厂格；-1 表示未接电
 inline constexpr int StarterPowerBox = 2 * MaxColumns; // 开局配电箱格位，位于两台集光器下方
-inline constexpr int SaveVersion = 9; // v9 波次挑战与工坊词条；v8 已存在任务保留原目标和期限，到下个五波节点刷新
+inline constexpr int SaveVersion = 10; // v10 扩展蓝图与电路；旧档保留委托奖励、已抽出兵名单和旧蓝图资格
 inline constexpr int MaxAssaultSpawns = 315; // 原105只波次上限乘最大三倍尸潮，不含僵尸自身召唤
 inline constexpr float PressureGrowerRate = 3, PressureGrowerPower = 2; // 相同等级的产能与耗电倍率
 inline constexpr int HeavyGatlingCost = 600, BlazeTorchCost = 350; // 蓝图解锁后改造/种植费用，阳光
 inline constexpr int HeavyGatlingVolley = 4; // 每轮预留普通弹数与实际发射数
 inline constexpr int HeavyGatlingDamageMultiplier = 2, BlazeTorchDamageMultiplier = 3; // 相对于普通豌豆/经过树桩前弹丸的伤害倍率
+inline constexpr int HeavyThreepeaterVolley = 3, HeavyThreepeaterDamageMultiplier = 2; // 三线整轮预留弹数、每颗普通豌豆的伤害倍率
+inline constexpr float RapidMagnetRecharge = 5; // 强磁菇成功吸取后的冷却，游戏秒
+inline constexpr float EmergencyCottonInterval = 2; // 急救棉花两次治疗之间的冷却，游戏秒
+inline constexpr int EmergencyCottonHealing = 180; // 每个维修包的单体治疗生命值，不超过目标上限
+inline constexpr int ClockmakerPerWave = 1; // 钟匠每波正式出兵累计上限，不因死亡返还
 inline constexpr float CannonChargeSeconds = 12; // 炮台从新建或上一轮齐射起充能的游戏秒数
 inline constexpr float CannonShotInterval = .18f; // 一轮三发之间的游戏秒数
 inline constexpr int CannonVolleySize = 3; // 每轮预留并发射的对应瓜弹数量
@@ -81,6 +88,10 @@ struct Definition {
 const Definition& Describe(Machine type);
 Machine FindMachine(const std::string& key);
 bool IsLogic(Machine type);
+/** 共用库存来源与筛选规则的单门槛/双门槛检测设备。 */
+bool IsStockSensor(Machine type);
+/** 按整游戏秒配置时长的电路设备，配置范围 1～120 秒。 */
+bool IsTimedLogic(Machine type);
 bool HasDirectionalOutput(Machine type);
 /** B 口选择两套方案；是否具有 A 口由 HasSignalInput 独立判断。 */
 bool HasSelectionInput(Machine type);
@@ -141,6 +152,7 @@ struct Cell {
     bool previousInput = false;
     std::array<int, 2> inputs{ -1, -1 };
     int setting = 10;
+    int upperSetting = 40; // 库存调节器的停工上限；setting 为开工下限，须严格小于本值
     float clock = 0;
     bool signal = false;
     bool manual = true;
@@ -208,6 +220,8 @@ public:
     bool SetCounterMode(int index, CounterMode mode);
     bool SetCounterOutput(int index, CounterOutput output);
     bool SetSetting(int index, int setting);
+    /** 原子修改库存调节器上限；拒绝小于等于下限的配置，不改变输出保持状态。 */
+    bool SetUpperSetting(int index, int setting);
     /** 当前逻辑时刻的控制选择；不推进机器或信号。 */
     int ActivePlan(int index) const;
     int ActiveRoute(int index) const;
@@ -225,8 +239,8 @@ public:
     bool SetRecipe(int index, int recipe);
     bool SpendEnergy(float amount);
     void RefundEnergy(float amount);
-    /** 仅由真实战斗死亡入口调用；越线和场景销毁不得调用。 */
-    void RecordKill();
+    /** 真实战斗死亡；同一稳定 ID 在本波只领一次收益，匿名 ID 仅供独立模型夹具。 */
+    void RecordKill(int zombieID = -1);
     int PendingScrap() const { return mPendingScrap; }
     int WaveScrap() const { return mWaveScrap; }
     bool AddShooter(int row, bool ice = false);
@@ -316,6 +330,7 @@ private:
     std::array<Lane, Rows> mLanes{};
     std::array<int, Rows> mEnemyCounts{};
     std::map<std::string, float> mPlantCooldowns;
+    std::set<int> mRewardedZombieIDs; // 本波已结算击杀收益的实体，时间锚复活不返还奖励资格
     Commissions mCommissions;
     Challenge mWaveChallenge = Challenge::None;
     Phase mPhase = Phase::Planning;

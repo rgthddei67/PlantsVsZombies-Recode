@@ -104,8 +104,8 @@ def generate():
     dump("blueprints")
     click("commission_close")
     act("pause")
-    check("commissions.blueprints", [True, True, False])
-    check("commissions.freeUses", [1, 1, 0])
+    check("commissions.blueprints", [True, True, False, False, False, False])
+    check("commissions.freeUses", [1, 1, 0, 0, 0, 0])
     dump("before_free_machine")
     act("build", 4, "pressure_grower", 0)
     act("wire_power", 4, value=40)
@@ -132,7 +132,7 @@ def generate():
     click("commission_claim_0")
     click("commission_close")
     act("pause")
-    check("commissions.blueprints", [True, True, True])
+    check("commissions.blueprints", [True, True, True, False, False, False])
     check("commissions.freeUses.2", 1)
     dump("all_rewards")
     act("view_front")
@@ -154,7 +154,7 @@ def generate():
         wait()
         snap("clean_" + tag)
         load("clean_" + tag, [("/state/completedWaves", 14), ("/state/energy", 6000), ("/guideSeenWave", 14),
-            ("/state/commissions/blueprints", [True, True, True]), ("/state/commissions/freeUses", [1, 1, 1]),
+            ("/state/commissions/blueprints", [True, True, True, False, False, False]), ("/state/commissions/freeUses", [1, 1, 1, 0, 0, 0]),
             ("/battle/plants/0/extraData/workshopUpgradeLevel", 3), ("/battle/plants/0/health", 150)])
         clear_guides()
         act("plant", 0, "heavy_gatling", 2)
@@ -231,8 +231,8 @@ def verify():
     assert state("accepted")["commissions"] == state("paused_tasks")["commissions"]
     assert abs(state("claimed")["energy"] - state("ready")["energy"] - 150) < 0.01
     assert state("before_free_machine")["energy"] == state("free_machine")["energy"] == state("removed_free_machine")["energy"]
-    assert state("blueprints")["commissions"]["blueprints"] == [True, True, False]
-    assert state("all_rewards")["commissions"]["blueprints"] == [True, True, True]
+    assert state("blueprints")["commissions"]["blueprints"] == [True, True, False, False, False, False]
+    assert state("all_rewards")["commissions"]["blueprints"] == [True, True, True, False, False, False]
     assert read("reward_roundtrip")["state"]["commissions"] == state("restored_rewards")["commissions"]
     for tag, damage in (("plain", 40), ("flame", 120)):
         before, after = state(tag + "_mid"), state(tag + "_mid_restored")

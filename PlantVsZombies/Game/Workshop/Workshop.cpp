@@ -34,7 +34,10 @@ constexpr std::array<Definition, static_cast<size_t>(Machine::Count)> kDefinitio
     {"cannon", "瓜弹炮台", "独立供弹，A许可开火，B选择路线与弹种方案；充能后连射三发。", 350, 6, CannonBufferPerAmmo * 2},
     {"power_box", "配电箱", "从总站接电，给一组机器供电；可统一开关和切换供电优先级。", 25, 0, 0},
     {"repair_assembler", "维修包生产机", "1残骸加10阳光制成维修包，装填到前线供冰仓坚果修复。", 125, 10, 10},
-    {"pressure_grower", "高压育豆机", "委托蓝图：更高育豆产能与耗电，每颗阳光成本不变。", 200, BlueprintUnlockWaves[static_cast<int>(Blueprint::PressureGrower)], 5}
+    {"pressure_grower", "高压育豆机", "委托蓝图：更高育豆产能与耗电，每颗阳光成本不变。", 200, BlueprintUnlockWaves[static_cast<int>(Blueprint::PressureGrower)], 5},
+    {"delay_relay", "延时继电器", "A持续开启指定秒数后输出开；A关闭立即复位。", 15, 6, 0},
+    {"pulse", "单脉冲器", "A从关变开时输出一次定长信号；脉冲期间不重复触发。", 15, 8, 0},
+    {"stock_regulator", "库存调节器", "库存低于下限开工，达到上限停工，中间保持原信号。", 20, 10, 0}
 }};
 
 void Require(bool condition, const char* reason) {
@@ -81,7 +84,10 @@ Machine FindMachine(const std::string& key) {
         if (key == kDefinitions[i].key) return static_cast<Machine>(i);
     return Machine::Count;
 }
-bool IsLogic(Machine type) { return (type >= Machine::Switch && type <= Machine::Latch) || type == Machine::Counter; }
+bool IsLogic(Machine type) { return (type >= Machine::Switch && type <= Machine::Latch) || type == Machine::Counter
+    || type == Machine::DelayRelay || type == Machine::Pulse || type == Machine::StockRegulator; }
+bool IsStockSensor(Machine type) { return type == Machine::StockSensor || type == Machine::StockRegulator; }
+bool IsTimedLogic(Machine type) { return type == Machine::Timer || type == Machine::DelayRelay || type == Machine::Pulse; }
 bool HasSelectionInput(Machine type) { return type == Machine::Cooler || type == Machine::Feeder || type == Machine::Splitter || type == Machine::Cannon || type == Machine::PowerBox; }
 bool HasDirectionalOutput(Machine type) {
     return type == Machine::Grower || type == Machine::PressureGrower || type == Machine::Belt || type == Machine::Splitter
@@ -136,6 +142,7 @@ void World::Reset() {
     mCommissions.Reset();
     mWaveChallenge = Challenge::None;
     mSpawnRandom = 0xA341316Cu; mAssaultTypes.clear();
+    mRewardedZombieIDs.clear();
     mCells = {}; mLanes = {}; mEnemyCounts = {};
     mPlantCooldowns.clear();
     mPhase = Phase::Planning; mColumns = 10; mRows = 10; mHealth = 3; mCompletedWaves = 0;
@@ -191,6 +198,7 @@ bool World::Build(int i, Machine type, int direction) {
     if (type == Machine::Feeder) mCells[i].filter = mCells[i].filter2 = 0;
     if (type == Machine::Cannon) mCells[i].filter = mCells[i].filter2 = static_cast<int>(Ammo::Melon);
     if (type == Machine::Timer) mCells[i].setting = 4;
+    if (type == Machine::DelayRelay || type == Machine::Pulse) mCells[i].setting = 2;
     if (type == Machine::EnemySensor) mCells[i].setting = 1;
     return true;
 }
@@ -241,7 +249,7 @@ bool World::CanConnect(int source, int target, int input) const {
     if (source >= 0) {
         if (input == 0 && targetType == Machine::Counter && mCells[target].counterMode != CounterMode::Signal)
             return CanCountSource(source, mCells[target].counterMode);
-        if (!IsLogic(mCells[source].type) && !(input == 0 && targetType == Machine::StockSensor)) return false;
+        if (!IsLogic(mCells[source].type) && !(input == 0 && IsStockSensor(targetType))) return false;
     }
     return true;
 }
@@ -249,6 +257,10 @@ bool World::Connect(int source, int target, int input) {
     if (!CanConnect(source, target, input)) return false;
     mCells[target].inputs[input] = source;
     if (input == 0 && mCells[target].type == Machine::Counter) ResetCounterObservation(mCells[target]);
+    if (input == 0 && (mCells[target].type == Machine::DelayRelay || mCells[target].type == Machine::Pulse)) {
+        auto& c = mCells[target]; c.clock = 0; c.signal = false;
+        c.previousInput = source >= 0 && mCells[source].signal;
+    }
     return true;
 }
 bool World::Configure(int i) {
@@ -256,7 +268,7 @@ bool World::Configure(int i) {
     auto& c = mCells[i];
     if (RatedPower(c.type, c.level) > 0) return SetMachineRunning(i, !c.manual);
     if (c.type == Machine::Switch || c.type == Machine::Cannon || c.type == Machine::PowerBox) c.manual = !c.manual;
-    else if (c.type == Machine::Timer) return SetSetting(i, c.setting >= 16 ? 2 : c.setting * 2);
+    else if (IsTimedLogic(c.type)) return SetSetting(i, c.setting >= 16 ? 2 : c.setting * 2);
     else if (c.type == Machine::StockSensor || c.type == Machine::Counter) return SetSetting(i, c.setting >= 40 ? 5 : c.setting * 2);
     else if (c.type == Machine::EnemySensor) return SetSetting(i, c.setting >= 16 ? 1 : c.setting * 2);
     else return false;
@@ -265,7 +277,7 @@ bool World::Configure(int i) {
 bool World::SetRoute(int i, int row, int plan) {
     if (!Valid(i) || row < 0 || row >= Rows || plan < -1 || mPhase == Phase::Dead) return false;
     const auto type = mCells[i].type;
-    if (type != Machine::Feeder && type != Machine::Cannon && type != Machine::EnemySensor && type != Machine::StockSensor) return false;
+    if (type != Machine::Feeder && type != Machine::Cannon && type != Machine::EnemySensor && !IsStockSensor(type)) return false;
     if (plan < 0) plan = ActivePlan(i);
     if (plan > 1 || (plan == 1 && type != Machine::Feeder && type != Machine::Cannon)) return false;
     (plan == 1 ? mCells[i].route2 : mCells[i].route) = row; return true;
@@ -273,7 +285,7 @@ bool World::SetRoute(int i, int row, int plan) {
 bool World::SetFilter(int i, int filter, int plan) {
     if (!Valid(i) || filter < -1 || filter >= ItemCount || plan < -1 || mPhase == Phase::Dead) return false;
     const auto type = mCells[i].type;
-    if (type != Machine::Feeder && type != Machine::Cannon && type != Machine::Counter && type != Machine::Store && type != Machine::Splitter && type != Machine::StockSensor) return false;
+    if (type != Machine::Feeder && type != Machine::Cannon && type != Machine::Counter && type != Machine::Store && type != Machine::Splitter && !IsStockSensor(type)) return false;
     if (type == Machine::Feeder && filter == static_cast<int>(Ammo::Scrap)) return false;
     if (type == Machine::Cannon && (filter < static_cast<int>(Ammo::Melon) || filter > static_cast<int>(Ammo::IceMelon)
         || (filter == static_cast<int>(Ammo::IceMelon) && mCompletedWaves < 8))) return false;
@@ -315,7 +327,8 @@ bool World::SpendEnergy(float amount) {
 void World::RefundEnergy(float amount) {
     if (std::isfinite(amount) && amount > 0) mEnergy = std::min(EnergyLimit, mEnergy + amount);
 }
-void World::RecordKill() {
+void World::RecordKill(int zombieID) {
+    if (mPhase != Phase::Assault || (zombieID >= 0 && !mRewardedZombieIDs.insert(zombieID).second)) return;
     if (mPhase == Phase::Assault) mCommissions.Record(CommissionGoal::Defeat);
     if (mPhase != Phase::Assault || mWaveScrap >= ScrapPerWave) return;
     ++mWaveScrap; ++mPendingScrap;
@@ -338,6 +351,7 @@ bool World::StartAssault() {
     if (mPhase != Phase::Planning) return false;
     mCheckpoint = SaveState();
     mPhase = Phase::Assault; mSpawned = 0; mWaveScrap = 0;
+    mRewardedZombieIDs.clear();
     mWaveChallenge = mCommissions.ChallengeForWave(mCompletedWaves + 1);
     mRemainingSpawns = (5 + std::min(100, mCompletedWaves * 2)) * ChallengeRules().count;
     mAssaultTypes = RollAssaultTypes(mCompletedWaves + 1, mRemainingSpawns, mSpawnRandom, ChallengeRules().eliteWeight);
@@ -419,12 +433,15 @@ void World::TransportStep() {
         case Machine::Switch: c.signal = c.manual; break;
         case Machine::EnemySensor:
             c.signal = mEnemyCounts[c.route] >= c.setting; break;
-        case Machine::StockSensor: {
+        case Machine::StockSensor: case Machine::StockRegulator: {
             const auto& source = c.inputs[0] >= 0 ? before[c.inputs[0]] : c;
             const auto& lane = mLanes[c.route];
             const int count = c.inputs[0] >= 0 ? (c.filter < 0 ? source.TotalStock() : source.Inventory(static_cast<Ammo>(c.filter)))
                 : c.filter < 0 ? lane.TotalStock() : c.filter < AmmoCount ? lane.Inventory(static_cast<Ammo>(c.filter)) : 0;
-            c.signal = count >= c.setting; break;
+            if (c.type == Machine::StockSensor) c.signal = count >= c.setting;
+            else if (count < c.setting) c.signal = true;
+            else if (count >= c.upperSetting) c.signal = false;
+            break;
         }
         case Machine::And: c.signal = a && b; break;
         case Machine::Or: c.signal = a || b; break;
@@ -448,6 +465,15 @@ void World::TransportStep() {
                 c.signal = c.count >= c.setting;
             }
             break;
+        }
+        case Machine::DelayRelay:
+            c.clock = a ? std::min(static_cast<float>(c.setting), c.clock + TransportPeriod) : 0;
+            c.signal = a && c.clock >= c.setting; break;
+        case Machine::Pulse: {
+            const bool wasPulsing = c.clock > 0;
+            c.clock = std::max(0.0f, c.clock - TransportPeriod);
+            if (a && !c.previousInput && !wasPulsing) c.clock = static_cast<float>(c.setting);
+            c.previousInput = a; c.signal = c.clock > 0; break;
         }
         case Machine::Timer:
             if (c.inputs[0] < 0 || a) c.clock = std::fmod(c.clock + TransportPeriod, static_cast<float>(c.setting));
@@ -695,7 +721,7 @@ nlohmann::json World::SaveState() const {
         {"counterMode", static_cast<int>(c.counterMode)}, {"counterOutput", static_cast<int>(c.counterOutput)}, {"counterObserved", c.counterObserved},
         {"producedItems", c.producedItems}, {"transferredItems", c.transferredItems},
         {"volleyRemaining", c.volleyRemaining}, {"volleyRoute", c.volleyRoute}, {"volleyAmmo", static_cast<int>(c.volleyAmmo)}, {"volleyClock", c.volleyClock},
-        {"inputs", c.inputs}, {"setting", c.setting}, {"clock", c.clock}, {"signal", c.signal}, {"manual", c.manual}, {"alternate", c.alternate}});
+        {"inputs", c.inputs}, {"setting", c.setting}, {"upperSetting", c.upperSetting}, {"clock", c.clock}, {"signal", c.signal}, {"manual", c.manual}, {"alternate", c.alternate}});
     for (const auto& l : mLanes) lanes.push_back({{"ammo", l.ammo}, {"iceAmmo", l.iceAmmo}, {"plainQuota", l.plainQuota}, {"shooters", l.shooters},
         {"iceQuota", l.iceQuota}, {"extraAmmo", l.extraAmmo}, {"extraQuota", l.extraQuota}});
     return {{"phase", static_cast<int>(mPhase)}, {"columns", mColumns}, {"rows", mRows}, {"health", mHealth}, {"completedWaves", mCompletedWaves},
@@ -703,7 +729,7 @@ nlohmann::json World::SaveState() const {
         {"spawned", mSpawned}, {"spawnRandom", mSpawnRandom}, {"assaultTypes", mAssaultTypes},
         {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
-        {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
+        {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled}, {"rewardedZombies", mRewardedZombieIDs},
         {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault}, {"commissions", mCommissions.Save()}, {"waveChallenge", static_cast<int>(mWaveChallenge)},
         {"cells", cells}, {"lanes", lanes}, {"plantCooldowns", mPlantCooldowns}};
 }
@@ -716,6 +742,13 @@ void World::ReadState(const nlohmann::json& s) {
     mRows = ReadInt(s, "rows", 10, MaxRows); Require(mRows % 2 == 0, "无效工厂高度");
     mHealth = ReadInt(s, "health", 0, 3); Require((mHealth == 0) == (mPhase == Phase::Dead), "死亡状态不一致");
     mCompletedWaves = ReadInt(s, "completedWaves", 0, 100000);
+    const auto& rewarded = s.at("rewardedZombies");
+    Require(rewarded.is_array() && rewarded.size() <= 100000, "击杀收益记录错误");
+    mRewardedZombieIDs.clear();
+    for (const auto& id : rewarded) {
+        Require(id.is_number_integer() && id >= 0 && id <= 2147483647, "击杀收益实体 ID 错误");
+        Require(mRewardedZombieIDs.insert(id.get<int>()).second, "重复击杀收益记录");
+    }
     mCommissions.Load(s.at("commissions"), mCompletedWaves);
     mWaveChallenge = static_cast<Challenge>(ReadInt(s, "waveChallenge", 0, static_cast<int>(Challenge::Count) - 1));
     Require(mPhase != Phase::Planning || mWaveChallenge == Challenge::None, "准备期不能残留已生效挑战");
@@ -777,7 +810,10 @@ void World::ReadState(const nlohmann::json& s) {
         }
         c.route = ReadInt(j, "route", 0, Rows - 1); c.filter = ReadInt(j, "filter", -1, ItemCount - 1); c.iceNext = ReadBool(j, "iceNext");
         Require(c.type != Machine::Feeder || c.filter != static_cast<int>(Ammo::Scrap), "装填口不接收残骸");
-        c.setting = ReadInt(j, "setting", 1, c.type == Machine::Timer ? 120 : 1000000); c.clock = ReadFloat(j, "clock", 0, 120);
+        c.setting = ReadInt(j, "setting", 1, IsTimedLogic(c.type) ? 120 : 1000000); c.clock = ReadFloat(j, "clock", 0, 120);
+        c.upperSetting = ReadInt(j, "upperSetting", 1, 1000000);
+        Require(c.type != Machine::StockRegulator || c.setting < c.upperSetting, "库存上下限顺序错误");
+        Require((c.type != Machine::DelayRelay && c.type != Machine::Pulse) || c.clock <= c.setting, "电路时长越界");
         c.signal = ReadBool(j, "signal"); c.manual = ReadBool(j, "manual"); c.alternate = ReadBool(j, "alternate");
         c.plan = ReadInt(j, "plan", 0, 1); c.route2 = ReadInt(j, "route2", 0, Rows - 1); c.filter2 = ReadInt(j, "filter2", -1, ItemCount - 1);
         c.strictSplit = ReadBool(j, "strictSplit"); c.processing = ReadBool(j, "processing");
@@ -823,7 +859,7 @@ void World::ReadState(const nlohmann::json& s) {
         const auto& target = mCells[i];
         const bool countedSource = p == 0 && target.type == Machine::Counter && target.counterMode != CounterMode::Signal;
         Require(countedSource ? CanCountSource(source, target.counterMode)
-            : IsLogic(mCells[source].type) || (p == 0 && target.type == Machine::StockSensor), "无效信号/计量来源");
+            : IsLogic(mCells[source].type) || (p == 0 && IsStockSensor(target.type)), "无效信号/计量来源");
         Require(HasSignalInput(target.type, p) && Unlocked(Machine::Switch), "该设备不存在此信号端口");
         Require(p == 0 || target.type == Machine::And || target.type == Machine::Or || target.type == Machine::Latch || target.type == Machine::Counter || HasSelectionInput(target.type), "不存在的 B 口");
         Require(p != 1 || target.type != Machine::Cooler || mCompletedWaves >= 8, "冷凝选择口尚未解锁");
@@ -882,6 +918,25 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
                         task["challenge"] = 0; task["targetWave"] = 0; task["trait"] = TraitCount; task["legacy"] = true;
                         task["timeLimit"] = oldDeadlines.at(ReadInt(task, "difficulty", 0, 2));
                     }
+                }
+            }
+        }
+        if (document["schemaVersion"] <= 9) {
+            for (const char* key : {"state", "checkpoint"}) if (upgraded[key].is_object()) {
+                auto& state = upgraded[key];
+                for (auto& cell : state.at("cells")) cell["upperSetting"] = 40;
+                state["rewardedZombies"] = nlohmann::json::array();
+                // v7 的任务刚按新格式生成；v8/v9 的 Count=3 必须先迁移，不能误认成强磁菇奖励。
+                if (document["schemaVersion"] >= 8) {
+                    auto& tasks = state.at("commissions");
+                    for (const char* inventory : {"blueprints", "freeUses"}) {
+                        auto& values = tasks.at(inventory);
+                        Require(values.is_array() && values.size() == 3, "旧蓝图库存长度错误");
+                        for (int b = 3; b < BlueprintCount; ++b)
+                            values.push_back(std::string_view(inventory) == "blueprints" ? nlohmann::json(false) : nlohmann::json(0));
+                    }
+                    for (const char* group : {"offers", "active"}) for (auto& task : tasks.at(group))
+                        if (ReadInt(task, "blueprint", 0, 3) == 3) task["blueprint"] = BlueprintCount;
                 }
             }
         }

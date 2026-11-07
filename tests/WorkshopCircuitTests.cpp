@@ -32,6 +32,41 @@ void Step(World& world, float seconds) {
 }
 
 void TestWorkshopCircuits() {
+    // 电路使用同拍输入快照；准备期冻结，带状态的延时/脉冲和上下限控制跨读档续接。
+    {
+        auto world = Fixture(10), restored = Fixture(10); auto& w = *world;
+        Check(w.Build(2, Machine::Switch, 0) && w.Build(3, Machine::DelayRelay, 0)
+            && w.Build(4, Machine::Pulse, 0) && w.Build(5, Machine::Store, 0)
+            && w.Build(6, Machine::StockRegulator, 0), "advanced circuit build");
+        Check(w.SetSetting(3, 1) && w.SetSetting(4, 1) && w.Connect(2, 3, 0) && w.Connect(2, 4, 0)
+            && w.Connect(5, 6, 0) && w.SetFilter(6, 0) && !w.Connect(2, 4, 1), "real ports and inventory source");
+        const auto planning = w.Save(); Step(w, 2);
+        Check(w.Save() == planning, "new circuit clocks freeze during planning");
+        Check(w.StartAssault(), "advanced circuit start"); Step(w, .75f);
+        Check(!w.Cells()[3].signal && w.Cells()[4].signal, "pulse starts immediately while delay waits");
+        Load(*restored, w.Save()); Step(w, 1); Step(*restored, 1);
+        Check(w.Save() == restored->Save() && w.Cells()[3].signal && !w.Cells()[4].signal,
+            "mid-pulse save resumes and steady high does not retrigger");
+        Check(w.Configure(2), "lower input"); Step(w, .75f);
+        Check(!w.Cells()[3].signal && w.Cells()[3].clock == 0, "delay resets when input falls");
+        Check(w.Configure(2), "new rising edge"); Step(w, .75f);
+        Check(w.Cells()[4].signal, "later edge triggers a fresh pulse");
+        Check(w.Connect(2, 4, 0), "reconnect live-high source"); Step(w, .75f);
+        Check(!w.Cells()[4].signal, "rewiring cancels pulse without inventing an input edge");
+        auto save = w.Save();
+        auto stock = [&](int amount) {
+            save = w.Save(); save["state"]["cells"][5]["stock"] = amount; Load(w, save); Step(w, .5f);
+        };
+        stock(9); Check(w.Cells()[6].signal, "below lower threshold starts replenishment");
+        stock(25); Check(w.Cells()[6].signal, "middle band retains on");
+        stock(40); Check(!w.Cells()[6].signal, "upper threshold stops replenishment");
+        stock(25); Check(!w.Cells()[6].signal, "middle band retains off after reload");
+        const auto before = w.Save();
+        Check(!w.SetUpperSetting(6, 10) && !w.SetSetting(6, 40) && w.Save() == before,
+            "crossed thresholds are rejected atomically");
+        w.RecordKill(123); const int scrap = w.WaveScrap(); Load(w, w.Save()); w.RecordKill(123);
+        Check(w.WaveScrap() == scrap, "revived stable ID cannot award scrap again after reload");
+    }
     // 同一装填口既是计量来源，又由计数器选择路线，连续出货不能漏计或多送一份。
     auto batch = Fixture(); auto& b = *batch;
     Check(Build(b, 2, Machine::Store, 0) && Build(b, 3, Machine::Feeder, 0)

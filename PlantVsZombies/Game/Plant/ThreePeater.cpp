@@ -2,11 +2,13 @@
 #include "../../GameApp.h"
 
 #include "Game/Board/Board.h"
+#include "Game/Workshop/Workshop.h"
 #include "../Bullet/Bullet.h"
 #include "../Zombie/Zombie.h"
 
 namespace {
 	constexpr int kSynchronizedVolleyFireFrame = 73; // 上头真实发射帧；作为 C# 三弹同步结算的唯一帧事件
+	static_assert(Workshop::HeavyThreepeaterVolley == 3, "三线整轮预留必须与既有三头发弹一致");
 	constexpr float kReanimFramesPerSecond = 12.0f;  // ThreePeater.reanim 的基础帧率
 	constexpr float kShootFramesPerSecond = 20.0f;   // C# 三个头进入射击态时使用的动画帧率
 	constexpr float kIdleFramesPerSecondMin = 15.0f; // C# 三线射手待机随机帧率下限
@@ -77,9 +79,14 @@ std::shared_ptr<Animator> ThreePeater::CreateHeadAnimator(
 void ThreePeater::PlantUpdate()
 {
 	// 与其他射手一致，计时和射击动画同时乘生存攻速与雨势行动倍率。
-	const float mult = GetAttackSpeedMultiplier();
+	const float mult = GetAttackSpeedMultiplier() * GetWorkshopAttackSpeedMultiplier();
 	mShootTimer += DeltaTime::GetDeltaTime() * mult;
-	if (mShootTimer < mShootTime) return;
+	if (mWorkshopVolleyReserved || mShootTimer < mShootTime) return;
+	if (mBoard && mBoard->IsWorkshop()) {
+		if (!HasTargetInThreeRows() || !mBoard->ReserveWorkshopAmmo(mRow, mPlantType, Workshop::HeavyThreepeaterVolley)) return;
+		mWorkshopVolleyReserved = true;
+		mShootTimer = 0.0f; StartVolley(mult); return;
+	}
 
 	// C# 每次 LaunchCounter 到期都会重置；没有目标时也等到下一轮再检查。
 	mShootTimer = 0.0f;
@@ -139,6 +146,10 @@ void ThreePeater::StartVolley(float attackSpeedMultiplier)
 
 void ThreePeater::ShootBullet()
 {
+	if (mBoard && mBoard->IsWorkshop()) {
+		if (!mWorkshopVolleyReserved) return;
+		mWorkshopVolleyReserved = false;
+	}
 	// C# 的 Fire 会为三颗弹各播放一次 Throw；保持相同调用次数并在同一逻辑帧结算。
 	for (int rowOffset = 1; rowOffset >= -1; --rowOffset) {
 		if (GameRandom::Chance()) {
@@ -164,6 +175,10 @@ void ThreePeater::FireRow(int targetRow)
 	const Vector bulletPosition = GetPosition() + Vector(kBulletOffsetX, kBulletOffsetY);
 	Bullet* bullet = mBoard->CreatePlantBullet(
 		BulletType::BULLET_PEA, targetRow, bulletPosition, mPlantType);
+	if (bullet && mBoard->IsWorkshop()) {
+		bullet->SetBulletDamage(bullet->GetBulletDamage() * Workshop::HeavyThreepeaterDamageMultiplier);
+		mBoard->RecordWorkshopPlantShot(mPlantType);
+	}
 	if (bullet && isBoundaryCompensation) {
 		bullet->SetVelocityX(kBoundaryCompensationBulletSpeed);
 	}
@@ -175,6 +190,7 @@ void ThreePeater::FireRow(int targetRow)
 void ThreePeater::SaveExtraData(nlohmann::json& j) const
 {
 	Shooter::SaveExtraData(j);
+	if (mBoard && mBoard->IsWorkshop()) j["workshopVolleyReserved"] = mWorkshopVolleyReserved;
 	SaveHeadAnimatorState(j, "head2Anim", mHeadAnim2.get());
 	SaveHeadAnimatorState(j, "head3Anim", mHeadAnim3.get());
 }
@@ -182,6 +198,23 @@ void ThreePeater::SaveExtraData(nlohmann::json& j) const
 void ThreePeater::LoadExtraData(const nlohmann::json& j)
 {
 	Shooter::LoadExtraData(j);
+	mWorkshopVolleyReserved = false;
+	if (mBoard && mBoard->IsWorkshop()) {
+		const auto reserved = j.value("workshopVolleyReserved", nlohmann::json(false));
+		if (!reserved.is_boolean()) throw std::runtime_error("重装三线预留状态错误");
+		mWorkshopVolleyReserved = reserved.get<bool>();
+	}
 	LoadHeadAnimatorState(j, "head2Anim", mHeadAnim2.get());
 	LoadHeadAnimatorState(j, "head3Anim", mHeadAnim3.get());
+}
+
+bool ThreePeater::TryUpgradeWorkshop()
+{
+	const float oldSpeed = GetWorkshopAttackSpeedMultiplier();
+	if (!Shooter::TryUpgradeWorkshop()) return false;
+	const float ratio = GetWorkshopAttackSpeedMultiplier() / oldSpeed;
+	for (const auto& head : {mHeadAnim, mHeadAnim2, mHeadAnim3})
+		if (head && head->GetCurrentTrackName().starts_with("anim_shooting"))
+			head->SetClipSpeed(head->GetClipSpeed() * ratio);
+	return true;
 }

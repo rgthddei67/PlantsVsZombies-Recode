@@ -113,7 +113,8 @@ void WorkshopScene::DrawGameObjects(Graphics* g) {
     // 与 CardSlotManager 一样，在世界对象提交前使用本帧最终相机定位手持预览。
     UpdateFrontPreview(g);
     if (mFrontView && !mLoadFailed) {
-        GameObjectManager::GetInstance().SetPreOverlayHook([] {
+        GameObjectManager::GetInstance().SetPreOverlayHook([this, g] {
+            mBoard->DrawPolarFinaleEffects(g);
             if (g_particleSystem) g_particleSystem->DrawBelow(LAYER_UI);
         });
         Scene::DrawGameObjects(g);
@@ -543,6 +544,7 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     else if (action == "plan") result = World().SetPlan(index, value);
     else if (action == "strict_split") result = World().SetStrictSplit(index, value != 0);
     else if (action == "setting") result = World().SetSetting(index, value);
+    else if (action == "upper_setting") result = World().SetUpperSetting(index, value);
     else if (action == "counter_mode") result = World().SetCounterMode(index, static_cast<Workshop::CounterMode>(value));
     else if (action == "counter_output") result = World().SetCounterOutput(index, static_cast<Workshop::CounterOutput>(value));
     else if (action == "counter_reset" && index >= 0 && index < Workshop::CellCount) result = World().SetCounterMode(index, World().Cells()[index].counterMode);
@@ -758,6 +760,9 @@ void WorkshopScene::BuildDrawCommands() {
     RegisterDrawCommand("WorkshopBackground", [this](Graphics* g) {
         if (mFrontView) Sprite(g, "IMAGE_BACKGROUND_DAY", -250, -50, 1880, 720);
     }, LAYER_BACKGROUND - 1);
+    RegisterDrawCommand("WorkshopIceTrails", [this](Graphics* g) {
+        if (mFrontView && !mLoadFailed) mBoard->DrawIceTrails(g);
+    }, LAYER_BACKGROUND + 1);
     RegisterDrawCommand("ParticleSystem", [this](Graphics* g) {
         if (mFrontView && g_particleSystem) g_particleSystem->DrawFrom(LAYER_UI);
     }, LAYER_EFFECTS);
@@ -805,7 +810,13 @@ void WorkshopScene::UpdateTooltip() {
         const auto* definition = Workshop::FindPlant(hoveredShooter->mPlantType);
         lines = {definition ? definition->name : "前线植物", definition ? definition->role : "",
             std::format("生命 {}/{} · 格位 {},{}", hoveredShooter->mPlantHealth, hoveredShooter->mPlantMaxHealth, hoveredShooter->mRow + 1, hoveredShooter->mColumn + 1)};
-        if (definition && definition->ammo != Workshop::Ammo::Count)
+        if (definition && definition->type == PlantType::PLANT_THREEPEATER)
+            lines.push_back("每轮预留3颗普通弹；双倍单弹伤害，边路缺失弹道补到本行。");
+        else if (definition && definition->type == PlantType::PLANT_GATLINGPEA)
+            lines.push_back("每轮预留4颗普通弹；不足整轮等待，穿透第二目标承受半伤。");
+        else if (definition && definition->type == PlantType::PLANT_MENDINGCOTTON)
+            lines.push_back("每次实际治疗消耗1个本路维修包；无伤员不消耗。");
+        else if (definition && definition->ammo != Workshop::Ammo::Count)
             lines.push_back(std::string("每次攻击消耗 1 份") + Workshop::AmmoName(static_cast<int>(definition->ammo)) + "；缺弹停火");
         if (definition && definition->upgrades) {
             const auto* melon = dynamic_cast<const MelonPult*>(hoveredShooter);
@@ -867,10 +878,10 @@ void WorkshopScene::UpdateTooltip() {
             if (type == Workshop::Machine::Cooler) lines.push_back(cell.recipe == 1 ? "当前配方：冰瓜" : "当前配方：寒冰豌豆");
             if (type == Workshop::Machine::SalvagePort || type == Workshop::Machine::Recycler)
                 lines.push_back(std::format("待提取残骸 {}；本波掉落 {}/40", World().PendingScrap(), World().WaveScrap()));
-            if (type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor)
-                lines.push_back(std::string(type == Workshop::Machine::EnemySensor || type == Workshop::Machine::StockSensor ? "监视路线：第 " : "目标路线：第 ") + std::to_string(World().ActiveRoute(index) + 1) + " 路");
-            if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::Counter || type == Workshop::Machine::StockSensor || type == Workshop::Machine::Splitter)
-                lines.push_back(std::string(type == Workshop::Machine::StockSensor ? "检测弹种：" : type == Workshop::Machine::Counter ? "计量弹种：" : type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
+            if (type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::EnemySensor || Workshop::IsStockSensor(type))
+                lines.push_back(std::string(type == Workshop::Machine::EnemySensor || Workshop::IsStockSensor(type) ? "监视路线：第 " : "目标路线：第 ") + std::to_string(World().ActiveRoute(index) + 1) + " 路");
+            if (type == Workshop::Machine::Store || type == Workshop::Machine::Feeder || type == Workshop::Machine::Cannon || type == Workshop::Machine::Counter || Workshop::IsStockSensor(type) || type == Workshop::Machine::Splitter)
+                lines.push_back(std::string(Workshop::IsStockSensor(type) ? "检测弹种：" : type == Workshop::Machine::Counter ? "计量弹种：" : type == Workshop::Machine::Splitter ? "右侧筛选：" : "弹种筛选：") + Workshop::AmmoName(World().ActiveFilter(index)));
             if ((Workshop::IsLogic(type) || Workshop::HasSignalInput(type, 0) || Workshop::HasSignalInput(type, 1)) && !PausedSignalHint().empty()) lines.push_back(PausedSignalHint());
             if (Workshop::HasSelectionInput(type)) lines.push_back((World().Unlocked(Workshop::Machine::Switch) ? Workshop::PortLabel(cell, 1) + "；" : std::string()) + "当前方案 " + std::to_string(World().ActivePlan(index) + 1) + "，双击打开配置。" );
             if (type == Workshop::Machine::Splitter) lines.push_back(cell.strictSplit ? "严格选路：仅送选中出口，堵塞时等待。" : World().Unlocked(Workshop::Machine::Switch) ? "普通模式：筛选优先；混合时轮流或按B信号优先供货。" : "普通模式：混合时轮流分配；筛选弹种固定送右侧。");
@@ -990,7 +1001,8 @@ void WorkshopScene::DrawMachineVisual(Graphics* g, const Workshop::Cell& cell, f
     } else {
         const char* glyph = cell.type == M::And ? "&" : cell.type == M::Or ? "OR" : cell.type == M::Not ? "!"
             : cell.type == M::Latch ? "M" : cell.type == M::Timer ? "T" : cell.type == M::EnemySensor ? "Z"
-            : cell.type == M::StockSensor ? "#" : cell.type == M::Counter ? "N" : "I/O";
+            : cell.type == M::StockSensor ? "#" : cell.type == M::Counter ? "N"
+            : cell.type == M::DelayRelay ? "D" : cell.type == M::Pulse ? "P" : cell.type == M::StockRegulator ? "H" : "I/O";
         label(glyph, x + 13, y + 12, 21);
         if (cell.type == M::Counter && details && displayScale >= 0.85f) label(std::to_string(cell.count), x + 13, y + 34, 10);
         g->FillCircle(x + 40, y + 11, 4, cell.signal ? glm::vec4(131, 255, 93, 255) : glm::vec4(32, 43, 36, 255));
@@ -1135,9 +1147,9 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     Text(World().ChallengeRules().mechanisms > 0 ? std::string("委托：") + World().ChallengeRules().name
         : World().FocusRoute(0) < 0 ? "五路来敌 · 逐路供弹" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
     Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 99, 13, kGreen);
-    for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
-        Text(std::format("第{}波预告", threat.wave), 655, 7, 12, kGreen);
-        Text(std::string(threat.name) + "僵尸", 655, 27, 13, kGreen); break;
+    if (const auto preview = Workshop::NextThreatPreview(World().CompletedWaves()); preview.wave) {
+        Text(std::format("第{}波预告", preview.wave), 655, 7, 12, kGreen);
+        Text(preview.names, 655, 27, 13, kGreen);
     }
     DrawFactoryMap(g);
     DrawFactoryPanel(g);
@@ -1197,6 +1209,7 @@ nlohmann::json WorkshopScene::Inspect() const {
         j["hoverOutput"] = {{"target", output.target}, {"ready", output.ready}, {"message", output.message}};
     } else j["hoverOutput"] = nullptr;
     j["catalogOpen"] = IsCatalogOpen(); j["catalogCategory"] = mCatalogCategory;
+    j["catalogPage"] = mCatalogPage; j["plantCatalogPage"] = mPlantCatalogPage;
     j["modalOpen"] = mUIManager.GetTopActiveMessageBox() != nullptr;
     j["effectivePaused"] = DeltaTime::IsPaused();
     j["selectedTimeScale"] = DeltaTime::GetSelectedTimeScale();
@@ -1224,13 +1237,16 @@ nlohmann::json WorkshopScene::Inspect() const {
         if (p && p->IsActive()) {
             const auto* shooter = dynamic_cast<const Shooter*>(p);
             const std::string headTrack = shooter && shooter->GetHeadAnimator() ? shooter->GetHeadAnimator()->GetCurrentTrackName() : "";
-            if (headTrack == "anim_shooting") j["hasShootingAnimation"] = true;
+            if (headTrack.starts_with("anim_shooting")) j["hasShootingAnimation"] = true;
             const int level = p->GetWorkshopUpgradeLevel();
             nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"maxHp", p->mPlantMaxHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
                 {"level", level}, {"type", static_cast<int>(p->mPlantType)}, {"ice", p->mPlantType == PlantType::PLANT_SNOWPEA}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
             if (p->mPlantType == PlantType::PLANT_GATLINGPEA) {
                 nlohmann::json extra; p->SaveExtraData(extra);
                 plant["reservedShots"] = extra.value("workshopReservedShots", 0);
+            }
+            if (p->mPlantType == PlantType::PLANT_THREEPEATER || p->mPlantType == PlantType::PLANT_MAGNETSHROOM || p->mPlantType == PlantType::PLANT_MENDINGCOTTON) {
+                nlohmann::json extra; p->SaveExtraData(extra); plant["extra"] = std::move(extra);
             }
             j["nativePlants"].push_back(plant);
             j["nativePlantsByCell"][std::to_string(p->mRow) + "_" + std::to_string(p->mColumn)] = plant;

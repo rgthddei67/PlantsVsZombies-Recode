@@ -21,6 +21,23 @@ void BattleOffer(nlohmann::json& document, Challenge challenge) {
 
 void TestWorkshopCommissions() {
     using namespace Workshop;
+    {
+        auto oldWorld = std::make_unique<World>(); auto old = oldWorld->Save(); std::string error;
+        old["schemaVersion"] = 9; old["state"]["completedWaves"] = 14;
+        auto& commissions = old["state"]["commissions"];
+        commissions["blueprints"] = std::array<bool, 3>{true, false, false};
+        commissions["freeUses"] = std::array<int, 3>{1, 0, 0};
+        for (auto& offer : commissions["offers"]) offer["blueprint"] = 3;
+        old["state"].erase("rewardedZombies");
+        for (auto& cell : old["state"]["cells"]) cell.erase("upperSetting");
+        Check(oldWorld->Load(old, error), "v9 workshop migrates new inventory and circuit state");
+        Check(oldWorld->Tasks().Has(Blueprint::PressureGrower) && oldWorld->Tasks().FreeUses(Blueprint::PressureGrower) == 1
+            && !oldWorld->Tasks().Has(Blueprint::RapidMagnet), "migration preserves old free use without granting new blueprint");
+        for (const auto& offer : oldWorld->Tasks().Offers()) Check(offer.blueprint == Blueprint::Count, "old none sentinel never becomes a magnet reward");
+        Check(oldWorld->Save()["state"]["spawnRandom"] == old["state"]["spawnRandom"], "migration preserves spawn RNG");
+        const auto before = oldWorld->Save(); old["state"]["commissions"]["offers"][0]["blueprint"] = 4;
+        Check(!oldWorld->Load(old, error) && oldWorld->Save() == before, "invalid old blueprint identity is rejected atomically");
+    }
     Commissions tasks; tasks.Reset(42, 15);
     tasks.Record(CommissionGoal::Produce, 100000);
     Check(tasks.Accept(0) && tasks.Accept(2) && !tasks.Accept(1), "two simultaneous tasks, no pre-credit");
@@ -109,8 +126,10 @@ void TestWorkshopCommissions() {
     world->Reset(); document = world->Save(); document["schemaVersion"] = 8;
     document["state"]["completedWaves"] = 14; document["state"].erase("waveChallenge");
     auto& oldTasks = document["state"]["commissions"]; oldTasks.erase("traits"); oldTasks["refreshRemaining"] = 57;
+    oldTasks["blueprints"] = std::array<bool, 3>{}; oldTasks["freeUses"] = std::array<int, 3>{};
     for (int i = 0; i < CommissionOfferCount; ++i) {
         auto& c = oldTasks["offers"][i];
+        c["blueprint"] = 3;
         c["difficulty"] = i / 2; c["goal"] = 0; c["target"] = 10; c["remaining"] = std::array<int, 3>{300, 480, 720}[i / 2];
         for (const char* key : {"challenge", "targetWave", "timeLimit", "trait", "legacy"}) c.erase(key);
     }

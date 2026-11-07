@@ -90,6 +90,20 @@ Lesson Explain(int topic, bool circuits) {
     if (topic >= Workshop::PlantGuideBase) {
         const auto& plant = Workshop::Plants[topic - Workshop::PlantGuideBase];
         lesson.purpose = plant.role;
+        if (plant.type == PlantType::PLANT_MAGNETSHROOM) {
+            lesson.steps = {"1. 委托取得强磁菇蓝图，首株免费。", "2. 部署在金属敌人的行进路线附近；工坊内常醒。", std::format("3. 每次吸取后冷却{:g}秒，不消耗弹药。", Workshop::RapidMagnetRecharge)};
+            lesson.tip = "范围沿用冒险磁力菇；仅可吸磁性装备，不能吸钟匠星盘等非磁性装置。";
+            lesson.example = "用更快拆装备支援多条路线，仍需射手击杀本体";
+            Chain(lesson, {topic, PlantTopic(PlantType::PLANT_GATLINGPEA)}); lesson.edges.clear();
+            return lesson;
+        }
+        if (plant.type == PlantType::PLANT_MENDINGCOTTON) {
+            lesson.steps = {"1. 委托获得急救棉花，种在需要保护的阵地旁。", "2. 维修包生产机加工残骸，装填口把维修包送到棉花所在路。", std::format("3. 每{:g}秒选八邻格最低生命比例的伤员，1包恢复{}血。", Workshop::EmergencyCottonInterval, Workshop::EmergencyCottonHealing)};
+            lesson.tip = "无伤员不消耗；缺包时等待。不能治疗自身，不能复活已死亡植物。";
+            lesson.example = "残骸转成持续治疗，让前排和火力点跨波保留下来";
+            Chain(lesson, {Topic(M::SalvagePort), Topic(M::RepairAssembler), Topic(M::Feeder), topic});
+            return lesson;
+        }
         if (plant.type == PlantType::PLANT_TORCHWOOD) {
             lesson.steps = {std::format("1. 守住第{}波后，委托可能奖励炽焰树桩蓝图。", plant.unlockWave), "2. 种在射手前方，让同路豌豆经过树桩。", std::format("3. 普通与重装弹伤害乘{}，重装穿透保持不变。", Workshop::BlazeTorchDamageMultiplier)};
             lesson.tip = std::format("同颗弹不叠加增幅；寒冰先融冰。首株免费，之后每株{}阳光。", plant.cost);
@@ -115,6 +129,10 @@ Lesson Explain(int topic, bool circuits) {
             if (plant.type == PlantType::PLANT_GATLINGPEA) {
                 lesson.steps = {"1. 委托取得蓝图后，点普通射手原位改造。", "2. 一轮先扣4颗普通弹；不足时整轮等待。", "3. 每发双倍伤害，穿透的第二名敌人承受半伤。"};
                 lesson.tip = std::format("首株改造免费，之后{}阳光；继承等级与血量比例，可继续升级。", plant.cost);
+            }
+            if (plant.type == PlantType::PLANT_THREEPEATER) {
+                lesson.steps = {"1. 委托获得蓝图后直接种在空格，首株免费。", "2. 每轮从自身所在路预留3颗普通弹，不足则等待。", "3. 三个方向同时发射双倍伤害豌豆；边界外的弹道补到本行。"};
+                lesson.tip = std::format("可购买三级攻速，间隔{:g}/{:g}/{:g}秒；炽焰树桩仍可继续增幅。", Workshop::ShooterCooldowns[0], Workshop::ShooterCooldowns[1], Workshop::ShooterCooldowns[2]);
             }
             if (plant.ammo == Workshop::Ammo::Ice) Chain(lesson, {Topic(M::Grower), Topic(M::Cooler), Topic(M::Feeder), topic});
             if (plant.ammo == Workshop::Ammo::Spore) {
@@ -288,6 +306,27 @@ Lesson Explain(int topic, bool circuits) {
         Gate(lesson, M::Latch, M::Not, M::StockSensor);
         lesson.nodes[0].label = "库存<10（库存器接非门）"; lesson.nodes[1].label = "库存≥30";
         break;
+    case M::DelayRelay:
+        lesson.purpose = "条件持续成立一段时间才投入增援产线。";
+        lesson.steps = {"1. 敌情器或逻辑门的输出接延时继电器 A。", "2. 双击设置等待秒数，再把输出接配电箱 A。", "3. 条件中途关闭就立即复位；再次开启从零等待。"};
+        lesson.tip = "A未接不触发；准备与暂停冻结计时，读档保留已等待时间。";
+        lesson.example = "敌情持续2秒才开增援线，减少短暂波动";
+        Chain(lesson, {Topic(M::EnemySensor), topic, Topic(M::PowerBox)}, true);
+        break;
+    case M::Pulse:
+        lesson.purpose = "把一次条件变化变成固定长度的开启信号。";
+        lesson.steps = {"1. 敌情器或开关输出接单脉冲器 A。", "2. 双击设置输出秒数，再接配电箱或物流 A。", "3. A从关变开触发；持续开启不重发，脉冲内的新触发也忽略。"};
+        lesson.tip = "修改时长或重新接线取消当前脉冲；读档续接剩余秒数，不补触发。";
+        lesson.example = "首次来敌时短时开启增援，随后自动停止";
+        Chain(lesson, {Topic(M::EnemySensor), topic, Topic(M::PowerBox)}, true);
+        break;
+    case M::StockRegulator:
+        lesson.purpose = "库存设两个门槛，自动补货时避免频繁启停。";
+        lesson.steps = {"1. 双击选择路线、弹种、开工下限和停工上限。", "2. 输出直接接配电箱 A；A可接仓库来改为读取机器库存。", "3. 低于下限输出开，达到上限输出关，中间保持原状态。"};
+        lesson.tip = "默认低于10开、达到40停；下限必须小于上限，上限应符合对应弹仓配额。";
+        lesson.example = "库存从9补到40才停，消耗到9才重新开工";
+        Chain(lesson, {topic, Topic(M::PowerBox)}, true);
+        break;
     case M::Counter:
         lesson.purpose = "数实际物料，按批次切换工厂的工作方式。";
         lesson.steps = {"1. 装填口方案1送第1路，方案2送第2路。", "2. 计数器设出库、10份、每批完成翻转。", "3. 装填口接计数器A，计数器接装填口B。"};
@@ -346,6 +385,7 @@ void WorkshopScene::ImportLegacyTutorials() {
     std::vector<std::string> keys{"practice:intro"};
     for (const int topic : Workshop::GuideTopics(mGuideSeenWave)) {
         if (topic == Workshop::CommissionGuide || topic == static_cast<int>(M::PressureGrower)
+            || (topic >= static_cast<int>(M::DelayRelay) && topic < static_cast<int>(M::Count))
             || topic >= Workshop::PlantGuideBase + 8) continue;
         if (topic != Workshop::PowerGuide || mPowerGuideSeen) keys.push_back(Workshop::GuideKey(topic));
     }
@@ -433,9 +473,12 @@ void WorkshopScene::RefreshGuide() {
 
 void WorkshopScene::CheckGuideUnlocks() {
     if (!mLoadFailed && World().State() == Workshop::Phase::Planning && !mUIManager.GetTopActiveMessageBox()) {
-        for (int topic : {Workshop::CommissionGuide, static_cast<int>(Workshop::Machine::PressureGrower), Workshop::PlantGuideBase + 8, Workshop::PlantGuideBase + 9}) {
+        std::vector<int> rewardTopics{Workshop::CommissionGuide, static_cast<int>(M::PressureGrower), static_cast<int>(M::DelayRelay), static_cast<int>(M::Pulse), static_cast<int>(M::StockRegulator)};
+        for (size_t i = 0; i < Workshop::Plants.size(); ++i)
+            if (Workshop::Plants[i].blueprint != Workshop::Blueprint::Count) rewardTopics.push_back(Workshop::PlantGuideBase + static_cast<int>(i));
+        for (int topic : rewardTopics) {
             const bool unlocked = topic == Workshop::CommissionGuide ? World().CompletedWaves() >= 1 && World().CompletedWaves() <= mGuideSeenWave
-                : topic < Workshop::PlantGuideBase ? World().Unlocked(Workshop::Machine::PressureGrower)
+                : topic < Workshop::PlantGuideBase ? World().Unlocked(static_cast<M>(topic))
                 : Workshop::PlantUnlocked(World(), Workshop::Plants[topic - Workshop::PlantGuideBase]);
             if (unlocked && !TutorialSeen(Workshop::GuideKey(topic))) { OpenGuide(topic); return; }
         }

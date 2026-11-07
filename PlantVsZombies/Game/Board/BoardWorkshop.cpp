@@ -161,7 +161,7 @@ void Board::RecordWorkshopPlantShot(PlantType type) {
 }
 /** 只收真实死亡的敌方尸骸；直接清理存活对象、越线及时间替换均不领取。 */
 void Board::RecordWorkshopKill(const Zombie& zombie) {
-    if (mWorkshop && zombie.mZombieID != mWorkshopRetiringBreach && !zombie.IsMindControlled() && (zombie.IsDying() || zombie.mBodyHealth <= 0)) mWorkshop->RecordKill();
+    if (mWorkshop && zombie.mZombieID != mWorkshopRetiringBreach && !zombie.IsMindControlled() && (zombie.IsDying() || zombie.mBodyHealth <= 0)) mWorkshop->RecordKill(zombie.mZombieID);
 }
 
 /** 入侵者沿用 Zombie 的房屋判定；每只越线只扣一次基地生命，不干预走路或啃食。 */
@@ -172,6 +172,7 @@ void Board::RecordWorkshopBreach(int zombieID)
     if (!zombie || !zombie->IsActive()) return;
     const int previousBreach = mWorkshopRetiringBreach;
     mWorkshopRetiringBreach = zombieID;
+    MarkTemporalTargetIrreversible(zombieID); // 已越线入侵不能通过时间锚再次扣基地生命。
     zombie->Die();
     mWorkshopRetiringBreach = previousBreach;
     mWorkshop->RecordBreach();
@@ -185,6 +186,12 @@ void Board::UpdateWorkshop()
 {
     if (!mWorkshop) return;
     const float dt = DeltaTime::GetDeltaTime();
+    // 原生场景事务必须随袭击推进；准备期停表，已提交时间锚不能被提前清波丢弃。
+    if (mWorkshop->State() == Workshop::Phase::Assault) {
+        UpdateIceTrails(dt);
+        UpdatePolarFinaleRituals(dt);
+        mShakeTimer = std::max(0.0f, mShakeTimer - dt);
+    }
     RefreshWorkshopObservation();
     mWorkshop->Tick(dt);
     mBoardFrameAccum += dt / DeltaTime::GetFixedStep();
@@ -200,7 +207,8 @@ void Board::UpdateWorkshop()
         const auto* zombie = mEntityRegistry.GetZombie(id);
         if (zombie && zombie->IsActive() && !zombie->IsMindControlled()) { anyZombie = true; break; }
     }
-    if (mWorkshop->State() == Workshop::Phase::Assault && mWorkshop->RemainingSpawns() == 0 && !anyZombie) {
+    if (mWorkshop->State() == Workshop::Phase::Assault && mWorkshop->RemainingSpawns() == 0 && !anyZombie
+        && mTemporalAnchors.empty() && mPendingAuroraRifts.empty()) {
         mWorkshop->CompleteAssault();
         if (mWorkshop->State() == Workshop::Phase::Planning) mWorkshopBattleCheckpoint = nullptr;
     }

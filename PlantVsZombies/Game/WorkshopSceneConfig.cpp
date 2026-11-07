@@ -78,10 +78,10 @@ void WorkshopScene::OpenMachineConfig(int index) {
         add("cfg_counter_output", "输出方式", 420, 176, 300, [this, action] { action("counter_output", 1 - static_cast<int>(World().Cells()[mConfigMachine].counterOutput)); });
         add("cfg_counter_reset", "计数清零", 760, 330, 180, [action] { action("counter_reset"); });
     }
-    if (type == M::StockSensor || type == M::EnemySensor) {
+    if (Workshop::IsStockSensor(type) || type == M::EnemySensor) {
         add("cfg_route0", "目标路线", 140, 176, 200, [this, action] { action("route0", (World().Cells()[mConfigMachine].route + 1) % Workshop::Rows); });
     }
-    if (type == M::Counter || type == M::StockSensor || type == M::Store || type == M::Splitter) {
+    if (type == M::Counter || Workshop::IsStockSensor(type) || type == M::Store || type == M::Splitter) {
         add("cfg_filter0", "筛选", 140, type == M::Splitter ? 282.0f : 230.0f, 260, [this, action] {
             const int current = World().Cells()[mConfigMachine].filter;
             int next = current >= Workshop::ItemCount - 1 ? -1 : current + 1;
@@ -89,12 +89,23 @@ void WorkshopScene::OpenMachineConfig(int index) {
             action("filter0", next);
         });
     }
-    if (type == M::Timer || type == M::StockSensor || type == M::EnemySensor || type == M::Counter) {
+    if (Workshop::IsTimedLogic(type) || Workshop::IsStockSensor(type) || type == M::EnemySensor || type == M::Counter) {
         for (int i = 0; i < 4; ++i) {
             const int delta = std::array<int, 4>{-5, -1, 1, 5}[i];
             add("cfg_setting" + std::to_string(i), delta < 0 ? std::to_string(delta) : "+" + std::to_string(delta), 140 + i * 125.0f, 330, 110,
-                [this, action, delta, type] { action("setting", std::clamp(World().Cells()[mConfigMachine].setting + delta, 1, type == M::Timer ? 120 : 1000000)); });
+                [this, action, delta, type] {
+                    const auto& c = World().Cells()[mConfigMachine];
+                    action("setting", std::clamp(c.setting + delta, 1, Workshop::IsTimedLogic(type) ? 120 : type == M::StockRegulator ? c.upperSetting - 1 : 1000000));
+                });
         }
+    }
+    if (type == M::StockRegulator) for (int i = 0; i < 4; ++i) {
+        const int delta = std::array<int, 4>{-5, -1, 1, 5}[i];
+        add("cfg_upper" + std::to_string(i), delta < 0 ? std::to_string(delta) : "+" + std::to_string(delta), 140 + i * 125.0f, 430, 110,
+            [this, action, delta] {
+                const auto& c = World().Cells()[mConfigMachine];
+                action("upper_setting", std::clamp(c.upperSetting + delta, c.setting + 1, 1000000));
+            });
     }
     if (type == M::Switch || type == M::Cannon || type == M::PowerBox)
         add("cfg_manual", "自动 / 待机", type == M::Cannon ? 628.0f : 140.0f, type == M::Cannon ? 458.0f : type == M::PowerBox ? 420.0f : 190.0f, 150, [action] { action("configure"); });
@@ -150,10 +161,10 @@ void WorkshopScene::RefreshMachineConfig() {
     set("cfg_plan0", c.type == M::PowerBox ? "方案1：普通供电" : c.type == M::Splitter ? "正前方" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 0 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0);
     set("cfg_plan1", c.type == M::PowerBox ? "方案2：优先供电" : c.type == M::Splitter ? "右侧" : c.inputs[1] >= 0 ? "由电路选择" : World().ActivePlan(mConfigMachine) == 1 ? "正在使用" : "点击使用此方案", c.inputs[1] < 0 && (c.type != M::Cooler || World().CompletedWaves() >= 8));
     for (int plan = 0; plan < 2; ++plan) {
-        const bool sensor = c.type == M::StockSensor || c.type == M::EnemySensor;
+        const bool sensor = Workshop::IsStockSensor(c.type) || c.type == M::EnemySensor;
         set("cfg_route" + std::to_string(plan), std::string(sensor ? "监视：第 " : "送往：第 ") + std::to_string((plan ? c.route2 : c.route) + 1) + " 路");
         const int filter = plan ? c.filter2 : c.filter;
-        set("cfg_filter" + std::to_string(plan), std::string(c.type == M::StockSensor ? "检测：" : c.type == M::Counter ? "计量：" : "接收：") + (filter == 0 ? "普通豌豆" : filter == 1 ? "寒冰豌豆" : Workshop::AmmoName(filter)),
+        set("cfg_filter" + std::to_string(plan), std::string(Workshop::IsStockSensor(c.type) ? "检测：" : c.type == M::Counter ? "计量：" : "接收：") + (filter == 0 ? "普通豌豆" : filter == 1 ? "寒冰豌豆" : Workshop::AmmoName(filter)),
             !(c.type == M::Counter && c.counterMode == Workshop::CounterMode::Signal) && !(c.type == M::Splitter && c.strictSplit));
     }
     set("cfg_counter_mode", std::string("计数：") + std::array<const char*, 3>{"信号从关到开", "来源机器产出", "来源机器出库 / 发射"}[static_cast<int>(c.counterMode)]);
@@ -164,7 +175,11 @@ void WorkshopScene::RefreshMachineConfig() {
         && c.Inventory(static_cast<Workshop::Ammo>(World().ActiveFilter(mConfigMachine))) >= Workshop::CannonVolleySize);
     for (int i = 0; i < 4; ++i) if (auto it = mConfigControls.find("cfg_setting" + std::to_string(i)); it != mConfigControls.end()) {
         const int delta = std::array<int, 4>{-5, -1, 1, 5}[i];
-        it->second->SetEnabled(std::clamp(c.setting + delta, 1, c.type == M::Timer ? 120 : 1000000) != c.setting);
+        it->second->SetEnabled(std::clamp(c.setting + delta, 1, Workshop::IsTimedLogic(c.type) ? 120 : c.type == M::StockRegulator ? c.upperSetting - 1 : 1000000) != c.setting);
+    }
+    for (int i = 0; i < 4; ++i) if (auto it = mConfigControls.find("cfg_upper" + std::to_string(i)); it != mConfigControls.end()) {
+        const int delta = std::array<int, 4>{-5, -1, 1, 5}[i];
+        it->second->SetEnabled(std::clamp(c.upperSetting + delta, c.setting + 1, 1000000) != c.upperSetting);
     }
     set("cfg_counter_reset", "计数清零", c.count != 0 || c.signal);
     for (const auto& [key, button] : mConfigControls) if (key.starts_with("cfg_card"))
@@ -185,7 +200,7 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
     Label(type == M::Feeder ? "这是一台配送设备：把弹药送进指定路线的公共弹仓，植物按自身弹种取用。" : "查看时已暂停；配置保留库存与进度，关闭窗口后继续运行。", 130, 96, 15);
     auto connection = [&](int port) {
         const int source = c.inputs[port];
-        const bool measuring = port == 0 && (c.type == M::StockSensor || (c.type == M::Counter && c.counterMode != Workshop::CounterMode::Signal));
+        const bool measuring = port == 0 && (Workshop::IsStockSensor(c.type) || (c.type == M::Counter && c.counterMode != Workshop::CounterMode::Signal));
         return Workshop::PortLabel(c, port) + "：" + (source < 0 ? "未连接" : std::string(Workshop::Describe(World().Cells()[source].type).name)
             + (measuring ? "（读取数量）" : std::string(" ") + Workshop::SignalName(World().Cells()[source].signal)));
     };
@@ -212,14 +227,21 @@ void WorkshopScene::DrawMachineConfig(Graphics* g) {
         Label(c.strictSplit ? "严格选路：只送选定出口，堵住时等待，不偷偷换路。" : "普通模式：无筛选时轮流/优先；有筛选时按弹种固定分路。", 140, 330, 17, kConfigGreen);
         Label(circuits ? "A 口可停止输出；B 口在严格模式下直接选择前方 / 右侧。" : "严格模式下，点击正前方 / 右侧即可选择出料口。", 140, 371, 16);
         Label("切回普通模式会保留原来的筛选配置，旧基地迁移后仍是普通模式。", 140, 410, 14);
-    } else if (type == M::Counter || type == M::StockSensor || type == M::EnemySensor || type == M::Timer) {
-        Label(std::string(type == M::Timer ? "周期（秒）：" : type == M::Counter ? "每批 / 门槛：" : "触发门槛：") + std::to_string(c.setting), 140, 290, 22, kConfigGreen);
+    } else if (type == M::Counter || Workshop::IsStockSensor(type) || type == M::EnemySensor || Workshop::IsTimedLogic(type)) {
+        Label(std::string(type == M::Timer ? "周期（秒）：" : Workshop::IsTimedLogic(type) ? "时长（秒）：" : type == M::StockRegulator ? "开工下限：" : type == M::Counter ? "每批 / 门槛：" : "触发门槛：") + std::to_string(c.setting), 140, 290, 22, kConfigGreen);
         if (type == M::Counter) {
             Label(std::format("本批 {} · 输出 {}", c.count, c.signal ? "开" : "关"), 140, 383, 20, kConfigGreen);
             Label("产出统计成品，出库统计交付的物料；炮台出库按实际发出的瓜弹计数。", 140, 421, 14);
             Label("改变计数方式、来源、物料或门槛会从新批次开始；B 清零优先。", 140, 453, 14);
-        } else if (type == M::StockSensor) Label("A 接机器时检测该机器；A 未接时检测选定路线的弹仓。", 140, 400, 16);
+        } else if (type == M::StockRegulator) {
+            Label(std::format("停工上限：{} · 当前输出{}", c.upperSetting, c.signal ? "开" : "关"), 140, 390, 22, kConfigGreen);
+            Label("低于下限开，达到上限关，中间保持；A接机器库存，未接则看本路弹仓。", 140, 478, 14);
+        } else if (Workshop::IsStockSensor(type)) Label("A 接机器时检测该机器；A 未接时检测选定路线的弹仓。", 140, 400, 16);
         else if (type == M::EnemySensor) Label("检测该条前线路线的存活僵尸数量，达到门槛输出开启信号。", 140, 400, 16);
+        else if (type == M::DelayRelay || type == M::Pulse) {
+            Label(Workshop::Describe(type).description, 140, 400, 16);
+            Label(std::format("计时 {:.2f} 秒 · 输出{} · A 未接时不触发", c.clock, c.signal ? "开" : "关"), 140, 440, 16, kConfigGreen);
+        }
         else Label("前半周期关闭，后半周期开启；A 不接时自动计时。", 140, 400, 16);
     } else {
         Label(Workshop::Describe(type).description, 140, 285, 17, kConfigGreen);

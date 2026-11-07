@@ -34,7 +34,7 @@
 
 `smoke_workshop_tutorial_history` 显式开启根字段 `workshopTutorials: true`，验证首次自动练习、跳过后重建不再弹出、旧解锁批次跨重建/重进场不重复、新解锁仍提示及手动教程书/练习入口。`workshop_tutorial_history` 只把教程字段保存/恢复到本脚本目录，不触碰真人 `PlayerInfo.json`；旧玩家 schema 迁移由 `save-schema` CTest 覆盖，损坏记录过滤由 `workshop` CTest 覆盖。
 
-`python autotest/verify_workshop_commissions.py --generate` 与 `python autotest/verify_workshop_spawn_pool.py --generate` 在 `build/clang-release/autotest/generated/` 生成可见专项；按正常方式运行对应 JSON 后，不带参数运行各自的 Python 校验器。前者覆盖任务板真实接取与领奖、蓝图免费机会、重装连发/穿透/点燃、前摇和在途存读档以及对象池复用；后者覆盖六个新兵种首发必出、普通僵尸保留、原生出兵顺序与已抽名单恢复。概率、期限、过期、放弃、非法文档与旧版迁移另由 `workshop` CTest 验证。
+`python autotest/verify_workshop_commissions.py --generate` 与 `python autotest/verify_workshop_spawn_pool.py --generate` 在 `build/clang-release/autotest/generated/` 生成可见专项；按正常方式运行对应 JSON 后，不带参数运行各自的 Python 校验器。前者覆盖任务板真实接取与领奖、蓝图免费机会、重装连发/穿透/点燃、前摇和在途存读档以及对象池复用；后者覆盖扩展兵种首发（含第34波双首发）、普通僵尸保留、原生出兵顺序与已抽名单恢复。概率、期限、过期、放弃、非法文档、旧版蓝图哨兵迁移、精英每波累计上限及三种新电路的计时/库存保持由 `workshop` CTest 覆盖。新内容实机验收还须检查两类图册翻页、强磁冷却、三线三弹预留与双倍伤害、棉花实际扣包治疗、钟匠回溯及鎏金冰道；编译不替代这些运行证据。
 
 `smoke_workshop_maintenance` 配合 `verify_workshop_maintenance.py` 验证装填口旧料清理的确认/取消、配置内升级、五路不同配额的批量增减、真实保存返回再进入后的倍速和最近机器，以及旧档/无效界面偏好的兼容。清理只逆向穿过运输带和分流器，遇生产机或仓库停止；分支、回路和正确弹药保留由 `WorkshopMaintenanceTests.cpp` 覆盖。该纯逻辑测试同时核对采光衰减的等级优先级、准备期冻结与实际产量。`workshop_snapshot` 保存的是 Board 战斗文档，不含界面偏好；偏好恢复必须通过 `SaveBase` 与真实重进场验证。
 

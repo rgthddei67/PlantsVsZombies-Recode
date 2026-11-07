@@ -8,7 +8,7 @@
 #include "WorkshopTraits.h"
 
 namespace Workshop {
-enum class Blueprint { PressureGrower, HeavyGatling, BlazeTorch, Count };
+enum class Blueprint { PressureGrower, HeavyGatling, BlazeTorch, RapidMagnet, HeavyThreepeater, EmergencyCotton, Count };
 enum class CommissionGoal { Produce, Deliver, Recycle, Defeat, Survive, Battle, Count };
 enum class CommissionStatus { Offered, Running, Ready, Expired, Taken };
 inline constexpr int BlueprintCount = static_cast<int>(Blueprint::Count);
@@ -18,7 +18,7 @@ inline constexpr int CommissionRefreshWaves = 5; // 每守住五波刷新未接�
 inline constexpr std::array<float, 2> CommissionDeadlines{90, 150}; // 经营任务时限，单位：袭击游戏秒；战斗只限目标波
 inline constexpr int HardCommissionChance = 50; // 后两格各自抽困难的百分比，允许整批没有困难
 inline constexpr std::array<int, 3> BlueprintChances{0, 5, 25}; // 各难度每条任务抽到蓝图的百分比，无保底
-inline constexpr std::array<int, BlueprintCount> BlueprintUnlockWaves{6, 10, 14}; // 必须守住的波数
+inline constexpr std::array<int, BlueprintCount> BlueprintUnlockWaves{6, 10, 14, 12, 18, 22}; // 必须守住的波数；新蓝图追加以保留既有 ID
 
 const char* BlueprintKey(Blueprint blueprint);
 const char* BlueprintName(Blueprint blueprint);

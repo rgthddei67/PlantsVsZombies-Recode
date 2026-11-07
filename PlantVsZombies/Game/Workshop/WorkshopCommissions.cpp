@@ -74,11 +74,11 @@ Commission ReadCommission(const nlohmann::json& j, int waves) {
 }
 
 const char* BlueprintKey(Blueprint blueprint) {
-    constexpr std::array<const char*, BlueprintCount + 1> keys{"pressure_grower", "heavy_gatling", "blaze_torch", "none"};
+    constexpr std::array<const char*, BlueprintCount + 1> keys{"pressure_grower", "heavy_gatling", "blaze_torch", "rapid_magnet", "heavy_threepeater", "emergency_cotton", "none"};
     return keys.at(static_cast<int>(blueprint));
 }
 const char* BlueprintName(Blueprint blueprint) {
-    constexpr std::array<const char*, BlueprintCount + 1> names{"高压育豆机", "重装机枪射手", "炽焰树桩", "无"};
+    constexpr std::array<const char*, BlueprintCount + 1> names{"高压育豆机", "重装机枪射手", "炽焰树桩", "强磁菇", "重装三线射手", "急救棉花", "无"};
     return names.at(static_cast<int>(blueprint));
 }
 const char* CommissionGoalName(CommissionGoal goal) {

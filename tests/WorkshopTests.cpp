@@ -64,7 +64,7 @@ int main() {
     const auto firstUnlock = GuideTopics(1, 0), circuitsUnlock = GuideTopics(2, 1);
     Check(firstUnlock.size() == 5 && circuitsUnlock.size() == 11, "each completed wave produces one complete unlock batch");
     for (int topic : circuitsUnlock) Check(GuideUnlockWave(topic) == 2, "unlock popup does not reveal future or repeat older items");
-    Check(GuideTopics(2, 2).empty() && GuideTopics(14).size() == static_cast<int>(Machine::Count) + Plants.size() + 4, "read batches stay quiet and every item has a guide entry");
+    Check(GuideTopics(2, 2).empty() && GuideTopics(22).size() == static_cast<int>(Machine::Count) + Plants.size() + 4, "read batches stay quiet and every item has a guide entry");
     nlohmann::json guideSave = nlohmann::json::object();
     Check(ReadGuideSeenWave(guideSave, 8) == 8, "legacy saves do not replay historical unlock tutorials");
     guideSave["guideSeenWave"] = 2;
@@ -98,6 +98,17 @@ int main() {
         std::uint32_t first = 42, second = 42, third = 7;
         Check(RollAssaultTypes(31, 65, first) == RollAssaultTypes(31, 65, second), "wave roll is reproducible from saved RNG");
         Check(RollAssaultTypes(31, 65, first) != RollAssaultTypes(31, 65, third), "later waves use genuinely different compositions");
+        for (std::uint32_t seed = 1; seed <= 30; ++seed) {
+            auto random = seed;
+            const auto roster = RollAssaultTypes(60, MaxAssaultSpawns, random, 3);
+            Check(std::count(roster.begin(), roster.end(), static_cast<int>(ZombieType::ZOMBIE_NORMAL)) == MaxAssaultSpawns / 3,
+                "mature challenge keeps one third normal instead of diluting the expanded pool");
+            for (const auto& threat : Threats)
+                Check(std::count(roster.begin(), roster.end(), static_cast<int>(threat.type)) <= ThreatWaveLimit(threat.type), "elite cumulative wave caps hold even in triple hordes");
+        }
+        const auto preview = NextThreatPreview(33);
+        Check(preview.wave == 34 && preview.names.find("钟匠") != std::string::npos && preview.names.find("报纸") != std::string::npos,
+            "same-wave preview includes both guaranteed debuts");
     }
     {
         World& factory = TestWorld();

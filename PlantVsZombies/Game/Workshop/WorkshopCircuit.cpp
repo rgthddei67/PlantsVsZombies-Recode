@@ -62,12 +62,19 @@ bool World::SetCounterOutput(int i, CounterOutput output) {
 bool World::SetSetting(int i, int setting) {
     if (!Valid(i) || mPhase == Phase::Dead || setting < 1 || setting > 1000000) return false;
     auto& c = mCells[i];
-    if (c.type != Machine::Timer && c.type != Machine::StockSensor && c.type != Machine::EnemySensor && c.type != Machine::Counter) return false;
-    if (c.type == Machine::Timer && setting > 120) return false;
+    if (!IsTimedLogic(c.type) && !IsStockSensor(c.type) && c.type != Machine::EnemySensor && c.type != Machine::Counter) return false;
+    if (IsTimedLogic(c.type) && setting > 120) return false;
+    if (c.type == Machine::StockRegulator && setting >= c.upperSetting) return false;
     c.setting = setting;
-    if (c.type == Machine::Timer) c.clock = 0;
+    if (IsTimedLogic(c.type)) { c.clock = 0; c.signal = false; }
     if (c.type == Machine::Counter) ResetCounterObservation(c);
     return true;
+}
+
+bool World::SetUpperSetting(int i, int setting) {
+    if (!Valid(i) || mPhase == Phase::Dead || mCells[i].type != Machine::StockRegulator
+        || setting <= mCells[i].setting || setting > 1000000) return false;
+    mCells[i].upperSetting = setting; return true;
 }
 
 bool World::BeginCannonVolley(int i, bool manualRequest) {

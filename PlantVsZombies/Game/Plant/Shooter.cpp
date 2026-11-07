@@ -2,7 +2,7 @@
 #include "../../GameApp.h"
 #include "GameDataManager.h"
 #include "Game/Board/Board.h"
-#include "Game/Workshop/Workshop.h"
+#include "Game/Workshop/WorkshopRoster.h"
 #include "../Zombie/Zombie.h"
 #include <stdexcept>
 
@@ -150,10 +150,9 @@ float Shooter::GetWorkshopAttackSpeedMultiplier() const
 
 bool Shooter::TryUpgradeWorkshop()
 {
-	if (!mBoard || !mBoard->IsWorkshop() || (mPlantType != PlantType::PLANT_PEASHOOTER && mPlantType != PlantType::PLANT_SNOWPEA && mPlantType != PlantType::PLANT_GATLINGPEA)
-		|| !IsActive() || mPlantHealth <= 0
-		|| !mBoard->GetWorkshop().BuyUpgrade(mPlantType == PlantType::PLANT_SNOWPEA ? Workshop::IceShooterCost
-            : mPlantType == PlantType::PLANT_GATLINGPEA ? Workshop::HeavyGatlingCost : Workshop::ShooterCost, mWorkshopUpgradeLevel)) return false;
+	const auto* info = Workshop::FindPlant(mPlantType);
+	if (!mBoard || !mBoard->IsWorkshop() || !info || !info->upgrades || !IsActive() || mPlantHealth <= 0
+		|| !mBoard->GetWorkshop().BuyUpgrade(info->cost, mWorkshopUpgradeLevel)) return false;
 	const float oldSpeed = GetWorkshopAttackSpeedMultiplier();
 	++mWorkshopUpgradeLevel;
 	// 只改变正在播放的速度，保留当前帧与已消费事件；不因升级重新开始一次射击。

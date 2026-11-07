@@ -64,7 +64,7 @@ def generate():
     def offer(challenge, difficulty=2, sun=7200):
         values = dict(challenge=challenge, difficulty=difficulty, goal=5, target=1, progress=0,
                       timeLimit=0, remaining=0, status=0, targetWave=0, trait=9,
-                      blueprint=3, legacy=False, sunReward=sun)
+                      blueprint=6, legacy=False, sunReward=sun)
         return [("/state/commissions/offers/4/" + k, v) for k, v in values.items()]
 
     def base(name, patches=()):

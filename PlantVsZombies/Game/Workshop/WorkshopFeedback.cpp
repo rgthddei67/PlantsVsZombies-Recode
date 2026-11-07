@@ -16,7 +16,7 @@ std::string PortLabel(const Cell& cell, int port) {
     }
     if (cell.type == Machine::PowerBox) return "A 支路通断";
     if (RatedPower(cell.type) > 0) return "无 A 口";
-    if (cell.type == Machine::StockSensor) return "A 看库存";
+    if (IsStockSensor(cell.type)) return "A 看库存";
     if (cell.type == Machine::EnemySensor || cell.type == Machine::Switch) return "A 未使用";
     if (cell.type == Machine::Counter) return cell.counterMode == CounterMode::Signal ? "A 信号" : "A 计量";
     if (cell.type == Machine::Latch) return "A 开启";
@@ -57,20 +57,26 @@ std::vector<std::string> World::Explain(int index) const {
             result.push_back(PortLabel(c, port) + "：未接线。" + (port == 1 && HasSelectionInput(c.type) ? "使用手动选择的方案。"
                 : port == 0 && !IsLogic(c.type) ? "默认允许运行。" : ""));
         } else {
-            const bool measuring = port == 0 && (c.type == Machine::StockSensor || (c.type == Machine::Counter && c.counterMode != CounterMode::Signal));
+            const bool measuring = port == 0 && (IsStockSensor(c.type) || (c.type == Machine::Counter && c.counterMode != CounterMode::Signal));
             result.push_back(PortLabel(c, port) + " ← " + rule(source, 3) + (measuring ? "（读取数量）" : std::string("；当前信号：") + SignalName(mCells[source].signal)));
         }
     }
     if (c.type == Machine::EnemySensor) result.push_back(std::format("监视第{}路：当前{}只，门槛{}只。达到门槛才开；不能直接比较两路谁更多。", c.route + 1, mEnemyCounts[c.route], c.setting));
-    if (c.type == Machine::StockSensor) {
+    if (IsStockSensor(c.type)) {
         const auto& lane = mLanes[c.route];
         const int count = c.inputs[0] >= 0 ? (c.filter < 0 ? mCells[c.inputs[0]].TotalStock() : mCells[c.inputs[0]].Inventory(static_cast<Ammo>(c.filter)))
             : c.filter < 0 ? lane.TotalStock() : c.filter < AmmoCount ? lane.Inventory(static_cast<Ammo>(c.filter)) : 0;
-        result.push_back(std::format("检测{}库存：当前{}，门槛{}；达到门槛输出开（高）。", AmmoName(c.filter), count, c.setting));
-        if (c.inputs[0] < 0 && c.filter >= 0 && c.filter < AmmoCount && c.setting > lane.Quota(static_cast<Ammo>(c.filter)))
+        result.push_back(c.type == Machine::StockRegulator
+            ? std::format("检测{}库存：当前{}；低于{}开，达到{}关，中间保持上次输出。", AmmoName(c.filter), count, c.setting, c.upperSetting)
+            : std::format("检测{}库存：当前{}，门槛{}；达到门槛输出开（高）。", AmmoName(c.filter), count, c.setting));
+        if (c.inputs[0] < 0 && c.filter >= 0 && c.filter < AmmoCount && (c.type == Machine::StockRegulator ? c.upperSetting : c.setting) > lane.Quota(static_cast<Ammo>(c.filter)))
             result.push_back("提醒：门槛高于这个弹种的配额，正常补货无法补到门槛；检查弹仓配额。");
     }
     if (IsLogic(c.type)) result.push_back(std::string("当前输出：") + SignalName(c.signal) + "；每拍传播一级，开波后可能需数拍才稳定。");
+    if (c.type == Machine::DelayRelay || c.type == Machine::Pulse) {
+        result.push_back(Describe(c.type).description);
+        result.push_back(std::format("设定{}秒，当前计时{:.2f}秒；准备/暂停冻结，读档续接，不补触发。", c.setting, c.clock));
+    }
     if (HasSelectionInput(c.type)) {
         if (circuits) result.push_back(std::format("B 关（低）→方案1；B 开（高）→方案2。当前方案{}。", ActivePlan(index) + 1));
         if (c.type == Machine::Feeder) result.push_back(std::format("当前送第{}路的{}弹药；不会因另一方案缺弹而自行切换。", ActiveRoute(index) + 1, AmmoName(ActiveFilter(index))));

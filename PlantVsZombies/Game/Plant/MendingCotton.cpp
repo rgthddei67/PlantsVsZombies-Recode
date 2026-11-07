@@ -1,11 +1,13 @@
 #include "MendingCotton.h"
 #include "Game/Board/Board.h"
+#include "Game/Workshop/Workshop.h"
 #include "Graphics.h"
 #include <algorithm>
 #include <cmath>
 
 void MendingCotton::SetupPlant() {
     mPlantHealth = mPlantMaxHealth = MendingCottonRules::Health;
+    if (mBoard && mBoard->IsWorkshop()) mRemaining = Workshop::EmergencyCottonInterval;
 }
 
 /** 推进一次治疗冷却，按八邻格的生命比例选取并立即治疗一个存活目标。 */
@@ -31,8 +33,12 @@ void MendingCotton::PlantUpdate() {
                 if (!target || lhs<rhs || (lhs==rhs && p->mPlantID<target->mPlantID)) target=p;
             }
         }
-    if (!target || target->RestoreHealth(MendingCottonRules::Amount)<=0) return;
-    mRemaining=MendingCottonRules::Interval;
+    if (!target) return;
+    const bool workshop = mBoard->IsWorkshop();
+    // 已找到真实受伤目标才付款；准备期/断供不会吞包或启动治疗冷却。
+    if (workshop && !mBoard->ReserveWorkshopAmmo(mRow, mPlantType)) return;
+    if (target->RestoreHealth(workshop ? Workshop::EmergencyCottonHealing : MendingCottonRules::Amount)<=0) return;
+    mRemaining=workshop ? Workshop::EmergencyCottonInterval : MendingCottonRules::Interval;
     mLastHealedID=target->mPlantID;
     ++mHealCount;
     mThreadEnd=target->GetVisualAnchorPosition()+Vector(0,-20);
@@ -64,8 +70,9 @@ void MendingCotton::SaveExtraData(nlohmann::json& j) const {
 
 /** 恢复有界冷却及提交计数；已发生的治疗线不在读档时重播。 */
 void MendingCotton::LoadExtraData(const nlohmann::json& j) {
-    const float remaining=j.value("healRemaining",MendingCottonRules::Interval);
-    mRemaining=std::isfinite(remaining) ? std::clamp(remaining,0.0f,MendingCottonRules::Interval) : MendingCottonRules::Interval;
+    const float interval=mBoard && mBoard->IsWorkshop() ? Workshop::EmergencyCottonInterval : MendingCottonRules::Interval;
+    const float remaining=j.value("healRemaining",interval);
+    mRemaining=std::isfinite(remaining) ? std::clamp(remaining,0.0f,interval) : interval;
     mHealCount=std::max(0,j.value("healCount",0)); mLastHealedID=j.value("lastHealedID",NULL_PLANT_ID);
     mThreadRemaining=0;
 }

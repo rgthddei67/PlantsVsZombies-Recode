@@ -3,6 +3,7 @@
 
 #include "../AudioSystem.h"
 #include "Game/Board/Board.h"
+#include "Game/Workshop/Workshop.h"
 #include "../ShadowComponent.h"
 #include "../Zombie/Zombie.h"
 #include "../../Graphics.h"
@@ -52,7 +53,7 @@ const char* MagnetShroom::GetPhaseName() const
 
 float MagnetShroom::GetRechargeSeconds() const
 {
-	return kBaseRechargeSeconds;
+	return mBoard && mBoard->IsWorkshop() ? Workshop::RapidMagnetRecharge : kBaseRechargeSeconds;
 }
 
 void MagnetShroom::SetupPlant()
@@ -63,6 +64,7 @@ void MagnetShroom::SetupPlant()
 	}
 
 	Shroom::SetupPlant();
+	if (mBoard && mBoard->IsWorkshop()) SetSleepState(false);
 	SetAnimationSpeed(GameRandom::Range(
 		kIdleMinFps / kReanimationFps, kIdleMaxFps / kReanimationFps));
 	mPhase = Phase::READY;

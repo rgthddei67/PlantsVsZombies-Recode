@@ -78,7 +78,7 @@ private:
     std::shared_ptr<Button> mCatalogButton, mCatalogPowerBoxButton;
     std::vector<std::shared_ptr<Button>> mQuickButtons;
     std::vector<Workshop::Machine> mRecentMachines{Workshop::Machine::Grower, Workshop::Machine::Belt, Workshop::Machine::Feeder, Workshop::Machine::Solar};
-    int mCatalogCategory = 0;
+    int mCatalogCategory = 0, mCatalogPage = 0;
     std::string mCatalogNotice;
     std::vector<std::shared_ptr<Button>> mFactoryControls, mFrontControls;
     std::vector<std::shared_ptr<Button>> mQuotaButtons;
@@ -93,6 +93,7 @@ private:
     int mGuidePage = 0, mGuideSeenWave = 0, mGuideUnlockWave = -1;
     std::shared_ptr<Button> mPlantCatalogButton, mFrontRemoveButton, mFrontUpgradeButton, mAbilityButton, mAutomaticButton;
     std::string mPlantCatalogNotice;
+    int mPlantCatalogPage = 0;
     std::shared_ptr<GameMessageBox> mMachineConfig;
     std::unordered_map<std::string, std::shared_ptr<Button>> mConfigControls;
     int mConfigMachine = -1;
@@ -205,6 +206,8 @@ private:
     void ClearFrontPreview();
     void SelectFrontPlant(PlantType type);
     void OpenPlantCatalog();
+    /** 翻页只移动命中框与可见按钮，图册索引保持植物表身份。 */
+    void RefreshPlantCatalog();
     void ClosePlantCatalog(bool cancel = true);
     void DrawPlantCatalog(Graphics* g);
     void DrawFrontOverlay(Graphics* g);

@@ -15,6 +15,8 @@ public:
 	void LoadExtraData(const nlohmann::json& j) override;
 
 	void PlantUpdate() override;
+	/** 工坊升级同步调整三个头的当前前摇，保留已预留弹药与事件消费状态。 */
+	bool TryUpgradeWorkshop() override;
 
 protected:
 	/** 创建三个附着头部，并在上头帧 73 注册整轮同步发射事件。 */
@@ -23,6 +25,7 @@ protected:
 	void ShootBullet() override;
 
 private:
+	bool mWorkshopVolleyReserved = false; // 三弹整轮原子预留，前摇读档不得再扣弹
 	std::shared_ptr<Animator> mHeadAnim2;
 	std::shared_ptr<Animator> mHeadAnim3;
 
