@@ -9038,6 +9038,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["drumWindingUp"] = drummer->IsDrumWindingUp();
 			zombieState["drumRemainingMs"] = static_cast<int>(std::lround(drummer->GetDrumRemaining()*1000));
 			zombieState["drumBeatCount"] = drummer->GetDrumBeatCount();
+			zombieState["drumRearArmVisible"] = anim && anim->GetTrackVisible("anim_innerarm2")
+				&& anim->GetTrackVisible("anim_innerarm3");
+			zombieState["drumFrontArmVisible"] = anim && anim->GetTrackVisible("crystal_drum_arm_lower")
+				&& anim->GetTrackVisible("crystal_drum_arm_hand");
+			zombieState["drumRearMalletVisible"] = anim && anim->GetTrackFollowerVisible("anim_innerarm2", "crystal_mallet");
+			zombieState["drumFrontMalletVisible"] = anim && anim->GetTrackFollowerVisible("crystal_drum_arm_lower", "crystal_mallet");
 		}
 		if (auto* gilded = dynamic_cast<GildedZamboniZombie*>(z)) {
 			zombieState["gildedBoostTextureLoaded"] = ResourceManager::GetInstance().GetTexture(

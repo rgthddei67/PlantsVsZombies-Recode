@@ -80,6 +80,11 @@ void DoorZombie::OnStopEating()
 void DoorZombie::ShowArm(bool show) const
 {
 	if (!mAnimator) return;
+	// 掉门和磁吸也会露臂；穿透伤害造成的断臂/掉头残端不能被卸装重新点亮。
+	if (show && (!mHasArm || !mHasHead || mIsDying)) {
+		ShowBrokenArm();
+		return;
+	}
 	mAnimator->SetTrackVisible("Zombie_outerarm_hand", show);
 	mAnimator->SetTrackVisible("Zombie_outerarm_lower", show);
 	mAnimator->SetTrackVisible("Zombie_outerarm_upper", show);

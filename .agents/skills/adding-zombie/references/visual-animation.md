@@ -47,6 +47,7 @@
 - 覆写 `ArmDrop()/HeadDrop()`（不调基类——基类隐藏的是普通僵尸轨道名）+ 基类阈值自动触发（臂≤2/3、头≤1/3，由 `mNeedDropArm/Head` 门控）。
 - 无残肢轨道的 reanim：藏 `outerarm_lower`+`outerarm_hand`、保 `outerarm_upper` 当残端、**不换材质**（disco 伴舞式）；有 `_bone`/`UPPER2` 的才做显示残肢/换图。
 - 同一语义部件可能按动作烘焙成多套独立轨道（雪橇队员的 `outerarm_lower/hand` 与 `outerarm_lowereating/handeating` 实证）；逐片段审计走路、啃食和其他稳态使用的全部部件轨，把隐藏与残端换图收敛到同一 helper，并在 `OnStartEating`/`PlayWalkAnimation` 切轨后按当前断肢状态重放，禁止只隐藏当前最常见的一套轨道。
+- 普通骨架掉落的是外臂，保留的内臂不能误判为再生。为持物把内臂移到前景时，须检查倒地后半段是否跨过躯干/外臂残端；鼓手使用同姿态的前后层副本，按生死状态切换，死亡恢复原版遮挡，读档与回溯共用同一派生入口。卸装露臂也必须保留已有断肢/掉头残端，不能无条件点亮手掌与前臂；回归见 `autotest/verify_zombie_arm_death.py`。
 - 断头隐藏头部组全体**含挂件**（hair/earing/tongue…逐 reanim 数）。
 - 主人指定头部挂件“随头一起飞”时，把头与挂件预合成为一张专属粒子贴图并只发一颗粒子；`HeadDrop()` 在隐藏头部组前读取头轨世界锚点，再同步隐藏挂件轨。不要用两颗独立随机粒子冒充固定连接，否则旋转和弹道会立刻错位。
 - 普通骨架服装可参考 `ZombieIdentityVisuals.cpp` 与 `scripts/generate_zombie_identity_assets.ps1`：完整衣袖、裤腿、断臂残端和离体手臂共用配色，头饰与离体头共用尺寸和安装偏移；独立 reanim 保留源轨道和帧变换。治疗等旧的运行时 body override 要同时核对，避免覆盖新服装。`ConeZombie::EmitConeDropParticle` 默认按头戴护具轨道接续，手持钻机的组合残骸由派生类保留自身路径。

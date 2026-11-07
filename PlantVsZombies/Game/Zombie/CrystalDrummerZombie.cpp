@@ -143,10 +143,17 @@ void CrystalDrummerZombie::SyncEquipment() const
 	// 专用锚点逐帧复制躯干姿态，排在领带之后、敲鼓前臂之前，鼓面不会被领带穿过。
 	mAnimator->SetTrackFollowerImage("crystal_drum_mount","crystal_drum",resources.GetTexture("IMAGE_CRYSTALDRUMMER_DRUM",false),-30,28,1.3f,1.3f,false,true,true);
 	mAnimator->SetTrackFollowerVisible("crystal_drum_mount","crystal_drum",true);
-	const float lift=mWindingUp ? -12.0f*std::clamp(1.0f-mRemaining/CrystalDrummerRules::Windup,0.0f,1.0f) : 0.0f;
-	for (const char* arm : {"anim_innerarm1","anim_innerarm2","anim_innerarm3"}) mAnimator->SetTrackOffset(arm,0,lift);
-	mAnimator->SetTrackFollowerImage("anim_innerarm2","crystal_mallet",resources.GetTexture("IMAGE_CRYSTALDRUMMER_MALLET",false),-25,-10,1,1,false);
-	mAnimator->SetTrackFollowerVisible("anim_innerarm2","crystal_mallet",true);
+	// 活体持槌手越过鼓面；倒地恢复原版后层内臂，避免完整内臂盖住外臂残端，像断臂重生。
+	// 两套轨道姿态相同，只切显隐；读档和时间回溯也由当前生死状态重建，不保存额外开关。
+	const bool foregroundArm=!mIsDying && !mIsDead;
+	for (const char* arm : {"anim_innerarm2","anim_innerarm3"}) mAnimator->SetTrackVisible(arm,!foregroundArm);
+	for (const char* arm : {"crystal_drum_arm_lower","crystal_drum_arm_hand"}) mAnimator->SetTrackVisible(arm,foregroundArm);
+	const float lift=foregroundArm && mWindingUp ? -12.0f*std::clamp(1.0f-mRemaining/CrystalDrummerRules::Windup,0.0f,1.0f) : 0.0f;
+	for (const char* arm : {"anim_innerarm1","anim_innerarm2","anim_innerarm3","crystal_drum_arm_lower","crystal_drum_arm_hand"}) mAnimator->SetTrackOffset(arm,0,lift);
+	for (const char* arm : {"anim_innerarm2","crystal_drum_arm_lower"}) {
+		mAnimator->SetTrackFollowerImage(arm,"crystal_mallet",resources.GetTexture("IMAGE_CRYSTALDRUMMER_MALLET",false),-25,-10,1,1,false);
+		mAnimator->SetTrackFollowerVisible(arm,"crystal_mallet",true);
+	}
 	mAnimator->SetTrackGlowOverride("Zombie_body",mWindingUp || mPulseRemaining>0.0f || IsBodyHitFlashing());
 	mAnimator->SetTrackGlowOverride("crystal_drum_mount",mWindingUp || mPulseRemaining>0.0f || IsBodyHitFlashing());
 }

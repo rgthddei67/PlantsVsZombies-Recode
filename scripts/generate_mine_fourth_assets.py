@@ -9,7 +9,6 @@ from copy import deepcopy
 import hashlib
 import json
 import xml.etree.ElementTree as ET
-from PIL import Image
 
 ROOT=Path(__file__).resolve().parents[1]
 RES=ROOT/'build/clang-release/resources'
@@ -17,7 +16,34 @@ SOURCE=ROOT/'scripts/assets/mine_fourth_source.png'
 LEAVES=ROOT/'scripts/assets/amber_lichen_parts_source.png'
 
 
+def generate_drummer_rig():
+    # A textureless copy of the body is an exact motion anchor after the tie.
+    # Keep the original rear arm for the death clip. Separate foreground copies
+    # hold the mallet over the drum while alive; moving the original tracks in
+    # front also exposed that intact arm across the severed stump when falling.
+    zombiepath=RES/'reanim/NormalZombie.reanim'
+    zombie=ET.fromstring('<root>'+zombiepath.read_text(encoding='utf-8-sig')+'</root>')
+    tracks={t.findtext('name'):t for t in zombie.findall('track')}
+    mount=deepcopy(tracks['Zombie_body'])
+    mount.find('name').text='crystal_drum_mount'
+    for frame in mount.findall('t'):
+        for image in list(frame.findall('i')): frame.remove(image)
+    front_arms=[]
+    for name,front_name in (('anim_innerarm2','crystal_drum_arm_lower'),
+                            ('anim_innerarm3','crystal_drum_arm_hand')):
+        arm=deepcopy(tracks[name])
+        arm.find('name').text=front_name
+        front_arms.append(arm)
+    insertion=list(zombie).index(tracks['Zombie_tie'])+1
+    for i,track in enumerate((mount,*front_arms)):
+        zombie.insert(insertion+i,track)
+    target=RES/'reanim/CrystalDrummerZombie.reanim'
+    target.write_text('\n'.join(ET.tostring(c,encoding='unicode') for c in zombie).rstrip()+'\n',encoding='utf-8')
+    return target
+
+
 def generate():
+    from PIL import Image
     atlas=Image.open(SOURCE).convert('RGBA')
     assert atlas.getchannel('A').getextrema()[0]==0, 'Transparent atlas required'
     outputs=[]
@@ -73,23 +99,7 @@ def generate():
     target=RES/'reanim/AmberLichen.reanim'
     target.write_text('\n'.join(ET.tostring(c,encoding='unicode') for c in rig).rstrip()+'\n',encoding='utf-8')
     outputs.append(target)
-    # A textureless copy of the body is an exact motion anchor after the tie.
-    # Put the drumming forearm and hand in front of the drum, retaining every
-    # original keyframe/event index and the shoulder's original rear layer.
-    zombiepath=RES/'reanim/NormalZombie.reanim'
-    zombie=ET.fromstring('<root>'+zombiepath.read_text(encoding='utf-8-sig')+'</root>')
-    tracks={t.findtext('name'):t for t in zombie.findall('track')}
-    mount=deepcopy(tracks['Zombie_body'])
-    mount.find('name').text='crystal_drum_mount'
-    for frame in mount.findall('t'):
-        for image in list(frame.findall('i')): frame.remove(image)
-    for name in ('anim_innerarm2','anim_innerarm3'): zombie.remove(tracks[name])
-    insertion=list(zombie).index(tracks['Zombie_tie'])+1
-    for i,track in enumerate((mount,tracks['anim_innerarm2'],tracks['anim_innerarm3'])):
-        zombie.insert(insertion+i,track)
-    target=RES/'reanim/CrystalDrummerZombie.reanim'
-    target.write_text('\n'.join(ET.tostring(c,encoding='unicode') for c in zombie).rstrip()+'\n',encoding='utf-8')
-    outputs.append(target)
+    outputs.append(generate_drummer_rig())
     inputs=[SOURCE,LEAVES,rigpath,RES/'reanim/NormalZombie.reanim']
     hashes={p.relative_to(ROOT).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs+outputs}
     lock=Path(__file__).with_suffix('.sha256.json')
@@ -101,4 +111,20 @@ def generate():
 
 
 if __name__=='__main__':
-    generate()
+    import sys
+    if '--drummer-only' in sys.argv:
+        # Layer-only changes do not resample the reviewed PNG assets.
+        lock=Path(__file__).with_suffix('.sha256.json')
+        hashes=json.loads(lock.read_text())
+        reference=RES/'reanim/NormalZombie.reanim'
+        assert hashes[reference.relative_to(ROOT).as_posix()]==hashlib.sha256(reference.read_bytes()).hexdigest()
+        target=generate_drummer_rig()
+        key=target.relative_to(ROOT).as_posix()
+        digest=hashlib.sha256(target.read_bytes()).hexdigest()
+        if hashes[key]!=digest and '--accept-reviewed' not in sys.argv:
+            raise RuntimeError('Reviewed drummer rig hash drift')
+        hashes[key]=digest
+        lock.write_text(json.dumps(hashes,indent=2)+'\n',encoding='utf-8')
+        print('Generated drummer rig without resampling textures')
+    else:
+        generate()
