@@ -460,7 +460,9 @@ void WorkshopScene::DrawGuide(Graphics* g) {
     Label(mGuideUnlockWave >= 0 ? "这次解锁" : "已解锁目录", 88, 101, 17, kGreen);
     const int topic = mGuideTopics[mGuidePage]; const auto lesson = Explain(topic, World().Unlocked(M::Switch));
     auto picture = [this, g](int id, float x, float y, float size) {
-        if (id == Workshop::CommissionGuide) DrawMachineImage(g, M::Store, x, y, size / 50.0f);
+        if (id == Workshop::CommissionGuide) {
+            DrawMachineImage(g, M::Store, x, y, size / 50.0f); return;
+        }
         else if (id == Workshop::PowerGuide || id == Workshop::DispatchGuide || id == Workshop::FocusGuide) {
             g->FillRect(x, y, size, size, glm::vec4(60, 85, 51, 255));
             DrawUtilityIcon(g, "wire_a_tool", x + size * .15f, y + size * .15f, size * .7f); return;

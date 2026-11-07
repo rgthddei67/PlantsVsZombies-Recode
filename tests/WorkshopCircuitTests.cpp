@@ -48,6 +48,21 @@ void TestWorkshopCircuits() {
     Check(b.SetCounterMode(4, CounterMode::Produced) && b.Cells()[4].inputs[0] == -1
         && !b.Connect(3, 4, 0), "incompatible source removed on counting mode change");
 
+    // 蓝图生产机沿用产出计量；切换计量方式和读档均不能断线或补计历史产量。
+    auto pressure = Fixture(6); auto& p = *pressure;
+    save = p.Save(); save["state"]["commissions"]["blueprints"][static_cast<int>(Blueprint::PressureGrower)] = true;
+    Load(p, save);
+    Check(Build(p, 2, Machine::PressureGrower, 0) && Build(p, 3, Machine::Store, 0)
+        && Build(p, 4, Machine::Counter, 0) && p.SetCounterMode(4, CounterMode::Produced)
+        && p.SetSetting(4, 3) && p.Connect(2, 4, 0), "pressure grower production counter connects");
+    Check(p.StartAssault(), "pressure counter start"); Step(p, 3);
+    Check(p.Cells()[2].producedItems[0] == 3 && p.Cells()[4].count == 3 && p.Cells()[4].signal,
+        "pressure output reaches the real counter threshold");
+    Check(p.SetCounterMode(4, CounterMode::Transferred) && p.SetCounterMode(4, CounterMode::Produced)
+        && p.Cells()[4].inputs[0] == 2 && p.Cells()[4].count == 0, "pressure counting mode changes retain source and reset baseline");
+    Load(*replay, p.Save()); Step(p, 1); Step(*replay, 1);
+    Check(p.Cells()[4].count == 1 && p.Save() == replay->Save(), "pressure counter reload counts only new production");
+
     auto split = Fixture(); auto& s = *split;
     Check(Build(s, 2, Machine::Splitter, 0) && Build(s, 3, Machine::Store, 0)
         && Build(s, 22, Machine::Store, 0) && Build(s, 4, Machine::Switch, 0)
