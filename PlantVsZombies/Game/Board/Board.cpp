@@ -2380,6 +2380,7 @@ Plant* Board::CreatePlantInternal(PlantType actualType, PlantType placementType,
 	}
 
 	if (plant && !isPreview && !skipsettings) {
+		if (mWorkshop) ScaleWorkshopPlantHealth(plant.get(), mWorkshop->Tasks().Bonuses().health);
 		Cell* cell = GetCell(row, column);
 		const bool isUnderPlant = IsUnderPlantLayerType(placementType);
 		const bool isFoundation = UsesFoundationLayer(placementType);
@@ -2512,7 +2513,7 @@ Zombie* Board::CreateZombie(ZombieType zombieType, int row, float x, bool skipse
 	if (!isPreview && !skipsettings) {
 		mEntityRegistry.AddZombie(zombie);
 		zombie->mSpawnWave = this->mCurrentWave;
-		// 按当前难度来源对整只僵尸血量施加全局倍率（默认 1，目前由生存模式按轮次提供）。
+		// 按当前难度来源对整只僵尸血量施加倍率，包含生存轮次、词条和本波工坊挑战。
 		// 仅在此波次生成路径施加；读档走 CreateZombieWithID 直接还原已含倍率的存档血量，不重复缩放。
 		zombie->ApplyHealthMultiplier(GetZombieHpMultiplier(),
 			mHxyModeEnabled ? kHxyArmorHealthMultiplier : 1.0);

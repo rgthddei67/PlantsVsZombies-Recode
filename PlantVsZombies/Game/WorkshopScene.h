@@ -161,6 +161,7 @@ private:
     void DrawUtilityIcon(Graphics* g, const std::string& action, float x, float y, float size);
     void OpenGuide(int topic = 0, bool newUnlocks = false);
     void OpenCommissions();
+    void OpenCommissionDetails(int index, bool active = false);
     void CloseCommissions();
     void RefreshCommissions();
     void DrawCommissions(Graphics* g);

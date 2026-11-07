@@ -51,7 +51,7 @@ float World::SolarProduction() const {
         const int full = std::min(remaining, counts[level]); remaining -= full;
         rate += SolarRates[level] * (full + (counts[level] - full) * ExtraSolarRatio);
     }
-    return rate;
+    return rate * mCommissions.Bonuses().sunshine;
 }
 
 }

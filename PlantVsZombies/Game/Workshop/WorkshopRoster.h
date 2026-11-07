@@ -79,18 +79,18 @@ inline ZombieType SpawnType(int wave, int number) {
 }
 
 /** 每波一次性抽选：普通僵尸固定保留，首次开放品种保证一只；结果必须随本波保存。 */
-inline std::vector<int> RollAssaultTypes(int wave, int count, std::uint32_t& random) {
+inline std::vector<int> RollAssaultTypes(int wave, int count, std::uint32_t& random, int eliteWeight = 1) {
     constexpr int kNormalWeight = 12; // 随机名额里的普通僵尸权重，此外每三只保留一只普通
     auto next = [&] { random ^= random << 13; random ^= random >> 17; random ^= random << 5; return random; };
     int total = kNormalWeight;
-    for (const auto& threat : Threats) if (threat.wave < wave) total += std::max(1, 24 / threat.period);
+    for (const auto& threat : Threats) if (threat.wave < wave) total += std::max(1, 24 / threat.period) * eliteWeight;
     std::vector<int> result(count, static_cast<int>(ZombieType::ZOMBIE_NORMAL));
     for (int i = 0; i < count; ++i) {
         if (i % 3 == 0) continue;
         int choice = static_cast<int>(next() % total) - kNormalWeight;
         if (choice < 0) continue;
         for (const auto& threat : Threats) if (threat.wave < wave) {
-            choice -= std::max(1, 24 / threat.period);
+            choice -= std::max(1, 24 / threat.period) * eliteWeight;
             if (choice < 0) { result[i] = static_cast<int>(threat.type); break; }
         }
     }

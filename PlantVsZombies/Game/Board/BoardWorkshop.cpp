@@ -13,6 +13,7 @@
 #include <limits>
 #include <stdexcept>
 #include <format>
+#include <cmath>
 
 namespace {
 constexpr float kWorkshopSpawnX = 1060.0f; // 复用草坪右侧正常出生区域，单位：世界像素
@@ -51,6 +52,7 @@ std::string Board::WorkshopPlantPlacementReason(PlantType type, int row, int col
     const auto* info = Workshop::FindPlant(type);
     if (!mWorkshop || !info) return "工坊尚未开放此植物";
     if (mWorkshop->State() == Workshop::Phase::Dead) return "基地已失守";
+    if (mWorkshop->State() == Workshop::Phase::Assault && mWorkshop->ChallengeRules().lockFormation) return "阵地锁定：本波不能新种或原位改造，仍可修复";
     if (row < 0 || row >= Workshop::Rows || column < 0 || column >= Workshop::FrontColumns) return "只能种在左侧六列";
     if (mWorkshop->CompletedWaves() < info->unlockWave) return "守住第 " + std::to_string(info->unlockWave) + " 波后解锁";
     if (!Workshop::PlantUnlocked(*mWorkshop, *info)) return "尚未获得本基地的委托蓝图";
@@ -89,6 +91,26 @@ bool Board::PlaceWorkshopPlant(PlantType type, int row, int column) {
     if (type == PlantType::PLANT_ICESTORAGENUT) mWorkshop->EnsureAmmoQuota(row, Workshop::Ammo::RepairKit);
     mWorkshop->StartPlantCooldown(info.key, GameDataManager::GetInstance().GetPlantCooldown(type));
     RefreshWorkshopObservation();
+    return true;
+}
+
+float Board::GetWorkshopMoveMultiplier() const { return mWorkshop ? mWorkshop->ChallengeRules().movement : 1; }
+float Board::GetWorkshopDamageMultiplier() const { return mWorkshop ? mWorkshop->Tasks().Bonuses().damage : 1; }
+float Board::GetWorkshopZombieHealthMultiplier() const { return mWorkshop ? mWorkshop->ChallengeRules().health : 1; }
+
+void Board::ScaleWorkshopPlantHealth(Plant* plant, float multiplier) {
+    if (!plant || !plant->IsActive() || plant->mPlantHealth <= 0 || multiplier == 1) return;
+    const float ratio = static_cast<float>(plant->mPlantHealth) / std::max(1, plant->mPlantMaxHealth);
+    plant->mPlantMaxHealth = std::max(1, static_cast<int>(std::lround(plant->mPlantMaxHealth * multiplier)));
+    plant->mPlantHealth = std::clamp(static_cast<int>(std::lround(plant->mPlantMaxHealth * ratio)), 1, plant->mPlantMaxHealth);
+}
+
+bool Board::ClaimWorkshopCommission(int index) {
+    if (!mWorkshop) return false;
+    const float previous = mWorkshop->Tasks().Bonuses().health;
+    if (!mWorkshop->ClaimCommission(index)) return false;
+    const float multiplier = mWorkshop->Tasks().Bonuses().health / previous;
+    if (multiplier != 1) for (int id : mEntityRegistry.GetAllPlantIDs()) ScaleWorkshopPlantHealth(mEntityRegistry.GetPlant(id), multiplier);
     return true;
 }
 

@@ -229,6 +229,13 @@ public:
     /** 预览与正式种植共用资格检查，空串表示可以种植。 */
     std::string WorkshopPlantPlacementReason(PlantType type, int row, int column);
     bool PlaceWorkshopPlant(PlantType type, int row, int column);
+    /** 正式领奖入口：提交本基地奖励，并按原比例同步现存植物生命上限。 */
+    bool ClaimWorkshopCommission(int index);
+    float GetWorkshopMoveMultiplier() const;
+    float GetWorkshopDamageMultiplier() const;
+    float GetWorkshopZombieHealthMultiplier() const;
+    /** 出生/领奖使用，读档植物直接恢复已保存生命，不能重复调用。 */
+    void ScaleWorkshopPlantHealth(Plant* plant, float multiplier);
     bool RemoveWorkshopPlant(int row, int column);
     void RecordWorkshopPlantShot(PlantType type);
     void RecordWorkshopKill(const Zombie& zombie);
@@ -2058,6 +2065,7 @@ public:
 		if (mIsSurvival)
 			multiplier *= (1.0 + SURVIVAL_HP_GROWTH * static_cast<double>(mSurvivalRound - 1));
 		multiplier *= mPerkManager.GetZombieHealthMultiplier();   // 词条：僵尸血量（空时=1.0）
+		multiplier *= GetWorkshopZombieHealthMultiplier();
 		return multiplier;
 	}
 

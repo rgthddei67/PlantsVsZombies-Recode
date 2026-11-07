@@ -2,6 +2,10 @@
 
 按当前任务读取命中段落，各专项只在对应机制受影响时适用；流程与审批遵循 [技能入口](../SKILL.md) 和 [AGENTS.md](../../../../AGENTS.md)。
 
+### 工坊挑战必须与可放弃的任务记录分离
+
+`Workshop::World` 在 `StartAssault` 冻结本波挑战并抽选完整名单；本波放弃或零漏怪失败不能撤销已提交的强化。数量倍率以出兵间隔数压缩保持首尾出兵时刻，三段主攻使用实际总量。厚甲复用 Board 正式出生生命倍率（含额外保护层），读档不重乘；移动倍率仅进入 `ZombieMove` 的位移时间及同源速度预测，不进入啃食/技能时间。新波、重试、召唤及 `CreateZombieWithID` 恢复须分别遵守该边界。专项为 `verify_workshop_challenges.py` 与 `WorkshopCommissionTests.cpp`。
+
 ### 天气条件变异
 
 同时使用 `adding-rain-weather`。`spawnlists.json` 与波次点数预算只放基础类型，正式生成路径在扣点前经唯一 resolver 决定实际变异类型；`CreateZombie`/`spawn_zombie` 保持直造确定性。每波上限只在推进新波时清零，不能被天气切换重置；已生成数必须入存档，`weight: 0` 的变异体不得独立进入随机池。

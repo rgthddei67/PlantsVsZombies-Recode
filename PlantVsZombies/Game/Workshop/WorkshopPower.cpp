@@ -84,7 +84,7 @@ float World::MachinePower(int index) const {
 /** 每拍先汇总真实负载，再按优先层级分配；同级同比分配，未使用电力立即供下一层。 */
 PowerNetwork World::Distribution() const {
     PowerNetwork result;
-    result.total.capacity = GridCapacities[mGridLevel - 1];
+    result.total.capacity = GridCapacities[mGridLevel - 1] * mCommissions.Bonuses().power * ChallengeRules().power;
     for (int i = 0; i < CellCount; ++i) if (mCells[i].type == Machine::PowerBox) {
         auto& b = result.branches[i];
         b.connected = mCells[i].powerSource == MainPowerSource;
@@ -143,7 +143,7 @@ bool World::SpendRepair(int row, float sunCost) {
 }
 
 int World::StageSpawnEnd(int stage) const {
-    const int total = 5 + std::min(100, mCompletedWaves * 2);
+    const int total = mPhase == Phase::Planning ? (5 + std::min(100, mCompletedWaves * 2)) * ChallengeRules().count : mSpawned + mRemainingSpawns;
     return (total * (std::clamp(stage, 0, 2) + 1) + 2) / 3;
 }
 

@@ -59,10 +59,10 @@ void Gate(Lesson& lesson, M gate, M first, M second) {
 Lesson Explain(int topic, bool circuits) {
     Lesson lesson;
     if (topic == Workshop::CommissionGuide) {
-        lesson.purpose = "主动接取限时委托，获得阳光或本基地专属蓝图。";
-        lesson.steps = {"1. 点主工具栏的戴夫委托，查看目标、时限与奖励。", "2. 同时最多接2项；只计接取后的生产和战斗。", "3. 完成后手动领奖；蓝图附送1次免费建造或种植。"};
-        lesson.tip = "10分钟袭击时间刷新；蓝图概率：简单0%、中等5%、困难25%，无保底。";
-        lesson.example = "准备、暂停、离线均停表；已接任务跨刷新保留，超时只失去奖励。";
+        lesson.purpose = "经营限时冲刺，或主动强化下一波，赢取蓝图与稀有词条。";
+        lesson.steps = {"1. 每守住5波刷新；先点详情看清挑战、奖励与概率。", "2. 最多接2项，其中1条战斗；开波后强化不能撤销。", "3. 困难任务随机出现，可出传奇1%；完成后手动领奖。"};
+        lesson.tip = "经营限90/150秒袭击时间；战斗只限下一完整波，三类蓝图概率不变。";
+        lesson.example = "普通25% · 史诗4% · 传奇1%，无保底；词条与蓝图只在当前基地有效。";
         return lesson;
     }
     if (topic == Workshop::PowerGuide) {

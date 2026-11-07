@@ -146,7 +146,8 @@ float CatapultZombie::GetCurrentHorizontalMoveSpeed() const
 		speed *= AmplifySpeedMultiplierForGoldenIce(
 			mBoard->GetZombieWindMoveMultiplier(false));
 	}
-	return std::max(0.0f, speed * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier());
+	return std::max(0.0f, speed * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier()
+		* (mBoard ? mBoard->GetWorkshopMoveMultiplier() : 1));
 }
 
 void CatapultZombie::ZombieUpdate(float scaledTime)

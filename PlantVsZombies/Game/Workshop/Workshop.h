@@ -27,7 +27,7 @@ inline constexpr int ExpansionCost = 250; // 工厂宽、高各扩建两格的�
 inline constexpr float GrowPeriod = 2.5f; // 基础育豆机制造一颗豌豆的间隔，单位：秒
 inline constexpr float GrowEnergy = 2.0f; // 每颗豌豆消耗的阳光能源
 inline constexpr float SolarRate = 1.2f; // 基础集光器每秒产生的阳光能源
-inline constexpr float EnergyLimit = 10000.0f; // 全基地阳光池上限；回收机满池待机
+inline constexpr float EnergyLimit = 50000.0f; // 全基地阳光池上限，容纳三倍困难奖励；容量不足时保留待领奖任务
 inline constexpr float TransportPeriod = 0.25f; // 基础物流与电路节拍，单位：秒
 inline constexpr int MaxUpgradeLevel = 3; // 每台机器或每株射手的等级上限
 inline constexpr std::array<float, 3> GrowPeriods{GrowPeriod, 2.0f, 1.6f}; // 各级育豆机与冷凝机生产间隔，单位：秒/颗
@@ -56,7 +56,8 @@ inline constexpr float RepairKitEnergy = 10; // 每份维修包加工消耗的�
 inline constexpr std::array<float, 3> RepairKitPeriods{4, 3.2f, 2.5f}; // 维修机各级生产周期，游戏秒/包
 inline constexpr int MainPowerSource = -2; // 固定总站身份，不占工厂格；-1 表示未接电
 inline constexpr int StarterPowerBox = 2 * MaxColumns; // 开局配电箱格位，位于两台集光器下方
-inline constexpr int SaveVersion = 8; // v8 保存委托、基地蓝图与随机出兵；v7 无损补入新系统
+inline constexpr int SaveVersion = 9; // v9 波次挑战与工坊词条；v8 已存在任务保留原目标和期限，到下个五波节点刷新
+inline constexpr int MaxAssaultSpawns = 315; // 原105只波次上限乘最大三倍尸潮，不含僵尸自身召唤
 inline constexpr float PressureGrowerRate = 3, PressureGrowerPower = 2; // 相同等级的产能与耗电倍率
 inline constexpr int HeavyGatlingCost = 600, BlazeTorchCost = 350; // 蓝图解锁后改造/种植费用，阳光
 inline constexpr int HeavyGatlingVolley = 4; // 每轮预留普通弹数与实际发射数
@@ -277,6 +278,11 @@ public:
     bool ClaimCommission(int active);
     Commissions& Tasks() { return mCommissions; }
     const Commissions& Tasks() const { return mCommissions; }
+    Challenge WaveChallenge() const { return mWaveChallenge; }
+    /** 准备期显示已接下一波效果，开波后只读冻结配置，放弃也不会撤销。 */
+    const ChallengeDefinition& ChallengeRules() const {
+        return DescribeChallenge(mPhase == Phase::Planning ? mCommissions.ChallengeForWave(mCompletedWaves + 1) : mWaveChallenge);
+    }
     bool Enabled(int index) const;
     /** 加工电源开关；与 A 口取 AND，关机保留原料、成品和加工进度。 */
     bool SetMachineRunning(int index, bool running);
@@ -311,6 +317,7 @@ private:
     std::array<int, Rows> mEnemyCounts{};
     std::map<std::string, float> mPlantCooldowns;
     Commissions mCommissions;
+    Challenge mWaveChallenge = Challenge::None;
     Phase mPhase = Phase::Planning;
     int mColumns = 10, mRows = 10, mHealth = 3, mCompletedWaves = 0;
     int mRemainingSpawns = 0, mSpawned = 0;

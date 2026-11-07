@@ -293,6 +293,8 @@ void WorkshopScene::DrawFrontOverlay(Graphics* g) {
         const auto reason = mBoard->WorkshopPlantPlacementReason(mFrontBuildType, cell / Workshop::FrontColumns, cell % Workshop::FrontColumns);
         if (!reason.empty()) status = reason + " · Esc / 右键取消";
     }
+    if (mFrontTool == FrontTool::Inspect && World().ChallengeRules().mechanisms > 0)
+        status = std::string("本波委托：") + World().ChallengeRules().name + " · 全部效果见戴夫委托详情";
     g->FillRect(216, 575, 872, 25, mFrontTool == FrontTool::Remove ? kFrontRed : glm::vec4(232, 220, 168, 245));
     g->PushClipRect(216, 575, 640, 25);
     FrontText(status, 225, 580, 13, mFrontTool == FrontTool::Remove ? glm::vec4(255, 247, 217, 255) : kFrontInk);

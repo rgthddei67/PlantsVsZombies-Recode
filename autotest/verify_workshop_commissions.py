@@ -44,6 +44,10 @@ def generate():
             act("guide_close")
             wait(2)
 
+    def old_business_offer(slot):
+        return [(f"/state/commissions/offers/{slot}/" + key, value) for key, value in
+            {"difficulty": 2, "challenge": 0, "legacy": True, "timeLimit": 720, "remaining": 720, "goal": 0, "sunReward": 450}.items()]
+
     def tasks_two(a, b):
         click("commissions")
         click(f"commission_accept_{a}")
@@ -87,7 +91,7 @@ def generate():
     click("commission_close")
     act("pause")
     snap("earned")
-    load("earned", [("/state/commissions/offers/4/blueprint", 0), ("/state/commissions/offers/4/goal", 0),
+    load("earned", old_business_offer(4) + old_business_offer(5) + [("/state/commissions/offers/4/blueprint", 0), ("/state/commissions/offers/4/goal", 0),
         ("/state/commissions/offers/4/target", 1), ("/state/commissions/offers/5/blueprint", 1),
         ("/state/commissions/offers/5/goal", 0), ("/state/commissions/offers/5/target", 1)])
     tasks_two(4, 5)

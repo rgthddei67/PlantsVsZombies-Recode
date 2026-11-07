@@ -11,6 +11,7 @@ void TestWorkshopCircuits();
 void TestWorkshopPower();
 void TestWorkshopPractice();
 void TestWorkshopMaintenance();
+void TestWorkshopCommissions();
 namespace {
 // 这些用例隔离物流/配方行为，生产机显式接入起始箱；断电与配电由专项测试覆盖。
 bool Build(Workshop::World& world, int index, Workshop::Machine type, int direction) {
@@ -81,74 +82,7 @@ int main() {
         history["workshopTutorialsSeen"] = invalid;
         Check(ReadTutorialHistory(history).empty(), "malformed optional history defaults to unseen");
     }
-    {
-        Commissions tasks; tasks.Reset(42);
-        tasks.Record(CommissionGoal::Produce, 1000);
-        Check(tasks.Accept(4) && tasks.Accept(5) && !tasks.Accept(0), "commission simultaneous limit is two");
-        Check(tasks.Active()[0].progress == 0, "activity before acceptance is not credited");
-        const auto accepted = tasks.Active()[0];
-        tasks.Record(accepted.goal, accepted.target);
-        const float deadline = tasks.Active()[0].remaining;
-        tasks.Tick(600, 14);
-        Check(tasks.Active()[0].status == CommissionStatus::Ready && tasks.Active()[0].remaining == deadline,
-            "completed task stops deadline and survives board refresh");
-        Check(tasks.Active()[1].remaining == 120 || tasks.Active()[1].status == CommissionStatus::Ready,
-            "accepted hard task retains remaining time across refresh");
-        Check(tasks.Claim(0) == accepted.sunReward, "ready commission grants stated reward once");
-        tasks.Tick(721, 14);
-        if (!tasks.Active().empty() && tasks.Active()[0].status == CommissionStatus::Running) Check(false, "deadline expires unfinished task");
-        Commissions restored; restored.Load(nlohmann::json::parse(tasks.Save().dump()), 14);
-        tasks.Tick(600, 14); restored.Tick(600, 14);
-        Check(tasks.Save() == restored.Save(), "commission timer and random stream round trip without reroll");
-        auto badTasks = tasks.Save(); badTasks["offers"][0]["difficulty"] = 2;
-        bool rejected = false; try { restored.Load(badTasks, 14); } catch (...) { rejected = true; }
-        Check(rejected && tasks.Save() == restored.Save(), "bad commission load is transactional");
-        tasks.Reset(7);
-        int middle = 0, hard = 0, dry = 0;
-        for (int round = 0; round < 5000; ++round) {
-            tasks.Tick(600, 14);
-            int blueprints = 0;
-            for (const auto& offer : tasks.Offers()) if (offer.blueprint != Blueprint::Count) {
-                Check(offer.difficulty != 0, "easy commissions never offer blueprints");
-                ++blueprints;
-                if (offer.difficulty == 1) ++middle; else ++hard;
-            }
-            if (!blueprints) ++dry;
-        }
-        Check(middle > 400 && middle < 600 && hard > 2250 && hard < 2750 && dry > 0,
-            "seeded distribution follows 5 and 25 percent without guaranteed blueprint batches");
-        for (int round = 0; round < 1000 && !tasks.Has(Blueprint::HeavyGatling); ++round) {
-            tasks.Tick(600, 14);
-            for (int i = 0; i < CommissionOfferCount; ++i) if (tasks.Offers()[i].blueprint == Blueprint::HeavyGatling) {
-                const auto offer = tasks.Offers()[i]; Check(tasks.Accept(i), "accept blueprint commission");
-                tasks.Record(offer.goal, offer.target);
-                Check(tasks.Claim(0) == offer.sunReward && tasks.Claim(0) == -1, "blueprint claim cannot be duplicated");
-                break;
-            }
-        }
-        Check(tasks.Has(Blueprint::HeavyGatling) && tasks.FreeUses(Blueprint::HeavyGatling) == 1, "blueprint grants one free conversion");
-        Check(tasks.ConsumeFreeUse(Blueprint::HeavyGatling) && !tasks.ConsumeFreeUse(Blueprint::HeavyGatling), "free conversion consumed once");
-        for (int round = 0; round < 100; ++round) {
-            tasks.Tick(600, 14);
-            for (const auto& offer : tasks.Offers()) Check(offer.blueprint != Blueprint::HeavyGatling, "owned blueprints do not reappear");
-        }
-        tasks.Reset(); Check(!tasks.Has(Blueprint::HeavyGatling), "new base resets blueprints");
-        for (int difficulty = 0; difficulty < 3; ++difficulty) {
-            tasks.Reset();
-            Check(tasks.Accept(difficulty * 2), "accept each deadline tier");
-            tasks.Tick(CommissionDeadlines[difficulty] - 1, 0);
-            Check(tasks.Active()[0].status == CommissionStatus::Running && tasks.Active()[0].remaining == 1,
-                "each tier remains active before its deadline");
-            tasks.Tick(1, 0);
-            Check(tasks.Active()[0].status == CommissionStatus::Expired && tasks.Claim(0) == -1 && tasks.ActiveCount() == 0,
-                "deadline loses only reward and frees simultaneous slot");
-        }
-        tasks.Reset();
-        Check(tasks.Accept(0), "accept task for voluntary abandonment");
-        tasks.Record(tasks.Active()[0].goal, 1);
-        Check(tasks.Abandon(0) && tasks.Active().empty() && !tasks.Accept(0) && !tasks.Abandon(0),
-            "abandon clears progress without allowing same offer to be retaken");
-    }
+    TestWorkshopCommissions();
     {
         for (const auto& threat : Threats) for (std::uint32_t seed = 1; seed <= 30; ++seed) {
             auto random = seed;
@@ -171,11 +105,12 @@ int main() {
         std::string error;
         Check(factory.Load(setup, error), "pressure factory setup");
         for (int round = 0; round < 1000 && !factory.Tasks().Has(Blueprint::PressureGrower); ++round) {
-            factory.Tasks().Tick(600, 14);
+            factory.Tasks().OnWaveCompleted(15);
             for (int i = 0; i < CommissionOfferCount; ++i) if (factory.Tasks().Offers()[i].blueprint == Blueprint::PressureGrower) {
                 const auto offer = factory.Tasks().Offers()[i];
                 Check(factory.AcceptCommission(i), "pressure blueprint accepted");
-                factory.Tasks().Record(offer.goal, offer.target);
+                if (offer.IsBattle()) factory.Tasks().OnWaveCompleted(15);
+                else factory.Tasks().Record(offer.goal, offer.target);
                 Check(factory.ClaimCommission(0), "pressure blueprint claimed"); break;
             }
         }

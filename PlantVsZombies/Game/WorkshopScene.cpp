@@ -355,8 +355,11 @@ std::shared_ptr<Button> WorkshopScene::GetControlButton(const std::string& actio
     if (action == "commissions") return mCommissionsButton;
     if (mCommissionsDialog && mCommissionsDialog->IsActive()) {
         if (action == "commission_close") return mCommissionsDialog->GetButton(0);
-        for (int i = 0; i < Workshop::CommissionOfferCount; ++i)
+        if (action == "commission_traits") return mCommissionsDialog->GetButton(19);
+        for (int i = 0; i < Workshop::CommissionOfferCount; ++i) {
             if (action == "commission_accept_" + std::to_string(i)) return mCommissionsDialog->GetButton(1 + i);
+            if (action == "commission_details_" + std::to_string(i)) return mCommissionsDialog->GetButton(11 + i);
+        }
         for (int i = 0; i < Workshop::CommissionActiveLimit; ++i) {
             if (action == "commission_claim_" + std::to_string(i)) return mCommissionsDialog->GetButton(7 + i * 2);
             if (action == "commission_abandon_" + std::to_string(i)) return mCommissionsDialog->GetButton(8 + i * 2);
@@ -494,11 +497,21 @@ bool WorkshopScene::Act(const std::string& action, int index, const std::string&
     if (action == "config_open") { OpenMachineConfig(index); return mMachineConfig && mMachineConfig->IsActive(); }
     if (action == "commissions") { OpenCommissions(); return mCommissionsDialog && mCommissionsDialog->IsActive(); }
     if (action == "commission_accept" || action == "commission_claim" || action == "commission_abandon") {
+        std::string claimed;
+        if (action == "commission_claim" && index >= 0 && index < static_cast<int>(World().Tasks().Active().size())) {
+            const auto& task = World().Tasks().Active()[index];
+            claimed = std::format("已领取{}阳光", task.sunReward);
+            if (task.blueprint != Workshop::Blueprint::Count) claimed += std::string(" · ") + Workshop::BlueprintName(task.blueprint) + "蓝图＋免费机会";
+            if (task.trait != Workshop::Trait::Count) {
+                const auto& trait = Workshop::DescribeTrait(task.trait);
+                claimed += std::string(" · ") + Workshop::TraitRarityName(trait.rarity) + "词条：" + trait.name;
+            }
+        }
         const bool success = action == "commission_accept" ? World().AcceptCommission(index)
-            : action == "commission_claim" ? World().ClaimCommission(index) : World().AbandonCommission(index);
+            : action == "commission_claim" ? mBoard->ClaimWorkshopCommission(index) : World().AbandonCommission(index);
         mCommissionNotice = success ? action == "commission_accept" ? "已接取；接取后才累计目标，袭击时开始计时。"
-            : action == "commission_claim" ? "奖励已领取；蓝图和免费次数可在图册查看。" : "已放弃此委托，本次不能重新接取。"
-            : "操作未完成：检查接取名额、任务状态或完成进度。";
+            : action == "commission_claim" ? claimed : "已放弃此委托，本次不能重新接取；已开波的强化仍持续到结束。"
+            : "操作未完成：检查名额、任务进度或阳光剩余容量；同时最多一条战斗委托。";
         if (success) SaveBase();
         RefreshCommissions(); return success;
     }
@@ -1119,7 +1132,8 @@ void WorkshopScene::DrawWorkshop(Graphics* g) {
     const auto phase = World().State();
     Text("第 " + std::to_string(World().CompletedWaves() + 1) + " 波 · "
         + (phase == Workshop::Phase::Assault ? "袭击中" : phase == Workshop::Phase::Dead ? "防线失守" : "准备中"), 475, 7, 17);
-    Text(World().FocusRoute(0) < 0 ? "五路来敌 · 逐路供弹" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
+    Text(World().ChallengeRules().mechanisms > 0 ? std::string("委托：") + World().ChallengeRules().name
+        : World().FocusRoute(0) < 0 ? "五路来敌 · 逐路供弹" : std::format("主攻 {} → {} → {} 路", World().FocusRoute(0) + 1, World().FocusRoute(1) + 1, World().FocusRoute(2) + 1), 475, 30, 13, kGreen);
     Text(std::format("倍速 ×{:.1f}", DeltaTime::GetSelectedTimeScale()), 877, 99, 13, kGreen);
     for (const auto& threat : Workshop::Threats) if (threat.wave > World().CompletedWaves()) {
         Text(std::format("第{}波预告", threat.wave), 655, 7, 12, kGreen);
@@ -1212,7 +1226,7 @@ nlohmann::json WorkshopScene::Inspect() const {
             const std::string headTrack = shooter && shooter->GetHeadAnimator() ? shooter->GetHeadAnimator()->GetCurrentTrackName() : "";
             if (headTrack == "anim_shooting") j["hasShootingAnimation"] = true;
             const int level = p->GetWorkshopUpgradeLevel();
-            nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
+            nlohmann::json plant{{"id", id}, {"row", p->mRow}, {"column", p->mColumn}, {"hp", p->mPlantHealth}, {"maxHp", p->mPlantMaxHealth}, {"shadow", p->GetShadow() != nullptr}, {"headTrack", headTrack},
                 {"level", level}, {"type", static_cast<int>(p->mPlantType)}, {"ice", p->mPlantType == PlantType::PLANT_SNOWPEA}, {"baseCooldown", Workshop::ShooterCooldowns[level - 1]}};
             if (p->mPlantType == PlantType::PLANT_GATLINGPEA) {
                 nlohmann::json extra; p->SaveExtraData(extra);
@@ -1229,7 +1243,7 @@ nlohmann::json WorkshopScene::Inspect() const {
             if (z->IsDying()) j["hasDyingZombie"] = true;
             if (z->GetCooldownTimer() > 0) j["hasChilledZombie"] = true;
             const auto animator = z->GetAnimatorInternal();
-            j["nativeZombies"].push_back({{"id", id}, {"type", static_cast<int>(z->mZombieType)}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"helmetHp", z->mHelmHealth}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
+            j["nativeZombies"].push_back({{"id", id}, {"type", static_cast<int>(z->mZombieType)}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"maxHp", z->mBodyMaxHealth}, {"helmetHp", z->mHelmHealth}, {"helmetMaxHp", z->mHelmMaxHealth}, {"shieldHp", z->mShieldHealth}, {"moveSpeed", z->GetCurrentHorizontalMoveSpeed()}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
                 {"track", animator ? animator->GetCurrentTrackName() : ""}, {"tongue", animator && animator->GetTrackVisible("anim_tongue")}});
         }
     }

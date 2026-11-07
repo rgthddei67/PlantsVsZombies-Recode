@@ -843,7 +843,8 @@ void Zombie::Update()
         if (!mIsEating && !IsAnchorRooted()) {
             // 移动增益只进入位移，不能加速技能倒计时。
             ZombieMove(scaledDelta * (mBoard ? mBoard->GetStationFogMoveMultiplier(this) : 1.0f)
-                * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier(), transform);
+                * AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier()
+                * (mBoard ? mBoard->GetWorkshopMoveMultiplier() : 1), transform);
             SyncToRoofTerrain(transform);
         }
         // 某些移动阶段可直接离场；只为仍可行动的实体推进一次技能，啃食不再早退。
@@ -2206,6 +2207,7 @@ void Zombie::TakeDamage(
 	// 植物增伤只放大植物来源（普通/灰烬）；僵尸免伤则对所有实际承伤生效。两者均在 0 层返回单位元。
 	if (source == DamageSource::PLANT || source == DamageSource::PLANT_ASH) {
 		damage = mBoard->GetPerkManager().ScalePlantDamage(damage);
+		damage = SurvivalPerkManager::ScaleNumericDamage(damage, mBoard->GetWorkshopDamageMultiplier());
 	}
 	damage = mBoard->GetPerkManager().ScaleDamageToZombie(damage);
 	damage = ScaleStatusDamage(damage);
@@ -2998,7 +3000,8 @@ float Zombie::GetCurrentHorizontalMoveSpeed() const
 			mBoard->GetZombieWindMoveMultiplier(IsMovingRight()));
 	}
 	velocity *= GetRoofMarshalAssaultMoveMultiplier()
-		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier()
+		* (mBoard ? mBoard->GetWorkshopMoveMultiplier() : 1);
 	return std::max(0.0f, velocity);
 }
 
@@ -3017,7 +3020,8 @@ float Zombie::GetUncontrolledHorizontalMoveSpeed() const
 			mBoard->GetZombieWindMoveMultiplier(IsMovingRight()));
 	}
 	velocity *= GetRoofMarshalAssaultMoveMultiplier()
-		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier()
+		* (mBoard ? mBoard->GetWorkshopMoveMultiplier() : 1);
 	return std::max(0.0f, velocity);
 }
 
@@ -3033,7 +3037,8 @@ float Zombie::ScaleSimulationMoveSpeed(float speed) const
 	const float wind = mBoard ? mBoard->GetZombieWindMoveMultiplier(IsMovingRight()) : 1;
 	return speed * GetAmplifiedAbilitySpeedMultiplier() * AmplifySpeedMultiplierForGoldenIce(rain)
 		* AmplifySpeedMultiplierForGoldenIce(wind) * GetRoofMarshalAssaultMoveMultiplier()
-		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier();
+		* AmplifySpeedMultiplierForGoldenIce(GetDrumMoveMultiplier()) * GetAmberMovementMultiplier()
+		* (mBoard ? mBoard->GetWorkshopMoveMultiplier() : 1);
 }
 
 std::array<float,9> Zombie::GetSimulationGoldenMoveRatios(bool excludeAbility) const

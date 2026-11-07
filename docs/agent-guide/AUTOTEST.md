@@ -30,6 +30,8 @@
 
 ## 工坊电网与调度
 
+`verify_workshop_challenges.py --generate` 生成挑战与词条专项，运行可见脚本后以同文件校验原生倍率、快照、限制和奖励；纯逻辑 `WorkshopCommissionTests.cpp` 检查随机分布及旧任务承诺。详情按钮使用 `commission_details_N`，奖池入口使用 `commission_traits`，避免依赖弹窗按钮序号。
+
 `smoke_workshop_tutorial_history` 显式开启根字段 `workshopTutorials: true`，验证首次自动练习、跳过后重建不再弹出、旧解锁批次跨重建/重进场不重复、新解锁仍提示及手动教程书/练习入口。`workshop_tutorial_history` 只把教程字段保存/恢复到本脚本目录，不触碰真人 `PlayerInfo.json`；旧玩家 schema 迁移由 `save-schema` CTest 覆盖，损坏记录过滤由 `workshop` CTest 覆盖。
 
 `python autotest/verify_workshop_commissions.py --generate` 与 `python autotest/verify_workshop_spawn_pool.py --generate` 在 `build/clang-release/autotest/generated/` 生成可见专项；按正常方式运行对应 JSON 后，不带参数运行各自的 Python 校验器。前者覆盖任务板真实接取与领奖、蓝图免费机会、重装连发/穿透/点燃、前摇和在途存读档以及对象池复用；后者覆盖六个新兵种首发必出、普通僵尸保留、原生出兵顺序与已抽名单恢复。概率、期限、过期、放弃、非法文档与旧版迁移另由 `workshop` CTest 验证。
@@ -43,7 +45,7 @@
 
 `smoke_workshop_teaching_clarity` / `verify_workshop_teaching_clarity.py` 覆盖配电箱快捷入口、按主题固定的练习入口、暂停信号说明、独立分组验收真实点击及正式基地不变。错误门槛、误停另一支路、手动关机和检验中篡改配置由 `WorkshopPracticeTests.cpp` 检查。
 
-电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。当前工坊 schema v8 接受 v7 基地并保留原袭击编成，补入当前阶段的委托；v7 以前仍明确拒绝。拒绝旧档时必须由玩家确认后才按原始字节备份并建立新版基地，空档和非法 JSON 同样保留。普通读取、返回和拒绝加载不应覆盖旧档。供需对照夹具跨波保留库存，禁止用清空库存制造电网压力；独立教学验收会明确告知并只重置练习副本的测试物料。
+电网参数集中在 `Workshop.h` 与 `WorkshopPower.cpp`。当前工坊 schema v9 保留 v8 已存在委托的期限/奖励，并接受 v7 基地的原袭击编成、补入委托；v7 以前仍明确拒绝。拒绝旧档时必须由玩家确认后才按原始字节备份并建立新版基地，空档和非法 JSON 同样保留。普通读取、返回和拒绝加载不应覆盖旧档。供需对照夹具跨波保留库存，禁止用清空库存制造电网压力；独立教学验收会明确告知并只重置练习副本的测试物料。
 
 `smoke_workshop_recovery` 使用 `workshop_snapshot` 的 `rawContent` 只损坏本脚本隔离档，覆盖取消、确认、空档/截断/内嵌 NUL 原字节备份和编号避让。`smoke_workshop_healer` 在同一 Board 上让两名急救员分别治疗两次，防止工坊提前返回跳过共享决策冷却。两者由 `verify_workshop_regressions.py` 校验。工坊生产夹具必须显式连接配电箱；初始格位与机器数以 `World::Reset` 为准。
 

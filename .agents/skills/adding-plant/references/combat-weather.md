@@ -8,6 +8,8 @@
 
 工坊多发攻击可通过 `ReserveWorkshopAmmo(row, plantType, count)` 原子预留整轮库存，不足时整轮等待；省略 count 仍为单发。`GatlingPea` 自己保存已付款的剩余发数，原帧事件逐发消费，Board 保存已飞出的弹丸；读档不重新付款或补发已消费事件。`Bullet` 保存工坊穿透身份、已命中实体 ID 与已点燃标记，对象池 Reset 必须一并清空，不能靠当前弹型或伤害反推这些承诺。回归入口为 `verify_workshop_commissions.py --generate` 及其可见脚本。
 
+工坊词条火力在僵尸承伤聚合点按 `DamageSource::PLANT/PLANT_ASH` 应用一次，包含瓜弹炮台，不能在植物发弹和弹丸命中分别重复放大。生命词条经 `Board::ClaimWorkshopCommission` 更新现存植物，保持血量比例；正式新种应用当前上限，`CreatePlantWithID` 直接恢复保存值。阵地锁定挑战只拦截正式新种和原位改造，修复与原株等级升级仍按原规则；开波后放弃任务也不撤销本波限制。
+
 工坊单株等级由支持购买的 `Shooter` / `MelonPult` 自身保存，UI 通过 `Plant` 的窄虚接口查询和购买，创建新株从一级开始；旧档缺字段按一级恢复。升级倍率同时作用于冷却、索敌节流和射击动画；在播前摇只通过 `SetClipSpeed` 提速，不能重新 `PlayTrackOnce` 导致帧事件重复。升级付款与对象资格先通过再提交等级，不回满生命、不再次扣前摇已预留的弹药。重装机枪改造通过 `Board::UpgradeBasePlantType` 仅在工坊替换底座，并继承原株等级与血量比例；蓝图免费机会只在创建成功后消费。专项 `smoke_workshop_upgrades` 比较同一真实战斗快照的发弹数，并验证前摇升级、存读档和死亡检查点。
 
 帧事件发弹（帧号问主人）+ `mShootTimer` 乘词条攻速 `GetAttackSpeedMultiplier()` + 索敌用 `ForEachZombieInRow`（严禁全表扫）。跨行/范围判定注意坐标换算：**C# 的 mX/mY 是格子左上角，本项目 `GetPosition()` 是 80×100 格子中心**，差 (40,50)。若攻击开始时先随机决定手持弹型，待发类型必须成为该轮权威状态：起手同步手持轨显隐，发射帧消费后恢复默认弹型；攻击计时与待发类型一起入档，`LoadExtraData` 只重建显隐、不重抽、不播声。专项在发射帧前后断言两条轨道互斥，并在手持特殊弹时做快照往返。双向弹优先复用同一 BulletType 并用带符号的基础 X 速度表达方向，让碰撞、火炬、台风和对象池继续走通用链；速度符号还必须传播到溅射区间、命中特效局部 X 偏移、贴图翻转和二类护盾命中面，不能只把本体速度改负。所有 `Bullet` 对僵尸的直接伤害统一走 `Zombie::TakeProjectileDamage`：它以命中时 `velocityX` 与目标 `IsMovingRight()` 判断正面/背面，同向追上即绕过铁门/报纸/梯子直接攻击后层，禁止按 `BulletType` 或 `Backwards/Homing` 建方向白名单；追踪弹必须持续更新真实速度。弹丸能力若主动无视二类护盾，必须通过该入口的显式请求参数表达，并让目标用 `BlocksProjectileShieldBypass` 虚接口否决不可绕过的防具；禁止在子弹侧维护僵尸类型表，也不要误用 `penetrateShield`——后者会同时伤盾与后层。速度为 0 的测试弹保持历史正向口径；AutoTest 分别断言正反向伤害、主动绕盾、目标侧否决、护盾/本体生命、`hitFlashMask` 和命中特效相对目标的最终几何，不依赖 `bullets.N` 顺序。

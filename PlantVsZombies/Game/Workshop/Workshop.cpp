@@ -134,6 +134,7 @@ World::World() { Reset(); }
 
 void World::Reset() {
     mCommissions.Reset();
+    mWaveChallenge = Challenge::None;
     mSpawnRandom = 0xA341316Cu; mAssaultTypes.clear();
     mCells = {}; mLanes = {}; mEnemyCounts = {};
     mPlantCooldowns.clear();
@@ -158,10 +159,12 @@ bool World::Unlocked(Machine type) const {
 int World::BuildCost(Machine type) const {
     return type == Machine::PressureGrower && mCommissions.FreeUses(Blueprint::PressureGrower) > 0 ? 0 : Describe(type).cost;
 }
-bool World::AcceptCommission(int offer) { return mPhase != Phase::Dead && mCommissions.Accept(offer); }
+bool World::AcceptCommission(int offer) { return mPhase != Phase::Dead && mCommissions.Accept(offer, mCompletedWaves + (mPhase == Phase::Assault ? 2 : 1)); }
 bool World::AbandonCommission(int active) { return mPhase != Phase::Dead && mCommissions.Abandon(active); }
 bool World::ClaimCommission(int active) {
     if (mPhase == Phase::Dead) return false;
+    if (active < 0 || active >= static_cast<int>(mCommissions.Active().size())
+        || mCommissions.Active()[active].sunReward > EnergyLimit - mEnergy) return false;
     const int reward = mCommissions.Claim(active);
     if (reward < 0) return false;
     RefundEnergy(static_cast<float>(reward)); return true;
@@ -335,8 +338,9 @@ bool World::StartAssault() {
     if (mPhase != Phase::Planning) return false;
     mCheckpoint = SaveState();
     mPhase = Phase::Assault; mSpawned = 0; mWaveScrap = 0;
-    mRemainingSpawns = 5 + std::min(100, mCompletedWaves * 2);
-    mAssaultTypes = RollAssaultTypes(mCompletedWaves + 1, mRemainingSpawns, mSpawnRandom);
+    mWaveChallenge = mCommissions.ChallengeForWave(mCompletedWaves + 1);
+    mRemainingSpawns = (5 + std::min(100, mCompletedWaves * 2)) * ChallengeRules().count;
+    mAssaultTypes = RollAssaultTypes(mCompletedWaves + 1, mRemainingSpawns, mSpawnRandom, ChallengeRules().eliteWeight);
     mSpawnClock = 1; return true;
 }
 void World::SeedBase(std::uint32_t seed) {
@@ -497,7 +501,7 @@ void World::Tick(float seconds) {
     // 有限子步避免游戏倍速改变物流/战斗结果，并允许纯逻辑测试推进长时间。
     while (seconds > 0.000001f && mPhase == Phase::Assault) {
         const float dt = std::min(seconds, 1.0f / 60.0f); seconds -= dt;
-        mCommissions.Tick(dt, mCompletedWaves);
+        mCommissions.Tick(dt);
         const int producedBefore = mProduced + mProcessed, recycledBefore = mRecycled;
         const auto network = Distribution();
         std::array<bool, CellCount> working{};
@@ -518,7 +522,7 @@ void World::Tick(float seconds) {
             const int box = c.powerSource;
             const float speed = box >= 0 ? network.branches[box].speed : 0;
             if (RatedPower(c.type) > 0 && speed <= 0) continue;
-            const float processingDt = working[i] ? dt * speed : 0;
+            const float processingDt = working[i] ? dt * speed * mCommissions.Bonuses().production : 0;
             const bool producer = c.type == Machine::Grower || c.type == Machine::PressureGrower || c.type == Machine::SporeGrower || c.type == Machine::MelonGrower;
             if (producer) {
                 const float period = ProductionPeriod(c.type, c.level);
@@ -598,7 +602,10 @@ int World::NextSpawnRow() const {
 }
 void World::CommitSpawn() {
     if (NextSpawnRow() < 0) return;
-    mSpawnClock += std::max(0.8f, 2.5f - mCompletedWaves * 0.08f);
+    const int baseCount = 5 + std::min(100, mCompletedWaves * 2);
+    const int totalCount = mSpawned + mRemainingSpawns;
+    // 首只仍在1秒出现；用间隔数的比例保持最后一只到场时刻，尸潮增加同屏压力而非拖长整波。
+    mSpawnClock += std::max(0.8f, 2.5f - mCompletedWaves * 0.08f) * (baseCount - 1.0f) / std::max(1, totalCount - 1);
     ++mSpawned; --mRemainingSpawns;
 }
 void World::CompleteAssault() {
@@ -606,6 +613,8 @@ void World::CompleteAssault() {
     for (const auto& cell : mCells) if (cell.volleyRemaining > 0) return;
     mPhase = Phase::Planning; ++mCompletedWaves;
     mCommissions.Record(CommissionGoal::Survive);
+    mCommissions.OnWaveCompleted(mCompletedWaves);
+    mWaveChallenge = Challenge::None;
     mAssaultTypes.clear();
     mLegacyAssault = false;
     mPlantCooldowns.clear();
@@ -614,6 +623,7 @@ void World::CompleteAssault() {
 }
 void World::RecordBreach() {
     if (mPhase != Phase::Assault) return;
+    mCommissions.RecordBreach(mCompletedWaves + 1);
     mHealth = std::max(0, mHealth - 1);
     if (mHealth == 0) mPhase = Phase::Dead;
 }
@@ -694,7 +704,7 @@ nlohmann::json World::SaveState() const {
         {"produced", mProduced}, {"fired", mFired}, {"delivered", mDelivered},
         {"processed", mProcessed}, {"iceFired", mIceFired},
         {"pendingScrap", mPendingScrap}, {"waveScrap", mWaveScrap}, {"recycled", mRecycled},
-        {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault}, {"commissions", mCommissions.Save()},
+        {"gridLevel", mGridLevel}, {"legacyAssault", mLegacyAssault}, {"commissions", mCommissions.Save()}, {"waveChallenge", static_cast<int>(mWaveChallenge)},
         {"cells", cells}, {"lanes", lanes}, {"plantCooldowns", mPlantCooldowns}};
 }
 nlohmann::json World::Save() const { return {{"schemaVersion", SaveVersion}, {"state", SaveState()}, {"checkpoint", mCheckpoint}}; }
@@ -707,6 +717,9 @@ void World::ReadState(const nlohmann::json& s) {
     mHealth = ReadInt(s, "health", 0, 3); Require((mHealth == 0) == (mPhase == Phase::Dead), "死亡状态不一致");
     mCompletedWaves = ReadInt(s, "completedWaves", 0, 100000);
     mCommissions.Load(s.at("commissions"), mCompletedWaves);
+    mWaveChallenge = static_cast<Challenge>(ReadInt(s, "waveChallenge", 0, static_cast<int>(Challenge::Count) - 1));
+    Require(mPhase != Phase::Planning || mWaveChallenge == Challenge::None, "准备期不能残留已生效挑战");
+    Require(DescribeChallenge(mWaveChallenge).unlockWave <= mCompletedWaves, "本波挑战尚未开放");
     mGridLevel = ReadInt(s, "gridLevel", 1, UnlockedGridLevel(mCompletedWaves));
     mLegacyAssault = ReadBool(s, "legacyAssault");
     Require(!mLegacyAssault, "新版不使用旧袭击电网宽限");
@@ -722,12 +735,12 @@ void World::ReadState(const nlohmann::json& s) {
     mEnergy = ReadFloat(s, "energy", 0, EnergyLimit);
     mTransportClock = ReadFloat(s, "transportClock", 0, TransportPeriod);
     mSpawnClock = ReadFloat(s, "spawnClock", -1, 3);
-    mRemainingSpawns = ReadInt(s, "remainingSpawns", 0, 105);
-    mSpawned = ReadInt(s, "spawned", 0, 105);
+    mRemainingSpawns = ReadInt(s, "remainingSpawns", 0, MaxAssaultSpawns);
+    mSpawned = ReadInt(s, "spawned", 0, MaxAssaultSpawns);
     Require(s.at("spawnRandom").is_number_integer() && s.at("spawnRandom") > 0 && s.at("spawnRandom") <= UINT32_MAX, "出怪随机状态错误");
     mSpawnRandom = s.at("spawnRandom").get<std::uint32_t>();
     const auto& types = s.at("assaultTypes");
-    Require(types.is_array() && types.size() <= 105, "本波出怪名单错误");
+    Require(types.is_array() && types.size() <= MaxAssaultSpawns, "本波出怪名单错误");
     Require(mPhase == Phase::Planning ? types.empty() : types.size() == mSpawned + mRemainingSpawns, "本波出怪名单与进度不符");
     mAssaultTypes.clear();
     for (const auto& value : types) {
@@ -838,13 +851,13 @@ void World::ReadState(const nlohmann::json& s) {
 }
 bool World::Load(const nlohmann::json& document, std::string& error) {
     try {
-        Require(document.contains("schemaVersion") && document["schemaVersion"].is_number_integer() && (document["schemaVersion"] == SaveVersion || document["schemaVersion"] == 7),
+        Require(document.contains("schemaVersion") && document["schemaVersion"].is_number_integer() && document["schemaVersion"] >= 7 && document["schemaVersion"] <= SaveVersion,
             "配电与维修补给已重构，旧版工坊需要重新建造基地；原存档不会自动覆盖。");
         auto upgraded = document;
         if (document["schemaVersion"] == 7) {
-            Commissions initial; initial.Reset();
+            Commissions initial;
             // 旧基地第一次接入时按当前阶段生成任务；不存在历史任务或已走过的新时钟。
-            initial.Tick(CommissionRefreshSeconds, ReadInt(document.at("state"), "completedWaves", 0, 100000));
+            initial.Reset(0x4D595DF4u, ReadInt(document.at("state"), "completedWaves", 0, 100000));
             for (const char* key : {"state", "checkpoint"}) if (upgraded[key].is_object()) {
                 auto& state = upgraded[key]; state["commissions"] = initial.Save();
                 state["spawnRandom"] = 0xA341316Cu;
@@ -853,6 +866,22 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
                     const int count = ReadInt(state, "spawned", 0, 105) + ReadInt(state, "remainingSpawns", 0, 105);
                     Require(count <= 105, "旧档本波出怪数量错误");
                     for (int i = 0; i < count; ++i) state["assaultTypes"].push_back(static_cast<int>(SpawnType(ReadInt(state, "completedWaves", 0, 100000) + 1, i)));
+                }
+            }
+        }
+        if (document["schemaVersion"] <= 8) {
+            for (const char* key : {"state", "checkpoint"}) if (upgraded[key].is_object()) {
+                auto& state = upgraded[key]; state["waveChallenge"] = 0;
+                if (document["schemaVersion"] == 8) {
+                    auto& tasks = state.at("commissions");
+                    tasks["traits"] = std::array<int, TraitCount>{};
+                    tasks.erase("refreshRemaining");
+                    // 原委托的领取承诺不变，首次刷新之后才不再出现旧困难累计任务。
+                    constexpr std::array<float, 3> oldDeadlines{300, 480, 720}; // v8 的三档时限，迁移值而非新平衡参数
+                    for (const char* group : {"offers", "active"}) for (auto& task : tasks.at(group)) {
+                        task["challenge"] = 0; task["targetWave"] = 0; task["trait"] = TraitCount; task["legacy"] = true;
+                        task["timeLimit"] = oldDeadlines.at(ReadInt(task, "difficulty", 0, 2));
+                    }
                 }
             }
         }
@@ -869,6 +898,11 @@ bool World::Load(const nlohmann::json& document, std::string& error) {
 }
 nlohmann::json World::Inspect() const {
     auto j = SaveState(); j["phaseName"] = mPhase == Phase::Planning ? "planning" : mPhase == Phase::Assault ? "assault" : "dead";
+    const auto bonuses = mCommissions.Bonuses();
+    j["traitBonuses"] = {{"damage", bonuses.damage}, {"health", bonuses.health}, {"production", bonuses.production}, {"power", bonuses.power}, {"sunshine", bonuses.sunshine}};
+    j["refreshWavesRemaining"] = Commissions::RefreshWavesRemaining(mCompletedWaves);
+    j["challenge"] = {{"name", ChallengeRules().name}, {"count", ChallengeRules().count}, {"health", ChallengeRules().health},
+        {"movement", ChallengeRules().movement}, {"power", ChallengeRules().power}, {"lockFormation", ChallengeRules().lockFormation}};
     const auto network = Distribution(); const auto power = network.total;
     j["power"] = {{"capacity", power.capacity}, {"demand", power.demand}, {"speed", power.speed},
         {"liveDemand", mPhase == Phase::Assault && !mLegacyAssault ? power.demand : 0}, {"unlockedLevel", UnlockedGridLevel(mCompletedWaves)}};
