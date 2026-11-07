@@ -32,6 +32,8 @@
 
 `verify_workshop_challenges.py --generate` 生成挑战与词条专项，运行可见脚本后以同文件校验原生倍率、快照、限制和奖励；纯逻辑 `WorkshopCommissionTests.cpp` 检查随机分布及旧任务承诺。详情按钮使用 `commission_details_N`，奖池入口使用 `commission_traits`，避免依赖弹窗按钮序号。
 
+`verify_workshop_review_fixes.py --generate` 生成工坊回溯与教程专项；可见运行后以同文件校验稳定实体 ID 下的普通、1.5 倍和 2 倍血甲，覆盖完全死亡、濒死壳移交、存活回溯及前后读档。教程覆盖同波新电路合并提示和旧基地补提示。后期精锐权重增益由 `WorkshopCommissionTests.cpp` 对照多个阶段、多个随机种子的出兵比例。
+
 `smoke_workshop_tutorial_history` 显式开启根字段 `workshopTutorials: true`，验证首次自动练习、跳过后重建不再弹出、旧解锁批次跨重建/重进场不重复、新解锁仍提示及手动教程书/练习入口。`workshop_tutorial_history` 只把教程字段保存/恢复到本脚本目录，不触碰真人 `PlayerInfo.json`；旧玩家 schema 迁移由 `save-schema` CTest 覆盖，损坏记录过滤由 `workshop` CTest 覆盖。
 
 `python autotest/verify_workshop_commissions.py --generate` 与 `python autotest/verify_workshop_spawn_pool.py --generate` 在 `build/clang-release/autotest/generated/` 生成可见专项；按正常方式运行对应 JSON 后，不带参数运行各自的 Python 校验器。前者覆盖任务板真实接取与领奖、蓝图免费机会、重装连发/穿透/点燃、前摇和在途存读档以及对象池复用；后者覆盖扩展兵种首发（含第34波双首发）、普通僵尸保留、原生出兵顺序与已抽名单恢复。概率、期限、过期、放弃、非法文档、旧版蓝图哨兵迁移、精英每波累计上限及三种新电路的计时/库存保持由 `workshop` CTest 覆盖。新内容实机验收还须检查两类图册翻页、强磁冷却、三线三弹预留与双倍伤害、棉花实际扣包治疗、钟匠回溯及鎏金冰道；编译不替代这些运行证据。

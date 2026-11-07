@@ -101,8 +101,9 @@ int main() {
         for (std::uint32_t seed = 1; seed <= 30; ++seed) {
             auto random = seed;
             const auto roster = RollAssaultTypes(60, MaxAssaultSpawns, random, 3);
-            Check(std::count(roster.begin(), roster.end(), static_cast<int>(ZombieType::ZOMBIE_NORMAL)) == MaxAssaultSpawns / 3,
-                "mature challenge keeps one third normal instead of diluting the expanded pool");
+            const auto normalCount = std::count(roster.begin(), roster.end(), static_cast<int>(ZombieType::ZOMBIE_NORMAL));
+            Check(normalCount >= MaxAssaultSpawns / 3 && normalCount < MaxAssaultSpawns / 2,
+                "mature challenge preserves ordinary slots while most of the expanded pool stays special");
             for (const auto& threat : Threats)
                 Check(std::count(roster.begin(), roster.end(), static_cast<int>(threat.type)) <= ThreatWaveLimit(threat.type), "elite cumulative wave caps hold even in triple hordes");
         }

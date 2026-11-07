@@ -156,11 +156,18 @@ void TestWorkshopCommissions() {
             tasks.Claim(0); break;
         }
     }
-    std::uint32_t ordinarySeed = 12, eliteSeed = 12;
-    const auto ordinary = RollAssaultTypes(31, 105, ordinarySeed), elite = RollAssaultTypes(31, 105, eliteSeed, 3);
     auto countSpecial = [](const auto& types) { int count = 0; for (int type : types) count += type != 0; return count; };
-    Check(countSpecial(elite) > countSpecial(ordinary), "elite gathering actually increases unlocked special composition");
-    for (int i = 0; i < 105; i += 3) Check(elite[i] == 0, "elite gathering preserves ordinary slots");
+    // 权重只承诺分布，不承诺每个同种子样本都更强；同时覆盖过渡期和成熟池。
+    for (int wave : {10, 20, 30, 31, 60}) for (int weight : {2, 3}) {
+        int ordinaryCount = 0, eliteCount = 0;
+        for (std::uint32_t seed = 1; seed <= 200; ++seed) {
+            auto ordinarySeed = seed, eliteSeed = seed;
+            const auto ordinary = RollAssaultTypes(wave, 105, ordinarySeed), elite = RollAssaultTypes(wave, 105, eliteSeed, weight);
+            ordinaryCount += countSpecial(ordinary); eliteCount += countSpecial(elite);
+            for (int i = 0; i < 105; i += 3) Check(elite[i] == 0, "elite gathering preserves ordinary slots");
+        }
+        Check(eliteCount > ordinaryCount, "elite gathering actually increases unlocked special composition");
+    }
 
     auto normalFactory = std::make_unique<World>(), traitFactory = std::make_unique<World>();
     auto boosted = traitFactory->Save();

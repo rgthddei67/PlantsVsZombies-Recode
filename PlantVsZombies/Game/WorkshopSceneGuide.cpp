@@ -473,7 +473,10 @@ void WorkshopScene::RefreshGuide() {
 
 void WorkshopScene::CheckGuideUnlocks() {
     if (!mLoadFailed && World().State() == Workshop::Phase::Planning && !mUIManager.GetTopActiveMessageBox()) {
-        std::vector<int> rewardTopics{Workshop::CommissionGuide, static_cast<int>(M::PressureGrower), static_cast<int>(M::DelayRelay), static_cast<int>(M::Pulse), static_cast<int>(M::StockRegulator)};
+        std::vector<int> rewardTopics{Workshop::CommissionGuide, static_cast<int>(M::PressureGrower)};
+        // 新波解锁交给下方批量提示；仅对已经读过该阶段的旧基地补新电路教程。
+        if (World().CompletedWaves() <= mGuideSeenWave)
+            for (const auto type : {M::DelayRelay, M::Pulse, M::StockRegulator}) rewardTopics.push_back(static_cast<int>(type));
         for (size_t i = 0; i < Workshop::Plants.size(); ++i)
             if (Workshop::Plants[i].blueprint != Workshop::Blueprint::Count) rewardTopics.push_back(Workshop::PlantGuideBase + static_cast<int>(i));
         for (int topic : rewardTopics) {

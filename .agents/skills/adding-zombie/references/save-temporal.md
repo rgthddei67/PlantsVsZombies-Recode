@@ -25,6 +25,8 @@
 - 新字段能用中性默认值表示旧档时保持兼容；结构或语义变化无法只靠默认值表达时，提升 `SaveSchema::kCurrentLevelVersion`，增加连续迁移和 `SaveSchemaTests`。JSON 必须先升级成功，再恢复 `Board` 与实体。
 ### SetupZombie 先于 LoadExtraData 跑
 
+时间锚重建已死亡目标是 `CreateZombieWithID` / `ReplaceDyingZombieWithID` 的例外调用方：没有完整实体文档恢复最大生命，必须先对新替身施加本场正式出生倍率（含冻结的工坊挑战及 HXY 防具倍率），再恢复锚点当前血甲，否则会被基础上限截断。只对新替身初始化一次，存活回溯和正式实体读档不能重复缩放。`verify_workshop_review_fixes.py` 覆盖完全死亡、濒死壳移交、存活回溯和中途读档。
+
 Setup 里的出生预设（下沉、裁剪、初相位）在 Load 里按存档相位**显式撤销**，否则读档僵尸带着出生态复活。
 - 关联僵尸 ID 经 `CreateZombieWithID` 保值可交叉引用；引用已死自然返回 null，无需清理回调。
 - Board 保存的实体锁定 ID 要在全部实体完成 `CreateZombieWithID + LoadExtraData` 后再做一次 finalize 校验与派生态恢复；禁止 Board 字段一读出就重抽候选，也不能因实体尚未创建而误判取消。

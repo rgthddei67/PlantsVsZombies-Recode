@@ -10,6 +10,7 @@
 #include "../Plant/Plant.h"
 #include "../PlantDamageOrigin.h"
 #include "../Zombie/Zombie.h"
+#include "../Zombie/ZombieBirthVitalsRules.h"
 
 #include <algorithm>
 #include <array>
@@ -308,6 +309,10 @@ void Board::UpdatePolarFinaleRituals(float deltaTime)
 						spawnX, target.zombieID)
 					: CreateZombieWithID(target.type, target.row, spawnX, target.zombieID);
 				if (!zombie) continue;
+				// WithID 创建只设置基础上限；读档会恢复完整生命，而时间锚只保存当前值。
+				// 新生替身先沿用本场出生倍率（含冻结的工坊挑战），存活回溯不得重复缩放。
+				zombie->ApplyHealthMultiplier(GetZombieHpMultiplier(),
+					mHxyModeEnabled ? ZombieBirthVitalsRules::HxyArmorHealthMultiplier : 1.0);
 			}
 			const HelmType helmType = target.restoreHelm ? target.helmType
 				: (survivor ? zombie->mHelmType : HelmType::HELMTYPE_NONE);

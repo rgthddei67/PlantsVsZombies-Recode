@@ -1226,6 +1226,9 @@ nlohmann::json WorkshopScene::Inspect() const {
     j["selectedShooter"] = SelectedFrontPlant() ? mSelectedShooter : -1;
     j["upgradeEnabled"] = GetControlButton("upgrade") && GetControlButton("upgrade")->IsEnabled();
     j["nativeZombies"] = nlohmann::json::array();
+    j["nativeZombiesByID"] = nlohmann::json::object();
+    j["temporalAnchorCount"] = mBoard->GetTemporalAnchorCount();
+    j["temporalAnchorTargetCount"] = mBoard->GetTemporalAnchorTargetCount();
     j["hasShootingAnimation"] = false;
     j["hasEatingZombie"] = false;
     j["hasDyingZombie"] = false;
@@ -1259,8 +1262,10 @@ nlohmann::json WorkshopScene::Inspect() const {
             if (z->IsDying()) j["hasDyingZombie"] = true;
             if (z->GetCooldownTimer() > 0) j["hasChilledZombie"] = true;
             const auto animator = z->GetAnimatorInternal();
-            j["nativeZombies"].push_back({{"id", id}, {"type", static_cast<int>(z->mZombieType)}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"maxHp", z->mBodyMaxHealth}, {"helmetHp", z->mHelmHealth}, {"helmetMaxHp", z->mHelmMaxHealth}, {"shieldHp", z->mShieldHealth}, {"moveSpeed", z->GetCurrentHorizontalMoveSpeed()}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
-                {"track", animator ? animator->GetCurrentTrackName() : ""}, {"tongue", animator && animator->GetTrackVisible("anim_tongue")}});
+            nlohmann::json zombie{{"id", id}, {"type", static_cast<int>(z->mZombieType)}, {"row", z->mRow}, {"hp", z->mBodyHealth}, {"maxHp", z->mBodyMaxHealth}, {"helmetHp", z->mHelmHealth}, {"helmetMaxHp", z->mHelmMaxHealth}, {"shieldHp", z->mShieldHealth}, {"shieldMaxHp", z->mShieldMaxHealth}, {"moveSpeed", z->GetCurrentHorizontalMoveSpeed()}, {"chilled", z->GetCooldownTimer() > 0}, {"eating", z->IsEating()}, {"dying", z->IsDying()}, {"shadow", z->GetShadow() != nullptr},
+                {"track", animator ? animator->GetCurrentTrackName() : ""}, {"tongue", animator && animator->GetTrackVisible("anim_tongue")}};
+            j["nativeZombies"].push_back(zombie);
+            j["nativeZombiesByID"][std::to_string(id)] = std::move(zombie);
         }
     }
     j["nativeBulletCount"] = mBoard->mEntityRegistry.GetAllBulletIDs().size();
