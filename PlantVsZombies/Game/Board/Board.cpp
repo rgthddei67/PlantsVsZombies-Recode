@@ -281,6 +281,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 
 Board::~Board()
 {
+	if (g_particleSystem) g_particleSystem->ClearZombieParts(this);
 	// 原版 Board.DisposeBoard 无条件 StopFoley(Rain)；离开关卡时同样保证循环声不泄漏到菜单。
 	StopRainAudio();
 }
@@ -986,6 +987,21 @@ bool Board::IsPoolWorldPosition(int row, float x) const
 		+ static_cast<float>(mColumns) * CELL_COLLIDER_SIZE_X;
 	return x >= CELL_INITALIZE_POS_X && x < poolRight
 		&& IsPoolSquare(row, static_cast<int>((x - CELL_INITALIZE_POS_X) / CELL_COLLIDER_SIZE_X));
+}
+
+float Board::GetZombiePoolVisualDepth() const
+{
+	constexpr float kGardenPoolVisualDepth = 30.0f; // 混合地形的水面相对同排逻辑基线下沉量（像素）
+	return IsWatersideGarden() ? kGardenPoolVisualDepth : 0.0f;
+}
+
+float Board::GetZombiePartSurfaceY(int row, float worldX, bool water) const
+{
+	constexpr float kDryPartSurfaceOffset = 30.0f; // 碎片在同排僵尸脚边接触地面的偏移（像素）
+	constexpr float kBottomSurfaceMargin = 10.0f; // 最后一排留在可见画布内的余量（像素）
+	if (water) return GetZombieSpawnY(row, worldX) + GetZombiePoolVisualDepth();
+	return std::min(GetZombieCollisionY(row, worldX) + kDryPartSurfaceOffset,
+		SCENE_HEIGHT - kBottomSurfaceMargin);
 }
 
 /** 返回指定类型能否被正式选行逻辑放进水路；无水路状态机的品种在此集中排除。 */

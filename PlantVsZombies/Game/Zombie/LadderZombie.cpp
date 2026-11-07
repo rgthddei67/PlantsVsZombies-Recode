@@ -243,7 +243,7 @@ void LadderZombie::DetachLadder(bool emitParticle)
 	if (mIsEating) PlayTrack("anim_eat", kEatClipSpeed, 0.2f);
 	else PlayWalkAnimation(0.0f);
 	if (emitParticle && g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect(GetLadderDropEffectName(), particlePosition, mAnimator->GetActiveOverlayColor());
+		EmitFallingPart(GetLadderDropEffectName(), particlePosition, ZombiePartMotion::Armor);
 	}
 }
 
@@ -284,7 +284,7 @@ void LadderZombie::ArmDrop()
 {
 	if (!mHasArm) return;
 	ApplyBrokenArmPresentation();
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("LadderArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+	if (g_particleSystem) EmitFallingPart("LadderArmOff", GetPosition(), ZombiePartMotion::Arm);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
 
@@ -296,7 +296,7 @@ void LadderZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("ZombieLadderHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombieLadderHeadOff", GetPosition(), ZombiePartMotion::Head);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }

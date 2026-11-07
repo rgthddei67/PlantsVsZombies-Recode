@@ -124,17 +124,18 @@ bool Zombie::EmitIdentityLimb(bool head) const
 		Vector(head ? kHeadCenterX : kArmCenterX, head ? kHeadCenterY : kArmCenterY));
 	if (g_particleSystem) {
 		g_particleSystem->EmitDetachedPart(ZombieIdentityVisuals::EffectName(*profile, head, pose.mirrored),
-			pose.center, pose.scaleX, pose.scaleY, pose.rotation, {}, mAnimator->GetActiveOverlayColor());
+			pose.center, pose.scaleX, pose.scaleY, pose.rotation, {}, mAnimator->GetActiveOverlayColor(),
+			GetPartTerrain(head ? ZombiePartMotion::Head : ZombiePartMotion::Arm));
 	}
 	return true;
 }
 
 void Zombie::EmitArmorDrop(const std::string& effectName, const std::string& trackName,
-	const std::string& textureKey) const
+	const std::string& textureKey, ZombiePartMotion motion) const
 {
 	const auto* texture = ResourceManager::GetInstance().GetTexture(textureKey);
 	if (!texture || !g_particleSystem) return;
 	const auto pose = GetDetachedPose(*this, trackName, Vector(texture->width * .5f, texture->height * .5f));
 	g_particleSystem->EmitDetachedPart(effectName, pose.center, pose.scaleX, pose.scaleY, pose.rotation,
-		textureKey + (pose.mirrored ? "_MIRRORED" : ""), mAnimator->GetActiveOverlayColor());
+		textureKey + (pose.mirrored ? "_MIRRORED" : ""), mAnimator->GetActiveOverlayColor(), GetPartTerrain(motion));
 }

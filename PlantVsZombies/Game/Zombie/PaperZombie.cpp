@@ -76,8 +76,8 @@ void PaperZombie::ShieldDrop()
 	mShieldStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("Zombie_paper_paper", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("ZombiePaperOff",
-			GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombiePaperOff",
+			GetPosition(), ZombiePartMotion::LightArmor);
 	}
 
 	AudioSystem::PlaySound("SOUND_NEWSPAPER_RIP", 0.3f);
@@ -160,8 +160,8 @@ void PaperZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_hair", false);
 
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("ZombieHeadOff",
-			GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombieHeadOff",
+			GetPosition(), ZombiePartMotion::Head);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
@@ -175,8 +175,8 @@ void PaperZombie::ArmDrop()
 		GetTexture("IMAGE_ZOMBIE_PAPER_LEFTARM_UPPER2"));
 
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("PaperZombieArmOff",
-			GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("PaperZombieArmOff",
+			GetPosition(), ZombiePartMotion::Arm);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

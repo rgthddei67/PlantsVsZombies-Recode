@@ -14,7 +14,7 @@ void PoolConeZombie::SetupZombie()
 /** 路障完全掉落时隐藏轨道，并沿用现有掉落特效。 */
 void PoolConeZombie::HelmDrop()
 {
-	EmitArmorDrop("ZombieConeOff", "anim_cone", "IMAGE_ZOMBIE_CONE3");
+	EmitArmorDrop("ZombieConeOff", "anim_cone", "IMAGE_ZOMBIE_CONE3", ZombiePartMotion::LightArmor);
 	Zombie::HelmDrop();
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("anim_cone", false);

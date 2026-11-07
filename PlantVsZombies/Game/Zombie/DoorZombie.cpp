@@ -137,8 +137,8 @@ void DoorZombie::ShieldDrop()
 	
 	this->ShowArm(true);
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect(GetDoorDropParticleName(),
-			GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart(GetDoorDropParticleName(),
+			GetPosition(), ZombiePartMotion::Armor);
 	}
 } 
 
@@ -203,8 +203,8 @@ void DoorZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	g_particleSystem->EmitZombiePartEffect("ZombieHeadOff",
-		GetPosition(), mAnimator->GetActiveOverlayColor());
+	EmitFallingPart("ZombieHeadOff",
+		GetPosition(), ZombiePartMotion::Head);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 

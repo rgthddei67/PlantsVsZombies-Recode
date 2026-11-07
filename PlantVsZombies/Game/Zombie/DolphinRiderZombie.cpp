@@ -384,7 +384,7 @@ void DolphinRiderZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	if (!mInPool) {
 		// 粒子配方本身包含头部偏移；从逻辑原点发射，避免再次叠加该品种的视觉偏移。
-		g_particleSystem->EmitZombiePartEffect(GetDolphinHeadOffEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart(GetDolphinHeadOffEffectName(), GetPosition(), ZombiePartMotion::Head);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, 0.35f);
 }
@@ -398,7 +398,7 @@ void DolphinRiderZombie::ArmDrop()
 		ResourceManager::GetInstance().GetTexture(
 			GetLostOuterArmTextureKey()));
 	if (!mInPool) {
-		g_particleSystem->EmitZombiePartEffect("ZombieArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombieArmOff", GetPosition(), ZombiePartMotion::Arm);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, 0.35f);
 }

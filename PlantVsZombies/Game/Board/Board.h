@@ -1738,6 +1738,10 @@ public:
 	bool IsPoolSquare(int row, int col) const;
 	/** 世界 X 是否落在该行真实水段内，供上下岸与清扫车查询。 */
 	bool IsPoolWorldPosition(int row, float x) const;
+	/** 按实际行高、屋顶坡面和落点的水陆介质返回碎片接触线，单位为场景像素。 */
+	float GetZombiePartSurfaceY(int row, float worldX, bool water) const;
+	/** 混合地形额外的水面下沉量，单位为场景像素。 */
+	float GetZombiePoolVisualDepth() const;
 	/** 水路出怪扩展点：集中列出冰车、跳跳等禁水类型。 */
 	bool CanZombieTypeSpawnInPool(ZombieType type) const;
 	Vector GetCellCenterPosition(int row, int col) const;

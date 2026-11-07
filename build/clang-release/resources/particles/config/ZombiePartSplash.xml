@@ -1,0 +1,16 @@
+<Emitter>
+  <Name>ZombiePartSplash</Name>
+  <SpawnMinActive>6</SpawnMinActive>
+  <SpawnMaxLaunched>6</SpawnMaxLaunched>
+  <ParticleDuration>[.25 .34]</ParticleDuration>
+  <SystemDuration>.36</SystemDuration>
+  <ParticleAlpha>.85,45 .7,100 0</ParticleAlpha>
+  <ParticleScale>[.38 .62]</ParticleScale>
+  <ParticleSpinSpeed>[-65 65]</ParticleSpinSpeed>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>0 [-18 18]</X>
+    <Y>-2 -16 -2</Y>
+  </Field>
+</Emitter>

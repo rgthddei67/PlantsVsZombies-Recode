@@ -4,7 +4,9 @@
 
 #include "Particle.h"
 #include "ParticleXMLConfig.h"
+#include "ZombiePartTerrain.h"
 #include "../Graphics.h"
+#include <optional>
 #include <vector>
 
 /**
@@ -19,6 +21,8 @@ struct ParticleRenderProbe {
 	float maxX = 0.0f;
 	float maxY = 0.0f;
 	glm::vec4 firstColor = glm::vec4(255.0f); ///< 首个提交粒子的 RGBA 倍率，供出生帧状态染色取证
+	int partLandContacts = 0;
+	int partWaterContacts = 0;
 };
 
 class ParticleEmitter {
@@ -40,6 +44,7 @@ private:
 	EmitterConfig xmlConfig;
 	std::vector<ParticleField> activeFields;
 	float systemTimer = 0.0f;
+	ZombiePartTerrain partTerrain;
 
 public:
 	ParticleEmitter(Graphics* g = nullptr);
@@ -47,7 +52,7 @@ public:
 
 	void SetGraphics(Graphics* g) { m_graphics = g; }
 
-	void Initialize(const EmitterConfig& config, const Vector& pos);
+	void Initialize(const EmitterConfig& config, const Vector& pos, ZombiePartTerrain terrain);
 
 	void SetSpawnRate(int rate) { spawnRate = rate; }
 	void SetMaxParticles(int max) { maxParticles = max; }
@@ -67,13 +72,14 @@ public:
 	/**
 	 * 按缩放后的游戏时间推进发射、粒子属性和 Field；暂停时完整保留上一游戏帧状态。
 	 */
-	void Update();
+	std::optional<Vector> Update();
 	void Draw();
 
 private:
 	void EmitSingleParticle();
 	Particle* GetFreeParticle();
 	Vector GetSpawnPosition() const;
+	std::optional<Vector> ResolvePartContact(Particle& particle, const Vector& previousCenter, float dt) const;
 };
 
 #endif

@@ -22,7 +22,7 @@ void ConeZombie::HelmDrop()
 
 void ConeZombie::EmitConeDropParticle() const
 {
-	EmitArmorDrop(GetConeDropEffectName(), "anim_cone", GetConeTextureKey(ArmorBrokenState::REALLY_BROKEN));
+	EmitArmorDrop(GetConeDropEffectName(), "anim_cone", GetConeTextureKey(ArmorBrokenState::REALLY_BROKEN), ZombiePartMotion::LightArmor);
 }
 
 const std::string& ConeZombie::GetConeTextureKey(ArmorBrokenState stage) const

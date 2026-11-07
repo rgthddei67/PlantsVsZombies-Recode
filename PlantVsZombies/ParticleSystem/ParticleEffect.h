@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <optional>
 
 // 多发射器粒子特效管理器
 class ParticleEffect {
@@ -21,15 +22,19 @@ private:
 	int renderOrder = 0;
 	std::string effectName;
 	float clipRightX = -1.0f;
+	ZombiePartTerrain partTerrain;
 
 public:
 	ParticleEffect() = default;
 	~ParticleEffect() = default;
 
 	// 从XML配置初始化
-	void InitializeFromConfig(const ParticleEffectConfig& config, Graphics* graphics, const Vector& pos);
+	void InitializeFromConfig(const ParticleEffectConfig& config, Graphics* graphics, const Vector& pos,
+		ZombiePartTerrain terrain = {});
 
-	void Update();
+	/** 返回本步首次击水的位置，由 ParticleSystem 在更新后发射小水花。 */
+	std::optional<Vector> Update();
+	const ZombiePartTerrain& GetPartTerrain() const { return partTerrain; }
 	void Draw();
 	/** 停止继续发射，但保留现有粒子更新到自然消亡。 */
 	void Stop();

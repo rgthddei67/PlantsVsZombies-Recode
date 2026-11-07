@@ -645,7 +645,7 @@ void RoofMarshalZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_tongue", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("RoofMarshalHeadOff", particlePosition, mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("RoofMarshalHeadOff", particlePosition, ZombiePartMotion::Head);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
@@ -658,7 +658,7 @@ void RoofMarshalZombie::ArmDrop()
 	mAnimator->SetTrackImage("Zombie_outerarm_upper", ResourceManager::GetInstance().
 		GetTexture(ResourceKeys::Textures::IMAGE_ZOMBIE_ROOFMARSHAL_OUTERARM_UPPER2));
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("ZombieArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombieArmOff", GetPosition(), ZombiePartMotion::Arm);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

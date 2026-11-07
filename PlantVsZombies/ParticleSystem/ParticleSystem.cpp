@@ -40,8 +40,10 @@ ParticleSystem::~ParticleSystem() {
 void ParticleSystem::UpdateAll() {
 	CleanupInactiveEffects();
 
-	for (auto& effect : effects) {
-		effect->Update();
+	const size_t existingCount = effects.size();
+	for (size_t i = 0; i < existingCount; ++i) {
+		const auto splash = effects[i]->Update();
+		if (splash) EmitEffect("ZombiePartSplash", *splash);
 	}
 }
 
@@ -63,6 +65,12 @@ void ParticleSystem::DrawFrom(int order) {
 
 void ParticleSystem::ClearAll() {
 	effects.clear();
+}
+
+void ParticleSystem::ClearZombieParts(const Board* board) {
+	std::erase_if(effects, [board](const auto& effect) {
+		return effect->GetPartTerrain().board == board;
+	});
 }
 
 bool ParticleSystem::LoadXMLConfigs(const std::string& directory) {
@@ -87,7 +95,8 @@ void ParticleSystem::EmitEffect(const std::string& effectName, const Vector& pos
 }
 
 void ParticleSystem::EmitDetachedPart(const std::string& effectName, const Vector& position,
-	float scaleX, float scaleY, float rotation, const std::string& textureKey, SDL_Color overlay) {
+	float scaleX, float scaleY, float rotation, const std::string& textureKey, SDL_Color overlay,
+	ZombiePartTerrain terrain) {
 	const auto* source = configManager.GetEffectConfig(effectName);
 	if (!source) {
 		LOG_ERROR("Particle") << "找不到离体部件配置: " << effectName;
@@ -115,13 +124,14 @@ void ParticleSystem::EmitDetachedPart(const std::string& effectName, const Vecto
 		emitter.hasParticleRotation = true;
 	}
 	auto effect = std::make_unique<ParticleEffect>();
-	effect->InitializeFromConfig(config, m_graphics, position);
+	effect->InitializeFromConfig(config, m_graphics, position, terrain);
 	effect->SetName(effectName);
 	effect->SetRenderOrder(LAYER_EFFECTS_WORLD);
 	effects.push_back(std::move(effect));
 }
 
-void ParticleSystem::EmitZombiePartEffect(const std::string& effectName, const Vector& position, SDL_Color overlay) {
+void ParticleSystem::EmitZombiePartEffect(const std::string& effectName, const Vector& position,
+	SDL_Color overlay, ZombiePartTerrain terrain) {
 	const auto* source = configManager.GetEffectConfig(effectName);
 	if (!source) {
 		LOG_ERROR("Particle") << "找不到僵尸部件配置: " << effectName;
@@ -130,7 +140,7 @@ void ParticleSystem::EmitZombiePartEffect(const std::string& effectName, const V
 	auto config = *source;
 	for (auto& emitter : config.emitters) ApplyDetachedPartTint(emitter, overlay);
 	auto effect = std::make_unique<ParticleEffect>();
-	effect->InitializeFromConfig(config, m_graphics, position);
+	effect->InitializeFromConfig(config, m_graphics, position, terrain);
 	effect->SetName(effectName);
 	effect->SetRenderOrder(LAYER_EFFECTS_WORLD);
 	effects.push_back(std::move(effect));

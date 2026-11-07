@@ -88,8 +88,8 @@ void FootballZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	g_particleSystem->EmitZombiePartEffect("FootballZombieHeadOff",
-		GetPosition(), mAnimator->GetActiveOverlayColor());
+	EmitFallingPart("FootballZombieHeadOff",
+		GetPosition(), ZombiePartMotion::Head);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 
@@ -99,8 +99,8 @@ void FootballZombie::HelmDrop()
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("zombie_football_helmet", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("ZombieFootballOff",
-			GetPosition(), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("ZombieFootballOff",
+			GetPosition(), ZombiePartMotion::Armor);
 	}
 }
 
@@ -111,8 +111,8 @@ void FootballZombie::ArmDrop()
 	mAnimator->SetTrackVisible("zombie_football_leftarm_lower", false);
 	mAnimator->SetTrackImage("zombie_football_leftarm_upper", ResourceManager::GetInstance().
 		GetTexture("IMAGE_ZOMBIE_FOOTBALL_LEFTARM_UPPER2"));
-	g_particleSystem->EmitZombiePartEffect("FootballZombieArmOff",
-		GetPosition(), mAnimator->GetActiveOverlayColor());
+	EmitFallingPart("FootballZombieArmOff",
+		GetPosition(), ZombiePartMotion::Arm);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 

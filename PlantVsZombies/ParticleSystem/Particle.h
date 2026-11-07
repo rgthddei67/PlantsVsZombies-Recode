@@ -32,6 +32,9 @@ struct Particle {
 	float frameRate = 12.0f;
 	Vector fieldOffset;
 	Vector shakeOffset;
+	int landContacts = 0;     // 离体部件的触地次数；第二次触地后贴地滑停
+	bool onGround = false;
+	float waterline = -1.0f;  // 离体部件入水后的裁剪线，负值表示尚未入水
 
 	Particle();
 	void Reset();

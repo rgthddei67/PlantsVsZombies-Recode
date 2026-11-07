@@ -6,7 +6,9 @@
 
 ## 单件动画部件的离体接续
 
-`ParticleSystem::EmitDetachedPart` 接收已经换算好的贴图中心、正的世界 X/Y 缩放和初始屏幕角度；它替代 XML 的尺寸、角度及局部 Position/SystemPosition 位移，保留寿命和弹道。普通 `EmitEffect` 的 Position 场要到 Update 才生效，不能依靠它把刚生成的头盔从腰部移到头顶；暂停后的第一张截图也必须正确。镜像使用配套贴图，参见 `ZombieIdentityVisuals.cpp` 的完整插值矩阵换算。宿主的状态覆盖色由 `Animator::GetActiveOverlayColor()` 在脱落时截取；僵尸部件出生时就初始化颜色倍率，不能等第一次 Update 才从原色变为魅惑红/冻结蓝；原有部件只需染色时使用 `EmitZombiePartEffect`，保留其独立位置/尺寸与组合发射器。两入口只设置运行时副本的 `initializeDetachedPartTint`，默认关闭且不由 XML 开启；普通攻击、技能光效、爆炸烟雾和天气粒子继续使用 `EmitEffect`。`EmitDetachedPart` 只用于单件、单发射器残骸，带碎片的组合演出仍按自身锚点处理，不能强制把所有发射器换成同一部件。
+`ParticleSystem::EmitDetachedPart` 接收已经换算好的贴图中心、正的世界 X/Y 缩放和初始屏幕角度；它替代 XML 的尺寸、角度及局部 Position/SystemPosition 位移。未传地形时保留 XML 的寿命和弹道。普通 `EmitEffect` 的 Position 场要到 Update 才生效，不能依靠它把刚生成的头盔从腰部移到头顶；暂停后的第一张截图也必须正确。镜像使用配套贴图，参见 `ZombieIdentityVisuals.cpp` 的完整插值矩阵换算。宿主的状态覆盖色由 `Animator::GetActiveOverlayColor()` 在脱落时截取；僵尸部件出生时就初始化颜色倍率，不能等第一次 Update 才从原色变为魅惑红/冻结蓝；原有部件只需染色时使用 `EmitZombiePartEffect`，保留其独立位置/尺寸与组合发射器。两入口只设置运行时副本的 `initializeDetachedPartTint`，默认关闭且不由 XML 开启；普通攻击、技能光效、爆炸烟雾和天气粒子继续使用 `EmitEffect`。`EmitDetachedPart` 只用于单件、单发射器残骸，带碎片的组合演出仍按自身锚点处理，不能强制把所有发射器换成同一部件。
+
+实体部件需要落地时，通过 `Zombie::EmitFallingPart` 发射已有组合效果，或在 `EmitDetachedPart` 中传入 `GetPartTerrain`。发射时只锁定逻辑行，接触线按当前 X 向 Board 查询，水岸的干湿分界和屋顶连续坡面都由 Board 决定。落地用旋转后的贴图下缘取证，入水用该点的水线裁剪，并由粒子系统在更新后发射小水花。普通烟雾等效果只消费原有发射接口。专项见 `smoke_zombie_part_terrain`。
 
 ## 原版参考边界
 

@@ -204,7 +204,7 @@ void IceCrackDrillZombie::HelmDrop()
 void IceCrackDrillZombie::EmitConeDropParticle() const
 {
 	// 钻机是手持独立 reanim，沿用原组合残骸/碎片配置，不能套用隐藏的路障头轨。
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect(GetConeDropEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
+	EmitFallingPart(GetConeDropEffectName(), GetPosition(), ZombiePartMotion::Armor);
 }
 
 void IceCrackDrillZombie::CheckHelmImage()

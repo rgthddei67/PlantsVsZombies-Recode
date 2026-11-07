@@ -58,22 +58,6 @@ const char* PoolNormalZombie::GetDeathTrackName() const
 	return mInPool ? "anim_waterdeath" : "anim_death";
 }
 
-/** 水中掉头只更新人物轨道并播放音效，不生成悬浮的陆地碎片。 */
-void PoolNormalZombie::HeadDrop()
-{
-	if (!mInPool) {
-		Zombie::HeadDrop();
-		return;
-	}
-	if (!mHasHead) return;
-
-	mAnimator->SetTrackVisible("anim_head1", false);
-	mAnimator->SetTrackVisible("anim_head2", false);
-	mAnimator->SetTrackVisible("anim_tongue", false);
-	mAnimator->SetTrackVisible("anim_hair", false);
-	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
-}
-
 /** 水中断臂保留残臂贴图变化，但不生成陆地掉臂粒子。 */
 void PoolNormalZombie::ArmDrop()
 {

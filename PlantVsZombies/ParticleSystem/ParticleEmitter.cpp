@@ -2,6 +2,7 @@
 #include "../DeltaTime.h"
 #include "../GameApp.h"
 #include "../Game/Definit.h"
+#include "../Game/Board/Board.h"
 #include "../GameRandom.h"
 #include "../ResourceManager.h"
 #include <iostream>
@@ -10,6 +11,35 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace {
+	constexpr float kPartGravity = 520.0f;     // 离体碎片最低下落加速度（像素/秒²）
+	constexpr float kPartFlightLifetime = 1.35f; // 碎片首触前预留的最长飞行时间（秒）
+	constexpr float kPartLandLifetime = .62f;  // 初次触地后留给弹起、滑停和淡出的时间（秒）
+	constexpr float kPartWaterLifetime = .42f; // 沉水部件从触水到消失的时长（秒）
+	constexpr float kPartFloatLifetime = .62f; // 轻型防具触水后的漂浮和淡出时长（秒）
+	constexpr float kPartFadeTime = .19f;      // 离体碎片末段的淡出时长（秒）
+	constexpr float kPartGroundDrag = 6.0f;   // 贴地时的水平速度衰减率（1/秒）
+	constexpr float kPartWaterDrag = 9.0f;    // 水面以下的水平速度衰减率（1/秒）
+	constexpr float kRoundPartImpactSpin = 280.0f; // 头或轻帽弹起时的最小翻转角速度（度/秒）
+	constexpr float kFlatPartImpactSpin = 145.0f;  // 手臂与大件弹起时的最小翻转角速度（度/秒）
+	constexpr float kRoundPartLaunchDrift = 52.0f; // 圆形碎片离体时的最低水平速度（像素/秒）
+	constexpr float kFlatPartLaunchDrift = 34.0f;  // 手臂与大件离体时的最低水平速度（像素/秒）
+	constexpr float kArmorContactScale = .88f;     // 重甲贴图透明留边较宽，收紧接触轮廓的倍率
+
+	bool RollsOnContact(ZombiePartMotion motion)
+	{
+		return motion == ZombiePartMotion::Head || motion == ZombiePartMotion::LightArmor;
+	}
+
+	/** 用旋转后的椭圆近似可见轮廓，避免透明的矩形角先接地，看起来像浮空。 */
+	float PartBottomRadius(const Particle& particle, ZombiePartMotion motion)
+	{
+		const float angle = glm::radians(particle.rotation);
+		const float width = static_cast<float>(particle.texture->width) / std::max(1, particle.totalFrames);
+		const float height = static_cast<float>(particle.texture->height) * particle.stretch;
+		const float contactScale = motion == ZombiePartMotion::Armor ? kArmorContactScale : 1.0f;
+		return .5f * particle.size * contactScale * std::hypot(width * std::sin(angle), height * std::cos(angle));
+	}
+
 	/** 把粒子实际提交的单位四边形矩阵并入本发射器的 AutoTest 包围盒。 */
 	void RecordParticleQuad(ParticleRenderProbe& probe, const glm::mat4& matrix)
 	{
@@ -39,8 +69,9 @@ ParticleEmitter::ParticleEmitter(Graphics* g)
 {
 }
 
-void ParticleEmitter::Initialize(const EmitterConfig& config, const Vector& pos) {
+void ParticleEmitter::Initialize(const EmitterConfig& config, const Vector& pos, ZombiePartTerrain terrain) {
 	xmlConfig = config;
+	partTerrain = terrain;
 	position = pos;
 	active = true;
 	spawnTimer = 0.0f;
@@ -57,18 +88,17 @@ void ParticleEmitter::Initialize(const EmitterConfig& config, const Vector& pos)
 	maxParticles = std::max(maxLaunched, minActive);
 	particles.resize(maxParticles);
 
+	activeFields = config.fields;
 	for (int i = 0; i < minActive; i++) {
 		EmitSingleParticle();
 	}
-
-	activeFields = config.fields;
 }
 
-void ParticleEmitter::Update() {
+std::optional<Vector> ParticleEmitter::Update() {
 	const float deltaTime = DeltaTime::GetDeltaTime();
 	if (deltaTime <= 0.0f) {
 		// 暂停期间仍会执行 UI 逻辑步；不能让 Shake 重抽或 Friction 继续改变粒子状态。
-		return;
+		return {};
 	}
 
 	if (active) {
@@ -94,11 +124,15 @@ void ParticleEmitter::Update() {
 		}
 	}
 
+	std::optional<Vector> splash;
 	for (size_t i = 0; i < particles.size(); i++)
 	{
 		Particle& particle = particles[i];
 		if (particle.active)
 		{
+			const Vector previousCenter = partTerrain.board ? particle.position + particle.fieldOffset : Vector{};
+			const bool bouncing = particle.landContacts == 1 && !particle.onGround && particle.waterline < 0.0f;
+			const float previousRadius = bouncing ? PartBottomRadius(particle, partTerrain.motion) : 0.0f;
 			float normalizedTime = particle.lifetime / particle.maxLifetime;
 
 			float systemAlphaValue = 1.0f;
@@ -173,8 +207,72 @@ void ParticleEmitter::Update() {
 			}
 
 			particle.Update();
+			if (partTerrain.board && particle.active) {
+				// 弹起时以下缘推进高度，避免贴图旋转变宽后立刻被判成二次触地。
+				if (bouncing) particle.position.y += previousRadius - PartBottomRadius(particle, partTerrain.motion);
+				const auto impact = ResolvePartContact(particle, previousCenter, deltaTime);
+				if (!splash && impact) splash = impact;
+				particle.color.a *= std::clamp((particle.maxLifetime - particle.lifetime) / kPartFadeTime, 0.0f, 1.0f);
+			}
 		}
 	}
+	return splash;
+}
+
+std::optional<Vector> ParticleEmitter::ResolvePartContact(Particle& particle, const Vector& previousCenter, float dt) const
+{
+	const Board& board = *partTerrain.board;
+	const Vector center = particle.position + particle.fieldOffset;
+	const float radius = PartBottomRadius(particle, partTerrain.motion);
+	const bool water = board.IsPoolWorldPosition(partTerrain.row, center.x);
+	const bool floats = partTerrain.motion == ZombiePartMotion::LightArmor;
+	if (particle.waterline >= 0.0f) {
+		// 已入水的碎片保持裁剪，停止于水岸，避免继续漂到干地上。
+		if (!water) particle.position.x = previousCenter.x - particle.fieldOffset.x;
+		particle.velocity.x *= std::exp(-kPartWaterDrag * dt);
+		particle.rotationSpeed *= std::exp(-kPartWaterDrag * dt);
+		if (floats) particle.position.y = particle.waterline - radius * .65f - particle.fieldOffset.y;
+		return {};
+	}
+
+	const float surfaceY = board.GetZombiePartSurfaceY(partTerrain.row, center.x, water);
+	if (!particle.onGround && center.y + radius < surfaceY) return {};
+	if (water) {
+		particle.waterline = surfaceY;
+		particle.onGround = false;
+		particle.gravity = 0.0f;
+		particle.velocity.x *= floats ? .48f : .24f;
+		particle.velocity.y = floats ? 0.0f : 72.0f;
+		particle.rotationSpeed *= .45f;
+		particle.maxLifetime = particle.lifetime + (floats ? kPartFloatLifetime : kPartWaterLifetime);
+		// 水下出生直接下沉。水面上撞击时才把贴图放在接触线并溅起小水花。
+		if (floats || previousCenter.y < surfaceY) {
+			particle.position.y = surfaceY - radius * (floats ? .65f : 1.0f) - particle.fieldOffset.y;
+		}
+		if (previousCenter.y < surfaceY) return Vector(center.x, surfaceY);
+		return {};
+	}
+
+	particle.position.y = surfaceY - radius - particle.fieldOffset.y;
+	const bool rolls = RollsOnContact(partTerrain.motion);
+	if (particle.onGround) {
+		particle.velocity.x *= std::exp(-kPartGroundDrag * dt);
+		if (std::abs(particle.velocity.x) < 2.0f) particle.velocity.x = 0.0f;
+	}
+	else {
+		const bool firstContact = ++particle.landContacts == 1;
+		if (firstContact) particle.maxLifetime = particle.lifetime + kPartLandLifetime;
+		particle.velocity.x *= rolls ? .78f : .58f;
+		const float bounceSpeed = std::clamp(particle.velocity.y * (rolls ? .32f : .19f), 0.0f, 75.0f);
+		particle.onGround = !firstContact || bounceSpeed < 22.0f;
+		particle.velocity.y = particle.onGround ? 0.0f : -bounceSpeed;
+		if (particle.onGround) particle.gravity = 0.0f;
+	}
+	// 水平速度决定翻滚方向。用当前接触半径估算角速度，保持转速和位移一起减弱。
+	const float rollSpeed = glm::degrees(particle.velocity.x / std::max(radius, 5.0f));
+	const float impactSpin = particle.onGround ? 0.0f : (rolls ? kRoundPartImpactSpin : kFlatPartImpactSpin);
+	particle.rotationSpeed = std::copysign(std::clamp(std::abs(rollSpeed), impactSpin, 450.0f), rollSpeed);
+	return {};
 }
 
 void ParticleEmitter::EmitParticles(int count) {
@@ -249,6 +347,29 @@ void ParticleEmitter::EmitSingleParticle() {
 	// 使其沿 X/Y 区间内的不同"轨道"扩散，瘴气云才会横向铺开而非堆成一坨。
 	particle->fieldRandomX = GameRandom::Range(0.0f, 1.0f);
 	particle->fieldRandomY = GameRandom::Range(0.0f, 1.0f);
+	if (partTerrain.board) {
+		particle->stretch = xmlConfig.particleStretch.GetValue(0.0f);
+		particle->gravity = std::max(kPartGravity, particle->gravity);
+		particle->maxLifetime = std::max(kPartFlightLifetime, particle->maxLifetime);
+		particle->velocity.y = std::clamp(particle->velocity.y, -55.0f, 85.0f);
+		// 近竖直发射时留一点侧向动量，确保落地时仍能看出短翻或滑停。
+		const float launchDrift = RollsOnContact(partTerrain.motion) ? kRoundPartLaunchDrift : kFlatPartLaunchDrift;
+		if (std::abs(particle->velocity.x) < launchDrift) {
+			const float direction = particle->velocity.x == 0.0f ? particle->rotationSpeed : particle->velocity.x;
+			particle->velocity.x = std::copysign(launchDrift, direction);
+		}
+		for (const ParticleField& field : activeFields) {
+			if (field.type != ParticleFieldType::POSITION) continue;
+			particle->fieldOffset.x = field.xTrack.GetValueRandomized(0.0f, particle->fieldRandomX);
+			particle->fieldOffset.y = field.yTrack.GetValueRandomized(0.0f, particle->fieldRandomY);
+		}
+		const Vector center = particle->position + particle->fieldOffset;
+		const Board& board = *partTerrain.board;
+		if (board.IsPoolWorldPosition(partTerrain.row, center.x)
+			&& center.y >= board.GetZombiePartSurfaceY(partTerrain.row, center.x, true)) {
+			ResolvePartContact(*particle, center, 0.0f);
+		}
+	}
 
 	particle->color = glm::vec4(255.0f);
 	// 仅僵尸离体部件在出生帧消费宿主颜色快照；普通粒子保持原初始化约定。
@@ -327,7 +448,12 @@ void ParticleEmitter::Draw() {
 			finalColor.b *= particle.brightness * particle.colorMultiplier.b;
 			if (GameAPP::mAutoTestMode && !mLastRenderProbe.hasGeometry) mLastRenderProbe.firstColor = finalColor;
 
-			if (xmlConfig.hasParticleRotation) {
+			if (particle.waterline >= 0.0f) m_graphics->PushClipBottom(particle.waterline);
+			if (GameAPP::mAutoTestMode && partTerrain.board) {
+				mLastRenderProbe.partLandContacts += particle.landContacts;
+				mLastRenderProbe.partWaterContacts += particle.waterline >= 0.0f;
+			}
+			if (xmlConfig.hasParticleRotation || partTerrain.board) {
 				// DrawTextureRegion 的兼容旋转路径会先非等比缩放再旋转，使细长贴图的角度
 				// 被长宽比压扁。显式初始朝向改为围绕世界中心先旋转、再绘制拉伸矩形，
 				// 让配置角度就是屏幕上实际角度；未使用新标签的旧特效保持原样。
@@ -375,6 +501,7 @@ void ParticleEmitter::Draw() {
 					finalColor
 				);
 			}
+			if (particle.waterline >= 0.0f) m_graphics->PopClipBottom();
 		}
 	}
 }

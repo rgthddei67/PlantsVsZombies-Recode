@@ -194,7 +194,7 @@ void HijackerZombie::HeadDrop()
 		? GetTrackWorldPosition("anim_head1") : GetPosition();
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("HijackerHeadOff", anchor, mAnimator->GetActiveOverlayColor());
+	if (g_particleSystem) EmitFallingPart("HijackerHeadOff", anchor, ZombiePartMotion::Head);
 	if (mBoard) mBoard->CancelNightRoofHijacker(mZombieID);
 	ReleaseLockSound();
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbSoundVolume);
@@ -208,7 +208,7 @@ void HijackerZombie::ArmDrop()
 	mAnimator->SetTrackImage("Zombie_jackbox_outerarm_lower",
 		ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_HIJACKER_OUTERARM_LOWER2));
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("HijackerArmOff", anchor, mAnimator->GetActiveOverlayColor());
+	if (g_particleSystem) EmitFallingPart("HijackerArmOff", anchor, ZombiePartMotion::Arm);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbSoundVolume);
 }
 

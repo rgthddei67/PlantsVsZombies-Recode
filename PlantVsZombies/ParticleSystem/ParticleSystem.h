@@ -29,6 +29,8 @@ public:
 	// 绘制 renderOrder >= order 的特效（顶层；由场景命令槽调用）
 	void DrawFrom(int order);
 	void ClearAll();
+	/** Board 销毁前清理引用该地形的短命碎片。 */
+	void ClearZombieParts(const Board* board);
 
 	bool LoadXMLConfigs(const std::string& directory);
 	/**
@@ -45,9 +47,10 @@ public:
 	 */
 	void EmitDetachedPart(const std::string& effectName, const Vector& position,
 		float scaleX, float scaleY, float rotation, const std::string& textureKey = {},
-		SDL_Color overlay = {255, 255, 255, 0});
+		SDL_Color overlay = {255, 255, 255, 0}, ZombiePartTerrain terrain = {});
 	/** 僵尸原有断肢/护具碎片只截取状态颜色，保留各自 XML 的位置、尺寸与组合发射器。 */
-	void EmitZombiePartEffect(const std::string& effectName, const Vector& position, SDL_Color overlay);
+	void EmitZombiePartEffect(const std::string& effectName, const Vector& position, SDL_Color overlay,
+		ZombiePartTerrain terrain = {});
 	/** 停止全部同名特效继续发射；已生成粒子仍按各自寿命自然收尾。 */
 	void StopEffect(const std::string& effectName);
 	/** 查询同名特效是否至少有一个发射器仍在工作。 */

@@ -142,7 +142,7 @@ void FogFerryZombie::HeadDrop()
     CancelChannel(true, true);
     for (const auto* track : {"anim_head1", "anim_head2", "anim_tongue", "anim_hair"})
         mAnimator->SetTrackVisible(track, false);
-    if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("FogFerryHeadOff", origin, mAnimator->GetActiveOverlayColor());
+    if (g_particleSystem) EmitFallingPart("FogFerryHeadOff", origin, ZombiePartMotion::Head);
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, .25f);
 }
 
@@ -158,7 +158,7 @@ void FogFerryZombie::ArmDrop()
     mAnimator->SetTrackVisible("Zombie_outerarm_lower", false);
     mAnimator->SetTrackImage("Zombie_outerarm_upper",
         ResourceManager::GetInstance().GetTexture("IMAGE_FOG_FERRY_OUTERARM_UPPER2", false));
-    if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("FogFerryArmOff", origin, mAnimator->GetActiveOverlayColor());
+    if (g_particleSystem) EmitFallingPart("FogFerryArmOff", origin, ZombiePartMotion::Arm);
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, .25f);
 }
 void FogFerryZombie::Die() { CancelChannel(true, true); Zombie::Die(); }

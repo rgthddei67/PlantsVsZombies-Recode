@@ -31,6 +31,9 @@ void Particle::Reset() {
 	frameRate = 12.0f;
 	fieldOffset = { 0, 0 };
 	shakeOffset = { 0, 0 };
+	landContacts = 0;
+	onGround = false;
+	waterline = -1.0f;
 }
 
 void Particle::Update() {

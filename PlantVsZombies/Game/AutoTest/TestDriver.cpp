@@ -10188,6 +10188,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				{ "renderProbeReady", probe.hasGeometry },
 				{ "renderQuadCount", probe.quadCount },
 			};
+			if (effect->GetPartTerrain().board == board) {
+				state["partRow"] = effect->GetPartTerrain().row;
+				state["partLandContacts"] = probe.partLandContacts;
+				state["partWaterContacts"] = probe.partWaterContacts;
+				if (probe.hasGeometry) {
+					const float x = (probe.minX + probe.maxX) * .5f;
+					const int row = effect->GetPartTerrain().row;
+					const float surfaceY = board->GetZombiePartSurfaceY(row, x, board->IsPoolWorldPosition(row, x));
+					state["partQuadBottomToSurfaceInt"] = static_cast<int>(std::lround(probe.maxY - surfaceY));
+					state["partSurfaceFromRowCenterInt"] = static_cast<int>(std::lround(surfaceY - board->GetRowCenterYAtX(row, x)));
+				}
+			}
 			if (board->IsRoofBackground()) {
 				int nearestRow = 0;
 				float nearestOffset = std::numeric_limits<float>::max();

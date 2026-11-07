@@ -157,7 +157,7 @@ void ExcavatorZombie::HeadDrop()
 		mAnimator->SetTrackVisible(track,false);
 	mAnimator->SetTrackFollowerVisible("anim_head1","excavator_hat",false);
 	if (mPhase != Phase::SPENT) Abort(Phase::DISABLED);
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ExcavatorHeadOff",origin + Vector(25,15), mAnimator->GetActiveOverlayColor());
+	if (g_particleSystem) EmitFallingPart("ExcavatorHeadOff",origin + Vector(25,15), ZombiePartMotion::Head);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP,0.25f);
 }
 

@@ -350,7 +350,7 @@ void PogoZombie::BreakPogo(bool emitParticle)
 	UpdateAnimSpeed();
 	PlayWalkAnimation(0.0f);
 	if (emitParticle && g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect(GetPogoBreakEffectName(), particlePosition, mAnimator->GetActiveOverlayColor());
+		EmitFallingPart(GetPogoBreakEffectName(), particlePosition, ZombiePartMotion::Armor);
 	}
 }
 
@@ -418,8 +418,8 @@ void PogoZombie::ArmDrop()
 	if (!mHasArm) return;
 	ApplyArmDamagePresentation();
 	if (g_particleSystem) {
-		g_particleSystem->EmitZombiePartEffect("PogoArmOff",
-			GetPosition() + Vector(0.0f, -mAltitude), mAnimator->GetActiveOverlayColor());
+		EmitFallingPart("PogoArmOff",
+			GetPosition() + Vector(0.0f, -mAltitude), ZombiePartMotion::Arm);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbVolume);
 }
@@ -434,7 +434,7 @@ void PogoZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_head_glasses", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ZombiePogoHeadOff", headPosition, mAnimator->GetActiveOverlayColor());
+	if (g_particleSystem) EmitFallingPart("ZombiePogoHeadOff", headPosition, ZombiePartMotion::Head);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbVolume);
 }
 

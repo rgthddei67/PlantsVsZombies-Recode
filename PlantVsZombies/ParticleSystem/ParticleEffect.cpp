@@ -4,8 +4,10 @@
 #include <algorithm>
 #include <cmath>
 
-void ParticleEffect::InitializeFromConfig(const ParticleEffectConfig& config, Graphics* graphics, const Vector& pos) {
+void ParticleEffect::InitializeFromConfig(const ParticleEffectConfig& config, Graphics* graphics,
+	const Vector& pos, ZombiePartTerrain terrain) {
 	this->graphics = graphics;
+	partTerrain = terrain;
 	position = pos;
 	systemTimer = 0.0f;
 	active = true;
@@ -20,7 +22,7 @@ void ParticleEffect::InitializeFromConfig(const ParticleEffectConfig& config, Gr
 		emitterPos.y += emitterConfig.emitterOffsetY;
 
 		// 从XML配置初始化发射器
-		emitter->Initialize(emitterConfig, emitterPos);
+		emitter->Initialize(emitterConfig, emitterPos, terrain);
 
 		// 设置系统持续时间（使用第一个发射器的系统持续时间）
 		if (emitters.empty() && emitterConfig.systemDuration > 0.0f) {
@@ -31,7 +33,7 @@ void ParticleEffect::InitializeFromConfig(const ParticleEffectConfig& config, Gr
 	}
 }
 
-void ParticleEffect::Update() {
+std::optional<Vector> ParticleEffect::Update() {
 	if (active) {
 		float deltaTime = DeltaTime::GetDeltaTime();
 		systemTimer += deltaTime;
@@ -43,9 +45,12 @@ void ParticleEffect::Update() {
 	}
 
 	// 无论是否活跃，都继续更新发射器，让已有粒子自然消亡
+	std::optional<Vector> splash;
 	for (auto& emitter : emitters) {
-		emitter->Update();
+		const auto impact = emitter->Update();
+		if (!splash && impact) splash = impact;
 	}
+	return splash;
 }
 
 void ParticleEffect::Draw() {
@@ -101,6 +106,8 @@ ParticleRenderProbe ParticleEffect::GetLastRenderProbe() const {
 	ParticleRenderProbe combined;
 	for (const auto& emitter : emitters) {
 		const ParticleRenderProbe& probe = emitter->GetLastRenderProbe();
+		combined.partLandContacts += probe.partLandContacts;
+		combined.partWaterContacts += probe.partWaterContacts;
 		if (!probe.hasGeometry) continue;
 		if (!combined.hasGeometry) {
 			combined.minX = probe.minX;

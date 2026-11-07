@@ -25,7 +25,6 @@ namespace {
 	constexpr float kPoolRearProbeX = 45.0f;               // 身体后侧入水探针相对世界 X 偏移，单位：像素
 	constexpr float kPoolTransitionRightShiftX = 70.0f;    // 适配当前泳池图，把进出水边界向右校正的像素数
 	constexpr float kPoolTransitionBlend = 0.2f;           // 进出水后恢复稳态走路轨道的混合秒数
-	constexpr float kGardenPoolVisualDepth = 30.0f;       // 混合地形水中美术下沉，独立于逻辑行，单位：像素
 	constexpr float kPoolClipBottomOffsetY = 0.0f;         // 水面裁剪底边相对行逻辑 Y 的偏移，单位：像素
 	constexpr float kPoolSplashScale = 0.8f;               // C# PoolSplash 对 Splash.reanim 的统一缩放
 	constexpr float kPoolSplashAnimOffsetX = -30.0f;       // Splash 轨道视觉中心相对池沿发射点的反向锚定，单位：像素
@@ -1209,7 +1208,7 @@ Vector Zombie::GetPoolTransitionSplashOrigin() const
 {
 	const float probeMidpointX = (kPoolFrontProbeX + kPoolRearProbeX) * 0.5f
 		- kPoolTransitionRightShiftX;
-	const float depth = mBoard && mBoard->IsWatersideGarden() ? kGardenPoolVisualDepth : 0.0f;
+	const float depth = mBoard ? mBoard->GetZombiePoolVisualDepth() : 0.0f;
 	return GetPosition() + Vector(probeMidpointX, kPoolClipBottomOffsetY + depth);
 }
 
@@ -2289,7 +2288,7 @@ void Zombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_tongue", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	if (!identityParticle) g_particleSystem->EmitZombiePartEffect("ZombieHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+	if (!identityParticle) EmitFallingPart("ZombieHeadOff", GetVisualPosition() - mVisualOffset, ZombiePartMotion::Head);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 
@@ -2300,8 +2299,21 @@ void Zombie::ArmDrop()
 	mAnimator->SetTrackVisible("Zombie_outerarm_hand", false);
 	mAnimator->SetTrackVisible("Zombie_outerarm_lower", false);
 	mAnimator->SetTrackImage("Zombie_outerarm_upper", GetArmStumpTexture());
-	if (!identityParticle) g_particleSystem->EmitZombiePartEffect("ZombieArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
+	if (!identityParticle) EmitFallingPart("ZombieArmOff", GetVisualPosition() - mVisualOffset, ZombiePartMotion::Arm);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
+}
+
+ZombiePartTerrain Zombie::GetPartTerrain(ZombiePartMotion motion) const
+{
+	if (!mBoard || mIsPreview || mBoard->GetRowCenterYAtX(mRow, GetPosition().x) < 0.0f) return {};
+	return {mBoard, mRow, motion};
+}
+
+void Zombie::EmitFallingPart(const std::string& effectName, const Vector& origin, ZombiePartMotion motion) const
+{
+	if (g_particleSystem) {
+		g_particleSystem->EmitZombiePartEffect(effectName, origin, mAnimator->GetActiveOverlayColor(), GetPartTerrain(motion));
+	}
 }
 
 void Zombie::ShieldDrop()
@@ -2384,7 +2396,7 @@ bool Zombie::RetireForTemporalReplacement()
 
 Vector Zombie::GetVisualPosition() const {
 	// 分段水域在视觉层下沉，逻辑位置与碰撞始终保持同行连续。
-	const float poolSink = mBoard && mBoard->IsWatersideGarden() && mInPool ? kGardenPoolVisualDepth : 0.0f;
+	const float poolSink = mBoard && mInPool ? mBoard->GetZombiePoolVisualDepth() : 0.0f;
 	return GetTransform()->GetPosition()
 		+ mVisualOffset + Vector(0.0f, GetTangleKelpSinkOffset() - mLadderAltitude + poolSink);
 }
@@ -3289,6 +3301,6 @@ bool Zombie::TryGetDrawClipBottom(float& clipBottom) const
 	if (!mInPool || mIsPreview) return false;
 	clipBottom = static_cast<float>(static_cast<int>(
 		std::lround(GetPosition().y + kPoolClipBottomOffsetY
-            + (mBoard && mBoard->IsWatersideGarden() ? kGardenPoolVisualDepth : 0.0f))));
+			+ (mBoard ? mBoard->GetZombiePoolVisualDepth() : 0.0f))));
 	return true;
 }
