@@ -44,6 +44,9 @@ public:
 
 	// 跳跃中不可定身（原版 CanBeFrozen 排除 PolevaulterInVault）；减速尾巴照吃（CanBeChilled 不拦）
 	bool CanBeFrozen() const override { return mVaultState != VaultState::JUMPING; }
+	bool CanTrampleGround() const override {
+		return mVaultState != VaultState::JUMPING && Zombie::CanTrampleGround();
+	}
 	// 水草沿用原版 DamageRangeFlags：仅真正腾空的 JUMPING 阶段不可抓，起跑和落地后都可抓。
 	bool CanBeGrabbedByTangleKelp() const override {
 		return mVaultState != VaultState::JUMPING;

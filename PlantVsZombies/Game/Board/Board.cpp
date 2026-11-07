@@ -249,6 +249,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	}
 
 	InitializeCell(IsPoolBackground() ? 5 : 4, 8);
+	InitializeSunlitGround();
 	if (MiniGame::IsBrawl(mLevel)) {
 		mSpawnZombieList.clear();
 		const auto& data = GameDataManager::GetInstance();
@@ -2610,6 +2611,7 @@ void Board::UpdateLevel()
 {
 	if (mBoardState != BoardState::GAME) return;
 	float deltaTime = DeltaTime::GetDeltaTime();
+	UpdateSunlitGround(deltaTime);
 
 	if (mBackGround == Background::GROUND_DAY || mBackGround == Background::WATER_POOL ||
 		mBackGround == Background::ROOF || IsWatersideGarden() || (IsColdStorage() && !IsWeatherStation())) {
@@ -3094,6 +3096,13 @@ inline ZombieType Board::PickZombieType(int remainingPoints, int wave)
 		ZombieType type = GetWeightedRandomZombie();
 		int cost = GameDataManager::GetInstance().GetZombieWeight(type);
 		int minWave = GameDataManager::GetInstance().GetZombieAppearWave(type);
+		// 白天收官先展开经济，再用撑杆/铁桶争夺前线，最后复习快速重甲；预算与预览池不变。
+		if (!mIsSurvival && mLevel == SunlitGround::FinalLevel) {
+			if (type == ZombieType::ZOMBIE_POLEVAULTER || type == ZombieType::ZOMBIE_BUCKET)
+				minWave = std::max(minWave, SunlitGround::FrontlineWave);
+			if (type == ZombieType::ZOMBIE_FASTBUCKET)
+				minWave = std::max(minWave, SunlitGround::FinalPressureWave);
+		}
 		// 收官先留开凿与布阵时间，再叠加金雾、支援和重装；仅延后本关，不改全局品种配置。
 		if (!mIsSurvival && mLevel == AdventureProgression::AREA_NINE_FINAL_LEVEL) {
 			switch (type) {

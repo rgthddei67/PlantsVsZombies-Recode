@@ -388,6 +388,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 		j["spawnList"] = spawnList;
 	}
 	j["sun"] = board->mSun;
+	j["sunlitGround"] = board->SaveSunlitGround();
 	j["coldStorage"] = board->SaveColdStorage();
 	j["weatherStation"] = board->SaveWeatherStation();
     j["watersideFlood"] = board->SaveWatersideFlood();
@@ -1000,6 +1001,7 @@ void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 		}
 	}
 	board->mSun = j.value("sun", 50);
+	board->LoadSunlitGround(j.value("sunlitGround", nlohmann::json::array()));
 	board->LoadColdStorage(j.value("coldStorage", nlohmann::json::object()));
 	board->LoadWeatherStation(j.value("weatherStation", nlohmann::json::object()));
     board->LoadWatersideFlood(j.value("watersideFlood", nlohmann::json::object()));

@@ -77,6 +77,8 @@ Board 保留玩法权威和实体协调，独立机制可由其具名值对象�
 
 Board 的关卡阶段、当前波次和阳光为私有状态。外部读取走 `GetState/GetCurrentWave/GetSun`，生存选卡完成、过场退出存档、奖杯接收分别使用语义入口；不要恢复直接字段赋值或加一个通用 `SetState` 绕过这些边界。`GameInfoSaver` 仍可在受控恢复阶段写入持久状态，AutoTest 设阳光单独走测试入口。
 
+第一大关向阳空地的布局和节奏参数在 `Game/Board/SunlitGround.h`，生产、占格与踩踏统一由 `BoardSunlitGround.cpp` 管理。花地不是植物，不占任何植物层；各层活动植物暂停积累，敌对地面接触清零，僵尸以 `CanTrampleGround()` 声明资格。展示读取同一进度，不另跑生产时钟。关卡 schema v42 按格位保存进度，旧局只初始化空地、不改原有阳光和波次；已生成阳光沿用普通 Sun 的领取存档。专项为 `smoke_sunlit_ground`、`smoke_sunlit_finale` 与 `autotest/verify_sunlit_ground.py`；测试实体存续时关闭自动收集，避免把正常入账误判为读档丢失。
+
 ### 游戏循环（`GameApp::Run`）
 
 1. **输入：** SDL 事件 → `InputHandler`。

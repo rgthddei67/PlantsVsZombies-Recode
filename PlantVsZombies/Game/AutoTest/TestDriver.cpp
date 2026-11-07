@@ -10435,6 +10435,18 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	}
 	out["animatedObjectCount"] = static_cast<int>(out["animatedObjects"].size());
 
+	out["sunlitGround"] = {{"active", board->SupportsSunlitGround()},
+		{"productionSeconds", SunlitGround::ProductionSeconds}, {"plots", nlohmann::json::array()},
+		{"resourcesReady", ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_SELECTORSCREEN_FLOWER1, false)
+			&& ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_SELECTORSCREEN_FLOWER2, false)
+			&& ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_SELECTORSCREEN_FLOWER3, false)}};
+	if (board->SupportsSunlitGround()) for (const auto& plot : board->GetSunlitPlots()) {
+		if (plot.row < 0) continue;
+		out["sunlitGround"]["plots"].push_back({{"row", plot.row}, {"col", plot.column},
+			{"elapsedMillis", static_cast<int>(std::lround(plot.elapsed * 1000))},
+			{"occupied", board->IsSunlitPlotOccupied(plot)}, {"trampled", board->IsSunlitPlotTrampled(plot)}});
+	}
+	out["sunlitGround"]["count"] = out["sunlitGround"]["plots"].size();
 	out["garden"] = {{"active", board->IsWatersideGarden()},
         {"resourcesReady", !board->IsWatersideGarden() || ResourceManager::GetInstance().GetTexture("IMAGE_BACKGROUND_WATERSIDE_GARDEN", false) != nullptr}};
 	out["cells"] = nlohmann::json::array();

@@ -1056,6 +1056,17 @@ int main() {
                 "current volley is not reset on repeated load");
         }
     }
+	{
+		nlohmann::json old = {{"schemaVersion", 41}, {"level", 9}, {"sun", 1200}, {"currentWave", 18}};
+		std::string error;
+		Expect(SaveSchema::UpgradeLevelDocument(old, error), "sunlit ground migration succeeds");
+		Expect(old["sunlitGround"].empty() && old["sun"] == 1200 && old["currentWave"] == 18,
+			"old gardens start empty without rewriting the player's economy or wave");
+		old["sunlitGround"] = {{{"row", 1}, {"column", 3}, {"elapsed", 20.0f}}};
+		const auto saved = old;
+		Expect(SaveSchema::UpgradeLevelDocument(old, error) && old == saved,
+			"current sunlit progress survives repeated upgrades");
+	}
 	TestSunCollectionMigration();
 	TestLegacyLevelUpgradePreservesGameplayState();
 	TestVersionOneLevelUpgradeDefersFogInitializationToBoard();

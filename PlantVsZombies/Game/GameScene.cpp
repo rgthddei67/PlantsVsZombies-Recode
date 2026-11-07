@@ -2028,6 +2028,10 @@ void GameScene::BuildDrawCommands()
 	}
 
 	if (mBoard) {
+		if (mBoard->SupportsSunlitGround()) {
+			RegisterDrawCommand("SunlitGround",
+				[this](Graphics* g) { mBoard->DrawSunlitGround(g); }, LAYER_BACKGROUND + 1);
+		}
 		if (background == Background::WINTER_GARDEN) {
 			RegisterDrawCommand("WinterFrost",
 				[this](Graphics* g) { mBoard->DrawWinterFrost(g); },

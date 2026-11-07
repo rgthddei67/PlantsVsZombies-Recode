@@ -674,6 +674,10 @@ namespace {
                         bullet["workshopHitZombieIDs"] = nlohmann::json::array();
                     }
                 version = 41; upgraded["schemaVersion"] = version; break;
+			case 41:
+				// 旧局保留现有阳光、波次与阵形；新加入的向阳空地从零积累，不补发历史收益。
+				if (kind == DocumentKind::Level) upgraded["sunlitGround"] = nlohmann::json::array();
+				version = 42; upgraded["schemaVersion"] = version; break;
 			default:
 				error = std::string(documentName) + "存档缺少迁移路径";
 				return false;

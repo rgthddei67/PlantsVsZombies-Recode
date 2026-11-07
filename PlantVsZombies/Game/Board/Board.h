@@ -6,6 +6,7 @@
 #include "WinterClimate.h"
 #include "NightRoofChargeCycle.h"
 #include "WaveSpawnCounts.h"
+#include "SunlitGround.h"
 #include "ColdStorageState.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
 #include "../MiniGameDefinition.h"
@@ -216,7 +217,19 @@ private:
 	BoardState mBoardState = BoardState::CHOOSE_CARD;
 	int mSun = 50;
 	int mCurrentWave = 0;			// 当前波
+	std::array<SunlitGround::Plot, 4> mSunlitPlots{};
+	void InitializeSunlitGround();
+	void UpdateSunlitGround(float deltaTime);
 public:
+	/** 第一大关固定花地；占格暂停、落地敌人踩踏清零，生产仅在实战推进。 */
+	bool SupportsSunlitGround() const;
+	const auto& GetSunlitPlots() const { return mSunlitPlots; }
+	bool IsSunlitPlotOccupied(const SunlitGround::Plot& plot);
+	bool IsSunlitPlotTrampled(const SunlitGround::Plot& plot);
+	/** 保存匹配格位的生产进度；旧档缺省从零开始，不补发历史阳光。 */
+	nlohmann::json SaveSunlitGround() const;
+	void LoadSunlitGround(const nlohmann::json& data);
+	void DrawSunlitGround(Graphics* g);
     /** 工坊由 Board 独占生产/出兵状态；实体仍走既有植物、僵尸、子弹体系。 */
     bool IsWorkshop() const { return mWorkshop != nullptr; }
     Workshop::World& GetWorkshop() { return *mWorkshop; }
