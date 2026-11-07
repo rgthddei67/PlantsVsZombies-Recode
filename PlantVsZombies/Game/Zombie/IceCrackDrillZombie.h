@@ -52,6 +52,7 @@ protected:
 	void CheckHelmImage() override;
 	const std::string& GetConeTextureKey(ArmorBrokenState stage) const override;
 	const char* GetConeDropEffectName() const override { return "IceCrackDrillRigOff"; }
+	void EmitConeDropParticle() const override;
 
 private:
 	bool CanBeginCharge() const;

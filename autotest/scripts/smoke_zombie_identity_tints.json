@@ -1,0 +1,177 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEALER",
+      "row": 3,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 1,
+      "effect": "FROZEN"
+    },
+    {
+      "op": "apply_zombie_control",
+      "row": 2,
+      "effect": "PARALYSIS",
+      "duration": 5
+    },
+    {
+      "op": "apply_toxin_stacks",
+      "row": 3,
+      "count": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "tinted_alive.png"
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_ICE_WORKER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_BOILER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_HEALER",
+      "damage": 100000
+    },
+    {
+      "op": "screenshot",
+      "name": "tinted_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "tinted_drop.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_NORMAL"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_NORMAL",
+      "damage": 100000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FOOTBALL",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_FOOTBALL"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_FOOTBALL",
+      "damage": 100000
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_NEWSPAPER",
+      "row": 3,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_NEWSPAPER"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_NEWSPAPER",
+      "damage": 100000
+    },
+    {
+      "op": "screenshot",
+      "name": "classic_tinted_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "classic_tinted_drop.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

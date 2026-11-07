@@ -199,7 +199,7 @@ void ImpZombie::ArmDrop()
 		ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_IMP_ARM1_BONE));
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ImpZombieArmOff", particlePosition);
+		g_particleSystem->EmitZombiePartEffect("ImpZombieArmOff", particlePosition, mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
@@ -211,7 +211,7 @@ void ImpZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ImpZombieHeadOff", particlePosition);
+		g_particleSystem->EmitZombiePartEffect("ImpZombieHeadOff", particlePosition, mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }

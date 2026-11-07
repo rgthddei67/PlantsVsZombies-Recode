@@ -108,6 +108,7 @@ ParticleRenderProbe ParticleEffect::GetLastRenderProbe() const {
 			combined.maxX = probe.maxX;
 			combined.maxY = probe.maxY;
 			combined.hasGeometry = true;
+			combined.firstColor = probe.firstColor;
 		}
 		else {
 			combined.minX = std::min(combined.minX, probe.minX);

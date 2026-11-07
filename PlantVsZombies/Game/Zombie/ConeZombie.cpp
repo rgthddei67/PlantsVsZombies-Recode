@@ -14,13 +14,15 @@ void ConeZombie::SetupZombie()
 
 void ConeZombie::HelmDrop()
 {
+	EmitConeDropParticle();
 	Zombie::HelmDrop();
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("anim_cone", false);
-	if (g_particleSystem) {
-		g_particleSystem->EmitEffect(GetConeDropEffectName(),
-			GetPosition());
-	}
+}
+
+void ConeZombie::EmitConeDropParticle() const
+{
+	EmitArmorDrop(GetConeDropEffectName(), "anim_cone", GetConeTextureKey(ArmorBrokenState::REALLY_BROKEN));
 }
 
 const std::string& ConeZombie::GetConeTextureKey(ArmorBrokenState stage) const

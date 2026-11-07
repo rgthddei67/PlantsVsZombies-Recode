@@ -18,6 +18,7 @@ struct ParticleRenderProbe {
 	float minY = 0.0f;
 	float maxX = 0.0f;
 	float maxY = 0.0f;
+	glm::vec4 firstColor = glm::vec4(255.0f); ///< 首个提交粒子的 RGBA 倍率，供出生帧状态染色取证
 };
 
 class ParticleEmitter {

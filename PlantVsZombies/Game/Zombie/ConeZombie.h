@@ -28,6 +28,8 @@ protected:
 	virtual const std::string& GetConeTextureKey(ArmorBrokenState stage) const;
 	/** 返回路障脱落粒子配置名，供数值变体保持掉落表现与自身贴图一致。 */
 	virtual const char* GetConeDropEffectName() const { return "ZombieConeOff"; }
+	/** 头戴护具使用 anim_cone；手持钻机等派生装备自行提供脱落锚点。 */
+	virtual void EmitConeDropParticle() const;
 };
 
 #endif

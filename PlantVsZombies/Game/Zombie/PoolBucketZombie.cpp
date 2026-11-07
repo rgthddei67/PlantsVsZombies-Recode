@@ -29,12 +29,10 @@ void PoolBucketZombie::SetupZombie()
 /** 铁桶完全掉落时隐藏轨道，并沿用现有掉落特效。 */
 void PoolBucketZombie::HelmDrop()
 {
+	EmitArmorDrop("ZombieBucketOff", "anim_bucket", "IMAGE_ZOMBIE_BUCKET3");
 	Zombie::HelmDrop();
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("anim_bucket", false);
-	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieBucketOff", GetPosition());
-	}
 }
 
 bool PoolBucketZombie::HasMagneticItem() const

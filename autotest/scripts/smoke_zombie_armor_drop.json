@@ -1,0 +1,455 @@
+{
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 0,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_TRAFFIC_CONE",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FASTBUCKET",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POOL_BUCKET",
+      "row": 3,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_0_before.png"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "damage": 1100
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_TRAFFIC_CONE",
+      "damage": 370
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_FASTBUCKET",
+      "damage": 600
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_POOL_BUCKET",
+      "damage": 1100
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_0_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_0_0_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.08
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_0_next.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_0_0_next.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POOL_CONE",
+      "row": 0,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GROUNDING",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_1_before.png"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_POOL_CONE",
+      "damage": 370
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_GROUNDING",
+      "damage": 1200
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "damage": 370
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_1_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_0_1_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.08
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_0_1_next.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_0_1_next.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "row": 0,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_BUCKET"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_TRAFFIC_CONE",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_TRAFFIC_CONE"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_FASTBUCKET",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_FASTBUCKET"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POOL_BUCKET",
+      "row": 3,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_POOL_BUCKET"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_0_before.png"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_BUCKET",
+      "damage": 1100
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_TRAFFIC_CONE",
+      "damage": 370
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_FASTBUCKET",
+      "damage": 600
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_POOL_BUCKET",
+      "damage": 1100
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_0_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_1_0_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.08
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_0_next.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_1_0_next.json"
+    },
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": []
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_POOL_CONE",
+      "row": 0,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_POOL_CONE"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_GROUNDING",
+      "row": 1,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_GROUNDING"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "row": 2,
+      "x": 650,
+      "stationary": true
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_1_before.png"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_POOL_CONE",
+      "damage": 370
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_GROUNDING",
+      "damage": 1200
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_ICE_WALL_ENGINEER",
+      "damage": 370
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_1_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_1_1_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.25
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.08
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "armor_1_1_next.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armor_1_1_next.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

@@ -419,8 +419,8 @@ bool CatapultZombie::HandleCaltropHit(Caltrop& caltrop)
 	if (mCollider) mCollider->mEnabled = false;
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BALLOON_POP, 0.5f);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZamboniTire",
-			GetPosition() + mVisualOffset + Vector(kTireFromVisualX, kTireFromVisualY));
+		g_particleSystem->EmitZombiePartEffect("ZamboniTire",
+			GetPosition() + mVisualOffset + Vector(kTireFromVisualX, kTireFromVisualY), mAnimator->GetActiveOverlayColor());
 	}
 	PlayTrackOnce("anim_bounce", "", kBounceClipSpeed, 0.1f);
 	return true;

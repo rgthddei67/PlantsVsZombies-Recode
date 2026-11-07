@@ -66,13 +66,10 @@ void FastBucketZombie::LoadExtraData(const nlohmann::json& j)
 
 void FastBucketZombie::HelmDrop()
 {
+	EmitArmorDrop("ZombieFastBucketOff", "anim_bucket", "IMAGE_FASTZOMBIE_BUCKET3");
 	Zombie::HelmDrop();
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("anim_bucket", false);
-	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieFastBucketOff",
-			GetPosition());
-	}
 }
 
 void FastBucketZombie::CheckHelmImage()

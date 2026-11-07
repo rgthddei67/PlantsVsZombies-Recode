@@ -767,6 +767,14 @@ protected:
 
 	// 这才是设置僵尸
 	virtual void SetupZombie();
+	/** 重建普通骨架变体的头饰与残端；出生和读档共用，不修改玩法状态。 */
+	void ConfigureIdentityVisuals() const;
+	const Texture* GetArmStumpTexture() const;
+	/** 从当前插值姿态发射配套离体部件；非定制服装品种返回 false。 */
+	bool EmitIdentityLimb(bool head) const;
+	/** 单件头盔从自身插值轨道中心脱落，保留破损贴图、镜像及当前缩放。 */
+	void EmitArmorDrop(const std::string& effectName, const std::string& trackName,
+		const std::string& textureKey) const;
 	/** 注册当前 reanim 时间轴上的死亡与啃食帧事件；帧布局不同的品种在此替换。 */
 	virtual void RegisterFrameEvents();
 	/** 返回掉头流血结束后应播放的死亡轨道名。 */

@@ -415,7 +415,7 @@ void SnowBurrowZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("Zombie_digger_head_eye", false);
 	mAnimator->SetTrackVisible("Zombie_digger_hardhat", false);
-	if (g_particleSystem) g_particleSystem->EmitEffect("ZombieSnowBurrowHeadOff", origin);
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ZombieSnowBurrowHeadOff", origin, mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbSoundVolume);
 }
 
@@ -428,7 +428,7 @@ void SnowBurrowZombie::ArmDrop()
 	mAnimator->SetTrackImage("Zombie_digger_outerarm_upper",
 		ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_ZOMBIE_SNOWBURROW_OUTERARM_UPPER2));
-	if (g_particleSystem) g_particleSystem->EmitEffect("ZombieSnowBurrowArmOff", origin);
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ZombieSnowBurrowArmOff", origin, mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbSoundVolume);
 }
 

@@ -27,13 +27,10 @@ void BucketZombie::SetupZombie()
 
 void BucketZombie::HelmDrop()
 {
+	EmitArmorDrop("ZombieBucketOff", "anim_bucket", "IMAGE_ZOMBIE_BUCKET3");
 	Zombie::HelmDrop();
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("anim_bucket", false);
-	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieBucketOff",
-			GetPosition());
-	}
 }
 
 void BucketZombie::CheckHelmImage()

@@ -288,7 +288,7 @@ void IceStatueExecutionerZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	if (g_particleSystem) {
 		// 合成“红帽随头飞”的新粒子等待主人确认；当前只复用既有扶梯裸头终态。
-		g_particleSystem->EmitEffect("ZombieLadderHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieLadderHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
@@ -302,7 +302,7 @@ void IceStatueExecutionerZombie::ArmDrop()
 	mAnimator->SetTrackImage("Zombie_ladder_outerarm_upper",
 		ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_ZOMBIE_LADDER_OUTERARM_UPPER2));
-	if (g_particleSystem) g_particleSystem->EmitEffect("LadderArmOff", GetPosition());
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("LadderArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
 
@@ -380,7 +380,7 @@ void IceStatueExecutionerZombie::HelmDrop()
 	mHelmetStage = ArmorBrokenState::NONE;
 	HideHelmetFollower();
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieIceExecutionerHelmetOff", dropPosition);
+		g_particleSystem->EmitZombiePartEffect("ZombieIceExecutionerHelmetOff", dropPosition, mAnimator->GetActiveOverlayColor());
 	}
 }
 

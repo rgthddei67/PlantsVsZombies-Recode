@@ -1,7 +1,32 @@
 #include "ParticleSystem.h"
 #include "../Logger.h"
+#include <cmath>
 
 std::unique_ptr<ParticleSystem> g_particleSystem = nullptr;
+
+namespace {
+	/** 保留 XML 的常量、随机区间及生命周期曲线，只乘入脱落瞬间的状态倍率。 */
+	void MultiplyColorTrack(InterpolationTrack& track, float multiplier) {
+		track.constantValue *= multiplier;
+		track.randomMin *= multiplier;
+		track.randomMax *= multiplier;
+		for (auto& point : track.points) {
+			point.value *= multiplier;
+			point.valueLo *= multiplier;
+			point.valueHi *= multiplier;
+		}
+	}
+
+	/** 此开关只在僵尸部件专用入口设置，普通 EmitEffect 不改变出生颜色初始化。 */
+	void ApplyDetachedPartTint(EmitterConfig& emitter, SDL_Color overlay) {
+		emitter.initializeDetachedPartTint = true;
+		// 合成本体 base + Alpha overlay 的不透明像素倍率；离体后固定此状态。
+		const float alpha = overlay.a / 255.0f;
+		MultiplyColorTrack(emitter.particleRed, 1 - alpha + alpha * overlay.r / 255.0f);
+		MultiplyColorTrack(emitter.particleGreen, 1 - alpha + alpha * overlay.g / 255.0f);
+		MultiplyColorTrack(emitter.particleBlue, 1 - alpha + alpha * overlay.b / 255.0f);
+	}
+}
 
 ParticleSystem::ParticleSystem(Graphics* graphics)
 	: m_graphics(graphics)
@@ -58,6 +83,56 @@ void ParticleSystem::EmitEffect(const std::string& effectName, const Vector& pos
 	effect->SetRenderOrder(renderOrder);
 	effect->SetSystemDuration(durationOverride);
 	effect->SetClipRightX(clipRightX);
+	effects.push_back(std::move(effect));
+}
+
+void ParticleSystem::EmitDetachedPart(const std::string& effectName, const Vector& position,
+	float scaleX, float scaleY, float rotation, const std::string& textureKey, SDL_Color overlay) {
+	const auto* source = configManager.GetEffectConfig(effectName);
+	if (!source) {
+		LOG_ERROR("Particle") << "找不到离体部件配置: " << effectName;
+		return;
+	}
+	if (!(scaleX > 0 && scaleY > 0) || !std::isfinite(scaleX)
+		|| !std::isfinite(scaleY) || !std::isfinite(rotation)) return;
+	auto config = *source;
+	for (auto& emitter : config.emitters) {
+		ApplyDetachedPartTint(emitter, overlay);
+		// 旧头盔配置的 Position 场要等首个 Update 才生效，暂停截图会先出现在腰部。
+		// 这里已传入最终中心，移除旧局部位移，避免首帧和下一帧各使用一套锚点。
+		emitter.emitterOffsetX = emitter.emitterOffsetY = 0;
+		const auto localPosition = [](const ParticleField& field) {
+			return field.type == ParticleFieldType::POSITION || field.type == ParticleFieldType::SYSTEM_POSITION;
+		};
+		std::erase_if(emitter.fields, localPosition);
+		std::erase_if(emitter.systemFields, localPosition);
+		if (!textureKey.empty()) emitter.imageKeys = {textureKey};
+		emitter.particleScale = InterpolationTrack{};
+		emitter.particleScale.constantValue = scaleX;
+		emitter.particleStretch = InterpolationTrack{};
+		emitter.particleStretch.constantValue = scaleY / scaleX;
+		emitter.particleRotation = ValueRange(rotation);
+		emitter.hasParticleRotation = true;
+	}
+	auto effect = std::make_unique<ParticleEffect>();
+	effect->InitializeFromConfig(config, m_graphics, position);
+	effect->SetName(effectName);
+	effect->SetRenderOrder(LAYER_EFFECTS_WORLD);
+	effects.push_back(std::move(effect));
+}
+
+void ParticleSystem::EmitZombiePartEffect(const std::string& effectName, const Vector& position, SDL_Color overlay) {
+	const auto* source = configManager.GetEffectConfig(effectName);
+	if (!source) {
+		LOG_ERROR("Particle") << "找不到僵尸部件配置: " << effectName;
+		return;
+	}
+	auto config = *source;
+	for (auto& emitter : config.emitters) ApplyDetachedPartTint(emitter, overlay);
+	auto effect = std::make_unique<ParticleEffect>();
+	effect->InitializeFromConfig(config, m_graphics, position);
+	effect->SetName(effectName);
+	effect->SetRenderOrder(LAYER_EFFECTS_WORLD);
 	effects.push_back(std::move(effect));
 }
 

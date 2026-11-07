@@ -838,8 +838,8 @@ void GameDataManager::InitializeHardcodedData() {
 
 	// 急救员复用普通僵尸时间线，以逻辑计时驱动双模式治疗并用身体 follower 区分状态。
 	RegisterZombie(ZombieType::ZOMBIE_HEALER, "ZOMBIE_HEALER",
-		AnimationType::ANIM_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
+		AnimationType::ANIM_HEALER_ZOMBIE,
+		"HealerZombie",
 		&MakeZombie<HealerZombie>, &HealerZombie::GetBirthMovementProfile);
 
 	// 接地僵尸复用路障时间线，仅把三阶段护具换成带铜天线的独立电紫资源。
@@ -868,8 +868,8 @@ void GameDataManager::InitializeHardcodedData() {
 
 	// 气象设备是非磁性的独立附着层；铁桶本体完整复用标准铁桶防具契约。
 	RegisterZombie(ZombieType::ZOMBIE_WEATHER_JAMMER, "ZOMBIE_WEATHER_JAMMER",
-		AnimationType::ANIM_BUCKET_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_BUCKET_ZOMBIE,
+		AnimationType::ANIM_WEATHER_JAMMER_ZOMBIE,
+		"WeatherJammerZombie",
 		&MakeZombie<WeatherJammerZombie>, &WeatherJammerZombie::GetBirthMovementProfile);
 
 	// 处刑者复用扶梯全时间线：隐藏梯子、替换冰锤，并让原版红帽作为 anim_head1 命名 follower。

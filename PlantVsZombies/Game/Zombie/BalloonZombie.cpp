@@ -300,7 +300,7 @@ void BalloonZombie::ArmDrop()
 		ResourceManager::GetInstance().GetTexture(
 			ResourceKeys::Textures::IMAGE_REANIM_ZOMBIE_BALLOON_OUTERARM_UPPER2));
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieBalloonArmOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieBalloonArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kOneShotVolume);
 }
@@ -316,7 +316,7 @@ void BalloonZombie::HeadDrop()
 		mPropellerAnimator->Pause();
 	}
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieBalloonHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieBalloonHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kOneShotVolume);
 }

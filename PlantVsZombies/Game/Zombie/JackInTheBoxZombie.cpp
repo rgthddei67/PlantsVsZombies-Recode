@@ -284,7 +284,7 @@ void JackInTheBoxZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	if (g_particleSystem) {
 		// 原版小丑不覆写掉头贴图，沿用带完整下巴的普通僵尸头粒子。
-		g_particleSystem->EmitEffect("ZombieHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	ReleaseLoopSound();
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbVolume);
@@ -297,7 +297,7 @@ void JackInTheBoxZombie::ArmDrop()
 		ResourceManager::GetInstance().GetTexture(
 			GetBrokenArmTextureKey()));
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect(GetArmDropEffectName(), GetPosition());
+		g_particleSystem->EmitZombiePartEffect(GetArmDropEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_LIMBS_POP, kLimbVolume);
 }

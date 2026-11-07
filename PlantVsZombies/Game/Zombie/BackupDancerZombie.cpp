@@ -143,7 +143,7 @@ void BackupDancerZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_hair", false);
 	mAnimator->SetTrackVisible("anim_earing", false);	// 耳环挂在头上，随头走
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieBackupDancerHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieBackupDancerHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

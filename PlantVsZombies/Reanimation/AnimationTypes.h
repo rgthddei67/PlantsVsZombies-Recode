@@ -159,6 +159,8 @@ enum class AnimationType
 	ANIM_FLOATSUNFLOWER,
 	ANIM_LOTUS_PARASOL,
 	ANIM_ENGINEERING_SHIP,
+	ANIM_HEALER_ZOMBIE, // 独立服装资源，追加以保持旧存档动画枚举值
+	ANIM_WEATHER_JAMMER_ZOMBIE, // 保留铁桶时间轴与防具行为
 };
 
 #endif

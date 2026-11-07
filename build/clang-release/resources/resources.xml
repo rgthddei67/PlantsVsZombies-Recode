@@ -511,6 +511,30 @@
     <Texture>./resources/image/reanim/Rain_splash3.png</Texture>
     <Texture>./resources/image/reanim/Rain_splash4.png</Texture>
 
+	<Texture>./resources/particles/Identity_worker_head.png</Texture>
+	<Texture>./resources/particles/Identity_worker_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_worker_arm.png</Texture>
+	<Texture>./resources/particles/Identity_worker_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_boiler_head.png</Texture>
+	<Texture>./resources/particles/Identity_boiler_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_boiler_arm.png</Texture>
+	<Texture>./resources/particles/Identity_boiler_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_jammer_head.png</Texture>
+	<Texture>./resources/particles/Identity_jammer_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_jammer_arm.png</Texture>
+	<Texture>./resources/particles/Identity_jammer_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_healer_head.png</Texture>
+	<Texture>./resources/particles/Identity_healer_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_healer_arm.png</Texture>
+	<Texture>./resources/particles/Identity_healer_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_sludge_head.png</Texture>
+	<Texture>./resources/particles/Identity_sludge_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_sludge_arm.png</Texture>
+	<Texture>./resources/particles/Identity_sludge_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_guard_head.png</Texture>
+	<Texture>./resources/particles/Identity_guard_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_guard_arm.png</Texture>
+	<Texture>./resources/particles/Identity_guard_arm_right.png</Texture>
   </ParticleTextures>
 
   <!-- 字体文件 -->
@@ -679,14 +703,14 @@
     <Reanimation name="EngineeringShipZombie">./resources/reanim/EngineeringShipZombie.reanim</Reanimation>
     <Reanimation name="LotusParasolZombie">./resources/reanim/LotusParasolZombie.reanim</Reanimation>
     <Reanimation name="ThornLily">./resources/reanim/ThornLily.reanim</Reanimation>
-    <Reanimation name="SludgeZombie">./resources/reanim/SludgeZombie.reanim</Reanimation>
+    <Reanimation name="SludgeZombie">./resources/reanim/SludgeZombieIdentity.reanim</Reanimation>
     <Reanimation name="LotusPult">./resources/reanim/LotusPult.reanim</Reanimation>
     <Reanimation name="SalvageZombie">./resources/reanim/SalvageZombie.reanim</Reanimation>
     <Reanimation name="AnchorLotus">./resources/reanim/AnchorLotus.reanim</Reanimation>
-    <Reanimation name="PressureGuardZombie">./resources/reanim/PressureGuardZombie.reanim</Reanimation>
+    <Reanimation name="PressureGuardZombie">./resources/reanim/PressureGuardZombieIdentity.reanim</Reanimation>
     <Reanimation name="ColdChainGuardZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="ColdPineapple">./resources/reanim/ColdPineapple.reanim</Reanimation>
-    <Reanimation name="BoilerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="BoilerZombie">./resources/reanim/BoilerZombieIdentity.reanim</Reanimation>
     <Reanimation name="AmberLichen">./resources/reanim/AmberLichen.reanim</Reanimation>
     <Reanimation name="CrystalDrummerZombie">./resources/reanim/CrystalDrummerZombie.reanim</Reanimation>
     <Reanimation name="Sun">./resources/reanim/Sun.reanim</Reanimation>
@@ -756,7 +780,9 @@
     <Reanimation name="Imitater">./resources/reanim/Imitater.reanim</Reanimation>
 
     <Reanimation name="IceMint">./resources/reanim/IceMint.reanim</Reanimation>
-    <Reanimation name="IceWorkerZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="HealerZombie">./resources/reanim/HealerZombieIdentity.reanim</Reanimation>
+    <Reanimation name="WeatherJammerZombie">./resources/reanim/WeatherJammerZombieIdentity.reanim</Reanimation>
+    <Reanimation name="IceWorkerZombie">./resources/reanim/IceWorkerZombieIdentity.reanim</Reanimation>
     <Reanimation name="NormalZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="PrismFlower">./resources/reanim/PrismFlower.reanim</Reanimation>
     <Reanimation name="SunThiefZombie">./resources/reanim/NormalZombie.reanim</Reanimation>

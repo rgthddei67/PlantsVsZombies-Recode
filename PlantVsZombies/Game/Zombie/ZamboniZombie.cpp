@@ -318,8 +318,8 @@ bool ZamboniZombie::HandleCaltropHit(Caltrop& caltrop)
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BALLOON_POP, 0.5f);
 	if (g_particleSystem) {
 		const Vector stableVisualOrigin = GetPosition() + mVisualOffset;
-		g_particleSystem->EmitEffect("ZamboniTire",
-			stableVisualOrigin + Vector(kTireEffectFromVisualX, kTireEffectFromVisualY));
+		g_particleSystem->EmitZombiePartEffect("ZamboniTire",
+			stableVisualOrigin + Vector(kTireEffectFromVisualX, kTireEffectFromVisualY), mAnimator->GetActiveOverlayColor());
 	}
 
 	const bool useWheelie2 = GetPosition().x

@@ -199,7 +199,7 @@ void PolarClockmakerZombie::HelmDrop()
 	if (diskWasPresent) {
 		DisableUncommittedClock();
 		if (g_particleSystem && IsActive() && !mIsPreview) {
-			g_particleSystem->EmitEffect("PolarClockBreak", PolarFinaleVisuals::ChannelCenter(*this));
+			g_particleSystem->EmitZombiePartEffect("PolarClockBreak", PolarFinaleVisuals::ChannelCenter(*this), mAnimator->GetActiveOverlayColor());
 		}
 	}
 	SyncFollowerPresentation();

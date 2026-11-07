@@ -240,7 +240,7 @@ void DancerZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieJacksonHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieJacksonHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

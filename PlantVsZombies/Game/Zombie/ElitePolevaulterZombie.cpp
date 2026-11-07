@@ -71,7 +71,7 @@ void ElitePolevaulterZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ElitePolevaulterHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ElitePolevaulterHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

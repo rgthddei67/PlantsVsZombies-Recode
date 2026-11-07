@@ -1,0 +1,570 @@
+{
+  "description": "Costume and detached-part presentation regression.",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 1,
+      "resetTestState": true,
+      "background": "GROUND_DAY"
+    },
+    {
+      "op": "choose_cards",
+      "cards": [
+        "PLANT_WALLNUT"
+      ]
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_difficulty",
+      "value": 1
+    },
+    {
+      "op": "set_fullscreen",
+      "value": false
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_monte_carlo_ai",
+      "value": false
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_ICE_WORKER",
+      "row": 1,
+      "x": 350,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_ICE_WORKER"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_BOILER",
+      "row": 1,
+      "x": 565,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_BOILER"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "row": 1,
+      "x": 780,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_WEATHER_JAMMER"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_HEALER",
+      "row": 3,
+      "x": 350,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_HEALER"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "row": 3,
+      "x": 565,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_SLUDGE"
+    },
+    {
+      "op": "spawn_zombie",
+      "type": "ZOMBIE_PRESSURE_GUARD",
+      "row": 3,
+      "x": 780,
+      "bodyTrack": "anim_walk2"
+    },
+    {
+      "op": "charm_zombie",
+      "type": "ZOMBIE_PRESSURE_GUARD"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "birth.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "birth.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.35
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_0.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_0.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.55
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_1.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_1.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_2.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_2.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_3.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_3.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.45
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_4.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_4.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.8
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_5.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_5.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 2.15
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "walk_6.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "walk_6.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "walking"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "walking"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "loaded.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "loaded.json"
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "damage": 1100
+    },
+    {
+      "op": "damage_zombie",
+      "type": "ZOMBIE_SLUDGE",
+      "damage": 1000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_ICE_WORKER",
+      "damage": 275
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_BOILER",
+      "damage": 550
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "damage": 148
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_HEALER",
+      "damage": 440
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_SLUDGE",
+      "damage": 440
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_PRESSURE_GUARD",
+      "damage": 330
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "arm_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.23
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "arm_falling.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "arm_falling.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.1
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "armless"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "armless"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "armless_loaded.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "armless_loaded.json"
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_ICE_WORKER",
+      "damage": 125
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_BOILER",
+      "damage": 250
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "damage": 68
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_HEALER",
+      "damage": 200
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_SLUDGE",
+      "damage": 200
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_PRESSURE_GUARD",
+      "damage": 150
+    },
+    {
+      "op": "screenshot",
+      "name": "head_drop.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "head_drop.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 0.19
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "head_falling.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "head_falling.json"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "headless"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "headless"
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 30
+    },
+    {
+      "op": "set_spawn_paused",
+      "value": true
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "headless_loaded.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "headless_loaded.json"
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_ICE_WORKER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_BOILER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_WEATHER_JAMMER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_HEALER",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_SLUDGE",
+      "damage": 100000
+    },
+    {
+      "op": "damage_zombie_body",
+      "type": "ZOMBIE_PRESSURE_GUARD",
+      "damage": 100000
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 1.0
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "dying.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "dying.json"
+    },
+    {
+      "op": "set_timescale",
+      "value": 0.5
+    },
+    {
+      "op": "wait_seconds",
+      "value": 5.5
+    },
+    {
+      "op": "set_timescale",
+      "value": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "dead.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "dead.json"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

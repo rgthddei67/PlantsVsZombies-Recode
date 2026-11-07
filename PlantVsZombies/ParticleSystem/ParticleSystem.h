@@ -37,6 +37,17 @@ public:
 	void EmitEffect(const std::string& effectName, const Vector& position,
 		int renderOrder = LAYER_EFFECTS_WORLD, float durationOverride = -1.0f,
 		float clipRightX = -1.0f);
+	/**
+	 * 从角色当前姿态脱落的部件：覆盖固定尺寸与初始角度，沿用 XML 的寿命和弹道。
+	 * position 为贴图中心，scaleX/Y 为正的世界像素倍率，rotation 为屏幕角度（度）。
+	 * 仅用于单发射器的部件效果；替代 XML 的尺寸、角度与局部 Position 偏移。
+	 * textureKey 非空时替换部件贴图，镜像由调用方选择对应贴图；overlay 截取宿主状态染色。
+	 */
+	void EmitDetachedPart(const std::string& effectName, const Vector& position,
+		float scaleX, float scaleY, float rotation, const std::string& textureKey = {},
+		SDL_Color overlay = {255, 255, 255, 0});
+	/** 僵尸原有断肢/护具碎片只截取状态颜色，保留各自 XML 的位置、尺寸与组合发射器。 */
+	void EmitZombiePartEffect(const std::string& effectName, const Vector& position, SDL_Color overlay);
 	/** 停止全部同名特效继续发射；已生成粒子仍按各自寿命自然收尾。 */
 	void StopEffect(const std::string& effectName);
 	/** 查询同名特效是否至少有一个发射器仍在工作。 */

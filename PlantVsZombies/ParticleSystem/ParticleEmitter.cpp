@@ -251,6 +251,11 @@ void ParticleEmitter::EmitSingleParticle() {
 	particle->fieldRandomY = GameRandom::Range(0.0f, 1.0f);
 
 	particle->color = glm::vec4(255.0f);
+	// 仅僵尸离体部件在出生帧消费宿主颜色快照；普通粒子保持原初始化约定。
+	if (xmlConfig.initializeDetachedPartTint) {
+		particle->colorMultiplier = glm::vec3(xmlConfig.particleRed.GetValue(0),
+			xmlConfig.particleGreen.GetValue(0), xmlConfig.particleBlue.GetValue(0));
+	}
 }
 
 Vector ParticleEmitter::GetSpawnPosition() const {
@@ -320,6 +325,7 @@ void ParticleEmitter::Draw() {
 			finalColor.r *= particle.brightness * particle.colorMultiplier.r;
 			finalColor.g *= particle.brightness * particle.colorMultiplier.g;
 			finalColor.b *= particle.brightness * particle.colorMultiplier.b;
+			if (GameAPP::mAutoTestMode && !mLastRenderProbe.hasGeometry) mLastRenderProbe.firstColor = finalColor;
 
 			if (xmlConfig.hasParticleRotation) {
 				// DrawTextureRegion 的兼容旋转路径会先非等比缩放再旋转，使细长贴图的角度

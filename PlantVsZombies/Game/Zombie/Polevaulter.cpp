@@ -85,8 +85,8 @@ void Polevaulter::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	g_particleSystem->EmitEffect("PolevaulterHeadOff",
-		GetPosition());
+	g_particleSystem->EmitZombiePartEffect("PolevaulterHeadOff",
+		GetPosition(), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 
@@ -97,8 +97,8 @@ void Polevaulter::ArmDrop()
 	mAnimator->SetTrackVisible("Zombie_polevaulter_outerarm_lower", false);
 	mAnimator->SetTrackImage("Zombie_polevaulter_outerarm_upper", ResourceManager::GetInstance().
 		GetTexture(ResourceKeys::Textures::IMAGE_ZOMBIE_POLEVAULTER_OUTERARM_UPPER2));
-	g_particleSystem->EmitEffect("PolevaulterArmOff",
-		GetPosition());
+	g_particleSystem->EmitZombiePartEffect("PolevaulterArmOff",
+		GetPosition(), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 

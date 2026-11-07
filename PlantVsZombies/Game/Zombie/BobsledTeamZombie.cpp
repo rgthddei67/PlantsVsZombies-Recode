@@ -518,7 +518,7 @@ void BobsledTeamZombie::HeadDrop()
 		? GetTrackWorldPosition("anim_head1") : GetPosition();
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
-	if (g_particleSystem) g_particleSystem->EmitEffect("ZombieBobsledHeadOff", anchor);
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ZombieBobsledHeadOff", anchor, mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kDismemberSoundVolume);
 }
 
@@ -528,7 +528,7 @@ void BobsledTeamZombie::ArmDrop()
 	const Vector anchor = mAnimator && mAnimator->HasTrack("Zombie_outerarm_lower")
 		? GetTrackWorldPosition("Zombie_outerarm_lower") : GetPosition();
 	ApplyDetachedArmVisuals();
-	if (g_particleSystem) g_particleSystem->EmitEffect("ZombieBobsledArmOff", anchor);
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("ZombieBobsledArmOff", anchor, mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kDismemberSoundVolume);
 }
 

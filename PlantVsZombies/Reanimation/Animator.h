@@ -513,6 +513,10 @@ public:
 	 * @param r, g, b, a 颜色分量 (0-255)
 	 */
 	void SetOverlayColor(Uint8 r, Uint8 g, Uint8 b, Uint8 a = 64);
+	/** 当前状态覆盖色；未启用时 alpha 为 0，供离体部件截取脱落瞬间的外观。 */
+	SDL_Color GetActiveOverlayColor() const {
+		return mEnableExtraOverlayDraw ? mExtraOverlayColor : SDL_Color{255, 255, 255, 0};
+	}
 
 	// ---------- 更新和渲染 ----------
 	/**

@@ -501,8 +501,7 @@ void Zombie::ZombieItemUpdate() const
 	if (!mHasArm) {
 		mAnimator->SetTrackVisible("Zombie_outerarm_hand", false);
 		mAnimator->SetTrackVisible("Zombie_outerarm_lower", false);
-		mAnimator->SetTrackImage("Zombie_outerarm_upper", ResourceManager::GetInstance().
-			GetTexture(ResourceKeys::Textures::IMAGE_ZOMBIE_OUTERARM_UPPER2));
+		mAnimator->SetTrackImage("Zombie_outerarm_upper", GetArmStumpTexture());
 	}
 	if (!mHasHead) {
 		mAnimator->SetTrackVisible("anim_head1", false);
@@ -510,7 +509,8 @@ void Zombie::ZombieItemUpdate() const
 		mAnimator->SetTrackVisible("anim_tongue", false);
 		mAnimator->SetTrackVisible("anim_hair", false);
 	}
-	mAnimator->SetTrackVisible("anim_tongue", mHasTongue);
+	mAnimator->SetTrackVisible("anim_tongue", mHasHead && mHasTongue);
+	ConfigureIdentityVisuals();
 	UpdatePoolVisualState();
 }
 
@@ -567,6 +567,7 @@ void Zombie::Start()
 	}
 	SetAnimationSpeed(GameRandom::Range(ZombieMovementRules::MinimumAnimationSpeed, ZombieMovementRules::MaximumAnimationSpeed));
 	SetupZombie();
+	ConfigureIdentityVisuals();
 	ConfigureButterSplatFollower();
 	ConfigureShieldHitGlowTrack();
 	mGoldenIceEffectStacks = ComputeGoldenIceEffectStacks();
@@ -2282,24 +2283,24 @@ void Zombie::TakeDamage(
 void Zombie::HeadDrop()
 {
 	if (!mHasHead) return;
+	const bool identityParticle = EmitIdentityLimb(true);
+	if (identityParticle) mAnimator->SetTrackFollowerVisible("anim_head1", "identity_headgear", false);
 	mAnimator->SetTrackVisible("anim_head1", false);
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("anim_tongue", false);
 	mAnimator->SetTrackVisible("anim_hair", false);
-	g_particleSystem->EmitEffect("ZombieHeadOff",
-		GetPosition());
+	if (!identityParticle) g_particleSystem->EmitZombiePartEffect("ZombieHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 
 void Zombie::ArmDrop()
 {
 	if (!mHasArm) return;
+	const bool identityParticle = EmitIdentityLimb(false);
 	mAnimator->SetTrackVisible("Zombie_outerarm_hand", false);
 	mAnimator->SetTrackVisible("Zombie_outerarm_lower", false);
-	mAnimator->SetTrackImage("Zombie_outerarm_upper", ResourceManager::GetInstance().
-		GetTexture(ResourceKeys::Textures::IMAGE_ZOMBIE_OUTERARM_UPPER2));
-	g_particleSystem->EmitEffect("ZombieArmOff",
-		GetPosition());
+	mAnimator->SetTrackImage("Zombie_outerarm_upper", GetArmStumpTexture());
+	if (!identityParticle) g_particleSystem->EmitZombiePartEffect("ZombieArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }
 

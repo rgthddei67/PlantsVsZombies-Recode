@@ -137,6 +137,7 @@ struct EmitterConfig {
 
 	// 特殊属性
 	bool fullScreen = false;
+	bool initializeDetachedPartTint = false; // 仅僵尸离体部件入口设置；不由 XML 开启，不改变普通粒子出生行为
 
 	EmitterConfig();
 };

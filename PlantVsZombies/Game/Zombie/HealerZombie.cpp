@@ -97,10 +97,6 @@ void HealerZombie::ConfigureTreatmentPresentation()
 {
 	if (!mAnimator || !mAnimator->HasTrack("Zombie_body")) return;
 	ResourceManager& resources = ResourceManager::GetInstance();
-	if (const Texture* body = resources.GetTexture(
-		ResourceKeys::Textures::IMAGE_ZOMBIE_HEALER_BODY, false)) {
-		mAnimator->SetTrackImage("Zombie_body", body);
-	}
 	const Texture* gear = resources.GetTexture(TreatmentGearTextureKey(), false);
 	if (!gear) return;
 	mAnimator->SetTrackFollowerImage("Zombie_body", kGearFollowerSlot, gear,
@@ -638,10 +634,6 @@ void HealerZombie::ZombieItemUpdate() const
 {
 	Zombie::ZombieItemUpdate();
 	if (!mAnimator) return;
-	if (const Texture* body = ResourceManager::GetInstance().GetTexture(
-		ResourceKeys::Textures::IMAGE_ZOMBIE_HEALER_BODY, false)) {
-		mAnimator->SetTrackImage("Zombie_body", body);
-	}
 	ApplyTreatmentPresentation();
 }
 

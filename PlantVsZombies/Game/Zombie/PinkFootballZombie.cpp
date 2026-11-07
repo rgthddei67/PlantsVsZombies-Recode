@@ -101,7 +101,7 @@ void PinkFootballZombie::HelmDrop()
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("zombie_football_helmet", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombiePinkFootballOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombiePinkFootballOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	DamagePlantsNearBrokenHelmet();
 }
@@ -118,7 +118,7 @@ void PinkFootballZombie::ArmDrop()
 	mAnimator->SetTrackImage("zombie_football_leftarm_upper", ResourceManager::GetInstance().
 		GetTexture("IMAGE_ZOMBIE_PINKFOOTBALL_LEFTARM_UPPER2"));
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("PinkFootballZombieArmOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("PinkFootballZombieArmOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.25f);
 }

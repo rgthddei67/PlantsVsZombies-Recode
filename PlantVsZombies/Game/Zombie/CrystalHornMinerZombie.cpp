@@ -167,7 +167,7 @@ void CrystalHornMinerZombie::HelmDrop()
 	Zombie::HelmDrop();
 	AbortCharge();
 	SyncEquipment();
-	if (g_particleSystem) g_particleSystem->EmitEffect("CrystalHornBreak",GetRenderedTrackWorldPosition("anim_head1"));
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("CrystalHornBreak",GetRenderedTrackWorldPosition("anim_head1"), mAnimator->GetActiveOverlayColor());
 }
 
 void CrystalHornMinerZombie::ResolvePlantAshDamage(int damage)
@@ -190,7 +190,7 @@ void CrystalHornMinerZombie::HeadDrop()
 	const Vector origin = GetRenderedTrackWorldPosition("anim_head1");
 	for (const char* track : {"anim_head1","anim_head2","anim_tongue","anim_hair"}) mAnimator->SetTrackVisible(track,false);
 	mAnimator->SetTrackFollowerVisible("anim_head1","crystal_horn",false);
-	if (g_particleSystem) g_particleSystem->EmitEffect("CrystalHornHeadOff",origin + Vector(25,15));
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect("CrystalHornHeadOff",origin + Vector(25,15), mAnimator->GetActiveOverlayColor());
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP,0.25f);
 }
 

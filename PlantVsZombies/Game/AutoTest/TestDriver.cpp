@@ -23,6 +23,7 @@
 #include "Game/Plant/LotusPult.h"
 #include "Game/Plant/ThornLily.h"
 #include "Game/Zombie/SludgeZombie.h"
+#include "Game/Zombie/ZombieIdentityVisuals.h"
 #include "Game/Zombie/LotusParasolZombie.h"
 #include "Game/Plant/FloatSunflower.h"
 #include "Game/Plant/MendingCotton.h"
@@ -3525,7 +3526,7 @@ bool TestDriver::ExecuteCurrent() {
 		}
 		return true;
 	}
-	if (op == "damage_zombie" || op == "ash_damage_zombie") {
+	if (op == "damage_zombie" || op == "ash_damage_zombie" || op == "damage_zombie_body") {
 		GameScene* gs = CurrentGameScene();
 		auto* workshop = dynamic_cast<WorkshopScene*>(SceneManager::GetInstance().GetCurrentScene());
 		Board* board = gs ? gs->GetBoard() : workshop ? workshop->GetBoard() : nullptr;
@@ -3556,7 +3557,8 @@ bool TestDriver::ExecuteCurrent() {
 				&& z->mZombieType != desiredType) continue;
 			if (seen++ == index) {
 				// 走正式受伤链（来源词条/护盾/头盔/断肢断头/免伤），用于验证而非直接 Die。
-				if (op == "ash_damage_zombie") board->ApplyPlantAshAttack({id}, [damage](Zombie* target) { target->TakePlantAshDamage(damage); });
+				if (op == "damage_zombie_body") z->TakeBodyDamage(damage); // 断肢视觉夹具：直达本体阈值，不消费护甲或承伤预算。
+				else if (op == "ash_damage_zombie") board->ApplyPlantAshAttack({id}, [damage](Zombie* target) { target->TakePlantAshDamage(damage); });
 				else {
 					PlantDamageOrigin origin;
 					if (cmd.contains("plantType")) {
@@ -5691,6 +5693,11 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				gridState["instanceReady"] = true;
 				gridState["track"] = gridPreview->GetCurrentTrackName();
 				gridState["animPlaying"] = gridAnim && gridAnim->IsPlaying();
+				if (const auto* identity = ZombieIdentityVisuals::Find(type)) {
+					gridState["identity"] = identity->stem;
+					gridState["identityResourcesReady"] = ZombieIdentityVisuals::ResourcesReady(*identity);
+					gridState["identityHeadgearVisible"] = gridAnim->GetTrackFollowerVisible("anim_head1", "identity_headgear");
+				}
 			}
 			out["zombieAlmanacGridPreviews"].push_back(std::move(gridState));
 		}
@@ -8381,6 +8388,15 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 				&& ResourceManager::GetInstance().GetTexture("IMAGE_BOILER_PACK", false)
 				&& boiler->GetAnimatorInternal()->GetTrackFollowerVisible("Zombie_body", "boiler_pack");
 		}
+		if (const auto* identity = ZombieIdentityVisuals::Find(z->mZombieType)) {
+			zombieState["identity"] = identity->stem;
+			zombieState["identityResourcesReady"] = ZombieIdentityVisuals::ResourcesReady(*identity);
+			zombieState["identityHeadgearVisible"] = anim->GetTrackFollowerVisible("anim_head1", "identity_headgear");
+			zombieState["identityStumpVisible"] = anim->GetTrackImageOverride("Zombie_outerarm_upper")
+				== ResourceManager::GetInstance().GetTexture(ZombieIdentityVisuals::TextureKey(*identity, "outerarm_upper2"), false);
+			zombieState["identityHeadVisible"] = anim->GetTrackVisible("anim_head1");
+			zombieState["identityTongueVisible"] = anim->GetTrackVisible("anim_tongue");
+		}
         zombieState["pressureProtectorID"] = z->mPressureProtectorID;
         if (auto* guard = dynamic_cast<PressureGuardZombie*>(z)) {
             zombieState["pressureWindowUsed"] = static_cast<int>(std::lround(guard->GetDamageWindowUsed()));
@@ -10205,6 +10221,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 					{ "centerXInt", static_cast<int>(std::lround(centerX)) },
 					{ "centerYInt", static_cast<int>(std::lround(centerY)) },
 				};
+				state["firstColorRGB"] = {static_cast<int>(std::lround(probe.firstColor.r)),
+					static_cast<int>(std::lround(probe.firstColor.g)), static_cast<int>(std::lround(probe.firstColor.b))};
 				state["originToRenderCenterDxInt"] =
 					static_cast<int>(std::lround(centerX - origin.x));
 				state["originToRenderCenterDyInt"] =

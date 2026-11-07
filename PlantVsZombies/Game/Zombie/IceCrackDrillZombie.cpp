@@ -201,6 +201,12 @@ void IceCrackDrillZombie::HelmDrop()
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, 0.35f);
 }
 
+void IceCrackDrillZombie::EmitConeDropParticle() const
+{
+	// 钻机是手持独立 reanim，沿用原组合残骸/碎片配置，不能套用隐藏的路障头轨。
+	if (g_particleSystem) g_particleSystem->EmitZombiePartEffect(GetConeDropEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
+}
+
 void IceCrackDrillZombie::CheckHelmImage()
 {
 	ConeZombie::CheckHelmImage();

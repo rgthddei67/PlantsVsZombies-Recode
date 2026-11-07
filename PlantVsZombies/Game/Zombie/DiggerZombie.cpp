@@ -570,7 +570,7 @@ void DiggerZombie::HelmDrop()
 	mHelmStage = ArmorBrokenState::NONE;
 	mAnimator->SetTrackVisible("Zombie_digger_hardhat", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect(GetHelmDropEffectName(), GetPosition());
+		g_particleSystem->EmitZombiePartEffect(GetHelmDropEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
@@ -582,7 +582,7 @@ void DiggerZombie::HeadDrop()
 	mAnimator->SetTrackVisible("anim_head2", false);
 	mAnimator->SetTrackVisible("Zombie_digger_head_eye", false);
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect("ZombieDiggerHeadOff", GetPosition());
+		g_particleSystem->EmitZombiePartEffect("ZombieDiggerHeadOff", GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 	ReleaseLoopSound();
@@ -597,7 +597,7 @@ void DiggerZombie::ArmDrop()
 		ResourceManager::GetInstance().GetTexture(
 			GetBrokenOuterArmTexture()));
 	if (g_particleSystem) {
-		g_particleSystem->EmitEffect(GetArmDropEffectName(), GetPosition());
+		g_particleSystem->EmitZombiePartEffect(GetArmDropEffectName(), GetPosition(), mAnimator->GetActiveOverlayColor());
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ARM_HEAD_DROP, kLimbVolume);
 }
