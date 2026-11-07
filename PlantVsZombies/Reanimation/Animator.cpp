@@ -1065,45 +1065,52 @@ void Animator::EnableOverlayEffect(bool enable) {
 }
 
 void Animator::SetTrackVisible(const std::string& trackName, bool visible) {
-	for (auto& extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mVisible = visible;
 	}
 }
 
 void Animator::SetTrackColor(const std::string& trackName, const SDL_Color& color) {
-	for (auto& extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mColor = color;
 	}
 }
 
 void Animator::SetWaterSurfaceTrack(const std::string& trackName, bool inWater) {
-	for (auto* extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mIgnoreTopClip = inWater;
 		extra->mIgnoreColorEffects = true;
 	}
 }
 
 void Animator::SetTrackIgnoreTopClip(const std::string& trackName, bool ignore) {
-	for (auto* extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mIgnoreTopClip = ignore;
 	}
 }
 
 void Animator::SetTrackGlowOverride(const std::string& trackName, bool enable) {
-	for (auto& extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mHasGlowOverride = true;
 		extra->mGlowOverrideEnabled = enable;
 	}
 }
 
 void Animator::SetTrackImage(const std::string& trackName, const Texture* image) {
-	for (auto& extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mImage = image;
 	}
 }
 
 void Animator::SetTrackOffset(const std::string& trackName, float x, float y) {
-	for (auto& extra : GetTrackExtrasByName(trackName)) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		auto* extra = &mExtraInfos[index];
 		extra->mOffsetX = x;
 		extra->mOffsetY = y;
 	}
@@ -1407,21 +1414,16 @@ void Animator::SetExtraSpeedMultiplier(float mul) {
 }
 
 std::vector<TrackInfo*> Animator::GetTracksByName(const std::string& trackName) const {
+	const auto indices = GetTrackIndicesByName(trackName);
 	std::vector<TrackInfo*> result;
-	if (!mReanim) return result;
-
-	for (int i = 0; i < mReanim->GetTrackCount(); i++) {
-		auto track = mReanim->GetTrack(i);
-		if (track && track->mTrackName == trackName) {
-			result.push_back(track);
-		}
-	}
+	result.reserve(indices.size());
+	for (const int index : indices) result.push_back(mReanim->GetTrack(index));
 	return result;
 }
 
 Vector Animator::GetTrackPosition(const std::string& trackName) const {
-	auto tracks = GetTracksByName(trackName);
-	for (auto track : tracks) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		const auto* track = mReanim->GetTrack(index);
 		if (!track->mFrames.empty()) {
 			int frameIndex = static_cast<int>(mFrameIndexNow);
 			if (frameIndex < static_cast<int>(track->mFrames.size())) {
@@ -1433,8 +1435,8 @@ Vector Animator::GetTrackPosition(const std::string& trackName) const {
 }
 
 float Animator::GetTrackRotation(const std::string& trackName) const {
-	auto tracks = GetTracksByName(trackName);
-	for (auto track : tracks) {
+	for (const int index : GetTrackIndicesByName(trackName)) {
+		const auto* track = mReanim->GetTrack(index);
 		if (!track->mFrames.empty()) {
 			int frameIndex = static_cast<int>(mFrameIndexNow);
 			if (frameIndex < static_cast<int>(track->mFrames.size())) {
@@ -1541,17 +1543,6 @@ TrackFrameTransform Animator::GetInterpolatedTransform(int trackIndex, float ble
 	return result;
 }
 
-std::vector<TrackExtraInfo*> Animator::GetTrackExtrasByName(const std::string& trackName) {
-	std::vector<TrackExtraInfo*> result;
-	for (int i = 0; i < static_cast<int>(mExtraInfos.size()); i++) {
-		auto track = mReanim->GetTrack(i);
-		if (track && track->mTrackName == trackName) {
-			result.push_back(&mExtraInfos[i]);
-		}
-	}
-	return result;
-}
-
 SDL_Color Animator::GetTrackColor(const std::string& trackName) const {
 	const int index = GetFirstTrackIndexByName(trackName);
 	if (index >= 0 && index < static_cast<int>(mExtraInfos.size())) {
@@ -1560,14 +1551,8 @@ SDL_Color Animator::GetTrackColor(const std::string& trackName) const {
 	return SDL_Color{ 255, 255, 255, 255 };
 }
 
-std::vector<int> Animator::GetTrackIndicesByName(const std::string& trackName) const {
-	std::vector<int> result;
-	if (!mReanim) return result;
-	for (int i = 0; i < static_cast<int>(mReanim->GetTrackCount()); ++i) {
-		const auto track = mReanim->GetTrack(i);
-		if (track && track->mTrackName == trackName) result.push_back(i);
-	}
-	return result;
+std::span<const int> Animator::GetTrackIndicesByName(const std::string& trackName) const {
+	return mReanim ? mReanim->GetTrackIndices(trackName) : std::span<const int>{};
 }
 
 Animator::SparseTrackState& Animator::GetOrCreateSparseTrackState(int trackIndex) {

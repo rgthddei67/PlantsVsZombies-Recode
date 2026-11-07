@@ -1,4 +1,5 @@
 #include "FrameworkProbe.h"
+#include "AnimationFilterProbe.h"
 #include <exception>
 #include "Utf8.h"
 #include <chrono>
@@ -1153,6 +1154,11 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "probe_framework") {
 		std::string error;
 		if (!RunFrameworkProbe(cmd, error)) Fail(error);
+		return true;
+	}
+	if (op == "probe_animation_filters") {
+		std::string error;
+		if (!RunAnimationFilterProbe(error)) Fail(error);
 		return true;
 	}
 	if (op == "inject_vulkan_frame_failure") {

@@ -653,14 +653,8 @@ private:
 	 */
 	TrackFrameTransform GetInterpolatedTransform(int trackIndex, float blendRatio) const;
 
-	/**
-	 * @brief 根据轨道名获取所有 TrackExtraInfo 指针
-	 * @param trackName 轨道名
-	 * @return 指针数组
-	 */
-	std::vector<TrackExtraInfo*> GetTrackExtrasByName(const std::string& trackName);
-	/** 返回全部同名轨道索引，以保持旧接口对重复轨道名的广播语义。 */
-	std::vector<int> GetTrackIndicesByName(const std::string& trackName) const;
+	/** 借用资源的有序同名索引；不缓存任何 Animator 实例状态。 */
+	std::span<const int> GetTrackIndicesByName(const std::string& trackName) const;
 	/** 查询已有冷状态且不分配；返回指针的 const 属性跟随调用对象。 */
 	auto FindSparseTrackState(this auto& self, int trackIndex) {
 		auto& states = self.mSparseTrackStates;

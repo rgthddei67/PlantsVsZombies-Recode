@@ -6,7 +6,7 @@
 
 Reanimation::Reanimation() {
 	mTracks = std::make_shared<std::vector<TrackInfo>>();
-	mFirstTrackIndices = std::make_shared<std::unordered_map<std::string, int>>();
+	mTrackIndices = std::make_shared<std::unordered_map<std::string, std::vector<int>>>();
 }
 
 Reanimation::~Reanimation() {
@@ -14,7 +14,7 @@ Reanimation::~Reanimation() {
 
 bool Reanimation::LoadFromFile(const std::string& filePath) {
 	mTracks->clear();
-	mFirstTrackIndices->clear();
+	mTrackIndices->clear();
 	mIsLoaded = false;
 
 	// 加载xml
@@ -180,7 +180,7 @@ bool Reanimation::LoadFromFile(const std::string& filePath) {
 
 			const int trackIndex = static_cast<int>(mTracks->size());
 			mTracks->push_back(track);
-			mFirstTrackIndices->try_emplace(track.mTrackName, trackIndex);
+			(*mTrackIndices)[track.mTrackName].push_back(trackIndex);
 		}
 	}
 
@@ -203,9 +203,14 @@ TrackInfo* Reanimation::GetTrack(const std::string& trackName) {
 }
 
 int Reanimation::GetFirstTrackIndex(const std::string& trackName) const {
-	if (!mFirstTrackIndices) return -1;
-	const auto it = mFirstTrackIndices->find(trackName);
-	return it != mFirstTrackIndices->end() ? it->second : -1;
+	const auto indices = GetTrackIndices(trackName);
+	return indices.empty() ? -1 : indices.front();
+}
+
+std::span<const int> Reanimation::GetTrackIndices(const std::string& trackName) const {
+	if (!mTrackIndices) return {};
+	const auto it = mTrackIndices->find(trackName);
+	return it != mTrackIndices->end() ? std::span<const int>(it->second) : std::span<const int>{};
 }
 
 int Reanimation::GetTotalFrames() const {

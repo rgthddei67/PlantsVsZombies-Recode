@@ -1,0 +1,6 @@
+<fps>12</fps>
+<track><name>duplicate</name></track>
+<track><name>Duplicate</name><t><x>99</x></t><t/></track>
+<track><name>duplicate</name><t><x>20</x><kx>0</kx></t><t><x>25</x><kx>5</kx></t></track>
+<track><name></name><t><x>77</x></t><t/></track>
+<track><name>duplicate</name><t><x>110</x></t><t><x>115</x></t></track>

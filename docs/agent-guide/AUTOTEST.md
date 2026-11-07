@@ -65,6 +65,12 @@
 
 ## AutoTest 测试套件
 
+`smoke_animation_filters` 用实际资源的线性扫描对拍共享同名轨道索引，并检查重复名顺序、
+空名/大小写、首个有效帧、实例隔离和附件广播。固定截图覆盖两档滤镜、batch/instance、
+worker、透明边缘、染色与淡出；在 Vulkan、`-NoInstance`、OpenGL SSBO 和 `-OpenGL33`
+分别运行。新旧 shader 使用同一 EXE、同一脚本截图对拍，不能用战斗中运动对象的截图作逐像素基线。
+`verify_animation_filters.ps1 -Before <旧输出目录> -After <新输出目录>` 检查每通道至多一个色阶的误差。
+
 ### 指挥官经济预测诊断
 
 `compare_commander_search` 可用 `budgetsMs` 指定同局面搜索预算（0 为不限时，空数组只诊断显式案），并用 `candidatePlans` 对照未购买的购物车。每案的 `actions` 包含 `type`、`row`、可选 `count`/`delay`；`trace: true` 导出工人轨迹。显式案默认 `searchVersion: 2`，报告保留实际阶段；小队阶段与完整阶段必须分别比较各自的等待基线，不能混用分数。不可用兵种或超钱包/容量的案标记 `legal: false`，不会补开兵种或强制购买。相关入口为 `smoke_commander_plan_diagnosis.json` 与 `verify_commander_plan_diagnosis.py`；同局面诊断不推进游戏或提交采购，不能代替正常对战证据。

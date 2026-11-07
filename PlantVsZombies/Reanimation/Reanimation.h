@@ -4,6 +4,7 @@
 
 #include "ReanimTypes.h"
 #include <memory>
+#include <span>
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -14,7 +15,7 @@ constexpr int REANIM_MISSING_FIELD_INT = -1024;
 
 class Reanimation {
 private:
-	std::shared_ptr<std::unordered_map<std::string, int>> mFirstTrackIndices;
+	std::shared_ptr<std::unordered_map<std::string, std::vector<int>>> mTrackIndices;
 
 public:
 	float mFPS = 12.0f;
@@ -36,6 +37,8 @@ public:
 	TrackInfo* GetTrack(const std::string& trackName);
 	/** 返回第一个同名轨道的索引；索引表由同一资源的全部实例共享。 */
 	int GetFirstTrackIndex(const std::string& trackName) const;
+	/** 全部同名轨道的只读索引，保留文件顺序；视图有效至资源销毁或重新加载。 */
+	std::span<const int> GetTrackIndices(const std::string& trackName) const;
 	/** 读取连续 f=0 的动画片段范围；无有效片段返回 {-1,-1}，不创建播放实例或更改资源。 */
 	std::pair<int,int> GetTrackFrameRange(const std::string& trackName) const;
 

@@ -1,0 +1,13 @@
+{
+  "commands": [
+    { "op": "goto_level", "level": 1 },
+    { "op": "choose_cards", "cards": [] },
+    { "op": "wait_state", "state": "GAME", "timeout": 20 },
+    { "op": "set_spawn_paused", "value": true },
+    { "op": "probe_animation_filters" },
+    { "op": "wait_frames", "value": 5 },
+    { "op": "screenshot", "name": "animation_filters.png" },
+    { "op": "dump_state", "name": "renderer_state.json" },
+    { "op": "quit" }
+  ]
+}

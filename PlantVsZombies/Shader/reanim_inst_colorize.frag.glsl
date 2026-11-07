@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_nonuniform_qualifier : require
 
 // set=1 binding=1 bindless 纹理数组（8192 槽位，由 VulkanTexturePool 拥有）。
@@ -10,27 +11,7 @@ layout(location = 2) flat in uint vTex;
 
 layout(location = 0) out vec4 outColor;
 
-vec3 applyLumSat(vec3 rgb, float lumScale, float satScale) {
-    float maxC = max(max(rgb.r, rgb.g), rgb.b);
-    float minC = min(min(rgb.r, rgb.g), rgb.b);
-    float lightness = (maxC + minC) * 0.5;
-    float saturation = 0.0;
-    float hue = 0.0;
-    float delta = maxC - minC;
-    if (lightness > 0.0 && delta > 0.0) {
-        saturation = delta / (lightness <= 0.5
-            ? maxC + minC : 2.0 - maxC - minC);
-        if (maxC == rgb.r) hue = (rgb.g - rgb.b) / delta;
-        else if (maxC == rgb.g) hue = 2.0 + (rgb.b - rgb.r) / delta;
-        else hue = 4.0 + (rgb.r - rgb.g) / delta;
-        hue = fract(hue / 6.0);
-    }
-    saturation *= satScale;
-    lightness *= lumScale;
-    float chroma = (1.0 - abs(2.0 * lightness - 1.0)) * saturation;
-    vec3 hueRgb = clamp(abs(mod(hue * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
-    return clamp((hueRgb - 0.5) * chroma + lightness, 0.0, 1.0);
-}
+#include "opengl/lum_sat.glsl"
 
 void main() {
     vec4 sampled = texture(textures[nonuniformEXT(vTex)], vUV);
