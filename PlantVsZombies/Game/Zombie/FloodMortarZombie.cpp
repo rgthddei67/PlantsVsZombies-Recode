@@ -5,12 +5,20 @@
 #include "ResourceManager.h"
 #include <cmath>
 
+namespace {
+constexpr float kPackX = -31.0f; // 炮包相对身体轨的 X，像素
+constexpr float kPackY = 8.0f; // 炮包相对身体轨的 Y，像素
+constexpr float kPackScale = .72f; // 炮包相对身体轨的缩放
+constexpr float kBoreX = 16.0f; // 炮口内圈在炮包贴图中的 X，像素
+constexpr float kBoreY = 16.0f; // 炮口内圈在炮包贴图中的 Y，像素
+}
+
 /** 复用普通僵尸身体及原有断肢帧，只给躯干挂接储水炮。 */
 void FloodMortarZombie::SetupZombie() {
     Zombie::SetupZombie();
     mBodyHealth=mBodyMaxHealth=FloodMortarRules::Health;
     mAnimator->SetTrackFollowerImage("Zombie_body","flood_mortar",
-        ResourceManager::GetInstance().GetTexture("IMAGE_FLOOD_MORTAR_PACK",false),-31,8,.72f,.72f,true);
+        ResourceManager::GetInstance().GetTexture("IMAGE_FLOOD_MORTAR_PACK",false),kPackX,kPackY,kPackScale,kPackScale,true);
     mAnimator->SetTrackFollowerVisible("Zombie_body","flood_mortar",true);
 }
 
@@ -66,7 +74,8 @@ void FloodMortarZombie::ZombieUpdate(float) {
     bullet->SetFloodCharmed(IsMindControlled());
     bullet->RestoreLobbedMotion(start,target,0,FloodMortarRules::FlightSeconds,125,false,false,false);
     mReload=FloodMortarRules::Reload(rain);++mShots;
-    if(g_particleSystem) g_particleSystem->EmitEffect("RainBambooMuzzle",start);
+    EmitEquipmentParticles("FloodMortarMuzzle", "Zombie_body",
+        Vector(kPackX + kBoreX * kPackScale, kPackY + kBoreY * kPackScale));
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT,.6f);
 }
 

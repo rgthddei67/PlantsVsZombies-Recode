@@ -1,32 +1,26 @@
 <Emitter>
   <Name>ThermalPulseHit</Name>
-  <SpawnMinActive>[16 22]</SpawnMinActive>
-  <SpawnMaxLaunched>22</SpawnMaxLaunched>
-  <EmitterType>Circle</EmitterType>
-  <EmitterRadius>[2 14]</EmitterRadius>
-  <ParticleDuration>[.28 .58]</ParticleDuration>
-  <ParticleAlpha>1,68 0</ParticleAlpha>
-  <ParticleScale>[.18 .42] .05</ParticleScale>
-  <ParticleRed>1</ParticleRed>
-  <ParticleGreen>.36</ParticleGreen>
-  <ParticleBlue>.03</ParticleBlue>
-  <LaunchSpeed>[45 135]</LaunchSpeed>
-  <ParticleGravity>24</ParticleGravity>
-  <RandomLaunchSpin>1</RandomLaunchSpin>
-  <ParticleSpinSpeed>[-300 300]</ParticleSpinSpeed>
-  <SystemDuration>.62</SystemDuration>
-  <Image>PARTICLE_STAR40</Image>
-</Emitter>
-<Emitter>
-  <Name>ThermalPulseHitCore</Name>
+  <Image>PARTICLE_EQUIPMENT_FLASH</Image>
   <SpawnMinActive>1</SpawnMinActive>
   <SpawnMaxLaunched>1</SpawnMaxLaunched>
-  <ParticleDuration>.24</ParticleDuration>
-  <ParticleAlpha>.95 0</ParticleAlpha>
-  <ParticleScale>.75 .2</ParticleScale>
-  <ParticleRed>1</ParticleRed>
-  <ParticleGreen>.82</ParticleGreen>
-  <ParticleBlue>.18</ParticleBlue>
-  <SystemDuration>.26</SystemDuration>
-  <Image>PARTICLE_STAR40</Image>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>.28</ParticleDuration>
+  <ParticleScale>.67 .24</ParticleScale>
+  <ParticleAlpha>1,33 .9 0</ParticleAlpha>
+</Emitter>
+
+<Emitter>
+  <Name>ThermalPulseHitEmbers</Name>
+  <Image>PARTICLE_EQUIPMENT_EMBER</Image>
+  <SpawnMinActive>[12 19]</SpawnMinActive>
+  <SpawnMaxLaunched>19</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.22 .47]</ParticleDuration>
+  <ParticleScale>[.15 .4] .05</ParticleScale>
+  <ParticleAlpha>1,64 .82 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[70 165]</LaunchSpeed>
+  <ParticleGravity>70</ParticleGravity>
+  <ParticleRotation>[-180 180]</ParticleRotation>
+  <ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
 </Emitter>

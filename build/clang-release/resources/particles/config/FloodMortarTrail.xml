@@ -1,0 +1,16 @@
+<Emitter>
+  <Name>FloodMortarTrail</Name>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <SpawnMinActive>[2 4]</SpawnMinActive>
+  <SpawnMaxLaunched>4</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.14 .24]</ParticleDuration>
+  <ParticleScale>[.48 .77] .25</ParticleScale>
+  <ParticleAlpha>.82 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[20 46]</LaunchSpeed>
+  <ParticleGravity>155</ParticleGravity>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 8]</EmitterRadius>
+  <ParticleRotation>[-12 12]</ParticleRotation>
+</Emitter>

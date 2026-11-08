@@ -1,0 +1,22 @@
+<Emitter>
+  <Name>HeavyDiverAnchorDust</Name>
+  <Image>PARTICLE_EQUIPMENT_VAPOR</Image>
+  <SpawnMinActive>[3 6]</SpawnMinActive>
+  <SpawnMaxLaunched>6</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.23 .42]</ParticleDuration>
+  <ParticleScale>[.15 .29] [.35 .57]</ParticleScale>
+  <ParticleAlpha>.76 0</ParticleAlpha>
+  <EmitterType>Box</EmitterType>
+  <EmitterBoxX>[-9 9]</EmitterBoxX>
+  <EmitterBoxY>[-2 2]</EmitterBoxY>
+  <ParticleRed>.62</ParticleRed>
+  <ParticleGreen>.46</ParticleGreen>
+  <ParticleBlue>.27</ParticleBlue>
+  <ParticleRotation>[-55 55]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-8 8] [-38 38]</X>
+    <Y>0 [-25 -11]</Y>
+  </Field>
+</Emitter>

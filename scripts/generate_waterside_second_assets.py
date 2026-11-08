@@ -18,7 +18,6 @@ RES = ROOT / 'build/clang-release/resources'
 
 def generate(update_lock=False):
     inputs = [ROOT / 'scripts/assets/lotus_pult_source.png',
-              ROOT / 'scripts/assets/salvage_zombie_source.png',
               RES / 'reanim/Cabbagepult.reanim', RES / 'reanim/NormalZombie.reanim']
     outputs = []
 
@@ -51,22 +50,13 @@ def generate(update_lock=False):
     cluster.alpha_composite(seed, (7, 8))
     save(cluster, 'image/reanim/LotusPult_cluster.png')
 
-    salvage = Image.open(inputs[1]).convert('RGBA')
-    sx, sy = salvage.width/1536, salvage.height/1024
-    for name, box, size in [
-        ('buoy', (0, 0, 760, 470), (75, 46)),
-        ('reel', (780, 0, 1536, 480), (45, 48)),
-        ('hook', (0, 470, 740, 1024), (36, 74)),
-        ('hat', (740, 540, 1536, 1024), (74, 42))]:
-        scaled = tuple(v * (sx if i % 2 == 0 else sy) for i, v in enumerate(box))
-        save(piece(salvage, scaled, size), f'image/reanim/Salvage_{name}.png')
-
-    rig = inputs[2].read_text(encoding='utf-8-sig')
+    # 打捞装备由 generate_zombie_equipment_polish.py 导出。
+    rig = inputs[1].read_text(encoding='utf-8-sig')
     for old, new in [('HEAD', 'HEAD'), ('BASKET', 'CUP'), ('CABBAGE', 'SEED')]:
         # Exact image element prevents BASKET replacement from changing BASKET_OVERLAY.
         rig = rig.replace(f'<i>IMAGE_REANIM_CABBAGEPULT_{old}</i>',
                           f'<i>IMAGE_REANIM_LOTUSPULT_{new}</i>')
-    for name, contents in [('LotusPult', rig), ('SalvageZombie', inputs[3].read_text(encoding='utf-8-sig'))]:
+    for name, contents in [('LotusPult', rig), ('SalvageZombie', inputs[2].read_text(encoding='utf-8-sig'))]:
         path = RES / f'reanim/{name}.reanim'
         path.write_text(contents, encoding='utf-8', newline='')
         outputs.append(path)

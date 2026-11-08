@@ -64,7 +64,7 @@ void Bullet::UpdateFloodMortar(float dt) {
     if(!mFloodCharmed && t>=.8f) if(auto* p=mBoard->FindAirborneThreatProtector(mRow,column)) {
         const auto defense=p->ActivateAirborneDefense();
         if(defense==AirborneDefenseState::REFLECTING) {
-            if(g_particleSystem) g_particleSystem->EmitEffect("RainBambooHit",pos);
+            if(g_particleSystem) g_particleSystem->EmitEffect("FloodMortarIntercept",pos);
             Die();return;
         }
         if(defense==AirborneDefenseState::ACTIVATING && t>=1) return;
@@ -72,7 +72,7 @@ void Bullet::UpdateFloodMortar(float dt) {
     mWaterTrailRemaining-=dt;
     if(mWaterTrailRemaining<=0) {
         mWaterTrailRemaining=.07f;
-        if(g_particleSystem) g_particleSystem->EmitEffect("RainBambooTrail",pos);
+        if(g_particleSystem) g_particleSystem->EmitEffect("FloodMortarTrail",pos);
     }
     if(t>=1) {
         mBoard->ApplyFloodMortarImpact(mTrajectory.target,mRow,mDamage,mFloodCharmed);

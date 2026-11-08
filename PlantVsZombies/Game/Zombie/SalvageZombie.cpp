@@ -3,9 +3,14 @@
 #include "Game/Board/Board.h"
 #include "Game/Plant/Plant.h"
 #include "Graphics.h"
+#include "ParticleSystem/ParticleSystem.h"
 #include <cmath>
 
 using namespace SalvageZombieRules;
+
+namespace {
+constexpr float kHookReachFraction = .6f; // 前摇前60%抛出钩具，随后开始拉拽
+}
 
 void SalvageZombie::SetupZombie()
 {
@@ -50,13 +55,20 @@ void SalvageZombie::ZombieUpdate(float seconds)
     if (mWindup > 0) {
         Plant* target = mBoard->mEntityRegistry.GetPlant(mTargetID);
         if (!target || target != FindFoundation()) { CancelSalvage(); return; }
+        const float reachRemaining = Windup * (1 - kHookReachFraction);
+        const bool caught = mWindup > reachRemaining && mWindup - seconds <= reachRemaining;
         mWindup -= seconds;
+        const Vector impact = target->GetVisualAnchorPosition() + Vector(0, 12);
+        if (caught && g_particleSystem) g_particleSystem->EmitEffect("SalvageHookCatch", impact);
         if (mWindup > 0) return;
+        const bool water = mBoard->IsPoolSquare(target->mRow, target->mColumn);
+        const Vector surface(impact.x, mBoard->GetZombiePartSurfaceY(target->mRow, impact.x, water) - 3);
         // 先消费动作，再调用会注销支撑层的正式生命周期；提交后不能回滚或重入。
         mWindup = 0;
         mTargetID = NULL_PLANT_ID;
         mCooldown = Cooldown;
         target->KillByZombie();
+        if (g_particleSystem) g_particleSystem->EmitEffect(water ? "SalvagePullSplash" : "SalvagePullDust", surface);
         ++mSalvageCount;
         AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_FLOOP, .4f);
         PlayWalkAnimation(.15f);
@@ -141,13 +153,19 @@ Vector SalvageZombie::GetHookPosition() const
 {
     const float scale = GetTransform()->GetScale();
     const float direction = IsMovingRight() ? 1.0f : -1.0f;
-    const Vector hand = GetRenderedTrackWorldPosition("anim_innerarm2") + Vector(direction * 12, 12) * scale;
+    const Vector hand = GetRopeHandPosition();
     const Plant* target = mBoard ? mBoard->mEntityRegistry.GetPlant(mTargetID) : nullptr;
     if (mWindup <= 0 || !target) return hand + Vector(direction * 14, 12) * scale;
     const float t = std::clamp(1 - mWindup / Windup, 0.0f, 1.0f);
-    const float reach = std::min(1.0f, t / .6f);
+    const float reach = std::min(1.0f, t / kHookReachFraction);
     return hand + (target->GetVisualAnchorPosition() + Vector(0, 12) - hand) * reach
         + Vector(0, -std::sin(reach * 3.14159265f) * 30 * scale);
+}
+
+Vector SalvageZombie::GetRopeHandPosition() const
+{
+    const float facing = IsMovingRight() ? 1.0f : -1.0f;
+    return GetRenderedTrackWorldPosition("anim_innerarm2") + Vector(facing * 3, 10) * GetAnimationScale();
 }
 
 /** 绳索连接真实握持点与目标基座，颜色提示拉拽临近提交；钩具可独立被磁吸。 */
@@ -156,13 +174,14 @@ void SalvageZombie::Draw(Graphics* g)
     Zombie::Draw(g);
     if (!g || !mHasHook || mIsDying || mIsDead) return;
     const float scale = GetTransform()->GetScale();
-    const float direction = IsMovingRight() ? 1.0f : -1.0f;
-    const Vector hand = GetRenderedTrackWorldPosition("anim_innerarm2") + Vector(direction * 12, 12) * scale;
+    const Vector hand = GetRopeHandPosition();
     const Vector hook = GetHookPosition();
-    const glm::vec4 rope = mWindup > 0 && mWindup < .75f
-        ? glm::vec4(255, 123, 55, 255) : glm::vec4(176, 136, 77, 255);
-    for (int i = -1; i <= 1; ++i) g->DrawLine(hand.x, hand.y + i, hook.x, hook.y + i, rope);
-    if (mWindup > 0) g->DrawCircle(hook.x, hook.y, 18, rope, 24);
+    const glm::vec4 rope = mWindup > 0 ? glm::vec4(255, 140, 57, 255) : glm::vec4(192, 116, 52, 255);
+    const Vector eye = hook - Vector(7, 5) * scale;
+    for (int i = -1; i <= 1; ++i) {
+        g->DrawLine(hand.x, hand.y + i, eye.x, eye.y + i, glm::vec4(66, 38, 25, 255));
+    }
+    g->DrawLine(hand.x, hand.y, eye.x, eye.y, rope);
     const Texture* texture = ResourceManager::GetInstance().GetTexture("IMAGE_SALVAGE_HOOK", false);
     const auto tint = IsImmobilized() || GetCooldownTimer() > 0 ? glm::vec4(150, 185, 255, 255) : glm::vec4(255);
     if (g->IsInstancePathEnabled()) g->DrawTextureInstanced(texture, hook.x - 12 * scale, hook.y - 8 * scale, 24 * scale, 49 * scale, 0, tint);

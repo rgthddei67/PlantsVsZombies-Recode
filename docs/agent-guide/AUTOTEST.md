@@ -32,6 +32,8 @@
 
 冷却罐五档液位与真实就绪状态可单跑 `smoke_identity_expansion_canister`，再用上述校验器的 `--canister-only` 复核。`tests/test_identity_asset_generators.py` 需要 Pillow 和 `pwsh`，会在临时目录实际运行旧生成器，确认它们不再覆盖已迁移装备，并验证液位递增且外壳不变。旧生成器保留植物、墙体和参考骨架；绝缘胸甲旧入口转到统一服装生成器，装备输出与哈希只在后者维护。
 
+`smoke_zombie_equipment_polish` 在正式攻击、换气和脱落边沿同步截图。比较三张 `anchor_splash_*` 的状态中的粒子数和绘制范围，可以核对同一落锚点的随机变化。`scripts/generate_zombie_equipment_polish.py` 用 Pillow 从透明母图导出装备、带装备离体头与水花分件；覆核母图或安装偏移的改动后用 `--update-lock` 更新哈希。水花的纹理抽样和发射参数以运行 XML 为准。
+
 ## 工坊电网与调度
 
 `verify_workshop_challenges.py --generate` 生成挑战与词条专项，运行可见脚本后以同文件校验原生倍率、快照、限制和奖励；纯逻辑 `WorkshopCommissionTests.cpp` 检查随机分布及旧任务承诺。详情按钮使用 `commission_details_N`，奖池入口使用 `commission_traits`，避免依赖弹窗按钮序号。

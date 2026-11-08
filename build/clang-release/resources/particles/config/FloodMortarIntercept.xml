@@ -1,0 +1,31 @@
+<Emitter>
+  <Name>FloodMortarIntercept</Name>
+  <Image>PARTICLE_EQUIPMENT_VAPOR</Image>
+  <SpawnMinActive>[3 5]</SpawnMinActive>
+  <SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.19 .29]</ParticleDuration>
+  <ParticleScale>[.18 .32] [.49 .72]</ParticleScale>
+  <ParticleAlpha>.8 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[35 70]</LaunchSpeed>
+  <ParticleRed>.66</ParticleRed>
+  <ParticleGreen>.93</ParticleGreen>
+</Emitter>
+
+<Emitter>
+  <Name>FloodMortarInterceptDrops</Name>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <SpawnMinActive>[9 15]</SpawnMinActive>
+  <SpawnMaxLaunched>15</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.22 .4]</ParticleDuration>
+  <ParticleScale>[.58 1.1] .24</ParticleScale>
+  <ParticleAlpha>.95 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[85 165]</LaunchSpeed>
+  <ParticleGravity>170</ParticleGravity>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 8]</EmitterRadius>
+  <ParticleRotation>[-12 12]</ParticleRotation>
+</Emitter>

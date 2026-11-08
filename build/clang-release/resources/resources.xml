@@ -421,6 +421,19 @@
     <Texture>./resources/particles/textures/water_mist.png</Texture>
     <Texture>./resources/particles/textures/water_droplets.png</Texture>
     <Texture>./resources/particles/textures/water_blast.png</Texture>
+    <Texture>./resources/particles/textures/equipment_bubble.png</Texture>
+    <Texture>./resources/particles/textures/equipment_vapor.png</Texture>
+    <Texture>./resources/particles/textures/equipment_ember.png</Texture>
+    <Texture>./resources/particles/textures/equipment_flash.png</Texture>
+    <Texture>./resources/particles/textures/equipment_splash_a.png</Texture>
+    <Texture>./resources/particles/textures/equipment_splash_b.png</Texture>
+    <Texture>./resources/particles/textures/equipment_splash_c.png</Texture>
+    <Texture>./resources/particles/HeavyDiverHeadOff.png</Texture>
+    <Texture>./resources/particles/HeavyDiverHeadOff_right.png</Texture>
+    <Texture>./resources/particles/SalvageHeadOff.png</Texture>
+    <Texture>./resources/particles/SalvageHeadOff_right.png</Texture>
+    <Texture>./resources/particles/ThermalSniperHeadOff.png</Texture>
+    <Texture>./resources/particles/ThermalSniperHeadOff_right.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/IceCrackDrillShards.png</Texture>
     <Texture Column="4" Row="1">./resources/particles/pea_splats.png</Texture>
     <Texture Column="3" Row="1">./resources/particles/pea_particles.png</Texture>

@@ -1,0 +1,38 @@
+<Emitter>
+  <Name>FloodMortarMuzzle</Name>
+  <Image>PARTICLE_EQUIPMENT_VAPOR</Image>
+  <SpawnMinActive>[3 5]</SpawnMinActive>
+  <SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.22 .36]</ParticleDuration>
+  <ParticleScale>[.18 .33] [.5 .75]</ParticleScale>
+  <ParticleAlpha>.82 0</ParticleAlpha>
+  <ParticleRed>.58</ParticleRed>
+  <ParticleGreen>.91</ParticleGreen>
+  <ParticleBlue>1</ParticleBlue>
+  <ParticleRotation>[-180 180]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-5 5] [-25 24]</X>
+    <Y>0 [-32 -18]</Y>
+  </Field>
+</Emitter>
+
+<Emitter>
+  <Name>FloodMortarMuzzleDrops</Name>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <SpawnMinActive>[6 10]</SpawnMinActive>
+  <SpawnMaxLaunched>10</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.22 .42]</ParticleDuration>
+  <ParticleScale>[.5 1.07] .24</ParticleScale>
+  <ParticleAlpha>.9 0</ParticleAlpha>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 8]</EmitterRadius>
+  <ParticleRotation>[-12 12]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-3 3] [-42 42]</X>
+    <Y>0,42 [-41 -15],100 [-25 6]</Y>
+  </Field>
+</Emitter>

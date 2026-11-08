@@ -1,18 +1,26 @@
 <Emitter>
   <Name>ThermalPulseMuzzle</Name>
-  <SpawnMinActive>[12 18]</SpawnMinActive>
-  <SpawnMaxLaunched>18</SpawnMaxLaunched>
-  <EmitterType>Circle</EmitterType>
-  <EmitterRadius>[1 8]</EmitterRadius>
-  <ParticleDuration>[.18 .38]</ParticleDuration>
-  <ParticleAlpha>1,62 0</ParticleAlpha>
-  <ParticleScale>[.16 .34] .04</ParticleScale>
-  <ParticleRed>1</ParticleRed>
-  <ParticleGreen>.45</ParticleGreen>
-  <ParticleBlue>.04</ParticleBlue>
-  <LaunchSpeed>[50 125]</LaunchSpeed>
+  <Image>PARTICLE_EQUIPMENT_FLASH</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>.2</ParticleDuration>
+  <ParticleScale>.43 .16</ParticleScale>
+  <ParticleAlpha>1,33 .9 0</ParticleAlpha>
+</Emitter>
+
+<Emitter>
+  <Name>ThermalPulseMuzzleEmbers</Name>
+  <Image>PARTICLE_EQUIPMENT_EMBER</Image>
+  <SpawnMinActive>[7 12]</SpawnMinActive>
+  <SpawnMaxLaunched>12</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.16 .33]</ParticleDuration>
+  <ParticleScale>[.15 .4] .05</ParticleScale>
+  <ParticleAlpha>1,64 .82 0</ParticleAlpha>
   <RandomLaunchSpin>1</RandomLaunchSpin>
-  <ParticleSpinSpeed>[-320 320]</ParticleSpinSpeed>
-  <SystemDuration>.4</SystemDuration>
-  <Image>PARTICLE_STAR40</Image>
+  <LaunchSpeed>[55 115]</LaunchSpeed>
+  <ParticleGravity>70</ParticleGravity>
+  <ParticleRotation>[-180 180]</ParticleRotation>
+  <ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
 </Emitter>

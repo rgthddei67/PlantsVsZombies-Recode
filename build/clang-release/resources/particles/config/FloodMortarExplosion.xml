@@ -1,1 +1,35 @@
-<Emitter><Name>FloodMortarExplosion</Name><Image>PARTICLE_WATER_BLAST</Image><SpawnMinActive>1</SpawnMinActive><ParticleDuration>.65</ParticleDuration><SystemDuration>.65</SystemDuration><ParticleScale>.3 1.12,30 1.35</ParticleScale><ParticleAlpha>1,25 0</ParticleAlpha><LaunchSpeed>0</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin></Emitter><Emitter><Name>mist</Name><Image>PARTICLE_WATER_MIST</Image><SpawnMinActive>14</SpawnMinActive><ParticleDuration>1.05</ParticleDuration><SystemDuration>1.05</SystemDuration><ParticleScale>.32 .65</ParticleScale><ParticleAlpha>1,25 0</ParticleAlpha><LaunchSpeed>[35 125]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><EmitterType>Circle</EmitterType><EmitterRadius>16</EmitterRadius></Emitter><Emitter><Name>drops</Name><Image>PARTICLE_WATER_DROPLETS</Image><SpawnMinActive>35</SpawnMinActive><ParticleDuration>.85</ParticleDuration><SystemDuration>.85</SystemDuration><ParticleScale>.4 .12</ParticleScale><ParticleAlpha>1,25 0</ParticleAlpha><LaunchSpeed>[120 300]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin><ParticleGravity>230</ParticleGravity><EmitterType>Circle</EmitterType><EmitterRadius>20</EmitterRadius></Emitter>
+<Emitter>
+  <Name>FloodMortarExplosion</Name>
+  <Image>PARTICLE_EQUIPMENT_SPLASH_A,PARTICLE_EQUIPMENT_SPLASH_B,PARTICLE_EQUIPMENT_SPLASH_C</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.25 .45]</ParticleDuration>
+  <ParticleScale>[.77 1.08] [1.21 1.55]</ParticleScale>
+  <ParticleAlpha>.96,60 .86 0</ParticleAlpha>
+  <ParticleRotation>[-9 9]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-3 3] [-5 5]</X>
+    <Y>[8 12] [-1 9]</Y>
+  </Field>
+</Emitter>
+
+<Emitter>
+  <Name>FloodMortarExplosionDroplets</Name>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <SpawnMinActive>[25 37]</SpawnMinActive>
+  <SpawnMaxLaunched>37</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.35 .62]</ParticleDuration>
+  <ParticleScale>[.42 .94] [.28 .58]</ParticleScale>
+  <ParticleAlpha>.9,78 .8 0</ParticleAlpha>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 8]</EmitterRadius>
+  <ParticleRotation>[-12 12]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-10 10] [-118 118]</X>
+    <Y>24,42 [-36 -3],100 [12 33]</Y>
+  </Field>
+</Emitter>

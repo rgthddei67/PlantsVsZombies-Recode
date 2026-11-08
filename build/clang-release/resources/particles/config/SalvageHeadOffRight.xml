@@ -1,0 +1,14 @@
+<Emitter>
+  <Name>SalvageHeadOffRight</Name>
+  <Image>PARTICLE_SALVAGEHEADOFF_RIGHT</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <SystemDuration>1.1</SystemDuration>
+  <ParticleDuration>1.0</ParticleDuration>
+  <ParticleScale>1</ParticleScale>
+  <ParticleAlpha>1,80 0</ParticleAlpha>
+  <LaunchSpeed>[35 65]</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>140</ParticleGravity>
+  <ParticleSpinSpeed>[-35 35]</ParticleSpinSpeed>
+</Emitter>

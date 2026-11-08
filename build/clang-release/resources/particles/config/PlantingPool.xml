@@ -1,8 +1,8 @@
 <Emitter>
   <Name>PlantingPool</Name>
-  <SpawnMinActive>16</SpawnMinActive>
-  <SpawnMaxLaunched>16</SpawnMaxLaunched>
-  <ParticleDuration>0.4</ParticleDuration>
+  <SpawnMinActive>[14 19]</SpawnMinActive>
+  <SpawnMaxLaunched>19</SpawnMaxLaunched>
+  <ParticleDuration>[.32 .43]</ParticleDuration>
   <SystemDuration>0.45</SystemDuration>
   <ParticleAlpha>1,85 0</ParticleAlpha>
   <ParticleScale>[.7 1]</ParticleScale>
@@ -13,6 +13,6 @@
   <Field>
     <FieldType>Position</FieldType>
     <X>0 [-45 45]</X>
-    <Y>4 -32 -6</Y>
+    <Y>4,45 [-46 -25],100 [-9 4]</Y>
   </Field>
 </Emitter>

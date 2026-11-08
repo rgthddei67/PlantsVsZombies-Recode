@@ -1,0 +1,29 @@
+<Emitter>
+  <Name>PressureMuzzle</Name>
+  <Image>PARTICLE_EQUIPMENT_VAPOR</Image>
+  <SpawnMinActive>[2 4]</SpawnMinActive>
+  <SpawnMaxLaunched>4</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.14 .23]</ParticleDuration>
+  <ParticleScale>[.11 .24] [.33 .51]</ParticleScale>
+  <ParticleAlpha>.72 0</ParticleAlpha>
+  <ParticleRed>.72</ParticleRed>
+  <ParticleGreen>1</ParticleGreen>
+  <ParticleBlue>.93</ParticleBlue>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[20 75]</LaunchSpeed>
+  <ParticleRotation>[-180 180]</ParticleRotation>
+</Emitter>
+
+<Emitter>
+  <Name>PressureMuzzleCondensation</Name>
+  <Image>PARTICLE_PRESSURE_PARTICLES_PART_0,PARTICLE_PRESSURE_PARTICLES_PART_1,PARTICLE_PRESSURE_PARTICLES_PART_2</Image>
+  <SpawnMinActive>[2 4]</SpawnMinActive>
+  <SpawnMaxLaunched>4</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.12 .22]</ParticleDuration>
+  <ParticleScale>[.43 .73] .2</ParticleScale>
+  <ParticleAlpha>.9 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[50 115]</LaunchSpeed>
+</Emitter>

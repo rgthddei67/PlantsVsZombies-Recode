@@ -1,0 +1,27 @@
+<Emitter>
+  <Name>SalvageHookCatch</Name>
+  <Image>PARTICLE_EQUIPMENT_FLASH</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>.13</ParticleDuration>
+  <ParticleScale>.31 .12</ParticleScale>
+  <ParticleAlpha>.85 0</ParticleAlpha>
+  <ParticleRed>1</ParticleRed>
+  <ParticleGreen>.68</ParticleGreen>
+  <ParticleBlue>.38</ParticleBlue>
+</Emitter>
+
+<Emitter>
+  <Name>SalvageHookCatchSparks</Name>
+  <Image>PARTICLE_EQUIPMENT_EMBER</Image>
+  <SpawnMinActive>[2 5]</SpawnMinActive>
+  <SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.13 .24]</ParticleDuration>
+  <ParticleScale>[.10 .22] .04</ParticleScale>
+  <ParticleAlpha>1,42 .9 0</ParticleAlpha>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <LaunchSpeed>[45 100]</LaunchSpeed>
+  <ParticleRotation>[-180 180]</ParticleRotation>
+</Emitter>

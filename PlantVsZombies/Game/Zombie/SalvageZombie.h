@@ -35,6 +35,7 @@ private:
     void CancelSalvage();
     void SyncEquipment() const;
     Vector GetHookPosition() const;
+    Vector GetRopeHandPosition() const;
     int mTargetID = NULL_PLANT_ID;
     float mWindup = 0.0f;
     float mCooldown = 0.0f;

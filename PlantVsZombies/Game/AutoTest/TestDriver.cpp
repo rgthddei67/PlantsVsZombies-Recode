@@ -4729,6 +4729,24 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
         "IMAGE_SALVAGE_HOOK", "IMAGE_SALVAGE_REEL", "IMAGE_SALVAGE_BUOY", "IMAGE_SALVAGE_HAT"})
         pairTwoReady = pairTwoReady && ResourceManager::GetInstance().GetTexture(key, false);
     out["watersidePairTwoResourcesReady"] = pairTwoReady;
+    const auto& equipmentResources = ResourceManager::GetInstance();
+    bool equipmentPolishReady = equipmentResources.HasReanimation("HeavyDiverZombie")
+        && equipmentResources.HasReanimation("SalvageZombie")
+        && equipmentResources.HasReanimation("PressureShooterHead")
+        && equipmentResources.HasReanimation("ThermalSniperLauncher")
+        && equipmentResources.HasReanimation("FloodMortarZombie");
+    for (const char* key : {"IMAGE_HEAVYDIVER_HELMET", "IMAGE_HEAVYDIVER_TANKS", "IMAGE_HEAVYDIVER_ANCHOR",
+        "IMAGE_HEAVYDIVER_CHAIN", "IMAGE_SALVAGE_HAT", "IMAGE_SALVAGE_REEL", "IMAGE_SALVAGE_HOOK",
+        "IMAGE_SALVAGE_BUOY", "IMAGE_REANIM_PRESSURE_BARREL", "IMAGE_REANIM_PRESSURE_HELMET",
+        "IMAGE_PRESSURE_TANK", "IMAGE_ZOMBIE_THERMAL_GOGGLES", "IMAGE_ZOMBIE_THERMAL_PACK",
+        "IMAGE_REANIM_ZOMBIE_THERMAL_RIFLE", "IMAGE_FLOOD_MORTAR_PACK", "IMAGE_FLOOD_MORTAR_SHELL",
+        "PARTICLE_EQUIPMENT_BUBBLE", "PARTICLE_EQUIPMENT_VAPOR", "PARTICLE_EQUIPMENT_EMBER",
+        "PARTICLE_EQUIPMENT_FLASH", "PARTICLE_EQUIPMENT_SPLASH_A", "PARTICLE_EQUIPMENT_SPLASH_B",
+        "PARTICLE_EQUIPMENT_SPLASH_C", "PARTICLE_HEAVYDIVERHEADOFF", "PARTICLE_HEAVYDIVERHEADOFF_RIGHT",
+        "PARTICLE_SALVAGEHEADOFF", "PARTICLE_SALVAGEHEADOFF_RIGHT",
+        "PARTICLE_THERMALSNIPERHEADOFF", "PARTICLE_THERMALSNIPERHEADOFF_RIGHT"})
+        equipmentPolishReady = equipmentPolishReady && equipmentResources.GetTexture(key, false);
+    out["zombieEquipmentPolishReady"] = equipmentPolishReady;
     bool lotusHitResources = ResourceManager::GetInstance().GetTexture("IMAGE_LOTUSPULT_SEED", false) != nullptr;
     for (const char* key : {"PARTICLE_PEA_SPLATS_PART_0", "PARTICLE_PEA_SPLATS_PART_1",
         "PARTICLE_PEA_SPLATS_PART_2", "PARTICLE_PEA_SPLATS_PART_3"})

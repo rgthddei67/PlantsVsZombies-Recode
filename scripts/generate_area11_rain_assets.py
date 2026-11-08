@@ -1,7 +1,7 @@
 """Import ImageGen transparent art into deterministic, jointed rain-unit assets.
 
 Built-in ImageGen prompts: jade bamboo cannon with separate head/stalk/root leaves
-and spear; teal brass backpack water mortar; hand-painted water mist, droplet spray,
+and spear; hand-painted water mist, droplet spray,
 and radial explosive splash. Source PNGs retain the original alpha and artwork.
 Only crop/resize/composition for the game import is performed here.
 """
@@ -37,8 +37,7 @@ card=Image.new('RGBA',(100,108))
 for i,xy in [(1,(35,36)),(0,(18,9)),(2,(6,68))]:
     card.alpha_composite(pieces[i].resize(sizes[i],Image.Resampling.LANCZOS),xy)
 save(card,RES/'image/PlantImage/RainBamboo.png')
-pack=trim(Image.open(SRC/'mortar_pack.png').convert('RGBA'));pack.thumbnail((133,105),Image.Resampling.LANCZOS)
-save(pack,OUT/'Flood_mortar_pack.png')
+# 蓄洪炮包由 generate_zombie_equipment_polish.py 导出，水炮效果由运行 XML 维护。
 for name,size in [('water_mist',160),('water_droplets',96),('water_blast',256)]:
     im=trim(Image.open(SRC/(name+'.png')).convert('RGBA'));im.thumbnail((size,size),Image.Resampling.LANCZOS)
     save(im,RES/'particles/textures'/(name+'.png'))
@@ -63,11 +62,10 @@ effects={
     'RainBambooMuzzle':emitter('RainBambooMuzzle','PARTICLE_WATER_MIST',4,'.12 .28','.35','[20 80]')+emitter('drops','PARTICLE_WATER_DROPLETS',8,'.2 .05','.35','[50 130]'),
     'RainBambooHit':emitter('RainBambooHit','PARTICLE_WATER_BLAST',1,'.17 .32','.3')+emitter('drops','PARTICLE_WATER_DROPLETS',9,'.24 .08','.45','[80 160]','<ParticleGravity>100</ParticleGravity>'),
     'RainBambooFinish':emitter('RainBambooFinish','PARTICLE_WATER_BLAST',1,'.25 .5','.4')+emitter('mist','PARTICLE_WATER_MIST',6,'.25 .4','.5','[40 100]')+emitter('drops','PARTICLE_WATER_DROPLETS',18,'.3 .06','.65','[100 230]','<ParticleGravity>170</ParticleGravity>'),
-    'FloodMortarExplosion':emitter('FloodMortarExplosion','PARTICLE_WATER_BLAST',1,'.3 1.12,30 1.35','.65')+emitter('mist','PARTICLE_WATER_MIST',14,'.32 .65','1.05','[35 125]','<EmitterType>Circle</EmitterType><EmitterRadius>16</EmitterRadius>')+emitter('drops','PARTICLE_WATER_DROPLETS',35,'.4 .12','.85','[120 300]','<ParticleGravity>230</ParticleGravity><EmitterType>Circle</EmitterType><EmitterRadius>20</EmitterRadius>'),
 }
 for name,xml in effects.items():
     path=RES/'particles/config'/(name+'.xml');path.write_text(xml,encoding='utf-8');outputs.append(path)
-lock={'inputs':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(SRC.glob('*.png'))},
+lock={'inputs':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(p for p in SRC.glob('*.png') if p.name != 'mortar_pack.png')},
       'outputs':{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in outputs}}
 lockpath=SRC/'import.lock.json'
 if lockpath.exists():

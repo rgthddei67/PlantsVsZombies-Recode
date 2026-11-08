@@ -23,8 +23,8 @@ constexpr float kPulseSpeed = ThermalSniperRules::PulseSpeed; // 共用热脉冲
 constexpr float kMuzzleOffsetX = ThermalSniperRules::MuzzleOffset; // 共用枪口偏移，px
 constexpr float kMuzzleOffsetY = 26.0f; // 枪口相对本体视觉原点的垂直偏移，单位 px
 constexpr float kPulseTargetOffsetY = 0.0f; // 热脉冲在原落种位置的目标高度，单位 px
-constexpr float kGogglesOffsetX = -13.0f; // 护目镜相对头部轨道的水平偏移，单位动画 px
-constexpr float kGogglesOffsetY = -3.0f; // 护目镜相对头部轨道的垂直偏移，单位动画 px
+constexpr float kGogglesOffsetX = -3.0f; // 护目镜相对头部轨道的水平偏移，单位动画 px
+constexpr float kGogglesOffsetY = 7.0f; // 护目镜相对头部轨道的垂直偏移，单位动画 px
 constexpr float kGogglesScale = 0.58f; // 护目镜 follower 相对头部轨道的尺寸倍率
 constexpr float kPackOffsetX = 34.0f; // 热能背包相对身体轨道的水平偏移，单位动画 px
 constexpr float kPackOffsetY = -15.0f; // 热能背包相对身体轨道的垂直偏移，单位动画 px
@@ -143,7 +143,7 @@ void ThermalSniperZombie::FireLockedPulse()
 		pulse->ConfigureThermalPulse(target, mLockedPlantID);
 	}
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_BLEEP, 0.62f);
-	if (g_particleSystem) g_particleSystem->EmitEffect("ThermalPulseMuzzle", origin);
+	if (pulse && g_particleSystem) g_particleSystem->EmitEffect("ThermalPulseMuzzle", GetLauncherMuzzle(origin));
 	mLockedPlantID = NULL_PLANT_ID;
 	mLockedDamage = 0;
 	mAimRemaining = 0.0f;
@@ -187,9 +187,10 @@ void ThermalSniperZombie::Draw(Graphics* g)
 {
 	if (g && mSniperPhase == SniperPhase::AIMING) {
 		const Vector visualOrigin = GetVisualPosition();
-		const Vector muzzle(
+		const Vector origin(
 			visualOrigin.x + (IsMovingRight() ? kMuzzleOffsetX : -kMuzzleOffsetX),
 			visualOrigin.y + kMuzzleOffsetY);
+		const Vector muzzle = GetLauncherMuzzle(origin);
 		const Vector target(mLockedPosition.x,
 			mLockedPosition.y + kPulseTargetOffsetY);
 		g->DrawLine(muzzle.x, muzzle.y, target.x, target.y,
@@ -203,6 +204,15 @@ void ThermalSniperZombie::Draw(Graphics* g)
 			glm::vec4(255.0f, 190.0f, 74.0f, 205.0f));
 	}
 	Zombie::Draw(g);
+}
+
+Vector ThermalSniperZombie::GetLauncherMuzzle(const Vector& fallback) const
+{
+	if (!mLauncherAnimator) return fallback;
+	const auto parent = mAnimator->GetAttachedWorldTransform(*mLauncherAnimator, GetVisualPosition(), GetAnimationScale());
+	const auto launcher = mLauncherAnimator->GetTrackLocalTransform("launcher");
+	const auto muzzle = parent * launcher * glm::vec4(3, 23, 0, 1);
+	return Vector(muzzle.x, muzzle.y);
 }
 
 void ThermalSniperZombie::ConfigureFollowers()

@@ -54,6 +54,8 @@ private:
 	void FireLockedPulse();
 	void DisableSniper();
 	bool CanReactToDeployment(const Plant& plant) const;
+	/** 瞄准线和枪口粒子使用肩炮当前可见枪口，保持热脉冲的原碰撞起点。 */
+	Vector GetLauncherMuzzle(const Vector& fallback) const;
 
 	SniperPhase mSniperPhase = SniperPhase::RELOADING;
 	float mReloadRemaining = 3.0f;

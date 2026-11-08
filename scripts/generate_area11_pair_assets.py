@@ -33,9 +33,9 @@ def fit_piece(i,name,reference=None,size=None):
     save(im,OUT/(name+'.png'))
 for args in [(0,'MendingCotton_petals','Marigold_petals'),(1,'MendingCotton_head','Marigold_head'),
              (2,'Pressure_head','GatlingPea_head'),(3,'Pressure_mouth','GatlingPea_mouth'),
-             (4,'Pressure_overlay','GatlingPea_mouth_overlay'),(5,'Pressure_barrel','GatlingPea_barrel'),
-             (6,'Pressure_helmet','GatlingPea_helmet')]: fit_piece(*args)
-fit_piece(7,'Pressure_tank',size=(56,78));fit_piece(8,'Pressure_projectile',size=(34,24))
+             (4,'Pressure_overlay','GatlingPea_mouth_overlay')]: fit_piece(*args)
+# 枪管、钢盔和气瓶由 generate_zombie_equipment_polish.py 导出。
+fit_piece(8,'Pressure_projectile',size=(34,24))
 
 cotton=(RES/'reanim/Marigold.reanim').read_text()
 cotton=cotton.replace('IMAGE_REANIM_MARIGOLD_PETALS','IMAGE_REANIM_MENDINGCOTTON_PETALS').replace('IMAGE_REANIM_MARIGOLD_HEAD','IMAGE_REANIM_MENDINGCOTTON_HEAD')

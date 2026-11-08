@@ -265,102 +265,6 @@ function Generate-ThermalPulse(
     $outputs.Add($destinationPath)
 }
 
-function Generate-ThermalEquipment(
-    [string]$destinationPath,
-    [string]$kind,
-    [System.Collections.Generic.List[string]]$outputs
-) {
-    $size = if ($kind -eq "rifle") { [Drawing.Size]::new(120, 44) }
-        elseif ($kind -eq "pack") { [Drawing.Size]::new(58, 76) }
-        else { [Drawing.Size]::new(74, 38) }
-    $bitmap = [Drawing.Bitmap]::new($size.Width, $size.Height,
-        [Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    try {
-        $g = [Drawing.Graphics]::FromImage($bitmap)
-        try {
-            $g.SmoothingMode = [Drawing.Drawing2D.SmoothingMode]::AntiAlias
-            $outline = [Drawing.Pen]::new([Drawing.Color]::FromArgb(255, 38, 32, 38), 4.0)
-            $metal = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(255, 78, 96, 110))
-            $dark = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(255, 42, 55, 67))
-            $heat = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(255, 255, 102, 28))
-            $core = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(255, 255, 238, 108))
-            try {
-                if ($kind -eq "rifle") {
-                    $g.FillRectangle($dark, 22, 12, 78, 18)
-                    $g.DrawRectangle($outline, 22, 12, 78, 18)
-                    $g.FillPolygon($metal, [Drawing.Point[]]@(
-                        [Drawing.Point]::new(0, 16), [Drawing.Point]::new(24, 10),
-                        [Drawing.Point]::new(24, 31), [Drawing.Point]::new(0, 27)))
-                    $g.DrawPolygon($outline, [Drawing.Point[]]@(
-                        [Drawing.Point]::new(0, 16), [Drawing.Point]::new(24, 10),
-                        [Drawing.Point]::new(24, 31), [Drawing.Point]::new(0, 27)))
-                    $g.FillRectangle($metal, 93, 7, 23, 28)
-                    $g.DrawRectangle($outline, 93, 7, 23, 28)
-                    foreach ($x in 38, 52, 66, 80) {
-                        $g.FillEllipse($heat, $x, 14, 10, 14)
-                        $g.FillEllipse($core, $x + 3, 17, 4, 8)
-                    }
-                }
-                elseif ($kind -eq "pack") {
-                    $g.FillRoundedRectangle($dark, 8, 5, 42, 66, 10)
-                    $g.DrawRoundedRectangle($outline, 8, 5, 42, 66, 10)
-                    $g.FillRectangle($metal, 13, 12, 32, 20)
-                    $g.FillEllipse($heat, 17, 39, 24, 24)
-                    $g.FillEllipse($core, 23, 45, 12, 12)
-                }
-                else {
-                    $g.FillRectangle($dark, 4, 11, 66, 14)
-                    $g.DrawRectangle($outline, 4, 11, 66, 14)
-                    $g.FillEllipse($heat, 8, 4, 25, 28)
-                    $g.FillEllipse($heat, 41, 4, 25, 28)
-                    $g.FillEllipse($core, 14, 10, 13, 16)
-                    $g.FillEllipse($core, 47, 10, 13, 16)
-                }
-            }
-            finally {
-                $outline.Dispose(); $metal.Dispose(); $dark.Dispose()
-                $heat.Dispose(); $core.Dispose()
-            }
-        }
-        finally { $g.Dispose() }
-        $bitmap.Save($destinationPath, [Drawing.Imaging.ImageFormat]::Png)
-    }
-    finally { $bitmap.Dispose() }
-    $outputs.Add($destinationPath)
-}
-
-# System.Drawing 没有内建圆角矩形，给 Graphics 补两个局部脚本方法。
-Update-TypeData -TypeName System.Drawing.Graphics -MemberType ScriptMethod `
-    -MemberName FillRoundedRectangle -Force -Value {
-        param($brush, $x, $y, $width, $height, $radius)
-        $path = [Drawing.Drawing2D.GraphicsPath]::new()
-        try {
-            $path.AddArc($x, $y, $radius, $radius, 180, 90)
-            $path.AddArc($x + $width - $radius, $y, $radius, $radius, 270, 90)
-            $path.AddArc($x + $width - $radius, $y + $height - $radius,
-                $radius, $radius, 0, 90)
-            $path.AddArc($x, $y + $height - $radius, $radius, $radius, 90, 90)
-            $path.CloseFigure()
-            $this.FillPath($brush, $path)
-        }
-        finally { $path.Dispose() }
-    }
-Update-TypeData -TypeName System.Drawing.Graphics -MemberType ScriptMethod `
-    -MemberName DrawRoundedRectangle -Force -Value {
-        param($pen, $x, $y, $width, $height, $radius)
-        $path = [Drawing.Drawing2D.GraphicsPath]::new()
-        try {
-            $path.AddArc($x, $y, $radius, $radius, 180, 90)
-            $path.AddArc($x + $width - $radius, $y, $radius, $radius, 270, 90)
-            $path.AddArc($x + $width - $radius, $y + $height - $radius,
-                $radius, $radius, 0, 90)
-            $path.AddArc($x, $y + $height - $radius, $radius, $radius, 90, 90)
-            $path.CloseFigure()
-            $this.DrawPath($pen, $path)
-        }
-        finally { $path.Dispose() }
-    }
-
 $imageIndex = Get-ReanimImageIndex
 $outputs = [System.Collections.Generic.List[string]]::new()
 $northSelector = {
@@ -380,9 +284,7 @@ Generate-RecoloredReanim "Plantern" "IceMirrorGrass" $mirrorSelector $imageIndex
 Generate-Card "SunFlower" "NorthStarFlower" "northPetal" "star" $outputs
 Generate-Card "Plantern" "IceMirrorGrass" "mirrorBody" "mirror" $outputs
 Generate-ThermalPulse $motherPath (Join-Path $resourcePath "image/ProjectileThermalPulse.png") $outputs
-Generate-ThermalEquipment (Join-Path $reanimImagePath "Zombie_thermal_goggles.png") "goggles" $outputs
-Generate-ThermalEquipment (Join-Path $reanimImagePath "Zombie_thermal_pack.png") "pack" $outputs
-Generate-ThermalEquipment (Join-Path $reanimImagePath "Zombie_thermal_rifle.png") "rifle" $outputs
+# 热感狙击装备由 generate_zombie_equipment_polish.py 导出。
 
 $sourceReanims = @(
     (Join-Path $reanimPath "SunFlower.reanim"),
@@ -394,7 +296,7 @@ $sourceReanims = @(
 $sourceAggregate = Get-AggregateHash $sourceReanims
 $outputAggregate = Get-AggregateHash $outputs.ToArray()
 $expectedSourceAggregate = "DE26626721FB8F0B714483DEE5529735E4CA4547690D64AD2BD35D494477AD92"
-$expectedOutputAggregate = "016A2E2467E615A5FE42E100D934FFA7F98055274CE5710A3C692FCE49842A4B"
+$expectedOutputAggregate = "EB2B9A4480EA0DFFF622A8F87139EBB8761B7C157E506CBDD1A1B0A106E13568"
 if ($expectedSourceAggregate -ne "TO_BE_FILLED" -and
     $sourceAggregate -ne $expectedSourceAggregate) {
     throw "Polar midgame source assets drifted: expected=$expectedSourceAggregate actual=$sourceAggregate"
@@ -406,4 +308,4 @@ if ($expectedOutputAggregate -ne "TO_BE_FILLED" -and
 
 Write-Output "sourceAggregate=$sourceAggregate"
 Write-Output "outputAggregate=$outputAggregate"
-Write-Output "Generated animated plant recolors, distinct cards, thermal equipment, and thermal pulse."
+Write-Output "Generated animated plant recolors, distinct cards and thermal pulse."

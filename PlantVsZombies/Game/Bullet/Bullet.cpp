@@ -1066,7 +1066,7 @@ void Bullet::ConfigurePresentation()
         mScale = .55f;
         break;
     case BulletType::BULLET_FLOOD_MORTAR:
-        mTexture=resources.GetTexture("PARTICLE_WATER_DROPLETS",false);mScale=.45f;break;
+        mTexture=resources.GetTexture("IMAGE_FLOOD_MORTAR_SHELL",false);mScale=1;break;
     case BulletType::BULLET_SLUDGE:
         mTexture = resources.GetTexture("IMAGE_SLUDGE_PROJECTILE", false); mScale = 1; break;
 	case BulletType::BULLET_PRESSURE:

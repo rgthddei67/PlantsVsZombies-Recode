@@ -12,11 +12,23 @@ namespace {
 	constexpr float kHeadCenterY = 15.0f; // 头轨在画布 (12,30)，含随头脱落的头饰，像素
 	constexpr float kArmCenterX = 9.0f; // 32x55 离体臂中心相对下臂轨的 X，像素
 	constexpr float kArmCenterY = 24.5f; // 下臂在画布 (7,3)，手掌与袖口重叠，像素
+	constexpr float kEquippedHeadCenterX = 36.0f; // 112x112 装备头画布内头轨在 (20,32)，X 偏移像素
+	constexpr float kEquippedHeadCenterY = 24.0f; // 同一画布中心相对头轨的 Y 偏移，像素
 	struct DetachedPose {
 		Vector center;
 		float scaleX, scaleY, rotation;
 		bool mirrored;
 	};
+
+	const char* EquippedHeadEffect(ZombieType type)
+	{
+		switch (type) {
+		case ZombieType::ZOMBIE_HEAVY_DIVER: return "HeavyDiverHeadOff";
+		case ZombieType::ZOMBIE_SALVAGE: return "SalvageHeadOff";
+		case ZombieType::ZOMBIE_THERMAL_SNIPER: return "ThermalSniperHeadOff";
+		default: return nullptr;
+		}
+	}
 
 	/** 使用最终插值矩阵求画布中心与方向，统一处理魅惑和对象整体缩放。 */
 	DetachedPose GetDetachedPose(const Zombie& zombie, const std::string& track, const Vector& centerInTrack)
@@ -161,11 +173,16 @@ const Texture* Zombie::GetArmStumpTexture() const
 bool Zombie::EmitIdentityLimb(bool head) const
 {
 	const auto* profile = ZombieIdentityVisuals::Find(mZombieType);
-	if (!profile) return false;
+	const auto* equippedHead = head ? EquippedHeadEffect(mZombieType) : nullptr;
+	if (!profile && !equippedHead) return false;
+	const Vector center = equippedHead ? Vector(kEquippedHeadCenterX, kEquippedHeadCenterY)
+		: (head ? Vector(kHeadCenterX, kHeadCenterY) : Vector(kArmCenterX, kArmCenterY));
 	const auto pose = GetDetachedPose(*this, head ? "anim_head1" : "Zombie_outerarm_lower",
-		Vector(head ? kHeadCenterX : kArmCenterX, head ? kHeadCenterY : kArmCenterY));
+		center);
 	if (g_particleSystem) {
-		g_particleSystem->EmitDetachedPart(ZombieIdentityVisuals::EffectName(*profile, head, pose.mirrored),
+		const std::string effect = equippedHead ? std::string(equippedHead) + (pose.mirrored ? "Right" : "")
+			: ZombieIdentityVisuals::EffectName(*profile, head, pose.mirrored);
+		g_particleSystem->EmitDetachedPart(effect,
 			pose.center, pose.scaleX, pose.scaleY, pose.rotation, {}, mAnimator->GetActiveOverlayColor(),
 			GetPartTerrain(head ? ZombiePartMotion::Head : ZombiePartMotion::Arm));
 	}

@@ -1,0 +1,15 @@
+<Emitter>
+  <Name>HeavyDiverBreath</Name>
+  <Image>PARTICLE_EQUIPMENT_BUBBLE</Image>
+  <SpawnMinActive>[3 5]</SpawnMinActive>
+  <SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.4 .75]</ParticleDuration>
+  <ParticleScale>[.22 .39] [.32 .53]</ParticleScale>
+  <ParticleAlpha>.8,70 .68 0</ParticleAlpha>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-5 5] [-16 18]</X>
+    <Y>[-4 0] [-57 -28]</Y>
+  </Field>
+</Emitter>

@@ -1,6 +1,7 @@
 #include "PressureShooterZombie.h"
 #include "Game/Board/Board.h"
 #include "Game/AudioSystem.h"
+#include "ParticleSystem/ParticleSystem.h"
 #include "ResourceKeys.h"
 #include <algorithm>
 #include <cmath>
@@ -41,12 +42,14 @@ Vector PressureShooterZombie::GetMuzzlePosition() const {
 void PressureShooterZombie::Shoot() {
     if(mIsPreview || !mBoard || !IsActive() || mIsDead || mIsDying || !mHasHead
         || IsImmobilized() || mTangleKelpPlantID!=NULL_PLANT_ID || mBurstShot>=4) return;
-    auto* bullet=mBoard->CreateBullet(BulletType::BULLET_PRESSURE,mRow,GetMuzzlePosition());
+    const Vector muzzle=GetMuzzlePosition();
+    auto* bullet=mBoard->CreateBullet(BulletType::BULLET_PRESSURE,mRow,muzzle);
     if(!bullet) return;
     bullet->SetVelocityX(IsMindControlled() ? PressureShooterRules::ProjectileSpeed : -PressureShooterRules::ProjectileSpeed);
     ++mBurstShot; ++mShotsFired;
     mLastShotBoardFrame=mBoard->mBoardFrame;
     if(mBurstShot==4) mReloadRemaining=PressureShooterRules::Reload;
+    if(g_particleSystem) g_particleSystem->EmitEffect("PressureMuzzle",muzzle);
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_SHOOTER_SHOOT,.25f);
 }
 

@@ -16,8 +16,7 @@ RES = ROOT / 'build/clang-release/resources'
 
 
 def generate():
-    paths = [ROOT / 'scripts/assets/heavy_diver_source.png',
-             ROOT / 'scripts/assets/anchor_lotus_source.png',
+    paths = [ROOT / 'scripts/assets/anchor_lotus_source.png',
              RES / 'reanim/NormalZombie.reanim', RES / 'reanim/Caltrop.reanim']
     outputs = []
 
@@ -35,16 +34,13 @@ def generate():
         assert bounds, 'Empty sprite component'
         return im.crop(bounds).resize(size, Image.Resampling.LANCZOS)
 
-    diver = Image.open(paths[0]).convert('RGBA')
-    lotus = Image.open(paths[1]).convert('RGBA')
-    assert diver.getchannel('A').getextrema()[0] == lotus.getchannel('A').getextrema()[0] == 0
-    save(piece(diver, (0, 0, 640, 620), (82, 86)), 'image/reanim/HeavyDiver_helmet.png')
-    save(piece(diver, (710, 0, 1280, 650), (45, 70)), 'image/reanim/HeavyDiver_tanks.png')
-    save(piece(diver, (0, 625, 710, 1280), (64, 64)), 'image/reanim/HeavyDiver_anchor.png')
+    # 重潜装备由 generate_zombie_equipment_polish.py 从新版母图导出。
+    lotus = Image.open(paths[0]).convert('RGBA')
+    assert lotus.getchannel('A').getextrema()[0] == 0
 
     # Retain the original articulated suit and hands. Only brown cloth becomes
     # teal canvas; unchanged skin and bone remain valid detached limb artwork.
-    rig = paths[2].read_text(encoding='utf-8-sig')
+    rig = paths[1].read_text(encoding='utf-8-sig')
     for name in ('Zombie_body',):
         source = RES / f'image/reanim/{name}.png'
         if not source.exists(): continue
@@ -72,7 +68,7 @@ def generate():
     for name, im in zip(names, parts): save(im, f'image/reanim/AnchorLotus_{name}.png')
     # The leaf stems and root crown overlap beneath the body even at the idle
     # sway extrema; retain independent classic Caltrop leaf motion at 15%.
-    original = ET.fromstring('<root>' + paths[3].read_text(encoding='utf-8-sig') + '</root>')
+    original = ET.fromstring('<root>' + paths[2].read_text(encoding='utf-8-sig') + '</root>')
     result = ET.Element('root'); ET.SubElement(result, 'fps').text = original.findtext('fps')
     result.append(deepcopy(next(t for t in original.findall('track') if t.findtext('name') == 'anim_idle')))
     drawable = [t for t in original.findall('track') if t.findall('t/i')]

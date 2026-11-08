@@ -1,0 +1,35 @@
+<Emitter>
+  <Name>SalvagePullSplash</Name>
+  <Image>PARTICLE_EQUIPMENT_SPLASH_A,PARTICLE_EQUIPMENT_SPLASH_B,PARTICLE_EQUIPMENT_SPLASH_C</Image>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.25 .45]</ParticleDuration>
+  <ParticleScale>[.25 .42] [.46 .65]</ParticleScale>
+  <ParticleAlpha>.96,60 .86 0</ParticleAlpha>
+  <ParticleRotation>[-9 9]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-3 3] [-5 5]</X>
+    <Y>[-16 -12] [-25 -15]</Y>
+  </Field>
+</Emitter>
+
+<Emitter>
+  <Name>SalvagePullSplashDroplets</Name>
+  <Image>PARTICLE_WATERPARTICLE_PART_0,PARTICLE_WATERPARTICLE_PART_1,PARTICLE_WATERPARTICLE_PART_2,PARTICLE_WATERPARTICLE_PART_3,PARTICLE_WATERPARTICLE_PART_4,PARTICLE_WATERPARTICLE_PART_5</Image>
+  <SpawnMinActive>[8 16]</SpawnMinActive>
+  <SpawnMaxLaunched>16</SpawnMaxLaunched>
+  <SystemDuration>.06</SystemDuration>
+  <ParticleDuration>[.35 .62]</ParticleDuration>
+  <ParticleScale>[.42 .94] [.28 .58]</ParticleScale>
+  <ParticleAlpha>.9,78 .8 0</ParticleAlpha>
+  <EmitterType>Circle</EmitterType>
+  <EmitterRadius>[1 8]</EmitterRadius>
+  <ParticleRotation>[-12 12]</ParticleRotation>
+  <Field>
+    <FieldType>Position</FieldType>
+    <X>[-10 10] [-49 49]</X>
+    <Y>0,42 [-60 -27],100 [-12 9]</Y>
+  </Field>
+</Emitter>

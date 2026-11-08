@@ -2,6 +2,7 @@
 #include "Game/Board/Board.h"
 #include "Game/Bullet/BulletType.h"
 #include "Graphics.h"
+#include "ParticleSystem/ParticleSystem.h"
 #include <cmath>
 
 using namespace HeavyDiverRules;
@@ -9,6 +10,8 @@ using namespace HeavyDiverRules;
 namespace {
 constexpr float kAnchorLift = 105.0f; // 前摇把船锚举出水面的最大高度，局部像素
 constexpr float kRaiseFraction = .7f; // 前摇前70%举锚，剩余30%快速落锚
+constexpr float kBubbleInterval = .8f; // 换气期间两次呼气的间隔，游戏秒
+constexpr float kChainPitch = 5.0f; // 相邻链节的中心距，局部像素
 }
 
 ZombieMovementRules::BirthProfile HeavyDiverZombie::GetBirthMovementProfile()
@@ -39,11 +42,18 @@ void HeavyDiverZombie::Update()
         mAirRemaining = SubmergedSeconds;
     } else {
         if (!mWasInWater) { mBreathing = false; mAirRemaining = SubmergedSeconds; }
+        const bool wasBreathing = mBreathing;
+        const float previousAir = mAirRemaining;
         mAirRemaining -= dt;
         while (mAirRemaining <= 0) {
             mBreathing = !mBreathing;
             mAirRemaining += mBreathing ? BreathingSeconds : SubmergedSeconds;
             if (mBreathing && mHasHead) AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_PUFF, .25f);
+        }
+        if (mBreathing && mHasHead && (!wasBreathing ||
+            std::floor((BreathingSeconds - previousAir) / kBubbleInterval) <
+            std::floor((BreathingSeconds - mAirRemaining) / kBubbleInterval))) {
+            EmitEquipmentParticles("HeavyDiverBreath", "anim_head1", Vector(55, 34));
         }
     }
     mWasInWater = mInPool;
@@ -60,8 +70,15 @@ void HeavyDiverZombie::ZombieUpdate(float scaledTime)
         * AmplifySpeedMultiplierForGoldenIce(GetDrumBiteMultiplier());
     if (mSmashRemaining > 0) return;
     const float overflow = -mSmashRemaining;
+    const float impactX = GetRenderedTrackWorldPosition("anim_innerarm2").x
+        + (IsMovingRight() ? 35.0f : -35.0f) * GetAnimationScale();
+    const bool water = mBoard && mBoard->IsPoolWorldPosition(mRow, impactX);
     // 基类负责接触复核、同格顶层重选、魅惑以及 eaterCount 生命周期。
     Zombie::EatTarget();
+    if (g_particleSystem && mBoard && !mIsPreview) {
+        g_particleSystem->EmitEffect(water ? "HeavyDiverAnchorSplash" : "HeavyDiverAnchorDust",
+            Vector(impactX, mBoard->GetZombiePartSurfaceY(mRow, impactX, water) - 3));
+    }
     ++mSmashCount;
     AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_GARGANTUAR_THUMP, .25f);
     mSmashRemaining = mIsEating ? std::max(0.0f, SmashCycle - overflow) : Windup;
@@ -122,7 +139,7 @@ bool HeavyDiverZombie::InterruptUncommittedSpecialAction()
     return true;
 }
 
-/** 锚链从实际握持轨道延伸；水线裁剪与宿主相同，换气用短气泡明确提示。 */
+/** 锚链从实际握持点连到锚眼，整套装备随宿主在水线裁剪。 */
 void HeavyDiverZombie::Draw(Graphics* g)
 {
     Zombie::Draw(g);
@@ -140,23 +157,28 @@ void HeavyDiverZombie::Draw(Graphics* g)
     float clipBottom = 0;
     const bool clipped = TryGetDrawClipBottom(clipBottom);
     if (clipped) g->PushClipBottom(clipBottom);
-    for (int i = 0; i <= 8; ++i) {
-        const float t = i / 8.0f;
-        const Vector link = hand + (anchor - hand) * t;
-        g->DrawCircle(link.x, link.y, 2.5f * scale, glm::vec4(98, 104, 99, 255), 8);
-    }
-    const auto* texture = ResourceManager::GetInstance().GetTexture("IMAGE_HEAVYDIVER_ANCHOR", false);
+    auto& resources = ResourceManager::GetInstance();
     const glm::vec4 tint = IsFrozen() || GetCooldownTimer() > 0 ? glm::vec4(150, 185, 255, 255) : glm::vec4(255);
-    if (g->IsInstancePathEnabled()) g->DrawTextureInstanced(texture, anchor.x - 25 * scale, anchor.y - 8 * scale, 50 * scale, 53 * scale, facing * lift * 25, tint);
-    else g->DrawTexture(texture, anchor.x - 25 * scale, anchor.y - 8 * scale, 50 * scale, 53 * scale, facing * lift * 25, tint);
-    if (clipped) g->PopClipRect();
-    if (IsBreathing() && mHasHead) {
-        const Vector head = GetRenderedTrackWorldPosition("anim_head1");
-        const float phase = std::fmod(BreathingSeconds - mAirRemaining, .8f) / .8f;
-        for (int i = 0; i < 3; ++i)
-            g->DrawCircle(head.x + (40 + i * 7) * scale, head.y - (phase * 24 + i * 7) * scale,
-                (3 + i) * scale, glm::vec4(160, 226, 239, 210), 12);
+    const bool instanced = g->IsInstancePathEnabled();
+    const auto draw = [&](const Texture* texture, const Vector& center, float width, float height, float angle) {
+        const float x = center.x - width * scale * .5f, y = center.y - height * scale * .5f;
+        if (instanced) g->DrawTextureInstanced(texture, x, y, width * scale, height * scale, angle, tint);
+        else g->DrawTexture(texture, x, y, width * scale, height * scale, angle, tint);
+    };
+    const float anchorAngle = facing * lift * 25;
+    const float radians = glm::radians(anchorAngle);
+    const Vector center = anchor + Vector(0, 18.5f) * scale;
+    const Vector eye = center + Vector(std::sin(radians), -std::cos(radians)) * (23.0f * scale);
+    const Vector chain = eye - hand;
+    const int links = std::max(1, static_cast<int>(std::ceil(std::hypot(chain.x, chain.y) / (kChainPitch * scale))));
+    const float chainAngle = glm::degrees(std::atan2(-chain.x, chain.y));
+    const auto* chainTexture = resources.GetTexture("IMAGE_HEAVYDIVER_CHAIN", false);
+    for (int i = 0; i < links; ++i) {
+        const Vector link = hand + chain * ((i + .5f) / links);
+        draw(chainTexture, link, i % 2 == 0 ? 5.0f : 3.5f, 8, chainAngle);
     }
+    draw(resources.GetTexture("IMAGE_HEAVYDIVER_ANCHOR", false), center, 50, 53, anchorAngle);
+    if (clipped) g->PopClipRect();
 }
 
 void HeavyDiverZombie::SaveExtraData(nlohmann::json& j) const
