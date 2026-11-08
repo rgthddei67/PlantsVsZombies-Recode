@@ -30,6 +30,6 @@
   <Field>
     <FieldType>Position</FieldType>
     <X>[-10 10] [-49 49]</X>
-    <Y>0,42 [-60 -27],100 [-12 9]</Y>
+    <Y>0,0 [-60 -27],42 [-12 9],100</Y>
   </Field>
 </Emitter>

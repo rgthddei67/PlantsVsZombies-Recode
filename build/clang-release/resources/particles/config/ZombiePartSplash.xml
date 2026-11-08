@@ -11,6 +11,6 @@
   <Field>
     <FieldType>Position</FieldType>
     <X>0 [-18 18]</X>
-    <Y>-2,46 [-25 -12],100 [-4 2]</Y>
+    <Y>-2,0 [-25 -12],46 [-4 2],100</Y>
   </Field>
 </Emitter>

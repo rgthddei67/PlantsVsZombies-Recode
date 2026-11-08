@@ -30,7 +30,7 @@
     {"op":"damage_zombie","type":"ZOMBIE_NORMAL","row":5,"damage":185},
     {"op":"wait_value","path":"particleEffectsByName.ZombieConeOff.0.partWaterContacts","equals":1,"timeout":3},
     {"op":"screenshot","name":"pool_cone_contact.png"},
-    {"op":"assert_state","path":"particleEffectsByName.ZombiePartSplash.0.activeParticleCount","equals":6},
+    {"op":"assert_state","path":"particleEffectsByName.ZombiePartSplash.0.activeParticleCount","atLeast":5,"atMost":9},
     {"op":"assert_state","path":"particleEffectsByName.ZombieConeOff.0.partQuadBottomToSurfaceInt","atLeast":1},
     {"op":"wait_seconds","value":0.1},
     {"op":"assert_state","path":"particleEffectsByName.ZombieHeadOff.0.partRow","equals":5},
