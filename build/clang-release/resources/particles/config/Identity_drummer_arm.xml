@@ -1,0 +1,15 @@
+<Emitter>
+  <Name>Identity_drummer_arm</Name>
+  <SpawnMinActive>1</SpawnMinActive>
+  <SpawnMaxLaunched>1</SpawnMaxLaunched>
+  <ParticleDuration>0.8</ParticleDuration>
+  <ParticleAlpha>1,80 0</ParticleAlpha>
+  <ParticleScale>1</ParticleScale>
+  <ParticleRotation>0</ParticleRotation>
+  <LaunchSpeed>0</LaunchSpeed>
+  <RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>140</ParticleGravity>
+  <ParticleSpinSpeed>[-35 35]</ParticleSpinSpeed>
+  <SystemDuration>1.1</SystemDuration>
+  <Image>PARTICLE_IDENTITY_DRUMMER_ARM</Image>
+</Emitter>

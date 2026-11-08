@@ -161,6 +161,10 @@ enum class AnimationType
 	ANIM_ENGINEERING_SHIP,
 	ANIM_HEALER_ZOMBIE, // 独立服装资源，追加以保持旧存档动画枚举值
 	ANIM_WEATHER_JAMMER_ZOMBIE, // 保留铁桶时间轴与防具行为
+	ANIM_INSULATOR_ZOMBIE, // 独立绝缘工装，保持普通骨架与旧枚举值
+	ANIM_ICE_WALL_ENGINEER_ZOMBIE, // 独立施工服装与路障骨架
+	ANIM_AURORA_PRIEST_ZOMBIE, // 独立祭司服装与普通骨架
+	ANIM_POLAR_CLOCKMAKER_ZOMBIE, // 独立钟匠服装与普通骨架
 };
 
 #endif

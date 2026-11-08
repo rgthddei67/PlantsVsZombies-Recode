@@ -6,6 +6,13 @@
 #include "Graphics.h"
 #include <cmath>
 
+namespace {
+	constexpr float kCanisterX = 14.0f; // 罐体左上角相对身体轨的局部像素；与后肩重叠
+	constexpr float kCanisterY = 4.0f; // 罐体左上角相对身体轨的局部像素
+	constexpr float kCanisterScale = 0.5f; // 88x116 罐体贴图的安装倍率
+	Vector CanisterCenter() { return Vector(kCanisterX + 44 * kCanisterScale, kCanisterY + 58 * kCanisterScale); }
+}
+
 void DisasterEngineerZombie::SetupZombie()
 {
 	Zombie::SetupZombie();
@@ -21,7 +28,7 @@ void DisasterEngineerZombie::SyncCanister()
 		mVisualStage = stage;
 		mAnimator->SetTrackFollowerImage("Zombie_body", "disaster_canister",
 			ResourceManager::GetInstance().GetTexture("IMAGE_DISASTER_CANISTER_" + std::to_string(stage), false),
-			-25, 9, .5f, .5f, true);
+			kCanisterX, kCanisterY, kCanisterScale, kCanisterScale, false, true, true);
 	}
 	mAnimator->SetTrackFollowerVisible("Zombie_body", "disaster_canister", !IsDying() && HasHead());
 }
@@ -55,6 +62,7 @@ void DisasterEngineerZombie::Draw(Graphics* g)
 void DisasterEngineerZombie::ConsumeCanister()
 {
 	if (!mFull) return;
+	EmitEquipmentParticles("IdentityDisasterVent", "Zombie_body", CanisterCenter());
 	mFull = false;
 	mReloadPaid = false;
 	mReloadRemaining = DisasterEngineerRules::ReloadSeconds;
@@ -76,7 +84,11 @@ void DisasterEngineerZombie::Update()
 			: mBoard->TrySpendZombieAbilityIce(DisasterEngineerRules::ReloadCost);
 		else {
 			mReloadRemaining = std::max(0.0f, mReloadRemaining - DeltaTime::GetDeltaTime());
-			if (mReloadRemaining <= 0) { mFull = true; mReloadPaid = false; }
+			if (mReloadRemaining <= 0) {
+				mFull = true;
+				mReloadPaid = false;
+				EmitEquipmentParticles("IdentityDisasterReady", "Zombie_body", CanisterCenter());
+			}
 		}
 	}
 	SyncCanister();

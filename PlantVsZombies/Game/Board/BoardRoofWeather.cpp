@@ -608,6 +608,7 @@ void Board::ResolveNightRoofChargeDischarge()
 			Vector anchor;
 			if (g_particleSystem && guide->TryGetNightRoofChargeGuideAnchor(anchor)) {
 				g_particleSystem->EmitEffect("GroundingZombieLightning", anchor);
+				g_particleSystem->EmitEffect("IdentityGroundingSpark", anchor);
 			}
 		}
 	}

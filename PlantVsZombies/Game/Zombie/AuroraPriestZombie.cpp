@@ -223,6 +223,7 @@ void AuroraPriestZombie::HelmDrop()
 		UpdateAnimSpeed();
 		if (g_particleSystem && IsActive() && !mIsPreview) {
 			g_particleSystem->EmitEffect("AuroraDeviceBreak", PolarFinaleVisuals::ChannelCenter(*this));
+			EmitEquipmentParticles("IdentityAuroraShards", "Zombie_body", Vector(kDeviceOffsetX + 52 * kDeviceScale, kDeviceOffsetY + 52 * kDeviceScale), true);
 		}
 	}
 	SyncFollowerPresentation();

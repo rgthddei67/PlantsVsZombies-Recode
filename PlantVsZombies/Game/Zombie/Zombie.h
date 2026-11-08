@@ -779,6 +779,11 @@ protected:
 	/** 单件头盔从自身插值轨道中心脱落，保留破损贴图、镜像及当前缩放。 */
 	void EmitArmorDrop(const std::string& effectName, const std::string& trackName,
 		const std::string& textureKey, ZombiePartMotion motion = ZombiePartMotion::Armor) const;
+	/** 在装备父轨的局部像素点发射复合反馈；包含插值、整体缩放与魅惑镜像，碎片继承状态色及行地形。 */
+	void EmitEquipmentParticles(const std::string& effectName, const std::string& trackName,
+		const Vector& localPoint, bool debris = false) const;
+	/** 将装备的父轨局部像素点变换到当前最终画面，供引雷端点和效果共用。 */
+	Vector GetEquipmentVisualPoint(const std::string& trackName, const Vector& localPoint) const;
 	/** 注册当前 reanim 时间轴上的死亡与啃食帧事件；帧布局不同的品种在此替换。 */
 	virtual void RegisterFrameEvents();
 	/** 返回掉头流血结束后应播放的死亡轨道名。 */

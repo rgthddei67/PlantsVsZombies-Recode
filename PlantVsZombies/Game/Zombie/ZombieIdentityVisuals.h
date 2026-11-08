@@ -14,7 +14,7 @@ struct Profile {
 	float headgearY;
 };
 
-/** 未参与本轮服装定制的品种返回 nullptr，继续消费原有外观与断肢实现。 */
+/** 没有独立服装配置的品种返回 nullptr，继续消费原有外观与断肢实现。 */
 const Profile* Find(ZombieType type);
 std::string TextureKey(const Profile& profile, const char* part);
 std::string EffectName(const Profile& profile, bool head, bool mirrored);

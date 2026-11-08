@@ -1,0 +1,12 @@
+<Emitter>
+  <Name>IdentityGroundingSpark</Name>
+  <SpawnMinActive>7</SpawnMinActive><SpawnMaxLaunched>7</SpawnMaxLaunched>
+  <SystemDuration>0.8</SystemDuration><ParticleDuration>[0.45 0.8]</ParticleDuration>
+  <ParticleAlpha>0.9,55 0.65,100 0</ParticleAlpha><ParticleScale>[.02 .04]</ParticleScale>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[2 12]</EmitterRadius>
+  <LaunchSpeed>[20 45]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>0</ParticleGravity><ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
+  <ParticleRed>1</ParticleRed><ParticleGreen>.8</ParticleGreen><ParticleBlue>.4</ParticleBlue>
+  <Image>PARTICLE_WINDSTREAK</Image>
+
+</Emitter>

@@ -1,0 +1,12 @@
+<Emitter>
+  <Name>IdentityDisasterVent</Name>
+  <SpawnMinActive>7</SpawnMinActive><SpawnMaxLaunched>7</SpawnMaxLaunched>
+  <SystemDuration>0.8</SystemDuration><ParticleDuration>[0.45 0.8]</ParticleDuration>
+  <ParticleAlpha>0.9,55 0.65,100 0</ParticleAlpha><ParticleScale>[.65 1.0]</ParticleScale>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[2 12]</EmitterRadius>
+  <LaunchSpeed>[10 24]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>-35</ParticleGravity><ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
+  <ParticleRed>.55</ParticleRed><ParticleGreen>.88</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <Image>PARTICLE_ZAMBONISMOKE_PART_0,PARTICLE_ZAMBONISMOKE_PART_1,PARTICLE_ZAMBONISMOKE_PART_2</Image>
+
+</Emitter>

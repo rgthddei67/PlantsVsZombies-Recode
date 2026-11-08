@@ -28,6 +28,8 @@
 
 原有简洁图形若已经是完整设计，不因图元种类而强制重画。未改渲染后端、后端兼容路径或跨后端提交时不追加兼容矩阵。交付与文档维护遵循 [AGENTS.md](../../AGENTS.md#git-与交付)：说明本次变化和相关证据；完整角色提供关键调参入口，小改动不附全量参数或逐项审计表。
 
+`python autotest/verify_zombie_identity_expansion.py --generate` 在 `build/clang-release/autotest/generated/` 生成八种服装的两组正反向专项、啃食/图鉴、真实能力反馈及防灾安全帽贴合专项。依次可见运行生成的 `smoke_identity_expansion_*` 和 `smoke_identity_hat_fit` 后，不带参数运行校验器；它同时核对原版时间轴未变、资源、同源头臂、破甲碎片、镜像染色和读档不重播。装备与离体图由 `scripts/generate_zombie_identity_assets.ps1` 同源导出；头饰偏移须与 `ZombieIdentityVisuals.cpp` 一致。
+
 ## 工坊电网与调度
 
 `verify_workshop_challenges.py --generate` 生成挑战与词条专项，运行可见脚本后以同文件校验原生倍率、快照、限制和奖励；纯逻辑 `WorkshopCommissionTests.cpp` 检查随机分布及旧任务承诺。详情按钮使用 `commission_details_N`，奖池入口使用 `commission_traits`，避免依赖弹窗按钮序号。

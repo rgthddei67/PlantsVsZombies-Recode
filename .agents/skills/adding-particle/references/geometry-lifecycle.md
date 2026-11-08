@@ -10,6 +10,8 @@
 
 实体部件需要落地时，通过 `Zombie::EmitFallingPart` 发射已有组合效果，或在 `EmitDetachedPart` 中传入 `GetPartTerrain`。发射时只锁定逻辑行，接触线按当前 X 向 Board 查询，水岸的干湿分界和屋顶连续坡面都由 Board 决定。落地用旋转后的贴图下缘取证，入水用该点的水线裁剪，并由粒子系统在更新后发射小水花。普通烟雾等效果只消费原有发射接口。专项见 `smoke_zombie_part_terrain`。
 
+装备的复合碎片或能力反馈可用 `Zombie::EmitEquipmentParticles(effect, parentTrack, localPoint, debris)`：`localPoint` 为父轨贴图空间的像素点，经过最终插值矩阵、整体缩放与魅惑镜像后发射；`debris=true` 才继承状态色及当前行地形，普通光屑与喷雾保持 `false`。需要共用端点时使用 `GetEquipmentVisualPoint`，例如接地天线与其引雷粒子；不要再在调用端叠加一次视觉偏移。反馈只放在真实状态提交边沿，读档与回溯重建外观时不补发。
+
 ## 原版参考边界
 
 - 原版 XML、C# 触发代码和实际画面用于确定玩家可感知的功能契约：何时出现、由谁触发、包含哪些视觉层、持续多久、如何运动以及配什么声音。没有主人批准时，成品功能与反馈不得自行删减或改义。

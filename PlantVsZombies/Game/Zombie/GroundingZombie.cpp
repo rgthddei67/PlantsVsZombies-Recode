@@ -5,8 +5,8 @@
 
 namespace {
 	constexpr int kGroundingConeHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_GROUNDING).helm;      // 天线路障的一类防具生命
-	constexpr float kAntennaAnchorOffsetX = 20.0f; // 天线端点相对 anim_cone 贴图左上原点的缩放后水平像素
-	constexpr float kAntennaAnchorOffsetY = 1.0f;  // 天线端点相对 anim_cone 贴图左上原点的缩放后垂直像素
+	constexpr float kAntennaAnchorOffsetX = 35.0f; // 新天线球心相对 anim_cone 贴图原点的局部像素
+	constexpr float kAntennaAnchorOffsetY = 5.0f;  // 新天线球心相对 anim_cone 贴图原点的局部像素
 }
 
 void GroundingZombie::SetupZombie()
@@ -27,10 +27,7 @@ bool GroundingZombie::TryGetNightRoofChargeGuideAnchor(Vector& anchor) const
 {
 	if (!CanGuideNightRoofCharge() || !mAnimator
 		|| !mAnimator->HasTrack("anim_cone")) return false;
-	const float scale = GetTransform()
-		? GetTransform()->GetScale() : 1.0f;
-	anchor = GetTrackWorldPosition("anim_cone")
-		+ Vector(kAntennaAnchorOffsetX * scale, kAntennaAnchorOffsetY * scale);
+	anchor = GetEquipmentVisualPoint("anim_cone", Vector(kAntennaAnchorOffsetX, kAntennaAnchorOffsetY));
 	return true;
 }
 

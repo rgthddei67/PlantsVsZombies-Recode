@@ -252,6 +252,7 @@ void InsulatorZombie::BeginOverload()
 		return;
 	}
 	mOverloadTimer = kOverloadSeconds;
+	EmitEquipmentParticles("IdentityCeramicCharge", "Zombie_body", Vector(kArmorFollowerOffsetX + 36 * kArmorFollowerScale, 36 * kArmorFollowerScale));
 	UpdateAnimSpeed();
 }
 
@@ -289,6 +290,7 @@ void InsulatorZombie::RefreshArmorPresentation()
 void InsulatorZombie::HelmDrop()
 {
 	if (mHelmType != HelmType::HELMTYPE_INSULATOR) return;
+	EmitEquipmentParticles("IdentityCeramicBreak", "Zombie_body", Vector(kArmorFollowerOffsetX + 36 * kArmorFollowerScale, 36 * kArmorFollowerScale), true);
 	Zombie::HelmDrop();
 	mArmorStage = ArmorBrokenState::NONE;
 	mOverloadTimer = 0.0f;

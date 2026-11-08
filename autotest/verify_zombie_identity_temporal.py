@@ -80,15 +80,16 @@ def verify():
 
     assert read('status')['status'] == 'passed'
     for mode in ('survivor', 'revived'):
-        anchor = {z['id']: z for z in read(mode + '_anchor')['zombies'] if 'identity' in z}
-        pending = {z['id']: z for z in read(mode + '_pending')['zombies'] if 'identity' in z}
+        kinds = {'ZOMBIE_' + s[0] for s in STYLES}
+        anchor = {z['id']: z for z in read(mode + '_anchor')['zombies'] if z['type'] in kinds}
+        pending = {z['id']: z for z in read(mode + '_pending')['zombies'] if z['type'] in kinds}
         if mode == 'survivor':
             assert set(pending) == set(anchor)
             assert all(not z['hasHead'] and not z['hasArm'] for z in pending.values())
         else:
             assert not pending
         for stage in ('anchor', 'restored', 'reloaded'):
-            actual = {z['id']: z for z in read(mode + '_' + stage)['zombies'] if 'identity' in z}
+            actual = {z['id']: z for z in read(mode + '_' + stage)['zombies'] if z['type'] in kinds}
             assert set(actual) == set(anchor), (mode, stage, 'stable IDs')
             for identity, z in actual.items():
                 hat = z['identity'] in ('worker', 'boiler', 'healer')

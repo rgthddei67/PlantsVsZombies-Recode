@@ -281,7 +281,7 @@ def verify_contexts():
     shown = set()
     for page in range(2):
         for z in read(f'almanac_{page}')['zombieAlmanacGridPreviews']:
-            if 'identity' in z:
+            if z.get('identity') in {s[1] for s in STYLES}:
                 shown.add(z['identity'])
                 assert z['identityResourcesReady']
                 assert z['identityHeadgearVisible'] == (z['identity'] in ('worker', 'boiler', 'healer'))

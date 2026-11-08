@@ -535,6 +535,38 @@
 	<Texture>./resources/particles/Identity_guard_head_right.png</Texture>
 	<Texture>./resources/particles/Identity_guard_arm.png</Texture>
 	<Texture>./resources/particles/Identity_guard_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_coldguard_head.png</Texture>
+	<Texture>./resources/particles/Identity_coldguard_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_coldguard_arm.png</Texture>
+	<Texture>./resources/particles/Identity_coldguard_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_disaster_head.png</Texture>
+	<Texture>./resources/particles/Identity_disaster_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_disaster_arm.png</Texture>
+	<Texture>./resources/particles/Identity_disaster_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_insulator_head.png</Texture>
+	<Texture>./resources/particles/Identity_insulator_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_insulator_arm.png</Texture>
+	<Texture>./resources/particles/Identity_insulator_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_grounding_head.png</Texture>
+	<Texture>./resources/particles/Identity_grounding_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_grounding_arm.png</Texture>
+	<Texture>./resources/particles/Identity_grounding_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_iceengineer_head.png</Texture>
+	<Texture>./resources/particles/Identity_iceengineer_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_iceengineer_arm.png</Texture>
+	<Texture>./resources/particles/Identity_iceengineer_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_clockmaker_head.png</Texture>
+	<Texture>./resources/particles/Identity_clockmaker_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_clockmaker_arm.png</Texture>
+	<Texture>./resources/particles/Identity_clockmaker_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_priest_head.png</Texture>
+	<Texture>./resources/particles/Identity_priest_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_priest_arm.png</Texture>
+	<Texture>./resources/particles/Identity_priest_arm_right.png</Texture>
+	<Texture>./resources/particles/Identity_drummer_head.png</Texture>
+	<Texture>./resources/particles/Identity_drummer_head_right.png</Texture>
+	<Texture>./resources/particles/Identity_drummer_arm.png</Texture>
+	<Texture>./resources/particles/Identity_drummer_arm_right.png</Texture>
   </ParticleTextures>
 
   <!-- 字体文件 -->
@@ -696,7 +728,7 @@
     <Reanimation name="PressureShooterZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
     <Reanimation name="PressureShooterHead">./resources/reanim/PressureShooterHead.reanim</Reanimation>
     <Reanimation name="ThunderFlower">./resources/reanim/ThunderFlower.reanim</Reanimation>
-    <Reanimation name="DisasterEngineerZombie">./resources/reanim/DisasterEngineerZombie.reanim</Reanimation>
+    <Reanimation name="DisasterEngineerZombie">./resources/reanim/DisasterEngineerZombieIdentity.reanim</Reanimation>
     <Reanimation name="IceStorageNut">./resources/reanim/IceStorageNut.reanim</Reanimation>
     <Reanimation name="HeavyDiverZombie">./resources/reanim/HeavyDiverZombie.reanim</Reanimation>
     <Reanimation name="FloatSunflower">./resources/reanim/FloatSunflower.reanim</Reanimation>
@@ -708,11 +740,11 @@
     <Reanimation name="SalvageZombie">./resources/reanim/SalvageZombie.reanim</Reanimation>
     <Reanimation name="AnchorLotus">./resources/reanim/AnchorLotus.reanim</Reanimation>
     <Reanimation name="PressureGuardZombie">./resources/reanim/PressureGuardZombieIdentity.reanim</Reanimation>
-    <Reanimation name="ColdChainGuardZombie">./resources/reanim/NormalZombie.reanim</Reanimation>
+    <Reanimation name="ColdChainGuardZombie">./resources/reanim/ColdChainGuardZombieIdentity.reanim</Reanimation>
     <Reanimation name="ColdPineapple">./resources/reanim/ColdPineapple.reanim</Reanimation>
     <Reanimation name="BoilerZombie">./resources/reanim/BoilerZombieIdentity.reanim</Reanimation>
     <Reanimation name="AmberLichen">./resources/reanim/AmberLichen.reanim</Reanimation>
-    <Reanimation name="CrystalDrummerZombie">./resources/reanim/CrystalDrummerZombie.reanim</Reanimation>
+    <Reanimation name="CrystalDrummerZombie">./resources/reanim/CrystalDrummerZombieIdentity.reanim</Reanimation>
     <Reanimation name="Sun">./resources/reanim/Sun.reanim</Reanimation>
     <Reanimation name="CrazyDave">./resources/reanim/CrazyDave.reanim</Reanimation>
 
@@ -795,7 +827,7 @@
     <Reanimation name="WeatherJammerPack">./resources/reanim/WeatherJammerPack.reanim</Reanimation>
     <Reanimation name="WeatherJammerTerminal">./resources/reanim/WeatherJammerTerminal.reanim</Reanimation>
     <Reanimation name="ConeZombie">./resources/reanim/ConeZombie.reanim</Reanimation>
-    <Reanimation name="GroundingZombie">./resources/reanim/GroundingZombie.reanim</Reanimation>
+    <Reanimation name="GroundingZombie">./resources/reanim/GroundingZombieIdentity.reanim</Reanimation>
     <Reanimation name="ZombieBobsled">./resources/reanim/Zombie_bobsled.reanim</Reanimation>
     <Reanimation name="PolevaulterZombie">./resources/reanim/Polevaulter.reanim</Reanimation>
     <Reanimation name="ElitePolevaulterZombie">./resources/reanim/ElitePolevaulter.reanim</Reanimation>
@@ -853,5 +885,9 @@
     <Reanimation name="Splash">./resources/reanim/splash.reanim</Reanimation>
     <Reanimation name="Z">./resources/reanim/Z.reanim</Reanimation>
 
+    <Reanimation name="InsulatorZombie">./resources/reanim/InsulatorZombieIdentity.reanim</Reanimation>
+    <Reanimation name="IceWallEngineerZombie">./resources/reanim/IceWallEngineerZombieIdentity.reanim</Reanimation>
+    <Reanimation name="PolarClockmakerZombie">./resources/reanim/PolarClockmakerZombieIdentity.reanim</Reanimation>
+    <Reanimation name="AuroraPriestZombie">./resources/reanim/AuroraPriestZombieIdentity.reanim</Reanimation>
   </Reanimations>
 </Resources>

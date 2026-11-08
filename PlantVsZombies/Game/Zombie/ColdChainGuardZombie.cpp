@@ -55,6 +55,7 @@ void ColdChainGuardZombie::Update()
 	if (!paid) return;
 	mHelmHealth = std::min(mHelmMaxHealth, mHelmHealth + kRepairHealth);
 	CheckHelmImage();
+	EmitEquipmentParticles("IdentityColdShieldRepair", "anim_innerarm2", Vector(kShieldOffsetX + 30, kShieldOffsetY + 41));
 	SetGlowingTimer(0.2f);
 }
 
@@ -78,6 +79,9 @@ void ColdChainGuardZombie::CheckHelmImage()
 
 void ColdChainGuardZombie::HelmDrop()
 {
+	if (mHelmType == HelmType::HELMTYPE_ICE_SHIELD) {
+		EmitEquipmentParticles("IdentityColdShieldBreak", "anim_innerarm2", Vector(kShieldOffsetX + 30, kShieldOffsetY + 41), true);
+	}
 	Zombie::HelmDrop();
 	mRepairRemaining = kRepairInterval;
 	CheckHelmImage();

@@ -1,0 +1,12 @@
+<Emitter>
+  <Name>IdentityDisasterReady</Name>
+  <SpawnMinActive>5</SpawnMinActive><SpawnMaxLaunched>5</SpawnMaxLaunched>
+  <SystemDuration>0.8</SystemDuration><ParticleDuration>[0.45 0.8]</ParticleDuration>
+  <ParticleAlpha>0.9,55 0.65,100 0</ParticleAlpha><ParticleScale>[.02 .04]</ParticleScale>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[2 12]</EmitterRadius>
+  <LaunchSpeed>[8 18]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>-20</ParticleGravity><ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
+  <ParticleRed>.55</ParticleRed><ParticleGreen>.88</ParticleGreen><ParticleBlue>1</ParticleBlue>
+  <Image>PARTICLE_WINDSTREAK</Image>
+
+</Emitter>

@@ -263,13 +263,13 @@ void IceWallEngineerZombie::ApplyEngineerEquipmentTextures() const
 	}
 	if (mAnimator->HasTrack("Zombie_body")) {
 		if (const Texture* body = ResourceManager::GetInstance().GetTexture(
-			ResourceKeys::Textures::IMAGE_ZOMBIE_ICEWALL_ENGINEER_BODY, false)) {
+			"IMAGE_IDENTITY_ICEENGINEER_BODY", false)) {
 			mAnimator->SetTrackImage("Zombie_body", body);
 		}
 	}
 	if (mAnimator->HasTrack("Zombie_tie")) {
 		if (const Texture* toolStrap = ResourceManager::GetInstance().GetTexture(
-			ResourceKeys::Textures::IMAGE_ZOMBIE_ICEWALL_ENGINEER_TOOLSTRAP, false)) {
+			"IMAGE_IDENTITY_ICEENGINEER_TIE", false)) {
 			mAnimator->SetTrackImage("Zombie_tie", toolStrap);
 		}
 	}

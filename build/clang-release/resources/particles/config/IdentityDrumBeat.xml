@@ -1,0 +1,12 @@
+<Emitter>
+  <Name>IdentityDrumBeat</Name>
+  <SpawnMinActive>6</SpawnMinActive><SpawnMaxLaunched>6</SpawnMaxLaunched>
+  <SystemDuration>0.8</SystemDuration><ParticleDuration>[0.45 0.8]</ParticleDuration>
+  <ParticleAlpha>0.9,55 0.65,100 0</ParticleAlpha><ParticleScale>[.25 .45]</ParticleScale>
+  <EmitterType>Circle</EmitterType><EmitterRadius>[2 12]</EmitterRadius>
+  <LaunchSpeed>[30 60]</LaunchSpeed><RandomLaunchSpin>1</RandomLaunchSpin>
+  <ParticleGravity>35</ParticleGravity><ParticleSpinSpeed>[-120 120]</ParticleSpinSpeed>
+
+  <Image>IMAGE_IDENTITY_DRUMMER_SHARD0,IMAGE_IDENTITY_DRUMMER_SHARD1,IMAGE_IDENTITY_DRUMMER_SHARD2</Image>
+
+</Emitter>

@@ -49,6 +49,14 @@ const Profile* Find(ZombieType type)
 	static constexpr Profile healer{"healer", "HealerZombie", true, -8, -24}; // 急救帽安装偏移，像素
 	static constexpr Profile sludge{"sludge", "SludgeZombie", false, 0, 0};
 	static constexpr Profile guard{"guard", "PressureGuardZombie", false, 0, 0};
+	static constexpr Profile coldguard{"coldguard", "ColdChainGuardZombie", true, -4, -20}; // 护耳帽相对头轨的像素偏移
+	static constexpr Profile disaster{"disaster", "DisasterEngineerZombie", true, -8, -19}; // 帽檐压入额头，避免低头时显出悬空缝隙，像素
+	static constexpr Profile insulator{"insulator", "InsulatorZombie", true, -6, -19}; // 绝缘工作帽相对头轨的像素偏移
+	static constexpr Profile grounding{"grounding", "GroundingZombie", false, 0, 0};
+	static constexpr Profile iceengineer{"iceengineer", "IceWallEngineerZombie", false, 0, 0};
+	static constexpr Profile clockmaker{"clockmaker", "PolarClockmakerZombie", true, -8, -24}; // 钟匠帽相对头轨的像素偏移
+	static constexpr Profile priest{"priest", "AuroraPriestZombie", true, -3, -26}; // 晶冠相对头轨的像素偏移
+	static constexpr Profile drummer{"drummer", "CrystalDrummerZombie", true, -8, -28}; // 晶矿帽相对头轨的像素偏移
 	switch (type) {
 	case ZombieType::ZOMBIE_ICE_WORKER: return &worker;
 	case ZombieType::ZOMBIE_BOILER: return &boiler;
@@ -56,6 +64,14 @@ const Profile* Find(ZombieType type)
 	case ZombieType::ZOMBIE_HEALER: return &healer;
 	case ZombieType::ZOMBIE_SLUDGE: return &sludge;
 	case ZombieType::ZOMBIE_PRESSURE_GUARD: return &guard;
+	case ZombieType::ZOMBIE_COLD_CHAIN_GUARD: return &coldguard;
+	case ZombieType::ZOMBIE_DISASTER_ENGINEER: return &disaster;
+	case ZombieType::ZOMBIE_INSULATOR: return &insulator;
+	case ZombieType::ZOMBIE_GROUNDING: return &grounding;
+	case ZombieType::ZOMBIE_ICE_WALL_ENGINEER: return &iceengineer;
+	case ZombieType::ZOMBIE_POLAR_CLOCKMAKER: return &clockmaker;
+	case ZombieType::ZOMBIE_AURORA_PRIEST: return &priest;
+	case ZombieType::ZOMBIE_CRYSTAL_DRUMMER: return &drummer;
 	default: return nullptr;
 	}
 }
@@ -88,6 +104,20 @@ bool ResourcesReady(const Profile& profile)
 		for (char& c : key) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 		if (!resources.GetTexture(key, false)) return false;
 	}
+	const std::string stem = profile.stem;
+	// 新装备与碎片也进入资源闭环，不能只凭服装完整就通过验收。
+	if (stem == "grounding" && !resources.GetTexture("IMAGE_IDENTITY_GROUNDING_SPOOL", false)) return false;
+	if (stem == "iceengineer" && !resources.GetTexture("IMAGE_IDENTITY_ICEENGINEER_HARNESS", false)) return false;
+	if (stem == "insulator") {
+		for (const char* part : {"innerarm_hand", "outerarm_hand", "outerarm_hand2", "innerleg_foot", "outerleg_foot"}) {
+			if (!resources.GetTexture(TextureKey(profile, part), false)) return false;
+		}
+	}
+	if (stem == "coldguard" || stem == "insulator" || stem == "clockmaker" || stem == "priest" || stem == "drummer") {
+		for (int i = 0; i < 3; ++i) {
+			if (!resources.GetTexture(TextureKey(profile, ("shard" + std::to_string(i)).c_str()), false)) return false;
+		}
+	}
 	return true;
 }
 
@@ -106,6 +136,18 @@ void Zombie::ConfigureIdentityVisuals() const
 	}
 	// 旧存档中可能保留普通断臂材质；按当前生命状态重建，不能把旧 override 带回来。
 	mAnimator->SetTrackImage("Zombie_outerarm_upper", mHasArm ? nullptr : GetArmStumpTexture());
+	if (mZombieType == ZombieType::ZOMBIE_GROUNDING) {
+		mAnimator->SetTrackFollowerImage("Zombie_body", "identity_cable_spool",
+			ResourceManager::GetInstance().GetTexture("IMAGE_IDENTITY_GROUNDING_SPOOL", false),
+			29, 31, 1, 1, false, true, true);
+		mAnimator->SetTrackFollowerVisible("Zombie_body", "identity_cable_spool", true);
+	}
+	if (mZombieType == ZombieType::ZOMBIE_ICE_WALL_ENGINEER) {
+		mAnimator->SetTrackFollowerImage("Zombie_body", "identity_tool_harness",
+			ResourceManager::GetInstance().GetTexture("IMAGE_IDENTITY_ICEENGINEER_HARNESS", false),
+			3, 3, 1, 1, false, true, true);
+		mAnimator->SetTrackFollowerVisible("Zombie_body", "identity_tool_harness", true);
+	}
 }
 
 const Texture* Zombie::GetArmStumpTexture() const
@@ -138,4 +180,21 @@ void Zombie::EmitArmorDrop(const std::string& effectName, const std::string& tra
 	const auto pose = GetDetachedPose(*this, trackName, Vector(texture->width * .5f, texture->height * .5f));
 	g_particleSystem->EmitDetachedPart(effectName, pose.center, pose.scaleX, pose.scaleY, pose.rotation,
 		textureKey + (pose.mirrored ? "_MIRRORED" : ""), mAnimator->GetActiveOverlayColor(), GetPartTerrain(motion));
+}
+
+void Zombie::EmitEquipmentParticles(const std::string& effectName, const std::string& trackName,
+	const Vector& localPoint, bool debris) const
+{
+	if (!g_particleSystem || mIsPreview) return;
+	const Vector point = GetEquipmentVisualPoint(trackName, localPoint);
+	if (debris) {
+		g_particleSystem->EmitZombiePartEffect(effectName, point,
+			mAnimator->GetActiveOverlayColor(), GetPartTerrain(ZombiePartMotion::LightArmor));
+	}
+	else g_particleSystem->EmitEffect(effectName, point);
+}
+
+Vector Zombie::GetEquipmentVisualPoint(const std::string& trackName, const Vector& localPoint) const
+{
+	return GetDetachedPose(*this, trackName, localPoint).center;
 }

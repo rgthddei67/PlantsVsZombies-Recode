@@ -826,8 +826,8 @@ void GameDataManager::InitializeHardcodedData() {
 
 	// 绝缘僵尸复用普通僵尸骨架；陶瓷胸甲作为 Zombie_body 的末尾前景 follower。
 	RegisterZombie(ZombieType::ZOMBIE_INSULATOR, "ZOMBIE_INSULATOR",
-		AnimationType::ANIM_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
+		AnimationType::ANIM_INSULATOR_ZOMBIE,
+		"InsulatorZombie",
 		&MakeZombie<InsulatorZombie>, &InsulatorZombie::GetBirthMovementProfile);
 
 	// 劫持者独立复用小丑时间线，75% 锁定与处决计时全部由黑夜屋顶 Board 状态拥有。
@@ -842,7 +842,7 @@ void GameDataManager::InitializeHardcodedData() {
 		"HealerZombie",
 		&MakeZombie<HealerZombie>, &HealerZombie::GetBirthMovementProfile);
 
-	// 接地僵尸复用路障时间线，仅把三阶段护具换成带铜天线的独立电紫资源。
+	// 接地僵尸复用路障时间线，以独立电工服、铜线圈与三阶段天线护具区分身份。
 	RegisterZombie(ZombieType::ZOMBIE_GROUNDING, "ZOMBIE_GROUNDING",
 		AnimationType::ANIM_GROUNDING_ZOMBIE,
 		ResourceKeys::Reanimations::REANIM_GROUNDING_ZOMBIE,
@@ -856,8 +856,8 @@ void GameDataManager::InitializeHardcodedData() {
 
 	// 工程师复用路障完整时间轴；逻辑计时施工不增加死亡或啃食帧事件。
 	RegisterZombie(ZombieType::ZOMBIE_ICE_WALL_ENGINEER, "ZOMBIE_ICE_WALL_ENGINEER",
-		AnimationType::ANIM_CONE_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_CONE_ZOMBIE,
+		AnimationType::ANIM_ICE_WALL_ENGINEER_ZOMBIE,
+		"IceWallEngineerZombie",
 		&MakeZombie<IceWallEngineerZombie>, &IceWallEngineerZombie::GetBirthMovementProfile);
 
 	// 钻机复用路障骨骼和帧事件；独立附着 reanim 负责四相钻齿与三档破损轮廓。
@@ -897,15 +897,15 @@ void GameDataManager::InitializeHardcodedData() {
 		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
 		&MakeZombie<ThermalSniperZombie>, &ThermalSniperZombie::GetBirthMovementProfile);
 
-	// 两类终章僵尸完整复用普通僵尸时间轴；身份件与提交演出均为命名 follower/粒子。
+	// 两类终章僵尸保持普通时间轴，服装使用独立资源名，仪器与提交演出沿用 follower/粒子。
 	RegisterZombie(ZombieType::ZOMBIE_AURORA_PRIEST, "ZOMBIE_AURORA_PRIEST",
-		AnimationType::ANIM_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
+		AnimationType::ANIM_AURORA_PRIEST_ZOMBIE,
+		"AuroraPriestZombie",
 		&MakeZombie<AuroraPriestZombie>, &AuroraPriestZombie::GetBirthMovementProfile);
 
 	RegisterZombie(ZombieType::ZOMBIE_POLAR_CLOCKMAKER, "ZOMBIE_POLAR_CLOCKMAKER",
-		AnimationType::ANIM_NORMAL_ZOMBIE,
-		ResourceKeys::Reanimations::REANIM_NORMAL_ZOMBIE,
+		AnimationType::ANIM_POLAR_CLOCKMAKER_ZOMBIE,
+		"PolarClockmakerZombie",
 		&MakeZombie<PolarClockmakerZombie>, &PolarClockmakerZombie::GetBirthMovementProfile);
 
 	// ==================== 非植物/僵尸动画映射 ====================

@@ -60,6 +60,7 @@ void CrystalDrummerZombie::EmitInspiration()
 	}
 	++mBeatCount;
 	mPulseRemaining=kPulse;
+	EmitEquipmentParticles("IdentityDrumBeat", "crystal_drum_mount", Vector(3, 51));
 	AudioSystem::PlaySound("SOUND_GARGANTUAR_THUMP",0.2f);
 }
 
