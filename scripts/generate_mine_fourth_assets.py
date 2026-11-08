@@ -56,8 +56,7 @@ def generate():
         im.save(target)
         outputs.append(target)
     w,h=atlas.size
-    drum=extract((w//2,0,w,h//2)); drum.thumbnail((51,53),Image.Resampling.LANCZOS)
-    save(drum,'image/reanim/CrystalDrummer_drum.png')
+    # Drum equipment is owned by generate_zombie_identity_assets.ps1; keep the mallet and base rig here.
     mallet=extract((0,h//2,w//2,h)); mallet.thumbnail((39,19),Image.Resampling.LANCZOS)
     save(mallet,'image/reanim/CrystalDrummer_mallet.png')
     resin=extract((w//2,h//2,w,h)).resize((140,44),Image.Resampling.LANCZOS)

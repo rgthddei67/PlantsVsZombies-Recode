@@ -1,4 +1,4 @@
-"""Export reviewed accessories on the classic walnut and normal-zombie animation rigs."""
+"""Export the storage walnut; shield art belongs to generate_zombie_identity_assets.ps1."""
 from pathlib import Path
 import hashlib
 import json
@@ -25,15 +25,6 @@ def generate():
         assert im.getchannel('A').getextrema()[0] == 0, 'Source must have genuine alpha'
         return im.crop(im.getchannel('A').point(lambda a: 255 if a >= 160 else 0).getbbox())
 
-    shield = trimmed(source(ROOT / 'scripts/assets/cold_chain_shield_source.png'))
-    shield = shield.resize((60, 82), Image.Resampling.LANCZOS)
-    save(shield, RES / 'image/reanim/ColdChain_shield.png')
-    damaged = source(ROOT / 'scripts/assets/cold_chain_shield_damage_source.png')
-    for i in range(2):
-        piece = trimmed(damaged.crop((i * damaged.width // 2, 0, (i + 1) * damaged.width // 2, damaged.height)))
-        piece = piece.resize((60, 82), Image.Resampling.LANCZOS)
-        save(piece, RES / f'image/reanim/ColdChain_shield_cracked{i + 1}.png')
-
     compartment = trimmed(source(ROOT / 'scripts/assets/ice_storage_compartment_source.png'))
     compartment = compartment.resize((64, 26), Image.Resampling.LANCZOS)
     for suffix in ('body', 'cracked1', 'cracked2'):
@@ -43,7 +34,7 @@ def generate():
         save(walnut, RES / f'image/reanim/IceStorageNut_{suffix}.png')
 
     rig_source = RES / 'reanim/Wallnut.reanim'
-    inputs.extend([rig_source, RES / 'reanim/NormalZombie.reanim'])
+    inputs.append(rig_source)
     rig = rig_source.read_text().replace('IMAGE_REANIM_WALLNUT_BODY', 'IMAGE_REANIM_ICESTORAGENUT_BODY')
     target = RES / 'reanim/IceStorageNut.reanim'
     target.write_text(rig, encoding='utf-8')

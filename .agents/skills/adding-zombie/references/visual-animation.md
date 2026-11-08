@@ -51,6 +51,7 @@
 - 断头隐藏头部组全体**含挂件**（hair/earing/tongue…逐 reanim 数）。
 - 主人指定头部挂件“随头一起飞”时，把头与挂件预合成为一张专属粒子贴图并只发一颗粒子；`HeadDrop()` 在隐藏头部组前读取头轨世界锚点，再同步隐藏挂件轨。不要用两颗独立随机粒子冒充固定连接，否则旋转和弹道会立刻错位。
 - 普通骨架服装可参考 `ZombieIdentityVisuals.cpp` 与 `scripts/generate_zombie_identity_assets.ps1`：完整衣袖、裤腿、断臂残端和离体手臂共用配色，头饰与离体头共用尺寸和安装偏移；独立 reanim 保留源轨道和帧变换。治疗等旧的运行时 body override 要同时核对，避免覆盖新服装。`ConeZombie::EmitConeDropParticle` 默认按头戴护具轨道接续，手持钻机的组合残骸由派生类保留自身路径。
+- 装备迁移到新生成器时，同时移除旧生成器的同名输出与旧哈希；混合生成器仍须能重建植物、墙体等其他资产，不能因重跑它们把装备还原。用隔离目录实际重跑旧入口并比较当前装备哈希，参考 `tests/test_identity_asset_generators.py`；仅更新新生成器的锁文件不能证明输出所有权唯一。
 ### `ZombieItemUpdate()` 与 Arm/HeadDrop 的轨道操作严格一致
 
 （读档重建残肢的唯一路径，漏一轨=读档后幽灵部件）。

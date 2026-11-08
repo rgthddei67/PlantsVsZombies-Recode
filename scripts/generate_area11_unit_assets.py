@@ -78,21 +78,7 @@ def derive_rig(source, target, plant=False):
 derive_rig('PeaShooter.reanim','ThunderFlower.reanim',True)
 derive_rig('NormalZombie.reanim','DisasterEngineerZombie.reanim')
 
-for stage in range(5):
-    im=Image.new('RGBA',(88,116));d=ImageDraw.Draw(im)
-    d.rounded_rectangle((12,13,73,104),radius=17,fill=(65,81,100),outline=(30,37,51),width=4)
-    d.rounded_rectangle((20,19,65,98),radius=11,fill=(118,143,159),outline=(39,59,74),width=3)
-    d.rounded_rectangle((29,29,57,86),radius=7,fill=(30,51,70),outline=(214,224,225),width=3)
-    if stage:
-        top=82-stage*12
-        d.rounded_rectangle((33,top,53,82),radius=3,fill=(61,218,231),outline=(121,252,253),width=2)
-        d.line((36,top+5,36,78),fill=(223,255,255),width=2)
-    d.rectangle((28,7,56,16),fill=(45,61,79),outline=(20,29,43),width=3)
-    d.ellipse((62,41,80,59),fill=(232,190,75),outline=(56,56,50),width=3)
-    d.line((70,49,75,45),fill=(47,54,61),width=2)
-    d.line([(14,83),(3,80),(4,35),(13,29)],fill=(27,37,47),width=7)
-    d.line([(14,83),(3,80),(4,35),(13,29)],fill=(104,128,147),width=3)
-    save(im,ART/f'Disaster_canister_{stage}.png')
+# Canister stages are owned by generate_zombie_identity_assets.ps1.
 
 im=Image.new('RGBA',(32,36));d=ImageDraw.Draw(im)
 d.ellipse((6,7,27,30),fill=(99,140,237),outline=(33,44,99),width=2)

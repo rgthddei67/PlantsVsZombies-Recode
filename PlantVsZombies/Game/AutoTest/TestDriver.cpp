@@ -8542,8 +8542,12 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 			zombieState["engineerReloadPaid"] = engineer->IsReloadPaid();
 			zombieState["engineerReloadMs"] = static_cast<int>(std::lround(engineer->GetReloadRemaining()*1000));
 			zombieState["engineerProtectionUses"] = engineer->GetProtectionUses();
-			zombieState["engineerResourcesReady"] = ResourceManager::GetInstance().HasReanimation("DisasterEngineerZombie")
-				&& ResourceManager::GetInstance().GetTexture("IMAGE_DISASTER_CANISTER_4",false);
+			bool canisterResourcesReady = ResourceManager::GetInstance().HasReanimation("DisasterEngineerZombie");
+			for (int stage = 0; stage <= 4; ++stage) {
+				canisterResourcesReady = canisterResourcesReady && ResourceManager::GetInstance().GetTexture(
+					"IMAGE_DISASTER_CANISTER_" + std::to_string(stage), false);
+			}
+			zombieState["engineerResourcesReady"] = canisterResourcesReady;
 		}
 		if (auto* worker = dynamic_cast<IceWorkerZombie*>(z)) {
 			zombieState["iceRemainingMs"] = static_cast<int>(std::lround(worker->GetIceRemaining() * 1000.0f));

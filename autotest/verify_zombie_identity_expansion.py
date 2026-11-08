@@ -31,6 +31,12 @@ def rig_contracts():
         assert ET.tostring(trees[0]) == ET.tostring(trees[1]), name
 
 
+def canister_contracts():
+    art = ROOT / 'build/clang-release/resources/image/reanim'
+    stages = [(art / f'Disaster_canister_{stage}.png').read_bytes() for stage in range(5)]
+    assert len(set(stages)) == 5, 'Empty, partial and full canisters must remain distinct'
+
+
 def generate():
     GENERATED.mkdir(parents=True, exist_ok=True)
     for group in range(2):
@@ -237,13 +243,38 @@ def generate_feedback():
             add('set_timescale', value=1)
     add('set_timescale', value=0)
     capture('canister_vent', 'IdentityDisasterVent')
-    advance(6.1)
+    add('assert_state', path='zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerResourcesReady', equals=True)
+    # Capture inside each fill interval, away from frame-sensitive stage boundaries.
+    for stage, seconds in ((1, 1.8), (2, 1.5), (3, 1.5)):
+        advance(seconds)
+        add('assert_state', path='zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull', equals=False)
+        add('assert_state', path='zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerReloadMs',
+            atLeast=(3 - stage) * 1500 + 1, atMost=(4 - stage) * 1500 - 1)
+        add('screenshot', name=f'canister_stage_{stage}.png')
+        add('dump_state', name=f'canister_stage_{stage}.json')
+    add('set_timescale', value=1)
+    add('wait_value', path='zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull', equals=True, timeout=3)
+    add('set_timescale', value=0)
     capture('canister_ready', 'IdentityDisasterReady')
     add('assert_state', path='zombiesByType.ZOMBIE_DISASTER_ENGINEER.engineerFull', equals=True)
     add('quit')
     (GENERATED / 'smoke_identity_expansion_feedback.json').write_text(json.dumps({'commands': commands}, indent=2) + '\n', encoding='utf-8')
     last_scene = max(i for i, command in enumerate(commands) if command['op'] == 'goto_level')
     (GENERATED / 'smoke_identity_expansion_canister.json').write_text(json.dumps({'commands': commands[last_scene:]}, indent=2) + '\n', encoding='utf-8')
+
+
+def verify_canister():
+    folder = OUT / 'smoke_identity_expansion_canister'
+    read = lambda phase: json.loads((folder / (phase + '.json')).read_text(encoding='utf-8-sig'))
+    assert read('status')['status'] == 'passed'
+    for stage, phase in enumerate(('canister_vent', 'canister_stage_1', 'canister_stage_2',
+                                    'canister_stage_3', 'canister_ready')):
+        engineer = read(phase)['zombiesByType']['ZOMBIE_DISASTER_ENGINEER']
+        assert engineer['engineerResourcesReady'], phase
+        assert engineer['engineerFull'] == (stage == 4), phase
+        if stage < 4:
+            assert (3 - stage) * 1500 < engineer['engineerReloadMs'] <= (4 - stage) * 1500, phase
+    print('Five canister fill stages and native readiness: passed')
 
 
 def verify_contexts():
@@ -311,13 +342,18 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--generate', action='store_true')
     parser.add_argument('--rigs-only', action='store_true')
+    parser.add_argument('--canister-only', action='store_true')
     args = parser.parse_args()
     rig_contracts()
+    canister_contracts()
     if args.generate:
         generate()
+    elif args.canister_only:
+        verify_canister()
     elif not args.rigs_only:
         for group in range(2):
             for mirrored in (False, True):
                 verify_run(group, mirrored)
         verify_contexts()
+        verify_canister()
     print('Identity expansion rig contracts: passed')

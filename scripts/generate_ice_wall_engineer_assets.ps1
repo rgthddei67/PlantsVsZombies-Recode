@@ -32,49 +32,7 @@ function Convert-ToIceBlue {
     return $target
 }
 
-function New-EngineerHat {
-    param([int]$Stage)
-
-    $hatForwardOffsetX = -3 # 左行僵尸的脸侧前移量，单位实机贴图 px
-    $sourcePath = Join-Path $imageRoot ("Zombie_digger_hardhat{0}.png" -f $(if ($Stage -eq 1) { "" } else { $Stage }))
-    $source = [System.Drawing.Bitmap]::new($sourcePath)
-    $tinted = Convert-ToIceBlue -Source $source -DarkBlue 92 -LightBlue 160
-    # 矿工帽原图朝右，本品种朝左；镜像后帽檐才位于额头而不是后脑。
-    $tinted.RotateFlip([System.Drawing.RotateFlipType]::RotateNoneFlipX)
-    $target = [System.Drawing.Bitmap]::new(
-        59, 57, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-    try {
-        $graphics = [System.Drawing.Graphics]::FromImage($target)
-        try {
-            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-            $graphics.DrawImage($tinted, $hatForwardOffsetX, 16, 59, 36)
-            $stripe = [System.Drawing.Pen]::new(
-                [System.Drawing.Color]::FromArgb(245, 255, 158, 32), 3.0)
-            try {
-                $graphics.DrawArc($stripe, 10 + $hatForwardOffsetX, 31, 38, 12, 190, 155)
-                $emblem = [System.Drawing.Pen]::new(
-                    [System.Drawing.Color]::FromArgb(245, 225, 252, 255), 1.2)
-                try {
-                    $graphics.DrawLine($emblem, 29 + $hatForwardOffsetX, 22, 29 + $hatForwardOffsetX, 32)
-                    $graphics.DrawLine($emblem, 24 + $hatForwardOffsetX, 27, 34 + $hatForwardOffsetX, 27)
-                    $graphics.DrawLine($emblem, 25 + $hatForwardOffsetX, 23, 33 + $hatForwardOffsetX, 31)
-                    $graphics.DrawLine($emblem, 33 + $hatForwardOffsetX, 23, 25 + $hatForwardOffsetX, 31)
-                }
-                finally { $emblem.Dispose() }
-            }
-            finally { $stripe.Dispose() }
-        }
-        finally { $graphics.Dispose() }
-        $target.Save((Join-Path $imageRoot ("Zombie_icewall_engineer_hat{0}.png" -f $Stage)),
-            [System.Drawing.Imaging.ImageFormat]::Png)
-    }
-    finally {
-        $target.Dispose()
-        $tinted.Dispose()
-        $source.Dispose()
-    }
-}
+# 安全帽已迁移到 generate_zombie_identity_assets.ps1；此入口只维护墙体及旧骨架参考件。
 
 function New-EngineerBody {
     $source = [System.Drawing.Bitmap]::new((Join-Path $imageRoot "Zombie_body.png"))
@@ -261,15 +219,11 @@ function New-IceWall {
 
 New-EngineerBody
 New-EngineerToolStrap
-for ($stage = 1; $stage -le 3; ++$stage) { New-EngineerHat -Stage $stage }
 for ($stage = 1; $stage -le 3; ++$stage) { New-IceWall -Stage $stage }
 
 $expectedHashes = @{
     "Zombie_icewall_engineer_body.png" = "8BE4257AB241F962238ABE5B4604052DAC2D33857F9270B007D1AD613DD65019"
     "Zombie_icewall_engineer_toolstrap.png" = "FCD684C2B7CDA4ACCEF60BEF9AC6D1B07D960BE3BA82CA08252808051780628D"
-    "Zombie_icewall_engineer_hat1.png" = "4B789B6434CDA28485C1A144DEF151E9E2066CCB727DD7F117576F530A591D05"
-    "Zombie_icewall_engineer_hat2.png" = "2C1DE1A2DA663D8FBC4A13D1AD73A9B9FA9B4D2522A092D7C9DD8DB5E0EBACA2"
-    "Zombie_icewall_engineer_hat3.png" = "C3FDE02E5964F21877B6C0E151C03A2CBA12B1D3DE9DE1DC3229CC64A479C488"
     "Ice_Wall.png" = "8832AC59261223480C6BEB8C05A7D83B5FA01F9D74D91577FB450D0E13894BD9"
     "Ice_Wall_cracked1.png" = "F656986FEA1E09D9EC7F3B3F3A617963CF47D47474B0569D42FB1BAC6A676A05"
     "Ice_Wall_cracked2.png" = "A3E7606E4547D21AB7D7D2BCFE7AD095E417DD18CFCDE9AF1A7115AF4447836C"

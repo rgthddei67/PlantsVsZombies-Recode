@@ -30,6 +30,8 @@
 
 `python autotest/verify_zombie_identity_expansion.py --generate` 在 `build/clang-release/autotest/generated/` 生成八种服装的两组正反向专项、啃食/图鉴、真实能力反馈及防灾安全帽贴合专项。依次可见运行生成的 `smoke_identity_expansion_*` 和 `smoke_identity_hat_fit` 后，不带参数运行校验器；它同时核对原版时间轴未变、资源、同源头臂、破甲碎片、镜像染色和读档不重播。装备与离体图由 `scripts/generate_zombie_identity_assets.ps1` 同源导出；头饰偏移须与 `ZombieIdentityVisuals.cpp` 一致。
 
+冷却罐五档液位与真实就绪状态可单跑 `smoke_identity_expansion_canister`，再用上述校验器的 `--canister-only` 复核。`tests/test_identity_asset_generators.py` 需要 Pillow 和 `pwsh`，会在临时目录实际运行旧生成器，确认它们不再覆盖已迁移装备，并验证液位递增且外壳不变。旧生成器保留植物、墙体和参考骨架；绝缘胸甲旧入口转到统一服装生成器，装备输出与哈希只在后者维护。
+
 ## 工坊电网与调度
 
 `verify_workshop_challenges.py --generate` 生成挑战与词条专项，运行可见脚本后以同文件校验原生倍率、快照、限制和奖励；纯逻辑 `WorkshopCommissionTests.cpp` 检查随机分布及旧任务承诺。详情按钮使用 `commission_details_N`，奖池入口使用 `commission_traits`，避免依赖弹窗按钮序号。

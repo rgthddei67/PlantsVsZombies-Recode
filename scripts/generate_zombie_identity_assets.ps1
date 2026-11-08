@@ -122,17 +122,35 @@ foreach($e in @(
     $im=Export-AtlasCell $e.Source 1 2 $e.Size[0] $e.Size[1]
     Save-Bitmap $im (Join-Path $art "$($e.Name).png");$im.Dispose()
 }
-# 冷却罐的液位是既有五阶段状态；仅压暗窗口上部，外壳和安装点完全一致。
+# 冷却罐按实际青色液窗高度分成五档；第 3 档仍缺四分之一，只有第 4 档表示保护就绪。
+$canisterHashes=[Collections.Generic.HashSet[string]]::new()
 for($stage=0;$stage -le 4;$stage++) {
     $im=Export-AtlasCell 'disaster' 1 2 88 116
+    $liquidPixels=[Collections.Generic.List[Drawing.Point]]::new()
+    $liquidTop=$im.Height; $liquidBottom=-1
     for($y=0;$y -lt $im.Height;$y++) {for($x=0;$x -lt $im.Width;$x++) {
         $p=$im.GetPixel($x,$y)
-        if($p.G -gt $p.R*1.5 -and $p.B -gt $p.R*1.4 -and $y -lt (91-($stage*14))) {
-            $im.SetPixel($x,$y,[Drawing.Color]::FromArgb($p.A,39,65,73))
+        if($p.A -gt 0 -and $p.G -gt $p.R*1.5 -and $p.B -gt $p.R*1.4) {
+            $liquidPixels.Add([Drawing.Point]::new($x,$y))
+            # 几乎透明的青色杂点不属于液窗，不能拉大分档范围。
+            if($p.A -ge 160) {
+                $liquidTop=[Math]::Min($liquidTop,$y); $liquidBottom=[Math]::Max($liquidBottom,$y)
+            }
         }
     }}
-    Save-Bitmap $im (Join-Path $art "Disaster_canister_$stage.png");$im.Dispose()
+    if($liquidBottom -lt $liquidTop) { throw 'Canister atlas has no liquid window' }
+    $fillTop=$liquidBottom+1-($liquidBottom-$liquidTop+1)*$stage/4.0
+    foreach($point in $liquidPixels) {
+        if($point.Y -ge $liquidTop -and $point.Y -lt $fillTop) {
+            $p=$im.GetPixel($point.X,$point.Y)
+            $im.SetPixel($point.X,$point.Y,[Drawing.Color]::FromArgb($p.A,39,65,73))
+        }
+    }
+    $path=Join-Path $art "Disaster_canister_$stage.png"
+    Save-Bitmap $im $path;$im.Dispose()
+    [void]$canisterHashes.Add((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash)
 }
+if($canisterHashes.Count -ne 5) { throw 'Canister fill stages must remain visually distinct' }
 
 # 配色为 RGB；headgear 尺寸/偏移是头轨道贴图空间的像素，与 ZombieIdentityVisuals.cpp 一致。
 $styles=@(

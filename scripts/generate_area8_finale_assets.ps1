@@ -43,17 +43,7 @@ function Draw-Star($graphics, [float]$cx, [float]$cy, [float]$outer, [float]$inn
     Draw-OutlinedPolygon $graphics $points $fill ([Drawing.Color]::FromArgb(230, 30, 32, 65)) 3
 }
 
-# 极光仪器：多层棱晶、金属托架、晶体高光，不依赖新骨骼。
-$bitmap = New-Canvas 104 104
-$graphics = New-Graphics $bitmap
-$outer = @([Drawing.PointF]::new(52,4),[Drawing.PointF]::new(94,31),[Drawing.PointF]::new(86,82),[Drawing.PointF]::new(52,100),[Drawing.PointF]::new(15,78),[Drawing.PointF]::new(9,31))
-Draw-OutlinedPolygon $graphics $outer ([Drawing.Color]::FromArgb(245,35,45,82)) ([Drawing.Color]::FromArgb(255,8,10,28)) 5
-$crystal = @([Drawing.PointF]::new(52,12),[Drawing.PointF]::new(82,35),[Drawing.PointF]::new(69,83),[Drawing.PointF]::new(35,83),[Drawing.PointF]::new(22,35))
-Draw-OutlinedPolygon $graphics $crystal ([Drawing.Color]::FromArgb(235,65,226,255)) ([Drawing.Color]::FromArgb(255,175,245,255)) 3
-$graphics.FillPolygon([Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(175,255,92,238)), @([Drawing.PointF]::new(52,14),[Drawing.PointF]::new(68,80),[Drawing.PointF]::new(36,80)))
-$graphics.DrawArc([Drawing.Pen]::new([Drawing.Color]::FromArgb(245,255,224,104),5),23,25,58,58,200,285)
-Draw-Star $graphics 52 48 16 7 ([Drawing.Color]::FromArgb(255,255,246,188))
-$graphics.Dispose(); Save-Png $bitmap (Join-Path $reanimDir 'Zombie_aurora_device.png')
+# 仪器和星盘由 generate_zombie_identity_assets.ps1 生成；此处保留能力挂件、植物与光效。
 
 # 胸前棱镜。
 $bitmap = New-Canvas 66 58; $graphics = New-Graphics $bitmap
@@ -62,22 +52,6 @@ Draw-OutlinedPolygon $graphics $prism ([Drawing.Color]::FromArgb(235,185,255,255
 $graphics.DrawLine([Drawing.Pen]::new([Drawing.Color]::FromArgb(230,255,100,220),4),33,6,33,50)
 $graphics.DrawLine([Drawing.Pen]::new([Drawing.Color]::FromArgb(230,90,235,255),4),33,27,8,50)
 $graphics.Dispose(); Save-Png $bitmap (Join-Path $reanimDir 'Zombie_aurora_prism.png')
-
-# 钟匠星盘：十二刻度、极夜星核与厚重青铜轮缘。
-$bitmap = New-Canvas 110 110; $graphics = New-Graphics $bitmap
-$graphics.FillEllipse([Drawing.SolidBrush]::new([Drawing.Color]::FromArgb(250,31,27,58)),5,5,100,100)
-$graphics.DrawEllipse([Drawing.Pen]::new([Drawing.Color]::FromArgb(255,222,165,72),7),7,7,96,96)
-$graphics.DrawEllipse([Drawing.Pen]::new([Drawing.Color]::FromArgb(255,78,225,255),3),18,18,74,74)
-for ($i=0; $i -lt 12; $i++) {
-    $angle = $i * [Math]::PI / 6
-    $x1=55+[Math]::Cos($angle)*35; $y1=55+[Math]::Sin($angle)*35
-    $x2=55+[Math]::Cos($angle)*44; $y2=55+[Math]::Sin($angle)*44
-    $graphics.DrawLine([Drawing.Pen]::new([Drawing.Color]::FromArgb(255,255,231,153),3),$x1,$y1,$x2,$y2)
-}
-Draw-Star $graphics 55 55 24 11 ([Drawing.Color]::FromArgb(255,104,80,220))
-$graphics.DrawLine([Drawing.Pen]::new([Drawing.Color]::White,4),55,55,76,34)
-$graphics.DrawLine([Drawing.Pen]::new([Drawing.Color]::FromArgb(255,255,118,190),3),55,55,43,29)
-$graphics.Dispose(); Save-Png $bitmap (Join-Path $reanimDir 'Zombie_polar_clock_disk.png')
 
 # 悬摆。
 $bitmap = New-Canvas 48 92; $graphics = New-Graphics $bitmap
