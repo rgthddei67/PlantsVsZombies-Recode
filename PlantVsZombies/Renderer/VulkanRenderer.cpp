@@ -1,4 +1,5 @@
 #include "VulkanRenderer.h"
+#include "VulkanTexturePool.h"
 #include "VulkanContext.h"
 #include "VulkanPipeline.h"
 #include "VulkanBuffer.h"
@@ -216,6 +217,7 @@ namespace pvz {
 	bool VulkanRenderer::OnSwapchainRecreated() {
 		if (!mCtx || !mCtx->Device()) return false;
 		VkDevice dev = mCtx->Device();
+		ReleaseOpacityTarget();
 
 		// image 数可能变化（例如 MAILBOX 通常返回 3，FIFO 可能 2/3）。
 		// 销毁旧的 per-image renderFinished 信号量，按新的 image 数重建。
@@ -517,4 +519,106 @@ namespace pvz {
 		SDL_FreeSurface(surf);
 		return true;
 	}
+} // namespace pvz
+
+namespace pvz {
+void VulkanRenderer::ReleaseOpacityTarget() {
+	if (!mCtx) return;
+	if (mOpacityFramebuffer) vkDestroyFramebuffer(mCtx->Device(), mOpacityFramebuffer, nullptr);
+	if (mOpacityLoadPass) vkDestroyRenderPass(mCtx->Device(), mOpacityLoadPass, nullptr);
+	if (mOpacityTarget && mOpacityPool) mOpacityPool->DestroyTexture(mOpacityTarget);
+	mOpacityFramebuffer = VK_NULL_HANDLE;
+	mOpacityLoadPass = VK_NULL_HANDLE;
+	mOpacityTarget = nullptr;
+	mOpacityPool = nullptr;
+	mOpacityReady = mOpacityActive = false;
+}
+
+/** 两个 RenderPass 的格式/子通道兼容；主画面恢复必须 LOAD，不能再次清屏。 */
+void VulkanRenderer::BeginOpacityRendering(bool offscreen) {
+	const auto cb = CurrentCmdBuffer();
+	const auto view = offscreen ? mOpacityTarget->view : mCtx->SwapchainImageViews()[mAcquiredImageIdx];
+	if (mCtx->UsesDynamicRendering()) {
+		VkRenderingAttachmentInfo color{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+		color.imageView = view;
+		color.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		color.loadOp = offscreen ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		VkRenderingInfo info{VK_STRUCTURE_TYPE_RENDERING_INFO};
+		info.renderArea = {{0,0},mCtx->SwapchainExtent()};
+		info.layerCount = info.colorAttachmentCount = 1;
+		info.pColorAttachments = &color;
+		mCtx->CmdBeginRendering(cb, info);
+	} else {
+		VkClearValue clear{};
+		VkRenderPassBeginInfo info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+		info.renderPass = offscreen ? mCtx->LegacyRenderPass() : mOpacityLoadPass;
+		info.framebuffer = offscreen ? mOpacityFramebuffer : mCtx->LegacyFramebuffer(mAcquiredImageIdx);
+		info.renderArea = {{0,0},mCtx->SwapchainExtent()};
+		info.clearValueCount = offscreen ? 1 : 0;
+		info.pClearValues = &clear;
+		vkCmdBeginRenderPass(cb,&info,VK_SUBPASS_CONTENTS_INLINE);
+	}
+}
+
+bool VulkanRenderer::BeginOpacityLayer(VulkanTexturePool* pool) {
+	if (!mFrameActive || mOpacityActive || !pool) return false;
+	if (!mOpacityTarget) {
+		mOpacityPool = pool;
+		const auto extent = mCtx->SwapchainExtent();
+		mOpacityTarget = pool->CreateColorAttachment(extent.width,extent.height,mCtx->SwapchainFormat());
+		if (!mOpacityTarget) return false;
+		if (!mCtx->UsesDynamicRendering()) {
+			VkFramebufferCreateInfo framebuffer{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+			framebuffer.renderPass = mCtx->LegacyRenderPass();
+			framebuffer.attachmentCount = 1; framebuffer.pAttachments = &mOpacityTarget->view;
+			framebuffer.width = extent.width; framebuffer.height = extent.height; framebuffer.layers = 1;
+			if (vkCreateFramebuffer(mCtx->Device(),&framebuffer,nullptr,&mOpacityFramebuffer) != VK_SUCCESS) return false;
+			VkAttachmentDescription color{};
+			color.format = mCtx->SwapchainFormat(); color.samples = VK_SAMPLE_COUNT_1_BIT;
+			color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+			color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			color.initialLayout = color.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			VkAttachmentReference reference{0,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+			VkSubpassDescription subpass{}; subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+			subpass.colorAttachmentCount = 1; subpass.pColorAttachments = &reference;
+			VkRenderPassCreateInfo pass{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+			pass.attachmentCount = 1; pass.pAttachments = &color; pass.subpassCount = 1; pass.pSubpasses = &subpass;
+			if (vkCreateRenderPass(mCtx->Device(),&pass,nullptr,&mOpacityLoadPass) != VK_SUCCESS) return false;
+		}
+	}
+	const auto cb = CurrentCmdBuffer();
+	if (mCtx->UsesDynamicRendering()) mCtx->CmdEndRendering(cb); else vkCmdEndRenderPass(cb);
+	const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1};
+	mCtx->CmdImageBarrier(cb,mOpacityTarget->image,
+		mOpacityReady ? VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+		mOpacityReady ? VK_ACCESS_2_SHADER_SAMPLED_READ_BIT : 0,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		mOpacityReady ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,range);
+	BeginOpacityRendering(true);
+	mOpacityActive = true;
+	return true;
+}
+
+RenderTexture* VulkanRenderer::EndOpacityLayer() {
+	if (!mOpacityActive) return nullptr;
+	const auto cb = CurrentCmdBuffer();
+	if (mCtx->UsesDynamicRendering()) mCtx->CmdEndRendering(cb); else vkCmdEndRenderPass(cb);
+	const VkImageSubresourceRange range{VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1};
+	mCtx->CmdImageBarrier(cb,mOpacityTarget->image,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,range);
+	// 主画面的先前颜色写入必须对恢复后的 LOAD 与混合读取可见。
+	mCtx->CmdImageBarrier(cb,mCtx->SwapchainImages()[mAcquiredImageIdx],
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,range);
+	BeginOpacityRendering(false);
+	mOpacityReady = true; mOpacityActive = false;
+	return mOpacityTarget;
+}
 } // namespace pvz

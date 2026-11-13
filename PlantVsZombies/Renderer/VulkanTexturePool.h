@@ -43,6 +43,8 @@ namespace pvz {
 		// 上传 RGBA8 数据创建一张纹理。返回的指针由 pool 拥有；调用 DestroyTexture 释放。
 		RendererBackend Backend() const override { return RendererBackend::Vulkan; }
 		VulkanTexture* CreateTextureRGBA8(int width, int height, const void* pixels) override;
+		/** 单级可采样颜色附件；初始 UNDEFINED，布局由调用方维护。 */
+		VulkanTexture* CreateColorAttachment(int width, int height, VkFormat format);
 		bool UpdateTextureRGBA8(RenderTexture* texture, int x, int y,
 			int width, int height, const void* pixels) override;
 		int MaxTextureSize() const override { return mMaxTextureSize; }

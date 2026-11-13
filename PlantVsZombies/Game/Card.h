@@ -6,10 +6,7 @@
 #include "./Plant/PlantType.h"
 #include "Transform.h"
 #include "WeatherTypes.h"
-
-constexpr float CARD_SCALE = 0.5f; // 卡牌缩放比例（≤0.5 会超过双线性 2:1 缩小上限而发糊）
-constexpr int CARD_WIDTH = static_cast<int>(100 * CARD_SCALE); // 宽度
-constexpr int CARD_HEIGHT = static_cast<int>(140 * CARD_SCALE); // 高度
+#include "CardPresentation.h"
 
 class CardSlotManager;
 class ChooseCardUI;
@@ -75,13 +72,7 @@ public:
 	bool IsMoving() const { return mIsMoving; }
 
 private:
-	enum class VisualState {
-		Cooling,
-		Ready,
-		WaitingSun,
-		Click,
-	};
-
+	using VisualState = CardPresentation::State;
 	CardSlotManager* mCardSlotManager = nullptr; // GameScene 独占，Card 仅保存非拥有观察指针
 	ChooseCardUI* mChooseCardUI = nullptr; // ChooseCardUI 所有期覆盖选卡 Card
 
@@ -107,12 +98,6 @@ private:
 	VisualState mVisualState = VisualState::Ready;
 	float mMaskFillAmount = 0.0f;
 	bool mShowMask = false;
-	glm::vec4 mReadyColor = glm::vec4(255.0f);
-	glm::vec4 mDisabledColor = glm::vec4(160.0f, 160.0f, 160.0f, 255.0f);
-	glm::vec4 mWaitingSunColor = glm::vec4(160.0f, 160.0f, 160.0f, 255.0f);
-	glm::vec4 mClickColor = glm::vec4(160.0f, 160.0f, 160.0f, 255.0f);
-	static constexpr int kSunTextRasterSize = 28; // 阳光数字 2× 超采样光栅字号
-	static constexpr float kSunTextDrawScale = 0.5f; // 阳光数字绘制回缩倍率
 	CachedText mSunTextCache{};
 	int mCachedSunValue = -1;
 

@@ -12,6 +12,8 @@
 namespace pvz {
 	class VulkanContext;
 	class VulkanPipeline;
+	class VulkanTexturePool;
+	struct VulkanTexture;
 
 	// Phase 1.5 — 持有命令池、命令缓冲、同步原语，跑 acquire→record→submit→present 循环。
 	// Phase 2a — 可选挂一个 pipeline，每帧画 3 个顶点的三角形。
@@ -38,6 +40,11 @@ namespace pvz {
 		// EndFrame:   endRendering + barrier → PRESENT_SRC + endCb + submit2 + present。失败返回 false。
 		bool BeginFrame(float r, float g, float b, float a);
 		bool EndFrame();
+		/** 暂停主颜色附件，完整绘制一个不嵌套的透明合成组；保留 viewport/scissor。 */
+		bool BeginOpacityLayer(VulkanTexturePool* pool);
+		RenderTexture* EndOpacityLayer();
+		/** Graphics 在纹理池仍存活且 GPU idle 时释放；交换链重建同样调用。 */
+		void ReleaseOpacityTarget();
 
 		/** 不可恢复的帧错误会锁住后续 BeginFrame；调用方必须结束渲染并销毁后端。 */
 		bool HasFrameFailure() const { return !mFrameError.empty(); }
@@ -74,6 +81,13 @@ namespace pvz {
 			bool            pipelineStatsPending = false;
 		};
 
+		VulkanTexturePool* mOpacityPool = nullptr;
+		VulkanTexture* mOpacityTarget = nullptr;
+		VkFramebuffer mOpacityFramebuffer = VK_NULL_HANDLE;
+		VkRenderPass mOpacityLoadPass = VK_NULL_HANDLE;
+		bool mOpacityReady = false;
+		bool mOpacityActive = false;
+		void BeginOpacityRendering(bool offscreen);
 		bool CreateFrameResources();
 		void DestroyFrameResources();
 		/** 在槽位 fence 完成后回收上次 GPU 诊断查询，不向渲染热路注入 CPU 等待。 */

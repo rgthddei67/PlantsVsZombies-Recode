@@ -362,6 +362,41 @@ namespace pvz {
 		return raw;
 	}
 
+	VulkanTexture* VulkanTexturePool::CreateColorAttachment(int width, int height, VkFormat format) {
+		if (!mCtx || width <= 0 || height <= 0) return nullptr;
+		const uint32_t idx = AllocBindlessIndex();
+		if (idx >= MAX_TEXTURES) return nullptr;
+		auto t = std::make_unique<VulkanTexture>();
+		t->backend = RendererBackend::Vulkan;
+		t->bindingId = t->bindlessIndex = idx;
+		t->width = width; t->height = height;
+		VkImageCreateInfo image{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+		image.imageType = VK_IMAGE_TYPE_2D;
+		image.format = format;
+		image.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+		image.mipLevels = image.arrayLayers = 1;
+		image.samples = VK_SAMPLE_COUNT_1_BIT;
+		image.tiling = VK_IMAGE_TILING_OPTIMAL;
+		image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+		VmaAllocationCreateInfo allocation{};
+		allocation.usage = VMA_MEMORY_USAGE_AUTO;
+		if (vmaCreateImage(mCtx->Allocator(), &image, &allocation, &t->image, &t->alloc, nullptr) != VK_SUCCESS) {
+			FreeBindlessIndex(idx); return nullptr;
+		}
+		VkImageViewCreateInfo view{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+		view.image = t->image; view.viewType = VK_IMAGE_VIEW_TYPE_2D; view.format = format;
+		view.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+		if (vkCreateImageView(mCtx->Device(), &view, nullptr, &t->view) != VK_SUCCESS) {
+			vmaDestroyImage(mCtx->Allocator(), t->image, t->alloc);
+			FreeBindlessIndex(idx); return nullptr;
+		}
+		WriteDescriptor(idx, t->view);
+		if (mTextures.size() <= idx) mTextures.resize(idx + 1);
+		auto* result = t.get();
+		mTextures[idx] = std::move(t);
+		return result;
+	}
+
 	bool VulkanTexturePool::UpdateTextureRGBA8(RenderTexture*, int, int, int, int, const void*) {
 		// 当前 Vulkan 资源均为只读贴图；运行时字体采用整张重建。保留明确失败语义，
 		// 避免在未知 image layout 上做不安全的原地更新。

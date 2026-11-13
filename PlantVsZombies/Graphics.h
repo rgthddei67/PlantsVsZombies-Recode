@@ -184,6 +184,8 @@ enum class BlendMode {
  *        持久映射 VBO/SSBO 切片，cmds 记录状态和几何顺序边界，供回放切分 vkCmdDraw。
  */
 enum class RecCmdType : uint8_t {
+	BeginOpacity,   ///< 开始角色合成，payloadIdx 为 float 透明度的位表示
+	EndOpacity,     ///< 完整角色合成完成，再统一应用透明度
 	GeometryBoundary, ///< 前一段实例必须先于后续 batch 提交；无 payload
 	SetBlend,       ///< 切换混合模式（payloadIdx 指向 blendModes）
 	DeferredText,   ///< DrawText 延迟到主线程执行（payloadIdx 指向 textCmds）
@@ -721,6 +723,9 @@ public:
 	 * @brief 提交当前批处理缓冲区中的所有顶点，并清空相关容器。
 	 */
 	void FlushBatch();
+	/** 保序合成完整角色及其附件，再统一淡化；支持 worker 录制，禁止嵌套。 */
+	void BeginOpacityGroup(float opacity);
+	void EndOpacityGroup();
 
 	/**
 	 * @brief 设置批处理模式开关。切换时会自动提交当前批次。
@@ -950,6 +955,8 @@ private:
 	std::vector<glm::mat4> m_batchMatrices;     ///< 当前批次使用的变换矩阵列表
 	std::vector<InstanceRecord> m_batchInstances;   ///< 主线程串行 instance 缓冲（worker 走 slice 不经此处）
 	int m_batchInstancesLimit = 32768;              ///< 单次 flush 上限，~1.8 MB 一次 vkCmdDraw（仅切分 draw 段数，不影响总字节；逐帧 inst 缓冲 grow-on-demand，见 Graphics.cpp）
+	float m_opacityGroup = 1.0f; // 当前主线程合成组透明度；无组时为 1
+	bool m_opacityGroupActive = false;
 	bool m_useInstancePath = true;   ///< Task 7: false强制走 slow path 做 A/B baseline
 
 	size_t m_batchBufferCapacity = 0;             ///< 当前 VBO 容量（顶点个数）

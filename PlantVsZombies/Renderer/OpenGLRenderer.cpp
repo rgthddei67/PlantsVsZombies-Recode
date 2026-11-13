@@ -120,6 +120,7 @@ namespace pvz {
 
 	void OpenGLRenderer::Shutdown() {
 		if (mContext && mWindow) SDL_GL_MakeCurrent(mWindow, mContext);
+		DestroyOpacityTarget();
 		DestroySsboBatch();
 		if (mApi.DeleteBuffers) {
 			if (mVbo) mApi.DeleteBuffers(1, &mVbo);
@@ -628,4 +629,46 @@ namespace pvz {
 		return true;
 	}
 
+} // namespace pvz
+
+namespace pvz {
+void OpenGLRenderer::DestroyOpacityTarget() {
+	if (mOpacityFramebuffer) mApi.DeleteFramebuffers(1,&mOpacityFramebuffer);
+	if (mOpacityTexture.bindingId) mApi.DeleteTextures(1,&mOpacityTexture.bindingId);
+	mOpacityFramebuffer = 0; mOpacityTexture.bindingId = 0;
+	mOpacityActive = false;
+}
+
+bool OpenGLRenderer::BeginOpacityLayer() {
+	if (!mFrameOpen || mOpacityActive) return false;
+	if (!mOpacityFramebuffer || mOpacityTexture.width != mDrawableWidth || mOpacityTexture.height != mDrawableHeight) {
+		DestroyOpacityTarget();
+		mOpacityTexture.backend = RendererBackend::OpenGL;
+		mOpacityTexture.width = mDrawableWidth; mOpacityTexture.height = mDrawableHeight;
+		mApi.GenTextures(1,&mOpacityTexture.bindingId);
+		mApi.BindTexture(GL_TEXTURE_2D,mOpacityTexture.bindingId);
+		mApi.TexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,mDrawableWidth,mDrawableHeight,0,GL_RGBA,GL_UNSIGNED_BYTE,nullptr);
+		mApi.TexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
+		mApi.TexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+		mApi.TexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+		mApi.TexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+		mApi.GenFramebuffers(1,&mOpacityFramebuffer);
+		mApi.BindFramebuffer(GL_FRAMEBUFFER,mOpacityFramebuffer);
+		mApi.FramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,mOpacityTexture.bindingId,0);
+		if (mApi.CheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			mApi.BindFramebuffer(GL_FRAMEBUFFER,0); DestroyOpacityTarget(); return false;
+		}
+	} else mApi.BindFramebuffer(GL_FRAMEBUFFER,mOpacityFramebuffer);
+	mApi.ClearColor(0,0,0,0);
+	mApi.Clear(GL_COLOR_BUFFER_BIT);
+	mOpacityActive = true;
+	return true;
+}
+
+RenderTexture* OpenGLRenderer::EndOpacityLayer() {
+	if (!mOpacityActive) return nullptr;
+	mApi.BindFramebuffer(GL_FRAMEBUFFER,0);
+	mOpacityActive = false;
+	return &mOpacityTexture;
+}
 } // namespace pvz

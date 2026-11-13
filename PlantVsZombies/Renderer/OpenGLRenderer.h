@@ -84,6 +84,9 @@ namespace pvz {
 			int logicalWidth, int logicalHeight, float letterboxScale,
 			float letterboxOffsetX, float letterboxOffsetY);
 		bool EndFrame();
+		/** 全帧透明附件复用当前 viewport；结束后回到主 framebuffer。禁止嵌套。 */
+		bool BeginOpacityLayer();
+		RenderTexture* EndOpacityLayer();
 		bool ApplyVsync(bool vsync, std::string& error);
 		/** 重新查询高 DPI drawable 尺寸；全屏切换后必须先刷新再计算 letterbox。 */
 		void RefreshDrawableSize();
@@ -176,6 +179,10 @@ namespace pvz {
 		std::size_t mSsboCapacity = 0;
 		std::size_t mCpuBatchVertexCount = 0;
 		std::vector<std::uint32_t> mSequentialIndices;
+		RenderTexture mOpacityTexture;
+		unsigned int mOpacityFramebuffer = 0;
+		bool mOpacityActive = false;
+		void DestroyOpacityTarget();
 		bool mFrameOpen = false;
 		bool mVsync = false;
 		int mDrawableWidth = 0;

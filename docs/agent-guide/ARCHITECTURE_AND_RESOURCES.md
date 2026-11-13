@@ -59,6 +59,8 @@ Clickable 也由 `GameObject` 用 `unique_ptr<ClickableComponent>` 显式可选�
 
 水岸水面与仪表的程序化片元函数统一放在 `Shader/opengl/water_effects.glsl`：Vulkan 在编译时 include，OpenGL 创建 pool program 时展开同一资源。`Graphics::DrawFloodSurface/DrawWaterGauge` 只在主线程场景绘制中使用，复用 pool pipeline 的六顶点提交、预乘 alpha、矩阵和 shader clip；先 flush batch/instances 保序，不能从 worker 直接调用。参数经顶点 color 通道传递的是效果数据（洪水为四角有符号深度），不能预乘或夹成颜色范围。世界范围裁剪要先用 `WorldToLogical`，以跟随开场、选卡和震屏镜头。修改共享函数须同时验证默认 Vulkan、`-NoInstance` 与 OpenGL，并保留普通三层泳池效果。
 
+`Graphics::BeginOpacityGroup/EndOpacityGroup` 在原提交顺序内把完整角色画入透明附件，再一次性应用透明度，禁止嵌套。Vulkan 的 instance/batch、worker 录制回放和 OpenGL 共用相同边界；附件跟随 drawable 重建，恢复主画面必须 LOAD，不能清屏。合成回贴抵消相机和对象变换，并裁取 letterbox 内画面；GL 额外翻转 framebuffer 纹理 Y。`Animator::SetCompositeOpacity` 用于完整预览，包含附加头/装备；不能用逐分件 `SetAlpha` 替代，否则会看见本应被遮住的身体分件。角色固有轨道 alpha 保留。专项 `smoke_preview_opacity` 用不透明参考、串行半透明和 worker 半透明逐像素对照，并覆盖窗口/全屏切换。
+
 `DrawShaderPreview` 是显式材质演示入口，复用同一提交路径的独立效果分支；共享函数在 `Shader/opengl/shader_preview.glsl`，仅接受独立纹理，拒绝缺图和图集子图。演示时钟、命中点与进度由调用方提供，不读取/改写玩法状态，也不自动作用于角色。把演示迁移到正式多部件角色时，须另行确定统一的特效坐标及完整角色合成边界，不能逐部件机械套用局部 UV。
 
 祭司/钟匠正式世界特效使用 `DrawPolarEffect` 与 `Shader/opengl/polar_effects.glsl`。`BoardPolarFinaleVisuals.cpp` 在 `GameScene::DrawWorldOverlay` 主线程阶段、岩壁/迷雾和 UI 之前提交，读取实体前摇及 Board 裂隙/时间锚的唯一计时器；目标钟印按稳定 ID 跟随，取消资格立即撤下。`PolarFinaleVisuals.h` 统一主体与光屑锚点。只有到场和回溯边沿记录短暂余辉，它不入档，读档清空且不重播；持续图形从恢复后的正式状态直接派生。禁止把这些直接 GPU 提交放进僵尸 worker Draw，或用视觉动画推迟实际召唤/回溯。

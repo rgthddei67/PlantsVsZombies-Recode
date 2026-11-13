@@ -63,6 +63,8 @@ private:
 	float mSpeed = 1.0f;                      ///< 基础播放速度 (每实例随机的 base，PlayTrack 不再覆盖它)
 	float mClipSpeed = 0.0f;                  ///< 当前轨道的绝对速度覆盖；0 = 回落到 mSpeed。每次 PlayTrack 重设，随轨道作用域
 	float mExtraSpeedMultiplier = 1.0f;       ///< 额外速度倍率 (正交状态层，减速/冻结，跨 PlayTrack 存活)
+	float mCompositeOpacity = 1.0f;            ///< 完整角色及附件合成后的透明度；预览专用，不写玩法存档
+	SDL_Color mDrawTint{255,255,255,255};       ///< 卡图等展示的统一乘色
 	float mAlpha = 1.0f;                      ///< 整体透明度
 	float mRenderScaleX = 1.0f;               ///< 最终世界绘制矩阵的 X 缩放，不影响逻辑坐标/动画推进
 	float mRenderScaleY = 1.0f;               ///< 最终世界绘制矩阵的 Y 缩放
@@ -475,6 +477,11 @@ public:
 	 * @param alpha 透明度 (0~1)
 	 */
 	void SetAlpha(float alpha);
+	/** 先合成全部分件和附加动画再统一淡化，不传播到各分件 alpha。 */
+	void SetCompositeOpacity(float opacity) { mCompositeOpacity = std::clamp(opacity,0.0f,1.0f); }
+	float GetCompositeOpacity() const { return mCompositeOpacity; }
+	/** 整体乘色包含附加头/装备，保留每条轨道自己的颜色。 */
+	void SetDrawTint(SDL_Color color);
 
 	/**
 	 * @brief 获取整体透明度

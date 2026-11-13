@@ -389,10 +389,13 @@ void Animator::Draw(Graphics* g, float baseX, float baseY, float Scale) {
 		gActiveRenderProbe = &mLastRenderProbe;
 	}
 
+	if (mCompositeOpacity < 1.0f) g->BeginOpacityGroup(mCompositeOpacity);
+
 	// 保存当前变换栈，确保不叠加额外变换
 	g->PushTransform(glm::mat4(1.0f));
 	DrawInternal(g, baseX, baseY, Scale);
 	g->PopTransform();
+	if (mCompositeOpacity < 1.0f) g->EndOpacityGroup();
 	if (GameAPP::mAutoTestMode)
 		gActiveRenderProbe = previousProbe;
 }
@@ -597,8 +600,8 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 			rec.texSlot = bindTex->BindingId();
 
 			// 本体 → overlay → glow 的相对顺序是视觉契约，子 Animator 必须排在三者之后。
-			const SDL_Color trackColor = extra
-				? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
+			const SDL_Color trackColor = ColorsMultiply(mDrawTint,
+				extra ? extra->mColor : SDL_Color{ 255, 255, 255, 255 });
 			const float baseAlpha = std::clamp(transform.a * mAlpha
 				* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
 			const uint8_t alpha8 = static_cast<uint8_t>(baseAlpha * 255.0f);
@@ -662,8 +665,8 @@ void Animator::DrawInternalInstanced(Graphics* g, float baseX, float baseY, floa
 				rec.u0 = followerImage->aU0; rec.v0 = followerImage->aV0;
 				rec.u1 = followerImage->aU1; rec.v1 = followerImage->aV1;
 				rec.texSlot = bindTex->BindingId();
-				const SDL_Color trackColor = extra
-					? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
+				const SDL_Color trackColor = ColorsMultiply(mDrawTint,
+				extra ? extra->mColor : SDL_Color{ 255, 255, 255, 255 });
 				const float alpha = std::clamp(transform.a * mAlpha
 					* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
 				RecordPublicOpaqueWitness(g, followerImage,
@@ -841,8 +844,8 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 			RecordRenderQuad(
 				mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
 
-			const SDL_Color trackColor = extra
-				? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
+			const SDL_Color trackColor = ColorsMultiply(mDrawTint,
+				extra ? extra->mColor : SDL_Color{ 255, 255, 255, 255 });
 			float combinedAlpha = transform.a * mAlpha
 				* (static_cast<float>(trackColor.a) / 255.0f);
 			float baseAlpha = std::clamp(combinedAlpha, 0.0f, 1.0f);
@@ -905,8 +908,8 @@ void Animator::DrawInternal(Graphics* g, float baseX, float baseY, float Scale, 
 				ApplyRenderScale(mat);
 				RecordRenderQuad(
 					mat[0][0], mat[0][1], mat[1][0], mat[1][1], mat[3][0], mat[3][1]);
-				const SDL_Color trackColor = extra
-					? extra->mColor : SDL_Color{ 255, 255, 255, 255 };
+				const SDL_Color trackColor = ColorsMultiply(mDrawTint,
+				extra ? extra->mColor : SDL_Color{ 255, 255, 255, 255 });
 				const float alpha = std::clamp(transform.a * mAlpha
 					* (static_cast<float>(trackColor.a) / 255.0f), 0.0f, 1.0f);
 				RecordPublicOpaqueWitness(g, followerImage, alpha,
@@ -997,6 +1000,12 @@ void Animator::SetClipSpeed(float clipSpeed) {
 			}
 		}
 	}
+}
+
+void Animator::SetDrawTint(SDL_Color color) {
+	mDrawTint = color;
+	for (auto& sparse : mSparseTrackStates) for (auto& weak : sparse.mAttachedReanims)
+		if (auto child = weak.lock()) child->SetDrawTint(color);
 }
 
 void Animator::SetAlpha(float alpha) {

@@ -58,6 +58,8 @@
 
 `IZombieRules` 从上述注册表与 `info.txt` 自动取得身份、名称，`IZombieCardBar` 复用已有 Animator 生成卡图。新增已实现僵尸时须在权威 `resources/izombie.json` 的 `cards` 补价格，可选冷却继承 `defaultCooldown`；缺失价格会拒绝配置加载，不能默认为免费卡。关卡的 `cards` 可填枚举名称列表或 `"all"`，无需制作逐个卡图。
 
+卡面反馈复用 `CardPresentation`，阳光不足只均匀变灰，选中整卡变黑；仅真实剩余冷却绘制遮罩。落点预览用 `Animator::SetCompositeOpacity` 将身体、护甲和附加动画先合成再淡化，不能逐分件透明或额外画绿色选择/落点框。
+
 购买只走 `Board::TryDeployIZombie`，成功创建后才扣款并启动冷却；UI 不持有第二份交易状态。蹦极使用玩家指定格，不走随机择点。需要特殊吃脑子动作的品种覆盖 `AttackIZombieBrain`，优先复用既有动画和命中帧；脑子进度归 Board，不能当作植物 ID 存档。普通僵尸按既有死亡、无头、魅惑和控制守卫收敛。回归入口为 `smoke_izombie`、`smoke_izombie_catalog` 与 `smoke_izombie_navigation`，全卡图检查不等于逐兵种全能力验收。
 ### gamedata.json
 

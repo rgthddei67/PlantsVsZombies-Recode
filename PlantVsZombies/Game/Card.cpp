@@ -126,15 +126,15 @@ void Card::SetCardGameClick()
 		if (gameplayType == PlantType::PLANT_PLANTERN
 			&& manager->GetBoard() && manager->GetBoard()->GetActivePlantern()) {
 			manager->TogglePlanternGearMenu();
-			AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_CLICKSEED, 0.5f);
+			CardPresentation::PlayClick(true);
 			return;
 		}
 		if (!IsReady() || !manager->CanUsePlant(gameplayType, mSunCost)) {
-			AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_CLICKFAILED, 0.5f);
+			CardPresentation::PlayClick(false);
 			return;
 		}
 		manager->SelectCard(this);
-		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_CLICKSEED, 0.5f);
+		CardPresentation::PlayClick(true);
 	};
 }
 
@@ -158,9 +158,7 @@ void Card::UpdateSunTextCache()
 		&& !graphics.IsCachedTextStale(mSunTextCache)) {
 		return;
 	}
-	mSunTextCache = graphics.AcquireTextTexture(std::to_string(mSunCost),
-		ResourceKeys::Fonts::FONT_FZCQ, kSunTextRasterSize,
-		glm::vec4(0.0f, 0.0f, 0.0f, 255.0f));
+	mSunTextCache = CardPresentation::AcquireCost(graphics,mSunCost);
 	mCachedSunValue = mSunCost;
 }
 
@@ -390,17 +388,7 @@ void Card::TransitionToClick()
 
 glm::vec4 Card::GetCurrentColor() const
 {
-	switch (mVisualState) {
-	case VisualState::Ready:
-		return mReadyColor;
-	case VisualState::Cooling:
-		return mDisabledColor;
-	case VisualState::WaitingSun:
-		return mWaitingSunColor;
-	case VisualState::Click:
-		return mClickColor;
-	}
-	return mReadyColor;
+	return CardPresentation::Tint(mVisualState);
 }
 
 /** 绘制 Card 专属视觉；保留基类组件的调试绘制先于卡面提交。 */
@@ -419,7 +407,7 @@ void Card::Draw(Graphics* g)
 	}
 	const bool isActivePlantern = displayType == PlantType::PLANT_PLANTERN
 		&& board && board->GetActivePlantern();
-	const glm::vec4 color = isActivePlantern ? mReadyColor : GetCurrentColor();
+	const glm::vec4 color = isActivePlantern ? CardPresentation::Tint(VisualState::Ready) : GetCurrentColor();
 
 	DrawCardBackground(g, position, color);
 	DrawPlantImage(g, position, color);
@@ -474,9 +462,7 @@ void Card::DrawCardBackground(
 		return;
 	}
 	if (!mCardNormal) return;
-	g->DrawTexture(mCardNormal, position.x, position.y,
-		static_cast<float>(CARD_WIDTH), static_cast<float>(CARD_HEIGHT),
-		0.0f, color);
+	CardPresentation::DrawNormalFrame(g,mCardNormal,position.x,position.y,color);
 }
 
 /** 绘制植物卡图或无实体技能券；技能卡不查询植物纹理与动画。 */
@@ -644,10 +630,7 @@ void Card::DrawBloverDirection(Graphics* g, const Vector& position)
 void Card::DrawCooldownMask(Graphics* g, const Vector& position)
 {
 	if (!mCardBackground) return;
-	const int maskHeight = static_cast<int>(CARD_HEIGHT * (1.0f - mMaskFillAmount));
-	g->FillRect(position.x, position.y,
-		static_cast<float>(CARD_WIDTH), static_cast<float>(maskHeight),
-		glm::vec4(0.0f, 0.0f, 0.0f, 64.0f));
+	CardPresentation::DrawCooldown(g,position.x,position.y,1.0f-mMaskFillAmount);
 }
 
 void Card::DrawSunCost(Graphics* g, const Vector& position)
@@ -659,15 +642,12 @@ void Card::DrawSunCost(Graphics* g, const Vector& position)
 				ResourceKeys::Fonts::FONT_FZCQ, 12, glm::vec4(175, 240, 255, 255), position.x + 4, position.y + 3);
 		}
 	}
-	g->DrawCachedText(mSunTextCache, position.x + 5.0f, position.y + 51.0f,
-		kSunTextDrawScale);
+	CardPresentation::DrawCost(g,mSunTextCache,position.x,position.y);
 }
 
 void Card::DrawSelectionHighlight(Graphics* g, const Vector& position)
 {
-	g->FillRect(position.x, position.y,
-		static_cast<float>(CARD_WIDTH), static_cast<float>(CARD_HEIGHT),
-		glm::vec4(0.0f, 0.0f, 0.0f, 64.0f));
+	CardPresentation::DrawSelection(g,position.x,position.y);
 }
 
 std::string Card::GetPlantTextureKey() const

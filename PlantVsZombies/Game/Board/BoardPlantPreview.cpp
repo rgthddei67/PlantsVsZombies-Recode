@@ -27,7 +27,7 @@ Plant* Board::CreatePlantingPreview(PlantType plantType, int row, int column) {
         const auto* top = GetTopPlantAt(anchor->mRow, anchor->mColumn);
         preview->SetRenderOrder(top ? top->GetRenderOrder() : LAYER_GAME_PLANT, 1);
         preview->SetPosition(center);
-        preview->SetAlpha(0.35f);
+        preview->GetAnimatorInternal()->SetCompositeOpacity(0.35f);
     }
     return preview;
 }

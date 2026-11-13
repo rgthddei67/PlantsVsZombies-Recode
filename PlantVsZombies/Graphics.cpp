@@ -10,6 +10,8 @@
 #include "./Renderer/OpenGLRenderer.h"
 
 #include <cstring>
+#include <bit>
+#include <stdexcept>
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -532,6 +534,8 @@ void Graphics::ShutdownVulkan() {
 	VkDevice dev = m_vk->ctx ? m_vk->ctx->Device() : VK_NULL_HANDLE;
 	if (dev) vkDeviceWaitIdle(dev);
 
+	m_vk->renderer->ReleaseOpacityTarget();
+
 	// 白色纹理交还给 pool
 	if (m_vk->whiteTex && m_vk->texPool) {
 		m_vk->texPool->DestroyTexture(m_vk->whiteTex);
@@ -939,6 +943,53 @@ PackedClipRect Graphics::CurrentPackedClipRect() const {
 	const std::vector<PackedClipRect>& stack =
 		tl_packedClipStack ? *tl_packedClipStack : m_packedClipStack;
 	return stack.empty() ? PackedClipRect{} : stack.back();
+}
+
+/** worker 只记录边界，后端附件切换在主线程按原几何顺序回放。 */
+void Graphics::BeginOpacityGroup(float opacity) {
+	opacity = std::clamp(opacity,0.0f,1.0f);
+	if (tl_record) {
+		auto& r = *tl_record;
+		r.cmds.push_back({RecCmdType::BeginOpacity,0,0,r.slice.vboCount,r.slice.instCount,std::bit_cast<uint32_t>(opacity)});
+		return;
+	}
+	if (m_opacityGroupActive) throw std::logic_error("nested opacity group");
+	FlushBatch(); FlushInstances();
+	const bool ready = m_gl ? m_gl->BeginOpacityLayer()
+		: m_vk && m_vk->renderer->BeginOpacityLayer(m_vk->texPool);
+	if (!ready) throw std::runtime_error("could not create opacity render target");
+	m_opacityGroup = opacity; m_opacityGroupActive = true;
+}
+
+void Graphics::EndOpacityGroup() {
+	if (tl_record) {
+		auto& r = *tl_record;
+		r.cmds.push_back({RecCmdType::EndOpacity,0,0,r.slice.vboCount,r.slice.instCount,0});
+		return;
+	}
+	if (!m_opacityGroupActive) throw std::logic_error("opacity group not open");
+	FlushBatch(); FlushInstances();
+	auto* target = m_gl ? m_gl->EndOpacityLayer() : m_vk->renderer->EndOpacityLayer();
+	if (!target) throw std::runtime_error("could not finish opacity render target");
+	Texture texture; texture.width = target->width; texture.height = target->height; texture.renderTexture = target;
+	const auto previousBlend = m_currentBlendMode;
+	SetBlendMode(BlendMode::Alpha);
+	// 透明附件是完整 drawable；只采样 letterbox 内的画面，抵消相机，避免二次变换。
+	const auto position = LogicalToWorld(0,0);
+	const float width = m_windowWidth * m_letterboxScale, height = m_windowHeight * m_letterboxScale;
+	const float sourceY = m_gl ? target->height-m_letterboxOffsetY : m_letterboxOffsetY;
+	const auto savedTransform = m_transformStack.back();
+	const auto savedIdentity = m_transformIsIdentity.back();
+	m_transformStack.back() = glm::mat4(1.0f);
+	m_transformIsIdentity.back() = true;
+	DrawTextureRegion(&texture,m_letterboxOffsetX,sourceY,width,m_gl ? -height : height,
+		position.x,position.y,static_cast<float>(m_windowWidth),static_cast<float>(m_windowHeight),
+		0,{255,255,255,m_opacityGroup*255});
+	m_transformStack.back() = savedTransform;
+	m_transformIsIdentity.back() = savedIdentity;
+	FlushBatch(); // 采样完成后才允许下一个组清空同一附件。
+	SetBlendMode(previousBlend);
+	m_opacityGroupActive = false;
 }
 
 void Graphics::FlushBatch() {
@@ -3073,6 +3124,14 @@ void Graphics::ReplayAndEndParallel() {
 			emitUpTo(cmdAbsVert, cmdAbsInst);
 
 			switch (cmd.type) {
+			case RecCmdType::BeginOpacity:
+				BeginOpacityGroup(std::bit_cast<float>(cmd.payloadIdx));
+				boundPipe = BoundPipe::None;
+				break;
+			case RecCmdType::EndOpacity:
+				EndOpacityGroup();
+				boundPipe = BoundPipe::None;
+				break;
 			case RecCmdType::GeometryBoundary:
 				// emitUpTo 已排空边界之前的两条队列，不改变混合状态。
 				break;

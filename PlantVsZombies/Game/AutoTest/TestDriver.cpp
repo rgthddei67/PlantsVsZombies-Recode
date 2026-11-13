@@ -4117,6 +4117,44 @@ bool TestDriver::ExecuteCurrent() {
 		}, LAYER_UI + 100);
 		return true;
 	}
+	if (op == "preview_opacity_probe") {
+		auto* scene = CurrentGameScene();
+		if (!scene || !scene->GetBoard()) { Fail("preview_opacity_probe: board missing"); return false; }
+		if (!cmd.value("on",true)) { scene->UnregisterDrawCommand("PreviewOpacityProbe"); return true; }
+		auto zombie = GameAPP::GetInstance().InstantiateZombieFree(ZombieType::ZOMBIE_BUCKET,nullptr,0,0);
+		zombie->PauseAnimation(); zombie->RemoveCollider(); zombie->RemoveShadow(); zombie->SetActive(false);
+		auto* plant = scene->GetBoard()->CreatePlantingPreview(PlantType::PLANT_PEASHOOTER);
+		if (!plant) { Fail("preview_opacity_probe: plant missing"); return false; }
+		plant->SetActive(false);
+		auto body = zombie->GetAnimatorInternal();
+		auto pea = plant->GetAnimatorInternal();
+		// 同一冻结姿态：左列不透明，中列串行半透明，右列 worker 半透明。
+		// 植物保留 GOM 宿主，附加头的 weak Animator 生命周期与真实预览一致。
+		scene->RegisterDrawCommand("PreviewOpacityProbe",[body,pea](Graphics* g) {
+			const auto previousBlend = g->GetBlendMode();
+			g->SetBlendMode(BlendMode::Alpha);
+			g->FillRect(0,80,1100,490,{40,70,110,255});
+			const auto drawColumn = [&](float x,float opacity) {
+				body->SetCompositeOpacity(opacity); pea->SetCompositeOpacity(opacity);
+				body->Draw(g,x+50,100,.8f);
+				pea->Draw(g,x+70,350,.8f);
+				// 不同材质在非单位变换内合成，核对遮挡与最终坐标不能再次变换。
+				g->PushTransform(); g->Translate(x,495);
+				if(opacity<1) g->BeginOpacityGroup(opacity);
+				g->FillRect(0,0,70,45,{210,50,30,255});
+				g->FillRect(30,10,70,45,{30,210,70,255});
+				if(opacity<1) g->EndOpacityGroup();
+				g->PopTransform();
+			};
+			drawColumn(120,1); drawColumn(440,.5f);
+			const bool parallel = g->IsParallelDrawEnabled();
+			if(parallel) { g->BeginParallelRecord(1); g->SetWorkerSlot(0); }
+			drawColumn(760,.5f);
+			if(parallel) { g->ClearWorkerSlot(); g->ReplayAndEndParallel(); }
+			g->SetBlendMode(previousBlend);
+		},LAYER_UI+500);
+		return true;
+	}
 	if (op == "primitive_aa_probe") {
 		Scene* scene = SceneManager::GetInstance().GetCurrentScene();
 		if (!scene) { Fail("primitive_aa_probe: scene missing"); return false; }
@@ -4841,6 +4879,8 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		{ "lastPlayHandoffMicroseconds",
 			AudioSystem::GetAdaptiveMusicLastPlayHandoffMicroseconds() },
 	};
+	out["cardClickSoundRequests"] = AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_CLICKSEED);
+	out["cardFailedSoundRequests"] = AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_CLICKFAILED);
 	out["dolphinAppearSoundRequestCount"] =
 		AudioSystem::GetSoundPlayRequestCount(ResourceKeys::Sounds::SOUND_DOLPHIN_APPEARS);
 	out["dolphinBeforeJumpSoundRequestCount"] =

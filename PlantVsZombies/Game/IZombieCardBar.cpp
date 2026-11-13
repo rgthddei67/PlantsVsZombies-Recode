@@ -1,5 +1,6 @@
 #include "IZombieCardBar.h"
 #include "IZombieRules.h"
+#include "CardPresentation.h"
 #include "Board/Board.h"
 #include "Zombie/Zombie.h"
 #include "Plant/GameDataManager.h"
@@ -21,8 +22,6 @@ constexpr float kCardWidth = 50; // 卡片宽度，px
 constexpr float kCardHeight = 70; // 卡片高度，px
 constexpr float kCardPitch = 51; // 相邻卡片间距，px
 constexpr float kPageX = 800; // 分页控制起点，px
-constexpr int kCostRasterSize = 28; // 与 Card 的阳光数字一致，使用 2× 超采样光栅字号
-constexpr float kCostDrawScale = 0.5f; // 与 Card 一致，缩回实机字号
 
 bool Inside(Vector point, float x, float y, float width, float height)
 {
@@ -80,9 +79,7 @@ void IZombieCardBar::UpdateCostLabels()
     for (size_t index = 0; index < mCostLabels.size(); ++index) {
         auto& label = mCostLabels[index];
         if (!graphics.IsCachedTextStale(label) && label.BindingId() != 0) continue;
-        label = graphics.AcquireTextTexture(
-            std::to_string(IZombie::Card(mTypes[mPage*kPageSize+index]).cost),
-            ResourceKeys::Fonts::FONT_FZCQ, kCostRasterSize, {0,0,0,255});
+        label = CardPresentation::AcquireCost(graphics,IZombie::Card(mTypes[mPage*kPageSize+index]).cost);
     }
 }
 
@@ -118,10 +115,13 @@ void IZombieCardBar::Update()
     }
     if(mHoveredSlot>=0) {
         const auto& card=IZombie::Card(mTypes[mHoveredSlot]);
-        if(mBoard->GetSun()<card.cost) { mHint="阳光不足"; mHintRemaining=2; }
-        else if(mBoard->GetIZombieState()->cooldowns[mHoveredSlot]>0) { mHint="这张卡还在冷却"; mHintRemaining=2; }
-        else if(mSelectedSlot==mHoveredSlot) Cancel();
-        else Select(mHoveredSlot);
+        if(mBoard->GetSun()<card.cost) { mHint="阳光不足"; mHintRemaining=2; CardPresentation::PlayClick(false); }
+        else if(mBoard->GetIZombieState()->cooldowns[mHoveredSlot]>0) { mHint="这张卡还在冷却"; mHintRemaining=2; CardPresentation::PlayClick(false); }
+        else {
+            if(mSelectedSlot==mHoveredSlot) Cancel();
+            else Select(mHoveredSlot);
+            CardPresentation::PlayClick(true);
+        }
         return;
     }
     if(mSelectedSlot<0) return;
@@ -129,7 +129,7 @@ void IZombieCardBar::Update()
     if(row<0) { Cancel(); return; }
     mHint=mBoard->TryDeployIZombie(mSelectedSlot,row,column);
     if(mHint.empty()) Cancel();
-    else mHintRemaining=2.5f;
+    else { mHintRemaining=2.5f; CardPresentation::PlayClick(false); }
 }
 
 void IZombieCardBar::Draw(Graphics* graphics)
@@ -141,10 +141,13 @@ void IZombieCardBar::Draw(Graphics* graphics)
         const int slot=mPage*kPageSize+index;
         const auto& card=IZombie::Card(mTypes[slot]);
         const float x=kCardX+index*kCardPitch;
-        const bool ready=mBoard->GetSun()>=card.cost && state->cooldowns[slot]<=0;
-        const glm::vec4 color=ready ? glm::vec4(255) : glm::vec4(155,155,155,255);
-        if(frame) graphics->DrawTexture(frame,x,kCardY,kCardWidth,kCardHeight,0,color);
+        const auto visualState = slot==mSelectedSlot ? CardPresentation::State::Click
+            : state->cooldowns[slot]>0 ? CardPresentation::State::Cooling
+            : mBoard->GetSun()<card.cost ? CardPresentation::State::WaitingSun : CardPresentation::State::Ready;
+        const auto color = CardPresentation::Tint(visualState);
+        CardPresentation::DrawNormalFrame(graphics,frame,x,kCardY,color);
         auto animator=mPortraits[index]->GetAnimatorInternal();
+        animator->SetDrawTint({static_cast<Uint8>(color.r),static_cast<Uint8>(color.g),static_cast<Uint8>(color.b),255});
         graphics->PushClipRect(static_cast<int>(x+3),7,static_cast<int>(kCardWidth-6),44);
         // 统一全身取景；大型车辆/巨人按其既有碰撞体尺寸缩放，无需另画卡图。
         const auto offset=GameDataManager::GetInstance().GetZombieOffset(card.type);
@@ -155,13 +158,12 @@ void IZombieCardBar::Draw(Graphics* graphics)
             || card.type==ZombieType::ZOMBIE_CATAPULT || card.type==ZombieType::ZOMBIE_ELITE_CATAPULT) scale=.27f;
         animator->Draw(graphics,x+kCardWidth*.5f+offset.x*scale,48+offset.y*scale,scale);
         graphics->PopClipRect();
-        if(!ready) graphics->FillRect(x+2,4,kCardWidth-4,57,{15,20,15,65});
         if(state->cooldowns[slot]>0) {
             const float fraction=std::clamp(state->cooldowns[slot]/std::max(card.cooldown,state->cooldowns[slot]),0.0f,1.0f);
-            graphics->FillRect(x+2,4,kCardWidth-4,57*fraction,{0,0,0,115});
+            CardPresentation::DrawCooldown(graphics,x,kCardY,fraction);
         }
-        graphics->DrawCachedText(mCostLabels[index],x+5,kCardY+51,kCostDrawScale);
-        if(slot==mSelectedSlot) graphics->FillRect(x,2,kCardWidth,3,{100,255,90,255});
+        CardPresentation::DrawCost(graphics,mCostLabels[index],x,kCardY);
+        if(slot==mSelectedSlot) CardPresentation::DrawSelection(graphics,x,kCardY);
     }
     if(mTypes.size()>kPageSize) {
         app.DrawText("<   >",{kPageX+8,8},{230,240,205,255},ResourceKeys::Fonts::FONT_FZJZ,25);
@@ -185,13 +187,11 @@ void IZombieCardBar::DrawPlacement(Graphics* graphics)
     const bool valid=row>=0 && mBoard->CanDeployIZombie(mSelectedSlot,row,column).empty();
     if(row>=0) {
         position=mBoard->GetCellCenterPosition(row,column);
-        graphics->FillRect(position.x-CELL_COLLIDER_SIZE_X*.5f,position.y-mBoard->GetCellHeight()*.5f,
-            CELL_COLLIDER_SIZE_X,mBoard->GetCellHeight(),valid ? glm::vec4(65,230,65,45) : glm::vec4(250,45,45,55));
         position.y=mBoard->GetZombieSpawnY(row,position.x);
     }
     mPlacement->SetPosition(position);
     auto animator=mPlacement->GetAnimatorInternal();
-    animator->SetAlpha(valid ? .6f : .3f);
+    animator->SetCompositeOpacity(valid ? .6f : .3f);
     const auto visual=mPlacement->GetVisualPosition();
     animator->Draw(graphics,visual.x,visual.y,mPlacement->GetTransform()->GetScale());
 }
