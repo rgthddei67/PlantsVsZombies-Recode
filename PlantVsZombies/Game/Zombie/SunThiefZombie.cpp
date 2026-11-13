@@ -41,7 +41,7 @@ void SunThiefZombie::Update()
 {
 	if (!mIsPreview && mBoard && IsActive() && !mIsDead && !mIsDying) {
 		const auto record = mBoard->GetSunTheftRecord(mZombieID);
-		if (mPhase != Phase::RETREAT && (!HasHead() || record.disabled || IsMindControlled())) {
+		if (mPhase != Phase::RETREAT && (!HasHead() || record.disabled || IsMindControlled() || mBoard->IsIZombie())) {
 			if (mPhase == Phase::WINDUP) FinishWindup(Phase::DISABLED);
 			else mPhase = Phase::DISABLED;
 		}

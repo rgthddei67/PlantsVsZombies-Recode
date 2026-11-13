@@ -23,6 +23,7 @@ namespace {
 	constexpr float kTunnelVelocityMin = DiggerRules::TunnelVelocityMinimum; // 地下速度随机下界，px/tick
 	constexpr float kTunnelVelocityMax = DiggerRules::TunnelVelocityMaximum; // 地下速度随机上界，px/tick
 	constexpr float kBackwardWalkVelocity = DiggerRules::RightWalkVelocity; // 普通持镐折返速度，px/tick
+	constexpr float kIZombieWalkVelocity = 0.23f; // 我是僵尸的持镐行走速度，供既有根运动换算使用，px/tick
 	constexpr float kNormalWalkVelocityMin = DiggerRules::LeftWalkVelocityMinimum; // 无镐步行随机下界，px/tick
 	constexpr float kNormalWalkVelocityMax = DiggerRules::LeftWalkVelocityMaximum; // 无镐步行随机上界，px/tick
 	constexpr float kGroundTrackDistance = 72.5f;            // anim_walk 的 _ground 总水平位移，单位 px
@@ -353,7 +354,7 @@ void DiggerZombie::OnPickaxeLost(Phase)
 
 float DiggerZombie::GetPickaxeWalkVelocity() const
 {
-	return kBackwardWalkVelocity;
+	return mBoard && mBoard->IsIZombie() ? kIZombieWalkVelocity : kBackwardWalkVelocity;
 }
 
 const std::string& DiggerZombie::GetFullHardhatTexture() const

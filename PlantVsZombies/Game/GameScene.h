@@ -12,6 +12,7 @@
 
 class ChooseCardUI;
 class CardSlotManager;
+class IZombieCardBar;
 class CrazyDaveDialog;
 class GameProgress;
 class ShovelBank;
@@ -115,6 +116,7 @@ public:
 	Board* GetBoard() const { return mBoard.get(); }
 	ChooseCardUI* GetChooseCardUI() const { return mChooseCardUI; }
 	CardSlotManager* GetCardSlotManager() const { return mCardSlotManager.get(); }
+	IZombieCardBar* GetIZombieCardBar() const { return mIZombieCardBar.get(); }
 	// 选卡界面是否就绪（卡牌已铺开、"一起摇滚吧"可点）
 	bool IsChooseCardReady() const {
 		return mCurrentStage == IntroStage::COMPLETE && mChooseCardUI != nullptr;
@@ -367,7 +369,8 @@ private:
 	int  mDevZombieIndex    = 0;      // kDevZombieTable 下标
 	int  mDevLevelSel       = 1;      // 面板选中的关卡号
 	int  mDevPendingLevel   = -1;     // >=0 时 Update 尾部执行跳关（回调内不可 SwitchTo 销毁自身）
-	std::unique_ptr<CardSlotManager> mCardSlotManager; // 场景独占的卡槽、手持预览与落种控制器
+	std::unique_ptr<CardSlotManager> mCardSlotManager;
+	std::unique_ptr<IZombieCardBar> mIZombieCardBar; // 场景独占的卡槽、手持预览与落种控制器
 	ChooseCardUI* mChooseCardUI = nullptr;        // 所有权在 GameObjectManager
 	GameProgress* mGameProgress = nullptr;        // 所有权在 GameObjectManager
 

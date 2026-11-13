@@ -84,6 +84,14 @@ void MainMenuScene::Update()
 		// SwitchTo 已销毁当前主菜单，不能继续读取其余入口标志。
 		return;
 	}
+	if (mReadyToSwitchPuzzles) {
+		mReadyToSwitchPuzzles = false;
+		auto& scenes = SceneManager::GetInstance();
+		GameAPP::GetInstance().GetGraphics().SetCameraPosition(0,0);
+		scenes.SetGlobalData("GameSelectMode","puzzles");
+		scenes.SwitchTo("GameSelectScene");
+		return;
+	}
 	if (mReadyToSwitchMiniGames) {
 		mReadyToSwitchMiniGames = false;
 		auto& scenes = SceneManager::GetInstance();

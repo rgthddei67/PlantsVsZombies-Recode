@@ -14,6 +14,7 @@ public:
 		SURVIVAL,
 		ADVENTURE,
 		MINIGAMES,
+		PUZZLES,
 	};
 
 	void OnEnter() override;

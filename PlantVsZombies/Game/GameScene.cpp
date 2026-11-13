@@ -8,6 +8,7 @@
 #include "PlantAlmanacScene.h"
 #include "../ResourceManager.h"
 #include "./CardSlotManager.h"
+#include "IZombieCardBar.h"
 #include "../ResourceKeys.h"
 #include "../DeltaTime.h"
 #include "./AudioSystem.h"
@@ -772,6 +773,7 @@ float GameScene::GetWeatherPanelHeight() const
 void GameScene::UpdateAfterGameObjects()
 {
 	if (mBoard) mBoard->UpdateMineInput();
+	if (mIZombieCardBar) { mIZombieCardBar->Update(); return; }
 	if (mCardSlotManager && (!mBoard || !mBoard->mMineToolActive)) mCardSlotManager->Update();
 }
 
@@ -1945,6 +1947,12 @@ void GameScene::DrawEngineeringShipBossHealthBar(Graphics* g) const
 void GameScene::BuildDrawCommands()
 {
 	Scene::BuildDrawCommands();
+	mSunCounterRegistered = false; // 基类已清掉命令，文字登记标记也必须随重建复位。
+	if (mIZombieCardBar) {
+		RegisterDrawCommand("IZombieBrains",[this](Graphics* g) { mBoard->DrawIZombie(g); },LAYER_GAME_PLANT-1);
+		RegisterDrawCommand("IZombiePlacement",[this](Graphics* g) { mIZombieCardBar->DrawPlacement(g); },LAYER_UI-1);
+		RegisterDrawCommand("IZombieCards",[this](Graphics* g) { mIZombieCardBar->Draw(g); },LAYER_UI+100);
+	}
 	if (mBoard && mBoard->IsColdStorage())
 		RegisterDrawCommand("ColdStorageShop", [this](Graphics* g) { DrawColdStorageShop(g); DrawWeatherStationControls(g); }, LAYER_UI - 1);
 
@@ -2265,7 +2273,10 @@ void GameScene::OnEnter() {
 	// 地形在 Board 构造与读档后已经确定；选卡/镜头演出期间后台解析完整 MO3 分轨。
 	mBoard->PrepareBackgroundMusic();
 
-	if (mBoard->GetState() == BoardState::GAME) {
+	if (mBoard->IsIZombie()) {
+		mIZombieCardBar = std::make_unique<IZombieCardBar>(mBoard.get());
+	}
+	if (mBoard->GetState() == BoardState::GAME || mBoard->IsIZombie()) {
 		// 跳过选卡和开场动画，直接进入游戏
 		GameAPP::GetInstance().GetGraphics().SetCameraPosition(0, 0);
 		mCurrentStage = IntroStage::FINISH;
@@ -2335,6 +2346,7 @@ void GameScene::OnExit() {
 	}
 	if (!mLevelLoadFailed) gameApp.mGameInfoSaver.SavePlayerInfo();
 
+	mIZombieCardBar.reset();
 	mBoard->BindCardSlotManager(nullptr);
 	mCardSlotManager.reset();
 	Scene::OnExit();
@@ -2372,7 +2384,7 @@ void GameScene::OpenMenu()
 		}, ResourceKeys::Textures::IMAGE_OPTIONS_BACKTOGAMEBUTTON0)
 		.Button("重新开始", Vector(485, 330), Vector(213 * 0.9f, 50 * 0.9f), 21,
 			[this]() { this->OpenRestartMenu(); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false)
-		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? "小游戏选关" : "主菜单", Vector(485, 371), Vector(213 * 0.9f, 50 * 0.9f), 21,
+		.Button(mBoard->IsIZombie() ? "解谜选关" : MiniGame::IsMiniGame(mBoard->mLevel) ? "小游戏选关" : "主菜单", Vector(485, 371), Vector(213 * 0.9f, 50 * 0.9f), 21,
 			[this]() { this->OpenQuitMenu(); }, ResourceKeys::Textures::IMAGE_BUTTONBIG, false)
 		.Button("查看图鉴", Vector(485, 289), Vector(213 * 0.9f, 50 * 0.9f), 21, [this]() {
 			this->mLendToAlmanacScene = true;
@@ -2455,8 +2467,8 @@ void GameScene::OpenQuitMenu()
 
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
 		.Title("退出当前游戏？")
-		.Message(MiniGame::IsMiniGame(mBoard->mLevel)
-			? "你想要返回小游戏选关吗？" : "你想要返回主菜单吗？")
+		.Message(mBoard->IsIZombie() ? "你想要返回解谜选关吗？"
+			: MiniGame::IsMiniGame(mBoard->mLevel) ? "你想要返回小游戏选关吗？" : "你想要返回主菜单吗？")
 		.Scale(kCompactDialogScale)
 		.Button("退出", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToBackMenu = true;
@@ -2806,6 +2818,9 @@ void GameScene::Update() {
 			const PlantType reward = mUnlockedPlant;
 			scenes.RegisterScene<PlantAlmanacScene>("PlantRewardScene", reward);
 			scenes.SwitchTo("PlantRewardScene");
+		} else if (mBoard->IsIZombie()) {
+			scenes.SetGlobalData("GameSelectMode","puzzles");
+			scenes.SwitchTo("GameSelectScene");
 		} else if (MiniGame::IsMiniGame(mBoard->mLevel)) {
 			scenes.SetGlobalData("GameSelectMode", "minigames");
 			scenes.SwitchTo("GameSelectScene");
@@ -3456,9 +3471,9 @@ void GameScene::GameOver()
 
 	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2, SCENE_HEIGHT / 2))
 		.Title("游戏结束")
-		.Message("僵尸吃掉了你的脑子！")
+		.Message(mBoard->IsIZombie() ? "进攻部队已耗尽，阳光不足以继续投放。" : "僵尸吃掉了你的脑子！")
 		.Scale(kCompactDialogScale)
-		.Button(MiniGame::IsMiniGame(mBoard->mLevel) ? "返回选关" : "返回菜单", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
+		.Button((mBoard->IsIZombie() || MiniGame::IsMiniGame(mBoard->mLevel)) ? "返回选关" : "返回菜单", Vector(380, 380), Vector(125 * 0.8f, 52 * 0.8f), 14, [this]() {
 			this->mReadyToBackMenu = true;
 			DeltaTime::SetPaused(false);
 		})

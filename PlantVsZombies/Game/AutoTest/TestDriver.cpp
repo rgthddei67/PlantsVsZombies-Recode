@@ -17,6 +17,7 @@
 #include "Game/AI/ColdStorageSearch.h"
 #include "Game/AI/ColdStorageFormationSeeds.h"
 #include "../../GameApp.h"
+#include "Game/IZombieCardBar.h"
 #include "Game/Plant/AnchorLotus.h"
 #include "Game/Zombie/HeavyDiverZombie.h"
 #include "Game/Zombie/SalvageZombie.h"
@@ -1825,6 +1826,28 @@ bool TestDriver::ExecuteCurrent() {
 	if (op == "set_auto_collect") {
 		// 仅修改测试进程偏好，验证手动领取的恢复不依赖自动收集补救。
 		GameAPP::GetInstance().mAutoCollected = cmd.value("value", true);
+		return true;
+	}
+	if (op == "izombie_cards" || op == "izombie_deploy" || op == "izombie_cooldown") {
+		GameScene* scene=CurrentGameScene();
+		Board* board=scene ? scene->GetBoard() : nullptr;
+		if (!board || !board->IsIZombie()) { Fail(op+": not an IZombie board"); return false; }
+		if (op=="izombie_cards") {
+			std::vector<ZombieType> types;
+			if (cmd.value("all",false)) for(const auto& card:IZombie::Cards()) types.push_back(card.type);
+			else for(const auto& key:cmd.at("cards")) {
+				const auto it=kZombieNames.find(key.get<std::string>());
+				if(it==kZombieNames.end()) { Fail("izombie_cards: unknown type"); return false; }
+				types.push_back(it->second);
+			}
+			board->SetIZombieCardsForTesting(types);
+			if (scene->GetIZombieCardBar()) scene->GetIZombieCardBar()->Refresh();
+		} else if(op=="izombie_cooldown") {
+			board->SetIZombieCooldownForTesting(cmd.value("slot",0),cmd.value("seconds",0.0f));
+		} else {
+			const auto reason=board->TryDeployIZombie(cmd.value("slot",0),cmd.value("row",0),cmd.value("col",4));
+			if(reason.empty()!=cmd.value("expectedSuccess",true)) { Fail("izombie_deploy: "+reason); return false; }
+		}
 		return true;
 	}
 	if (op == "set_sun") {
@@ -5638,7 +5661,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	if (auto* selectScene = dynamic_cast<GameSelectScene*>(currentScene)) {
 		out["gameSelectMode"] = selectScene->GetSelectMode()
 			== GameSelectScene::SelectMode::ADVENTURE ? "ADVENTURE"
-			: (selectScene->GetSelectMode() == GameSelectScene::SelectMode::MINIGAMES ? "MINIGAMES" : "SURVIVAL");
+			: (selectScene->GetSelectMode() == GameSelectScene::SelectMode::MINIGAMES ? "MINIGAMES" : (selectScene->GetSelectMode() == GameSelectScene::SelectMode::PUZZLES ? "PUZZLES" : "SURVIVAL"));
 		out["gameSelectAvailableLevels"] = selectScene->GetAvailableLevels();
 		out["gameSelectAvailableLevelCount"] = static_cast<int>(
 			selectScene->GetAvailableLevels().size());
@@ -5881,6 +5904,21 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 	};
 
 	out["boardState"] = BoardStateName(board->GetState());
+	out["izombie"] = board->SaveIZombie();
+	if (board->IsIZombie()) {
+		out["izombie"]["brainsRemaining"] = board->GetIZombieBrainsRemaining();
+		out["izombie"]["catalogCount"] = IZombie::Cards().size();
+		out["izombie"]["brainTextureReady"] = ResourceManager::GetInstance().GetTexture("IMAGE_IZOMBIE_BRAIN",false)!=nullptr;
+		if (gs->GetIZombieCardBar()) {
+			out["izombie"]["selectedSlot"] = gs->GetIZombieCardBar()->GetSelectedSlot();
+			out["izombie"]["page"] = gs->GetIZombieCardBar()->GetPage();
+		}
+		out["izombie"]["brainPositions"] = nlohmann::json::array();
+		for (int row=0;row<board->mRows;++row) {
+			const auto pos=board->GetIZombieBrainPosition(row);
+			out["izombie"]["brainPositions"].push_back({{"x",pos.x},{"y",pos.y}});
+		}
+	}
 	out["cobCannonTargeting"] = board->IsCobCannonTargeting();
 	out["targetingCobCannonID"] = board->GetTargetingCobCannonID();
 	out["chooseCardReady"] = gs->IsChooseCardReady();

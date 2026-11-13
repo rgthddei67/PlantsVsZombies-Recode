@@ -270,6 +270,7 @@ void Zombie::SaveProtectedData(nlohmann::json& j) const {
 	j["isMindControlled"] = mIsMindControlled;
 	j["freeHitsRemaining"] = mFreeHitsRemaining;
 	j["isEating"] = mIsEating;
+	j["izombieEatingBrain"] = mIZombieEatingBrain;
 	j["eatPlantID"] = mEatPlantID;
 	j["hasHead"] = mHasHead;
 	j["hasArm"] = mHasArm;
@@ -335,6 +336,7 @@ void Zombie::LoadProtectedData(const nlohmann::json& j) {
 	mMineTargetReturning = j.value("mineTargetReturning", mIsMindControlled);
 	mFreeHitsRemaining = j.value("freeHitsRemaining", 0);   // 旧档缺字段→0
 	mIsEating = j.value("isEating", false);
+	mIZombieEatingBrain = mBoard && mBoard->IsIZombie() && j.value("izombieEatingBrain",false);
 	mEatPlantID = j.value("eatPlantID", NULL_PLANT_ID);
 	mHasHead = j.value("hasHead", true);
 	mHasArm = j.value("hasArm", true);
@@ -578,7 +580,7 @@ void Zombie::Start()
 
 void Zombie::CheckWin() const
 {
-	if (mBoard && !mBoard->IsColdStorage() && mBoard->GetCurrentWave() >= mBoard->mMaxWave && mBoard->mZombieNumber <= 0)
+	if (mBoard && !mBoard->IsIZombie() && !mBoard->IsColdStorage() && mBoard->GetCurrentWave() >= mBoard->mMaxWave && mBoard->mZombieNumber <= 0)
 	{
 		WinGame();
 	}
@@ -710,7 +712,7 @@ void Zombie::Update()
 				&& mBoard->GetState() == BoardState::GAME)
 			{
 				if (mBoard->IsWorkshop()) mBoard->RecordWorkshopBreach(mZombieID);
-				else mBoard->GameOver();
+				else if (!mBoard->IsIZombie()) mBoard->GameOver();
 			}
 			if (IsOutsideWorldCleanupBounds(position))
 			{
@@ -838,6 +840,13 @@ void Zombie::Update()
 		// 啃食帧事件因动画停格（extra=0）自然不触发，mIsEating 状态保留，解冻续啃。
 		if (IsImmobilized()) return;
 		if (IsGarlicRedirectPaused()) return;
+		if (mIZombieEatingBrain && (!mBoard->CanReachIZombieBrain(*this) || !mHasHead)) {
+			mIZombieEatingBrain = false;
+			mIsEating = false;
+			if (!mIsDying) ResumeWalkAfterEat(0.12f);
+		}
+		if (!mIsDying && mEatPlantID == NULL_PLANT_ID && mEatZombieID == NULL_ZOMBIE_ID
+			&& mBoard->CanReachIZombieBrain(*this) && AttackIZombieBrain(scaledDelta)) return;
 
         // 啃食只阻止水平移动；保留先位移、后阶段结算，避免跳跃/落地丢失最后一步位移。
         if (!mIsEating && !IsAnchorRooted()) {
@@ -2050,6 +2059,9 @@ void Zombie::ReconcileTemporalEatingPresentation()
 			return;
 		}
 	}
+	else if (mIZombieEatingBrain && mBoard && mBoard->CanReachIZombieBrain(*this)) {
+		// 脑子没有植物 ID；恢复原有啃食姿态即可，不重置 Board 进度。
+	}
 	else {
 		// 无目标的啮食位是旧档或异常帧的非法组合，在此收敛为稳态行走。
 		mIsEating = false;
@@ -2663,6 +2675,26 @@ int Zombie::GetCurrentBiteDamage() const
 	return std::max(1, static_cast<int>(std::lround(
 		static_cast<double>(mAttackDamage) * GetRoofMarshalAssaultBiteMultiplier()
 			* GetAbilityBiteDamageMultiplier())));
+}
+
+bool Zombie::AttackIZombieBrain(float scaledTime)
+{
+	if (!CanTriggerGameOver() || IsFlying() || !CanBeTargetedByProjectile(false)) return false;
+	// 车辆沿用碾压语义，巨人的落锤由派生入口接管，不增加动画帧事件。
+	if (mZombieType == ZombieType::ZOMBIE_ZAMBONI || mZombieType == ZombieType::ZOMBIE_GILDED_ZAMBONI
+		|| mZombieType == ZombieType::ZOMBIE_CATAPULT || mZombieType == ZombieType::ZOMBIE_ELITE_CATAPULT) {
+		mBoard->DamageIZombieBrain(mRow,IZombie::BrainChewSeconds);
+		return false;
+	}
+	if (!mIZombieEatingBrain || !mIsEating) {
+		mIZombieEatingBrain = true;
+		mIsEating = true;
+		if (mAnimator->HasTrack("anim_eat")) PlayTrack("anim_eat",2.1f,0.12f);
+		OnStartEating();
+		AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_ZOMBIE_EAT,0.2f);
+	}
+	mBoard->DamageIZombieBrain(mRow,scaledTime);
+	return true;
 }
 
 void Zombie::EatTarget()

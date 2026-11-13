@@ -173,6 +173,7 @@ void Plant::TakeDamage(int damage, DamageSource source) {
 		return;
 	}
 	mPlantHealth -= scaledDamage;
+	if (mBoard && source == DamageSource::ZOMBIE) mBoard->ReleaseIZombieSun(*this,false);
 	SetGlowingTimer(0.1f);
 	if (mPlantHealth <= 0) {
 		if (mBoard && source == DamageSource::ZOMBIE) mBoard->RewardColdStoragePlantKill(GetPlacementType());
@@ -184,6 +185,7 @@ void Plant::KillByZombie()
 {
 	if (!IsActive() || mIsPreview || mIsSquished || IsIceSealed() || IsDamageImmune()) return;
 	if (mBoard) mBoard->RewardColdStoragePlantKill(GetPlacementType());
+	if (mBoard) mBoard->ReleaseIZombieSun(*this,true);
 	Die();
 }
 
@@ -382,6 +384,7 @@ void Plant::ResolveGargantuarSmash()
 void Plant::Squish()
 {
 	if (!IsActive() || mIsPreview || mIsSquished || IsIceSealed() || IsDamageImmune()) return;
+	if (mBoard) mBoard->ReleaseIZombieSun(*this,true);
 	if (mBoard) mBoard->RewardColdStoragePlantKill(GetPlacementType());
 	if (mBoard && GetPlacementType() != PlantType::PLANT_INSTANT_COFFEE) {
 		mBoard->RemoveLadderAt(mRow, mColumn);

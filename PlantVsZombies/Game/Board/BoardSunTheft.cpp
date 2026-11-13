@@ -9,6 +9,7 @@ Board::SunTheftRecord Board::GetSunTheftRecord(int zombieID) const
 
 int Board::CommitSunTheft(int zombieID, int requested)
 {
+	if (IsIZombie()) return 0; // 单人进攻模式没有敌方钱包，不能向购买者扣款。
 	if (zombieID <= 0 || requested <= 0) return 0;
 	auto& record = mSunTheftLedger[zombieID];
 	if (record.disabled || record.escaped) return 0;

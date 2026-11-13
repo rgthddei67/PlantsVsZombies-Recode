@@ -31,6 +31,7 @@ public:
 	bool mReadyToSwitchAlmanac = false;
 	bool mReadyToSwitchSurvival = false;
 	bool mReadyToSwitchMiniGames = false;
+	bool mReadyToSwitchPuzzles = false;
 	bool mReadyToSwitchWorkshop = false;
 
 private:
@@ -113,6 +114,10 @@ public:
 			ResourceKeys::Textures::IMAGE_SELECTORSCREEN_CHALLENGES_HIGHLIGHT,
 			ResourceKeys::Textures::IMAGE_SELECTORSCREEN_CHALLENGES_HIGHLIGHT,
 			ResourceKeys::Textures::IMAGE_SELECTORSCREEN_CHALLENGES_HIGHLIGHT);
+		pizzle->SetClickCallBack([this](bool) {
+			DeltaTime::SetPaused(false);
+			mMainMenuScene->mReadyToSwitchPuzzles = true;
+		});
 		auto survival = mUIManager->CreateButton(Vector(545, 325), Vector(266 * 1.00f, 123 * 1.00f));
 		mSurvival = survival;
 		survival->SetAsCheckbox(false);

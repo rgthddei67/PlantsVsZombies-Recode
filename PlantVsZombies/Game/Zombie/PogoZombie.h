@@ -61,6 +61,7 @@ public:
 	bool ExtractMagneticItem(MagneticItem& item) override;
 
 protected:
+	bool AttackIZombieBrain(float scaledTime) override;
 	void SetupZombie() override;
 	void RegisterFrameEvents() override;
 	void ZombieUpdate(float scaledTime) override;

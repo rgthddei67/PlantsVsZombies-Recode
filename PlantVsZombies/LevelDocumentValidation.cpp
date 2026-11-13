@@ -53,7 +53,7 @@ void EntityFields(const Json& object, const std::string& path, std::string& erro
     Fields(object,
         "armorBreakRushSpent auroraPlayedHitSound cobCannonMotion collected draggedUnderByTangleKelp floodCharmed "
         "fogBreakoutObserved fogBreakoutTriggered garlicRedirectActive garlicRowChanged hasArm hasHead hasTongue "
-        "imitated inPool isCooldown isDying isEating isMindControlled isSleeping isSquished lobTargetsIceWall "
+        "imitated inPool isCooldown isDying isEating izombieEatingBrain isMindControlled isSleeping isSquished lobTargetsIceWall "
         "lobbedMotion mineTargetReturning mistFuelRewardClaimed needDropArm needDropHead occupiesGridSlot "
         "polarGuided polarWindMiss small targetsFlying threepeaterMotion unyieldingRootsSpent wasObscuredByFog workshopHeavyShot workshopFlamedShot ", Kind::Bool, path, error);
     Fields(object,
@@ -163,6 +163,29 @@ bool LevelDocumentValidation::Validate(const nlohmann::json& document, std::stri
 {
     error.clear();
     if (!document.is_object()) { error = "/: expected object"; return false; }
+    if (const auto mode=document.find("izombie"); mode!=document.end() && !mode->is_null()) {
+        if (!mode->is_object()) { error="/izombie: expected object or null"; return false; }
+        Required(*mode,"initialized level firstSpawnColumn cards cooldowns brains sunflowerPaid","/izombie",error);
+        Fields(*mode,"initialized",Kind::Bool,"/izombie",error);
+        Fields(*mode,"level firstSpawnColumn defeatDelay",Kind::Number,"/izombie",error);
+        Fields(*mode,"cards cooldowns brains sunflowerPaid",Kind::Array,"/izombie",error);
+        if (!error.empty()) return false;
+        for (const auto& name : mode->at("cards")) if (!name.is_string()) { error="/izombie/cards: expected string"; return false; }
+        for (const char* key : {"brains","cooldowns"}) for (const auto& value : mode->at(key)) {
+            if (!value.is_number() || !std::isfinite(value.get<double>()) || value.get<double>()<0) {
+                error=std::string("/izombie/")+key+": invalid remaining time"; return false;
+            }
+        }
+        std::unordered_set<int> paidIDs;
+        for (const auto& entry : mode->at("sunflowerPaid")) {
+            if (!entry.is_array() || entry.size()!=2 || !entry[0].is_number_integer() || !entry[1].is_number_integer()
+                || entry[0].get<std::int64_t>()<=0 || entry[0].get<std::int64_t>()>std::numeric_limits<int>::max()
+                || entry[1].get<std::int64_t>()<0 || entry[1].get<std::int64_t>()>8
+                || !paidIDs.insert(entry[0].get<int>()).second) {
+                error="/izombie/sunflowerPaid: invalid or duplicate identity"; return false;
+            }
+        }
+    }
     Fields(document,
         "activeGustPlantMoved adaptiveHelmetTutorialWaveSpawned auroraPriestGuaranteeConsumed "
         "clockmakerGuaranteeConsumed coldWaveForecastDisrupted eliteDancerSpawnedThisTyphoon "

@@ -38,6 +38,8 @@ public:
 	int GetTargetColumn() const { return mTargetColumn; }
 	int GetTargetPlantID() const { return mTargetPlantID; }
 	bool HasSelectedTarget() const { return mTargetInitialized; }
+	/** 玩家投放直接锁定格位，不运行随机或蒙特卡洛选点。 */
+	bool SetPlayerTarget(int row, int column);
 	const MonteCarloTargetStats& GetMonteCarloStats() const { return mMonteCarloStats; }
 	/** AutoTest 专用：把下降高度压到确定值，避免按墙钟等待完整下落。 */
 	void SetAltitudeForTesting(float altitude) {

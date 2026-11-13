@@ -1,0 +1,148 @@
+{
+  "name": "smoke_izombie_navigation",
+  "commands": [
+    {
+      "op": "wait_frames",
+      "value": 120
+    },
+    {
+      "op": "set_adventure_level",
+      "level": 1
+    },
+    {
+      "op": "move_mouse",
+      "x": 680,
+      "y": 310
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "click",
+      "x": 680,
+      "y": 310,
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 60
+    },
+    {
+      "op": "assert_state",
+      "path": "gameSelectMode",
+      "equals": "PUZZLES"
+    },
+    {
+      "op": "assert_state",
+      "path": "gameSelectAvailableLevels",
+      "equals": [
+        3000
+      ]
+    },
+    {
+      "op": "screenshot",
+      "name": "01_selector.png"
+    },
+    {
+      "op": "click",
+      "target": "game_select_level",
+      "level": 3000,
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME",
+      "timeout": 10
+    },
+    {
+      "op": "wait_frames",
+      "value": 8
+    },
+    {
+      "op": "assert_state",
+      "path": "plantCount",
+      "equals": 20
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 150
+    },
+    {
+      "op": "screenshot",
+      "name": "02_cards.png"
+    },
+    {
+      "op": "key",
+      "name": "escape"
+    },
+    {
+      "op": "wait_frames",
+      "value": 15
+    },
+    {
+      "op": "screenshot",
+      "name": "03_pause.png"
+    },
+    {
+      "op": "click",
+      "x": 580,
+      "y": 392,
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 10
+    },
+    {
+      "op": "screenshot",
+      "name": "03_confirmation.png"
+    },
+    {
+      "op": "click",
+      "x": 430,
+      "y": 368,
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "screenshot",
+      "name": "03_after_quit.png"
+    },
+    {
+      "op": "dump_state",
+      "name": "03_after_quit.json"
+    },
+    {
+      "op": "assert_state",
+      "path": "gameSelectMode",
+      "equals": "PUZZLES"
+    },
+    {
+      "op": "click",
+      "x": 75,
+      "y": 573,
+      "hold_frames": 6
+    },
+    {
+      "op": "wait_frames",
+      "value": 30
+    },
+    {
+      "op": "assert_state",
+      "path": "scene",
+      "equals": "MainMenuScene"
+    },
+    {
+      "op": "screenshot",
+      "name": "04_main_menu.png"
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

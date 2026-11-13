@@ -82,6 +82,7 @@ PreviewSource GetPreviewSource(int level)
 
 std::string GetLevelLabel(GameSelectScene::SelectMode mode, int level)
 {
+	if (mode == GameSelectScene::SelectMode::PUZZLES) return IZombie::Level(level).name;
 	if (mode == GameSelectScene::SelectMode::MINIGAMES) return MiniGame::GetName(level);
 	if (mode == GameSelectScene::SelectMode::ADVENTURE) {
 		return std::to_string(AdventureProgression::GetAreaNumber(level)) + "-"
@@ -217,7 +218,7 @@ void GameSelectScene::BuildDrawCommands()
 		auto& gameApp = GameAPP::GetInstance();
 		const std::string title = mSelectMode == SelectMode::ADVENTURE
 			? "选择冒险关卡" : (mSelectMode == SelectMode::MINIGAMES
-				? "选择小游戏" : "选择生存关卡");
+				? "选择小游戏" : (mSelectMode == SelectMode::PUZZLES ? "选择解谜关卡" : "选择生存关卡"));
 		DrawFittedCenteredText(gameApp, title, 552.0f, 82.0f, 500.0f,
 			glm::vec4(0, 0, 0, 255), ResourceKeys::Fonts::FONT_FZJZ, 37, 24);
 		DrawFittedCenteredText(gameApp, title, 550.0f, 80.0f, 500.0f,
@@ -268,6 +269,10 @@ void GameSelectScene::BuildDrawCommands()
 void GameSelectScene::BuildAvailableLevels()
 {
 	mAvailableLevels.clear();
+	if (mSelectMode == SelectMode::PUZZLES) {
+		for (const auto& level : IZombie::Levels()) mAvailableLevels.push_back(level.level);
+		return;
+	}
 	if (mSelectMode == SelectMode::MINIGAMES) {
 		mAvailableLevels.push_back(MiniGame::LAST_SAVINGS_LEVEL);
 		mAvailableLevels.push_back(MiniGame::BRAWL_LEVEL);
@@ -475,7 +480,7 @@ void GameSelectScene::OnEnter()
 	const std::string mode = SceneManager::GetInstance().GetGlobalData(
 		"GameSelectMode", "survival");
 	mSelectMode = mode == "adventure" ? SelectMode::ADVENTURE
-		: (mode == "minigames" ? SelectMode::MINIGAMES : SelectMode::SURVIVAL);
+		: (mode == "minigames" ? SelectMode::MINIGAMES : (mode == "puzzles" ? SelectMode::PUZZLES : SelectMode::SURVIVAL));
 	mCurrentPage = 0;
 	mPendingPageDelta = 0;
 	mPendingEnterLevel = -1;

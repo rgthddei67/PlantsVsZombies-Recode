@@ -367,6 +367,7 @@ bool GameInfoSaver::SerializeLevelDocument(Board* board, CardSlotManager* manage
 
 	// Board 状态
 	j["boardState"] = static_cast<int>(board->mBoardState);
+	j["izombie"] = board->SaveIZombie();
 	if (board->mLevel >= 19 && board->mLevel <= 27) {
 		j["poolGridVersion"] = kPoolGridSaveVersion;
 	}
@@ -958,6 +959,7 @@ bool GameInfoSaver::DeserializeLevelDocument(Board* board, CardSlotManager* mana
 
 void GameInfoSaver::RestoreBoardDocument(Board* board, const nlohmann::json& j)
 {
+	board->LoadIZombie(j.value("izombie",nlohmann::json(nullptr)));
 	board->mIsLoadSave = true;		// 读档标记
 
 	// 恢复 Board 状态

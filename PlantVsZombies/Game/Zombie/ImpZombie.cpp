@@ -15,6 +15,7 @@
 #include <cmath>
 
 namespace {
+	constexpr int kIZombieHealth = 70; // 我是僵尸沿用原版可购买小鬼的本体生命
 	constexpr int kBodyHealth = ImpThrowRules::Health;        // 原版经典小鬼本体生命
 	constexpr int kEatFrameOne = 44;                         // 主人指定的第一处啃食结算全局帧
 	constexpr int kEatFrameTwo = 55;                         // 主人指定的第二处啃食结算全局帧
@@ -34,8 +35,7 @@ namespace {
 
 void ImpZombie::SetupZombie()
 {
-	mBodyHealth = kBodyHealth;
-	mBodyMaxHealth = kBodyHealth;
+	mBodyHealth = mBodyMaxHealth = mBoard && mBoard->IsIZombie() ? kIZombieHealth : kBodyHealth;
 	mHasTongue = false;
 	mPhase = Phase::WALKING;
 	mAltitude = 0.0f;

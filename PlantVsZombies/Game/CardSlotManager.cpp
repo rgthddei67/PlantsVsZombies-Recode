@@ -69,6 +69,7 @@ CardSlotManager::~CardSlotManager()
 }
 
 void CardSlotManager::Start() {
+	if (mBoard && mBoard->IsIZombie()) return;
 	// 为所有Cell设置点击回调
 	if (mBoard) {
 		for (int row = 0; row < mBoard->mRows; ++row) {

@@ -12,6 +12,7 @@ void SunShroom::SetupPlant()
 
 void SunShroom::PlantUpdate()
 {
+	if (mBoard && mBoard->IsIZombie()) return;
 	const float weatherActionDelta = GetWeatherActionDeltaTime();
 	mGrowTimer += weatherActionDelta;
 	if (mGrowTimer >= GROW_TIME && !mIsGrown) {

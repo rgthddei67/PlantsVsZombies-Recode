@@ -63,6 +63,7 @@ public:
 	}
 
 protected:
+	bool AttackIZombieBrain(float scaledTime) override;
 	void SetupZombie() override;
 	void RegisterFrameEvents() override;
 	void ZombieMove(float scaledDelta, Transform* transform) override;

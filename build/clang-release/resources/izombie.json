@@ -1,0 +1,328 @@
+{
+  "defaultCooldown": 0.0,
+  "cards": {
+    "ZOMBIE_NORMAL": {
+      "cost": 50
+    },
+    "ZOMBIE_IMP": {
+      "cost": 50
+    },
+    "ZOMBIE_BACKUP_DANCER": {
+      "cost": 50
+    },
+    "ZOMBIE_POOL_NORMAL": {
+      "cost": 50
+    },
+    "ZOMBIE_TRAFFIC_CONE": {
+      "cost": 75
+    },
+    "ZOMBIE_POLEVAULTER": {
+      "cost": 75
+    },
+    "ZOMBIE_POOL_CONE": {
+      "cost": 75
+    },
+    "ZOMBIE_DOOR": {
+      "cost": 100
+    },
+    "ZOMBIE_ICE_WORKER": {
+      "cost": 100
+    },
+    "ZOMBIE_BUCKET": {
+      "cost": 125
+    },
+    "ZOMBIE_DIGGER": {
+      "cost": 125
+    },
+    "ZOMBIE_BUNGEE": {
+      "cost": 125
+    },
+    "ZOMBIE_NEWSPAPER": {
+      "cost": 125
+    },
+    "ZOMBIE_POOL_BUCKET": {
+      "cost": 125
+    },
+    "ZOMBIE_BALLOON": {
+      "cost": 150
+    },
+    "ZOMBIE_LADDER": {
+      "cost": 150
+    },
+    "ZOMBIE_DOLPHIN_RIDER": {
+      "cost": 150
+    },
+    "ZOMBIE_FOOTBALL": {
+      "cost": 175
+    },
+    "ZOMBIE_ZAMBONI": {
+      "cost": 175
+    },
+    "ZOMBIE_FASTBUCKET": {
+      "cost": 175
+    },
+    "ZOMBIE_INSULATOR": {
+      "cost": 175
+    },
+    "ZOMBIE_GROUNDING": {
+      "cost": 175
+    },
+    "ZOMBIE_WEATHER_JAMMER": {
+      "cost": 175
+    },
+    "ZOMBIE_POGO": {
+      "cost": 200
+    },
+    "ZOMBIE_FASTPAPER": {
+      "cost": 200
+    },
+    "ZOMBIE_THERMAL_SNIPER": {
+      "cost": 200
+    },
+    "ZOMBIE_SUN_THIEF": {
+      "cost": 200
+    },
+    "ZOMBIE_SALVAGE": {
+      "cost": 200
+    },
+    "ZOMBIE_ELITE_POLEVAULTER": {
+      "cost": 225
+    },
+    "ZOMBIE_JACK_IN_THE_BOX": {
+      "cost": 225
+    },
+    "ZOMBIE_SNOW_BURROW": {
+      "cost": 225
+    },
+    "ZOMBIE_EXCAVATOR": {
+      "cost": 225
+    },
+    "ZOMBIE_PINK_FOOTBALL": {
+      "cost": 250
+    },
+    "ZOMBIE_ELITE_DOLPHIN_RIDER": {
+      "cost": 250
+    },
+    "ZOMBIE_CATAPULT": {
+      "cost": 250
+    },
+    "ZOMBIE_HEALER": {
+      "cost": 250
+    },
+    "ZOMBIE_GARGANTUAR": {
+      "cost": 300
+    },
+    "ZOMBIE_REINFORCED_DOOR": {
+      "cost": 300
+    },
+    "ZOMBIE_ELITE_LADDER": {
+      "cost": 300
+    },
+    "ZOMBIE_BOBSLED_TEAM": {
+      "cost": 300
+    },
+    "ZOMBIE_ICE_CRACK_DRILL": {
+      "cost": 300
+    },
+    "ZOMBIE_DISASTER_ENGINEER": {
+      "cost": 300
+    },
+    "ZOMBIE_SLUDGE": {
+      "cost": 300
+    },
+    "ZOMBIE_LOTUS_PARASOL": {
+      "cost": 300
+    },
+    "ZOMBIE_DANCER": {
+      "cost": 350
+    },
+    "ZOMBIE_GILDED_ZAMBONI": {
+      "cost": 350
+    },
+    "ZOMBIE_ELITE_DIGGER": {
+      "cost": 350
+    },
+    "ZOMBIE_ELITE_POGO": {
+      "cost": 350
+    },
+    "ZOMBIE_ELITE_CATAPULT": {
+      "cost": 350
+    },
+    "ZOMBIE_HIJACKER": {
+      "cost": 350
+    },
+    "ZOMBIE_ICE_WALL_ENGINEER": {
+      "cost": 350
+    },
+    "ZOMBIE_ADAPTIVE_HELMET": {
+      "cost": 350
+    },
+    "ZOMBIE_CRYSTAL_DRUMMER": {
+      "cost": 350
+    },
+    "ZOMBIE_BOILER": {
+      "cost": 350
+    },
+    "ZOMBIE_COLD_CHAIN_GUARD": {
+      "cost": 350
+    },
+    "ZOMBIE_PRESSURE_SHOOTER": {
+      "cost": 350
+    },
+    "ZOMBIE_ICE_STATUE_EXECUTIONER": {
+      "cost": 400
+    },
+    "ZOMBIE_FLOOD_MORTAR": {
+      "cost": 400
+    },
+    "ZOMBIE_HEAVY_DIVER": {
+      "cost": 400
+    },
+    "ZOMBIE_ELITE_JACK_IN_THE_BOX": {
+      "cost": 450
+    },
+    "ZOMBIE_FOG_FERRY": {
+      "cost": 450
+    },
+    "ZOMBIE_CRYSTAL_HORN_MINER": {
+      "cost": 500
+    },
+    "ZOMBIE_REDEYE_GARGANTUAR": {
+      "cost": 600
+    },
+    "ZOMBIE_PRESSURE_GUARD": {
+      "cost": 600
+    },
+    "ZOMBIE_POLAR_CLOCKMAKER": {
+      "cost": 750
+    },
+    "ZOMBIE_AURORA_PRIEST": {
+      "cost": 1000
+    },
+    "ZOMBIE_ELITE_DANCER": {
+      "cost": 1500
+    },
+    "ZOMBIE_ROOF_MARSHAL": {
+      "cost": 1500
+    },
+    "ZOMBIE_ENGINEERING_SHIP": {
+      "cost": 3000
+    }
+  },
+  "levels": [
+    {
+      "level": 3000,
+      "name": "我是僵尸：初次进攻",
+      "background": "GROUND_NIGHT",
+      "initialSun": 150,
+      "firstSpawnColumn": 4,
+      "cards": [
+        "ZOMBIE_NORMAL",
+        "ZOMBIE_BUCKET",
+        "ZOMBIE_FOOTBALL"
+      ],
+      "plants": [
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 0,
+          "column": 0
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 0,
+          "column": 1
+        },
+        {
+          "type": "PLANT_WALLNUT",
+          "row": 0,
+          "column": 2
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 0,
+          "column": 3
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 1,
+          "column": 0
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 1,
+          "column": 1
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 1,
+          "column": 2
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 1,
+          "column": 3
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 2,
+          "column": 0
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 2,
+          "column": 1
+        },
+        {
+          "type": "PLANT_WALLNUT",
+          "row": 2,
+          "column": 2
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 2,
+          "column": 3
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 3,
+          "column": 0
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 3,
+          "column": 1
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 3,
+          "column": 2
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 3,
+          "column": 3
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 4,
+          "column": 0
+        },
+        {
+          "type": "PLANT_PEASHOOTER",
+          "row": 4,
+          "column": 1
+        },
+        {
+          "type": "PLANT_WALLNUT",
+          "row": 4,
+          "column": 2
+        },
+        {
+          "type": "PLANT_SUNFLOWER",
+          "row": 4,
+          "column": 3
+        }
+      ]
+    }
+  ]
+}

@@ -146,6 +146,16 @@ bool BungeeZombie::SelectTarget()
 	return SelectOriginalRandomTarget();
 }
 
+bool BungeeZombie::SetPlayerTarget(int row, int column)
+{
+	if (!mBoard || !mBoard->IsIZombie() || mTargetInitialized || row < 0 || row >= mBoard->mRows
+		|| column < 0 || column >= mBoard->mColumns) return false;
+	Plant* plant = ResolveBungeePlantAt(row,column);
+	mTargetMode = TargetMode::RANDOM;
+	ApplySelectedCell({row,column,plant ? plant->mPlantID : NULL_PLANT_ID});
+	return true;
+}
+
 bool BungeeZombie::SelectMonteCarloTarget()
 {
 	std::vector<int> eligiblePlantIDs;
@@ -307,6 +317,7 @@ void BungeeZombie::BeginRise()
 		plant = nullptr;
 	}
 	mPhase = Phase::RISING;
+	if (plant && mBoard->IsIZombie()) mBoard->ReleaseIZombieSun(*plant,true);
 	if (mCollider) mCollider->mEnabled = false;
 	PlayTrackOnce("anim_raise", "", kRaiseClipSpeed, 0.0f);
 	AudioSystem::PlaySound(ResourceKeys::Sounds::SOUND_FLOOP,

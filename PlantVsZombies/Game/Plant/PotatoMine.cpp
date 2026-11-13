@@ -30,6 +30,7 @@ void PotatoMine::SetupPlant()
 	}
 
 	if (mIsPreview) return;
+	if (mBoard && mBoard->IsIZombie()) { mReadyTimer=kReadyDurationSeconds; mIsRise=true; Ready(true); }
 
 	GetColliderComponent()->SetCollisionEnterCallback(
 		[this](ColliderComponent* other) {

@@ -194,6 +194,13 @@ void BalloonZombie::PopBalloon()
 	KeepPropellerIndependent();
 }
 
+bool BalloonZombie::AttackIZombieBrain(float scaledTime)
+{
+	if (mPhase == Phase::FLYING) PopBalloon();
+	if (mPhase != Phase::WALKING) { ZombieUpdate(scaledTime); return true; }
+	return Zombie::AttackIZombieBrain(scaledTime);
+}
+
 bool BalloonZombie::ShouldDrownOnLanding() const
 {
 	if (!mBoard) return false;

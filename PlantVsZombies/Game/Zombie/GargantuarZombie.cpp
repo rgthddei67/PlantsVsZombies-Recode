@@ -241,6 +241,13 @@ void GargantuarZombie::BeginSmash(int row, int column, int zombieID)
 		kOneShotVolume);
 }
 
+bool GargantuarZombie::AttackIZombieBrain(float scaledTime)
+{
+	if (mPhase == Phase::WALKING) BeginSmash(mRow,-1,NULL_ZOMBIE_ID);
+	ZombieUpdate(scaledTime);
+	return true;
+}
+
 void GargantuarZombie::ApplySmashImpact()
 {
 	if (mPhase != Phase::SMASHING || mSmashApplied || mIsDying || mIsDead
@@ -248,6 +255,10 @@ void GargantuarZombie::ApplySmashImpact()
 		return;
 	}
 	mSmashApplied = true;
+	if (mTargetRow >= 0 && mTargetColumn == -1 && mTargetZombieID == NULL_ZOMBIE_ID
+		&& mBoard->CanReachIZombieBrain(*this)) {
+		mBoard->DamageIZombieBrain(mTargetRow,IZombie::BrainChewSeconds);
+	}
 
 	if (mTargetZombieID != NULL_ZOMBIE_ID) {
 		if (Zombie* target = mBoard->mEntityRegistry.GetZombie(mTargetZombieID);
@@ -530,7 +541,7 @@ void GargantuarZombie::LoadExtraData(const nlohmann::json& j)
 	// hasImp 是背部小鬼显示与能否再次投掷的唯一权威；旧档矛盾组合只修动作，不反推持有状态。
 	const bool invalidSmash = mPhase == Phase::SMASHING
 		&& mTargetZombieID == NULL_ZOMBIE_ID
-		&& (mTargetRow < 0 || mTargetColumn < 0);
+		&& (mTargetRow < 0 || (mTargetColumn < 0 && !(mBoard && mBoard->IsIZombie() && mTargetColumn == -1)));
 	const bool invalidThrow = mPhase == Phase::THROWING
 		&& ((mHasImp && mThrowReleased) || (!mHasImp && !mThrowReleased)
 			|| mThrowDistance <= 0.0f);

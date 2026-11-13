@@ -53,6 +53,7 @@ public:
 	}
 
 protected:
+	bool AttackIZombieBrain(float scaledTime) override;
 	void SaveExtraData(nlohmann::json& j) const override;
 	void LoadExtraData(const nlohmann::json& j) override;
 	void SetupZombie() override;

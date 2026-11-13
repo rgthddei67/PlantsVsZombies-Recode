@@ -131,6 +131,7 @@ protected:
 	bool mInPool = false;	// 水路介质状态；由基类双探针统一维护，所有僵尸共享
 
 	bool mIsEating = false;
+	bool mIZombieEatingBrain = false; // 独立于植物实体的脑子目标；持久化并随阵营/死亡收敛
 	int mEatPlantID = NULL_PLANT_ID;
 	int mEatZombieID = NULL_ZOMBIE_ID;   // 互啃目标（魅惑↔普通）；不持久化——读档后由碰撞下一帧重建
 	bool mGarlicRedirectActive = false;   // 大蒜嫌恶反应仍在推进；与啃食目标分离，目标死亡后也必须完成换行
@@ -189,6 +190,8 @@ public:
 	void Draw(Graphics* g) override;	// 重写以叠加血量显示
     /** 每个可行动步调用一次，啃食仍执行；硬控/水草束缚不执行。覆盖身体动作前须取消啃食事务。 */
     virtual void ZombieUpdate(float scaledTime) {}
+	/** 到达本行脑子后接管动作；返回 true 表示本步不再推进普通移动。 */
+	virtual bool AttackIZombieBrain(float scaledTime);
 	// source 必填，使植物增伤只作用于植物来源。penetrateShield=true：穿透二类护盾（大喷菇喷雾）——护盾照常受损/掉落，
 	// 但全额伤害继续透到头盔+本体（还原原版 DoRowAreaDamage(20, 2U) 的位标志语义）。
 	// discardShieldOverflow=true：若命中开始时存在二类护盾，则本击止于护盾，破盾溢出也不进入头盔/本体。

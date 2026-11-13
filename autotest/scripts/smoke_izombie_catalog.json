@@ -1,0 +1,195 @@
+{
+  "name": "smoke_izombie_catalog",
+  "commands": [
+    {
+      "op": "goto_level",
+      "level": 3000,
+      "resetTestState": true
+    },
+    {
+      "op": "wait_state",
+      "state": "GAME"
+    },
+    {
+      "op": "set_sun",
+      "value": 5000
+    },
+    {
+      "op": "izombie_cards",
+      "all": true
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 0
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_1.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 1
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_2.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 2
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_3.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_4.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 4
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_5.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 5
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_6.png"
+    },
+    {
+      "op": "click",
+      "x": 885,
+      "y": 22,
+      "hold_frames": 2
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "assert_state",
+      "path": "izombie.page",
+      "equals": 6
+    },
+    {
+      "op": "screenshot",
+      "name": "catalog_7.png"
+    },
+    {
+      "op": "save_level_snapshot",
+      "name": "all_cards"
+    },
+    {
+      "op": "reload_level_snapshot",
+      "name": "all_cards"
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "dump_state",
+      "name": "all_cards.json"
+    },
+    {
+      "op": "izombie_cards",
+      "cards": [
+        "ZOMBIE_DOLPHIN_RIDER",
+        "ZOMBIE_HEAVY_DIVER",
+        "ZOMBIE_NORMAL"
+      ]
+    },
+    {
+      "op": "izombie_deploy",
+      "slot": 0,
+      "row": 0,
+      "col": 4,
+      "expectedSuccess": false
+    },
+    {
+      "op": "izombie_deploy",
+      "slot": 1,
+      "row": 0,
+      "col": 4,
+      "expectedSuccess": false
+    },
+    {
+      "op": "assert_state",
+      "path": "sun",
+      "equals": 5000
+    },
+    {
+      "op": "quit"
+    }
+  ]
+}

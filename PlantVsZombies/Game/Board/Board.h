@@ -10,6 +10,7 @@
 #include "ColdStorageState.h"
 #include "Game/AI/ColdStorageObservedResponse.h"
 #include "../MiniGameDefinition.h"
+#include "../IZombieRules.h"
 #ifndef _BOARD_H
 #define _BOARD_H
 #include "Game/Cell.h"
@@ -208,6 +209,7 @@ class Board {
 public:
 	friend GameInfoSaver;
 private:
+	std::unique_ptr<IZombie::State> mIZombie;
 	std::unique_ptr<Workshop::World> mWorkshop;
 	nlohmann::json mWorkshopBattleCheckpoint;
     int mWorkshopRetiringBreach = -1; // 同步越线清理期间排除残骸；瞬态，不写存档
@@ -221,6 +223,26 @@ private:
 	void InitializeSunlitGround();
 	void UpdateSunlitGround(float deltaTime);
 public:
+	bool IsIZombie() const { return mIZombie != nullptr; }
+	const IZombie::State* GetIZombieState() const { return mIZombie.get(); }
+	/** 新局布阵与读档恢复分开；不会重新填充已消费的脑子或阳光。 */
+	void InitializeIZombie();
+	void UpdateIZombie(float delta);
+	void DrawIZombie(Graphics* graphics) const;
+	/** 正式卡牌购买入口，校验卡组、冷却、钱包、格位和场地，成功后才扣款。 */
+	std::string TryDeployIZombie(int slot, int row, int column);
+	std::string CanDeployIZombie(int slot, int row, int column) const;
+	Vector GetIZombieBrainPosition(int row) const;
+	bool CanReachIZombieBrain(const Zombie& zombie) const;
+	void DamageIZombieBrain(int row, float chewSeconds);
+	int GetIZombieBrainsRemaining() const;
+	/** 普通向日葵按生命阈值释放有限收益；移除时结清，读档和回溯不重复发放。 */
+	void ReleaseIZombieSun(Plant& plant, bool all);
+	nlohmann::json SaveIZombie() const;
+	void LoadIZombie(const nlohmann::json& state);
+	/** AutoTest 的卡组夹具仍使用正式定义与购买入口。 */
+	void SetIZombieCardsForTesting(const std::vector<ZombieType>& types);
+	void SetIZombieCooldownForTesting(int slot, float seconds);
 	/** 第一大关固定花地；占格暂停、落地敌人踩踏清零，生产仅在实战推进。 */
 	bool SupportsSunlitGround() const;
 	const auto& GetSunlitPlots() const { return mSunlitPlots; }

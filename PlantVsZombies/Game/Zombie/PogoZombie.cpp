@@ -32,6 +32,12 @@ namespace {
 	constexpr float kMagnetDestinationJitter = 10.0f;     // 离体装备落点随机扰动，单位 px
 }
 
+bool PogoZombie::AttackIZombieBrain(float scaledTime)
+{
+	if (mHasPogo) BreakPogo(false);
+	return Zombie::AttackIZombieBrain(scaledTime);
+}
+
 void PogoZombie::SetupZombie()
 {
 	mBodyMaxHealth = ZombieBirthVitalsRules::Get(ZombieType::ZOMBIE_POGO).body;

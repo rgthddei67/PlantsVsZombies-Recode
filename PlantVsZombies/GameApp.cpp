@@ -32,6 +32,7 @@
 #include "Game/Board/Board.h"
 #include "./Game/AdventureProgression.h"
 #include "./Game/MiniGameDefinition.h"
+#include "Game/IZombieRules.h"
 
 #include "./Profiler.h"
 
@@ -339,7 +340,7 @@ bool GameAPP::InitializeResourceManager()
 	CursorManager::GetInstance().SetDefaultCursor();
 
 	GameDataManager& plantMgr = GameDataManager::GetInstance();
-	if (!plantMgr.Initialize()) {
+	if (!plantMgr.Initialize() || !IZombie::LoadDefinitions()) {
 		LOG_ERROR("GameApp") << "GameDataManager 初始化失败：gamedata.json 缺失或校验未通过";
 		return false;
 	}
@@ -843,6 +844,7 @@ Background GameAPP::GetBackgroundID(int level) const
 	if (const auto* definition = FindSurvivalEndlessDefinition(level)) {
 		return definition->background;
 	}
+	if (IZombie::IsLevel(level)) return IZombie::Level(level).background;
 	if (MiniGame::IsBrawl(level)) return Background::HOT_COLD_STORAGE;
 	if (level >= 91 && level <= 99) return Background::WEATHER_STATION;
 	if (AdventureProgression::IsAdventureLevel(level)

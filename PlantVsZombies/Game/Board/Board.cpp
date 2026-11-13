@@ -203,11 +203,12 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 {
 	mPresentation = presentation;
 	mLevel = level;
+	if (IZombie::IsLevel(level)) mIZombie = std::make_unique<IZombie::State>();
 	if (level == Workshop::Level) mWorkshop = std::make_unique<Workshop::World>();
 	mBackGround = background;
 	mIsSurvival = IsSurvivalEndlessLevel(level);
 	mHxyModeEnabled = GameAPP::GetInstance().mHxyModeEnabled;
-	if (IsWorkshop()) mHxyModeEnabled = false;
+	if (IsWorkshop() || IsIZombie()) mHxyModeEnabled = false;
 	mPlantDamageEchoHitCounter = 0; // 每次进入新棋盘都清掉旧局的十连击进度，读档随后按存档覆盖。
 
 	if (mLevel >= 1)
@@ -243,6 +244,11 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 		mSun = MiniGame::BRAWL_INITIAL_SUN;
 		// 冷藏站使用无限付费波次；建好棋盘后按实际地形筛选独立出怪品种。
 	}
+	else if (IsIZombie()) {
+		mLevelName = IZombie::Level(mLevel).name;
+		mMaxWave = 0;
+		mSpawnZombieList.clear();
+	}
 	else if (mLevel > 0)
 	{
 		LoadSpawnListFromJson();
@@ -271,7 +277,7 @@ Board::Board(BoardPresentation* presentation, Background background, int level)
 	// 各地图起始阳光完成后只加一次；续局随后用保存的阳光覆盖，不重复领奖。
 	if (mHxyModeEnabled) mSun += kHxyStartingSunBonus;
 	// 屋顶预览会读取行高与连续坡面；必须在网格尺寸完成初始化后再生成。
-	if (!IsWorkshop()) CreatePreviewZombies();
+	if (!IsWorkshop() && !IsIZombie()) CreatePreviewZombies();
 	mIceMinX.fill(GetIceTrailRightX());
 	mIceTimer.fill(0.0f);
 	mGoldenIceMinX.fill(GetIceTrailRightX());
@@ -2627,6 +2633,7 @@ void Board::UpdateLevel()
 {
 	if (mBoardState != BoardState::GAME) return;
 	float deltaTime = DeltaTime::GetDeltaTime();
+	if (IsIZombie()) { UpdateIZombie(deltaTime); return; }
 	UpdateSunlitGround(deltaTime);
 
 	if (mBackGround == Background::GROUND_DAY || mBackGround == Background::WATER_POOL ||
@@ -2729,6 +2736,7 @@ void Board::UpdateLevel()
 // 由 Update 出波倒计时归零调用；开发者面板「下一波」也直接调用（暂停中同样可出波）。
 void Board::SummonNextWave()
 {
+	if (IsIZombie()) return;
 	if (IsColdStorage()) { PlanColdStorageAttack(); return; }
 	mCurrentWave++;
 	ActivatePolarFinalWaveImmediately();
@@ -3662,6 +3670,13 @@ int Board::GetMineForecastEntranceMask() const
 
 void Board::StartGame()
 {
+	if (IsIZombie()) {
+		DestroyPreviewZombies();
+		InitializeIZombie();
+		mBoardState = BoardState::GAME;
+		PlayBackgroundMusic();
+		return;
+	}
 	if (IsWorkshop()) { InitializeWorkshopFrontline(); PlayBackgroundMusic(); return; }
 	DestroyPreviewZombies();
 	if (mPresentation) {

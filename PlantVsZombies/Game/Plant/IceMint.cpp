@@ -17,6 +17,7 @@ void IceMint::SetupPlant()
 /** 推进制冰或产光周期，肥沃只提高频率而不改变单次产量。 */
 void IceMint::PlantUpdate()
 {
+	if (mBoard && mBoard->IsIZombie()) return;
 	if (mIsPreview || !mBoard || mBoard->GetState() != BoardState::GAME || mBoard->mTrophySpawned) return;
 	mProductionRemaining -= DeltaTime::GetDeltaTime() * GetIndependentActionSpeedMultiplier();
 	const bool ice = mBoard->IsColdStorage();

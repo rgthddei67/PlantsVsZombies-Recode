@@ -1,0 +1,197 @@
+#include "IZombieCardBar.h"
+#include "IZombieRules.h"
+#include "Board/Board.h"
+#include "Zombie/Zombie.h"
+#include "Plant/GameDataManager.h"
+#include "GameObjectManager.h"
+#include "GameApp.h"
+#include "Graphics.h"
+#include "ResourceKeys.h"
+#include "ResourceManager.h"
+#include "DeltaTime.h"
+#include "UI/InputHandler.h"
+#include <algorithm>
+#include <cmath>
+
+namespace {
+constexpr int kPageSize = 11; // 顶部一页僵尸卡数，分页支持完整注册表
+constexpr float kCardX = 200; // 卡槽起点，px，保留左侧阳光计数区
+constexpr float kCardY = 2; // 卡槽顶部，px
+constexpr float kCardWidth = 50; // 卡片宽度，px
+constexpr float kCardHeight = 70; // 卡片高度，px
+constexpr float kCardPitch = 51; // 相邻卡片间距，px
+constexpr float kPageX = 800; // 分页控制起点，px
+constexpr int kCostRasterSize = 28; // 与 Card 的阳光数字一致，使用 2× 超采样光栅字号
+constexpr float kCostDrawScale = 0.5f; // 与 Card 一致，缩回实机字号
+
+bool Inside(Vector point, float x, float y, float width, float height)
+{
+    return point.x >= x && point.x < x+width && point.y >= y && point.y < y+height;
+}
+
+/** 预览不绑定棋盘、不参与碰撞或自动更新；绘制时直接复用已初始化的 Animator。 */
+std::shared_ptr<Zombie> MakePreview(ZombieType type)
+{
+    auto preview = GameAPP::GetInstance().InstantiateZombieFree(type, nullptr, 0, 0);
+    preview->mIsUI = true;
+    preview->PauseAnimation();
+    preview->RemoveShadow();
+    preview->RemoveCollider();
+    preview->SetActive(false);
+    return preview;
+}
+void DestroyPreview(std::shared_ptr<Zombie>& preview)
+{
+    if (preview) GameObjectManager::GetInstance().DestroyGameObject(preview);
+    preview.reset();
+}
+}
+
+IZombieCardBar::IZombieCardBar(Board* board) : mBoard(board) { Refresh(); }
+IZombieCardBar::~IZombieCardBar() { ClearPortraits(); Cancel(); }
+void IZombieCardBar::ClearPortraits()
+{
+    for (auto& portrait : mPortraits) DestroyPreview(portrait);
+    mPortraits.clear();
+    mCostLabels.clear();
+}
+void IZombieCardBar::Cancel() { mSelectedSlot=-1; DestroyPreview(mPlacement); }
+void IZombieCardBar::Select(int slot)
+{
+    Cancel();
+    mSelectedSlot=slot;
+    mPlacement=MakePreview(mTypes[slot]);
+}
+void IZombieCardBar::Refresh()
+{
+    Cancel();
+    ClearPortraits();
+    mTypes=mBoard->GetIZombieState()->cards;
+    mPage=std::clamp(mPage,0,std::max(0,(static_cast<int>(mTypes.size())-1)/kPageSize));
+    const int end=std::min(static_cast<int>(mTypes.size()),(mPage+1)*kPageSize);
+    for (int slot=mPage*kPageSize;slot<end;++slot) mPortraits.push_back(MakePreview(mTypes[slot]));
+    mCostLabels.resize(mPortraits.size());
+    UpdateCostLabels();
+}
+
+void IZombieCardBar::UpdateCostLabels()
+{
+    auto& graphics = GameAPP::GetInstance().GetGraphics();
+    for (size_t index = 0; index < mCostLabels.size(); ++index) {
+        auto& label = mCostLabels[index];
+        if (!graphics.IsCachedTextStale(label) && label.BindingId() != 0) continue;
+        label = graphics.AcquireTextTexture(
+            std::to_string(IZombie::Card(mTypes[mPage*kPageSize+index]).cost),
+            ResourceKeys::Fonts::FONT_FZCQ, kCostRasterSize, {0,0,0,255});
+    }
+}
+
+std::pair<int,int> IZombieCardBar::HoveredCell() const
+{
+    const auto point=GameAPP::GetInstance().GetInputHandler().GetMouseWorldPosition();
+    for (int row=0;row<mBoard->mRows;++row) for(int col=0;col<mBoard->mColumns;++col) {
+        const auto center=mBoard->GetCellCenterPosition(row,col);
+        if (Inside(point,center.x-CELL_COLLIDER_SIZE_X*.5f,center.y-mBoard->GetCellHeight()*.5f,
+            CELL_COLLIDER_SIZE_X,mBoard->GetCellHeight())) return {row,col};
+    }
+    return {-1,-1};
+}
+
+void IZombieCardBar::Update()
+{
+    if (mTypes!=mBoard->GetIZombieState()->cards) Refresh();
+    UpdateCostLabels();
+    mHintRemaining=std::max(0.0f,mHintRemaining-DeltaTime::GetUnscaledDeltaTime());
+    mHoveredSlot=-1;
+    if (mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned || DeltaTime::IsPaused()) return;
+    auto& input=GameAPP::GetInstance().GetInputHandler();
+    const auto point=input.GetMousePosition();
+    for(int index=0;index<static_cast<int>(mPortraits.size());++index)
+        if(Inside(point,kCardX+index*kCardPitch,kCardY,kCardWidth,kCardHeight)) mHoveredSlot=mPage*kPageSize+index;
+    if(input.IsMouseButtonPressed(SDL_BUTTON_RIGHT)) { Cancel(); return; }
+    if(!input.IsMouseButtonPressed(SDL_BUTTON_LEFT)) return;
+    if(mTypes.size()>kPageSize && Inside(point,kPageX,4,112,40)) {
+        const int pages=(static_cast<int>(mTypes.size())+kPageSize-1)/kPageSize;
+        mPage=(mPage+(point.x<kPageX+56 ? pages-1 : 1))%pages;
+        Refresh();
+        return;
+    }
+    if(mHoveredSlot>=0) {
+        const auto& card=IZombie::Card(mTypes[mHoveredSlot]);
+        if(mBoard->GetSun()<card.cost) { mHint="阳光不足"; mHintRemaining=2; }
+        else if(mBoard->GetIZombieState()->cooldowns[mHoveredSlot]>0) { mHint="这张卡还在冷却"; mHintRemaining=2; }
+        else if(mSelectedSlot==mHoveredSlot) Cancel();
+        else Select(mHoveredSlot);
+        return;
+    }
+    if(mSelectedSlot<0) return;
+    const auto [row,column]=HoveredCell();
+    if(row<0) { Cancel(); return; }
+    mHint=mBoard->TryDeployIZombie(mSelectedSlot,row,column);
+    if(mHint.empty()) Cancel();
+    else mHintRemaining=2.5f;
+}
+
+void IZombieCardBar::Draw(Graphics* graphics)
+{
+    auto& app=GameAPP::GetInstance();
+    const auto* frame=ResourceManager::GetInstance().GetTexture(ResourceKeys::Textures::IMAGE_SEEDPACKETNORMAL);
+    const auto* state=mBoard->GetIZombieState();
+    for(int index=0;index<static_cast<int>(mPortraits.size());++index) {
+        const int slot=mPage*kPageSize+index;
+        const auto& card=IZombie::Card(mTypes[slot]);
+        const float x=kCardX+index*kCardPitch;
+        const bool ready=mBoard->GetSun()>=card.cost && state->cooldowns[slot]<=0;
+        const glm::vec4 color=ready ? glm::vec4(255) : glm::vec4(155,155,155,255);
+        if(frame) graphics->DrawTexture(frame,x,kCardY,kCardWidth,kCardHeight,0,color);
+        auto animator=mPortraits[index]->GetAnimatorInternal();
+        graphics->PushClipRect(static_cast<int>(x+3),7,static_cast<int>(kCardWidth-6),44);
+        // 统一全身取景；大型车辆/巨人按其既有碰撞体尺寸缩放，无需另画卡图。
+        const auto offset=GameDataManager::GetInstance().GetZombieOffset(card.type);
+        float scale=.38f;
+        if(card.type==ZombieType::ZOMBIE_GARGANTUAR || card.type==ZombieType::ZOMBIE_REDEYE_GARGANTUAR) scale=.20f;
+        else if(card.type==ZombieType::ZOMBIE_ENGINEERING_SHIP) scale=.22f;
+        else if(card.type==ZombieType::ZOMBIE_ZAMBONI || card.type==ZombieType::ZOMBIE_GILDED_ZAMBONI
+            || card.type==ZombieType::ZOMBIE_CATAPULT || card.type==ZombieType::ZOMBIE_ELITE_CATAPULT) scale=.27f;
+        animator->Draw(graphics,x+kCardWidth*.5f+offset.x*scale,48+offset.y*scale,scale);
+        graphics->PopClipRect();
+        if(!ready) graphics->FillRect(x+2,4,kCardWidth-4,57,{15,20,15,65});
+        if(state->cooldowns[slot]>0) {
+            const float fraction=std::clamp(state->cooldowns[slot]/std::max(card.cooldown,state->cooldowns[slot]),0.0f,1.0f);
+            graphics->FillRect(x+2,4,kCardWidth-4,57*fraction,{0,0,0,115});
+        }
+        graphics->DrawCachedText(mCostLabels[index],x+5,kCardY+51,kCostDrawScale);
+        if(slot==mSelectedSlot) graphics->FillRect(x,2,kCardWidth,3,{100,255,90,255});
+    }
+    if(mTypes.size()>kPageSize) {
+        app.DrawText("<   >",{kPageX+8,8},{230,240,205,255},ResourceKeys::Fonts::FONT_FZJZ,25);
+        app.DrawText(std::to_string(mPage+1)+"/"+std::to_string((mTypes.size()+kPageSize-1)/kPageSize),
+            {kPageX+28,42},{235,235,205,255},ResourceKeys::Fonts::FONT_FZJZ,17);
+    }
+    std::string label="吃掉全部脑子  "+std::to_string(mBoard->mRows-mBoard->GetIZombieBrainsRemaining())+"/"+std::to_string(mBoard->mRows);
+    if(mHintRemaining>0) label=mHint;
+    else if(mHoveredSlot>=0) {
+        const auto& card=IZombie::Card(mTypes[mHoveredSlot]);
+        label=card.name+" · "+std::to_string(card.cost)+" 阳光";
+    } else if(mSelectedSlot>=0) label=IZombie::Card(mTypes[mSelectedSlot]).name+"：选择投放格，右键取消";
+    app.DrawText(label,{260,568},{255,235,180,255},ResourceKeys::Fonts::FONT_FZJZ,20);
+}
+
+void IZombieCardBar::DrawPlacement(Graphics* graphics)
+{
+    if(!mPlacement || mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned || DeltaTime::IsPaused()) return;
+    const auto [row,column]=HoveredCell();
+    auto position=GameAPP::GetInstance().GetInputHandler().GetMouseWorldPosition();
+    const bool valid=row>=0 && mBoard->CanDeployIZombie(mSelectedSlot,row,column).empty();
+    if(row>=0) {
+        position=mBoard->GetCellCenterPosition(row,column);
+        graphics->FillRect(position.x-CELL_COLLIDER_SIZE_X*.5f,position.y-mBoard->GetCellHeight()*.5f,
+            CELL_COLLIDER_SIZE_X,mBoard->GetCellHeight(),valid ? glm::vec4(65,230,65,45) : glm::vec4(250,45,45,55));
+        position.y=mBoard->GetZombieSpawnY(row,position.x);
+    }
+    mPlacement->SetPosition(position);
+    auto animator=mPlacement->GetAnimatorInternal();
+    animator->SetAlpha(valid ? .6f : .3f);
+    const auto visual=mPlacement->GetVisualPosition();
+    animator->Draw(graphics,visual.x,visual.y,mPlacement->GetTransform()->GetScale());
+}

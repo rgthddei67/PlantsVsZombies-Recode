@@ -16,6 +16,15 @@ namespace {
 	constexpr float kBlockedPlantGap = 5.0f;  // 受阻落点中僵尸碰撞框与阻拦植物保留的间距，单位 px
 }
 
+bool Polevaulter::AttackIZombieBrain(float scaledTime)
+{
+	if (mVaultState == VaultState::JUMPING) return false;
+	// 到达脑子不算一次成功越障，不能调用 EndJump 重放精英落地召唤。
+	mVaultState = VaultState::WALKING;
+	mHasVaulted = true;
+	return Zombie::AttackIZombieBrain(scaledTime);
+}
+
 void Polevaulter::SetupZombie()
 {
 	if (!mIsPreview) {

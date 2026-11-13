@@ -654,6 +654,15 @@ void TestAnchorRootMigration() {
 
 int main() {
     {
+        nlohmann::json old = {{"schemaVersion",42},{"sun",125},{"boardState",1}};
+        std::string error;
+        Expect(SaveSchema::UpgradeLevelDocument(old,error),"IZombie migration succeeds");
+        Expect(old["izombie"].is_null() && old["sun"]==125,"old mode and wallet remain intact");
+        const auto saved=old;
+        Expect(SaveSchema::UpgradeLevelDocument(old,error) && old==saved,"IZombie migration is idempotent");
+    }
+
+    {
         std::string error;
         nlohmann::json level = {{"schemaVersion", 40}, {"bullets", nlohmann::json::array({{{"damage", 40}, {"type", 0}}})}};
         Expect(SaveSchema::UpgradeLevelDocument(level, error) && level["bullets"][0]["damage"] == 40

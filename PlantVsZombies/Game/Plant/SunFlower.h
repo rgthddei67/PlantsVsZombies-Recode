@@ -47,6 +47,7 @@ public:
 	/** 推进生产进度，并在发光结束时按品种数量生成普通阳光。 */
 	void PlantUpdate() override
 	{
+		if (mBoard && mBoard->IsIZombie()) return;
 		if (!mIsGlowingForProduction) {
 			// 正常计时生产
 			mProduceTimer += GetSunProductionDeltaTime();
