@@ -57,6 +57,8 @@ public:
 
 	void SetPosition(Vector pos);
 	void SetSize(Vector size);
+	/** 返回逻辑坐标下的绘制矩形，与自定义命中区域无关。 */
+	SDL_FRect GetDrawBounds() const { return {position.x, position.y, size.x, size.y}; }
 	/** 设置独立于绘制矩形的命中区域，适合让复选框连同整行标签一起响应。 */
 	void SetHitBounds(Vector pos, Vector size);
 	void SetText(const std::string& btnText, const std::string& font = ResourceKeys::Fonts::FONT_FZCQ, int size = 17);

@@ -125,20 +125,25 @@ void WorkshopScene::DrawUtilityIcon(Graphics* g, const std::string& action, floa
 
 void WorkshopScene::DrawToolbarIcons(Graphics* g) {
     if (mUIManager.GetTopActiveMessageBox()) return;
-    const std::pair<const char*, float> controls[]{{"pause",115},{"start",115},{"expand",115},{"repair",115},{"help",115},{"reset",115},{"back",150},{"view",165},
-        {"inspect",75},{"remove_tool",75},{"rotate_tool",90},{"wire_a_tool",90},{"wire_b_tool",90},{"disconnect_tool",100},{"configure_tool",90},{"fit",95}};
-    for (const auto& [action,width] : controls) {
-        auto button = GetControlButton(action); if (!button || button->IsSkipDraw()) continue;
-        const auto center = button->GetCenter(); DrawUtilityIcon(g, action, center.x-width/2+7, center.y-10, 20);
-    }
+    constexpr float iconSize = 20.0f; // 工具栏图标边长，逻辑像素
+    constexpr float skinLeftMargin = 0.07f; // BUTTONSMALL 左侧透明边占贴图宽度的比例
+    constexpr float iconInset = 5.0f; // 图标距按钮可见左边缘的留白，逻辑像素
+    const auto drawButtonIcon = [&](const std::shared_ptr<Button>& button, const std::string& icon) {
+        if (!button || button->IsSkipDraw()) return;
+        const auto bounds = button->GetDrawBounds();
+        DrawUtilityIcon(g, icon, bounds.x + bounds.w * skinLeftMargin + iconInset,
+            bounds.y + (bounds.h - iconSize) / 2, iconSize);
+    };
+    const char* const controls[]{"pause", "start", "expand", "repair", "help", "reset", "back", "view",
+        "inspect", "remove_tool", "rotate_tool", "wire_a_tool", "wire_b_tool", "disconnect_tool", "configure_tool", "fit"};
+    for (const auto* action : controls) drawButtonIcon(GetControlButton(action), action);
     if (mFrontView) {
-        const std::pair<const char*, float> front[]{{"plant_catalog",140},{"front_remove",90},{"front_ability",115},{"front_auto",125}};
-        for (const auto& [action,width] : front) if (auto button = GetControlButton(action); button && !button->IsSkipDraw()) {
-            const auto center=button->GetCenter();
-            DrawUtilityIcon(g, std::string(action)=="plant_catalog" ? "help" : std::string(action)=="front_ability" ? "repair" : std::string(action)=="front_auto" ? "rotate_tool" : action, center.x-width/2+7, center.y-10, 20);
-        }
+        drawButtonIcon(mPlantCatalogButton, "help");
+        drawButtonIcon(mFrontRemoveButton, "front_remove");
+        drawButtonIcon(mAbilityButton, "repair");
+        drawButtonIcon(mAutomaticButton, "rotate_tool");
     }
-    if (!mFrontView) for (const auto& button : mQuotaButtons) { const auto center=button->GetCenter(); DrawUtilityIcon(g,"magazine",center.x-123,center.y-10,20); }
+    else for (const auto& button : mQuotaButtons) drawButtonIcon(button, "magazine");
     if (!mFrontView) {
         // 在机器、接线和操作高亮之后绘制，放到上沿中央，避开两侧 A/B 端口。
         g->PushClipRect(16, 168, 780, 410);
