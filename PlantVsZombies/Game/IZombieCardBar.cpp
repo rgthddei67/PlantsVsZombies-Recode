@@ -55,7 +55,14 @@ void IZombieCardBar::ClearPortraits()
     mPortraits.clear();
     mCostLabels.clear();
 }
-void IZombieCardBar::Cancel() { mSelectedSlot=-1; DestroyPreview(mPlacement); }
+void IZombieCardBar::Cancel()
+{
+    mSelectedSlot=-1;
+    DestroyPreview(mPlacement);
+    // 暂停期间提示计时也冻结；新一次选择或取消不能继续展示上次失败原因。
+    mHint.clear();
+    mHintRemaining=0;
+}
 void IZombieCardBar::Select(int slot)
 {
     Cancel();
@@ -101,7 +108,8 @@ void IZombieCardBar::Update()
     UpdateCostLabels();
     mHintRemaining=std::max(0.0f,mHintRemaining-DeltaTime::GetUnscaledDeltaTime());
     mHoveredSlot=-1;
-    if (mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned || DeltaTime::IsPaused()) return;
+    if (mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned
+        || (DeltaTime::IsPaused() && !GameAPP::GetInstance().mAdvancedPauseEnabled)) return;
     auto& input=GameAPP::GetInstance().GetInputHandler();
     const auto point=input.GetMousePosition();
     for(int index=0;index<static_cast<int>(mPortraits.size());++index)
@@ -179,7 +187,8 @@ void IZombieCardBar::Draw(Graphics* graphics)
 /** 与植物卡一样分开绘制格心幽灵和鼠标手持物；共用冻结姿态，不创建战斗实体。 */
 void IZombieCardBar::DrawPlacement(Graphics* graphics)
 {
-    if(!mPlacement || mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned || DeltaTime::IsPaused()) return;
+    if(!mPlacement || mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned
+        || (DeltaTime::IsPaused() && !GameAPP::GetInstance().mAdvancedPauseEnabled)) return;
     const auto [row,column]=HoveredCell();
     const auto mouse=GameAPP::GetInstance().GetInputHandler().GetMouseWorldPosition();
     auto animator=mPlacement->GetAnimatorInternal();

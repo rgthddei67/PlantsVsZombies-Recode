@@ -42,7 +42,9 @@ void Board::InitializeIZombie()
 
 std::string Board::CanDeployIZombie(int slot, int row, int column) const
 {
-    if (!mIZombie || mBoardState != BoardState::GAME || mTrophySpawned || DeltaTime::IsPaused()) return "当前不能投放";
+    // 高级暂停允许布置；玩法时钟仍为零，移动、战斗与冷却继续冻结。
+    if (!mIZombie || mBoardState != BoardState::GAME || mTrophySpawned
+        || (DeltaTime::IsPaused() && !GameAPP::GetInstance().mAdvancedPauseEnabled)) return "当前不能投放";
     if (slot < 0 || slot >= static_cast<int>(mIZombie->cards.size())) return "无效的僵尸卡";
     if (row < 0 || row >= mRows || column < 0 || column >= mColumns) return "请选择草坪格子";
     const auto type = mIZombie->cards[slot];
