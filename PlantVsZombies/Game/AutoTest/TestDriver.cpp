@@ -4126,11 +4126,15 @@ bool TestDriver::ExecuteCurrent() {
 		auto* plant = scene->GetBoard()->CreatePlantingPreview(PlantType::PLANT_PEASHOOTER);
 		if (!plant) { Fail("preview_opacity_probe: plant missing"); return false; }
 		plant->SetActive(false);
+		auto* pumpkin = scene->GetBoard()->CreatePlantingPreview(PlantType::PLANT_PUMPKINSHELL);
+		if (!pumpkin) { Fail("preview_opacity_probe: pumpkin missing"); return false; }
+		pumpkin->SetActive(false);
+		pumpkin->SetAnimationScale(.8f);
 		auto body = zombie->GetAnimatorInternal();
 		auto pea = plant->GetAnimatorInternal();
 		// 同一冻结姿态：左列不透明，中列串行半透明，右列 worker 半透明。
 		// 植物保留 GOM 宿主，附加头的 weak Animator 生命周期与真实预览一致。
-		scene->RegisterDrawCommand("PreviewOpacityProbe",[body,pea](Graphics* g) {
+		scene->RegisterDrawCommand("PreviewOpacityProbe",[body,pea,pumpkin](Graphics* g) {
 			const auto previousBlend = g->GetBlendMode();
 			g->SetBlendMode(BlendMode::Alpha);
 			g->FillRect(0,80,1100,490,{40,70,110,255});
@@ -4138,6 +4142,10 @@ bool TestDriver::ExecuteCurrent() {
 				body->SetCompositeOpacity(opacity); pea->SetCompositeOpacity(opacity);
 				body->Draw(g,x+50,100,.8f);
 				pea->Draw(g,x+70,350,.8f);
+				// 走实际植物 Draw，覆盖独立背片，不能只画根 Animator 而漏掉组合边界。
+				pumpkin->SetPosition(Vector(x+170,460));
+				pumpkin->GetAnimatorInternal()->SetCompositeOpacity(opacity);
+				pumpkin->Draw(g);
 				// 不同材质在非单位变换内合成，核对遮挡与最终坐标不能再次变换。
 				g->PushTransform(); g->Translate(x,495);
 				if(opacity<1) g->BeginOpacityGroup(opacity);

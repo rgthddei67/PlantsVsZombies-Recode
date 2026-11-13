@@ -200,7 +200,8 @@
     {
       "op": "choose_cards",
       "cards": [
-        "PLANT_PEASHOOTER"
+        "PLANT_PEASHOOTER",
+        "PLANT_PUMPKINSHELL"
       ]
     },
     {
@@ -243,8 +244,15 @@
       "path": "cards.0.selected",
       "equals": true
     },
-    {
-      "op": "quit"
-    }
+    {"op": "click", "x": 925, "y": 175, "hold_frames": 3},
+    {"op": "wait_frames", "value": 3},
+    {"op": "assert_state", "path": "plantCount", "equals": 1},
+    {"op": "click", "x": 275, "y": 32, "hold_frames": 3},
+    {"op": "wait_frames", "value": 2},
+    {"op": "move_mouse", "x": 940, "y": 180},
+    {"op": "wait_frames", "value": 3},
+    {"op": "assert_state", "path": "cards.1.selected", "equals": true},
+    {"op": "screenshot", "name": "08_pumpkin_preview.png"},
+    {"op": "quit"}
   ]
 }

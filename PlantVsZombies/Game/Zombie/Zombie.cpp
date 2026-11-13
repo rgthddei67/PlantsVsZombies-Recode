@@ -845,7 +845,8 @@ void Zombie::Update()
 			mIsEating = false;
 			if (!mIsDying) ResumeWalkAfterEat(0.12f);
 		}
-		if (!mIsDying && mEatPlantID == NULL_PLANT_ID && mEatZombieID == NULL_ZOMBIE_ID
+		// 暂停时 UI 仍更新；必须在虚派发前门禁，避免车辆结算伤害或派生类破球/弃杆。
+		if (scaledDelta > 0.0f && !mIsDying && mEatPlantID == NULL_PLANT_ID && mEatZombieID == NULL_ZOMBIE_ID
 			&& mBoard->CanReachIZombieBrain(*this) && AttackIZombieBrain(scaledDelta)) return;
 
         // 啃食只阻止水平移动；保留先位移、后阶段结算，避免跳跃/落地丢失最后一步位移。

@@ -57,11 +57,22 @@ void PumpkinShell::PlantUpdate()
 
 void PumpkinShell::Draw(Graphics* g)
 {
+	const float opacity = mAnimator ? mAnimator->GetCompositeOpacity() : 1.0f;
+	const bool compositePreview = g && IsPreview() && opacity < 1.0f;
+	if (compositePreview) {
+		// 背片是独立 Animator；预览由完整 Draw 拥有合成边界，根动画不再嵌套开组。
+		g->BeginOpacityGroup(opacity);
+		mAnimator->SetCompositeOpacity(1.0f);
+	}
 	// 预览没有 Cell；压扁态已经释放 Cell。两者都由自己补画背片。
 	if (IsPreview() || IsSquished()) {
 		DrawStackBackground(g);
 	}
 	Plant::Draw(g);
+	if (compositePreview) {
+		g->EndOpacityGroup();
+		mAnimator->SetCompositeOpacity(opacity);
+	}
 }
 
 void PumpkinShell::DrawStackBackground(Graphics* g)

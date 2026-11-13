@@ -47,8 +47,21 @@ void DestroyPreview(std::shared_ptr<Zombie>& preview)
 }
 }
 
-IZombieCardBar::IZombieCardBar(Board* board) : mBoard(board) { Refresh(); }
-IZombieCardBar::~IZombieCardBar() { ClearPortraits(); Cancel(); }
+IZombieCardBar::IZombieCardBar(Board* board) : mBoard(board)
+{
+    Refresh();
+    // 与植物投放共用 Cell 的点击仲裁，阳光等高层对象会先消费按下和释放。
+    for (int row=0;row<mBoard->mRows;++row) for (int col=0;col<mBoard->mColumns;++col)
+        if (auto* cell=mBoard->GetCell(row,col))
+            cell->SetClickCallback([this](int,int) { DeployAtHoveredCell(); });
+}
+IZombieCardBar::~IZombieCardBar()
+{
+    for (int row=0;row<mBoard->mRows;++row) for (int col=0;col<mBoard->mColumns;++col)
+        if (auto* cell=mBoard->GetCell(row,col)) cell->SetClickCallback({});
+    ClearPortraits();
+    Cancel();
+}
 void IZombieCardBar::ClearPortraits()
 {
     for (auto& portrait : mPortraits) DestroyPreview(portrait);
@@ -133,9 +146,16 @@ void IZombieCardBar::Update()
         }
         return;
     }
-    if(mSelectedSlot<0) return;
+    if(mSelectedSlot>=0 && HoveredCell().first<0) Cancel();
+}
+
+void IZombieCardBar::DeployAtHoveredCell()
+{
+    if(mSelectedSlot<0 || mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned
+        || (DeltaTime::IsPaused() && !GameAPP::GetInstance().mAdvancedPauseEnabled)) return;
+    // 共边 Cell 都包含边缘，释放时仍用预览的唯一格位解析，避免落点错格。
     const auto [row,column]=HoveredCell();
-    if(row<0) { Cancel(); return; }
+    if(row<0) return;
     mHint=mBoard->TryDeployIZombie(mSelectedSlot,row,column);
     if(mHint.empty()) Cancel();
     else { mHintRemaining=2.5f; CardPresentation::PlayClick(false); }

@@ -60,7 +60,7 @@
 
 卡面反馈复用 `CardPresentation`，阳光不足只均匀变灰，选中整卡变黑；仅真实剩余冷却绘制遮罩。落点预览用 `Animator::SetCompositeOpacity` 将身体、护甲和附加动画先合成再淡化，不能逐分件透明或额外画绿色选择/落点框。
 
-购买只走 `Board::TryDeployIZombie`，成功创建后才扣款并启动冷却；UI 不持有第二份交易状态。蹦极使用玩家指定格，不走随机择点。需要特殊吃脑子动作的品种覆盖 `AttackIZombieBrain`，优先复用既有动画和命中帧；脑子进度归 Board，不能当作植物 ID 存档。普通僵尸按既有死亡、无头、魅惑和控制守卫收敛。回归入口为 `smoke_izombie`、`smoke_izombie_catalog` 与 `smoke_izombie_navigation`，全卡图检查不等于逐兵种全能力验收。
+购买只走 `Board::TryDeployIZombie`，成功创建后才扣款并启动冷却；UI 不持有第二份交易状态。草坪投放绑定 Cell 点击回调，让阳光等高层对象先消费事件，不能在原始鼠标按下时抢先扣款；回调与预览共用唯一格位解析，退出卡栏先解绑。蹦极使用玩家指定格，不走随机择点。需要特殊吃脑子动作的品种覆盖 `AttackIZombieBrain`，优先复用既有动画和命中帧；公共入口须在游戏时间推进时才虚派发，避免暂停中碾压、破球或弃杆。脑子进度归 Board，不能当作植物 ID 存档。普通僵尸按既有死亡、无头、魅惑和控制守卫收敛。回归入口为 `smoke_izombie`、`smoke_izombie_catalog` 与 `smoke_izombie_navigation`，输入和暂停边界见 `smoke_izombie_pickup_input`、`smoke_izombie_brain_pause` 及 `verify_izombie_regressions.py`；全卡图检查不等于逐兵种全能力验收。
 ### gamedata.json
 
 只改 `build/clang-release/resources/gamedata.json`，`{weight, appearWave, survivalRound, offset, scale}` 五字段缺一不可；只能被召唤的僵尸 `weight: 0`（永不被抽中，AutoTest spawn_zombie 仍可直造）。注意 weight 一物两用=抽中权重+生存点数成本。

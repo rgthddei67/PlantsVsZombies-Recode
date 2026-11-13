@@ -40,4 +40,6 @@ private:
     /** 与植物卡一样在主线程刷新费用文字，绘制阶段只消费缓存。 */
     void UpdateCostLabels();
     std::pair<int,int> HoveredCell() const;
+    /** 只由未被拾取物消费的 Cell 点击提交，资格与付款交给 Board。 */
+    void DeployAtHoveredCell();
 };

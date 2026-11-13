@@ -1,0 +1,25 @@
+{
+  "name": "smoke_izombie_brain_pause",
+  "commands": [
+    {"op": "goto_level", "level": 3000, "resetTestState": true},
+    {"op": "wait_state", "state": "GAME"},
+    {"op": "key", "name": "space"},
+    {"op": "wait_frames", "value": 3},
+    {"op": "assert_state", "path": "paused", "equals": true},
+    {"op": "spawn_zombie", "type": "ZOMBIE_ZAMBONI", "row": 0, "x": 210},
+    {"op": "spawn_zombie", "type": "ZOMBIE_CATAPULT", "row": 1, "x": 210},
+    {"op": "spawn_zombie", "type": "ZOMBIE_BALLOON", "row": 2, "x": 210},
+    {"op": "spawn_zombie", "type": "ZOMBIE_POGO", "row": 3, "x": 210},
+    {"op": "spawn_zombie", "type": "ZOMBIE_GARGANTUAR", "row": 4, "x": 210},
+    {"op": "wait_frames", "value": 90},
+    {"op": "dump_state", "name": "frozen.json"},
+    {"op": "assert_state", "path": "izombie.brainsRemaining", "equals": 5},
+    {"op": "screenshot", "name": "frozen.png"},
+    {"op": "key", "name": "space"},
+    {"op": "wait_frames", "value": 3},
+    {"op": "wait_seconds", "value": 6},
+    {"op": "assert_state", "path": "izombie.brainsRemaining", "equals": 0},
+    {"op": "screenshot", "name": "resumed.png"},
+    {"op": "quit"}
+  ]
+}
