@@ -54,6 +54,10 @@
       "value": 500
     },
     {
+      "op": "wait_seconds",
+      "value": 2.1
+    },
+    {
       "op": "click",
       "x": 275,
       "y": 32,
@@ -67,6 +71,50 @@
       "op": "assert_state",
       "path": "izombie.selectedSlot",
       "equals": 1
+    },
+    {
+      "op": "move_mouse",
+      "x": 970,
+      "y": 220
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02a_held_outside_grid.png"
+    },
+    {
+      "op": "move_mouse",
+      "x": 540,
+      "y": 280
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02b_held_invalid_cell.png"
+    },
+    {
+      "op": "move_mouse",
+      "x": 940,
+      "y": 180
+    },
+    {
+      "op": "wait_frames",
+      "value": 3
+    },
+    {
+      "op": "screenshot",
+      "name": "02c_held_and_cell_preview.png"
+    },
+    {
+      "op": "assert_state",
+      "path": "zombieCount",
+      "equals": 0
     },
     {
       "op": "move_mouse",

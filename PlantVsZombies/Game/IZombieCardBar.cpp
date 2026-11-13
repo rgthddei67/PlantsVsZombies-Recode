@@ -22,6 +22,7 @@ constexpr float kCardWidth = 50; // 卡片宽度，px
 constexpr float kCardHeight = 70; // 卡片高度，px
 constexpr float kCardPitch = 51; // 相邻卡片间距，px
 constexpr float kPageX = 800; // 分页控制起点，px
+constexpr float kPlacementOpacity = 0.35f; // 与植物卡落点预览一致，完整角色合成后的透明度
 
 bool Inside(Vector point, float x, float y, float width, float height)
 {
@@ -172,26 +173,27 @@ void IZombieCardBar::Draw(Graphics* graphics)
     }
     std::string label="吃掉全部脑子  "+std::to_string(mBoard->mRows-mBoard->GetIZombieBrainsRemaining())+"/"+std::to_string(mBoard->mRows);
     if(mHintRemaining>0) label=mHint;
-    else if(mHoveredSlot>=0) {
-        const auto& card=IZombie::Card(mTypes[mHoveredSlot]);
-        label=card.name+" · "+std::to_string(card.cost)+" 阳光";
-    } else if(mSelectedSlot>=0) label=IZombie::Card(mTypes[mSelectedSlot]).name+"：选择投放格，右键取消";
     app.DrawText(label,{260,568},{255,235,180,255},ResourceKeys::Fonts::FONT_FZJZ,20);
 }
 
+/** 与植物卡一样分开绘制格心幽灵和鼠标手持物；共用冻结姿态，不创建战斗实体。 */
 void IZombieCardBar::DrawPlacement(Graphics* graphics)
 {
     if(!mPlacement || mBoard->GetState()!=BoardState::GAME || mBoard->mTrophySpawned || DeltaTime::IsPaused()) return;
     const auto [row,column]=HoveredCell();
-    auto position=GameAPP::GetInstance().GetInputHandler().GetMouseWorldPosition();
-    const bool valid=row>=0 && mBoard->CanDeployIZombie(mSelectedSlot,row,column).empty();
-    if(row>=0) {
-        position=mBoard->GetCellCenterPosition(row,column);
-        position.y=mBoard->GetZombieSpawnY(row,position.x);
-    }
-    mPlacement->SetPosition(position);
+    const auto mouse=GameAPP::GetInstance().GetInputHandler().GetMouseWorldPosition();
     auto animator=mPlacement->GetAnimatorInternal();
-    animator->SetCompositeOpacity(valid ? .6f : .3f);
-    const auto visual=mPlacement->GetVisualPosition();
-    animator->Draw(graphics,visual.x,visual.y,mPlacement->GetTransform()->GetScale());
+    const auto drawPreview = [&](Vector position, float opacity) {
+        mPlacement->SetPosition(position);
+        animator->SetCompositeOpacity(opacity);
+        const auto visual=mPlacement->GetVisualPosition();
+        animator->Draw(graphics,visual.x,visual.y,mPlacement->GetTransform()->GetScale());
+    };
+    const bool valid=row>=0 && mBoard->CanDeployIZombie(mSelectedSlot,row,column).empty();
+    if(valid) {
+        auto position=mBoard->GetCellCenterPosition(row,column);
+        position.y=mBoard->GetZombieSpawnY(row,position.x);
+        drawPreview(position,kPlacementOpacity);
+    }
+    drawPreview(mouse,1.0f);
 }
