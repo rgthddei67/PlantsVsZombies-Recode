@@ -6,6 +6,7 @@
 #include "./Renderer/OpenGLTextureBackend.h"
 #include <SDL2/SDL_vulkan.h>
 #include "./UI/InputHandler.h"
+#include "./UI/GameMessageBox.h"
 #include "./ResourceManager.h"
 #include "./Game/SceneManager.h"
 #include "./Game/GameScene.h"
@@ -330,6 +331,65 @@ bool GameAPP::CreateWindowAndRenderer()
 	return true;
 }
 
+std::string GameAPP::DescribeActiveRenderer() const
+{
+	if (m_vulkanCtx) {
+		const uint32_t version = m_vulkanCtx->ApiVersion();
+		const bool dynamicRendering = m_vulkanCtx->UsesDynamicRendering();
+		const bool synchronization2 = m_vulkanCtx->UsesSynchronization2();
+		const bool gpuInstancing = m_graphics->IsInstancePathEnabled();
+		VkPhysicalDeviceProperties device{};
+		vkGetPhysicalDeviceProperties(m_vulkanCtx->PhysicalDevice(), &device);
+		std::string message = "当前渲染器：Vulkan " + std::to_string(VK_VERSION_MAJOR(version))
+			+ "." + std::to_string(VK_VERSION_MINOR(version))
+			+ "." + std::to_string(VK_VERSION_PATCH(version))
+			+ "\n显卡：" + device.deviceName
+			+ "\n动态渲染：" + (dynamicRendering ? "已启用" : "未启用（传统 RenderPass）")
+			+ "\n同步 2：" + (synchronization2 ? "已启用" : "未启用（传统同步）")
+			+ "\nGPU 动画实例化：" + (gpuInstancing ? "已启用" : "已关闭（-NoInstance）");
+		message += dynamicRendering && synchronization2 && gpuInstancing
+			? "\n游戏已启用最佳性能渲染路径。"
+			: "\n当前使用 Vulkan，部分渲染优化未启用。";
+		return message;
+	}
+
+	const auto& renderer = *m_openGLRenderer;
+	std::string message = "当前渲染器：";
+	if (!renderer.Version().starts_with("OpenGL"))
+		message += "OpenGL ";
+	message += renderer.Version();
+	message += "\n显卡：" + renderer.RendererName()
+		+ "\n批处理：" + (renderer.SupportsSsboBatch()
+			? "GPU 矩阵加速（SSBO）" : "CPU 兼容模式（SSBO 未启用）")
+		+ "\n未启用：GPU 动画实例化、并行绘制录制";
+#if defined(__ANDROID__)
+	message += "\n安卓版默认使用 OpenGL ES。";
+#else
+	if (m_vulkanStartupError.empty()) {
+		message += "\n启动参数指定了 OpenGL 兼容模式。";
+	}
+	else {
+		message += "\nVulkan 初始化失败，已自动切换到兼容模式。"
+			"\n可能是显卡较旧或显卡驱动需要更新。";
+	}
+	message += "\n兼容模式无法发挥游戏的最佳渲染性能。";
+#endif
+	return message;
+}
+
+void GameAPP::ShowFirstRunRendererNotice()
+{
+	if (mAutoTestMode && !TestDriver::GetInstance().RendererStartupNotice()) return;
+	if (GameInfoSaver::HasSeenRendererNotice()) return;
+
+	GameMessageBox::Builder(Vector(SCENE_WIDTH / 2.0f, SCENE_HEIGHT / 2.0f))
+		.Title("渲染器信息")
+		.Message(DescribeActiveRenderer())
+		.Button("知道了", Vector(), Vector(150.0f, 50.0f), 22.0f,
+			[] { GameInfoSaver::MarkRendererNoticeSeen(); })
+		.Show();
+}
+
 bool GameAPP::InitializeResourceManager()
 {
 	if (!CursorManager::GetInstance().Initialize()) {
@@ -526,6 +586,7 @@ int GameAPP::Run()
 	sceneManager.RegisterScene<ZombieAlmanacScene>("ZombieAlmanacScene");
 
 	sceneManager.SwitchTo("MainMenuScene");
+	ShowFirstRunRendererNotice();
 
 	DeltaTime::Reset();
 

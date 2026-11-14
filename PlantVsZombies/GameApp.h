@@ -103,6 +103,10 @@ private:
 	bool InitializeAudioSystem();
 	/** 创建当前平台渲染器：Windows 保留自动回退，Android 固定 GLES。 */
 	bool CreateWindowAndRenderer();
+	/** 根据已初始化的后端和实际启用的能力生成玩家提示正文。 */
+	std::string DescribeActiveRenderer() const;
+	/** 首次进入主菜单时显示渲染器信息，玩家确认后保存已读标记。 */
+	void ShowFirstRunRendererNotice();
 	bool TryCreateVulkanRenderer(std::string& error);
 	/** 创建独立 GL 窗口；桌面尝试 Core 4.3/3.3，Android 请求 ES 3.0。 */
 	bool TryCreateOpenGLRenderer(std::string& error);

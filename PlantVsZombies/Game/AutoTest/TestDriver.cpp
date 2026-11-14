@@ -852,6 +852,7 @@ bool TestDriver::LoadScript(const std::string& path) {
 	mColdStorageBonusSelection = j.value("coldStorageBonusSelection",mHumanObservation);
 	mDefaultColdStorageBonusSelection = mColdStorageBonusSelection;
 	mAdventureEntryNotices = j.value("adventureEntryNotices", false);
+	mRendererStartupNotice = j.value("rendererStartupNotice", false);
 	mWorkshopTutorials = j.value("workshopTutorials", false);
 	mBackgroundCommander = j.value("backgroundCommander",mHumanObservation);
 	mCommanderForecastTrace = j.value("commanderForecastTrace",false);
@@ -4868,6 +4869,7 @@ bool TestDriver::BuildStateJson(const std::string& opName, nlohmann::json& out)
 		const Vector size = messageBox->GetSize();
 		out["gameMessageBox"] = {
 			{ "adaptiveStandardSkin", messageBox->UsesAdaptiveStandardSkin() },
+			{ "message", messageBox->GetMessage() },
 			{ "centerXInt", static_cast<int>(std::lround(position.x)) },
 			{ "centerYInt", static_cast<int>(std::lround(position.y)) },
 			{ "widthInt", static_cast<int>(std::lround(size.x)) },

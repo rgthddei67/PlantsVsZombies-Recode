@@ -13,6 +13,9 @@ class GameInfoSaver {
 public:
 	/** 工坊独立文件，禁止 AutoTest 访问真人根目录；测试由场景使用自身输出目录。 */
 	static std::string GetWorkshopSavePath();
+	/** 首次渲染器提示独立于玩家进度，AutoTest 只使用自己的输出目录。 */
+	static bool HasSeenRendererNotice();
+	static void MarkRendererNoticeSeen();
 	/** 工坊在自己的文档中复用正式实体序列化；不接触玩家或冒险文件。 */
 	static bool CaptureWorkshopFrontline(Board* board, nlohmann::json& document);
 	static bool RestoreWorkshopFrontline(Board* board, const nlohmann::json& document);

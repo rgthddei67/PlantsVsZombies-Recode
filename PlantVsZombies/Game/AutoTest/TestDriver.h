@@ -82,6 +82,8 @@ public:
 	bool ColdStorageBonusSelection() const { return mColdStorageBonusSelection; }
 	/** 显式验收玩家入场提示；普通专项不被一次性提示打断。 */
 	bool AdventureEntryNotices() const { return mAdventureEntryNotices; }
+	/** 显式验收首次渲染器提示，普通脚本默认不弹窗。 */
+	bool RendererStartupNotice() const { return mRendererStartupNotice; }
 	/** 显式走工坊首次自动练习；普通交互专项沿用无自动练习的起点。 */
 	bool WorkshopTutorials() const { return mWorkshopTutorials; }
 	int  ExitCode() const { return mExitCode; }
@@ -153,6 +155,7 @@ private:
 	bool mHumanObservation = false;
 	bool mColdStorageBonusSelection = false;
 	bool mAdventureEntryNotices = false;
+	bool mRendererStartupNotice = false;
 	bool mWorkshopTutorials = false;
 	bool mDefaultColdStorageBonusSelection = false; // 脚本默认值；单场 goto_level 覆盖不泄漏到下一场
 	bool mBackgroundCommander = false; // 性能夹具可显式启用；真人观察默认启用，批量训练默认同步

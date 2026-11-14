@@ -94,6 +94,7 @@ public:
 	/** 返回对话框的屏幕逻辑中心与当前自适应尺寸。 */
 	Vector GetPosition() const { return m_position; }
 	Vector GetSize() const { return m_size; }
+	const std::string& GetMessage() const { return m_message; }
 	bool UsesAdaptiveStandardSkin() const { return m_backgroundMode == BackgroundMode::STANDARD_DIALOG; }
 	size_t GetWrappedMessageLineCount() const { return m_messageLines.size(); }
 	/** 按创建顺序返回自有按钮，供自动化在自适应布局后走真实点击路径。 */

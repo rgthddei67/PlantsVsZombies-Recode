@@ -13,6 +13,7 @@
 #include <utility>
 #include <stdexcept>
 #include "GameApp.h"
+#include "Game/AutoTest/TestDriver.h"
 #include "Game/Board/Board.h"
 #include "Game/Board/BoardPresentation.h"
 #include "./Game/AudioSystem.h"
@@ -128,6 +129,12 @@ namespace {
 		return FileManager::FileExists(legacy) ? legacy : primary;
 	}
 
+	constexpr char kRendererNoticeFile[] = "renderer-notice-seen.txt";
+
+	const std::string& GetRendererNoticeRoot() {
+		return GameAPP::mAutoTestMode ? TestDriver::GetInstance().OutDir() : GetSaveRoot();
+	}
+
 	/** 删除中央及遗留目录中的同名关卡档，避免回退机制让已删除的旧档再次出现。 */
 	bool DeleteSaveFile(const std::string& fileName) {
 		bool found = false;
@@ -207,6 +214,21 @@ std::string GameInfoSaver::GetWorkshopSavePath()
 {
 	if (GameAPP::mAutoTestMode) return {};
 	return FileManager::CombinePath(GetSaveRoot(), "workshop.json");
+}
+
+bool GameInfoSaver::HasSeenRendererNotice()
+{
+	const std::string path = GameAPP::mAutoTestMode
+		? FileManager::CombinePath(GetRendererNoticeRoot(), kRendererNoticeFile)
+		: GetSaveFileForRead(kRendererNoticeFile);
+	return FileManager::FileExists(path);
+}
+
+void GameInfoSaver::MarkRendererNoticeSeen()
+{
+	const auto& root = GetRendererNoticeRoot();
+	FileManager::CreateDirectory(root);
+	FileManager::SaveFile(FileManager::CombinePath(root, kRendererNoticeFile), "seen\n");
 }
 
 bool GameInfoSaver::CaptureWorkshopFrontline(Board* board, nlohmann::json& document)

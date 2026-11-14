@@ -187,6 +187,7 @@ python autotest/live.py build/clang-release/autotest/out/interactive_play_8_8 '[
 - **整组搬运夹具：** `relocate_plant_group` 用 `fromRow/fromCol` 选择来源、`row/col` 指定落点，调用正式 Board 入口；`expectedSuccess` 默认 true。卡费与冷却仍须用真实三段 `click` 验证。运行 `smoke_carry_vine` 后执行 `python autotest/verify_carry_vine.py`，比较稳定 ID、生命、生产/装填状态与多格别名；存档截图屏障只允许正常固定步推进。
 
 - **脚本位置：** `autotest/scripts/*.json`（纯数据，不属于编译目标；修改脚本无需重新编译）。
+- **首次渲染器提示：** 根字段 `rendererStartupNotice: true` 启用正式首启弹窗，确认记录保存在脚本输出目录的 `renderer-notice-seen.txt`。复用同名脚本可验证重启后跳过提示，换脚本名可模拟首次启动。正文由 `gameMessageBox.message` 导出。
 - **音乐：** AutoTest 每次启动默认将音乐音量设为 0，音效仍沿用原设置；这是本次测试进程的初始值，不写回普通游玩偏好。状态投影 `adaptiveMusic.volumePct` 可校验菜单、换关与快照往返后的音乐音量。
 - **矿道版本夹具：** 根字段或单条 `goto_level.mineLayoutRevision` 可显式设为 `0`，用于旧拓扑下的施工、转弯、回声和存档机制专项；缺省为正式新局版本 `2`；`1` 保留初版多线布局，用于旧档及该版对照。历史专项固定旧版本不代表新关卡已验收。当前九关用 `smoke_mine_strategy` 与 `verify_mine_strategy.py` 核对布局、预报、编队和读档；`summon_next_wave.clearPrevious=true` 只供波次专项释放上一波实体，保留已承诺预报，不作为实战难度证明。`probe_mine_strategy_defenses` / `verify_mine_strategy_defenses.py` 比较相同四株精英胆小菇集中两路和分布三路的成型阵地，不模拟开局经济。
 - **开墙对照夹具：** `complete_mine_dig` 按 `row/col` 通过正式地形提交入口立即打开一块可挖岩壁，不收费、不推进施工时间；只用于从同一快照比较开墙后的战斗结果。玩家费用、工期和工兵施工风险仍须用 `mine_dig` 或真实开凿僵尸验证，不能用此夹具替代。
